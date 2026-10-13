@@ -1,0 +1,84 @@
+:root {
+  --bg: #eef0f3; --panel: #ffffff; --line: #d5d9df; --text: #1d232b; --muted: #6a7480;
+  --accent: #1f6feb; --accent-soft: #dce8fd; --danger: #c62828;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; font: 13px/1.35 system-ui, "Segoe UI", Roboto, sans-serif; color: var(--text); background: var(--bg); overflow: hidden; }
+button { font: inherit; cursor: pointer; }
+.hidden { display: none !important; }
+kbd { font-size: 11px; color: var(--muted); margin-left: auto; padding-left: 16px; }
+
+#menubar { height: 38px; display: flex; align-items: center; gap: 2px; padding: 0 8px; background: #26303b; color: #fff; position: relative; z-index: 20; }
+.brand { font-weight: 700; margin-right: 12px; letter-spacing: .3px; }
+.menu { position: relative; }
+.menu > button, .tb { background: none; border: 0; color: #fff; padding: 6px 10px; border-radius: 4px; }
+.menu > button:hover, .tb:hover, .menu.open > button { background: #3a4654; }
+.tb.primary { background: var(--accent); font-weight: 600; }
+.dd { display: none; position: absolute; top: 100%; left: 0; min-width: 250px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 4px; }
+.menu.open .dd { display: block; }
+.dd button { display: flex; width: 100%; text-align: left; background: none; border: 0; padding: 6px 10px; border-radius: 4px; }
+.dd button:hover { background: var(--accent-soft); }
+.dd hr { border: 0; border-top: 1px solid var(--line); margin: 4px 0; }
+.spacer { flex: 1; }
+
+main { display: flex; height: calc(100% - 38px - 34px); }
+#toolbox { width: 78px; background: var(--panel); border-right: 1px solid var(--line); overflow-y: auto; padding: 4px; display: flex; flex-direction: column; gap: 2px; }
+#toolbox .group { font-size: 10px; text-transform: uppercase; color: var(--muted); margin: 6px 2px 0; }
+#toolbox button { display: flex; flex-direction: column; align-items: center; background: none; border: 1px solid transparent; border-radius: 6px; padding: 4px 2px; }
+#toolbox button b { font-size: 18px; line-height: 20px; }
+#toolbox button span { font-size: 10.5px; }
+#toolbox button:hover { background: var(--bg); }
+#toolbox button.active { background: var(--accent-soft); border-color: var(--accent); }
+
+#stage { flex: 1; position: relative; overflow: hidden; background: #c9ced6; }
+#cv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
+#hint { position: absolute; left: 10px; bottom: 10px; max-width: 70%; background: rgba(255,255,255,.93); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; pointer-events: none; font-size: 12.5px; }
+#hint:empty { display: none; }
+
+#side { width: 290px; background: var(--panel); border-left: 1px solid var(--line); display: flex; flex-direction: column; overflow: hidden; }
+.panel { border-bottom: 1px solid var(--line); padding: 8px 10px; }
+.panel.grow { flex: 1; display: flex; flex-direction: column; min-height: 120px; }
+.panel h3 { margin: 0 0 6px; font-size: 13px; }
+.panel h3 small { font-weight: 400; color: var(--muted); }
+#props { max-height: 38vh; overflow-y: auto; }
+.field { display: grid; grid-template-columns: 1fr 120px; align-items: center; gap: 6px; margin: 3px 0; }
+.field label { color: #39424d; }
+.field input, .field select { width: 100%; padding: 3px 5px; border: 1px solid var(--line); border-radius: 4px; font: inherit; }
+.field input[type=checkbox] { width: auto; justify-self: start; }
+.row { display: flex; gap: 4px; margin-top: 6px; flex-wrap: wrap; }
+.row.end { justify-content: flex-end; }
+.row button, #modal button { padding: 4px 10px; border: 1px solid var(--line); background: var(--bg); border-radius: 4px; }
+#modal button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+#palette { display: flex; flex-wrap: wrap; gap: 4px; }
+.sw { width: 30px; height: 30px; border-radius: 5px; border: 2px solid #fff; box-shadow: 0 0 0 1px var(--line); position: relative; cursor: pointer; font-size: 10px; color: #fff; text-shadow: 0 0 2px #000; display: flex; align-items: flex-end; justify-content: flex-end; padding: 1px 2px; }
+.sw.active { box-shadow: 0 0 0 2px var(--accent); }
+#objlist { flex: 1; overflow-y: auto; border: 1px solid var(--line); border-radius: 4px; }
+.obj { display: flex; align-items: center; gap: 6px; padding: 3px 6px; border-bottom: 1px solid #f0f1f3; cursor: pointer; }
+.obj:hover { background: var(--bg); }
+.obj.sel { background: var(--accent-soft); }
+.obj .dot { width: 12px; height: 12px; border-radius: 3px; flex: none; }
+.obj .n { flex: 1; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.obj .c { color: var(--muted); font-size: 11px; }
+.obj .eye { background: none; border: 0; padding: 0 2px; opacity: .6; }
+
+#statusbar { height: 34px; display: flex; align-items: center; gap: 16px; padding: 0 10px; background: var(--panel); border-top: 1px solid var(--line); font-size: 12px; }
+.player { display: flex; align-items: center; gap: 6px; }
+#playSlider { width: 260px; }
+#playBtn { width: 30px; border: 1px solid var(--line); border-radius: 4px; background: var(--bg); }
+#stats { flex: 1; }
+#stats .warn { color: var(--danger); font-weight: 600; }
+#coords { color: var(--muted); min-width: 140px; text-align: right; }
+
+#modal { position: fixed; inset: 0; background: rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; z-index: 50; }
+#modal .box { background: var(--panel); border-radius: 8px; padding: 16px 18px; width: min(560px, 94vw); max-height: 90vh; overflow-y: auto; box-shadow: 0 16px 48px rgba(0,0,0,.3); }
+#modal h2 { margin: 0 0 10px; font-size: 16px; }
+#modal .field { grid-template-columns: 1fr 180px; }
+#modal canvas { max-width: 100%; border: 1px solid var(--line); background: repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0/16px 16px; }
+.help td { padding: 2px 8px 2px 0; vertical-align: top; }
+.help td:first-child { white-space: nowrap; font-weight: 600; }
+
+@media (max-width: 800px) {
+  #side { position: absolute; right: 0; top: 38px; bottom: 34px; width: 240px; transform: translateX(200px); transition: transform .2s; z-index: 10; }
+  #side:hover, #side:focus-within { transform: none; }
+  #playSlider { width: 110px; }
+}

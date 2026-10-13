@@ -1,0 +1,140 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StickStudio</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="menubar">
+  <span class="brand">StickStudio</span>
+  <div class="menu"><button>Datei</button>
+    <div class="dd">
+      <button data-cmd="new">Neu</button>
+      <button data-cmd="open">Projekt öffnen… <kbd>Strg+O</kbd></button>
+      <button data-cmd="save">Projekt speichern <kbd>Strg+S</kbd></button>
+      <hr>
+      <button data-cmd="importDst">DST importieren…</button>
+      <button data-cmd="exportDst">DST exportieren (Texi/Tajima) <kbd>Strg+E</kbd></button>
+      <hr>
+      <button data-cmd="worksheet">Arbeitsblatt drucken</button>
+    </div>
+  </div>
+  <div class="menu"><button>Bearbeiten</button>
+    <div class="dd">
+      <button data-cmd="undo">Rückgängig <kbd>Strg+Z</kbd></button>
+      <button data-cmd="redo">Wiederholen <kbd>Strg+Y</kbd></button>
+      <hr>
+      <button data-cmd="duplicate">Duplizieren <kbd>Strg+D</kbd></button>
+      <button data-cmd="delete">Löschen <kbd>Entf</kbd></button>
+      <button data-cmd="selectAll">Alles auswählen <kbd>Strg+A</kbd></button>
+      <hr>
+      <button data-cmd="mirrorH">Horizontal spiegeln</button>
+      <button data-cmd="mirrorV">Vertikal spiegeln</button>
+      <button data-cmd="rotate">Drehen…</button>
+      <button data-cmd="scale">Skalieren…</button>
+      <button data-cmd="center">In Rahmenmitte setzen</button>
+      <hr>
+      <button data-cmd="toStitches">In Einzelstiche umwandeln</button>
+      <button data-cmd="sortColor">Nach Farbe sortieren</button>
+    </div>
+  </div>
+  <div class="menu"><button>Bild</button>
+    <div class="dd">
+      <button data-cmd="insertImage">Bild einfügen…</button>
+      <button data-cmd="imageSettings">Bild-Einstellungen…</button>
+      <button data-cmd="toggleImage">Bild ein/aus</button>
+      <button data-cmd="removeImage">Bild entfernen</button>
+      <hr>
+      <button data-cmd="autoDigitize">Auto-Digitalisieren…</button>
+    </div>
+  </div>
+  <div class="menu"><button>Ansicht</button>
+    <div class="dd">
+      <button data-cmd="toggleTrue">TrueView (Fadenansicht) <kbd>T</kbd></button>
+      <button data-cmd="toggleJumps">Sprünge anzeigen <kbd>J</kbd></button>
+      <button data-cmd="toggleGrid">Raster</button>
+      <button data-cmd="togglePoints">Einstichpunkte</button>
+      <button data-cmd="zoomFit">Alles zeigen <kbd>0</kbd></button>
+      <button data-cmd="zoomHoop">Rahmen zeigen</button>
+    </div>
+  </div>
+  <div class="menu"><button>Einstellungen</button>
+    <div class="dd">
+      <button data-cmd="machineSettings">Maschine &amp; Rahmen…</button>
+      <button data-cmd="help">Hilfe / Tastatur</button>
+    </div>
+  </div>
+  <span class="spacer"></span>
+  <button class="tb" data-cmd="undo" title="Rückgängig">↶</button>
+  <button class="tb" data-cmd="redo" title="Wiederholen">↷</button>
+  <button class="tb primary" data-cmd="exportDst" title="DST exportieren">DST ⤓</button>
+</header>
+
+<main>
+  <nav id="toolbox">
+    <div class="group">Auswahl</div>
+    <button data-tool="select" title="Auswählen (Esc)"><b>⬚</b><span>Auswählen</span></button>
+    <button data-tool="reshape" title="Umformen (R)"><b>◇</b><span>Umformen</span></button>
+    <div class="group">Linien</div>
+    <button data-tool="run" title="Laufstich (offene Form)"><b>┄</b><span>Laufstich</span></button>
+    <button data-tool="triple" title="Dreifachstich"><b>☰</b><span>Dreifach</span></button>
+    <button data-tool="colC" title="Satinlinie mit fester Breite (Säule C)"><b>▬</b><span>Satin C</span></button>
+    <div class="group">Säulen</div>
+    <button data-tool="colA" title="Satinsäule A – abwechselnd links/rechts klicken"><b>⫽</b><span>Säule A</span></button>
+    <button data-tool="colB" title="Satinsäule B – erst eine Seite, Enter, dann andere Seite"><b>∥</b><span>Säule B</span></button>
+    <div class="group">Flächen</div>
+    <button data-tool="fill" title="Geschlossene Form (Tatami-Füllung)"><b>▰</b><span>Fläche</span></button>
+    <button data-tool="rect" title="Rechteck"><b>▭</b><span>Rechteck</span></button>
+    <button data-tool="ellipse" title="Kreis / Ellipse"><b>◯</b><span>Ellipse</span></button>
+    <button data-tool="text" title="Schrift"><b>A</b><span>Text</span></button>
+    <div class="group">Stiche</div>
+    <button data-tool="manual" title="Manuell: jeder Klick ein Stich, Rechtsklick = Sprung"><b>✚</b><span>Manuell</span></button>
+    <div class="group">Touch</div>
+    <button id="curveMode" title="Für Touch: Tippen setzt Kurvenpunkte"><b>∿</b><span>Kurve</span></button>
+  </nav>
+
+  <section id="stage">
+    <canvas id="cv"></canvas>
+    <div id="hint"></div>
+  </section>
+
+  <aside id="side">
+    <section class="panel">
+      <h3>Eigenschaften <small id="propTitle"></small></h3>
+      <div id="props"></div>
+    </section>
+    <section class="panel">
+      <h3>Farben <small>(Klick = aktiv / zuweisen)</small></h3>
+      <div id="palette"></div>
+      <div class="row"><button data-cmd="addColor">+ Farbe</button><button data-cmd="editColor">Bearbeiten</button><button data-cmd="delColor">− Entfernen</button></div>
+    </section>
+    <section class="panel grow">
+      <h3>Reihenfolge <small>(oben = zuerst gestickt)</small></h3>
+      <div id="objlist"></div>
+      <div class="row"><button data-cmd="moveUp">▲</button><button data-cmd="moveDown">▼</button><button data-cmd="moveFirst">⤒</button><button data-cmd="moveLast">⤓</button><button data-cmd="delete">🗑</button></div>
+    </section>
+  </aside>
+</main>
+
+<footer id="statusbar">
+  <div class="player">
+    <button id="playBtn" title="Sticksimulation">▶</button>
+    <input id="playSlider" type="range" min="0" max="0" value="0">
+    <select id="playSpeed"><option value="20">langsam</option><option value="100" selected>normal</option><option value="600">schnell</option><option value="3000">sehr schnell</option></select>
+  </div>
+  <span id="stats"></span>
+  <span id="coords"></span>
+</footer>
+
+<div id="modal" class="hidden"><div class="box"><h2 id="modalTitle"></h2><div id="modalBody"></div><div class="row end" id="modalBtns"></div></div></div>
+<input type="file" id="fileInput" class="hidden">
+
+<script src="js/geometry.js"></script>
+<script src="js/stitchgen.js"></script>
+<script src="js/dst.js"></script>
+<script src="js/autodigitize.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
