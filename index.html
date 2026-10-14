@@ -65,11 +65,14 @@
   </div>
   <div class="menu"><button>Einstellungen</button>
     <div class="dd">
-      <button data-cmd="machineSettings">Maschine &amp; Rahmen…</button>
+      <button data-cmd="machineSettings">Maschine, Schnitte &amp; Sprünge…</button>
+      <button data-cmd="hoops">Stickrahmen…</button>
       <button data-cmd="help">Hilfe / Tastatur</button>
     </div>
   </div>
   <span class="spacer"></span>
+  <label class="hoopbar" title="Stickrahmen">Rahmen <select id="hoopSel"></select></label>
+  <button class="tb" id="hoopBtn" title="Rahmen verwalten, eigene Rahmen anlegen, Design einpassen">⬚ Rahmen…</button>
   <button class="tb" data-cmd="undo" title="Rückgängig">↶</button>
   <button class="tb" data-cmd="redo" title="Wiederholen">↷</button>
   <button class="tb primary" data-cmd="exportDst" title="DST exportieren">DST ⤓</button>
@@ -145,6 +148,7 @@
 <script src="js/fabric.js"></script>
 <script src="js/check.js"></script>
 <script src="js/route.js"></script>
+<script src="js/hoops.js"></script>
 <script src="js/dst.js"></script>
 <script src="js/satinauto.js"></script>
 <script src="js/autodigitize.js"></script>

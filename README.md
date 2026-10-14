@@ -67,6 +67,32 @@ Zusätzlich gibt es zehn TrueType-Schriften und funktionieren auf jedem PC, auch
 
 Beispiel: Ein Design mit drei Schriftzügen kam statt mit 62 mit 33 Fadenschnitten aus, ein Logo statt mit 25 mit 14.
 
+### Schnitt oder Sprung selbst festlegen
+
+Unter *Einstellungen → Maschine, Schnitte & Sprünge*:
+- **Bis X mm direkt als Stich verbinden** (Vorgabe 2 mm)
+- **Bis Y mm springen ohne Schnitt** (Vorgabe 0 = immer schneiden). Darüber wird geschnitten, sofern kein versteckter Laufweg gefunden wird.
+- **Vernähen auch bei Sprüngen ohne Schnitt** (empfohlen: der liegende Faden wird später von Hand gekürzt)
+- **Schnitt ab wie vielen Sprüngen**: wie an der Maschine eingestellt (Texi/Tajima meist 3)
+
+Ein DST-Sprungbefehl reicht höchstens 12,1 mm. Ab der eingestellten Zahl von Sprüngen in Folge schneidet die Maschine selbst. Deshalb kann ein Sprung ohne Schnitt höchstens *(Sprünge bis Schnitt − 1) × 12,1 mm* lang sein, bei 3 also 24,2 mm. Das Programm begrenzt den Wert entsprechend und weist darauf hin.
+
+**Pro Objekt:** In den Eigenschaften unter *Verbindung davor* lässt sich für jedes Objekt (auch für mehrere ausgewählte) festlegen: *Automatisch*, *Immer schneiden*, *Springen ohne Schnitt* oder *Direkt als Stich*.
+In der Ansicht *Sprünge anzeigen* (Taste J) erscheinen Sprünge nach Schnitt rot gestrichelt mit ✂, Sprünge ohne Schnitt violett und versteckte Laufwege orange.
+
+### Stickrahmen
+
+- **Schnellauswahl** oben in der Leiste, *Rahmen…* öffnet die Verwaltung.
+- **Standardrahmen:**
+  - Texi 1501: 540 × 350, 290 × 290, Ø 200/150/120/90 mm, Kappe 270°
+  - übliche Industrie-Schlauchrahmen: rund 9 bis 21 cm, Vierkant 24/30/36 cm, Oval, Brusttasche
+  - Haushaltsmaschinen: 10 × 10 bis 24 × 36 cm
+
+  Die Maße gelten für das nutzbare Stickfeld und sind Richtwerte.
+- **Eigene Rahmen:** Name, Form (eckig, rund, oval), Breite bzw. Durchmesser, Höhe und Sicherheitsabstand. Sie werden im Browser gespeichert und zusätzlich im Projekt, damit sie auf anderen PCs mitkommen.
+- **Anzeige:** Rahmenkörper, Stickfeld, Sicherheitsabstand (rot gestrichelt), Mittelkreuz (= Startpunkt an der Maschine) und Beschriftung mit Maßen.
+- **Prüfung:** Die Statusleiste warnt, wenn Stiche über das Stickfeld oder in den Sicherheitsabstand ragen. Ein Klick darauf öffnet den Rahmen-Dialog mit der **Liste aller passenden Rahmen** (kleinster zuerst), *Design in Rahmenmitte setzen* und *In Rahmen einpassen* (verkleinert das Design passend, die Dichte bleibt gleich).
+
 ### Stickprüfung (Pop-up bei Problemen)
 
 Nach jedem Erstellen oder Ändern eines Objekts prüft das Programm, ob die Maschine es sauber sticken kann. Bei Problemen öffnet sich ein Fenster mit Erklärung und den Knöpfen **Korrigieren**, **Rückgängig** und **Trotzdem behalten**. Die Statusleiste zeigt den Prüfstatus dauerhaft an. Ein Klick darauf (oder *Bearbeiten → Stickprüfung…*) listet alle Hinweise, *Zeigen* springt zur markierten Stelle.
@@ -134,7 +160,7 @@ Das Bild kann auch nur als Vorlage zum manuellen Digitalisieren dienen (*Bild-Ei
 - Der Ursprung liegt in der Designmitte. Farbwechsel werden als Stopp kodiert. Die Nadel wird jeder Farbe an der Maschine zugeordnet.
 - **Fadenschnitt** wird als Folge von Sprüngen kodiert (Standard: 3). An der Maschine muss eingestellt sein, ab wie vielen Sprüngen geschnitten wird. Der Wert lässt sich unter *Einstellungen → Maschine & Rahmen* anpassen.
 - Ab welchem Verbindungsabstand geschnitten wird (Standard 2 mm) und ob am Anfang und Ende vernäht wird, lässt sich dort ebenfalls einstellen.
-- Rahmen: Texi 540 × 350 mm (max. Feld), 290 × 290 mm sowie Ø 200/150/120/90 mm. Die Statusleiste warnt, wenn das Design über den Rahmen hinausragt.
+- Rahmen: siehe Abschnitt *Stickrahmen* (Texi-Rahmen, weitere Standardrahmen und eigene Rahmen).
 - *Datei → Arbeitsblatt drucken* listet die Farbfolge mit den Nadelnummern (Nadeln 1–15 bei jeder Farbe einstellbar, Doppelklick auf die Farbe).
 
 Vorhandene DST-Dateien lassen sich importieren (*Datei → DST importieren*). Sie werden dabei als Einzelstiche geöffnet.
@@ -149,6 +175,7 @@ Bitte das Projekt immer zusätzlich speichern: Eine DST-Datei enthält nur noch 
 | Datei | Inhalt |
 |---|---|
 | `js/geometry.js` | Kurven (Ecke/Kurve wie Hatch), Polygone, Hilfsfunktionen |
+| `js/hoops.js` | Rahmenbibliothek, eigene Rahmen, Passt-Prüfung, Einpassen |
 | `js/route.js` | Ein-/Ausstiege (Viterbi), versteckte Laufwege (Wegsuche unter später gestickten Flächen), Reihenfolge |
 | `js/check.js` | Stickprüfung: Stichwinkel, Dichte, Stichlängen, Maschinenprofile |
 | `js/fabric.js` | Stoffprofile, automatische Stichanpassung, Vlies-Empfehlung |
@@ -162,5 +189,5 @@ Bitte das Projekt immer zusätzlich speichern: Eine DST-Datei enthält nur noch 
 | `tools/inkstitch_fonts.py` | Konverter Ink/Stitch-Schrift (SVG + font.json) -> StickStudio |
 | `js/app.js` | Oberfläche, Werkzeuge, Umformen, Simulation, Dialoge |
 
-Tests: `node tests/test_core.js` prüft die Stichgenerierung und den DST-Hin- und Rückweg, `node tests/test_satin.js` die Satin-Erkennung (Ring, Bogen, L, T), `node tests/test_fabric.js` die Stoff-Automatik, `node tests/test_check.js` die Stickprüfung, `node tests/test_route.js` die Verbindungsberechnung.
+Tests: `node tests/test_core.js` prüft die Stichgenerierung und den DST-Hin- und Rückweg, `node tests/test_satin.js` die Satin-Erkennung (Ring, Bogen, L, T), `node tests/test_fabric.js` die Stoff-Automatik, `node tests/test_check.js` die Stickprüfung, `node tests/test_route.js` die Verbindungsberechnung, `node tests/test_connect.js` Schnitt/Sprung und Rahmen.
 Die erzeugten DST-Dateien wurden zusätzlich mit der unabhängigen Bibliothek *pyembroidery* gegengelesen.

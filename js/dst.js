@@ -33,7 +33,12 @@
       out.push({ x: t.x, y: t.y, cmd: 'stitch', obj: objId }, { x: p.x, y: p.y, cmd: 'stitch', obj: objId });
       out.push({ x: t.x, y: t.y, cmd: 'stitch', obj: objId }, { x: p.x, y: p.y, cmd: 'stitch', obj: objId });
     };
-    let needTie = true;
+    let needTie = true, floatJump = false;
+    // Sprung ohne Schnitt höchstens so lang, dass die Maschine ihn nicht als Schnitt deutet
+    // (DST: ein Sprungbefehl <= 12,1 mm; ab "trimJumps" Sprüngen in Folge schneidet die Maschine)
+    const maxFloat = Math.max(0, ((opts.trimJumps ?? 3) - 1) * 12.1);
+    const jumpMax = Math.min(opts.jumpMax || 0, maxFloat);
+    const lockJump = lock && (opts.lockJump ?? true);
     for (let oi = 0; oi < objects.length; oi++) {
       const obj = objects[oi];
       if (obj.hidden) continue;
@@ -49,31 +54,51 @@
           needTie = true;
         } else if (cur && (first || p.j)) {
           const d = G.dist(cur, p);
-          // versteckter Laufweg unter später gestickten Objekten statt Schnitt
-          const path = d >= trimDist && first && opts.connect ? opts.connect(cur, p, objects, oi) : null;
-          if (path) {
+          // Art der Verbindung: pro Objekt vorgegeben (connect) oder automatisch nach Abstand
+          const mode = first ? obj.connect || 'auto' : 'auto';
+          let kind = 'none', path = null;
+          if (d > 0.05) {
+            if (mode === 'trim') kind = 'trim';
+            else if (mode === 'jump') kind = d <= maxFloat ? 'jump' : 'trim';
+            else if (mode === 'stitch') kind = 'stitch';
+            else if (d < trimDist) kind = 'stitch';
+            else {
+              // versteckter Laufweg unter später gestickten Objekten statt Schnitt
+              path = first && opts.connect ? opts.connect(cur, p, objects, oi) : null;
+              kind = path ? 'travel' : d <= jumpMax ? 'jump' : 'trim';
+            }
+          }
+          if (kind === 'travel') {
             if (needTie) { out.push({ x: cur.x, y: cur.y, cmd: 'jump', obj: obj.id }); needTie = false; }
             for (const q of path) out.push({ x: q.x, y: q.y, cmd: 'stitch', obj: obj.id, travel: true });
             cur = p;
             continue;
           }
-          if (d >= trimDist) {
+          if (kind === 'stitch') {
+            // direkte Verbindung als Stich (lange Verbindungen in Stiche bis 3 mm teilen)
+            const n = Math.max(1, Math.ceil(d / 3));
+            for (let k = 1; k <= n; k++) out.push({ ...G.lerp(cur, p, k / n), cmd: 'stitch', obj: obj.id, travel: n > 1 });
+            cur = p;
+            continue;
+          }
+          if (kind === 'jump') {
+            // Sprung ohne Fadenschnitt (Faden bleibt liegen und wird später von Hand gekürzt)
+            if (!needTie && lockJump) tieOff(obj.id);
+            needTie = true;
+            floatJump = true;
+          } else if (kind === 'trim') {
             if (!needTie) tieOff(obj.id);
             out.push({ x: cur.x, y: cur.y, cmd: 'trim', obj: obj.id });
             needTie = true;
-          } else if (d > 0.05) {
-            // kurze Verbindung: als Stich
-            out.push({ x: p.x, y: p.y, cmd: 'stitch', obj: obj.id });
-            cur = p;
-            continue;
           }
         }
         if (curColor === null) curColor = obj.color;
         curColor = obj.color;
         if (needTie) {
-          out.push({ x: p.x, y: p.y, cmd: 'jump', obj: obj.id });
-          tieIn(pts, i, obj.id);
+          out.push({ x: p.x, y: p.y, cmd: 'jump', obj: obj.id, float: floatJump || undefined });
+          if (!floatJump || lockJump) tieIn(pts, i, obj.id);
           needTie = false;
+          floatJump = false;
         } else out.push({ x: p.x, y: p.y, cmd: 'stitch', obj: obj.id });
         cur = p;
       }
@@ -84,7 +109,7 @@
   }
 
   function stats(cmds) {
-    let st = 0, col = 1, tr = 0, tv = 0, inTv = false;
+    let st = 0, col = 1, tr = 0, tv = 0, inTv = false, fl = 0;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const c of cmds) {
       if (c.cmd === 'stitch') {
@@ -94,10 +119,11 @@
         if (c.x < x0) x0 = c.x; if (c.x > x1) x1 = c.x;
         if (c.y < y0) y0 = c.y; if (c.y > y1) y1 = c.y;
       } else if (c.cmd === 'color') col++;
+      else if (c.cmd === 'jump' && c.float) fl++;
       else if (c.cmd === 'trim') tr++;
     }
     if (!st) { x0 = y0 = x1 = y1 = 0; col = 0; }
-    return { stitches: st, colors: col, trims: tr, travels: tv, w: x1 - x0, h: y1 - y0, x0, y0, x1, y1 };
+    return { stitches: st, colors: col, trims: tr, travels: tv, floats: fl, w: x1 - x0, h: y1 - y0, x0, y0, x1, y1 };
   }
 
   /* ---------------- DST schreiben ---------------- */

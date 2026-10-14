@@ -94,3 +94,6 @@ main { display: flex; height: calc(100% - 38px - 34px); }
 .issue { border-left: 4px solid #e0a030; background: #fffaf0; padding: 6px 10px; margin: 6px 0; border-radius: 4px; }
 .issue.fehler { border-color: var(--danger); background: #fdf0f0; }
 .issue .why { color: #4a525c; font-size: 12.5px; margin-top: 2px; }
+
+.hoopbar { color: #cfd6de; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.hoopbar select { max-width: 260px; padding: 3px; border-radius: 4px; border: 0; font: inherit; font-size: 12px; }

@@ -6,15 +6,7 @@
   const cv = $('#cv'), ctx = cv.getContext('2d');
 
   /* ======================= Zustand ======================= */
-  const HOOPS = {
-    '540x350': { w: 540, h: 350, name: 'Texi 540 × 350 mm (max. Feld)' },
-    '290x290': { w: 290, h: 290, name: 'Rahmen 290 × 290 mm' },
-    R200: { d: 200, name: 'Rund Ø 200 mm' },
-    R150: { d: 150, name: 'Rund Ø 150 mm' },
-    R120: { d: 120, name: 'Rund Ø 120 mm' },
-    R90: { d: 90, name: 'Rund Ø 90 mm' },
-    none: { name: 'kein Rahmen' },
-  };
+  const hoop = () => HW.hoops.get(st.hoop, st.customHoops);
   const DEFAULT_PALETTE = [
     ['#111111', 'Schwarz'], ['#ffffff', 'Weiß'], ['#c8102e', 'Rot'], ['#0033a0', 'Königsblau'],
     ['#ffd100', 'Gelb'], ['#00843d', 'Grün'], ['#ff6a13', 'Orange'], ['#8a8d8f', 'Grau'],
@@ -28,10 +20,11 @@
     palette: DEFAULT_PALETTE.map(([hex, name], i) => ({ hex, name, needle: i + 1 })),
     curColor: 0,
     hoop: '290x290',
+    customHoops: HW.hoops.loadCustom(),
     fabric: '#f4f1ea',
     material: 'baumwolle',
     bg: null,
-    settings: { trimDist: 2.0, lock: true, trimJumps: 3, spm: 800, machine: 'industrie', limits: {}, checkPopup: true, autoRoute: true, hideTravel: true },
+    settings: { trimDist: 2.0, jumpMax: 0, lockJump: true, lock: true, trimJumps: 3, spm: 800, machine: 'industrie', limits: {}, checkPopup: true, autoRoute: true, hideTravel: true },
     defaults: {
       run: { ...S.DEFAULTS.run },
       triple: { ...S.DEFAULTS.run, style: 'triple' },
@@ -210,38 +203,65 @@
     return `rgb(${c[0]},${c[1]},${c[2]})`;
   }
 
-  function drawHoop() {
-    const h = HOOPS[st.hoop];
-    ctx.save();
-    ctx.fillStyle = st.fabric;
-    ctx.strokeStyle = '#7a828c';
-    ctx.lineWidth = 3;
-    ctx.beginPath();
+  function hoopPath(h, inset = 0) {
     const c = toScr({ x: 0, y: 0 });
-    if (h.d) ctx.arc(c.x, c.y, (h.d / 2) * view.scale, 0, Math.PI * 2);
-    else if (h.w) ctx.rect(c.x - (h.w / 2) * view.scale, c.y - (h.h / 2) * view.scale, h.w * view.scale, h.h * view.scale);
-    else { const r = cv.getBoundingClientRect(); ctx.rect(0, 0, r.width, r.height); }
-    ctx.fill();
-    if (h.w || h.d) ctx.stroke();
-    ctx.clip();
+    const a = Math.max(0, (h.w / 2 - inset)) * view.scale, b = Math.max(0, (h.h / 2 - inset)) * view.scale;
+    ctx.beginPath();
+    if (h.shape === 'rect') {
+      const r = Math.min(a, b, Math.max(0, inset < 0 ? -inset * view.scale * 0.8 : 3 * view.scale));
+      if (ctx.roundRect) ctx.roundRect(c.x - a, c.y - b, 2 * a, 2 * b, r); else ctx.rect(c.x - a, c.y - b, 2 * a, 2 * b);
+    } else ctx.ellipse(c.x, c.y, a, b, 0, 0, Math.PI * 2);
+  }
+
+  function drawHoop() {
+    const h = hoop();
+    const r = cv.getBoundingClientRect();
+    ctx.save();
+    if (h.shape === 'none') {
+      ctx.fillStyle = st.fabric; ctx.fillRect(0, 0, r.width, r.height);
+    } else {
+      // Rahmenkörper (ca. 12 mm breit)
+      hoopPath(h, -12);
+      ctx.fillStyle = '#9aa2ac'; ctx.fill();
+      hoopPath(h, -12); ctx.lineWidth = 1; ctx.strokeStyle = '#6b737d'; ctx.stroke();
+      // Stoff im Stickfeld
+      hoopPath(h, 0);
+      ctx.fillStyle = st.fabric; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = '#4a525c'; ctx.stroke();
+    }
+    ctx.save();
+    if (h.shape !== 'none') { hoopPath(h, 0); ctx.clip(); }
     if (view.grid) {
-      const r = cv.getBoundingClientRect();
       const a = toMM(0, 0), b = toMM(r.width, r.height);
       const stp = view.scale > 4 ? 5 : 10;
       ctx.lineWidth = 1;
       for (let x = Math.floor(a.x / stp) * stp; x <= b.x; x += stp) {
         ctx.strokeStyle = x === 0 ? 'rgba(0,0,0,.25)' : x % 50 === 0 ? 'rgba(0,0,0,.13)' : 'rgba(0,0,0,.06)';
-        const s = toScr({ x, y: 0 }).x;
-        ctx.beginPath(); ctx.moveTo(s, 0); ctx.lineTo(s, r.height); ctx.stroke();
+        const sx = toScr({ x, y: 0 }).x;
+        ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx, r.height); ctx.stroke();
       }
       for (let y = Math.floor(a.y / stp) * stp; y <= b.y; y += stp) {
         ctx.strokeStyle = y === 0 ? 'rgba(0,0,0,.25)' : y % 50 === 0 ? 'rgba(0,0,0,.13)' : 'rgba(0,0,0,.06)';
-        const s = toScr({ x: 0, y }).y;
-        ctx.beginPath(); ctx.moveTo(0, s); ctx.lineTo(r.width, s); ctx.stroke();
+        const sy = toScr({ x: 0, y }).y;
+        ctx.beginPath(); ctx.moveTo(0, sy); ctx.lineTo(r.width, sy); ctx.stroke();
       }
     }
     ctx.restore();
+    if (h.shape !== 'none') {
+      // Sicherheitsabstand
+      if (h.margin) { hoopPath(h, h.margin); ctx.setLineDash([6, 4]); ctx.strokeStyle = 'rgba(200,60,60,.55)'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]); }
+      // Mittelkreuz (Rahmenmitte = Startpunkt der Maschine)
+      const c = toScr({ x: 0, y: 0 });
+      ctx.strokeStyle = 'rgba(31,111,235,.6)'; ctx.lineWidth = 1;
+      ctx.beginPath(); ctx.moveTo(c.x - 10, c.y); ctx.lineTo(c.x + 10, c.y); ctx.moveTo(c.x, c.y - 10); ctx.lineTo(c.x, c.y + 10); ctx.stroke();
+      // Beschriftung
+      const top = toScr({ x: 0, y: -h.h / 2 - 12 });
+      ctx.fillStyle = '#2b323a'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+      ctx.fillText(`${h.name} – Stickfeld ${h.shape === 'round' ? 'Ø ' + h.w : h.w + ' × ' + h.h} mm`, top.x, top.y - 4);
+    }
+    ctx.restore();
   }
+
 
   function drawStitchList(list, colorFn, alpha = 1, limit = Infinity) {
     const lw = view.trueView ? Math.max(1, 0.45 * view.scale) : 1;
@@ -278,7 +298,7 @@
         path.push(s);
       } else if (c.cmd === 'jump' || c.j) {
         flush();
-        if (prev) jumps.push([prev, s]);
+        if (prev) jumps.push([prev, s, !!c.float]);
       } else { flush(); }
       if (c.cmd !== 'trim' && c.cmd !== 'color') prev = s;
     }
@@ -292,12 +312,18 @@
       ctx.stroke(); ctx.setLineDash([]);
     }
     if (view.jumps && jumps.length) {
-      ctx.setLineDash([4, 4]);
-      ctx.strokeStyle = 'rgba(200,0,0,.6)'; ctx.lineWidth = 1;
-      ctx.beginPath();
-      for (const [a, b] of jumps) { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
-      ctx.stroke();
+      // rot gestrichelt: Sprung nach Fadenschnitt · violett: Sprung ohne Schnitt (Faden bleibt liegen)
+      for (const fl of [false, true]) {
+        ctx.setLineDash(fl ? [] : [4, 4]);
+        ctx.strokeStyle = fl ? 'rgba(140,40,200,.85)' : 'rgba(200,0,0,.6)'; ctx.lineWidth = fl ? 1.5 : 1;
+        ctx.beginPath();
+        for (const [a, b, f] of jumps) if (f === fl) { ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); }
+        ctx.stroke();
+      }
       ctx.setLineDash([]);
+      // Schnittstellen markieren
+      ctx.fillStyle = '#c62828'; ctx.font = '13px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      for (let i = 0; i < n; i++) if (list[i].cmd === 'trim') { const q = toScr(list[i]); ctx.fillText('✂', q.x + 8, q.y - 8); }
     }
     if (view.points && view.scale > 3) {
       ctx.fillStyle = 'rgba(0,0,0,.55)';
@@ -506,14 +532,14 @@
   function renderStats() {
     const s = D.stats(cmds);
     const mins = s.stitches / st.settings.spm + s.colors * 0.15 + s.trims * 0.05;
-    const h = HOOPS[st.hoop];
-    let out = false;
-    if (s.stitches) {
-      if (h.w) out = s.x0 < -h.w / 2 + 5 || s.x1 > h.w / 2 - 5 || s.y0 < -h.h / 2 + 5 || s.y1 > h.h / 2 - 5;
-      else if (h.d) out = cmds.some((c) => c.cmd === 'stitch' && Math.hypot(c.x, c.y) > h.d / 2 - 5);
-    }
+    const h = hoop();
+    const hc = s.stitches ? HW.hoops.check(h, cmds.filter((c) => c.cmd === 'stitch')) : { ok: true };
+    const out = !hc.ok;
     $('#stats').innerHTML = `Stiche: <b>${s.stitches.toLocaleString('de-DE')}</b> · Farben: ${s.colors} · Schnitte: ${s.trims}${s.travels ? ` · versteckte Wege: ${s.travels}` : ''} · Größe: ${fmt(s.w)} × ${fmt(s.h)} mm · ca. ${fmt(mins, 0)} min` +
-      (out ? ' · <span class="warn">⚠ ragt über den Rahmen</span>' : '');
+      (s.floats ? ` · Sprünge ohne Schnitt: ${s.floats}` : '') +
+      (out ? ` · <span class="warn" id="hoopWarn" title="Klicken für Rahmen-Optionen" style="cursor:pointer">⚠ ${hc.outField ? 'ragt über das Stickfeld' : 'im Sicherheitsabstand'}</span>` : '');
+    const hw = $('#hoopWarn');
+    if (hw) hw.onclick = () => hoopDialog();
   }
 
   function renderPalette() {
@@ -587,6 +613,21 @@
     return [];
   }
 
+  function connectField(el, objs) {
+    if (!objs.length) return;
+    const f = document.createElement('div');
+    f.className = 'field';
+    const lb = document.createElement('label'); lb.textContent = 'Verbindung davor';
+    lb.title = 'Wie die Maschine vom vorigen Objekt zu diesem kommt';
+    const sl = document.createElement('select');
+    [['auto', 'Automatisch'], ['trim', 'Immer schneiden'], ['jump', 'Springen ohne Schnitt'], ['stitch', 'Direkt als Stich']].forEach(([v, t]) => { const o = document.createElement('option'); o.value = v; o.textContent = t; sl.appendChild(o); });
+    const vals = new Set(objs.map((o) => o.connect || 'auto'));
+    sl.value = vals.size === 1 ? [...vals][0] : 'auto';
+    sl.onchange = () => { pushUndo(); objs.forEach((o) => { if (sl.value === 'auto') delete o.connect; else o.connect = sl.value; }); changed(); };
+    f.append(lb, sl);
+    el.appendChild(f);
+  }
+
   function renderProps() {
     const el = $('#props');
     const objs = selected();
@@ -609,7 +650,7 @@
     }
     if (objs.length) {
       type = objs[0].type;
-      if (!objs.every((o) => o.type === type)) { el.innerHTML = `<p>${objs.length} Objekte ausgewählt (verschiedene Arten). Farbe per Klick in der Palette zuweisen.</p>`; $('#propTitle').textContent = ''; return; }
+      if (!objs.every((o) => o.type === type)) { el.innerHTML = `<p>${objs.length} Objekte ausgewählt (verschiedene Arten). Farbe per Klick in der Palette zuweisen.</p>`; $('#propTitle').textContent = ''; connectField(el, objs); return; }
       target = objs[0].params; title = objs.length > 1 ? `${objs.length} × ${objName(objs[0])}` : objName(objs[0]);
     } else {
       const dk = ['rect', 'ellipse', 'text'].includes(tool) ? 'fill' : tool;
@@ -623,8 +664,9 @@
     $('#propTitle').textContent = g0 ? '– Schrift' : '– ' + title;
     const defs = defsFor(type);
     if (!g0) el.innerHTML = '';
+    if (objs.length) connectField(el, objs);
     if (type === 'manual') {
-      el.innerHTML = `<p>${objs[0].stitches.length} Einzelstiche. Mit <b>Umformen</b> jeden Stich verschieben (Entf = löschen, Doppelklick = einfügen).</p>`;
+      el.insertAdjacentHTML('beforeend', `<p>${objs[0].stitches.length} Einzelstiche. Mit <b>Umformen</b> jeden Stich verschieben (Entf = löschen, Doppelklick = einfügen).</p>`);
       return;
     }
     // Stoff-Automatik: verwaltete Werte zeigen den wirksamen Wert und sind mit „auto“ markiert
@@ -1033,8 +1075,8 @@
     draw();
   }
   function zoomHoop() {
-    const h = HOOPS[st.hoop];
-    const w = h.w || h.d || 200, hh = h.h || h.d || 200;
+    const h = hoop();
+    const w = h.w ? h.w + 30 : 200, hh = h.h ? h.h + 40 : 200;
     fitRect(-w / 2, -hh / 2, w / 2, hh / 2);
   }
   function zoomFit() {
@@ -1396,6 +1438,79 @@
   }
 
 
+  /* ---------- Stickrahmen ---------- */
+  function hoopOptions(selId) {
+    const groups = {};
+    HW.hoops.all(st.customHoops).forEach((h) => { (groups[h.group] = groups[h.group] || []).push(h); });
+    return Object.entries(groups).map(([gname, list]) => `<optgroup label="${gname}">${list.map((h) => `<option value="${h.id}" ${h.id === selId ? 'selected' : ''}>${h.name}</option>`).join('')}</optgroup>`).join('');
+  }
+  function renderHoopSel() {
+    const sel = $('#hoopSel');
+    sel.innerHTML = hoopOptions(st.hoop);
+    sel.value = st.hoop;
+  }
+  function setHoop(id) { st.hoop = id; renderHoopSel(); changed(true); zoomHoop(); }
+  function saveCustomHoops() { HW.hoops.saveCustom(st.customHoops); renderHoopSel(); }
+
+  function hoopDialog() {
+    const pts = cmds.filter((c) => c.cmd === 'stitch');
+    const h = hoop();
+    const chk = pts.length ? HW.hoops.check(h, pts) : { ok: true };
+    const s = D.stats(cmds);
+    const fits = HW.hoops.fitting(pts, st.customHoops);
+    const scale = pts.length ? HW.hoops.fitScale(h, pts) : 1;
+    const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const custom = (st.customHoops || []).map((c) => `<div class="row" style="align-items:center"><span style="flex:1">${esc(c.name)} – ${c.shape === 'rect' ? 'eckig' : c.shape === 'round' ? 'rund' : 'oval'} ${c.shape === 'round' ? 'Ø ' + c.w : c.w + ' × ' + c.h} mm</span><button data-use="${c.id}">Wählen</button><button data-del="${c.id}">Löschen</button></div>`).join('') || '<p style="color:#6a7480">Noch keine eigenen Rahmen.</p>';
+    modal('Stickrahmen',
+      field('Aktiver Rahmen', `<select id="hSel">${hoopOptions(st.hoop)}</select>`) +
+      (pts.length ? `<p>Design: <b>${fmt(s.w)} × ${fmt(s.h)} mm</b> · ${chk.ok ? '<span style="color:#2e7d32">✓ passt in diesen Rahmen</span>' : `<span style="color:#c62828">⚠ ${chk.outField ? chk.outField + ' Stiche außerhalb des Stickfelds' : chk.outMargin + ' Stiche im Sicherheitsabstand'}</span>`}</p>` +
+        `<p>Passende Rahmen: ${fits.length ? fits.slice(0, 6).map((f) => `<button data-use="${f.id}" style="margin:2px">${esc(f.name)}</button>`).join('') : 'keiner – Design verkleinern'}</p>` +
+        `<div class="row"><button id="hCenter">Design in Rahmenmitte setzen</button><button id="hFit" ${h.shape === 'none' ? 'disabled' : ''}>In Rahmen einpassen (${Math.round(scale * 100)} %)</button></div>` : '<p style="color:#6a7480">Noch kein Design vorhanden.</p>') +
+      '<h3 style="margin:14px 0 4px;font-size:14px">Eigenen Rahmen anlegen</h3>' +
+      field('Name', '<input id="hName" placeholder="z. B. Mein Rundrahmen 20 cm">') +
+      field('Form', '<select id="hShape"><option value="round">rund</option><option value="rect">eckig</option><option value="oval">oval</option></select>') +
+      field('Breite bzw. Durchmesser (mm)', '<input id="hW" type="number" min="20" max="1500" value="200">') +
+      field('Höhe (mm, nur eckig/oval)', '<input id="hH" type="number" min="20" max="1500" value="200">') +
+      field('Sicherheitsabstand zum Rand (mm)', '<input id="hM" type="number" min="0" max="50" step="0.5" value="5">') +
+      '<div class="row"><button id="hAdd" class="primary">Rahmen anlegen</button></div>' +
+      '<h3 style="margin:14px 0 4px;font-size:14px">Eigene Rahmen</h3>' + custom +
+      '<p style="color:#6a7480">Maße = nutzbares Stickfeld. Die Werte der Standardrahmen sind Richtwerte – bei abweichendem Rahmen einen eigenen anlegen. Eigene Rahmen werden im Browser und im Projekt gespeichert. Die DST-Datei bezieht sich auf die Designmitte: an der Maschine die Rahmenmitte anfahren.</p>',
+      [{ label: 'Schließen', primary: true }]);
+    $('#hSel').onchange = () => { setHoop(val('hSel')); closeModal(); hoopDialog(); };
+    $('#modalBody').querySelectorAll('[data-use]').forEach((b) => (b.onclick = () => { setHoop(b.dataset.use); closeModal(); hoopDialog(); }));
+    $('#modalBody').querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => {
+      st.customHoops = st.customHoops.filter((c) => c.id !== b.dataset.del);
+      if (st.hoop === b.dataset.del) st.hoop = '290x290';
+      saveCustomHoops(); changed(true); closeModal(); hoopDialog();
+    }));
+    const shp = $('#hShape');
+    shp.onchange = () => { $('#hH').disabled = shp.value === 'round'; };
+    shp.onchange();
+    $('#hAdd').onclick = () => {
+      const w = num('hW'), hh = shp.value === 'round' ? w : num('hH');
+      if (!(w >= 20) || !(hh >= 20)) return;
+      const shapeName = shp.value === 'round' ? `rund Ø ${w} mm` : `${shp.value === 'rect' ? 'eckig' : 'oval'} ${w} × ${hh} mm`;
+      const c = { id: 'c_' + Date.now().toString(36), name: val('hName').trim() || 'Eigener Rahmen ' + shapeName, shape: shp.value, w, h: hh, margin: Math.max(0, num('hM') || 0) };
+      st.customHoops = (st.customHoops || []).concat([c]);
+      saveCustomHoops();
+      setHoop(c.id);
+      closeModal(); hoopDialog();
+    };
+    const hc = $('#hCenter');
+    if (hc) hc.onclick = () => { closeModal(); const keep = sel; sel = new Set(st.objects.map((o) => o.id)); const c = selCenter(); transformSel((q) => ({ x: q.x - c.x, y: q.y - c.y })); sel = keep; changed(true); hoopDialog(); };
+    const hf = $('#hFit');
+    if (hf) hf.onclick = () => {
+      closeModal();
+      const keep = sel;
+      sel = new Set(st.objects.map((o) => o.id));
+      const c = selCenter();
+      const f = HW.hoops.fitScale(hoop(), cmds.filter((q) => q.cmd === 'stitch')) * 0.995;
+      transformSel((q) => ({ x: (q.x - c.x) * f, y: (q.y - c.y) * f }));
+      sel = keep;
+      changed(true); zoomHoop(); hoopDialog();
+    };
+  }
+
   function machineDialog() {
     modal('Maschine & Rahmen',
       field('Maschinentyp (für die Stickprüfung)', `<select id="mType">${Object.entries(HW.check.MACHINES).map(([k, m]) => `<option value="${k}" ${k === st.settings.machine ? 'selected' : ''}>${m.name}</option>`).join('')}</select>`) +
@@ -1404,13 +1519,17 @@
       field('Satin ohne Teilung höchstens (mm)', `<input id="mSat" type="number" step="0.5" value="${machine().maxSatin}">`) +
       field('Satin-Abstand mindestens (mm)', `<input id="mSp" type="number" step="0.01" value="${machine().minSpacingSatin}">`) +
       field('Pop-up bei Problemen', `<input type="checkbox" id="mPop" ${st.settings.checkPopup ? 'checked' : ''}>`) +
-      field('Rahmen', `<select id="mHoop">${Object.entries(HOOPS).map(([k, h]) => `<option value="${k}" ${k === st.hoop ? 'selected' : ''}>${h.name}</option>`).join('')}</select>`) +
+
       field('Stofffarbe', `<input type="color" id="mFabric" value="${st.fabric}">`) +
       field('Ein-/Ausstieg automatisch (kürzeste Verbindung)', `<input type="checkbox" id="mRoute" ${st.settings.autoRoute ? 'checked' : ''}>`) +
       field('Versteckte Laufwege statt Schnitt', `<input type="checkbox" id="mTravel" ${st.settings.hideTravel ? 'checked' : ''}>`) +
-      field('Fadenschnitt ab Sprung (mm)', `<input id="mTrim" type="number" step="0.5" min="0.5" value="${st.settings.trimDist}">`) +
+      '<h3 style="margin:12px 0 4px;font-size:14px">Verbindungen: Stich, Sprung oder Schnitt</h3>' +
+      field('Bis hier direkt als Stich verbinden (mm)', `<input id="mTrim" type="number" step="0.5" min="0.5" value="${st.settings.trimDist}">`) +
+      field('Bis hier springen <b>ohne</b> Schnitt (mm, 0 = immer schneiden)', `<input id="mJumpMax" type="number" step="1" min="0" value="${st.settings.jumpMax || 0}">`) +
+      field('Vernähen auch bei Sprüngen ohne Schnitt', `<input type="checkbox" id="mLockJump" ${st.settings.lockJump !== false ? 'checked' : ''}>`) +
+      `<p style="color:#6a7480;margin:2px 0 8px">Weiter entfernt wird geschnitten. Ein Sprung ohne Schnitt darf höchstens <b id="mFloatMax">${fmt((st.settings.trimJumps - 1) * 12.1)}</b> mm lang sein: DST-Sprungbefehle reichen 12,1 mm, und ab der unten eingestellten Zahl von Sprüngen in Folge schneidet die Maschine automatisch. Pro Objekt lässt sich die Verbindung rechts bei <i>Eigenschaften → Verbindung davor</i> festlegen.</p>` +
       field('Vernähen (Anfang/Ende)', `<input type="checkbox" id="mLock" ${st.settings.lock ? 'checked' : ''}>`) +
-      field('Schnitt-Codierung (Sprünge)', `<select id="mJumps">${[1, 2, 3, 4, 5].map((n) => `<option ${n === st.settings.trimJumps ? 'selected' : ''}>${n}</option>`).join('')}</select>`) +
+      field('Schnitt ab wie vielen Sprüngen (wie an der Maschine eingestellt)', `<select id="mJumps">${[1, 2, 3, 4, 5].map((n) => `<option ${n === st.settings.trimJumps ? 'selected' : ''}>${n}</option>`).join('')}</select>`) +
       field('Geschwindigkeit (Stiche/min)', `<input id="mSpm" type="number" step="50" value="${st.settings.spm}">`) +
       '<p style="color:#6a7480">Texi 1501: DST-Datei per USB-Stick laden. An der Maschine unter Parametern einstellen, ab wie vielen Sprüngen geschnitten wird (Standard 3 = passend zur Einstellung hier). Die Nadelreihenfolge wird an der Maschine zugeordnet – das Arbeitsblatt listet die Farben mit Nadelnummern.</p>',
       [{ label: 'Abbrechen' }, { label: 'Übernehmen', primary: true, action: () => {
@@ -1423,12 +1542,16 @@
         st.settings.checkPopup = $('#mPop').checked;
         st.settings.autoRoute = $('#mRoute').checked;
         st.settings.hideTravel = $('#mTravel').checked;
-        st.hoop = val('mHoop'); st.fabric = val('mFabric');
+        st.fabric = val('mFabric');
         st.settings.trimDist = Math.max(0.5, num('mTrim') || 2);
+        st.settings.lockJump = $('#mLockJump').checked;
         st.settings.lock = $('#mLock').checked;
         st.settings.trimJumps = parseInt(val('mJumps')) || 3;
+        const fmax = (st.settings.trimJumps - 1) * 12.1;
+        st.settings.jumpMax = Math.max(0, Math.min(fmax, num('mJumpMax') || 0));
+        if ((num('mJumpMax') || 0) > fmax) setTimeout(() => modal('Sprunglänge begrenzt', `<p>Bei „Schnitt ab ${st.settings.trimJumps} Sprüngen“ kann ein Sprung ohne Schnitt höchstens ${fmt(fmax)} mm lang sein, sonst schneidet die Maschine trotzdem. Der Wert wurde auf ${fmt(fmax)} mm gesetzt. Für längere Sprünge an der Maschine und hier mehr Sprünge bis zum Schnitt einstellen.</p>`), 50);
         st.settings.spm = num('mSpm') || 800;
-        changed(); zoomHoop();
+        changed();
       } }]);
   }
 
@@ -1452,7 +1575,7 @@
   function loadBg(src, w, cb) {
     const img = new Image();
     img.onload = () => {
-      const width = w || Math.min(100, (HOOPS[st.hoop].w || HOOPS[st.hoop].d || 100) * 0.6);
+      const width = w || Math.min(100, (hoop().w || 100) * 0.6);
       const h = (img.height / img.width) * width;
       st.bg = { src, x: -width / 2, y: -h / 2, w: width, h, opacity: 0.5, visible: true, _img: img };
       if (cb) cb(); draw();
@@ -1550,7 +1673,7 @@
     const w = window.open('', '_blank');
     if (!w) return modal('Arbeitsblatt', '<p>Popup wurde blockiert – bitte Popups erlauben.</p>');
     w.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Arbeitsblatt ${st.name}</title><style>body{font:13px system-ui;margin:20px}td{padding:3px 10px;border-bottom:1px solid #ddd}img{max-width:100%;border:1px solid #ccc}</style></head><body>
-      <h2>${st.name}</h2><p>Stiche: <b>${s.stitches.toLocaleString('de-DE')}</b> · Farbwechsel: ${s.colors - 1} · Schnitte: ${s.trims} · Größe: ${fmt(s.w)} × ${fmt(s.h)} mm · Rahmen: ${HOOPS[st.hoop].name}</p>
+      <h2>${st.name}</h2><p>Stiche: <b>${s.stitches.toLocaleString('de-DE')}</b> · Farbwechsel: ${s.colors - 1} · Schnitte: ${s.trims} · Größe: ${fmt(s.w)} × ${fmt(s.h)} mm · Rahmen: ${hoop().name}</p>
       <img src="${c.toDataURL()}">${(() => { const r = HW.fabric.recommend(st.material, st.objects, s); return `<h3>Stoff &amp; Vlies</h3><p>Stoff: <b>${r.fabric.name}</b><br>Vlies: ${r.vlies}<br>Topper: ${r.topper}<br>Nadel: ${r.needle} · max. ${r.spm} Stiche/min</p>${r.warn.length ? '<p>⚠ ' + r.warn.join('<br>⚠ ') + '</p>' : ''}`; })()}<h3>Farbfolge</h3><table>${rows}</table><script>setTimeout(()=>print(),300)<\/script></body></html>`);
     w.document.close();
   }
@@ -1583,7 +1706,7 @@
   const commands = {
     new: () => modal('Neues Design', '<p>Aktuelles Design verwerfen?</p>', [{ label: 'Abbrechen' }, { label: 'Neu', primary: true, action: () => { pushUndo(); st.objects = []; st.bg = null; sel = new Set(); changed(); } }]),
     save: () => {
-      const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, fabric: st.fabric, material: st.material, settings: st.settings, defaults: st.defaults, bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null });
+      const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, customHoops: st.customHoops, fabric: st.fabric, material: st.material, settings: st.settings, defaults: st.defaults, bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null });
       download(data, (st.name || 'design') + '.stick.json', 'application/json');
     },
     open: () => pickFile('.json,.stick.json', (txt, f) => {
@@ -1591,7 +1714,9 @@
         const d = JSON.parse(txt);
         pushUndo();
         st.objects = d.objects || []; st.palette = d.palette || st.palette; st.hoop = d.hoop || st.hoop;
-        st.fabric = d.fabric || st.fabric; st.material = d.material || st.material; st.objects.forEach(invalidate); Object.assign(st.settings, d.settings || {});
+        st.fabric = d.fabric || st.fabric;
+        if (Array.isArray(d.customHoops)) { const ids = new Set(st.customHoops.map((c) => c.id)); st.customHoops = st.customHoops.concat(d.customHoops.filter((c) => !ids.has(c.id))); saveCustomHoops(); }
+        renderHoopSel(); st.material = d.material || st.material; st.objects.forEach(invalidate); Object.assign(st.settings, d.settings || {});
         if (d.defaults) Object.keys(d.defaults).forEach((k) => Object.assign(st.defaults[k] || (st.defaults[k] = {}), d.defaults[k]));
         st.name = d.name || f.name.replace(/\..*$/, '');
         nextId = Math.max(0, ...st.objects.map((o) => o.id || 0)) + 1;
@@ -1685,6 +1810,7 @@
     togglePoints: () => { view.points = !view.points; draw(); },
     zoomFit, zoomHoop,
     machineSettings: machineDialog,
+    hoops: () => hoopDialog(),
     help: helpDialog,
     addColor: () => { st.palette.push({ hex: '#888888', name: 'Neue Farbe', needle: Math.min(15, st.palette.length + 1) }); renderPalette(); editColor(st.palette.length - 1); },
     editColor: () => editColor(st.curColor),
@@ -1734,6 +1860,8 @@
   document.addEventListener('click', () => document.querySelectorAll('.menu').forEach((x) => x.classList.remove('open')));
   document.querySelectorAll('[data-cmd]').forEach((b) => b.addEventListener('click', () => run(b.dataset.cmd)));
   document.querySelectorAll('[data-tool]').forEach((b) => b.addEventListener('click', () => setTool(b.dataset.tool)));
+  $('#hoopSel').addEventListener('change', () => setHoop($('#hoopSel').value));
+  $('#hoopBtn').addEventListener('click', () => hoopDialog());
   $('#checkInfo').addEventListener('click', () => issueDialog(issues, false));
   $('#curveMode').addEventListener('click', () => { curveMode = !curveMode; $('#curveMode').classList.toggle('active', curveMode); setHint(); });
   $('#modal').addEventListener('pointerdown', (e) => { if (e.target.id === 'modal') closeModal(); });
@@ -1762,6 +1890,7 @@
 
   // Start
   resize();
+  renderHoopSel();
   renderPalette();
   setTool('select');
   changed();
