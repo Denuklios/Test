@@ -202,6 +202,17 @@
       for (let k = ins.length - 1 - Math.floor(step / 2); k >= 0; k -= step) push(out, (k / step) % 2 ? ins[k].a : ins[k].b);
       push(out, ins[0].a);
     }
+    // E-Stich (Applikation/Langette): Lauf entlang einer Kante, Querstich zur anderen und zurück
+    if (p.style === 'e') {
+      const step = Math.max(1, Math.round(p.spacing / cs));
+      for (let k = 0; k < cr.length; k += step) {
+        push(out, cr[k].a);
+        push(out, cr[k].b);
+        push(out, cr[k].a);
+      }
+      push(out, cr[cr.length - 1].a);
+      return out;
+    }
     // Deckstich mit Zugkompensation
     const pc = p.pull || 0;
     const pens = cr.map((c, k) => {

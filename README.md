@@ -38,9 +38,13 @@ Am besten mit Maus am PC arbeiten: Wie bei Hatch werden linke und rechte Maustas
 
 ### Schriften
 
-Zehn Stickschriften sind eingebaut und funktionieren auf jedem PC, auch ohne Internet:
-Anton, Bebas Neue, Archivo Black, Passion One, Righteous, Alfa Slab One, Graduate (College), Pacifico, Kaushan Script und Great Vibes.
-Alle stehen unter der freien SIL Open Font License (siehe `fonts/LIZENZEN.txt`). Zusätzlich lassen sich die Systemschriften des PCs verwenden.
+**31 fertig digitalisierte Stickschriften** aus der Ink/Stitch-Sammlung sind eingebaut: Schreibschriften (z. B. Pacificlo, Chopin, Magnolia, Amitaclo), serifenlose Schriften (z. B. Excalibur, Medium, Geneva Rounded, Barstitch), Serifenschriften (z. B. Apex, Venezia, Violin Serif, DejaVu) und Zierschriften.
+Profis haben sie Satinsäule für Satinsäule von Hand gesetzt, samt Stichrichtung, Unterlage und Reihenfolge. Deshalb sticken sie deutlich sauberer als automatisch umgewandelte Schriften.
+Sie werden erst geladen, wenn man sie auswählt. Der Dialog zeigt die empfohlene Größe, die Lizenz und fehlende Zeichen an.
+Herkunft und Lizenzen: `fonts/inkstitch/README.md`.
+
+Zusätzlich gibt es zehn TrueType-Schriften und funktionieren auf jedem PC, auch ohne Internet:
+(Anton, Bebas Neue, Archivo Black, Passion One, Righteous, Alfa Slab One, Graduate, Pacifico, Kaushan Script, Great Vibes; SIL Open Font License, siehe `fonts/LIZENZEN.txt`) sowie die Systemschriften des PCs. Diese werden beim Einfügen automatisch in Satinsäulen umgewandelt.
 
 - Einstellbar sind Höhe, Zeichenabstand und **Bogen** (Radius in mm; negativ = Text unten am Kreis).
 - **Stichart Satin**: Für jeden Buchstaben wird die Mittellinie der Striche berechnet. Daraus entstehen Satinsäulen, deren Stiche immer quer zur Strichrichtung liegen, auch in Kurven und Bögen. Es werden „Säule A“-Objekte, die sich mit *Umformen* nachbearbeiten lassen.
@@ -52,6 +56,12 @@ Alle stehen unter der freien SIL Open Font License (siehe `fonts/LIZENZEN.txt`).
 - Satinstiche drehen in Bögen mit. Säule B richtet die Stiche senkrecht zur Mittellinie zwischen beiden Kanten aus.
 - **Kurzstiche**: An der Innenseite enger Bögen wird jeder zweite Einstich verkürzt, damit sich dort kein Fadenknäuel bildet (abschaltbar).
 - Die Dichte wird wie bei Hatch/Wilcom angegeben: Abstand zweier Einstiche auf derselben Seite (Vorgabe 0,40 mm).
+
+### Ideen aus Ink/Stitch
+
+- **E-Stich** (Applikations- oder Langettenstich) als Stichart für Satinsäulen
+- Satin-Dichte als Abstand der Einstiche auf derselben Seite, Unterlagen Mittellauf, Kontur und Zickzack wie in Ink/Stitch
+- Schriften mit Unterschneidung (Kerning) und Zeichenvorschub wie in der Ink/Stitch-Schriftverwaltung
 
 ### Sticheigenschaften (rechts)
 
@@ -97,7 +107,10 @@ Bitte das Projekt immer zusätzlich speichern: Eine DST-Datei enthält nur noch 
 | `js/dst.js` | Design zusammensetzen (Vernähen, Schnitte, Farbwechsel), DST schreiben und lesen |
 | `js/autodigitize.js` | Farbreduktion (k-Means), Regionen, Konturverfolgung, Objekterzeugung |
 | `js/satinauto.js` | Drehende Satinsäulen aus Flächen: Abstandstransformation, Skelett, Mittellinien, Breitenmessung |
-| `js/fonts.js` | Eingebettete Schriften (erzeugt aus `fonts/*.ttf`) |
+| `js/fonts.js` | Eingebettete TrueType-Schriften (erzeugt aus `fonts/*.ttf`) |
+| `js/inkfont.js` | Laden und Setzen der fertig digitalisierten Stickschriften |
+| `js/inkfonts/` | Die Ink/Stitch-Schriften im StickStudio-Format (je Schrift eine Datei) |
+| `tools/inkstitch_fonts.py` | Konverter Ink/Stitch-Schrift (SVG + font.json) -> StickStudio |
 | `js/app.js` | Oberfläche, Werkzeuge, Umformen, Simulation, Dialoge |
 
 Tests: `node tests/test_core.js` prüft die Stichgenerierung und den DST-Hin- und Rückweg, `node tests/test_satin.js` die Satin-Erkennung (Ring, Bogen, L, T).

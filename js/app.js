@@ -427,7 +427,8 @@
       ['closed', 'Geschlossen', 'bool'],
     ],
     satin: [
-      ['spacing', 'Dichte / Abstand (mm)', 'num', 0.2, 2, 0.02],
+      ['style', 'Stichart', 'select', [['satin', 'Satin'], ['e', 'E-Stich (Applikation)']]],
+      ['spacing', 'Dichte / Abstand (mm)', 'num', 0.2, 6, 0.02],
       ['pull', 'Zugkompensation (mm)', 'num', 0, 1.5, 0.05],
       ['underlay', 'Unterlage', 'select', [['none', 'keine'], ['center', 'Mittellauf'], ['edge', 'Kantenlauf'], ['zigzag', 'Zickzack'], ['edge+zigzag', 'Kante + Zickzack'], ['center+zigzag', 'Mitte + Zickzack']]],
       ['split', 'Auto-Split ab (mm, 0=aus)', 'num', 0, 12, 0.5],
@@ -1102,23 +1103,47 @@
   let nextGrp = 1;
   let fontsLoaded = false;
   fontsReady.then(() => { fontsLoaded = true; });
+  const isInk = (f) => String(f).startsWith('ink:');
+  const inkIdx = (f) => (HW.INKFONT_INDEX || []).find((x) => 'ink:' + x.id === f);
+
+  // Text mit fertig digitalisierter Schrift setzen (Objekte relativ zu center)
+  function inkText(spec, center) {
+    const font = HW.INKFONTS[spec.font.slice(4)];
+    const r = HW.layoutInkText(font, spec);
+    const objs = r.objects;
+    if (!objs.length) return r;
+    const bb = G.bbox(objs.flatMap((o) => o.points));
+    const dx = center.x - (bb.x0 + bb.x1) / 2, dy = center.y - (bb.y0 + bb.y1) / 2;
+    objs.forEach((o) => [o.points, ...(o.holes || [])].forEach((arr) => arr.forEach((q) => { q.x += dx; q.y += dy; })));
+    return r;
+  }
+
   function textDialog(p, editGrp) {
     const old = editGrp ? st.objects.filter((o) => o.grp === editGrp) : [];
-    const spec0 = (old[0] && old[0].textSpec) || { text: 'Text', font: 'Anton', bold: false, italic: false, height: 15, spacing: 4, arc: 0, type: 'satin' };
+    const firstInk = (HW.INKFONT_INDEX || [])[0];
+    const spec0 = (old[0] && old[0].textSpec) || { text: 'Text', font: firstInk ? 'ink:' + firstInk.id : 'Anton', bold: false, italic: false, height: firstInk ? +firstInk.size : 15, spacing: 0, arc: 0, type: 'satin' };
+    const kw = { handwriting: 'Schreibschrift', sans_serif: 'serifenlos', serif: 'Serifen', display: 'Deko', satin: 'Satin', tiny: 'klein', italic: 'kursiv', running_stitch: 'Laufstich', monogram: 'Monogramm' };
+    const inkOpts = (HW.INKFONT_INDEX || []).map((f) => {
+      const tags = f.keywords.filter((k) => kw[k] && k !== 'satin').map((k) => kw[k]).join(', ');
+      return `<option value="ink:${f.id}" ${'ink:' + f.id === spec0.font ? 'selected' : ''}>${f.name}${tags ? ' – ' + tags : ''} (${f.size} mm)</option>`;
+    }).join('');
     const fonts = (HW.FONTS || []).map((f) => `<option value="${f.name}" ${f.name === spec0.font ? 'selected' : ''}>${f.name} – ${f.cat}</option>`).join('');
     const sys = SYS_FONTS.map((f) => `<option value="${f}" ${f === spec0.font ? 'selected' : ''}>${f}</option>`).join('');
     const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
     modal(editGrp ? 'Text bearbeiten' : 'Text einfügen',
       field('Text', `<textarea id="tText" rows="2" style="width:100%">${esc(spec0.text)}</textarea>`) +
-      field('Schriftart', `<select id="tFont"><optgroup label="Stickschriften (eingebaut)">${fonts}</optgroup><optgroup label="Systemschriften">${sys}</optgroup></select>`) +
+      field('Schriftart', `<select id="tFont">${inkOpts ? `<optgroup label="Stickschriften – fertig digitalisiert (Ink/Stitch)">${inkOpts}</optgroup>` : ''}<optgroup label="Schriften – automatisch in Satin umgewandelt">${fonts}</optgroup><optgroup label="Systemschriften">${sys}</optgroup></select>`) +
+      '<p id="tInfo" style="color:#6a7480;margin:2px 0 6px"></p>' +
       field('Höhe Großbuchstaben (mm)', `<input id="tH" type="number" step="0.5" min="3" max="300" value="${spec0.height}">`) +
       field('Zeichenabstand (%)', `<input id="tSp" type="number" step="1" min="-30" max="100" value="${spec0.spacing}">`) +
       field('Bogen-Radius (mm, 0 = gerade, negativ = unten)', `<input id="tArc" type="number" step="5" value="${spec0.arc}">`) +
+      `<div id="tTtf">` +
       field('Stichart', `<select id="tType"><option value="satin">Satin – folgt Kurven und Bögen</option><option value="auto">Automatisch (breite Teile Tatami)</option><option value="tatami">Tatami</option></select>`) +
       field('Fett (künstlich)', `<input type="checkbox" id="tBold" ${spec0.bold ? 'checked' : ''}>`) +
       field('Kursiv (künstlich)', `<input type="checkbox" id="tItalic" ${spec0.italic ? 'checked' : ''}>`) +
+      `</div>` +
       '<canvas id="tPrev" width="500" height="120" style="width:100%;background:#fff"></canvas>' +
-      '<p style="color:#6a7480">Satin-Schrift ab ca. 5 mm Höhe. Jeder Buchstabe wird zu Satinsäulen, die der Strichrichtung folgen. Doppelklick auf den Text öffnet diesen Dialog wieder; mit <i>In Einzelstiche umwandeln</i> lässt sich jeder Stich anpassen.</p>',
+      '<p style="color:#6a7480">Doppelklick auf den Text öffnet diesen Dialog wieder. Mit <i>In Einzelstiche umwandeln</i> lässt sich jeder Stich anpassen.</p>',
       [{ label: 'Abbrechen' }, { label: editGrp ? 'Übernehmen' : 'Einfügen', primary: true, action: () => {
         const spec = readSpec();
         if (!spec.text.trim()) return false;
@@ -1129,16 +1154,24 @@
           color = old[0].color;
           at = st.objects.indexOf(old[0]);
         }
-        if (!fontsLoaded) { fontsReady.then(() => { fontsLoaded = true; $('#modalBtns .primary').click(); }); return false; }
-        const objs = digitizeText(spec, center);
+        let objs;
+        if (isInk(spec.font)) {
+          const id = spec.font.slice(4);
+          if (!HW.INKFONTS[id]) { HW.loadInkFont(id).then(() => $('#modalBtns .primary').click()); return false; }
+          objs = inkText(spec, center).objects;
+        } else {
+          if (!fontsLoaded) { fontsReady.then(() => { fontsLoaded = true; $('#modalBtns .primary').click(); }); return false; }
+          objs = digitizeText(spec, center);
+        }
         if (!objs.length) return false;
         pushUndo();
         if (editGrp) st.objects = st.objects.filter((o) => o.grp !== editGrp);
         const gid = editGrp || nextGrp++;
         const made = objs.map((o) => {
           const ob = makeObj(o.type, { points: o.points, holes: o.holes, color });
-          ob.params = { ...(o.type === 'fill' ? st.defaults.fill : st.defaults.colA), ...o.params };
-          if (o.type === 'fill') ob.params.underlay = o.params.fillType === 'satin' ? 'none' : 'edge';
+          const base = o.type === 'fill' ? st.defaults.fill : o.type === 'run' ? st.defaults.run : st.defaults.colA;
+          ob.params = { ...base, ...o.params };
+          if (o.type === 'fill' && !isInk(spec.font)) ob.params.underlay = o.params.fillType === 'satin' ? 'none' : 'edge';
           ob.grp = gid; ob.textSpec = spec;
           return ob;
         });
@@ -1152,20 +1185,52 @@
       text: val('tText'), font: val('tFont'), bold: $('#tBold').checked, italic: $('#tItalic').checked,
       height: Math.max(2, num('tH') || 15), spacing: num('tSp') || 0, arc: num('tArc') || 0, type: val('tType'),
     });
+    let lastFont = val('tFont');
     const prev = () => {
       const c = $('#tPrev');
       if (!c) return;
       const x = c.getContext('2d');
-      x.clearRect(0, 0, c.width, c.height);
       const spec = readSpec();
+      const ink = isInk(spec.font);
+      $('#tTtf').style.display = ink ? 'none' : '';
+      // bei Schriftwechsel empfohlene Größe übernehmen
+      if (ink && spec.font !== lastFont && inkIdx(spec.font)) { $('#tH').value = inkIdx(spec.font).size; spec.height = +inkIdx(spec.font).size; }
+      lastFont = spec.font;
+      const info = $('#tInfo');
+      if (ink) {
+        const f = inkIdx(spec.font);
+        const miss = [...new Set([...spec.text].filter((ch) => ch.trim() && f && !f.chars.includes(ch) && !f.chars.includes(ch.toUpperCase()) && !f.chars.includes(ch.toLowerCase())))];
+        info.innerHTML = f ? `Fertig digitalisiert · Lizenz ${f.license} · empfohlen ca. ${f.size} mm` + (miss.length ? ` · <b style="color:#c62828">fehlt: ${esc(miss.join(' '))}</b>` : '') : '';
+      } else info.textContent = 'Wird beim Einfügen automatisch in Satinsäulen umgewandelt.';
+      x.clearRect(0, 0, c.width, c.height);
       if (!spec.text.trim()) return;
+      if (ink) {
+        const id = spec.font.slice(4);
+        if (!HW.INKFONTS[id]) { x.fillStyle = '#888'; x.fillText('Schrift wird geladen …', 10, 20); HW.loadInkFont(id).then(prev).catch(() => {}); return; }
+        const r = inkText(spec, { x: 0, y: 0 });
+        const pts = r.objects.flatMap((o) => o.points);
+        if (!pts.length) return;
+        const bb = G.bbox(pts);
+        const sc = Math.min((c.width - 10) / Math.max(1, bb.x1 - bb.x0), (c.height - 10) / Math.max(1, bb.y1 - bb.y0));
+        const tx = (q) => (q.x - (bb.x0 + bb.x1) / 2) * sc + c.width / 2, ty = (q) => (q.y - (bb.y0 + bb.y1) / 2) * sc + c.height / 2;
+        x.strokeStyle = '#222'; x.lineWidth = Math.max(0.6, sc * 0.3);
+        for (const o of r.objects) {
+          let stt = [];
+          try { stt = S.generate({ ...o, params: { ...(o.type === 'fill' ? S.DEFAULTS.fill : S.DEFAULTS.satin), ...o.params, underlay: 'none' } }); } catch (e) { stt = []; }
+          x.beginPath();
+          stt.forEach((q, i) => (i && !q.j ? x.lineTo(tx(q), ty(q)) : x.moveTo(tx(q), ty(q))));
+          x.stroke();
+        }
+        return;
+      }
       const r = renderText({ ...spec, height: 10 });
       const sc = Math.min((c.width - 10) / r.canvas.width, (c.height - 10) / r.canvas.height);
       x.drawImage(r.canvas, (c.width - r.canvas.width * sc) / 2, (c.height - r.canvas.height * sc) / 2, r.canvas.width * sc, r.canvas.height * sc);
     };
-    ['tText', 'tFont', 'tSp', 'tArc', 'tBold', 'tItalic'].forEach((id) => $('#' + id).addEventListener('input', prev));
+    ['tText', 'tFont', 'tSp', 'tArc', 'tBold', 'tItalic', 'tH'].forEach((id) => $('#' + id).addEventListener('input', prev));
     fontsReady.then(prev);
   }
+
 
   function machineDialog() {
     modal('Maschine & Rahmen',
