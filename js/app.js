@@ -1499,16 +1499,80 @@
     const hc = $('#hCenter');
     if (hc) hc.onclick = () => { closeModal(); const keep = sel; sel = new Set(st.objects.map((o) => o.id)); const c = selCenter(); transformSel((q) => ({ x: q.x - c.x, y: q.y - c.y })); sel = keep; changed(true); hoopDialog(); };
     const hf = $('#hFit');
-    if (hf) hf.onclick = () => {
-      closeModal();
-      const keep = sel;
-      sel = new Set(st.objects.map((o) => o.id));
-      const c = selCenter();
-      const f = HW.hoops.fitScale(hoop(), cmds.filter((q) => q.cmd === 'stitch')) * 0.995;
-      transformSel((q) => ({ x: (q.x - c.x) * f, y: (q.y - c.y) * f }));
-      sel = keep;
-      changed(true); zoomHoop(); hoopDialog();
-    };
+    if (hf) hf.onclick = () => { closeModal(); fitToHoop(); };
+  }
+
+  /* ---------- An Rahmen anpassen ---------- */
+  // Skaliert das Design (oder die Auswahl) so, dass es das Stickfeld des Rahmens ausfüllt, und setzt es in die Mitte.
+  // Die Stiche werden danach aus den Formen neu berechnet (Dichte, Länge, Zugausgleich, Unterlage passen sich an).
+  function fitToHoop() {
+    const h = hoop();
+    if (h.shape === 'none') return modal('An Rahmen anpassen', '<p>Bitte zuerst einen Rahmen wählen (oben in der Leiste).</p>');
+    const targets = (sel.size ? selected() : st.objects).filter((o) => !o.hidden);
+    // nur ein Vorlagenbild vorhanden -> Bild einpassen
+    if (!targets.length) {
+      if (!st.bg) return modal('An Rahmen anpassen', '<p>Es gibt noch nichts zum Anpassen. Bild einfügen, Text schreiben oder Formen zeichnen.</p>');
+      const b = st.bg;
+      const corners = [{ x: b.x, y: b.y }, { x: b.x + b.w, y: b.y }, { x: b.x, y: b.y + b.h }, { x: b.x + b.w, y: b.y + b.h }];
+      const f = HW.hoops.fitScale(h, h.shape === 'rect' ? corners : corners) * 0.98;
+      const cx = b.x + b.w / 2, cy = b.y + b.h / 2;
+      b.w *= f; b.h *= f; b.x = (b.x - cx) * f; b.y = (b.y - cy) * f;
+      draw(); zoomHoop();
+      return modal('Bild angepasst', `<p>Das Vorlagenbild wurde auf ${fmt(b.w)} × ${fmt(b.h)} mm gebracht und in die Rahmenmitte gesetzt. Jetzt nachzeichnen oder <i>Bild → Auto-Digitalisieren</i> – die Größe wird übernommen.</p>`);
+    }
+    targets.forEach(ensure);
+    const ids = new Set(targets.map((o) => o.id));
+    const pts = cmds.filter((c) => c.cmd === 'stitch' && ids.has(c.obj));
+    if (!pts.length) return;
+    const before = D.stats(cmds), bb = G.bbox(pts);
+    const f = HW.hoops.fitScale(h, pts) * 0.995;
+    const c = { x: (bb.x0 + bb.x1) / 2, y: (bb.y0 + bb.y1) / 2 };
+    pushUndo();
+    let manual = 0;
+    for (const o of targets) {
+      forEachPoint(o, (q) => { q.x = (q.x - c.x) * f; q.y = (q.y - c.y) * f; });
+      // maßgebundene Werte mitskalieren
+      if (o.type === 'colC' && o.params.width) o.params.width = +(o.params.width * f).toFixed(2);
+      if (o.type === 'fill' && o.params.borderWidth) o.params.borderWidth = +(o.params.borderWidth * f).toFixed(2);
+      if (o.type === 'manual') manual++;
+      if (o.textSpec) o.textSpec = { ...o.textSpec, height: +(o.textSpec.height * f).toFixed(1) };
+      invalidate(o);
+    }
+    // Vorlagenbild mitnehmen, wenn das ganze Design angepasst wird
+    if (!sel.size && st.bg) { const b = st.bg; b.x = (b.x - c.x) * f; b.y = (b.y - c.y) * f; b.w *= f; b.h *= f; }
+    pendingCheck.clear();
+    changed();
+    // Feinkorrektur: Zugausgleich/Satin skalieren nicht exakt mit -> bis zu 3x nachregeln
+    let fTotal = f;
+    for (let k = 0; k < 3; k++) {
+      const p2 = cmds.filter((q) => q.cmd === 'stitch' && ids.has(q.obj));
+      if (HW.hoops.check(h, p2).ok) break;
+      const f2 = HW.hoops.fitScale(h, p2) * 0.99;
+      const b2 = G.bbox(p2), c2 = { x: (b2.x0 + b2.x1) / 2, y: (b2.y0 + b2.y1) / 2 };
+      for (const o of targets) {
+        forEachPoint(o, (q) => { q.x = (q.x - c2.x) * f2; q.y = (q.y - c2.y) * f2; });
+        if (o.type === 'colC' && o.params.width) o.params.width = +(o.params.width * f2).toFixed(2);
+        invalidate(o);
+      }
+      fTotal *= f2;
+      changed();
+    }
+    pendingCheck.clear();
+    zoomHoop();
+    const after = D.stats(cmds);
+    const own = issues.filter((i) => ids.has(i.obj));
+    const textH = targets.filter((o) => o.textSpec).map((o) => o.textSpec.height);
+    const warn = [];
+    if (manual) warn.push(`${manual} Objekt(e) aus Einzelstichen wurden nur skaliert – deren Stichabstände ändern sich mit (${Math.round(f * 100)} %).`);
+    if (textH.length && Math.min(...textH) < 5) warn.push(`Schrift ist jetzt nur ${fmt(Math.min(...textH))} mm hoch – unter 5 mm wird Satin-Schrift unsauber.`);
+    if (f > 1.6 && targets.some((o) => o.grp)) warn.push('Schrift stark vergrößert – breite Satinstriche werden geteilt; bei sehr breiten Strichen ggf. als Fläche sticken.');
+    if (own.length) warn.push(`Stickprüfung: ${own.length} Hinweis(e) – unten in der Statusleiste ansehen.`);
+    modal('An Rahmen angepasst',
+      `<p>${sel.size ? 'Die Auswahl' : 'Das Design'} wurde auf <b>${Math.round(fTotal * 100)} %</b> skaliert und in die Mitte von „${h.name}“ gesetzt.</p>` +
+      `<p>Größe: ${fmt(before.w)} × ${fmt(before.h)} mm → <b>${fmt(after.w)} × ${fmt(after.h)} mm</b><br>Stiche: ${before.stitches.toLocaleString('de-DE')} → <b>${after.stitches.toLocaleString('de-DE')}</b></p>` +
+      `<p style="color:#4a525c">Die Stiche wurden aus den Formen neu berechnet: Dichte und Stichlängen bleiben gleich fein, Satin-Abstand, Zugausgleich und Unterlage richten sich nach der neuen Breite und dem Stoff (${HW.fabric.byId(st.material).name}), breite Satinstiche werden geteilt.</p>` +
+      (warn.length ? `<p style="color:#b26a00">⚠ ${warn.join('<br>⚠ ')}</p>` : '<p style="color:#2e7d32">✓ Keine Probleme gefunden.</p>'),
+      [{ label: 'Rückgängig', action: () => { undo(); } }, { label: 'OK', primary: true }]);
   }
 
   function machineDialog() {
@@ -1811,6 +1875,7 @@
     zoomFit, zoomHoop,
     machineSettings: machineDialog,
     hoops: () => hoopDialog(),
+    fitHoop: () => fitToHoop(),
     help: helpDialog,
     addColor: () => { st.palette.push({ hex: '#888888', name: 'Neue Farbe', needle: Math.min(15, st.palette.length + 1) }); renderPalette(); editColor(st.palette.length - 1); },
     editColor: () => editColor(st.curColor),

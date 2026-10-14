@@ -97,3 +97,5 @@ main { display: flex; height: calc(100% - 38px - 34px); }
 
 .hoopbar { color: #cfd6de; font-size: 12px; display: flex; align-items: center; gap: 6px; }
 .hoopbar select { max-width: 260px; padding: 3px; border-radius: 4px; border: 0; font: inherit; font-size: 12px; }
+
+.tb.fit { border: 1px solid #5a6b7d; }

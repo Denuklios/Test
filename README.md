@@ -93,6 +93,17 @@ In der Ansicht *Sprünge anzeigen* (Taste J) erscheinen Sprünge nach Schnitt ro
 - **Anzeige:** Rahmenkörper, Stickfeld, Sicherheitsabstand (rot gestrichelt), Mittelkreuz (= Startpunkt an der Maschine) und Beschriftung mit Maßen.
 - **Prüfung:** Die Statusleiste warnt, wenn Stiche über das Stickfeld oder in den Sicherheitsabstand ragen. Ein Klick darauf öffnet den Rahmen-Dialog mit der **Liste aller passenden Rahmen** (kleinster zuerst), *Design in Rahmenmitte setzen* und *In Rahmen einpassen* (verkleinert das Design passend, die Dichte bleibt gleich).
 
+### An Rahmen anpassen (ein Knopfdruck)
+
+Der Knopf **⤢ An Rahmen anpassen** oben in der Leiste (auch unter *Bearbeiten* und *Bild*) skaliert das Design so, dass es das Stickfeld des gewählten Rahmens ausfüllt. Der Sicherheitsabstand bleibt frei, und das Design wird in die Mitte gesetzt.
+- Ist etwas ausgewählt, wird nur die Auswahl angepasst, sonst das ganze Design (samt Vorlagenbild).
+- Ist nur ein Vorlagenbild vorhanden, wird das Bild angepasst. Danach nachzeichnen oder auto-digitalisieren, die Größe stimmt dann schon.
+- Die Stiche werden aus den Formen **neu berechnet**:
+  - Dichte und Stichlängen bleiben gleich fein.
+  - Satin-Abstand, Zugausgleich, Unterlage und Teilung richten sich nach der neuen Breite und dem gewählten Stoff.
+  - Breite von Satinlinien und Satin-Konturen sowie die Schrifthöhe werden mitskaliert.
+- Danach zeigt ein Fenster Faktor, alte und neue Größe, Stichzahl und Hinweise, z. B. „Schrift unter 5 mm“ oder „Einzelstiche nur skaliert“. Mit *Rückgängig* wird alles zurückgenommen.
+
 ### Stickprüfung (Pop-up bei Problemen)
 
 Nach jedem Erstellen oder Ändern eines Objekts prüft das Programm, ob die Maschine es sauber sticken kann. Bei Problemen öffnet sich ein Fenster mit Erklärung und den Knöpfen **Korrigieren**, **Rückgängig** und **Trotzdem behalten**. Die Statusleiste zeigt den Prüfstatus dauerhaft an. Ein Klick darauf (oder *Bearbeiten → Stickprüfung…*) listet alle Hinweise, *Zeigen* springt zur markierten Stelle.
