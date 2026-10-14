@@ -156,6 +156,33 @@ def hit_arc(rail, cl, rung):
     return best
 
 
+def hit_list(rail, cl, rung):
+    """Alle Schnittpunkte einer Querlinie mit einer Schiene: [(Bogenlänge, Punkt)]."""
+    res = []
+    for i in range(1, len(rail)):
+        for j in range(1, len(rung)):
+            h = seg_hit(rail[i - 1], rail[i], rung[j - 1], rung[j])
+            if h:
+                a, b = rail[i - 1], rail[i]
+                res.append((cl[i - 1] + (cl[i] - cl[i - 1]) * h[0], (a[0] + (b[0] - a[0]) * h[0], a[1] + (b[1] - a[1]) * h[0])))
+    return res
+
+
+def rung_hit(L, cL, R, cR, rung):
+    """Querlinie auf beiden Schienen: bei mehreren Treffern (Schlaufen) das nächstliegende Paar."""
+    ha, hb = hit_list(L, cL, rung), hit_list(R, cR, rung)
+    if not ha or not hb:
+        return None
+    a, b = min(((x, y) for x in ha for y in hb), key=lambda q: math.dist(q[0][1], q[1][1]))
+    return a[0], b[0]
+
+
+def pair_cost(L, R, n=24):
+    """Wie weit liegen anteilig gleiche Punkte beider Schienen auseinander (Summe)."""
+    cL, cR = cum(L), cum(R)
+    return sum(math.dist(point_at(L, cL, cL[-1] * i / n), point_at(R, cR, cR[-1] * i / n)) for i in range(1, n))
+
+
 def corner_arcs(pl, cl, deg=35):
     res = []
     lim = math.cos(math.radians(deg))
@@ -205,19 +232,30 @@ def satin_pairs(subs, attrs):
     if rev in ('second', 'both'):
         R = R[::-1]
     if rev in ('automatic', 'none', None, ''):
-        same = math.dist(L[0], R[0]) + math.dist(L[-1], R[-1])
-        cross = math.dist(L[0], R[-1]) + math.dist(L[-1], R[0])
         closed = math.dist(L[0], L[-1]) < 1e-3 and math.dist(R[0], R[-1]) < 1e-3
-        if not closed and cross < same:
-            R = R[::-1]
+        if not closed:
+            # Richtung über den ganzen Verlauf bestimmen, nicht nur an den Enden: bei Schlaufen
+            # (Tropfen, Kringel) liegen Anfang und Ende beider Schienen fast aufeinander
+            cL0, cR0 = cum(L), cum(R)
+            hs = [h for h in (rung_hit(L, cL0, R, cR0, r) for r in rungs) if h]
+            Rr = R[::-1]
+            hr = [h for h in (rung_hit(L, cL0, Rr, cum(Rr), r) for r in rungs) if h]
+            def mono(h):
+                h = sorted(h)
+                return sum(1 for i in range(1, len(h)) if h[i][1] > h[i - 1][1])
+            if len(rungs) >= 2 and (len(hs) >= 2 or len(hr) >= 2) and mono(hs) != mono(hr):
+                if mono(hr) > mono(hs):
+                    R = Rr
+            elif pair_cost(L, Rr) < pair_cost(L, R):
+                R = Rr
     closedL = math.dist(L[0], L[-1]) < 1e-3
     closedR = math.dist(R[0], R[-1]) < 1e-3
     cL, cR = cum(L), cum(R)
     hits = []
     for r in rungs:
-        a, b = hit_arc(L, cL, r), hit_arc(R, cR, r)
-        if a is not None and b is not None:
-            hits.append((a, b))
+        h = rung_hit(L, cL, R, cR, r)
+        if h:
+            hits.append(h)
     if closedL and closedR:
         # Ringe: Richtung angleichen und an der ersten Querlinie beginnen lassen
         def area(p):
@@ -227,9 +265,9 @@ def satin_pairs(subs, attrs):
             cR = cum(R)
             hits = []
             for r in rungs:
-                a, b = hit_arc(L, cL, r), hit_arc(R, cR, r)
-                if a is not None and b is not None:
-                    hits.append((a, b))
+                h = rung_hit(L, cL, R, cR, r)
+                if h:
+                    hits.append(h)
         if hits:
             a0, b0 = hits[0]
             L, R = rotate_closed(L, a0), rotate_closed(R, b0)
@@ -240,9 +278,9 @@ def satin_pairs(subs, attrs):
         cL, cR = cum(L), cum(R)
         hits = []
         for r in rungs:
-            a, b = hit_arc(L, cL, r), hit_arc(R, cR, r)
-            if a is not None and b is not None:
-                hits.append((a, b))
+            h = rung_hit(L, cL, R, cR, r)
+            if h:
+                hits.append(h)
     lL, lR = cL[-1], cR[-1]
     if lL < 1e-3 or lR < 1e-3:
         return None
