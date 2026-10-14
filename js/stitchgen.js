@@ -5,10 +5,11 @@
 
   const DEFAULTS = {
     run: { len: 2.5, style: 'single', closed: false },
-    satin: { spacing: 0.4, pull: 0.15, underlay: 'center', split: 7, width: 3, shortSt: true },
+    satin: { spacing: 0.4, pull: 0.15, underlay: 'center', split: 7, width: 3, shortSt: true, puff: false },
     fill: {
       fillType: 'tatami', spacing: 0.4, len: 3.5, angle: 45, pull: 0.2,
       underlay: 'edge+tatami', border: 'none', borderWidth: 2, borderLen: 2.5, split: 7,
+      pattern: 'diamond', waveAmp: 1.5, waveLen: 12, gradEnd: 2, crossSize: 2.5, crossDouble: false,
     },
   };
 
@@ -158,7 +159,7 @@
     }
     if (obj.type === 'colC' || obj.type === '_border') {
       if (pts.length < 2) return null;
-      const closed = obj.type === '_border';
+      const closed = obj.type === '_border' || !!obj.params.closed;
       let c = G.buildPath(pts, closed).pts;
       if (closed) c = c.concat([c[0]]);
       c = G.resample(c, 0.25, 180);
@@ -231,18 +232,33 @@
       }
       return onA ? { x: c.a.x - ux * pc, y: c.a.y - uy * pc } : { x: c.b.x + ux * pc, y: c.b.y + uy * pc };
     });
+    // 3D-Puff: Enden mehrfach dicht überstechen, damit der Schaum sauber abgeschnitten wird
+    const cap = (c, inward) => {
+      for (let k = 0; k < 4; k++) {
+        const n = { x: c.a.x + inward.x * k * 0.2, y: c.a.y + inward.y * k * 0.2 }, m = { x: c.b.x + inward.x * k * 0.2, y: c.b.y + inward.y * k * 0.2 };
+        push(out, n);
+        push(out, m);
+      }
+    };
+    const dirOf = (c0, c1) => { const mx = (c1.a.x + c1.b.x - c0.a.x - c0.b.x) / 2, my = (c1.a.y + c1.b.y - c0.a.y - c0.b.y) / 2, L = Math.hypot(mx, my) || 1; return { x: mx / L, y: my / L }; };
+    const closedCol = segs.length === 1 && G.dist(segs[0].L[0], segs[0].L[segs[0].L.length - 1]) < 0.05;
+    const puff = p.puff && !closedCol && cr.length > 4;
+    if (puff) cap(cr[0], dirOf(cr[0], cr[2]));
     push(out, pens[0]);
     for (let k = 1; k < pens.length; k++) splitStitch(out, pens[k - 1], pens[k], p.split, k);
+    if (puff) cap(cr[cr.length - 1], dirOf(cr[cr.length - 1], cr[cr.length - 3]));
     return out;
   }
 
   /* ---------- Flächenfüllung (Tatami / Satin mit festem Winkel) ---------- */
-  function scanBlocks(rings, spacing) {
+  function scanBlocks(rings, spacing, gradEnd) {
     const all = rings.flat();
     const bb = G.bbox(all);
     const rows = [];
     let r = 0;
-    for (let y = bb.y0 + spacing / 2; y < bb.y1; y += spacing, r++) {
+    // Verlauf: Reihenabstand wächst von "spacing" bis "gradEnd" (dicht → offen)
+    const stepAt = (y) => (gradEnd ? spacing + (gradEnd - spacing) * Math.max(0, Math.min(1, (y - bb.y0) / (bb.y1 - bb.y0 || 1))) : spacing);
+    for (let y = bb.y0 + spacing / 2; y < bb.y1; y += stepAt(y), r++) {
       const xs = [];
       for (const ring of rings) {
         for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -281,9 +297,19 @@
     return blocks;
   }
 
+  // Versatz der Einstiche je Reihe (Anteil der Stichlänge) – erzeugt das sichtbare Muster der Fläche
+  function patternOffset(pat, r) {
+    r = ((r % 1e6) + 1e6) % 1e6;
+    if (pat === 'diamond') { const N = 6, m = r % (2 * N); return Math.abs(m - N) / N; }
+    if (pat === 'diagonal') return (r % 8) / 8;
+    if (pat === 'brick') return (Math.floor(r / 3) % 2) * 0.5;
+    if (pat === 'wave') return 0.5 + 0.45 * Math.sin((2 * Math.PI * r) / 16);
+    return [0, 0.5, 0.25, 0.75][r % 4];
+  }
+
   // Erzeugt Stiche für eine Füllung im gedrehten Koordinatensystem (Zeilen horizontal)
   function fillRotated(rings, o, startPt) {
-    const blocks = scanBlocks(rings, o.spacing);
+    const blocks = scanBlocks(rings, o.spacing, o.gradEnd);
     const out = [];
     let cur = startPt;
     const remaining = blocks.filter((b) => b.rows.length);
@@ -292,7 +318,7 @@
     const covered = (pt) => done.some((b) => {
       const r0 = b.rows[0], r1 = b.rows[b.rows.length - 1];
       if (pt.y < Math.min(r0.y, r1.y) - o.spacing || pt.y > Math.max(r0.y, r1.y) + o.spacing) return false;
-      return b.rows.some((s) => Math.abs(s.y - pt.y) <= o.spacing * 0.75 && pt.x > s.x0 + 0.3 && pt.x < s.x1 - 0.3);
+      return b.rows.some((s) => Math.abs(s.y - pt.y) <= (o.gradEnd || o.spacing) * 0.75 && pt.x > s.x0 + 0.3 && pt.x < s.x1 - 0.3);
     });
     const crossesDone = (a, b) => {
       const L = G.dist(a, b), n = Math.floor(L / 0.8);
@@ -343,7 +369,7 @@
           // Reihenwechsel: bei flachem Rand liegen die Reihenenden weit auseinander -> in kurzen Stichen verbinden
           if (k > 0 && cur && G.dist(cur, a) > Math.max(o.len, 3)) travel(cur, a);
           push(out, a);
-          const L = o.len, offs = [0, 0.5, 0.25, 0.75][((s.r % 4) + 4) % 4] * L;
+          const L = o.len, offs = patternOffset(o.pattern, s.r) * L;
           const minEnd = L * 0.3;
           const xs = [];
           const g0 = Math.ceil((x0 + minEnd - offs) / L);
@@ -375,10 +401,17 @@
     const out = [];
     const ul = p.underlay || 'none';
     let start = obj._entry || null;
-    const addRot = (a, opts) => {
-      const rr = rings.map((r) => r.map((q) => G.rot(q, -a)));
-      const sp = start ? G.rot(start, -a) : null;
+    const addRot = (a, opts, warp) => {
+      let rr = rings.map((r) => r.map((q) => G.rot(q, -a)));
+      let sp = start ? G.rot(start, -a) : null;
+      // Wellenfüllung: Reihen folgen einer Sinuswelle (Fläche wird dafür verzerrt und danach zurückgebogen)
+      const wy = warp ? (x) => warp.amp * Math.sin((2 * Math.PI * x) / warp.len) : null;
+      if (wy) {
+        rr = rr.map((r) => G.resample(r.concat([r[0]]), 0.5, 20).slice(0, -1).map((q) => ({ x: q.x, y: q.y - wy(q.x) })));
+        if (sp) sp = { x: sp.x, y: sp.y - wy(sp.x) };
+      }
       const res = fillRotated(rr, opts, sp);
+      if (wy) res.out.forEach((q) => { q.y += wy(q.x); });
       res.out.forEach((q) => push(out, G.rot(q, a), q.j));
       if (out.length) start = out[out.length - 1];
     };
@@ -399,8 +432,25 @@
       start = out[out.length - 1];
     }
     if (ul.includes('tatami')) addRot(ang + Math.PI / 2, { spacing: 2.2, len: 3.5, pull: 0, inset: 0.45 });
-    const satinFill = p.fillType === 'satin';
-    addRot(ang, { spacing: satinFill ? p.spacing / 2 : p.spacing, len: p.len, pull: p.pull, satin: satinFill, split: p.split });
+    const ft = p.fillType || 'tatami';
+    const satinFill = ft === 'satin';
+    if (HW.fills && (ft === 'contour' || ft === 'spiral' || ft === 'cross')) {
+      const res = HW.fills[ft](rings, p, start);
+      res.forEach((q, i) => push(out, q, i === 0 && out.length && G.dist(out[out.length - 1], q) > 2.5 ? 1 : q.j));
+    } else if (ft === 'knock') {
+      // Knockdown: lockeres Gitter, drückt Flor/Schlaufen flach (zwei Lagen über Kreuz)
+      addRot(ang, { spacing: p.spacing, len: p.len, pull: 0 });
+      addRot(ang + Math.PI / 2, { spacing: p.spacing, len: p.len, pull: 0 });
+    } else {
+      const warp = ft === 'wave' ? { amp: p.waveAmp || 1.5, len: p.waveLen || 12 } : null;
+      addRot(ang, {
+        spacing: satinFill ? p.spacing / 2 : p.spacing,
+        len: warp ? Math.min(p.len, warp.len / 6) : p.len,
+        pull: p.pull, satin: satinFill, split: p.split,
+        pattern: ft === 'pattern' ? p.pattern || 'diamond' : null,
+        gradEnd: ft === 'gradient' ? Math.max(p.spacing, p.gradEnd || 2) : 0,
+      }, warp);
+    }
     if (p.border && p.border !== 'none') {
       const bo = { points: obj.points, params: {} };
       let bs;
@@ -452,5 +502,5 @@
     return crossings(segs, (p.spacing || 0.4) / 2);
   }
 
-  HW.stitch = { DEFAULTS, generate, railsFor, fillRings, satinCrossings };
+  HW.stitch = { DEFAULTS, generate, railsFor, fillRings, satinCrossings, patternOffset };
 })(typeof window !== 'undefined' ? window : globalThis);

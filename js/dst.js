@@ -47,10 +47,10 @@
       for (let i = 0; i < pts.length; i++) {
         const p = pts[i];
         const first = i === 0;
-        if (first && curColor !== null && obj.color !== curColor) {
+        if (first && curColor !== null && (obj.color !== curColor || obj.stopBefore)) {
           tieOff(obj.id);
           out.push({ x: cur.x, y: cur.y, cmd: 'trim', obj: obj.id });
-          out.push({ x: cur.x, y: cur.y, cmd: 'color', color: obj.color, obj: obj.id });
+          out.push({ x: cur.x, y: cur.y, cmd: 'color', color: obj.color, obj: obj.id, stop: obj.color === curColor ? obj.stopBefore : undefined });
           needTie = true;
         } else if (cur && (first || p.j)) {
           const d = G.dist(cur, p);

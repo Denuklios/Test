@@ -146,6 +146,30 @@ Das Programm empfiehlt außerdem:
 *Details & Tipps…* zeigt alle Werte und Hinweise. Die Empfehlung steht auch auf dem gedruckten Arbeitsblatt.
 Die Werte sind bewährte Richtwerte. Ein Probestick auf dem Originalstoff ersetzen sie nicht.
 
+### Füllarten
+Unter *Eigenschaften → Füllart*: **Tatami**, **Satin** (fester Winkel), **Kontur** (Reihen parallel zum Rand),
+**Spirale** (Ringe gehen fließend ineinander über), **Welle** (Wellenhöhe/-länge einstellbar), **Muster** (Rauten, Diagonal,
+Ziegel, Wellen – über den Versatz der Einstiche), **Verlauf** (Reihenabstand wird von dicht nach offen größer),
+**Kreuzstich** (Kästchengröße, einfach/doppelt) und **Knockdown** (lockeres Gitter).
+
+### Applikation
+Form auswählen → *Bearbeiten → Applikation aus Form…*. Es entstehen: Platzierungslinie → **Stopp** (Stoff auflegen) →
+Heftstich (Zickzack, Doppel-Lauf oder E-Stich) → **Stopp** (Stoff abschneiden) → Abdeckung (Satin oder E-Stich).
+Ein Stopp ist in der DST ein Farbwechsel auf dieselbe Nadel; das Arbeitsblatt zeigt, was beim Stopp zu tun ist.
+Jedes Objekt kann unter *Eigenschaften* „Maschine stoppt davor“ bekommen.
+
+### 3D-Puff
+Bei Satin „3D-Puff (Schaum)“ anhaken: Dichte 0,25 mm, keine Unterlage, kein Split, Enden werden mehrfach überstochen
+(damit der Schaum sauber abreißt) und davor stoppt die Maschine zum Auflegen des Schaums.
+
+### Knockdown-Stich
+Für Frottee, Fleece, Strick, Piqué (Knopf erscheint im Stoff-Feld oder *Bearbeiten → Knockdown-Stich…*): ein lockeres
+Gitter in Stofffarbe unter dem ganzen Motiv (mit Rand) drückt den Flor flach.
+
+### Kappen-Modus
+*Bearbeiten → Für Kappe sortieren*: Objekte von der Mitte nach außen und von unten nach oben, Säulen/Linien werden
+nach oben gedreht, Kappenrahmen und Stoff „Kappe“ werden gewählt. Farbreihenfolge kann erhalten bleiben.
+
 ### Echte Garnfarben (Farbkarten)
 14 Farbkarten mit Nummern: Madeira Polyneon / Rayon / Burmilana, Isacord, Gunold, Robison-Anton (Poly/Rayon),
 Sulky (Rayon/Poly), Mettler Poly Sheen, Marathon, Brother, Coats Alcazar, Gütermann Creativ Dekor.

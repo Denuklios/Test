@@ -76,7 +76,9 @@
 
   function objName(o) {
     if (o.type === 'run') return o.params.style === 'triple' ? 'Dreifachstich' : o.params.style === 'bean' ? 'Bohnenstich' : 'Laufstich';
-    if (o.type === 'fill') return o.params.fillType === 'satin' ? 'Satin-Fläche' : 'Tatami-Fläche';
+    if (o.applPart) return { place: 'Applikation: Platzierung', tack: 'Applikation: Heften', cover: 'Applikation: Abdeckung' }[o.applPart];
+    if (o.type === 'fill') return ({ satin: 'Satin-Fläche', contour: 'Kontur-Fläche', spiral: 'Spiral-Fläche', wave: 'Wellen-Fläche', pattern: 'Muster-Fläche', gradient: 'Verlaufs-Fläche', cross: 'Kreuzstich', knock: 'Knockdown' })[o.params.fillType] || 'Tatami-Fläche';
+    if (o.params && o.params.puff) return (TYPE_NAMES[o.type] || o.type) + ' (3D-Puff)';
     return TYPE_NAMES[o.type] || o.type;
   }
 
@@ -511,8 +513,10 @@
     const el = $('#fabricInfo');
     el.innerHTML = `<div class="fabrec"><b>Vlies:</b> ${r.vlies}<br><b>Topper:</b> ${r.topper}<br><b>Nadel:</b> ${r.needle} · <b>max.</b> ${r.spm} Stiche/min</div>` +
       (r.warn.length ? `<div class="fabwarn">⚠ ${r.warn.join('<br>⚠ ')}</div>` : '') +
-      '<div class="row"><button id="fabDetails">Details &amp; Tipps…</button></div>';
+      '<div class="row"><button id="fabDetails">Details &amp; Tipps…</button>' +
+      (['frottee', 'sweat', 'strick', 'polo'].includes(st.material) && !st.objects.some((o) => o.knockdown) && st.objects.length ? '<button id="fabKnock" title="Flor/Schlaufen flachdrücken, damit feine Details nicht versinken">+ Knockdown-Stich</button>' : '') + '</div>';
     $('#fabDetails').onclick = () => fabricDialog();
+    if ($('#fabKnock')) $('#fabKnock').onclick = () => knockdownDialog();
   }
 
   function fabricDialog() {
@@ -598,9 +602,16 @@
       ['underlay', 'Unterlage', 'select', [['none', 'keine'], ['center', 'Mittellauf'], ['edge', 'Kantenlauf'], ['zigzag', 'Zickzack'], ['edge+zigzag', 'Kante + Zickzack'], ['center+zigzag', 'Mitte + Zickzack']]],
       ['split', 'Auto-Split ab (mm, 0=aus)', 'num', 0, 12, 0.5],
       ['shortSt', 'Kurzstiche in Bögen', 'bool'],
+      ['puff', '3D-Puff (Schaum)', 'bool'],
     ],
     fill: [
-      ['fillType', 'Füllart', 'select', [['tatami', 'Tatami'], ['satin', 'Satin (fester Winkel)']]],
+      ['fillType', 'Füllart', 'select', [['tatami', 'Tatami'], ['satin', 'Satin (fester Winkel)'], ['contour', 'Kontur (parallel zum Rand)'], ['spiral', 'Spirale'], ['wave', 'Welle'], ['pattern', 'Muster (Tatami)'], ['gradient', 'Verlauf (dicht → offen)'], ['cross', 'Kreuzstich'], ['knock', 'Knockdown (Gitter)']]],
+      ['pattern', 'Muster', 'select', [['diamond', 'Rauten'], ['diagonal', 'Diagonal'], ['brick', 'Ziegel'], ['wave', 'Wellen']]],
+      ['waveAmp', 'Wellenhöhe (mm)', 'num', 0.3, 10, 0.1],
+      ['waveLen', 'Wellenlänge (mm)', 'num', 3, 60, 0.5],
+      ['gradEnd', 'Verlauf bis Abstand (mm)', 'num', 0.4, 6, 0.1],
+      ['crossSize', 'Kreuzgröße (mm)', 'num', 1.5, 8, 0.1],
+      ['crossDouble', 'Kreuze doppelt', 'bool'],
       ['spacing', 'Dichte / Abstand (mm)', 'num', 0.2, 3, 0.02],
       ['len', 'Stichlänge (mm)', 'num', 1, 7, 0.1],
       ['angle', 'Stichwinkel (°)', 'num', -360, 360, 1],
@@ -632,6 +643,14 @@
     sl.onchange = () => { pushUndo(); objs.forEach((o) => { if (sl.value === 'auto') delete o.connect; else o.connect = sl.value; }); changed(); };
     f.append(lb, sl);
     el.appendChild(f);
+    const f2 = document.createElement('div');
+    f2.className = 'field';
+    const l2 = document.createElement('label'); l2.textContent = 'Maschine stoppt davor';
+    l2.title = 'Stopp (z. B. Applikationsstoff oder Puff-Schaum auflegen). In der DST ein Farbwechsel auf dieselbe Nadel.';
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = objs.every((o) => o.stopBefore);
+    cb.onchange = () => { pushUndo(); objs.forEach((o) => { if (cb.checked) o.stopBefore = true; else delete o.stopBefore; }); changed(); };
+    f2.append(l2, cb);
+    el.appendChild(f2);
   }
 
   function renderProps() {
@@ -696,8 +715,16 @@
         r.appendChild(bt); el.appendChild(r);
       }
     }
+    const dflt = S.DEFAULTS[fabKind || (type === 'triple' ? 'run' : type)] || {};
     for (const [key, label, kind, a, b, step] of defs) {
-      if (type === 'fill' && key === 'len' && target.fillType === 'satin') continue;
+      if (target[key] === undefined && dflt[key] !== undefined) target[key] = dflt[key];
+      if (type === 'fill' && key === 'len' && ['satin', 'cross'].includes(target.fillType)) continue;
+      if (type === 'fill' && key === 'pattern' && target.fillType !== 'pattern') continue;
+      if (type === 'fill' && (key === 'waveAmp' || key === 'waveLen') && target.fillType !== 'wave') continue;
+      if (type === 'fill' && key === 'gradEnd' && target.fillType !== 'gradient') continue;
+      if (type === 'fill' && (key === 'crossSize' || key === 'crossDouble') && target.fillType !== 'cross') continue;
+      if (type === 'fill' && (key === 'angle' || key === 'spacing') && target.fillType === 'cross') continue;
+      if (type === 'fill' && key === 'angle' && (target.fillType === 'contour' || target.fillType === 'spiral')) continue;
       if (type === 'fill' && key === 'split' && target.fillType !== 'satin') continue;
       if (type === 'fill' && key === 'borderWidth' && target.border !== 'satin') continue;
       const f = document.createElement('div');
@@ -720,6 +747,9 @@
         if (objs.length) {
           pushUndo();
           objs.forEach((o) => {
+            if (key === 'puff' && v) Object.assign(o.params, { spacing: 0.25, underlay: 'none', shortSt: false, split: 0, pull: 0 }), (o.autoFab = false), (o.stopBefore = true);
+            if (key === 'puff' && !v) { delete o.stopBefore; o.autoFab = true; }
+            if (key === 'fillType' && v === 'knock') Object.assign(o.params, { spacing: 1.6, len: 4, underlay: 'none', border: 'none' });
             o.params[key] = v;
             if (managed.includes(key)) o.manual = { ...(o.manual || {}), [key]: true };
             invalidate(o);
@@ -1297,6 +1327,129 @@
     if (st.threadAuto !== false) { const t = nearestThread(hex, st.threadBrand || brands()[0]); if (t) applyThread(c, t); }
     st.palette.push(c);
     return st.palette.length - 1;
+  }
+
+  /* ---------- Applikation, Knockdown, Kappe ---------- */
+  function appliqueDialog() {
+    const objs = selected().filter((o) => o.type === 'fill' || (o.type === 'run' && o.params.closed));
+    if (!objs.length) return modal('Applikation', '<p>Bitte zuerst eine oder mehrere geschlossene Formen auswählen (Fläche, Rechteck, Ellipse, Text-Buchstaben, geschlossener Laufstich).</p>');
+    modal('Applikation erstellen',
+      '<p>Aus der Form werden drei Schritte: <b>1. Platzierungslinie</b> (zeigt, wo der Stoff hin kommt) → Stopp, Stoff auflegen → <b>2. Heftstich</b> (hält den Stoff) → Stopp, Stoff knapp abschneiden → <b>3. Abdeckung</b> (Satin oder E-Stich über der Schnittkante).</p>' +
+      field('Heftstich', '<select id="apTack"><option value="zigzag">Zickzack (offen)</option><option value="run">Doppel-Laufstich</option><option value="e">E-Stich</option></select>') +
+      field('Abdeckung', '<select id="apCover"><option value="satin">Satin</option><option value="e">E-Stich (Langette)</option></select>') +
+      field('Breite der Abdeckung (mm)', '<input id="apW" type="number" value="3.5" min="1.5" max="8" step="0.1">') +
+      field('Löcher ebenfalls einfassen', '<input type="checkbox" id="apHoles" checked>') +
+      field('Abdeckung in eigener Farbe', '<input type="checkbox" id="apCol">'),
+      [{ label: 'Abbrechen' }, { label: 'Erstellen', primary: true, action: () => {
+        pushUndo();
+        const tackT = val('apTack'), covT = val('apCover'), w = Math.max(1.5, num('apW') || 3.5);
+        const covColor = $('#apCol').checked ? st.curColor : null;
+        const gid = 'ap' + Date.now();
+        const rings = [];
+        objs.forEach((o) => { rings.push(o.points); if ($('#apHoles').checked) (o.holes || []).forEach((h) => rings.push(h)); });
+        const color = objs[0].color;
+        const sat = { ...S.DEFAULTS.satin, ...st.defaults.colC };
+        const parts = [];
+        rings.forEach((r) => parts.push(makeObj('run', { points: r.map((p) => ({ ...p })), color, applPart: 'place', grp: gid, params: { ...S.DEFAULTS.run, closed: true, len: 2.5, style: 'single' } })));
+        rings.forEach((r, i) => parts.push(makeObj(tackT === 'run' ? 'run' : 'colC', {
+          points: r.map((p) => ({ ...p })), color, applPart: 'tack', grp: gid, autoFab: false, stopBefore: i === 0 || undefined,
+          params: tackT === 'run' ? { ...S.DEFAULTS.run, closed: true, len: 2.5, style: 'triple' }
+            : { ...sat, width: tackT === 'e' ? 2 : 1.6, spacing: 2.2, style: tackT === 'e' ? 'e' : 'satin', underlay: 'none', shortSt: false, split: 0, pull: 0, closed: true },
+        })));
+        rings.forEach((r, i) => parts.push(makeObj('colC', {
+          points: r.map((p) => ({ ...p })), color: covColor ?? color, applPart: 'cover', grp: gid, stopBefore: i === 0 || undefined,
+          params: { ...sat, width: w, style: covT === 'e' ? 'e' : 'satin', spacing: covT === 'e' ? 2.5 : sat.spacing, underlay: covT === 'e' ? 'none' : 'center', closed: true },
+        })));
+        const idx = st.objects.indexOf(objs[0]);
+        st.objects = st.objects.filter((o) => !objs.includes(o));
+        st.objects.splice(Math.max(0, Math.min(idx, st.objects.length)), 0, ...parts);
+        sel = new Set(parts.map((o) => o.id));
+        changed();
+      } }]);
+  }
+
+  function knockdownDialog() {
+    const objs = st.objects.filter((o) => !o.hidden && !o.knockdown);
+    if (!objs.length) return;
+    modal('Knockdown-Stich',
+      '<p>Ein lockeres Gitter unter dem ganzen Motiv drückt Flor und Schlaufen (Frottee, Fleece, Strick, Piqué) flach, damit feine Schrift und Details nicht im Stoff versinken. Es wird als Erstes gestickt – am besten in Stofffarbe.</p>' +
+      field('Rand um das Motiv (mm)', '<input id="kdM" type="number" value="1.5" min="0" max="10" step="0.1">') +
+      field('Gitterabstand (mm)', '<input id="kdS" type="number" value="1.6" min="0.8" max="5" step="0.1">') +
+      field('Winkel (°)', '<input id="kdA" type="number" value="45">') +
+      field('Farbe', '<select id="kdC"><option value="fabric">Stofffarbe (neue Farbe)</option><option value="cur">aktuelle Farbe</option></select>'),
+      [{ label: 'Abbrechen' }, { label: 'Erstellen', primary: true, action: () => {
+        const B = HW.boolean;
+        const rl = objs.map((o) => (o.type === 'run' && o.params.closed ? [G.buildPath(o.points, true).pts] : B.ringsOf(o))).filter(Boolean);
+        if (!rl.length) return;
+        const m = Math.max(0, num('kdM') || 0);
+        const bb = G.bbox(rl.flat().flat());
+        const gr = B.grid({ x0: bb.x0 - m - 1, y0: bb.y0 - m - 1, x1: bb.x1 + m + 1, y1: bb.y1 + m + 1 });
+        let mask = new Uint8Array(gr.w * gr.h);
+        rl.forEach((r) => B.paint(gr, r, mask));
+        mask = B.morph(mask, gr.w, gr.h, -Math.round(m * B.RES));
+        const shapes = B.maskToShapes(gr, mask, 2);
+        if (!shapes.length) return;
+        pushUndo();
+        st.objects = st.objects.filter((o) => !o.knockdown);
+        const ci = val('kdC') === 'fabric' ? addPaletteColor(st.fabric || '#ffffff', 'Knockdown') : st.curColor;
+        const ko = shapes.map((sh) => makeObj('fill', {
+          points: sh.outer.map((p) => ({ x: p.x, y: p.y })), holes: sh.holes.map((h) => h.map((p) => ({ x: p.x, y: p.y }))), color: ci, knockdown: true, autoFab: false,
+          params: { ...S.DEFAULTS.fill, fillType: 'knock', spacing: Math.max(0.8, num('kdS') || 1.6), len: 4, angle: num('kdA') || 45, underlay: 'none', border: 'none', pull: 0 },
+        }));
+        st.objects.unshift(...ko);
+        renderPalette(); changed();
+      } }]);
+  }
+
+  // Kappe: von der Mitte nach außen und von unten nach oben sticken (verhindert Verzug und Falten)
+  function capDialog() {
+    modal('Für Kappe sortieren',
+      '<p>Kappen werden <b>von der Mitte nach außen</b> und <b>von unten nach oben</b> gestickt, sonst schiebt sich der Stoff vor der Nadel zusammen. Die Objekte werden entsprechend sortiert, Säulen und Linien von unten nach oben gedreht.</p>' +
+      field('Farbreihenfolge beibehalten', '<input type="checkbox" id="cpCol" checked>') +
+      field('Kappenrahmen und Stoff „Kappe“ wählen', '<input type="checkbox" id="cpHoop" checked>'),
+      [{ label: 'Abbrechen' }, { label: 'Sortieren', primary: true, action: () => { pushUndo(); capSort($('#cpCol').checked); if ($('#cpHoop').checked) { const ch = HW.hoops.all(st.customHoops).find((h) => /kappe|cap/i.test(h.id + h.name)); if (ch) st.hoop = ch.id; st.material = 'kappe'; st.objects.forEach(invalidate); renderHoopSel(); } changed(); } }]);
+  }
+
+  function capSort(keepColors) {
+    const objs = st.objects;
+    objs.forEach(ensure);
+    const all = objs.filter((o) => o._bb);
+    if (!all.length) return;
+    const bb = { x0: Math.min(...all.map((o) => o._bb.x0)), x1: Math.max(...all.map((o) => o._bb.x1)) };
+    const cx = (bb.x0 + bb.x1) / 2, W = bb.x1 - bb.x0 || 1;
+    const key = (o) => {
+      if (!o._bb) return [0, 0];
+      const ox = (o._bb.x0 + o._bb.x1) / 2;
+      // Bänder von der Mitte nach außen (je 1/6 der Breite), im Band von unten nach oben
+      return [Math.floor(Math.abs(ox - cx) / (W / 6)), -o._bb.y1];
+    };
+    const colOrder = [];
+    objs.forEach((o) => { if (!colOrder.includes(o.color)) colOrder.push(o.color); });
+    // Applikationen bleiben zusammen und in ihrer Reihenfolge (Platzierung → Heften → Abdeckung)
+    const grpKey = {}, grpCol = {};
+    objs.forEach((o) => { if (o.applPart && !grpKey[o.grp]) { grpKey[o.grp] = key(o); grpCol[o.grp] = o.color; } });
+    const sorted = objs.map((o, i) => ({ o, i, k: o.applPart ? grpKey[o.grp] : key(o), c: keepColors ? colOrder.indexOf(o.applPart ? grpCol[o.grp] : o.color) : 0 }))
+      .sort((a, b) => (a.o.knockdown ? -1 : 0) - (b.o.knockdown ? -1 : 0) || a.c - b.c || a.k[0] - b.k[0] || a.k[1] - b.k[1] || a.i - b.i)
+      .map((x) => x.o);
+    // Säulen und offene Linien von unten nach oben
+    sorted.forEach((o) => {
+      if (o.applPart || !o.points || o.points.length < 2) return;
+      const n = o.points.length;
+      if (o.type === 'colA' && n >= 4) {
+        const y0 = (o.points[0].y + o.points[1].y) / 2, y1 = (o.points[n - 2].y + o.points[n - 1].y) / 2;
+        if (y0 < y1 - 0.5) { o.points = HW.satinauto.reverseColA(o.points); }
+        o.fixedDir = true;
+      } else if ((o.type === 'run' && !o.params.closed) || (o.type === 'colC' && !o.params.closed)) {
+        if (o.points[0].y < o.points[n - 1].y - 0.5) o.points = o.points.slice().reverse();
+        o.fixedDir = true;
+      } else if (o.type === 'colB' && o.side2) {
+        if (o.points[0].y < o.points[n - 1].y - 0.5) { o.points = o.points.slice().reverse(); o.side2 = o.side2.slice().reverse(); }
+        o.fixedDir = true;
+      }
+      invalidate(o);
+    });
+    st.objects = sorted;
+    st.settings.capMode = true;
   }
 
   function threadBrandDialog() {
@@ -1964,15 +2117,15 @@
     let curCol = colOf(byId(cmds.find((q) => q.obj)?.obj)?.color ?? 0), prev = null;
     const perColor = [];
     let ci = 0, count = 0;
-    const seq = [byId(cmds.find((q) => q.obj)?.obj)?.color ?? 0];
+    const seq = [byId(cmds.find((q) => q.obj)?.obj)?.color ?? 0], stops = [];
     for (const q of cmds) {
       const pt = { x: (q.x - s.x0) * sc + 20, y: (q.y - s.y0) * sc + 20 };
-      if (q.cmd === 'color') { perColor[ci] = count; ci++; count = 0; curCol = colOf(q.color); seq.push(q.color); prev = pt; continue; }
+      if (q.cmd === 'color') { perColor[ci] = count; ci++; count = 0; curCol = colOf(q.color); seq.push(q.color); stops[seq.length - 1] = q.stop ? (byId(q.obj) || {}).applPart || 'stop' : null; prev = pt; continue; }
       if (q.cmd === 'stitch' && prev) { x.strokeStyle = curCol; x.beginPath(); x.moveTo(prev.x, prev.y); x.lineTo(pt.x, pt.y); x.stroke(); count++; }
       if (q.cmd !== 'trim') prev = pt;
     }
     perColor[ci] = count;
-    const rows = seq.map((p, i) => { const c2 = st.palette[p] || {}; return `<tr><td>${i + 1}</td><td><span style="display:inline-block;width:30px;height:16px;background:${c2.hex};border:1px solid #999"></span></td><td>${c2.name || ''}</td><td>Nadel ${c2.needle || ''}</td><td>${(perColor[i] || 0).toLocaleString('de-DE')} Stiche</td></tr>`; }).join('');
+    const rows = seq.map((p, i) => { const c2 = st.palette[p] || {}; return `<tr><td>${i + 1}</td><td><span style="display:inline-block;width:30px;height:16px;background:${c2.hex};border:1px solid #999"></span></td><td>${c2.name || ''}${stops[i] ? `<br><b>STOPP</b> – ${({ tack: 'Applikationsstoff auflegen', cover: 'überstehenden Stoff abschneiden', stop: 'z. B. Puff-Schaum auflegen' })[stops[i]] || 'Stopp'} (gleiche Nadel)` : ''}</td><td>Nadel ${c2.needle || ''}</td><td>${(perColor[i] || 0).toLocaleString('de-DE')} Stiche</td></tr>`; }).join('');
     const w = window.open('', '_blank');
     if (!w) return modal('Arbeitsblatt', '<p>Popup wurde blockiert – bitte Popups erlauben.</p>');
     w.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Arbeitsblatt ${st.name}</title><style>body{font:13px system-ui;margin:20px}td{padding:3px 10px;border-bottom:1px solid #ddd}img{max-width:100%;border:1px solid #ccc}</style></head><body>
@@ -2124,6 +2277,9 @@
     addColor: () => { st.palette.push({ hex: '#888888', name: 'Neue Farbe', needle: Math.min(15, st.palette.length + 1) }); renderPalette(); editColor(st.palette.length - 1); },
     editColor: () => editColor(st.curColor),
     threadBrand: () => threadBrandDialog(),
+    applique: () => appliqueDialog(),
+    knockdown: () => knockdownDialog(),
+    capSort: () => capDialog(),
     delColor: () => {
       if (st.palette.length <= 1) return;
       const i = st.curColor;
@@ -2196,7 +2352,7 @@
   });
 
   window.addEventListener('resize', resize);
-  window.HWApp = { st, commands, changed, setTool, view, get cmds() { return cmds; } };
+  window.HWApp = { st, commands, changed, setTool, view, get cmds() { return cmds; }, select(ids) { sel = new Set(ids); changed(true); } };
 
   // Start
   resize();

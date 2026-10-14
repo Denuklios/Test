@@ -101,10 +101,10 @@
       const sat = eff.fillType === 'satin';
       const sp = sat ? eff.spacing : eff.spacing;
       const ctr = centerOf(o);
-      if (!sat && sp < m.minSpacingFill) add('dicht', 'warnung', `Fläche zu dicht (Abstand ${fmt(sp)} mm)`,
+      if (!sat && !['cross', 'contour', 'spiral'].includes(eff.fillType) && sp < m.minSpacingFill) add('dicht', 'warnung', `Fläche zu dicht (Abstand ${fmt(sp)} mm)`,
         `Unter ${fmt(m.minSpacingFill)} mm Reihenabstand wird die Fläche hart wie ein Brett, Nadel und Faden brechen leichter, der Stoff zieht sich zusammen.`, ctr,
         { label: `Abstand auf ${fmt(m.minSpacingFill + 0.1)} mm setzen`, apply: (ob) => setManual(ob, 'spacing', +(m.minSpacingFill + 0.1).toFixed(2)) });
-      if (!sat && eff.len > m.maxFillLen) add('lang', 'warnung', `Tatami-Stiche ${fmt(eff.len)} mm lang`,
+      if (!sat && eff.fillType !== 'cross' && eff.len > m.maxFillLen) add('lang', 'warnung', `Tatami-Stiche ${fmt(eff.len)} mm lang`,
         `Lange Flächenstiche über ${fmt(m.maxFillLen)} mm liegen lose und bleiben hängen.`, ctr,
         { label: 'Stichlänge 3,5 mm', apply: (ob) => setManual(ob, 'len', 3.5) });
       if (sat) {
@@ -143,10 +143,10 @@
 
   function checkSpacingSatin(o, eff, m, add, cr) {
     const at = cr && cr.length ? G.lerp(cr[Math.floor(cr.length / 2)].a, cr[Math.floor(cr.length / 2)].b, 0.5) : centerOf(o);
-    if (eff.style !== 'e' && eff.spacing < m.minSpacingSatin) add('dicht', 'warnung', `Satin zu dicht (Abstand ${fmt(eff.spacing)} mm)`,
+    if (eff.style !== 'e' && !eff.puff && eff.spacing < m.minSpacingSatin) add('dicht', 'warnung', `Satin zu dicht (Abstand ${fmt(eff.spacing)} mm)`,
       `Unter ${fmt(m.minSpacingSatin)} mm stapeln sich die Fäden: harte Stickerei, Fadenbruch, Nadelbruch, gewellter Stoff.`, at,
       { label: 'Abstand 0,4 mm', apply: (ob) => setManual(ob, 'spacing', 0.4) });
-    if (eff.style !== 'e' && eff.spacing > m.maxSpacingSatin) add('offen', 'warnung', `Satin sehr offen (Abstand ${fmt(eff.spacing)} mm)`,
+    if (eff.style !== 'e' && o.applPart !== 'tack' && eff.spacing > m.maxSpacingSatin) add('offen', 'warnung', `Satin sehr offen (Abstand ${fmt(eff.spacing)} mm)`,
       'Der Stoff scheint durch, Satin deckt nicht.', at, { label: 'Abstand 0,4 mm', apply: (ob) => setManual(ob, 'spacing', 0.4) });
   }
 
