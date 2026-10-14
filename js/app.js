@@ -99,9 +99,25 @@
   }
 
   function changed(keepPlay) {
+    cmds = computeCmds(st.objects);
+    const n = cmds.length;
+    const sl = $('#playSlider');
+    sl.max = n;
+    if (!keepPlay) { playN = Infinity; sl.value = n; }
+    renderList();
+    renderProps();
+    renderStats();
+    renderFabric();
+    if (!drag) runChecks();
+    draw();
+  }
+
+  // Maschinenbefehle für eine Objektliste (Ein-/Ausstiege planen, Stiche berechnen, zusammensetzen)
+  function computeCmds(objects, quiet) {
+    const keep = quiet ? new Set(pendingCheck) : null;
     // Ein-/Ausstiege der Reihe nach wählen (kürzeste Verbindung); das Ende des vorigen Objekts bestimmt den Einstieg des nächsten
     let prevExit = null;
-    const vis = st.objects.filter((o) => !o.hidden && (o.type === 'manual' ? o.stitches.length : o.points.length));
+    const vis = objects.filter((o) => !o.hidden && (o.type === 'manual' ? o.stitches.length : o.points.length));
     const planned = st.settings.autoRoute ? HW.route.plan(vis) : [];
     vis.forEach((o, i) => {
       let routeOnly = false;
@@ -120,18 +136,10 @@
       const s = o._st;
       if (s && s.length) prevExit = s[s.length - 1];
     });
-    for (const o of st.objects) ensure(o);
-    cmds = D.assemble(st.objects, st.palette, { ...st.settings, connect: st.settings.hideTravel ? HW.route.connect : null });
-    const n = cmds.length;
-    const sl = $('#playSlider');
-    sl.max = n;
-    if (!keepPlay) { playN = Infinity; sl.value = n; }
-    renderList();
-    renderProps();
-    renderStats();
-    renderFabric();
-    if (!drag) runChecks();
-    draw();
+    for (const o of objects) ensure(o);
+    const res = D.assemble(objects, st.palette, { ...st.settings, connect: st.settings.hideTravel ? HW.route.connect : null });
+    if (keep) { pendingCheck.clear(); keep.forEach((id) => pendingCheck.add(id)); }
+    return res;
   }
 
   /* ---------- Stickprüfung ---------- */
@@ -1329,6 +1337,188 @@
     return st.palette.length - 1;
   }
 
+  /* ---------- Export in mehreren Formaten, Teamnamen, Mehrfach-Einspannung ---------- */
+  const EXPORT_FMTS = () => [['dst', 'DST – Tajima / Texi'], ...(HW.formats ? [['pes', 'PES – Brother'], ['jef', 'JEF – Janome'], ['exp', 'EXP – Melco / Bernina']] : [])];
+  const safeName = (n) => String(n).replace(/[^\w\-äöüÄÖÜß ]/g, '_').trim() || 'design';
+  function exportBytes(c, name, fmt) {
+    if (fmt === 'dst' || !HW.formats) return D.writeDST(c, name, st.settings);
+    const fo = c.find((q) => q.obj);
+    return HW.formats.write(fmt, c, st.palette, { name, firstColor: fo ? (byId(fo.obj) || {}).color || 0 : 0 });
+  }
+  const fmtSelect = (id, v = 'dst') => `<select id="${id}">${EXPORT_FMTS().map(([k, t]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
+  const cloneObjs = (objs) => objs.map((o) => ({ ...clone(o), _ack: o._ack }));
+
+  // Teamnamen / Seriennamen: ein Textobjekt wird gegen jeden Namen der Liste getauscht, je Name eine Datei
+  function teamDialog() {
+    const groups = [...new Set(st.objects.filter((o) => o.textSpec).map((o) => o.grp))];
+    if (!groups.length) return modal('Teamnamen', '<p>Das Design braucht ein Textobjekt als Platzhalter (z. B. „NAME“). Text einfügen, platzieren, dann hier die Namensliste eingeben.</p>');
+    const selGrp = (selected()[0] || {}).grp;
+    const opts = groups.map((g) => { const o = st.objects.find((x) => x.grp === g); return `<option value="${g}" ${g === selGrp ? 'selected' : ''}>„${String(o.textSpec.text).replace(/</g, '&lt;')}“</option>`; }).join('');
+    modal('Teamnamen / Seriennamen',
+      field('Platzhalter-Text', `<select id="tmGrp">${opts}</select>`) +
+      '<label>Namen (einer pro Zeile)</label><textarea id="tmList" rows="8" style="width:100%" placeholder="MÜLLER 10\nSCHMIDT 7\nWEBER 23"></textarea>' +
+      field('Höchstbreite (mm, 0 = frei)', '<input id="tmMax" type="number" value="0" min="0">') +
+      field('Format', fmtSelect('tmFmt')) +
+      field('Dateiname: Design + Name', `<input id="tmBase" value="${String(st.name).replace(/"/g, '&quot;')}">`) +
+      '<p style="color:#6a7480">Lange Namen werden auf die Höchstbreite verkleinert. Alle Dateien kommen in eine ZIP-Datei (mit Liste).</p><div id="tmInfo"></div>',
+      [{ label: 'Abbrechen' }, { label: 'Dateien erzeugen', primary: true, action: () => {
+        const names = val('tmList').split('\n').map((x) => x.trim()).filter(Boolean);
+        if (!names.length) return false;
+        const grp = +val('tmGrp') || val('tmGrp');
+        const fmt = val('tmFmt'), maxW = Math.max(0, num('tmMax') || 0), base = safeName(val('tmBase'));
+        const old = st.objects.filter((o) => String(o.grp) === String(grp));
+        const spec0 = old[0].textSpec;
+        $('#tmInfo').textContent = 'Berechne …';
+        fontReady(spec0).then(() => {
+          const bb = G.bbox(old.flatMap((o) => { ensure(o); return o._bb ? [{ x: o._bb.x0, y: o._bb.y0 }, { x: o._bb.x1, y: o._bb.y1 }] : []; }));
+          const center = { x: (bb.x0 + bb.x1) / 2, y: (bb.y0 + bb.y1) / 2 };
+          const at = st.objects.indexOf(old[0]);
+          const files = [], rows = [];
+          names.forEach((nm, i) => {
+            let spec = { ...spec0, text: nm };
+            let made = buildText(spec, center, old[0].color, grp);
+            const w = () => { const b = G.bbox(made.flatMap((o) => o.points)); return b.x1 - b.x0; };
+            if (maxW && made.length && w() > maxW) { spec = { ...spec, height: +(spec.height * maxW / w() * 0.98).toFixed(1) }; made = buildText(spec, center, old[0].color, grp); }
+            const objs = cloneObjs(st.objects.filter((o) => String(o.grp) !== String(grp)));
+            objs.splice(Math.min(at, objs.length), 0, ...made);
+            const c = computeCmds(objs, true);
+            const s2 = D.stats(c);
+            const fn = `${String(i + 1).padStart(2, '0')}_${base}_${safeName(nm)}.${fmt}`;
+            files.push({ name: fn, data: exportBytes(c, nm, fmt) });
+            rows.push(`${fn}\t${nm}\t${s2.stitches} Stiche\t${fmt2(s2.w)} x ${fmt2(s2.h)} mm\tSchrifthöhe ${spec.height} mm`);
+          });
+          files.push({ name: 'Namensliste.txt', data: 'Datei\tName\tStiche\tGröße\tHinweis\r\n' + rows.join('\r\n') });
+          download(HW.zip.zip(files), base + '_Namen.zip', 'application/zip');
+          closeModal();
+          const small = rows.filter((r) => +r.split('Schrifthöhe ')[1].split(' ')[0] < 5);
+          modal('Teamnamen', `<p>✓ ${names.length} Dateien erzeugt (ZIP).</p>` + (small.length ? `<p style="color:#c62828">⚠ Diese Namen mussten so stark verkleinert werden, dass die Schrift unter 5 mm hoch ist – das stickt nicht mehr sauber. Höchstbreite erhöhen oder kürzere Schreibweise wählen:<br>${small.map((r) => r.split('\t')[1]).join('<br>')}</p>` : ''), [{ label: 'OK', primary: true }]);
+        });
+        return false;
+      } }]);
+  }
+  const fmt2 = (v) => (Math.round(v * 10) / 10).toString().replace('.', ',');
+
+  // Großes Design auf mehrere Einspannungen verteilen, mit Passmarken zum Ausrichten
+  // beide Lagen des Rahmens probieren (hoch/quer) – weniger Einspannungen gewinnt
+  function splitPlan(objs, h, ov) {
+    const a = splitPlan1(objs, h, ov);
+    if (!a || h.w === h.h) return a;
+    const b = splitPlan1(objs, { ...h, w: h.h, h: h.w }, ov);
+    if (b && (b.bad.length < a.bad.length || (b.bad.length === a.bad.length && b.cells.length < a.cells.length))) { b.rotated = true; return b; }
+    return a;
+  }
+  function splitPlan1(objs, h, ov) {
+    objs.forEach(ensure);
+    const list = objs.filter((o) => o._bb && !o.hidden);
+    if (!list.length) return null;
+    const bb = { x0: Math.min(...list.map((o) => o._bb.x0)), y0: Math.min(...list.map((o) => o._bb.y0)), x1: Math.max(...list.map((o) => o._bb.x1)), y1: Math.max(...list.map((o) => o._bb.y1)) };
+    const fw = h.w - 2 * (h.margin || 0), fh = h.h - 2 * (h.margin || 0);
+    const W = bb.x1 - bb.x0, H = bb.y1 - bb.y0;
+    const nx = Math.max(1, Math.ceil((W - ov) / (fw - ov))), ny = Math.max(1, Math.ceil((H - ov) / (fh - ov)));
+    // Felder gleichmäßig über das Design verteilen
+    const sx = nx > 1 ? (W - fw) / (nx - 1) : 0, sy = ny > 1 ? (H - fh) / (ny - 1) : 0;
+    const cells = [];
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      const x0 = nx > 1 ? bb.x0 + i * sx : (bb.x0 + bb.x1) / 2 - fw / 2, y0 = ny > 1 ? bb.y0 + j * sy : (bb.y0 + bb.y1) / 2 - fh / 2;
+      cells.push({ i, j, x0, y0, x1: x0 + fw, y1: y0 + fh, objs: [] });
+    }
+    const bad = [];
+    for (const o of list) {
+      const b = o._bb;
+      const c = cells.find((c) => b.x0 >= c.x0 - 0.01 && b.x1 <= c.x1 + 0.01 && b.y0 >= c.y0 - 0.01 && b.y1 <= c.y1 + 0.01);
+      if (c) c.objs.push(o);
+      else {
+        // passt in kein Feld: dem Feld mit der Objektmitte zuordnen und melden
+        const mx = (b.x0 + b.x1) / 2, my = (b.y0 + b.y1) / 2;
+        const c2 = cells.reduce((a, c) => (Math.hypot((c.x0 + c.x1) / 2 - mx, (c.y0 + c.y1) / 2 - my) < Math.hypot((a.x0 + a.x1) / 2 - mx, (a.y0 + a.y1) / 2 - my) ? c : a));
+        c2.objs.push(o); bad.push(o);
+      }
+    }
+    return { cells: cells.filter((c) => c.objs.length), bb, nx, ny, bad };
+  }
+
+  // Passmarken (Kreuze) im Überlappungsbereich zweier Felder
+  function regMarks(a, b) {
+    const x0 = Math.max(a.x0, b.x0), x1 = Math.min(a.x1, b.x1), y0 = Math.max(a.y0, b.y0), y1 = Math.min(a.y1, b.y1);
+    if (x1 - x0 < 4 || y1 - y0 < 4) return [];
+    const cx = (x0 + x1) / 2, cy = (y0 + y1) / 2, horiz = x1 - x0 < y1 - y0; // Überlappung als senkrechter Streifen?
+    const L = horiz ? y1 - y0 : x1 - x0;
+    const pts = [0.2, 0.8].map((t) => (horiz ? { x: cx, y: y0 + L * t } : { x: x0 + L * t, y: cy }));
+    return pts.map((p) => ({ x: p.x, y: p.y }));
+  }
+  const crossObj = (p, color) => {
+    const r = 4, st2 = [];
+    const line = (a, b) => { const n = Math.ceil(G.dist(a, b) / 2); for (let k = 0; k <= n; k++) st2.push({ ...G.lerp(a, b, k / n), j: 0 }); };
+    line({ x: p.x - r, y: p.y }, { x: p.x + r, y: p.y });
+    line({ x: p.x + r, y: p.y }, { x: p.x, y: p.y });
+    line({ x: p.x, y: p.y }, { x: p.x, y: p.y - r });
+    line({ x: p.x, y: p.y - r }, { x: p.x, y: p.y + r });
+    return makeObj('manual', { stitches: st2, color, regMark: true, connect: 'trim' });
+  };
+
+  function multiHoopDialog() {
+    const hs = HW.hoops.all(st.customHoops).filter((h) => h.shape === 'rect' && h.w > 0);
+    const cur = hoop();
+    modal('Auf mehrere Einspannungen verteilen',
+      '<p>Für Motive, die größer sind als der Rahmen: das Design wird auf mehrere Einspannungen aufgeteilt. Jede Einspannung bekommt eine eigene Datei. <b>Passmarken</b> (Kreuze) im Überlappungsbereich werden am Ende einer Einspannung und am Anfang der nächsten gestickt – so lässt sich der Stoff exakt ausrichten.</p>' +
+      field('Rahmen je Einspannung', `<select id="mhHoop">${hs.map((h) => `<option value="${h.id}" ${h.id === cur.id ? 'selected' : ''}>${h.name}</option>`).join('')}</select>`) +
+      field('Überlappung (mm)', '<input id="mhOv" type="number" value="20" min="8" max="80">') +
+      field('Passmarken', '<input type="checkbox" id="mhReg" checked>') +
+      field('Format', fmtSelect('mhFmt')) +
+      '<canvas id="mhPrev" width="520" height="300" style="width:100%;background:#fff"></canvas><div id="mhInfo"></div>',
+      [{ label: 'Abbrechen' }, { label: 'Dateien erzeugen', primary: true, action: () => {
+        const plan = mk();
+        if (!plan) return false;
+        const fmt = val('mhFmt'), base = safeName(st.name);
+        let ci = -1;
+        if ($('#mhReg').checked) { ci = st.palette.findIndex((c) => c.name === 'Passmarke'); if (ci < 0) { st.palette.push({ hex: '#9e9e9e', name: 'Passmarke', needle: Math.min(15, st.palette.length + 1) }); ci = st.palette.length - 1; renderPalette(); } }
+        const files = [], txt = [];
+        plan.cells.forEach((c, k) => {
+          let objs = cloneObjs(st.objects.filter((o) => c.objs.includes(o)));
+          if (ci >= 0) {
+            const prev = plan.cells[k - 1], next = plan.cells[k + 1];
+            if (prev) objs = [...regMarks(prev, c).map((p) => crossObj(p, ci)), ...objs];
+            if (next) objs = [...objs, ...regMarks(c, next).map((p) => crossObj(p, ci))];
+          }
+          const cm = computeCmds(objs, true);
+          const fn = `${base}_Einspannung_${k + 1}_von_${plan.cells.length}.${fmt}`;
+          files.push({ name: fn, data: exportBytes(cm, base + ' ' + (k + 1), fmt) });
+          const s2 = D.stats(cm);
+          txt.push(`${k + 1}. ${fn}: Feld Spalte ${c.i + 1}, Reihe ${c.j + 1} – Mitte bei x=${fmt2((c.x0 + c.x1) / 2 - plan.bb.x0)} mm, y=${fmt2((c.y0 + c.y1) / 2 - plan.bb.y0)} mm vom linken oberen Motivrand; ${s2.stitches} Stiche`);
+        });
+        files.push({ name: 'Anleitung.txt', data: ['Mehrfach-Einspannung ' + st.name, plan.rotated ? 'Rahmen quer (um 90° gedreht) verwenden.' : '', ...txt, '', 'Ablauf: Einspannung 1 sticken (am Ende werden die Passmarken gestickt). Stoff neu einspannen, Rahmen so verschieben, dass die Nadel genau über dem Mittelpunkt des ersten Passkreuzes steht (Kreuze der neuen Datei werden zuerst gestickt – vorher mit der Positions-/Trace-Funktion prüfen). Passmarken nach dem Sticken entfernen.'].join('\r\n') });
+        download(HW.zip.zip(files), base + '_Einspannungen.zip', 'application/zip');
+      } }]);
+    const mk = () => {
+      const h = HW.hoops.get(val('mhHoop'), st.customHoops);
+      const plan = splitPlan(st.objects, h, Math.max(8, num('mhOv') || 20));
+      const c = $('#mhPrev'), x = c.getContext('2d');
+      x.clearRect(0, 0, c.width, c.height);
+      if (!plan) return null;
+      const B = plan.cells.reduce((a, q) => ({ x0: Math.min(a.x0, q.x0), y0: Math.min(a.y0, q.y0), x1: Math.max(a.x1, q.x1), y1: Math.max(a.y1, q.y1) }), plan.bb);
+      const sc = Math.min((c.width - 20) / (B.x1 - B.x0), (c.height - 20) / (B.y1 - B.y0));
+      const T = (p) => [10 + (p.x - B.x0) * sc, 10 + (p.y - B.y0) * sc];
+      x.lineWidth = 1;
+      let prev = null;
+      for (const q of cmds) {
+        if (q.cmd === 'stitch' && prev) { x.strokeStyle = colOf((byId(q.obj) || {}).color ?? 0); x.beginPath(); x.moveTo(...T(prev)); x.lineTo(...T(q)); x.stroke(); }
+        if (q.cmd !== 'trim' && q.cmd !== 'color') prev = q;
+      }
+      const cols = ['#1f6feb', '#d81b60', '#2e7d32', '#ef6c00', '#6a1b9a', '#00838f'];
+      plan.cells.forEach((q, k) => {
+        x.strokeStyle = cols[k % cols.length]; x.setLineDash([6, 4]); x.lineWidth = 2;
+        const [a, b] = T({ x: q.x0, y: q.y0 }), [e, f] = T({ x: q.x1, y: q.y1 });
+        x.strokeRect(a, b, e - a, f - b);
+        x.setLineDash([]); x.fillStyle = cols[k % cols.length]; x.font = 'bold 14px system-ui'; x.fillText(String(k + 1), a + 5, b + 16);
+      });
+      $('#mhInfo').innerHTML = `<p>${plan.cells.length} Einspannung${plan.cells.length === 1 ? '' : 'en'} (${plan.nx} × ${plan.ny}) für ${fmt2(plan.bb.x1 - plan.bb.x0)} × ${fmt2(plan.bb.y1 - plan.bb.y0)} mm.${plan.rotated ? ' <b>Rahmen quer einspannen</b> (90° gedreht).' : ''}` +
+        (plan.bad.length ? ` <span style="color:#c62828">⚠ ${plan.bad.length} Objekt(e) größer als ein Feld – vorher mit dem <b>Messer</b> teilen, sonst ragen sie über den Rahmen.</span>` : '') + '</p>';
+      return plan;
+    };
+    ['mhHoop', 'mhOv'].forEach((id) => ($('#' + id).onchange = mk));
+    mk();
+  }
+
   /* ---------- Applikation, Knockdown, Kappe ---------- */
   function appliqueDialog() {
     const objs = selected().filter((o) => o.type === 'fill' || (o.type === 'run' && o.params.closed));
@@ -1575,6 +1765,29 @@
     return r;
   }
 
+  // digitalisierte Buchstaben → Objekte des Designs
+  function textObjects(objs, spec, color, gid) {
+    return objs.map((o) => {
+      const ob = makeObj(o.type, { points: o.points, holes: o.holes, color });
+      const base = o.type === 'fill' ? st.defaults.fill : o.type === 'run' ? st.defaults.run : st.defaults.colA;
+      ob.params = { ...base, ...o.params };
+      if (o.type === 'fill' && !isInk(spec.font)) ob.params.underlay = o.params.fillType === 'satin' ? 'none' : 'edge';
+      ob.grp = gid; ob.textSpec = spec;
+      if (isInk(spec.font)) ob.fixedDir = true; // fertige Schriften: Stichreihenfolge der Digitalisierer beibehalten
+      return ob;
+    });
+  }
+
+  // Text neu setzen (gleiche Mitte), Schrift muss geladen sein
+  function buildText(spec, center, color, gid) {
+    const objs = isInk(spec.font) ? inkText(spec, center).objects : digitizeText(spec, center);
+    return textObjects(objs, spec, color, gid);
+  }
+  function fontReady(spec) {
+    if (isInk(spec.font)) return HW.INKFONTS[spec.font.slice(4)] ? Promise.resolve() : HW.loadInkFont(spec.font.slice(4));
+    return fontsReady;
+  }
+
   function textDialog(p, editGrp) {
     const old = editGrp ? st.objects.filter((o) => o.grp === editGrp) : [];
     const firstInk = (HW.INKFONT_INDEX || [])[0];
@@ -1624,15 +1837,7 @@
         pushUndo();
         if (editGrp) st.objects = st.objects.filter((o) => o.grp !== editGrp);
         const gid = editGrp || nextGrp++;
-        const made = objs.map((o) => {
-          const ob = makeObj(o.type, { points: o.points, holes: o.holes, color });
-          const base = o.type === 'fill' ? st.defaults.fill : o.type === 'run' ? st.defaults.run : st.defaults.colA;
-          ob.params = { ...base, ...o.params };
-          if (o.type === 'fill' && !isInk(spec.font)) ob.params.underlay = o.params.fillType === 'satin' ? 'none' : 'edge';
-          ob.grp = gid; ob.textSpec = spec;
-          if (isInk(spec.font)) ob.fixedDir = true; // fertige Schriften: Stichreihenfolge der Digitalisierer beibehalten
-          return ob;
-        });
+        const made = textObjects(objs, spec, color, gid);
         st.objects.splice(Math.min(at, st.objects.length), 0, ...made);
         sel = new Set(made.map((o) => o.id));
         setTool('select');
@@ -2197,12 +2402,13 @@
     }),
     exportDst: () => {
       if (!cmds.some((c) => c.cmd === 'stitch')) return modal('DST exportieren', '<p>Das Design enthält noch keine Stiche.</p>');
-      modal('DST exportieren', field('Dateiname', `<input id="eName" value="${st.name}">`) +
-        '<p style="color:#6a7480">Format: Tajima DST (für Texi 1501 und alle Tajima-kompatiblen Maschinen). Ursprung = Designmitte, Schnitt als Sprungfolge, Farbwechsel als Stopp.</p>',
+      modal('Stickdatei exportieren', field('Dateiname', `<input id="eName" value="${st.name}">`) + field('Format', fmtSelect('eFmt', st.settings.exportFmt || 'dst')) +
+        '<p style="color:#6a7480">DST: Tajima-Format für die Texi 1501 und alle Tajima-kompatiblen Maschinen. Ursprung = Designmitte, Schnitt als Sprungfolge, Farbwechsel als Stopp. PES/JEF/EXP für Brother-, Janome- und Melco/Bernina-Maschinen.</p>',
       [{ label: 'Abbrechen' }, { label: 'Speichern', primary: true, action: () => {
         st.name = val('eName').trim() || 'design';
-        const buf = D.writeDST(cmds, st.name, st.settings);
-        download(buf, st.name.replace(/[^\w\-äöüÄÖÜß ]/g, '_') + '.dst', 'application/octet-stream');
+        const fmt = val('eFmt');
+        st.settings.exportFmt = fmt;
+        download(exportBytes(cmds, st.name, fmt), safeName(st.name) + '.' + fmt, 'application/octet-stream');
       } }]);
     },
     worksheet,
@@ -2278,6 +2484,8 @@
     editColor: () => editColor(st.curColor),
     threadBrand: () => threadBrandDialog(),
     applique: () => appliqueDialog(),
+    teamNames: () => teamDialog(),
+    multiHoop: () => multiHoopDialog(),
     knockdown: () => knockdownDialog(),
     capSort: () => capDialog(),
     delColor: () => {

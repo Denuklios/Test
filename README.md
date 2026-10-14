@@ -146,6 +146,17 @@ Das Programm empfiehlt außerdem:
 *Details & Tipps…* zeigt alle Werte und Hinweise. Die Empfehlung steht auch auf dem gedruckten Arbeitsblatt.
 Die Werte sind bewährte Richtwerte. Ein Probestick auf dem Originalstoff ersetzen sie nicht.
 
+### Teamnamen / Seriennamen
+*Datei → Teamnamen…*: ein Textobjekt dient als Platzhalter, die Namensliste (ein Name pro Zeile) erzeugt je Name eine
+Stickdatei – alles in einer ZIP-Datei mit Namensliste. Zu lange Namen werden auf eine Höchstbreite verkleinert; Namen,
+die dadurch unter 5 mm Schrifthöhe fallen, werden gemeldet.
+
+### Mehrfach-Einspannung (große Motive)
+*Datei → Auf mehrere Einspannungen verteilen…*: Rahmen und Überlappung wählen, die Vorschau zeigt die Felder (der Rahmen
+wird bei Bedarf quer gelegt). Jede Einspannung wird eine eigene Datei; Passkreuze im Überlappungsbereich werden am Ende
+einer Einspannung und am Anfang der nächsten gestickt. Objekte, die größer als ein Feld sind, werden gemeldet
+(vorher mit dem Messer teilen). Ergebnis: ZIP mit Dateien und Anleitung.
+
 ### Füllarten
 Unter *Eigenschaften → Füllart*: **Tatami**, **Satin** (fester Winkel), **Kontur** (Reihen parallel zum Rand),
 **Spirale** (Ringe gehen fließend ineinander über), **Welle** (Wellenhöhe/-länge einstellbar), **Muster** (Rauten, Diagonal,
