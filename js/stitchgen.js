@@ -415,7 +415,13 @@
     return (obj.stitches || []).map((s) => ({ x: s.x, y: s.y, j: s.j ? 1 : 0 }));
   }
 
-  function generate(obj) {
+  // fabId: Stoffprofil – passt Dichte, Länge, Zugausgleich, Unterlage automatisch an (siehe fabric.js)
+  function generate(obj, fabId) {
+    if (fabId && HW.fabric && obj.params) {
+      const eff = HW.fabric.effective(obj, fabId);
+      obj._eff = eff;
+      obj = { ...obj, params: eff.params };
+    }
     switch (obj.type) {
       case 'run': return genRun(obj);
       case 'colA': case 'colB': case 'colC': return genSatin(obj);

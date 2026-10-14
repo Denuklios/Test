@@ -29,6 +29,7 @@
     curColor: 0,
     hoop: '290x290',
     fabric: '#f4f1ea',
+    material: 'baumwolle',
     bg: null,
     settings: { trimDist: 2.0, lock: true, trimJumps: 3, spm: 800 },
     defaults: {
@@ -92,7 +93,7 @@
   function invalidate(o) { o._st = null; o._rings = null; o._bb = null; }
   function ensure(o) {
     if (!o._st) {
-      try { o._st = S.generate(o); } catch (e) { console.error(e); o._st = []; }
+      try { o._st = S.generate(o, st.material); } catch (e) { console.error(e); o._st = []; }
       o._bb = o._st.length ? G.bbox(o._st) : null;
     }
     return o._st;
@@ -108,6 +109,7 @@
     renderList();
     renderProps();
     renderStats();
+    renderFabric();
     draw();
   }
 
@@ -370,6 +372,38 @@
   }
 
   /* ======================= UI-Panels ======================= */
+  function renderFabric() {
+    const sel = $('#material');
+    if (!sel.options.length) {
+      HW.fabric.FABRICS.forEach((f) => { const o = document.createElement('option'); o.value = f.id; o.textContent = f.name; sel.appendChild(o); });
+      sel.onchange = () => {
+        st.material = sel.value;
+        st.objects.forEach(invalidate);
+        changed();
+      };
+    }
+    sel.value = st.material;
+    const r = HW.fabric.recommend(st.material, st.objects, D.stats(cmds));
+    const el = $('#fabricInfo');
+    el.innerHTML = `<div class="fabrec"><b>Vlies:</b> ${r.vlies}<br><b>Topper:</b> ${r.topper}<br><b>Nadel:</b> ${r.needle} · <b>max.</b> ${r.spm} Stiche/min</div>` +
+      (r.warn.length ? `<div class="fabwarn">⚠ ${r.warn.join('<br>⚠ ')}</div>` : '') +
+      '<div class="row"><button id="fabDetails">Details &amp; Tipps…</button></div>';
+    $('#fabDetails').onclick = () => fabricDialog();
+  }
+
+  function fabricDialog() {
+    const r = HW.fabric.recommend(st.material, st.objects, D.stats(cmds));
+    const f = r.fabric;
+    modal('Stoff: ' + f.name,
+      `<p><b>Stickvlies:</b> ${r.vlies}${r.why.length ? `<br><small>Mehr Lagen wegen: ${r.why.join(', ')}</small>` : ''}</p>` +
+      `<p><b>Topper:</b> ${r.topper}<br><b>Nadel:</b> ${r.needle}<br><b>Geschwindigkeit:</b> höchstens ${r.spm} Stiche/min<br><b>Dichte des Motivs:</b> ${r.density} Stiche/cm²</p>` +
+      `<p><b>Automatische Anpassung für diesen Stoff:</b><br>Satin-Abstand × ${f.density} (zusätzlich nach Säulenbreite: schmal lockerer, breit dichter) · Zugausgleich ${f.pull} mm + ${Math.round(f.pullPct * 100)} % der Breite · Satin-Split ab ${f.satinMax} mm · Unterlage ${({ light: 'leicht', normal: 'normal', heavy: 'kräftig' })[f.ul]}<br>Tatami: Abstand ${f.fillSp} mm, Stichlänge ${f.len} mm, Zugausgleich ${f.fillPull} mm, Unterlage ${f.fillUl.replace('edge', 'Kante').replace('tatami', 'Tatami')}</p>` +
+      `<p><b>Tipps:</b><br>• ${r.tips.join('<br>• ')}</p>` +
+      (r.warn.length ? `<p style="color:#c62828"><b>Hinweise zum Motiv:</b><br>⚠ ${r.warn.join('<br>⚠ ')}</p>` : '') +
+      '<p style="color:#6a7480">Die Werte sind bewährte Richtwerte. Vor großen Aufträgen immer einen Probestick auf dem Originalstoff machen. Jeder Wert lässt sich pro Objekt von Hand überschreiben.</p>',
+      [{ label: 'Geschwindigkeit übernehmen', action: () => { st.settings.spm = f.spm; renderStats(); } }, { label: 'OK', primary: true }]);
+  }
+
   function renderStats() {
     const s = D.stats(cmds);
     const mins = s.stitches / st.settings.spm + s.colors * 0.15 + s.trims * 0.05;
@@ -494,6 +528,27 @@
       el.innerHTML = `<p>${objs[0].stitches.length} Einzelstiche. Mit <b>Umformen</b> jeden Stich verschieben (Entf = löschen, Doppelklick = einfügen).</p>`;
       return;
     }
+    // Stoff-Automatik: verwaltete Werte zeigen den wirksamen Wert und sind mit „auto“ markiert
+    const fabKind = ['colA', 'colB', 'colC'].includes(type) ? 'satin' : type === 'fill' ? 'fill' : null;
+    const managed = fabKind ? HW.fabric.MANAGED[fabKind] : [];
+    const o0 = objs[0];
+    const autoOn = !!(o0 && fabKind && o0.autoFab !== false);
+    if (o0 && fabKind) {
+      const f = document.createElement('div');
+      f.className = 'field';
+      const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = autoOn;
+      cb.onchange = () => { pushUndo(); objs.forEach((o) => { o.autoFab = cb.checked; invalidate(o); }); changed(); };
+      const lb = document.createElement('label'); lb.textContent = 'An Stoff anpassen (automatisch)';
+      lb.title = 'Dichte, Zugausgleich, Unterlage und Stichlänge werden aus Stoff und Säulenbreite berechnet.';
+      f.append(lb, cb);
+      el.appendChild(f);
+      if (autoOn && objs.some((o) => o.manual && Object.keys(o.manual).length)) {
+        const r = document.createElement('div'); r.className = 'row';
+        const bt = document.createElement('button'); bt.textContent = 'Von Hand geänderte Werte wieder automatisch';
+        bt.onclick = () => { pushUndo(); objs.forEach((o) => { delete o.manual; invalidate(o); }); changed(); };
+        r.appendChild(bt); el.appendChild(r);
+      }
+    }
     for (const [key, label, kind, a, b, step] of defs) {
       if (type === 'fill' && key === 'len' && target.fillType === 'satin') continue;
       if (type === 'fill' && key === 'split' && target.fillType !== 'satin') continue;
@@ -504,12 +559,12 @@
       if (kind === 'select') {
         inp = document.createElement('select');
         a.forEach(([v, t]) => { const op = document.createElement('option'); op.value = v; op.textContent = t; inp.appendChild(op); });
-        inp.value = target[key];
+        inp.value = isAuto(key) ? o0._eff.params[key] : target[key];
       } else if (kind === 'bool') {
         inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!target[key];
       } else {
         inp = document.createElement('input'); inp.type = 'number'; inp.min = a; inp.max = b; inp.step = step;
-        inp.value = Math.round(target[key] * 1000) / 1000;
+        inp.value = Math.round((isAuto(key) ? o0._eff.params[key] : target[key]) * 1000) / 1000;
       }
       inp.onchange = () => {
         let v = kind === 'bool' ? inp.checked : kind === 'num' ? parseFloat(inp.value) : inp.value;
@@ -517,13 +572,22 @@
         if (kind === 'num') v = Math.max(a, Math.min(b, v));
         if (objs.length) {
           pushUndo();
-          objs.forEach((o) => { o.params[key] = v; invalidate(o); });
+          objs.forEach((o) => {
+            o.params[key] = v;
+            if (managed.includes(key)) o.manual = { ...(o.manual || {}), [key]: true };
+            invalidate(o);
+          });
           changed();
         } else { target[key] = v; renderProps(); }
       };
       const lb = document.createElement('label'); lb.textContent = label;
+      if (isAuto(key)) { const t = document.createElement('small'); t.textContent = ' · auto'; t.style.color = '#1f6feb'; lb.appendChild(t); }
+      else if (autoOn && managed.includes(key)) { const t = document.createElement('small'); t.textContent = ' · von Hand'; t.style.color = '#b26a00'; lb.appendChild(t); }
       f.append(lb, inp);
       el.appendChild(f);
+    }
+    function isAuto(key) {
+      return autoOn && managed.includes(key) && !(o0.manual && o0.manual[key]) && o0._eff && o0._eff.params && o0._eff.params[key] !== undefined;
     }
   }
 
@@ -1370,7 +1434,7 @@
     if (!w) return modal('Arbeitsblatt', '<p>Popup wurde blockiert – bitte Popups erlauben.</p>');
     w.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Arbeitsblatt ${st.name}</title><style>body{font:13px system-ui;margin:20px}td{padding:3px 10px;border-bottom:1px solid #ddd}img{max-width:100%;border:1px solid #ccc}</style></head><body>
       <h2>${st.name}</h2><p>Stiche: <b>${s.stitches.toLocaleString('de-DE')}</b> · Farbwechsel: ${s.colors - 1} · Schnitte: ${s.trims} · Größe: ${fmt(s.w)} × ${fmt(s.h)} mm · Rahmen: ${HOOPS[st.hoop].name}</p>
-      <img src="${c.toDataURL()}"><h3>Farbfolge</h3><table>${rows}</table><script>setTimeout(()=>print(),300)<\/script></body></html>`);
+      <img src="${c.toDataURL()}">${(() => { const r = HW.fabric.recommend(st.material, st.objects, s); return `<h3>Stoff &amp; Vlies</h3><p>Stoff: <b>${r.fabric.name}</b><br>Vlies: ${r.vlies}<br>Topper: ${r.topper}<br>Nadel: ${r.needle} · max. ${r.spm} Stiche/min</p>${r.warn.length ? '<p>⚠ ' + r.warn.join('<br>⚠ ') + '</p>' : ''}`; })()}<h3>Farbfolge</h3><table>${rows}</table><script>setTimeout(()=>print(),300)<\/script></body></html>`);
     w.document.close();
   }
 
@@ -1402,7 +1466,7 @@
   const commands = {
     new: () => modal('Neues Design', '<p>Aktuelles Design verwerfen?</p>', [{ label: 'Abbrechen' }, { label: 'Neu', primary: true, action: () => { pushUndo(); st.objects = []; st.bg = null; sel = new Set(); changed(); } }]),
     save: () => {
-      const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, fabric: st.fabric, settings: st.settings, defaults: st.defaults, bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null });
+      const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, fabric: st.fabric, material: st.material, settings: st.settings, defaults: st.defaults, bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null });
       download(data, (st.name || 'design') + '.stick.json', 'application/json');
     },
     open: () => pickFile('.json,.stick.json', (txt, f) => {
@@ -1410,7 +1474,7 @@
         const d = JSON.parse(txt);
         pushUndo();
         st.objects = d.objects || []; st.palette = d.palette || st.palette; st.hoop = d.hoop || st.hoop;
-        st.fabric = d.fabric || st.fabric; Object.assign(st.settings, d.settings || {});
+        st.fabric = d.fabric || st.fabric; st.material = d.material || st.material; st.objects.forEach(invalidate); Object.assign(st.settings, d.settings || {});
         if (d.defaults) Object.keys(d.defaults).forEach((k) => Object.assign(st.defaults[k] || (st.defaults[k] = {}), d.defaults[k]));
         st.name = d.name || f.name.replace(/\..*$/, '');
         nextId = Math.max(0, ...st.objects.map((o) => o.id || 0)) + 1;

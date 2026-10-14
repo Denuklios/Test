@@ -63,6 +63,26 @@ Zusätzlich gibt es zehn TrueType-Schriften und funktionieren auf jedem PC, auch
 - Satin-Dichte als Abstand der Einstiche auf derselben Seite, Unterlagen Mittellauf, Kontur und Zickzack wie in Ink/Stitch
 - Schriften mit Unterschneidung (Kerning) und Zeichenvorschub wie in der Ink/Stitch-Schriftverwaltung
 
+### Stoff-Automatik (Stoff & Stickvlies)
+
+Rechts oben unter **Stoff** das Textil wählen. Zur Auswahl stehen: Baumwolle, T-Shirt/Jersey, Sweat/Fleece, Polo/Piqué, Jeans/Canvas, Leder, Frottee/Handtuch, Kappe, Seide/feine Stoffe, Softshell, Strick/Mütze, Filz.
+Das Programm passt dann alle Satin- und Flächenobjekte automatisch an:
+
+- **Satin:** Der Abstand richtet sich nach dem Stoff *und* der Breite jeder Säule: schmale Säulen werden lockerer, breite dichter gestickt. Auch Zugausgleich (fester Wert plus Prozent der Breite), Unterlage (keine / Mitte / Kante / Kante + Zickzack je nach Breite und Stoff) und Auto-Split werden angepasst.
+- **Tatami-Flächen:** Reihenabstand, Stichlänge, Zugausgleich und Unterlage hängen vom Stoff ab.
+- Leder bekommt z. B. weniger Einstiche, Frottee dichtere Stiche mit kräftiger Unterlage, T-Shirt mehr Zugausgleich.
+
+Rechts in den Eigenschaften sind diese Werte mit **„auto“** markiert. Ändert man einen Wert von Hand, wird er mit „von Hand“ markiert und bleibt fest. *An Stoff anpassen* schaltet die Automatik pro Objekt ab.
+
+Das Programm empfiehlt außerdem:
+- **Stickvlies:** Art, Gewicht und **Anzahl der Lagen**, abhängig vom Stoff und vom Motiv. Bei vielen Stichen, hoher Dichte, großen Füllflächen oder dehnbarem Stoff mit Flächen wird eine Lage mehr empfohlen.
+- **Topper** (wasserlöslich) für Frottee, Fleece, Piqué und Strick
+- **Nadel** und **maximale Geschwindigkeit**
+- **Warnungen**, z. B. zu schmale Satinsäulen für den Stoff, zu breite Satinsäulen oder ein zu dichtes Motiv für Leder
+
+*Details & Tipps…* zeigt alle Werte und Hinweise. Die Empfehlung steht auch auf dem gedruckten Arbeitsblatt.
+Die Werte sind bewährte Richtwerte. Ein Probestick auf dem Originalstoff ersetzen sie nicht.
+
 ### Sticheigenschaften (rechts)
 
 Für jedes Objekt (oder als Vorgabe für das gewählte Werkzeug):
@@ -103,6 +123,7 @@ Bitte das Projekt immer zusätzlich speichern: Eine DST-Datei enthält nur noch 
 | Datei | Inhalt |
 |---|---|
 | `js/geometry.js` | Kurven (Ecke/Kurve wie Hatch), Polygone, Hilfsfunktionen |
+| `js/fabric.js` | Stoffprofile, automatische Stichanpassung, Vlies-Empfehlung |
 | `js/stitchgen.js` | Lauf-, Dreifach-, Satin- und Tatami-Stiche, Unterlagen, Zugkompensation, Auto-Split |
 | `js/dst.js` | Design zusammensetzen (Vernähen, Schnitte, Farbwechsel), DST schreiben und lesen |
 | `js/autodigitize.js` | Farbreduktion (k-Means), Regionen, Konturverfolgung, Objekterzeugung |
@@ -113,5 +134,5 @@ Bitte das Projekt immer zusätzlich speichern: Eine DST-Datei enthält nur noch 
 | `tools/inkstitch_fonts.py` | Konverter Ink/Stitch-Schrift (SVG + font.json) -> StickStudio |
 | `js/app.js` | Oberfläche, Werkzeuge, Umformen, Simulation, Dialoge |
 
-Tests: `node tests/test_core.js` prüft die Stichgenerierung und den DST-Hin- und Rückweg, `node tests/test_satin.js` die Satin-Erkennung (Ring, Bogen, L, T).
+Tests: `node tests/test_core.js` prüft die Stichgenerierung und den DST-Hin- und Rückweg, `node tests/test_satin.js` die Satin-Erkennung (Ring, Bogen, L, T), `node tests/test_fabric.js` die Stoff-Automatik.
 Die erzeugten DST-Dateien wurden zusätzlich mit der unabhängigen Bibliothek *pyembroidery* gegengelesen.

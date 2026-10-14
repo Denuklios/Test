@@ -82,3 +82,7 @@ main { display: flex; height: calc(100% - 38px - 34px); }
   #side:hover, #side:focus-within { transform: none; }
   #playSlider { width: 110px; }
 }
+
+.fabrec { font-size: 12px; margin-top: 6px; line-height: 1.45; }
+.fabwarn { font-size: 12px; margin-top: 4px; color: var(--danger); }
+#material { padding: 4px; border: 1px solid var(--line); border-radius: 4px; font: inherit; }
