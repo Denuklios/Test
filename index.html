@@ -15,6 +15,7 @@
       <button data-cmd="open">Projekt öffnen… <kbd>Strg+O</kbd></button>
       <button data-cmd="save">Projekt speichern <kbd>Strg+S</kbd></button>
       <hr>
+      <button data-cmd="importVector">Vektorgrafik importieren (SVG, PDF, AI)…</button>
       <button data-cmd="importDst">DST importieren…</button>
       <button data-cmd="exportDst">DST exportieren (Texi/Tajima) <kbd>Strg+E</kbd></button>
       <hr>
@@ -36,6 +37,11 @@
       <button data-cmd="scale">Skalieren…</button>
       <button data-cmd="center">In Rahmenmitte setzen</button>
       <button data-cmd="fitHoop">An Rahmen anpassen (Größe)</button>
+      <hr>
+      <button data-cmd="removeOverlaps">Überlappungen entfernen</button>
+      <button data-cmd="union">Formen vereinen</button>
+      <button data-cmd="difference">Untere Form ausschneiden (Rest abziehen)</button>
+      <button data-cmd="intersect">Schnittmenge</button>
       <hr>
       <button data-cmd="toStitches">In Einzelstiche umwandeln</button>
       <button data-cmd="sortColor">Nach Farbe sortieren</button>
@@ -98,6 +104,7 @@
     <button data-tool="rect" title="Rechteck"><b>▭</b><span>Rechteck</span></button>
     <button data-tool="ellipse" title="Kreis / Ellipse"><b>◯</b><span>Ellipse</span></button>
     <button data-tool="text" title="Schrift"><b>A</b><span>Text</span></button>
+    <button data-tool="knife" title="Messer: Flächen entlang einer Linie teilen"><b>✂</b><span>Messer</span></button>
     <div class="group">Stiche</div>
     <button data-tool="manual" title="Manuell: jeder Klick ein Stich, Rechtsklick = Sprung"><b>✚</b><span>Manuell</span></button>
     <div class="group">Touch</div>
@@ -152,6 +159,8 @@
 <script src="js/check.js"></script>
 <script src="js/route.js"></script>
 <script src="js/hoops.js"></script>
+<script src="js/vector.js"></script>
+<script src="js/boolean.js"></script>
 <script src="js/dst.js"></script>
 <script src="js/satinauto.js"></script>
 <script src="js/autodigitize.js"></script>

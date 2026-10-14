@@ -375,6 +375,11 @@
     }
     ctx.restore();
     if (draft) drawDraft();
+    if (tool === 'knife' && knifeStart && mouse.mm) {
+      const a = toScr(knifeStart), b = toScr(mouse.mm);
+      ctx.save(); ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = 2; ctx.setLineDash([6, 3]);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.restore();
+    }
     if (drag && drag.kind === 'band') {
       ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = '#1f6feb';
       ctx.strokeRect(drag.sx, drag.sy, drag.cx - drag.sx, drag.cy - drag.sy); ctx.restore();
@@ -745,6 +750,7 @@
       rect: 'Ziehen, um ein Rechteck zu erstellen.',
       ellipse: 'Ziehen, um einen Kreis/eine Ellipse zu erstellen (Shift = Kreis).',
       text: 'Auf die Arbeitsfläche klicken, um Text einzufügen.',
+      knife: 'Messer: zwei Punkte klicken – die Linie teilt die ausgewählten Flächen (oder alle Flächen, die sie kreuzt).',
       manual: 'Jeder Linksklick = ein Stich, Rechtsklick = Sprung. Enter = fertig.',
     };
     let h = H[tool] || '';
@@ -756,6 +762,7 @@
   }
 
   function setTool(t) {
+    knifeStart = null;
     if (draft) finishDraft(true);
     tool = t;
     draft = null;
@@ -985,7 +992,7 @@
     const p = toMM(e.offsetX, e.offsetY);
     mouse = { x: e.offsetX, y: e.offsetY, mm: p };
     $('#coords').textContent = `X ${fmt(p.x)}  Y ${fmt(-p.y)} mm`;
-    if (!drag) { if (draft) draw(); return; }
+    if (!drag) { if (draft || (tool === 'knife' && knifeStart)) draw(); return; }
     if (Math.hypot(e.offsetX - drag.sx, e.offsetY - drag.sy) > 4) drag.moved = true;
     drag.cx = e.offsetX; drag.cy = e.offsetY;
     if (drag.kind === 'pan') { view.ox = drag.ox + e.offsetX - drag.sx; view.oy = drag.oy + e.offsetY - drag.sy; draw(); }
@@ -1040,6 +1047,12 @@
     if (d.kind !== 'click' || d.moved) { if (d.kind === 'node' || d.kind === 'angle') changed(); return; }
     // Klick ohne Ziehen in Digitalisierwerkzeugen
     if (tool === 'text') { textDialog(p); return; }
+    if (tool === 'knife') {
+      if (!knifeStart) { knifeStart = p; draw(); return; }
+      const a = knifeStart; knifeStart = null;
+      knifeCut(a, p);
+      return;
+    }
     if (['run', 'triple', 'colA', 'colB', 'colC', 'fill', 'manual'].includes(tool)) {
       const right = d.button === 2;
       if (tool === 'manual') addPoint(p, false, right);
@@ -1575,6 +1588,146 @@
       [{ label: 'Rückgängig', action: () => { undo(); } }, { label: 'OK', primary: true }]);
   }
 
+  /* ---------- Formen verrechnen ---------- */
+  let knifeStart = null;
+  // ersetzt Objekt o durch die Formen shapes (gleiche Farbe/Parameter)
+  function replaceWithShapes(o, shapes) {
+    const idx = st.objects.indexOf(o);
+    if (!shapes.length) { st.objects.splice(idx, 1); return []; }
+    const made = shapes.map((sh, k) => {
+      const ob = k === 0 ? o : { ...clone(o), id: nextId++ };
+      ob.type = 'fill'; ob.points = sh.outer; ob.holes = sh.holes;
+      delete ob.side2; delete ob.stitches;
+      invalidate(ob);
+      return ob;
+    });
+    st.objects.splice(idx, 1, ...made);
+    return made;
+  }
+
+  function removeOverlaps(silent) {
+    const objs = st.objects.filter((o) => !o.hidden);
+    const scope = sel.size && !silent ? new Set(selected().map((o) => o.id)) : null;
+    pushUndo();
+    let cut = 0, gone = 0, split = 0;
+    for (const o of objs.slice()) {
+      if (o.type !== 'fill' || o.knockdown || o.appliquePart) continue;
+      if (scope && !scope.has(o.id)) continue;
+      const i = st.objects.indexOf(o);
+      const cutters = st.objects.slice(i + 1).filter((q) => !q.hidden && !q.knockdown && ['fill', 'colA', 'colB', 'colC'].includes(q.type));
+      const res = HW.boolean.subtract(o, cutters, st.settings.overlapKeep ?? 0.5);
+      if (!res) continue;
+      if (!res.length) gone++; else { cut++; if (res.length > 1) split += res.length - 1; }
+      replaceWithShapes(o, res);
+    }
+    if (!cut && !gone) { undoStack.pop(); if (!silent) modal('Überlappungen entfernen', '<p>Keine überlappenden Flächen gefunden.</p>'); return; }
+    sel = new Set([...sel].filter((id) => byId(id)));
+    pendingCheck.clear(); changed(); pendingCheck.clear();
+    modal('Überlappungen entfernt', `<p>${cut} Fläche(n) unter anderen Objekten ausgespart${split ? `, dabei ${split} zusätzliche Teilstück(e)` : ''}${gone ? `, ${gone} vollständig verdeckte Fläche(n) entfernt` : ''}.</p><p style="color:#6a7480">Unter den Rändern der oberen Objekte bleiben ${fmt(st.settings.overlapKeep ?? 0.5)} mm Überlappung, damit keine Lücken entstehen. Mit Strg+Z rückgängig.</p>`);
+  }
+
+  function combineSel(op) {
+    const objs = selected().filter((o) => ['fill', 'colA', 'colB', 'colC'].includes(o.type));
+    if (objs.length < 2) return modal('Formen verrechnen', '<p>Bitte mindestens zwei Formen (Flächen oder Säulen) auswählen.</p>');
+    objs.sort((a, b) => st.objects.indexOf(a) - st.objects.indexOf(b));
+    const res = HW.boolean.combine(objs, op);
+    if (!res || !res.length) return modal('Formen verrechnen', '<p>Das Ergebnis ist leer – die Formen überschneiden sich nicht.</p>');
+    pushUndo();
+    const base = objs[0];
+    if (base.type !== 'fill') { base.params = { ...st.defaults.fill }; }
+    st.objects = st.objects.filter((o) => o === base || !objs.includes(o));
+    const made = replaceWithShapes(base, res);
+    sel = new Set(made.map((o) => o.id));
+    changed();
+  }
+
+  function knifeCut(a, b) {
+    let targets = selected().filter((o) => o.type === 'fill');
+    if (!targets.length) targets = st.objects.filter((o) => o.type === 'fill' && !o.hidden);
+    pushUndo();
+    let n = 0;
+    const made = [];
+    for (const o of targets) {
+      const parts = HW.boolean.knife(o, a, b);
+      if (parts) { made.push(...replaceWithShapes(o, parts)); n++; }
+    }
+    if (!n) { undoStack.pop(); draw(); return; }
+    sel = new Set(made.map((o) => o.id));
+    changed();
+  }
+
+  /* ---------- Vektorgrafik importieren (SVG, PDF, AI) ---------- */
+  function importVector() {
+    pickFile('.svg,.svgz,.pdf,.ai,.eps,image/svg+xml,application/pdf', async (buf, f) => {
+      const bytes = new Uint8Array(buf);
+      const head = String.fromCharCode(...bytes.slice(0, 8));
+      let parsed, page = null;
+      try {
+        if (head.startsWith('%PDF')) { modal('Import', '<p>PDF wird gelesen …</p>', []); parsed = await HW.vector.parsePDF(buf); page = parsed.page; }
+        else if (head.startsWith('%!PS')) { return modal('EPS-Datei', '<p>EPS kann nicht direkt gelesen werden. Bitte im Grafikprogramm als <b>SVG</b> oder <b>PDF</b> speichern (in Illustrator: „Speichern unter → PDF“ bzw. „Exportieren → SVG“) und dann importieren.</p>'); }
+        else parsed = HW.vector.parseSVG(new TextDecoder().decode(bytes));
+      } catch (e) { return modal('Import fehlgeschlagen', `<p>Die Datei konnte nicht gelesen werden: ${String(e.message || e).replace(/</g, '&lt;')}</p>`); }
+      vectorDialog(parsed, page, f.name);
+    });
+  }
+
+  function vectorDialog(parsed, page, fname) {
+    const shapes = parsed.shapes;
+    // Größe nach dem eigentlichen Motiv (weiße Hintergrundflächen zählen nicht)
+    const motif = shapes.filter((s) => !/^#(f[0-9a-f]){3}$/.test(s.color));
+    const bb = HW.vector.bounds(motif.length ? motif : shapes);
+    if (!bb) {
+      return modal('Keine Vektorformen gefunden', '<p>Die Datei enthält keine Vektorformen (vermutlich ein eingebettetes Pixelbild).</p>' + (page ? '<p>Die Seite kann als Bild eingefügt und anschließend auto-digitalisiert werden.</p>' : ''),
+        [{ label: 'Abbrechen' }, ...(page ? [{ label: 'Als Bild einfügen', primary: true, action: () => { HW.vector.renderPDF(page, 1600).then((url) => loadBg(url, null, () => { fitToHoop(); })); } }] : [])]);
+    }
+    const w0 = bb.x1 - bb.x0, h0 = bb.y1 - bb.y0;
+    const h = hoop();
+    const fitW = h.shape !== 'none' ? Math.floor(HW.hoops.fitScale(h, [{ x: bb.x0, y: bb.y0 }, { x: bb.x1, y: bb.y1 }, { x: bb.x0, y: bb.y1 }, { x: bb.x1, y: bb.y0 }]) * w0) : w0;
+    const colors = [...new Set(shapes.map((s) => s.color))];
+    modal('Vektorgrafik importieren',
+      `<p><b>${String(fname).replace(/</g, '&lt;')}</b>: ${shapes.filter((s) => s.kind === 'fill').length} Flächen, ${shapes.filter((s) => s.kind === 'stroke').length} Linien, ${colors.length} Farben · Originalgröße ${fmt(w0)} × ${fmt(h0)} mm</p>` +
+      field('Breite im Stickmotiv (mm)', `<input id="vW" type="number" step="1" value="${Math.round(Math.min(w0, fitW))}"> <small>Rahmen: max. ${fitW}</small>`) +
+      field('Schmale Formen als Satin (bis Strichbreite mm, 0 = nie)', '<input id="vSat" type="number" step="0.5" value="7">') +
+      field('Weiße Flächen weglassen (Hintergrund)', '<input type="checkbox" id="vWhite" checked>') +
+      field('Linien (Konturen) übernehmen', '<input type="checkbox" id="vStroke" checked>') +
+      field('Überlappungen anschließend entfernen', '<input type="checkbox" id="vOver" checked>') +
+      '<canvas id="vPrev" width="500" height="260" style="width:100%;background:#fff"></canvas>' +
+      '<p style="color:#6a7480">Jede Form wird ein eigenes, bearbeitbares Objekt in ihrer Farbe. Die Reihenfolge entspricht der Zeichenreihenfolge der Datei (unten liegende Formen zuerst).</p>',
+      [{ label: 'Abbrechen' }, ...(page ? [{ label: 'Stattdessen als Bild', action: () => { HW.vector.renderPDF(page, 1600).then((url) => loadBg(url, null, () => fitToHoop())); } }] : []),
+        { label: 'Importieren', primary: true, action: () => {
+          const wmm = Math.max(5, num('vW') || w0), sc = wmm / w0;
+          const list = shapes.filter((s) => $('#vStroke').checked || s.kind === 'fill');
+          const objs = HW.vector.toObjects(list, { scale: sc, dx: -((bb.x0 + bb.x1) / 2) * sc, dy: -((bb.y0 + bb.y1) / 2) * sc, satinMax: num('vSat') || 0, skipWhite: $('#vWhite').checked });
+          if (!objs.length) return false;
+          pushUndo();
+          const ids = [];
+          objs.forEach((o) => {
+            let ci = st.palette.findIndex((c) => c.hex.toLowerCase() === o.colorKey.toLowerCase());
+            if (ci < 0) { st.palette.push({ hex: o.colorKey, name: 'Import ' + o.colorKey, needle: Math.min(15, st.palette.length + 1) }); ci = st.palette.length - 1; }
+            const base = o.type === 'fill' ? st.defaults.fill : o.type === 'run' ? st.defaults.run : st.defaults.colA;
+            const ob = makeObj(o.type, { points: o.points, holes: o.holes, color: ci });
+            ob.params = { ...base, ...o.params };
+            st.objects.push(ob); ids.push(ob.id);
+          });
+          sel = new Set(ids);
+          renderPalette();
+          pendingCheck.clear();
+          changed();
+          pendingCheck.clear();
+          zoomHoop();
+          if ($('#vOver') && $('#vOver').checked && commands.removeOverlaps) setTimeout(() => commands.removeOverlaps(true), 30);
+        } }]);
+    // Vorschau
+    const c = $('#vPrev'), x = c.getContext('2d');
+    const sc = Math.min((c.width - 20) / w0, (c.height - 20) / h0);
+    const tx = (p) => ({ x: (p.x - bb.x0) * sc + (c.width - w0 * sc) / 2, y: (p.y - bb.y0) * sc + (c.height - h0 * sc) / 2 });
+    for (const s of shapes) {
+      x.beginPath();
+      s.subs.forEach((sp) => sp.pts.forEach((q, i) => { const t = tx(q); i ? x.lineTo(t.x, t.y) : x.moveTo(t.x, t.y); }));
+      if (s.kind === 'fill') { x.fillStyle = s.color; x.fill('evenodd'); } else { x.strokeStyle = s.color; x.lineWidth = Math.max(1, s.width * sc); x.stroke(); }
+    }
+  }
+
   function machineDialog() {
     modal('Maschine & Rahmen',
       field('Maschinentyp (für die Stickprüfung)', `<select id="mType">${Object.entries(HW.check.MACHINES).map(([k, m]) => `<option value="${k}" ${k === st.settings.machine ? 'selected' : ''}>${m.name}</option>`).join('')}</select>`) +
@@ -1874,6 +2027,11 @@
     togglePoints: () => { view.points = !view.points; draw(); },
     zoomFit, zoomHoop,
     machineSettings: machineDialog,
+    importVector: () => importVector(),
+    removeOverlaps: (silent) => removeOverlaps(silent === true),
+    union: () => combineSel('union'),
+    difference: () => combineSel('diff'),
+    intersect: () => combineSel('intersect'),
     hoops: () => hoopDialog(),
     fitHoop: () => fitToHoop(),
     help: helpDialog,

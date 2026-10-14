@@ -324,5 +324,5 @@
     return { objects, palette };
   }
 
-  HW.auto = { autoDigitize, quantize, traceMask };
+  HW.auto = { autoDigitize, quantize, traceMask, smoothRing, components };
 })(typeof window !== 'undefined' ? window : globalThis);
