@@ -164,6 +164,21 @@ waagrecht/senkrecht verteilen, Gruppieren (Strg+G) und Gruppierung lösen (Strg+
 **Einrasten** (Taste G) an Raster und Hilfslinien beim Digitalisieren, Verschieben und Umformen; Rasterweite und
 Hilfslinien unter *Ansicht → Hilfslinien & Rasterweite…* (werden im Projekt gespeichert).
 
+### Text-Effekte
+- **Hüllform** im Textdialog: Bogen, Brücke, Tal, Welle, Wimpel, Raute, Wölbung, Taille – Stärke in mm.
+- **Buchstaben anpassen…** (Eigenschaften einer Schrift): je Buchstabe Abstand davor (Kerning), Verschieben,
+  Drehen und Größe. Gilt für Stickschriften und für automatisch umgewandelte Schriften.
+- **Text auf Linie** (*Anordnen → Text auf Linie setzen*): Text und eine Linie (z. B. Bogen oder Kreis) zusammen
+  auswählen; über/unter der Linie, Ausrichtung, Verschiebung. Der Text bleibt bearbeitbar.
+- **Monogramm** (*Anordnen → Monogramm…*): Vorlagen klassisch (Mitte groß), im Kreis, in Raute, mit Linien.
+
+### Dateiformate
+Export: **DST** (Tajima/Texi), **PES** (Brother, Version 1 mit Vorschau-Icons), **JEF** (Janome, Rahmen wird automatisch
+gewählt), **EXP** (Melco/Bernina). Import aller vier Formate inkl. Garnfarben (PES/JEF). Die Formatlogik ist aus
+pyembroidery (MIT-Lizenz) portiert, siehe `js/vendor/PYEMBROIDERY-LICENSE.txt`; die geschriebenen Dateien sind
+byte-identisch mit pyembroidery. Hinweis: PES und JEF kennen keinen „Sprung ohne Schnitt“ bzw. keinen Schnittbefehl –
+dort entscheidet die Maschine. **EMB** (Wilcom-Arbeitsdatei) ist ein geschlossenes Format und kann nicht gelesen werden.
+
 ### Füllarten
 Unter *Eigenschaften → Füllart*: **Tatami**, **Satin** (fester Winkel), **Kontur** (Reihen parallel zum Rand),
 **Spirale** (Ringe gehen fließend ineinander über), **Welle** (Wellenhöhe/-länge einstellbar), **Muster** (Rauten, Diagonal,

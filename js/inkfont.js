@@ -65,6 +65,8 @@
     const missing = new Set();
     const all = [];
     const lead = font.leading * (spec.lineGap || 1);
+    let gi = 0; // laufende Zeichennummer (für Einzelanpassungen)
+    const kernAdj = spec.kernAdj || {};
     lines.forEach((line, li) => {
       let x = 0, prev = null;
       const placed = [];
@@ -79,7 +81,10 @@
           x -= k;
           x += extra;
         }
+        if (kernAdj[gi]) x += kernAdj[gi] / sc; // Abstand von Hand (mm)
         const objs = glyphObjects(gl);
+        objs.forEach((o) => { o.gi = gi; o.gch = ch; });
+        gi++;
         const ox = x, oy = li * lead;
         objs.forEach((o) => mapObj(o, (p) => ({ x: p.x + ox, y: p.y + oy })));
         const adv = font.adv[ch] ?? font.advDefault;

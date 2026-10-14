@@ -683,7 +683,11 @@
       brk.textContent = 'Gruppierung lösen';
       brk.title = 'Buchstaben einzeln bearbeiten (Text ist danach nicht mehr änderbar)';
       brk.onclick = () => { pushUndo(); objs.forEach((o) => { delete o.grp; delete o.textSpec; }); changed(); };
-      const row = document.createElement('div'); row.className = 'row'; row.append(btn, brk);
+      const gb = document.createElement('button');
+      gb.textContent = 'Buchstaben anpassen…';
+      gb.title = 'Einzelne Buchstaben verschieben, drehen, vergrößern; Abstände (Kerning)';
+      gb.onclick = () => glyphDialog(objs[0].grp);
+      const row = document.createElement('div'); row.className = 'row'; row.append(btn, gb, brk);
       el.appendChild(row);
       $('#propTitle').textContent = '– Schrift';
       if (!objs.every((o) => o.type === objs[0].type)) return;
@@ -1888,12 +1892,24 @@
         if (top) glyphs.push({ ch, x: R * Math.sin(th), y: -R * Math.cos(th), rot: th });
         else glyphs.push({ ch, x: -R * Math.sin(th) * -1, y: R * Math.cos(th) + fontPx * capRatio, rot: -th });
       }
+      let gi = 0;
+      for (const gl of glyphs) gl.gi = gl.ch.trim() ? gi++ : -1;
     } else {
+      const kadj = spec.kernAdj || {};
+      let gi = 0;
       lines.forEach((l, li) => {
         const chars = [...l];
-        const W = chars.reduce((a, ch) => a + adv(ch), 0) - sp;
+        // Abstände von Hand (mm) je Zeichen vorab bestimmen, damit die Zeile mittig bleibt
+        let g2 = gi, extraW = 0;
+        for (const ch of chars) if (ch.trim()) extraW += (kadj[g2++] || 0) * res;
+        const W = chars.reduce((a, ch) => a + adv(ch), 0) - sp + extraW;
         let s = -W / 2;
-        for (const ch of chars) { const a = adv(ch); glyphs.push({ ch, x: s + (a - sp) / 2, y: li * lineH, rot: 0 }); s += a; }
+        for (const ch of chars) {
+          if (ch.trim()) s += (kadj[gi] || 0) * res;
+          const a = adv(ch);
+          glyphs.push({ ch, x: s + (a - sp) / 2, y: li * lineH, rot: 0, gi: ch.trim() ? gi++ : -1 });
+          s += a;
+        }
       });
     }
     // Ausdehnung bestimmen
@@ -1918,7 +1934,10 @@
     // zu große Flächen (z. B. Text im Bogen) mit geringerer Auflösung neu zeichnen
     const MAXPX = 1.6e6;
     if (!forceRes && c.width * c.height > MAXPX) return renderText(spec, Math.max(4, res * Math.sqrt(MAXPX / (c.width * c.height))));
-    return { img: x.getImageData(0, 0, c.width, c.height), res, wMM: c.width / res, hMM: c.height / res, canvas: c };
+    // Zeichenmitten (mm, Bildkoordinaten) – damit digitalisierte Teile ihrem Buchstaben zugeordnet werden können
+    const capPx = fontPx * capRatio;
+    const centers = glyphs.filter((gl) => gl.gi >= 0).map((gl) => ({ gi: gl.gi, ch: gl.ch, x: (gl.x + (capPx / 2) * Math.sin(gl.rot) - x0 + 4) / res, y: (gl.y - (capPx / 2) * Math.cos(gl.rot) - y0 + 4) / res }));
+    return { img: x.getImageData(0, 0, c.width, c.height), res, wMM: c.width / res, hMM: c.height / res, canvas: c, centers };
   }
 
   function digitizeText(spec, center) {
@@ -1926,6 +1945,14 @@
     const out = HW.auto.autoDigitize(r.img, {
       colors: 1, widthMM: r.wMM, originX: center.x - r.wMM / 2, originY: center.y - r.hMM / 2,
       minAreaMM2: 0.15, removeBg: false, mode: spec.type, satinMax: 8, simplify: 0.45, angle: 45,
+    });
+    // jedes Teil dem nächstliegenden Buchstaben zuordnen
+    const ox = center.x - r.wMM / 2, oy = center.y - r.hMM / 2;
+    out.objects.forEach((o) => {
+      const b = G.bbox(o.points), mx = (b.x0 + b.x1) / 2, my = (b.y0 + b.y1) / 2;
+      let best = null, bd = Infinity;
+      for (const c of r.centers) { const d = Math.hypot(ox + c.x - mx, (oy + c.y - my) * 0.5); if (d < bd) { bd = d; best = c; } }
+      if (best) { o.gi = best.gi; o.gch = best.ch; }
     });
     return out.objects;
   }
@@ -1952,6 +1979,7 @@
   function textObjects(objs, spec, color, gid) {
     return objs.map((o) => {
       const ob = makeObj(o.type, { points: o.points, holes: o.holes, color });
+      if (o.gi !== undefined) { ob.gi = o.gi; ob.gch = o.gch; }
       const base = o.type === 'fill' ? st.defaults.fill : o.type === 'run' ? st.defaults.run : st.defaults.colA;
       ob.params = { ...base, ...o.params };
       if (o.type === 'fill' && !isInk(spec.font)) ob.params.underlay = o.params.fillType === 'satin' ? 'none' : 'edge';
@@ -1961,14 +1989,143 @@
     });
   }
 
+  // Einzelbuchstaben, Hüllform, Text auf Linie – nach dem Setzen, Mitte bleibt erhalten (außer auf Linie)
+  function textEffects(objs, spec, center) {
+    const T = HW.textfx;
+    if (!objs.length) return objs;
+    T.glyphAdjust(objs, spec.glyphAdj);
+    if (spec.envelope && spec.envelope !== 'none') T.envelope(objs, spec.envelope, spec.envAmount || 5);
+    if (spec.path && spec.path.length > 1) T.onPath(objs, spec.path, spec.pathSide || 1, spec.pathAlign || 'center', spec.pathOffset || 0);
+    else if (center && (spec.glyphAdj || (spec.envelope && spec.envelope !== 'none'))) {
+      const b = T.bbOf(objs), dx = center.x - (b.x0 + b.x1) / 2, dy = center.y - (b.y0 + b.y1) / 2;
+      objs.forEach((o) => [o.points, ...(o.holes || [])].forEach((a) => a.forEach((p) => { p.x += dx; p.y += dy; })));
+    }
+    return objs;
+  }
+
   // Text neu setzen (gleiche Mitte), Schrift muss geladen sein
   function buildText(spec, center, color, gid) {
     const objs = isInk(spec.font) ? inkText(spec, center).objects : digitizeText(spec, center);
-    return textObjects(objs, spec, color, gid);
+    return textObjects(textEffects(objs, spec, center), spec, color, gid);
   }
   function fontReady(spec) {
     if (isInk(spec.font)) return HW.INKFONTS[spec.font.slice(4)] ? Promise.resolve() : HW.loadInkFont(spec.font.slice(4));
     return fontsReady;
+  }
+
+  // Textgruppe mit geänderten Einstellungen neu setzen
+  function rebuildText(grp, change) {
+    const old = st.objects.filter((o) => o.grp === grp);
+    if (!old.length || !old[0].textSpec) return Promise.resolve();
+    const spec = { ...old[0].textSpec, ...change };
+    return fontReady(spec).then(() => {
+      const bb = bbOfObjs(old);
+      const center = { x: (bb.x0 + bb.x1) / 2, y: (bb.y0 + bb.y1) / 2 };
+      const made = buildText(spec, center, old[0].color, grp);
+      if (!made.length) return;
+      pushUndo();
+      const at = st.objects.indexOf(old[0]);
+      st.objects = st.objects.filter((o) => o.grp !== grp);
+      st.objects.splice(Math.min(at, st.objects.length), 0, ...made);
+      sel = new Set(made.map((o) => o.id));
+      changed();
+    });
+  }
+
+  // Einzelne Buchstaben verschieben, drehen, vergrößern; Abstand vor jedem Buchstaben (Kerning)
+  function glyphDialog(grp) {
+    const objs = st.objects.filter((o) => o.grp === grp);
+    const spec = objs[0].textSpec;
+    const chars = [...String(spec.text)].filter((c) => c.trim());
+    const A = spec.glyphAdj || {}, K = spec.kernAdj || {};
+    const inp = (id, v, step) => `<input id="${id}" type="number" step="${step}" value="${v}" style="width:62px">`;
+    const rows = chars.map((ch, i) => `<tr><td style="font-size:18px;font-weight:600;text-align:center">${ch.replace(/</g, '&lt;')}</td>
+      <td>${inp('gk' + i, K[i] || 0, 0.1)}</td><td>${inp('gx' + i, (A[i] || {}).dx || 0, 0.1)}</td><td>${inp('gy' + i, -((A[i] || {}).dy || 0), 0.1)}</td>
+      <td>${inp('gr' + i, (A[i] || {}).rot || 0, 1)}</td><td>${inp('gs' + i, (A[i] || {}).scale || 100, 5)}</td></tr>`).join('');
+    modal('Buchstaben einzeln anpassen',
+      `<div style="max-height:50vh;overflow:auto"><table class="help"><tr><th></th><th>Abstand davor (mm)</th><th>X (mm)</th><th>Y (mm)</th><th>Drehen (°)</th><th>Größe (%)</th></tr>${rows}</table></div>` +
+      '<p style="color:#6a7480">„Abstand davor“ schiebt den Buchstaben und alle folgenden (Kerning). X/Y verschieben nur diesen Buchstaben (Y nach oben positiv).</p>',
+      [{ label: 'Alles zurücksetzen', action: () => { rebuildText(grp, { glyphAdj: null, kernAdj: null }); } }, { label: 'Abbrechen' },
+        { label: 'Übernehmen', primary: true, action: () => {
+          const ga = {}, ka = {};
+          chars.forEach((ch, i) => {
+            const k = num('gk' + i) || 0, dx = num('gx' + i) || 0, dy = -(num('gy' + i) || 0), rot = num('gr' + i) || 0, sc = num('gs' + i) || 100;
+            if (k) ka[i] = k;
+            if (dx || dy || rot || sc !== 100) ga[i] = { dx, dy, rot, scale: sc };
+          });
+          rebuildText(grp, { glyphAdj: Object.keys(ga).length ? ga : null, kernAdj: Object.keys(ka).length ? ka : null });
+        } }]);
+  }
+
+  // Text an eine Linie (Laufstich oder Satinlinie) legen
+  function textOnPathDialog() {
+    const objs = selected();
+    const txt = objs.find((o) => o.textSpec);
+    const line = objs.find((o) => !o.textSpec && (o.type === 'run' || o.type === 'colC') && o.points.length > 1);
+    if (!txt || !line) return modal('Text auf Linie', '<p>Bitte einen <b>Text</b> und eine <b>Linie</b> (Laufstich oder Satinlinie, z. B. ein Bogen oder ein Kreis) gemeinsam auswählen (Shift+Klick).</p>');
+    modal('Text auf Linie setzen',
+      field('Seite', '<select id="opSide"><option value="1">über der Linie</option><option value="-1">unter der Linie</option></select>') +
+      field('Ausrichtung', '<select id="opAl"><option value="center">mittig</option><option value="start">am Anfang</option><option value="end">am Ende</option></select>') +
+      field('Verschieben entlang der Linie (mm)', '<input id="opOff" type="number" value="0" step="1">') +
+      field('Linie danach', '<select id="opLine"><option value="hide">ausblenden (nicht sticken)</option><option value="keep">mitsticken</option><option value="del">löschen</option></select>') +
+      '<p style="color:#6a7480">Tipp: Linie mit Rechtsklick-Kurvenpunkten zeichnen. Die Linie wird im Text gespeichert – Text bleibt danach bearbeitbar.</p>',
+      [{ label: 'Abbrechen' }, { label: 'Setzen', primary: true, action: () => {
+        const closed = line.type === 'run' && line.params.closed;
+        let path = G.buildPath(line.points, closed).pts.map((p) => ({ x: p.x, y: p.y }));
+        if (closed) path = path.concat([path[0]]);
+        const what = val('opLine');
+        rebuildText(txt.grp, { path, pathSide: +val('opSide'), pathAlign: val('opAl'), pathOffset: num('opOff') || 0, arc: 0 }).then(() => {
+          if (what === 'hide') line.hidden = true;
+          if (what === 'del') st.objects = st.objects.filter((o) => o !== line);
+          changed();
+        });
+      } }]);
+  }
+
+  // Monogramm-Vorlagen
+  function monogramDialog() {
+    const inks = HW.INKFONT_INDEX || [];
+    const pref = inks.filter((f) => f.keywords.includes('monogram')).concat(inks.filter((f) => !f.keywords.includes('monogram') && f.keywords.includes('serif')));
+    modal('Monogramm',
+      field('Initialen (2–3 Buchstaben)', '<input id="mnT" value="ABC" maxlength="3">') +
+      field('Vorlage', '<select id="mnK"><option value="classic">Klassisch – Mitte groß</option><option value="circle">Im Kreis</option><option value="diamond">In Raute</option><option value="lines">Gleich groß mit Linien</option><option value="plain">Gleich groß</option></select>') +
+      field('Schrift', `<select id="mnF">${pref.concat(inks.filter((f) => !pref.includes(f))).map((f) => `<option value="ink:${f.id}">${f.name}</option>`).join('')}</select>`) +
+      field('Höhe (mm)', '<input id="mnH" type="number" value="25" min="8" max="150">') +
+      field('Rahmen-Breite (mm)', '<input id="mnW" type="number" value="2.5" min="0.8" max="8" step="0.1">'),
+      [{ label: 'Abbrechen' }, { label: 'Erstellen', primary: true, action: () => {
+        const text = val('mnT').trim().slice(0, 3);
+        if (!text) return false;
+        const kind = val('mnK'), H = Math.max(8, num('mnH') || 25), fw = Math.max(0.8, num('mnW') || 2.5);
+        const n = [...text].length;
+        const spec = { text, font: val('mnF'), height: H, spacing: 0, arc: 0, type: 'satin', bold: false, italic: false, envelope: 'none', envAmount: 0 };
+        if ((kind === 'classic' || kind === 'circle' || kind === 'diamond') && n === 3) {
+          spec.glyphAdj = { 0: { scale: 70 }, 2: { scale: 70 } };
+          spec.kernAdj = { 1: H * 0.12, 2: H * 0.12 };
+        }
+        fontReady(spec).then(() => {
+          const gid = nextGrp++;
+          const made = buildText(spec, { x: 0, y: 0 }, st.curColor, gid);
+          if (!made.length) return;
+          pushUndo();
+          const b = HW.textfx.bbOf(made), cx = (b.x0 + b.x1) / 2, cy = (b.y0 + b.y1) / 2, w = b.x1 - b.x0, h = b.y1 - b.y0;
+          const frame = [];
+          const fg = nextGrp++;
+          const col = (pts, closed) => makeObj('colC', { points: pts, color: st.curColor, grp: fg, params: { ...S.DEFAULTS.satin, ...st.defaults.colC, width: fw, closed } });
+          if (kind === 'circle') {
+            const R = Math.hypot(w, h) / 2 + fw + 3;
+            frame.push(col(Array.from({ length: 16 }, (_, i) => ({ x: cx + R * Math.cos((i / 16) * 2 * Math.PI), y: cy + R * Math.sin((i / 16) * 2 * Math.PI), c: true })), true));
+          } else if (kind === 'diamond') {
+            const a = w / 2 + h / 2 + fw + 4;
+            frame.push(col([{ x: cx, y: cy - a }, { x: cx + a, y: cy }, { x: cx, y: cy + a }, { x: cx - a, y: cy }], true));
+          } else if (kind === 'lines') {
+            const L = w / 2 + 6;
+            for (const yy of [b.y0 - fw - 2.5, b.y1 + fw + 2.5]) frame.push(col([{ x: cx - L, y: yy }, { x: cx + L, y: yy }], false));
+          }
+          st.objects.push(...made, ...frame);
+          sel = new Set([...made, ...frame].map((o) => o.id));
+          changed();
+        });
+      } }]);
   }
 
   function textDialog(p, editGrp) {
@@ -1990,6 +2147,9 @@
       field('Höhe Großbuchstaben (mm)', `<input id="tH" type="number" step="0.5" min="3" max="300" value="${spec0.height}">`) +
       field('Zeichenabstand (%)', `<input id="tSp" type="number" step="1" min="-30" max="100" value="${spec0.spacing}">`) +
       field('Bogen-Radius (mm, 0 = gerade, negativ = unten)', `<input id="tArc" type="number" step="5" value="${spec0.arc}">`) +
+      field('Hüllform', `<select id="tEnv">${HW.textfx.ENVELOPES.map(([k, t]) => `<option value="${k}" ${k === (spec0.envelope || 'none') ? 'selected' : ''}>${t}</option>`).join('')}</select>`) +
+      field('Stärke der Hüllform (mm)', `<input id="tEnvA" type="number" step="0.5" value="${spec0.envAmount ?? 5}">`) +
+      (spec0.path ? field('Text liegt auf einer Linie', `<select id="tPath"><option value="keep">beibehalten</option><option value="drop">von der Linie lösen</option></select>`) : '') +
       `<div id="tTtf">` +
       field('Stichart', `<select id="tType"><option value="satin">Satin – folgt Kurven und Bögen</option><option value="auto">Automatisch (breite Teile Tatami)</option><option value="tatami">Tatami</option></select>`) +
       field('Fett (künstlich)', `<input type="checkbox" id="tBold" ${spec0.bold ? 'checked' : ''}>`) +
@@ -2016,6 +2176,7 @@
           if (!fontsLoaded) { fontsReady.then(() => { fontsLoaded = true; $('#modalBtns .primary').click(); }); return false; }
           objs = digitizeText(spec, center);
         }
+        textEffects(objs, spec, center);
         if (!objs.length) return false;
         pushUndo();
         if (editGrp) st.objects = st.objects.filter((o) => o.grp !== editGrp);
@@ -2030,6 +2191,9 @@
     const readSpec = () => ({
       text: val('tText'), font: val('tFont'), bold: $('#tBold').checked, italic: $('#tItalic').checked,
       height: Math.max(2, num('tH') || 15), spacing: num('tSp') || 0, arc: num('tArc') || 0, type: val('tType'),
+      envelope: val('tEnv'), envAmount: num('tEnvA') || 0,
+      glyphAdj: spec0.glyphAdj, kernAdj: spec0.kernAdj,
+      ...(spec0.path && (!$('#tPath') || val('tPath') === 'keep') ? { path: spec0.path, pathSide: spec0.pathSide, pathAlign: spec0.pathAlign, pathOffset: spec0.pathOffset } : {}),
     });
     let lastFont = val('tFont');
     const prev = () => {
@@ -2570,18 +2734,26 @@
         sel = new Set(); renderPalette(); changed(); zoomFit();
       } catch (e) { modal('Fehler', '<p>Datei konnte nicht gelesen werden.</p>'); }
     }, 'text'),
-    importDst: () => pickFile('.dst,.DST', (buf, f) => {
-      const c = D.readDST(new Uint8Array(buf));
+    importDst: () => pickFile('.dst,.DST,.pes,.PES,.jef,.JEF,.exp,.EXP,.pec,.PEC', (buf, f) => {
+      const ext = (f.name.split('.').pop() || 'dst').toLowerCase();
+      let c, colors = [];
+      try {
+        if (ext === 'dst') c = D.readDST(new Uint8Array(buf));
+        else { const r = HW.formats.read(ext, new Uint8Array(buf)); c = r.cmds; colors = r.colors || []; }
+      } catch (e) { return modal('Import', `<p>Datei konnte nicht gelesen werden: ${String(e.message || e).replace(/</g, '&lt;')}</p>`); }
       pushUndo();
+      // Garnfarben aus PES/JEF übernehmen
+      const colIdx = colors.map((hx) => addPaletteColor(hx, 'Import'));
+      if (colIdx.length) renderPalette();
       let ci = 0, cur = [];
-      const flush = () => { if (cur.length > 1) { const o = makeObj('manual', { stitches: cur, color: ci % st.palette.length }); st.objects.push(o); } cur = []; };
+      const flush = () => { if (cur.length > 1) { const o = makeObj('manual', { stitches: cur, color: colIdx.length ? colIdx[Math.min(ci, colIdx.length - 1)] : ci % st.palette.length }); st.objects.push(o); } cur = []; };
       for (const q of c) {
         if (q.cmd === 'color') { flush(); ci++; }
         else if (q.cmd === 'stitch') cur.push({ x: q.x, y: q.y, j: 0 });
         else if (q.cmd === 'jump') cur.push({ x: q.x, y: q.y, j: 1 });
       }
       flush();
-      st.name = f.name.replace(/\.dst$/i, '');
+      st.name = f.name.replace(/\.(dst|pes|jef|exp|pec)$/i, '');
       changed(); zoomFit();
     }),
     exportDst: () => {
@@ -2661,6 +2833,8 @@
     distH: () => align('distH'), distV: () => align('distV'),
     group: () => groupSel(true), ungroup: () => groupSel(false),
     array: () => arrayDialog(),
+    textOnPath: () => textOnPathDialog(),
+    monogram: () => monogramDialog(),
     togglePoints: () => { view.points = !view.points; draw(); },
     zoomFit, zoomHoop,
     machineSettings: machineDialog,
