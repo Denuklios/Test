@@ -57,6 +57,22 @@ Zusätzlich gibt es zehn TrueType-Schriften und funktionieren auf jedem PC, auch
 - **Kurzstiche**: An der Innenseite enger Bögen wird jeder zweite Einstich verkürzt, damit sich dort kein Fadenknäuel bildet (abschaltbar).
 - Die Dichte wird wie bei Hatch/Wilcom angegeben: Abstand zweier Einstiche auf derselben Seite (Vorgabe 0,40 mm).
 
+### Stickprüfung (Pop-up bei Problemen)
+
+Nach jedem Erstellen oder Ändern eines Objekts prüft das Programm, ob die Maschine es sauber sticken kann. Bei Problemen öffnet sich ein Fenster mit Erklärung und den Knöpfen **Korrigieren**, **Rückgängig** und **Trotzdem behalten**. Die Statusleiste zeigt den Prüfstatus dauerhaft an. Ein Klick darauf (oder *Bearbeiten → Stickprüfung…*) listet alle Hinweise, *Zeigen* springt zur markierten Stelle.
+
+Geprüft wird:
+- **Stichwinkel:** Satinstiche fast parallel zur Säule (unter 18°), verdrehte Säulen (Kanten vertauscht), Satin-Flächen, deren Winkel zu lange Stiche ergibt. Korrektur: Stiche quer zur Säule ausrichten.
+- **Dichte:** Satin oder Fläche zu dicht (Fadenbruch, Nadelbruch, harte Stickerei) oder zu offen. Stellen, an denen sich drei oder mehr Objekte übereinander stapeln.
+- **Stichlängen:** Stiche über der Maschinengrenze, sehr viele kurze Stiche, Satin zu breit ohne Teilung, Satin zu schmal (spitze Enden zählen nicht), Laufstich zu kurz oder zu lang.
+
+Die Grenzwerte gelten für jede Stickmaschine und lassen sich unter *Einstellungen → Maschine & Rahmen* anpassen:
+- **Industriemaschine** (Tajima-kompatibel: Texi, Ricoma, Tajima, Barudan, ZSK …)
+- **Haushaltsmaschine** (Brother, Bernina, Janome, Pfaff, Husqvarna …)
+
+Dort lässt sich das Pop-up auch abschalten.
+Die Prüfung wurde an allen 31 eingebauten Profi-Schriften abgestimmt, damit sie bei sauber digitalisierten Motiven nicht grundlos warnt.
+
 ### Ideen aus Ink/Stitch
 
 - **E-Stich** (Applikations- oder Langettenstich) als Stichart für Satinsäulen
@@ -123,6 +139,7 @@ Bitte das Projekt immer zusätzlich speichern: Eine DST-Datei enthält nur noch 
 | Datei | Inhalt |
 |---|---|
 | `js/geometry.js` | Kurven (Ecke/Kurve wie Hatch), Polygone, Hilfsfunktionen |
+| `js/check.js` | Stickprüfung: Stichwinkel, Dichte, Stichlängen, Maschinenprofile |
 | `js/fabric.js` | Stoffprofile, automatische Stichanpassung, Vlies-Empfehlung |
 | `js/stitchgen.js` | Lauf-, Dreifach-, Satin- und Tatami-Stiche, Unterlagen, Zugkompensation, Auto-Split |
 | `js/dst.js` | Design zusammensetzen (Vernähen, Schnitte, Farbwechsel), DST schreiben und lesen |
@@ -134,5 +151,5 @@ Bitte das Projekt immer zusätzlich speichern: Eine DST-Datei enthält nur noch 
 | `tools/inkstitch_fonts.py` | Konverter Ink/Stitch-Schrift (SVG + font.json) -> StickStudio |
 | `js/app.js` | Oberfläche, Werkzeuge, Umformen, Simulation, Dialoge |
 
-Tests: `node tests/test_core.js` prüft die Stichgenerierung und den DST-Hin- und Rückweg, `node tests/test_satin.js` die Satin-Erkennung (Ring, Bogen, L, T), `node tests/test_fabric.js` die Stoff-Automatik.
+Tests: `node tests/test_core.js` prüft die Stichgenerierung und den DST-Hin- und Rückweg, `node tests/test_satin.js` die Satin-Erkennung (Ring, Bogen, L, T), `node tests/test_fabric.js` die Stoff-Automatik, `node tests/test_check.js` die Stickprüfung.
 Die erzeugten DST-Dateien wurden zusätzlich mit der unabhängigen Bibliothek *pyembroidery* gegengelesen.

@@ -31,7 +31,7 @@
     fabric: '#f4f1ea',
     material: 'baumwolle',
     bg: null,
-    settings: { trimDist: 2.0, lock: true, trimJumps: 3, spm: 800 },
+    settings: { trimDist: 2.0, lock: true, trimJumps: 3, spm: 800, machine: 'industrie', limits: {}, checkPopup: true },
     defaults: {
       run: { ...S.DEFAULTS.run },
       triple: { ...S.DEFAULTS.run, style: 'triple' },
@@ -52,6 +52,9 @@
   let playN = Infinity, playing = false;
   let nextId = 1;
   const undoStack = [], redoStack = [];
+  const pendingCheck = new Set();
+  let issues = [];
+  const machine = () => ({ ...HW.check.MACHINES[st.settings.machine || 'industrie'], ...(st.settings.limits || {}) });
 
   /* ======================= Hilfen ======================= */
   const clone = (o) => JSON.parse(JSON.stringify(o, (k, v) => (k.startsWith('_') ? undefined : v)));
@@ -90,9 +93,10 @@
     return { id: nextId++, type: base, color: st.curColor, params: { ...(st.defaults[dk] || {}) }, points: [], ...data };
   }
 
-  function invalidate(o) { o._st = null; o._rings = null; o._bb = null; }
+  function invalidate(o) { o._st = null; o._rings = null; o._bb = null; pendingCheck.add(o.id); }
   function ensure(o) {
     if (!o._st) {
+      pendingCheck.add(o.id);
       try { o._st = S.generate(o, st.material); } catch (e) { console.error(e); o._st = []; }
       o._bb = o._st.length ? G.bbox(o._st) : null;
     }
@@ -110,7 +114,58 @@
     renderProps();
     renderStats();
     renderFabric();
+    if (!drag) runChecks();
     draw();
+  }
+
+  /* ---------- Stickprüfung ---------- */
+  function runChecks() {
+    issues = HW.check.checkDesign(st.objects, cmds, machine(), st.material);
+    const btn = $('#checkInfo');
+    const nF = issues.filter((i) => i.sev === 'fehler').length, nW = issues.length - nF;
+    btn.className = issues.length ? (nF ? 'chk bad' : 'chk warn') : 'chk ok';
+    btn.textContent = issues.length ? `⚠ Prüfung: ${nF ? nF + ' Fehler, ' : ''}${nW} Hinweis${nW === 1 ? '' : 'e'}` : '✓ Prüfung ok';
+    // Pop-up nur bei einzelnen, gerade bearbeiteten Objekten (nicht bei Auto-Digitalisieren/Text/Laden)
+    const touched = new Set(pendingCheck);
+    pendingCheck.clear();
+    if (!st.settings.checkPopup || !touched.size || touched.size > 3) return;
+    const fresh = issues.filter((i) => touched.has(i.obj) && !((byId(i.obj) || {})._ack || new Set()).has(i.code));
+    if (fresh.length && $('#modal').classList.contains('hidden')) issueDialog(fresh, true);
+  }
+
+  function issueDialog(list, popup) {
+    const name = (id) => { const o = byId(id); return o ? `${st.objects.indexOf(o) + 1}. ${objName(o)}` : ''; };
+    const html = list.length ? list.map((it, i) => `<div class="issue ${it.sev}">
+        <div><b>${it.sev === 'fehler' ? '⛔' : '⚠'} ${it.msg}</b> <small>– ${name(it.obj)}</small></div>
+        <div class="why">${it.why}</div>
+        <div class="row">${it.fix ? `<button data-fix="${i}">Korrigieren: ${it.fix.label}</button>` : ''}<button data-show="${i}">Zeigen</button></div>
+      </div>`).join('') : '<p>✓ Keine Probleme gefunden. Stichwinkel, Dichte und Stichlängen sind für die Maschine in Ordnung.</p>';
+    const btns = popup
+      ? [{ label: 'Rückgängig', action: () => { undo(); } },
+        ...(list.some((i) => i.fix) ? [{ label: 'Alle korrigieren', action: () => fixAll(list) }] : []),
+        { label: 'Trotzdem behalten', primary: true, action: () => { list.forEach((it) => { const o = byId(it.obj); if (o) (o._ack = o._ack || new Set()).add(it.code); }); } }]
+      : [{ label: 'OK', primary: true }];
+    modal(popup ? 'Stickprüfung – das stickt die Maschine nicht sauber' : 'Stickprüfung',
+      html + (popup ? '<label style="display:block;margin-top:8px;color:#6a7480"><input type="checkbox" id="noPop"> Hinweise nicht mehr automatisch anzeigen (Prüfung bleibt unten in der Statusleiste)</label>' : `<p style="color:#6a7480">Maschine: ${machine().name}. Grenzwerte unter Einstellungen → Maschine &amp; Rahmen.</p>`),
+      btns);
+    const np = $('#noPop');
+    if (np) np.onchange = () => { st.settings.checkPopup = !np.checked; };
+    $('#modalBody').querySelectorAll('[data-fix]').forEach((b) => (b.onclick = () => { closeModal(); fixAll([list[+b.dataset.fix]]); }));
+    $('#modalBody').querySelectorAll('[data-show]').forEach((b) => (b.onclick = () => {
+      const it = list[+b.dataset.show];
+      closeModal();
+      if (byId(it.obj)) sel = new Set([it.obj]);
+      if (it.at) { const r = cv.getBoundingClientRect(); view.scale = Math.max(view.scale, 8); view.ox = r.width / 2 - it.at.x * view.scale; view.oy = r.height / 2 - it.at.y * view.scale; }
+      flash = it.at;
+      renderList(); renderProps(); draw();
+    }));
+  }
+  let flash = null;
+
+  function fixAll(list) {
+    pushUndo();
+    for (const it of list) { const o = byId(it.obj); if (o && it.fix) { it.fix.apply(o); invalidate(o); } }
+    changed();
   }
 
   /* ======================= Zeichnen ======================= */
@@ -255,6 +310,15 @@
       ctx.restore();
     }
     if (tool === 'reshape') drawNodes();
+    // Problemstellen markieren (ausgewählte Objekte und zuletzt angezeigte Stelle)
+    ctx.save();
+    ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = 2; ctx.setLineDash([3, 2]);
+    for (const it of issues) {
+      if (!it.at || !(sel.has(it.obj) || it.at === flash)) continue;
+      const q = toScr(it.at);
+      ctx.beginPath(); ctx.arc(q.x, q.y, 14, 0, Math.PI * 2); ctx.stroke();
+    }
+    ctx.restore();
     if (draft) drawDraft();
     if (drag && drag.kind === 'band') {
       ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = '#1f6feb';
@@ -494,7 +558,7 @@
     let target, type, title;
     const g0 = objs.length && objs[0].grp && objs.every((o) => o.grp === objs[0].grp) && objs[0].textSpec;
     if (g0) {
-      el.innerHTML = `<p>Text „${String(objs[0].textSpec.text).replace(/</g, '&lt;')}“ (${objs[0].textSpec.font}, ${objs.length} Objekte)</p>`;
+      el.innerHTML = `<p>Text „${String(objs[0].textSpec.text).replace(/</g, '&lt;')}“ (${String(objs[0].textSpec.font).startsWith('ink:') ? ((HW.INKFONT_INDEX || []).find((f) => 'ink:' + f.id === objs[0].textSpec.font) || {}).name : objs[0].textSpec.font}, ${objs.length} Objekte)</p>`;
       const btn = document.createElement('button');
       btn.textContent = 'Text bearbeiten…';
       btn.onclick = () => textDialog(null, objs[0].grp);
@@ -559,7 +623,7 @@
       if (kind === 'select') {
         inp = document.createElement('select');
         a.forEach(([v, t]) => { const op = document.createElement('option'); op.value = v; op.textContent = t; inp.appendChild(op); });
-        inp.value = isAuto(key) ? o0._eff.params[key] : target[key];
+        inp.value = (isAuto(key) ? o0._eff.params[key] : target[key]) ?? a[0][0];
       } else if (kind === 'bool') {
         inp = document.createElement('input'); inp.type = 'checkbox'; inp.checked = !!target[key];
       } else {
@@ -1298,6 +1362,12 @@
 
   function machineDialog() {
     modal('Maschine & Rahmen',
+      field('Maschinentyp (für die Stickprüfung)', `<select id="mType">${Object.entries(HW.check.MACHINES).map(([k, m]) => `<option value="${k}" ${k === st.settings.machine ? 'selected' : ''}>${m.name}</option>`).join('')}</select>`) +
+      field('Längster erlaubter Stich (mm)', `<input id="mMax" type="number" step="0.1" value="${machine().maxStitch}">`) +
+      field('Kürzester sinnvoller Stich (mm)', `<input id="mMin" type="number" step="0.05" value="${machine().minStitch}">`) +
+      field('Satin ohne Teilung höchstens (mm)', `<input id="mSat" type="number" step="0.5" value="${machine().maxSatin}">`) +
+      field('Satin-Abstand mindestens (mm)', `<input id="mSp" type="number" step="0.01" value="${machine().minSpacingSatin}">`) +
+      field('Pop-up bei Problemen', `<input type="checkbox" id="mPop" ${st.settings.checkPopup ? 'checked' : ''}>`) +
       field('Rahmen', `<select id="mHoop">${Object.entries(HOOPS).map(([k, h]) => `<option value="${k}" ${k === st.hoop ? 'selected' : ''}>${h.name}</option>`).join('')}</select>`) +
       field('Stofffarbe', `<input type="color" id="mFabric" value="${st.fabric}">`) +
       field('Fadenschnitt ab Sprung (mm)', `<input id="mTrim" type="number" step="0.5" min="0.5" value="${st.settings.trimDist}">`) +
@@ -1306,6 +1376,13 @@
       field('Geschwindigkeit (Stiche/min)', `<input id="mSpm" type="number" step="50" value="${st.settings.spm}">`) +
       '<p style="color:#6a7480">Texi 1501: DST-Datei per USB-Stick laden. An der Maschine unter Parametern einstellen, ab wie vielen Sprüngen geschnitten wird (Standard 3 = passend zur Einstellung hier). Die Nadelreihenfolge wird an der Maschine zugeordnet – das Arbeitsblatt listet die Farben mit Nadelnummern.</p>',
       [{ label: 'Abbrechen' }, { label: 'Übernehmen', primary: true, action: () => {
+        if (val('mType') !== st.settings.machine) { st.settings.machine = val('mType'); st.settings.limits = {}; }
+        else {
+          const base = HW.check.MACHINES[st.settings.machine], lim = {};
+          [['mMax', 'maxStitch'], ['mMin', 'minStitch'], ['mSat', 'maxSatin'], ['mSp', 'minSpacingSatin']].forEach(([id, k]) => { const v = num(id); if (isFinite(v) && v !== base[k]) lim[k] = v; });
+          st.settings.limits = lim;
+        }
+        st.settings.checkPopup = $('#mPop').checked;
         st.hoop = val('mHoop'); st.fabric = val('mFabric');
         st.settings.trimDist = Math.max(0.5, num('mTrim') || 2);
         st.settings.lock = $('#mLock').checked;
@@ -1531,6 +1608,7 @@
       objs.forEach((o) => { const s = ensure(o).map((p) => ({ x: p.x, y: p.y, j: p.j || 0 })); o.type = 'manual'; o.stitches = s; o.points = []; delete o.side2; delete o.holes; invalidate(o); });
       setTool('reshape'); changed();
     },
+    check: () => issueDialog(issues, false),
     sortColor: () => {
       pushUndo();
       const firstIdx = {};
@@ -1598,6 +1676,7 @@
   document.addEventListener('click', () => document.querySelectorAll('.menu').forEach((x) => x.classList.remove('open')));
   document.querySelectorAll('[data-cmd]').forEach((b) => b.addEventListener('click', () => run(b.dataset.cmd)));
   document.querySelectorAll('[data-tool]').forEach((b) => b.addEventListener('click', () => setTool(b.dataset.tool)));
+  $('#checkInfo').addEventListener('click', () => issueDialog(issues, false));
   $('#curveMode').addEventListener('click', () => { curveMode = !curveMode; $('#curveMode').classList.toggle('active', curveMode); setHint(); });
   $('#modal').addEventListener('pointerdown', (e) => { if (e.target.id === 'modal') closeModal(); });
 

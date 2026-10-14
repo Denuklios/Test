@@ -38,6 +38,8 @@
       <hr>
       <button data-cmd="toStitches">In Einzelstiche umwandeln</button>
       <button data-cmd="sortColor">Nach Farbe sortieren</button>
+      <hr>
+      <button data-cmd="check">Stickprüfung…</button>
     </div>
   </div>
   <div class="menu"><button>Bild</button>
@@ -130,6 +132,7 @@
     <select id="playSpeed"><option value="20">langsam</option><option value="100" selected>normal</option><option value="600">schnell</option><option value="3000">sehr schnell</option></select>
   </div>
   <span id="stats"></span>
+  <button id="checkInfo" title="Stickprüfung"></button>
   <span id="coords"></span>
 </footer>
 
@@ -139,6 +142,7 @@
 <script src="js/geometry.js"></script>
 <script src="js/stitchgen.js"></script>
 <script src="js/fabric.js"></script>
+<script src="js/check.js"></script>
 <script src="js/dst.js"></script>
 <script src="js/satinauto.js"></script>
 <script src="js/autodigitize.js"></script>

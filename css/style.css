@@ -86,3 +86,11 @@ main { display: flex; height: calc(100% - 38px - 34px); }
 .fabrec { font-size: 12px; margin-top: 6px; line-height: 1.45; }
 .fabwarn { font-size: 12px; margin-top: 4px; color: var(--danger); }
 #material { padding: 4px; border: 1px solid var(--line); border-radius: 4px; font: inherit; }
+
+.chk { border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; background: var(--bg); font-size: 12px; }
+.chk.ok { color: #2e7d32; }
+.chk.warn { color: #b26a00; border-color: #e0b060; background: #fff7e6; }
+.chk.bad { color: var(--danger); border-color: #e3a0a0; background: #fdecec; }
+.issue { border-left: 4px solid #e0a030; background: #fffaf0; padding: 6px 10px; margin: 6px 0; border-radius: 4px; }
+.issue.fehler { border-color: var(--danger); background: #fdf0f0; }
+.issue .why { color: #4a525c; font-size: 12.5px; margin-top: 2px; }

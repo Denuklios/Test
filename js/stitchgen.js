@@ -192,15 +192,16 @@
     }
     if (ul.includes('edge')) {
       const ins = cr.map((c) => inset(c, 0.4));
-      runAlong(out, ins.map((c) => c.a), 2.2);
-      runAlong(out, ins.map((c) => c.b).reverse(), 2.2);
-      push(out, ins[0].a);
+      // eine Kante hin, die andere zurück – Übergänge ebenfalls in kurze Stiche teilen
+      runAlong(out, ins.map((c) => c.a).concat(ins.map((c) => c.b).reverse(), [ins[0].a]), 2.2);
     }
     if (ul.includes('zigzag')) {
       const ins = cr.map((c) => inset(c, 0.5));
-      for (let k = 0; k < ins.length; k += step) push(out, (k / step) % 2 ? ins[k].b : ins[k].a);
-      for (let k = ins.length - 1 - Math.floor(step / 2); k >= 0; k -= step) push(out, (k / step) % 2 ? ins[k].a : ins[k].b);
-      push(out, ins[0].a);
+      // Zickzack-Unterlage – bei breiten Säulen ebenfalls teilen
+      const zz = (q) => { const last = out[out.length - 1]; if (last) splitStitch(out, last, q, p.split || 7, out.length); else push(out, q); };
+      for (let k = 0; k < ins.length; k += step) zz((k / step) % 2 ? ins[k].b : ins[k].a);
+      for (let k = ins.length - 1 - Math.floor(step / 2); k >= 0; k -= step) zz((k / step) % 2 ? ins[k].a : ins[k].b);
+      zz(ins[0].a);
     }
     // E-Stich (Applikation/Langette): Lauf entlang einer Kante, Querstich zur anderen und zurück
     if (p.style === 'e') {
@@ -431,5 +432,13 @@
     }
   }
 
-  HW.stitch = { DEFAULTS, generate, railsFor, fillRings };
+  // Kreuzungen (Stichpositionen) einer Satinsäule mit den wirksamen Parametern – für die Stickprüfung
+  function satinCrossings(obj, fabId) {
+    const p = fabId && HW.fabric ? HW.fabric.effective(obj, fabId).params : obj.params;
+    const segs = railsFor({ ...obj, params: p });
+    if (!segs) return [];
+    return crossings(segs, (p.spacing || 0.4) / 2);
+  }
+
+  HW.stitch = { DEFAULTS, generate, railsFor, fillRings, satinCrossings };
 })(typeof window !== 'undefined' ? window : globalThis);
