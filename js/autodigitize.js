@@ -44,19 +44,24 @@
 
   // Mehrheitsfilter glättet Pixelrauschen
   function majority(labels, w, h, passes) {
+    const cnt = new Int32Array(64);
     for (let p = 0; p < passes; p++) {
       const src = labels.slice();
       for (let y = 1; y < h - 1; y++)
         for (let x = 1; x < w - 1; x++) {
-          const cnt = {};
-          let best = src[y * w + x], bc = 0;
-          for (let dy = -1; dy <= 1; dy++)
+          const i = y * w + x, c0 = src[i];
+          // schneller Weg: alle Nachbarn gleich
+          if (src[i - 1] === c0 && src[i + 1] === c0 && src[i - w] === c0 && src[i + w] === c0 &&
+              src[i - w - 1] === c0 && src[i - w + 1] === c0 && src[i + w - 1] === c0 && src[i + w + 1] === c0) continue;
+          let best = c0, bc = 0;
+          for (let dy = -w; dy <= w; dy += w)
             for (let dx = -1; dx <= 1; dx++) {
-              const l = src[(y + dy) * w + x + dx];
-              cnt[l] = (cnt[l] || 0) + 1;
-              if (cnt[l] > bc) { bc = cnt[l]; best = l; }
+              const l = src[i + dy + dx] + 1;
+              const n = ++cnt[l];
+              if (n > bc) { bc = n; best = l - 1; }
             }
-          if (bc >= 5) labels[y * w + x] = best;
+          for (let dy = -w; dy <= w; dy += w) for (let dx = -1; dx <= 1; dx++) cnt[src[i + dy + dx] + 1] = 0;
+          if (bc >= 5) labels[i] = best;
         }
     }
   }
@@ -226,31 +231,69 @@
     const areaOf = {};
     list.forEach((c) => (areaOf[c.label] = (areaOf[c.label] || 0) + c.pixels.length));
     const order = used.slice().sort((a, b) => areaOf[b] - areaOf[a]);
-    const toMM = (p) => ({ x: opts.originX + p.x * mm, y: opts.originY + p.y * mm, c: p.c });
     const objects = [];
+    const SA = HW.satinauto;
+    const mode = opts.mode || 'auto';
+    const satinMax = opts.satinMax ?? 7;
+    let cursor = null;
     for (const lab of order) {
-      const comps = list.filter((c) => c.label === lab).sort((a, b) => b.pixels.length - a.pixels.length);
+      const colorKey = palette[used.indexOf(lab)];
+      const items = [];
+      const comps = list.filter((c) => c.label === lab);
       for (const c of comps) {
-        const mask = new Uint8Array(w * h);
-        for (const p of c.pixels) mask[p] = 1;
-        const rings = traceMask(mask, w, h)
+        // auf die Region zuschneiden (schneller)
+        let x0 = w, y0 = h, x1 = 0, y1 = 0;
+        for (const p of c.pixels) { const x = p % w, y = (p / w) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+        x0 = Math.max(0, x0 - 2); y0 = Math.max(0, y0 - 2);
+        const cw = Math.min(w, x1 + 3) - x0, ch = Math.min(h, y1 + 3) - y0;
+        const mask = new Uint8Array(cw * ch);
+        for (const p of c.pixels) mask[(((p / w) | 0) - y0) * cw + (p % w) - x0] = 1;
+        const toMMc = (p) => ({ x: opts.originX + (p.x + x0) * mm, y: opts.originY + (p.y + y0) * mm, c: p.c });
+        const rings = traceMask(mask, cw, ch)
           .map((r) => smoothRing(r, opts.simplify ?? 0.7))
           .filter((r) => r.length >= 3);
         if (!rings.length) continue;
         rings.sort((a, b) => Math.abs(G.signedArea(b)) - Math.abs(G.signedArea(a)));
-        const outer = rings[0].map(toMM);
-        const holes = rings.slice(1).filter((r) => Math.abs(G.signedArea(r)) * mm * mm >= (opts.minAreaMM2 || 2)).map((r) => r.map(toMM));
+        const outer = rings[0].map(toMMc);
+        const allRings = rings.map((r) => r.map(toMMc));
+        const holes = rings.slice(1).filter((r) => Math.abs(G.signedArea(r)) * mm * mm >= (opts.minAreaMM2 || 2)).map((r) => r.map(toMMc));
         const area = c.pixels.length * mm * mm;
+        // Schmale Formen (Schrift, Linien, Bögen) -> drehende Satinsäulen
+        let cols = null;
+        if (mode !== 'tatami') {
+          const res = SA.shapeToColumns(mask, cw, ch, mm, { x: opts.originX + x0 * mm, y: opts.originY + y0 * mm }, allRings);
+          if (res) {
+            const ws = res.widths.slice().sort((a, b) => a - b);
+            const p90 = ws[Math.floor(ws.length * 0.9)] || 0;
+            let cover = 0;
+            for (const col of res.columns) {
+              const L = col.filter((_, i) => i % 2 === 0), R = col.filter((_, i) => i % 2 === 1).reverse();
+              cover += Math.abs(G.signedArea(L.concat(R)));
+            }
+            if (mode === 'satin' || (p90 <= satinMax && cover / area > 0.75)) cols = res;
+          }
+        }
+        if (cols) {
+          const med = cols.widths.slice().sort((a, b) => a - b)[Math.floor(cols.widths.length / 2)];
+          const ul = med < 1.4 ? 'none' : med < 3 ? 'center' : 'edge+zigzag';
+          for (const col of cols.columns) {
+            items.push({
+              type: 'colA', colorKey, points: col,
+              params: { ...HW.stitch.DEFAULTS.satin, underlay: ul, pull: med < 1.5 ? 0.1 : 0.2 },
+              s: G.lerp(col[0], col[1], 0.5), e: G.lerp(col[col.length - 2], col[col.length - 1], 0.5),
+            });
+          }
+          continue;
+        }
         let per = 0;
         for (let i = 0; i < outer.length; i++) per += G.dist(outer[i], outer[(i + 1) % outer.length]);
         const width = (2 * area) / (per || 1);
-        const satin = width <= (opts.satinMax ?? 2.5) && (!holes.length || opts.allowSatinHoles);
+        const satin = mode !== 'tatami' && width <= 2.2 && !holes.length;
         const ang = (principalAngle(c.pixels, w) * 180) / Math.PI + 90;
-        objects.push({
-          type: 'fill',
-          colorKey: palette[used.indexOf(lab)],
-          points: outer,
-          holes,
+        const bb = G.bbox(outer);
+        const ctr = { x: (bb.x0 + bb.x1) / 2, y: (bb.y0 + bb.y1) / 2 };
+        items.push({
+          type: 'fill', colorKey, points: outer, holes,
           params: {
             ...HW.stitch.DEFAULTS.fill,
             fillType: satin ? 'satin' : 'tatami',
@@ -258,7 +301,24 @@
             underlay: satin ? 'none' : area > 40 ? 'edge+tatami' : 'edge',
             border: opts.outline ? 'run' : 'none',
           },
+          s: ctr, e: ctr,
         });
+      }
+      // Reihenfolge innerhalb einer Farbe: nächster Nachbar (bei Schrift = Lesereihenfolge)
+      const rest = items.slice();
+      while (rest.length) {
+        let bi = 0, rev = false, bd = Infinity;
+        rest.forEach((it, i) => {
+          const ds = cursor ? G.dist(cursor, it.s) : it.s.x + it.s.y * 0.2;
+          const de = cursor ? G.dist(cursor, it.e) : Infinity;
+          if (ds < bd) { bd = ds; bi = i; rev = false; }
+          if (it.type === 'colA' && de < bd) { bd = de; bi = i; rev = true; }
+        });
+        const it = rest.splice(bi, 1)[0];
+        if (rev) { it.points = SA.reverseColA(it.points); [it.s, it.e] = [it.e, it.s]; }
+        cursor = it.e;
+        delete it.s; delete it.e;
+        objects.push(it);
       }
     }
     return { objects, palette };

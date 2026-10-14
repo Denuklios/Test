@@ -166,7 +166,7 @@
   }
 
   function drawStitchList(list, colorFn, alpha = 1, limit = Infinity) {
-    const lw = view.trueView ? Math.max(1, 0.38 * view.scale) : 1;
+    const lw = view.trueView ? Math.max(1, 0.45 * view.scale) : 1;
     ctx.save();
     ctx.globalAlpha = alpha;
     ctx.lineCap = 'round';
@@ -431,6 +431,7 @@
       ['pull', 'Zugkompensation (mm)', 'num', 0, 1.5, 0.05],
       ['underlay', 'Unterlage', 'select', [['none', 'keine'], ['center', 'Mittellauf'], ['edge', 'Kantenlauf'], ['zigzag', 'Zickzack'], ['edge+zigzag', 'Kante + Zickzack'], ['center+zigzag', 'Mitte + Zickzack']]],
       ['split', 'Auto-Split ab (mm, 0=aus)', 'num', 0, 12, 0.5],
+      ['shortSt', 'Kurzstiche in Bögen', 'bool'],
     ],
     fill: [
       ['fillType', 'Füllart', 'select', [['tatami', 'Tatami'], ['satin', 'Satin (fester Winkel)']]],
@@ -456,6 +457,22 @@
     const el = $('#props');
     const objs = selected();
     let target, type, title;
+    const g0 = objs.length && objs[0].grp && objs.every((o) => o.grp === objs[0].grp) && objs[0].textSpec;
+    if (g0) {
+      el.innerHTML = `<p>Text „${String(objs[0].textSpec.text).replace(/</g, '&lt;')}“ (${objs[0].textSpec.font}, ${objs.length} Objekte)</p>`;
+      const btn = document.createElement('button');
+      btn.textContent = 'Text bearbeiten…';
+      btn.onclick = () => textDialog(null, objs[0].grp);
+      const brk = document.createElement('button');
+      brk.textContent = 'Gruppierung lösen';
+      brk.title = 'Buchstaben einzeln bearbeiten (Text ist danach nicht mehr änderbar)';
+      brk.onclick = () => { pushUndo(); objs.forEach((o) => { delete o.grp; delete o.textSpec; }); changed(); };
+      const row = document.createElement('div'); row.className = 'row'; row.append(btn, brk);
+      el.appendChild(row);
+      $('#propTitle').textContent = '– Schrift';
+      if (!objs.every((o) => o.type === objs[0].type)) return;
+      const h = document.createElement('p'); h.style.margin = '8px 0 2px'; h.textContent = 'Sticheigenschaften aller Buchstaben:'; el.appendChild(h);
+    }
     if (objs.length) {
       type = objs[0].type;
       if (!objs.every((o) => o.type === type)) { el.innerHTML = `<p>${objs.length} Objekte ausgewählt (verschiedene Arten). Farbe per Klick in der Palette zuweisen.</p>`; $('#propTitle').textContent = ''; return; }
@@ -469,9 +486,9 @@
       }
       type = dk; target = st.defaults[dk]; title = 'Vorgabe für neue Objekte';
     }
-    $('#propTitle').textContent = '– ' + title;
+    $('#propTitle').textContent = g0 ? '– Schrift' : '– ' + title;
     const defs = defsFor(type);
-    el.innerHTML = '';
+    if (!g0) el.innerHTML = '';
     if (type === 'manual') {
       el.innerHTML = `<p>${objs[0].stitches.length} Einzelstiche. Mit <b>Umformen</b> jeden Stich verschieben (Entf = löschen, Doppelklick = einfügen).</p>`;
       return;
@@ -720,8 +737,9 @@
     if (tool === 'select') {
       const o = hitObj(p);
       if (o) {
-        if (drag.shift) { sel.has(o.id) ? sel.delete(o.id) : sel.add(o.id); }
-        else if (!sel.has(o.id)) sel = new Set([o.id]);
+        const grp = o.grp ? st.objects.filter((q) => q.grp === o.grp).map((q) => q.id) : [o.id];
+        if (drag.shift) { const on = sel.has(o.id); grp.forEach((id) => (on ? sel.delete(id) : sel.add(id))); }
+        else if (!sel.has(o.id)) sel = new Set(grp);
         drag.kind = 'move'; drag.last = p; drag.undone = false;
         renderList(); renderProps();
       } else { drag.kind = 'band'; if (!drag.shift) sel = new Set(); }
@@ -825,6 +843,7 @@
 
   cv.addEventListener('dblclick', (e) => {
     if (tool === 'reshape') insertNode(toMM(e.offsetX, e.offsetY));
+    if (tool === 'select') { const o = hitObj(toMM(e.offsetX, e.offsetY)); if (o && o.grp && o.textSpec) textDialog(null, o.grp); }
   });
 
   cv.addEventListener('wheel', (e) => {
@@ -995,43 +1014,157 @@
       } }]);
   }
 
-  function textDialog(p) {
-    const fonts = ['Arial', 'Arial Black', 'Verdana', 'Tahoma', 'Trebuchet MS', 'Georgia', 'Times New Roman', 'Courier New', 'Impact', 'Comic Sans MS', 'Brush Script MT', 'serif', 'sans-serif', 'cursive'];
-    modal('Text einfügen',
-      field('Text', '<textarea id="tText" rows="2" style="width:100%">Text</textarea>') +
-      field('Schriftart', `<select id="tFont">${fonts.map((f) => `<option>${f}</option>`).join('')}</select>`) +
-      field('Fett', '<input type="checkbox" id="tBold" checked>') +
-      field('Kursiv', '<input type="checkbox" id="tItalic">') +
-      field('Höhe Großbuchstaben (mm)', '<input id="tH" type="number" value="20" min="4" max="300">') +
-      field('Stichart', '<select id="tType"><option value="auto">Automatisch (schmal = Satin)</option><option value="satin">Satin</option><option value="tatami">Tatami</option></select>') +
-      '<p style="color:#6a7480">Tipp: Für sauberen Satin mind. 5 mm Buchstabenhöhe. Die Buchstaben werden als normale Objekte angelegt und lassen sich danach umformen.</p>',
-      [{ label: 'Abbrechen' }, { label: 'Einfügen', primary: true, action: () => {
-        const text = val('tText').trim();
-        if (!text) return;
-        const hmm = num('tH') || 20;
-        const res = 8;
-        const font = `${$('#tItalic').checked ? 'italic ' : ''}${$('#tBold').checked ? 'bold ' : ''}${Math.round(hmm * res * 1.4)}px "${val('tFont')}"`;
-        const lines = text.split('\n');
-        const c = document.createElement('canvas'), x = c.getContext('2d');
-        x.font = font;
-        const lh = hmm * res * 1.9;
-        const w = Math.ceil(Math.max(...lines.map((l) => x.measureText(l).width))) + 20;
-        c.width = Math.min(4000, w); c.height = Math.min(4000, Math.ceil(lh * lines.length + 20));
-        x.font = font; x.fillStyle = '#000'; x.textBaseline = 'top';
-        lines.forEach((l, i) => x.fillText(l, 10, 10 + i * lh));
-        const img = x.getImageData(0, 0, c.width, c.height);
-        const type = val('tType');
-        const r = HW.auto.autoDigitize(img, {
-          colors: 1, widthMM: c.width / res, originX: p.x - c.width / res / 2, originY: p.y - c.height / res / 2,
-          minAreaMM2: 0.3, removeBg: false, satinMax: type === 'satin' ? 1e9 : type === 'tatami' ? 0 : 2.6, allowSatinHoles: type === 'satin', simplify: 0.6, angle: 45,
-        });
+  /* ---------- Schrift ---------- */
+  const SYS_FONTS = ['Arial', 'Arial Black', 'Verdana', 'Georgia', 'Times New Roman', 'Impact', 'Comic Sans MS', 'Segoe Script', 'Brush Script MT'];
+  const fontFamily = (name) => (HW.FONTS || []).some((f) => f.name === name) ? `"SS ${name}"` : `"${name}"`;
+  const fontsReady = Promise.all((HW.FONTS || []).map((f) => {
+    try {
+      const bin = atob(f.data), buf = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) buf[i] = bin.charCodeAt(i);
+      const ff = new FontFace('SS ' + f.name, buf.buffer);
+      document.fonts.add(ff);
+      return ff.load().catch(() => null);
+    } catch (e) { return null; }
+  }));
+
+  // Text in eine Pixelmaske zeichnen. Rückgabe {img, res, wMM, hMM}
+  function renderText(spec, forceRes) {
+    const c = document.createElement('canvas'), x = c.getContext('2d');
+    const fam = fontFamily(spec.font);
+    const style = `${spec.italic ? 'italic ' : ''}${spec.bold ? 'bold ' : ''}`;
+    x.font = `${style}100px ${fam}`;
+    const mH = x.measureText('H');
+    const capRatio = (mH.actualBoundingBoxAscent || 70) / 100;
+    const lines = spec.text.split('\n');
+    const longest = Math.max(...lines.map((l) => l.length), 1);
+    // Auflösung: fein genug für saubere Mittellinien, Leinwand begrenzt
+    let res = forceRes || Math.max(6, Math.min(16, 2600 / Math.max(1, spec.height * 0.7 * longest + 10)));
+    const fontPx = (spec.height * res) / capRatio;
+    const font = `${style}${fontPx}px ${fam}`;
+    x.font = font;
+    const sp = ((spec.spacing || 0) / 100) * fontPx;
+    const adv = (ch) => x.measureText(ch).width + sp;
+    const glyphs = [];
+    const lineH = fontPx * 1.25 * (spec.lineGap || 1);
+    if (spec.arc && lines.length === 1) {
+      const R = Math.abs(spec.arc) * res, top = spec.arc > 0;
+      const chars = [...lines[0]];
+      const W = chars.reduce((a, ch) => a + adv(ch), 0) - sp;
+      let s = 0;
+      for (const ch of chars) {
+        const a = adv(ch), th = (s + (a - sp) / 2 - W / 2) / R;
+        s += a;
+        if (top) glyphs.push({ ch, x: R * Math.sin(th), y: -R * Math.cos(th), rot: th });
+        else glyphs.push({ ch, x: -R * Math.sin(th) * -1, y: R * Math.cos(th) + fontPx * capRatio, rot: -th });
+      }
+    } else {
+      lines.forEach((l, li) => {
+        const chars = [...l];
+        const W = chars.reduce((a, ch) => a + adv(ch), 0) - sp;
+        let s = -W / 2;
+        for (const ch of chars) { const a = adv(ch); glyphs.push({ ch, x: s + (a - sp) / 2, y: li * lineH, rot: 0 }); s += a; }
+      });
+    }
+    // Ausdehnung bestimmen
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
+    for (const gl of glyphs) {
+      const hw = adv(gl.ch) / 2 + fontPx * 0.3, up = fontPx * 1.05, dn = fontPx * 0.4;
+      for (const [dx, dy] of [[-hw, -up], [hw, -up], [hw, dn], [-hw, dn]]) {
+        const px = gl.x + dx * Math.cos(gl.rot) - dy * Math.sin(gl.rot), py = gl.y + dx * Math.sin(gl.rot) + dy * Math.cos(gl.rot);
+        x0 = Math.min(x0, px); x1 = Math.max(x1, px); y0 = Math.min(y0, py); y1 = Math.max(y1, py);
+      }
+    }
+    c.width = Math.min(6000, Math.ceil(x1 - x0 + 8));
+    c.height = Math.min(6000, Math.ceil(y1 - y0 + 8));
+    x.font = font; x.fillStyle = '#000'; x.textAlign = 'center'; x.textBaseline = 'alphabetic';
+    for (const gl of glyphs) {
+      x.save();
+      x.translate(gl.x - x0 + 4, gl.y - y0 + 4);
+      x.rotate(gl.rot);
+      x.fillText(gl.ch, 0, 0);
+      x.restore();
+    }
+    // zu große Flächen (z. B. Text im Bogen) mit geringerer Auflösung neu zeichnen
+    const MAXPX = 1.6e6;
+    if (!forceRes && c.width * c.height > MAXPX) return renderText(spec, Math.max(4, res * Math.sqrt(MAXPX / (c.width * c.height))));
+    return { img: x.getImageData(0, 0, c.width, c.height), res, wMM: c.width / res, hMM: c.height / res, canvas: c };
+  }
+
+  function digitizeText(spec, center) {
+    const r = renderText(spec);
+    const out = HW.auto.autoDigitize(r.img, {
+      colors: 1, widthMM: r.wMM, originX: center.x - r.wMM / 2, originY: center.y - r.hMM / 2,
+      minAreaMM2: 0.15, removeBg: false, mode: spec.type, satinMax: 8, simplify: 0.45, angle: 45,
+    });
+    return out.objects;
+  }
+
+  let nextGrp = 1;
+  let fontsLoaded = false;
+  fontsReady.then(() => { fontsLoaded = true; });
+  function textDialog(p, editGrp) {
+    const old = editGrp ? st.objects.filter((o) => o.grp === editGrp) : [];
+    const spec0 = (old[0] && old[0].textSpec) || { text: 'Text', font: 'Anton', bold: false, italic: false, height: 15, spacing: 4, arc: 0, type: 'satin' };
+    const fonts = (HW.FONTS || []).map((f) => `<option value="${f.name}" ${f.name === spec0.font ? 'selected' : ''}>${f.name} – ${f.cat}</option>`).join('');
+    const sys = SYS_FONTS.map((f) => `<option value="${f}" ${f === spec0.font ? 'selected' : ''}>${f}</option>`).join('');
+    const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    modal(editGrp ? 'Text bearbeiten' : 'Text einfügen',
+      field('Text', `<textarea id="tText" rows="2" style="width:100%">${esc(spec0.text)}</textarea>`) +
+      field('Schriftart', `<select id="tFont"><optgroup label="Stickschriften (eingebaut)">${fonts}</optgroup><optgroup label="Systemschriften">${sys}</optgroup></select>`) +
+      field('Höhe Großbuchstaben (mm)', `<input id="tH" type="number" step="0.5" min="3" max="300" value="${spec0.height}">`) +
+      field('Zeichenabstand (%)', `<input id="tSp" type="number" step="1" min="-30" max="100" value="${spec0.spacing}">`) +
+      field('Bogen-Radius (mm, 0 = gerade, negativ = unten)', `<input id="tArc" type="number" step="5" value="${spec0.arc}">`) +
+      field('Stichart', `<select id="tType"><option value="satin">Satin – folgt Kurven und Bögen</option><option value="auto">Automatisch (breite Teile Tatami)</option><option value="tatami">Tatami</option></select>`) +
+      field('Fett (künstlich)', `<input type="checkbox" id="tBold" ${spec0.bold ? 'checked' : ''}>`) +
+      field('Kursiv (künstlich)', `<input type="checkbox" id="tItalic" ${spec0.italic ? 'checked' : ''}>`) +
+      '<canvas id="tPrev" width="500" height="120" style="width:100%;background:#fff"></canvas>' +
+      '<p style="color:#6a7480">Satin-Schrift ab ca. 5 mm Höhe. Jeder Buchstabe wird zu Satinsäulen, die der Strichrichtung folgen. Doppelklick auf den Text öffnet diesen Dialog wieder; mit <i>In Einzelstiche umwandeln</i> lässt sich jeder Stich anpassen.</p>',
+      [{ label: 'Abbrechen' }, { label: editGrp ? 'Übernehmen' : 'Einfügen', primary: true, action: () => {
+        const spec = readSpec();
+        if (!spec.text.trim()) return false;
+        let center = p, color = st.curColor, at = st.objects.length;
+        if (editGrp && old.length) {
+          const bb = G.bbox(old.flatMap((o) => { ensure(o); return o._bb ? [{ x: o._bb.x0, y: o._bb.y0 }, { x: o._bb.x1, y: o._bb.y1 }] : []; }));
+          center = { x: (bb.x0 + bb.x1) / 2, y: (bb.y0 + bb.y1) / 2 };
+          color = old[0].color;
+          at = st.objects.indexOf(old[0]);
+        }
+        if (!fontsLoaded) { fontsReady.then(() => { fontsLoaded = true; $('#modalBtns .primary').click(); }); return false; }
+        const objs = digitizeText(spec, center);
+        if (!objs.length) return false;
         pushUndo();
-        const ids = [];
-        r.objects.forEach((o) => { const ob = makeObj('fill', { points: o.points, holes: o.holes }); ob.params = { ...st.defaults.fill, ...o.params, underlay: o.params.fillType === 'satin' ? 'none' : 'edge' }; st.objects.push(ob); ids.push(ob.id); });
-        sel = new Set(ids);
+        if (editGrp) st.objects = st.objects.filter((o) => o.grp !== editGrp);
+        const gid = editGrp || nextGrp++;
+        const made = objs.map((o) => {
+          const ob = makeObj(o.type, { points: o.points, holes: o.holes, color });
+          ob.params = { ...(o.type === 'fill' ? st.defaults.fill : st.defaults.colA), ...o.params };
+          if (o.type === 'fill') ob.params.underlay = o.params.fillType === 'satin' ? 'none' : 'edge';
+          ob.grp = gid; ob.textSpec = spec;
+          return ob;
+        });
+        st.objects.splice(Math.min(at, st.objects.length), 0, ...made);
+        sel = new Set(made.map((o) => o.id));
         setTool('select');
         changed();
       } }]);
+    $('#tType').value = spec0.type;
+    const readSpec = () => ({
+      text: val('tText'), font: val('tFont'), bold: $('#tBold').checked, italic: $('#tItalic').checked,
+      height: Math.max(2, num('tH') || 15), spacing: num('tSp') || 0, arc: num('tArc') || 0, type: val('tType'),
+    });
+    const prev = () => {
+      const c = $('#tPrev');
+      if (!c) return;
+      const x = c.getContext('2d');
+      x.clearRect(0, 0, c.width, c.height);
+      const spec = readSpec();
+      if (!spec.text.trim()) return;
+      const r = renderText({ ...spec, height: 10 });
+      const sc = Math.min((c.width - 10) / r.canvas.width, (c.height - 10) / r.canvas.height);
+      x.drawImage(r.canvas, (c.width - r.canvas.width * sc) / 2, (c.height - r.canvas.height * sc) / 2, r.canvas.width * sc, r.canvas.height * sc);
+    };
+    ['tText', 'tFont', 'tSp', 'tArc', 'tBold', 'tItalic'].forEach((id) => $('#' + id).addEventListener('input', prev));
+    fontsReady.then(prev);
   }
 
   function machineDialog() {
@@ -1091,9 +1224,10 @@
     modal('Auto-Digitalisieren',
       field('Anzahl Farben', '<input id="aK" type="number" min="1" max="15" value="4">') +
       field('Breite Stickmotiv (mm)', `<input id="aW" type="number" value="${Math.round(b.w)}">`) +
-      field('Detailstufe (Pixel pro mm)', '<input id="aR" type="number" min="2" max="12" value="5">') +
-      field('Kleinste Fläche (mm²)', '<input id="aMin" type="number" step="0.5" value="3">') +
-      field('Satin bis Breite (mm)', '<input id="aSat" type="number" step="0.1" value="2.5">') +
+      field('Detailstufe (Pixel pro mm)', '<input id="aR" type="number" min="2" max="16" value="8">') +
+      field('Kleinste Fläche (mm²)', '<input id="aMin" type="number" step="0.25" value="1">') +
+      field('Stichart', '<select id="aMode"><option value="auto">Automatisch: Schrift &amp; schmale Formen = Satin, breite = Tatami</option><option value="tatami">Nur Tatami</option></select>') +
+      field('Satin bis Strichbreite (mm)', '<input id="aSat" type="number" step="0.5" value="7">') +
       field('Tatami-Winkel (°)', '<input id="aAng" type="number" value="45">') +
       field('Hintergrund weglassen', '<input type="checkbox" id="aBg" checked>') +
       field('Konturen (Laufstich)', '<input type="checkbox" id="aOut">') +
@@ -1102,8 +1236,8 @@
       [{ label: 'Vorschau', action: () => { preview(); return false; } }, { label: 'Abbrechen' },
         { label: 'Digitalisieren', primary: true, action: () => { doAuto(); } }]);
     const sample = () => {
-      const res = num('aR') || 5;
-      const w = Math.max(20, Math.min(1000, Math.round(b.w * res)));
+      const res = num('aR') || 8;
+      const w = Math.max(20, Math.min(1800, Math.round(b.w * res)));
       const h = Math.max(20, Math.round((b._img.height / b._img.width) * w));
       const c = document.createElement('canvas'); c.width = w; c.height = h;
       const x = c.getContext('2d'); x.drawImage(b._img, 0, 0, w, h);
@@ -1125,7 +1259,7 @@
       const wmm = num('aW') || b.w;
       const r = HW.auto.autoDigitize(img, {
         colors: Math.max(1, Math.min(15, num('aK') || 4)), widthMM: wmm, originX: b.x, originY: b.y,
-        minAreaMM2: num('aMin') || 3, removeBg: $('#aBg').checked, satinMax: num('aSat'), outline: $('#aOut').checked, angle: num('aAng') || 45,
+        minAreaMM2: num('aMin') || 1, removeBg: $('#aBg').checked, satinMax: num('aSat') || 7, mode: val('aMode'), outline: $('#aOut').checked, angle: num('aAng') || 45,
       });
       if (wmm !== b.w) { b.h = (b.h / b.w) * wmm; b.w = wmm; }
       pushUndo();
@@ -1134,8 +1268,8 @@
       r.objects.forEach((o) => {
         let ci = st.palette.findIndex((c) => c.hex.toLowerCase() === o.colorKey.toLowerCase());
         if (ci < 0) { st.palette.push({ hex: o.colorKey, name: 'Auto ' + o.colorKey, needle: Math.min(15, st.palette.length + 1) }); ci = st.palette.length - 1; }
-        const ob = makeObj('fill', { points: o.points, holes: o.holes, color: ci });
-        ob.params = { ...st.defaults.fill, ...o.params };
+        const ob = makeObj(o.type, { points: o.points, holes: o.holes, color: ci });
+        ob.params = { ...(o.type === 'fill' ? st.defaults.fill : st.defaults.colA), ...o.params };
         st.objects.push(ob); ids.push(ob.id);
       });
       sel = new Set(ids);
@@ -1195,6 +1329,7 @@
       </table>
       <h3>Werkzeuge</h3>
       <p><b>Säule A</b>: Punkte abwechselnd links/rechts der Säule setzen. <b>Säule B</b>: erst eine Kante, Enter, dann die andere Kante. <b>Satin C</b>: Mittellinie mit fester Breite. <b>Fläche</b>: Umriss → Enter → Löcher (Enter überspringt) → Stichwinkel mit 2 Klicks oder Enter.</p>
+      <p><b>Text</b>: 10 eingebaute Stickschriften, Bogen-Text, Doppelklick zum Bearbeiten. Satin-Schrift folgt automatisch den Kurven der Buchstaben.</p>
       <p><b>Manuell</b>: jeder Klick ein Einstich. Jedes Objekt lässt sich über <i>Bearbeiten → In Einzelstiche umwandeln</i> Stich für Stich bearbeiten.</p>`);
   }
 

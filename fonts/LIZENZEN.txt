@@ -1,0 +1,12 @@
+Copyright 2020 The Anton Project Authors (https://github.com/googlefonts/AntonFont.git)
+Copyright © 2010 by Dharma Type.
+Copyright 2018 The Pacifico Project Authors (https://github.com/googlefonts/Pacifico)
+Copyright 2015 The Great Vibes Pro Project Authors (https://github.com/googlefonts/great-vibes)
+Copyright 2012 The Graduate Project Authors (https://github.com/etunni/graduate) with Reserved Font Name "Graduate"
+Copyright 2016 The Alfa Slab One Project Authors (http://www.jmsole.cl | info@jmsole.cl), with Reserved Font Name "Alfa Slab".
+Copyright 2017 The Archivo Black Project Authors (https://github.com/Omnibus-Type/ArchivoBlack)
+Copyright (c) 2011, Pablo Impallari (www.impallari.com|impallari@gmail.com),
+Copyright (c) 2011 by Brian J. Bonislawsky DBA Astigmatic (AOETI)
+Copyright (c) 2011 Fontstage (info@fontstage.com), with Reserved Font Names, 'Passion'
+
+Alle Schriften: SIL Open Font License 1.1 (Volltext siehe OFL.txt). Anton, Bebas Neue, Archivo Black, Pacifico, Kaushan Script und Great Vibes wurden auf den Latin-1-Zeichensatz reduziert; Schriften mit "Reserved Font Name" (Alfa Slab One, Graduate, Passion One, Righteous) liegen unverändert bei.

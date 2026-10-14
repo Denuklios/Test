@@ -67,12 +67,71 @@
     const res = [];
     segPairs.forEach((sp, si) => {
       const la = G.polyLength(sp.L), lb = G.polyLength(sp.R);
-      const n = Math.max(1, Math.round((la + lb) / 2 / spacing));
+      // Dichte zwischen Mitte und Außenkante messen, damit Bögen außen nicht lückig werden
+      const n = Math.max(1, Math.round(((la + lb) / 2 + Math.max(la, lb)) / 2 / spacing));
       for (let j = si === 0 ? 0 : 1; j <= n; j++) {
         res.push({ a: G.pointAt(sp.L, (la * j) / n), b: G.pointAt(sp.R, (lb * j) / n) });
       }
     });
     return res;
+  }
+
+  // Teilstück einer Polylinie zwischen den Bogenlängen s0 und s1
+  function sliceArc(pl, s0, s1) {
+    const out = [G.pointAt(pl, s0)];
+    let acc = 0;
+    for (let i = 1; i < pl.length; i++) {
+      acc += G.dist(pl[i - 1], pl[i]);
+      if (acc > s0 && acc < s1) out.push(pl[i]);
+    }
+    out.push(G.pointAt(pl, s1));
+    return out;
+  }
+
+  // Schnitt einer Geraden (p, Richtung d) mit einer Polylinie -> Bogenlänge des nächsten Treffers
+  function hitArc(pl, p, d) {
+    let best = null, bt = Infinity, acc = 0;
+    for (let i = 1; i < pl.length; i++) {
+      const a = pl[i - 1], b = pl[i];
+      const ex = b.x - a.x, ey = b.y - a.y, sl = Math.hypot(ex, ey);
+      const den = d.x * ey - d.y * ex;
+      if (Math.abs(den) > 1e-12) {
+        const t = ((a.x - p.x) * ey - (a.y - p.y) * ex) / den;
+        const u = ((a.x - p.x) * d.y - (a.y - p.y) * d.x) / den;
+        if (u >= 0 && u <= 1 && Math.abs(t) < bt) { bt = Math.abs(t); best = acc + u * sl; }
+      }
+      acc += sl;
+    }
+    return best;
+  }
+
+  // Säule B: Stationen senkrecht zur Mittellinie, damit die Stiche in Bögen mitdrehen
+  function turningPairs(L, R) {
+    const la = G.polyLength(L), lb = G.polyLength(R);
+    if (la < 0.5 || lb < 0.5) return [{ L, R }];
+    const M = Math.max(4, Math.ceil(Math.max(la, lb) / 0.5));
+    const mid = [];
+    for (let i = 0; i <= M; i++) mid.push(G.lerp(G.pointAt(L, (la * i) / M), G.pointAt(R, (lb * i) / M), 0.5));
+    const lm = G.polyLength(mid);
+    const K = Math.max(1, Math.round(lm / 1.5));
+    const sa = [0], sb = [0];
+    for (let k = 1; k < K; k++) {
+      const s = (lm * k) / K;
+      const p = G.pointAt(mid, s), q = G.pointAt(mid, Math.min(lm, s + 0.3)), o = G.pointAt(mid, Math.max(0, s - 0.3));
+      const tl = Math.hypot(q.x - o.x, q.y - o.y) || 1;
+      const n = { x: -(q.y - o.y) / tl, y: (q.x - o.x) / tl };
+      let a = hitArc(L, p, n), b = hitArc(R, p, n);
+      const fa = (la * k) / K, fb = (lb * k) / K;
+      // Fallback auf anteilige Position, Reihenfolge muss erhalten bleiben
+      if (a === null || Math.abs(a - fa) > la * 0.25) a = fa;
+      if (b === null || Math.abs(b - fb) > lb * 0.25) b = fb;
+      if (a <= sa[sa.length - 1] + 0.05 || b <= sb[sb.length - 1] + 0.05 || a >= la - 0.05 || b >= lb - 0.05) continue;
+      sa.push(a); sb.push(b);
+    }
+    sa.push(la); sb.push(lb);
+    const segs = [];
+    for (let k = 1; k < sa.length; k++) segs.push({ L: sliceArc(L, sa[k - 1], sa[k]), R: sliceArc(R, sb[k - 1], sb[k]) });
+    return segs;
   }
 
   function railsFor(obj) {
@@ -95,7 +154,7 @@
       const same = G.dist(L[0], R[0]) + G.dist(L[L.length - 1], R[R.length - 1]);
       const cross = G.dist(L[0], R[R.length - 1]) + G.dist(L[L.length - 1], R[0]);
       if (cross < same) R = R.slice().reverse();
-      return [{ L, R }];
+      return turningPairs(L, R);
     }
     if (obj.type === 'colC' || obj.type === '_border') {
       if (pts.length < 2) return null;
@@ -113,7 +172,9 @@
     const p = obj.params;
     const segs = railsFor(obj);
     if (!segs) return [];
-    const cr = crossings(segs, p.spacing);
+    // Abstand wie bei Hatch/Wilcom: von Einstich zu Einstich auf derselben Seite
+    const cs = p.spacing / 2;
+    const cr = crossings(segs, cs);
     if (cr.length < 2) return [];
     const out = [];
     const inset = (c, d) => {
@@ -123,7 +184,7 @@
     };
     // Unterlage
     const ul = p.underlay || 'none';
-    const step = Math.max(1, Math.round(2 / p.spacing));
+    const step = Math.max(1, Math.round(2 / cs));
     if (ul.includes('center')) {
       const mid = cr.map((c) => G.lerp(c.a, c.b, 0.5));
       runAlong(out, mid, 2.2);
@@ -146,7 +207,17 @@
     const pens = cr.map((c, k) => {
       const L = G.dist(c.a, c.b) || 1;
       const ux = (c.b.x - c.a.x) / L, uy = (c.b.y - c.a.y) / L;
-      return k % 2 === 0 ? { x: c.a.x - ux * pc, y: c.a.y - uy * pc } : { x: c.b.x + ux * pc, y: c.b.y + uy * pc };
+      const onA = k % 2 === 0;
+      // Kurzstiche: an der Innenseite enger Bögen jeden zweiten Einstich nach innen versetzen
+      if (p.shortSt !== false && k >= 2 && (k >> 1) % 2 === 1) {
+        const side = onA ? G.dist(c.a, cr[k - 2].a) : G.dist(c.b, cr[k - 2].b);
+        const lim = 0.6 * p.spacing;
+        if (side < lim && L > 1.2) {
+          const f = Math.min(0.4, ((lim - side) / lim) * 0.45);
+          return onA ? G.lerp(c.a, c.b, f) : G.lerp(c.b, c.a, f);
+        }
+      }
+      return onA ? { x: c.a.x - ux * pc, y: c.a.y - uy * pc } : { x: c.b.x + ux * pc, y: c.b.y + uy * pc };
     });
     push(out, pens[0]);
     for (let k = 1; k < pens.length; k++) splitStitch(out, pens[k - 1], pens[k], p.split, k);
@@ -307,7 +378,8 @@
       start = out[out.length - 1];
     }
     if (ul.includes('tatami')) addRot(ang + Math.PI / 2, { spacing: 2.2, len: 3.5, pull: 0, inset: 0.45 });
-    addRot(ang, { spacing: p.spacing, len: p.len, pull: p.pull, satin: p.fillType === 'satin', split: p.split });
+    const satinFill = p.fillType === 'satin';
+    addRot(ang, { spacing: satinFill ? p.spacing / 2 : p.spacing, len: p.len, pull: p.pull, satin: satinFill, split: p.split });
     if (p.border && p.border !== 'none') {
       const bo = { points: obj.points, params: {} };
       let bs;

@@ -32,9 +32,26 @@ Am besten mit Maus am PC arbeiten: Wie bei Hatch werden linke und rechte Maustas
 - **Säule B**: Satinsäule. Erst eine Kante digitalisieren, Enter, dann die andere Kante, Enter.
 - **Fläche**: Umriss digitalisieren → Enter → Löcher digitalisieren (Enter überspringt) → Stichwinkel mit zwei Klicks festlegen (Enter = Vorgabewinkel)
 - **Rechteck / Ellipse**: aufziehen
-- **Text**: Klick auf die Arbeitsfläche. Die Schrift wird zu normalen, bearbeitbaren Objekten (schmale Striche = Satin, breite = Tatami).
+- **Text**: Klick auf die Arbeitsfläche, siehe Abschnitt *Schriften*.
 - **Manuell**: Jeder Linksklick setzt einen Einstich, ein Rechtsklick einen Sprung.
 - **Kurve (Touch)**: Auf Tablets setzen Tipper damit Kurvenpunkte statt Eckpunkten.
+
+### Schriften
+
+Zehn Stickschriften sind eingebaut und funktionieren auf jedem PC, auch ohne Internet:
+Anton, Bebas Neue, Archivo Black, Passion One, Righteous, Alfa Slab One, Graduate (College), Pacifico, Kaushan Script und Great Vibes.
+Alle stehen unter der freien SIL Open Font License (siehe `fonts/LIZENZEN.txt`). Zusätzlich lassen sich die Systemschriften des PCs verwenden.
+
+- Einstellbar sind Höhe, Zeichenabstand und **Bogen** (Radius in mm; negativ = Text unten am Kreis).
+- **Stichart Satin**: Für jeden Buchstaben wird die Mittellinie der Striche berechnet. Daraus entstehen Satinsäulen, deren Stiche immer quer zur Strichrichtung liegen, auch in Kurven und Bögen. Es werden „Säule A“-Objekte, die sich mit *Umformen* nachbearbeiten lassen.
+- **Doppelklick** auf einen Text (oder *Text bearbeiten…* rechts) ändert Text, Schrift oder Größe nachträglich.
+- *Gruppierung lösen* macht die Buchstaben zu Einzelobjekten.
+
+### Satin in Kurven
+
+- Satinstiche drehen in Bögen mit. Säule B richtet die Stiche senkrecht zur Mittellinie zwischen beiden Kanten aus.
+- **Kurzstiche**: An der Innenseite enger Bögen wird jeder zweite Einstich verkürzt, damit sich dort kein Fadenknäuel bildet (abschaltbar).
+- Die Dichte wird wie bei Hatch/Wilcom angegeben: Abstand zweier Einstiche auf derselben Seite (Vorgabe 0,40 mm).
 
 ### Sticheigenschaften (rechts)
 
@@ -49,7 +66,9 @@ Dichte, Stichlänge, Stichwinkel, Zugkompensation, Unterlage (Mittellauf, Kanten
 
 1. *Bild → Bild einfügen…* (PNG/JPG, am besten ein Logo mit klaren Farben)
 2. *Bild → Auto-Digitalisieren…*: Anzahl der Farben, Größe in mm und Detailstufe einstellen. Mit „Vorschau“ die Farbreduktion prüfen.
-3. Es entstehen normale Objekte (Tatami- bzw. Satinflächen). Jedes Objekt lässt sich danach umformen, umfärben, umsortieren und mit anderen Sticheigenschaften versehen.
+3. Schmale Formen (Schrift, Linien, Ringe, Bögen bis 7 mm Strichbreite) werden zu **drehenden Satinsäulen**, breite Flächen zu Tatami. Jedes Objekt lässt sich danach umformen, umfärben, umsortieren und mit anderen Sticheigenschaften versehen.
+
+Tipp: Für Schrift in Bildern die Detailstufe auf 8–12 Pixel/mm stellen. Die Schrift sollte im Stickmotiv mindestens 5 mm hoch sein.
 
 Das Bild kann auch nur als Vorlage zum manuellen Digitalisieren dienen (*Bild-Einstellungen*: Größe, Deckkraft, Position).
 
@@ -77,7 +96,9 @@ Bitte das Projekt immer zusätzlich speichern: Eine DST-Datei enthält nur noch 
 | `js/stitchgen.js` | Lauf-, Dreifach-, Satin- und Tatami-Stiche, Unterlagen, Zugkompensation, Auto-Split |
 | `js/dst.js` | Design zusammensetzen (Vernähen, Schnitte, Farbwechsel), DST schreiben und lesen |
 | `js/autodigitize.js` | Farbreduktion (k-Means), Regionen, Konturverfolgung, Objekterzeugung |
+| `js/satinauto.js` | Drehende Satinsäulen aus Flächen: Abstandstransformation, Skelett, Mittellinien, Breitenmessung |
+| `js/fonts.js` | Eingebettete Schriften (erzeugt aus `fonts/*.ttf`) |
 | `js/app.js` | Oberfläche, Werkzeuge, Umformen, Simulation, Dialoge |
 
-Tests: `node tests/test_core.js` prüft die Stichgenerierung und den DST-Hin- und Rückweg.
+Tests: `node tests/test_core.js` prüft die Stichgenerierung und den DST-Hin- und Rückweg, `node tests/test_satin.js` die Satin-Erkennung (Ring, Bogen, L, T).
 Die erzeugten DST-Dateien wurden zusätzlich mit der unabhängigen Bibliothek *pyembroidery* gegengelesen.
