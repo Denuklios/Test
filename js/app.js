@@ -555,6 +555,7 @@
       d.className = 'sw' + (i === st.curColor ? ' active' : '');
       d.style.background = c.hex;
       d.title = `${i + 1}: ${c.name} – Nadel ${c.needle}`;
+      if (c.code) d.dataset.code = c.code;
       d.textContent = c.needle;
       d.onclick = () => {
         st.curColor = i;
@@ -1219,19 +1220,104 @@
     setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
   }
 
+  /* ---------- Garnfarben ---------- */
+  const brands = () => Object.keys(HW.THREADS || {});
+  function lab(hex) {
+    const n = parseInt(hex.slice(1), 16);
+    const f = (v) => { v /= 255; return v > 0.04045 ? ((v + 0.055) / 1.055) ** 2.4 : v / 12.92; };
+    const r = f((n >> 16) & 255), gg = f((n >> 8) & 255), bl = f(n & 255);
+    const x = (r * 0.4124 + gg * 0.3576 + bl * 0.1805) / 0.95047, y = r * 0.2126 + gg * 0.7152 + bl * 0.0722, z = (r * 0.0193 + gg * 0.1192 + bl * 0.9505) / 1.08883;
+    const t = (v) => (v > 0.008856 ? Math.cbrt(v) : 7.787 * v + 16 / 116);
+    return [116 * t(y) - 16, 500 * (t(x) - t(y)), 200 * (t(y) - t(z))];
+  }
+  // nächstes Garn einer Marke (Farbabstand ΔE in Lab)
+  function nearestThread(hex, brand) {
+    const list = (HW.THREADS || {})[brand];
+    if (!list) return null;
+    const a = lab(hex);
+    let best = null, bd = Infinity;
+    for (const t of list) { const b = lab(t[0]); const d = Math.hypot(a[0] - b[0], a[1] - b[1], a[2] - b[2]); if (d < bd) { bd = d; best = t; } }
+    return best ? { hex: best[0], code: best[1], name: best[2], brand, dE: bd } : null;
+  }
+  function applyThread(c, t) { c.hex = t.hex; c.brand = t.brand; c.code = t.code; c.name = `${t.brand} ${t.code} ${t.name}`; }
+  const threadLabel = (c) => (c.brand ? `${c.brand} ${c.code}` : c.name);
+
   function editColor(i) {
     const c = st.palette[i];
     if (!c) return;
+    const br = c.brand || st.threadBrand || brands()[0];
     modal(`Farbe ${i + 1} bearbeiten`,
       field('Farbe', `<input type="color" id="cHex" value="${c.hex}">`) +
-      field('Name / Garnnummer', `<input id="cName" value="${c.name.replace(/"/g, '&quot;')}">`) +
-      field('Nadel (1–15)', `<input id="cNeedle" type="number" min="1" max="15" value="${c.needle}">`),
+      field('Name / Garnnummer', `<input id="cName" value="${String(c.name).replace(/"/g, '&quot;')}">`) +
+      field('Nadel (1–15)', `<input id="cNeedle" type="number" min="1" max="15" value="${c.needle}">`) +
+      '<h3 style="margin:12px 0 4px;font-size:14px">Garn aus Farbkarte wählen</h3>' +
+      field('Garnmarke', `<select id="cBrand">${brands().map((b) => `<option ${b === br ? 'selected' : ''}>${b}</option>`).join('')}</select>`) +
+      field('Suchen (Nummer oder Name)', '<input id="cFind" placeholder="z. B. 1800 oder rot">') +
+      '<div id="cList" class="threads"></div>' +
+      '<p style="color:#6a7480">Bildschirmfarben sind Näherungen – maßgeblich ist die echte Farbkarte des Herstellers.</p>',
       [{ label: 'Abbrechen' }, { label: 'Übernehmen', primary: true, action: () => {
         pushUndo();
+        if (c.hex !== val('cHex')) { delete c.brand; delete c.code; }
         c.hex = val('cHex'); c.name = val('cName'); c.needle = Math.max(1, Math.min(15, parseInt(val('cNeedle')) || 1));
+        if (picked) { c.brand = picked.brand; c.code = picked.code; }
         renderPalette(); changed();
       } }]);
+    let picked = null;
+    const list = () => {
+      const b = val('cBrand'), q = val('cFind').trim().toLowerCase();
+      let rows = (HW.THREADS[b] || []);
+      if (q) {
+        // deutsche Farbwörter auch finden (Farbkarten sind englisch benannt)
+        const DE = { rot: 'red', blau: 'blue', grün: 'green', gruen: 'green', gelb: 'yellow', schwarz: 'black', weiß: 'white', weiss: 'white', grau: 'gr', braun: 'brown', rosa: 'pink', lila: 'purple', violett: 'violet', gold: 'gold', silber: 'silver', orange: 'orange', türkis: 'turquoise', beige: 'beige', creme: 'cream', marine: 'navy', oliv: 'olive' };
+        const q2 = DE[q];
+        rows = rows.filter((t) => { const n = t[2].toLowerCase(); return t[1].toLowerCase().includes(q) || n.includes(q) || (q2 && n.includes(q2)); });
+      }
+      else {
+        // ohne Suche: die 24 ähnlichsten Garne zur aktuellen Farbe
+        const a = lab(val('cHex'));
+        rows = rows.map((t) => [t, (() => { const l = lab(t[0]); return Math.hypot(a[0] - l[0], a[1] - l[1], a[2] - l[2]); })()]).sort((x, y) => x[1] - y[1]).slice(0, 24).map((x) => x[0]);
+      }
+      $('#cList').innerHTML = rows.slice(0, 120).map((t, k) => `<button data-k="${k}" title="${t[2]}"><span style="background:${t[0]}"></span>${t[1]}<small>${t[2]}</small></button>`).join('') || '<p>Kein Garn gefunden.</p>';
+      $('#cList').querySelectorAll('button').forEach((bt) => (bt.onclick = () => {
+        const t = rows[+bt.dataset.k];
+        picked = { brand: b, code: t[1] };
+        $('#cHex').value = t[0]; $('#cName').value = `${b} ${t[1]} ${t[2]}`;
+        $('#cList').querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === bt));
+      }));
+    };
+    $('#cBrand').onchange = list; $('#cFind').oninput = list;
+    list();
   }
+
+  // Farbe zur Palette hinzufügen – auf Wunsch gleich mit dem nächsten Garn der gewählten Marke
+  function addPaletteColor(hex, label) {
+    const ex = st.palette.findIndex((c) => c.srcHex === hex || c.hex.toLowerCase() === hex.toLowerCase());
+    if (ex >= 0) return ex;
+    const c = { hex, name: label + ' ' + hex, needle: Math.min(15, st.palette.length + 1), srcHex: hex };
+    if (st.threadAuto !== false) { const t = nearestThread(hex, st.threadBrand || brands()[0]); if (t) applyThread(c, t); }
+    st.palette.push(c);
+    return st.palette.length - 1;
+  }
+
+  function threadBrandDialog() {
+    const br = st.threadBrand || brands()[0];
+    modal('Garnmarke zuordnen',
+      field('Garnmarke', `<select id="tbBrand">${brands().map((b) => `<option ${b === br ? 'selected' : ''}>${b}</option>`).join('')}</select>`) +
+      field('Neue Farben (Import, Auto-Digitalisieren) automatisch zuordnen', `<input type="checkbox" id="tbAuto" ${st.threadAuto !== false ? 'checked' : ''}>`) +
+      '<div id="tbPrev"></div>',
+      [{ label: 'Abbrechen' }, { label: 'Allen Farben zuordnen', primary: true, action: () => {
+        pushUndo();
+        st.threadBrand = val('tbBrand'); st.threadAuto = $('#tbAuto').checked;
+        st.palette.forEach((c) => { const t = nearestThread(c.hex, st.threadBrand); if (t) applyThread(c, t); });
+        renderPalette(); changed();
+      } }]);
+    const prev = () => {
+      const b = val('tbBrand');
+      $('#tbPrev').innerHTML = '<table class="tbtab">' + st.palette.map((c) => { const t = nearestThread(c.hex, b); return `<tr><td><span class="sw2" style="background:${c.hex}"></span></td><td>${String(c.name).replace(/</g, '&lt;')}</td><td>→</td><td><span class="sw2" style="background:${t.hex}"></span></td><td>${t.code} ${t.name}</td><td style="color:${t.dE < 5 ? '#2e7d32' : t.dE < 12 ? '#b26a00' : '#c62828'}">ΔE ${t.dE.toFixed(1)}</td></tr>`; }).join('') + '</table><p style="color:#6a7480">ΔE = Farbabstand (unter 5 kaum sichtbar, über 12 deutlich).</p>';
+    };
+    $('#tbBrand').onchange = prev; prev();
+  }
+
 
   /* ---------- Schrift ---------- */
   const SYS_FONTS = ['Arial', 'Arial Black', 'Verdana', 'Georgia', 'Times New Roman', 'Impact', 'Comic Sans MS', 'Segoe Script', 'Brush Script MT'];
@@ -1703,7 +1789,7 @@
           const ids = [];
           objs.forEach((o) => {
             let ci = st.palette.findIndex((c) => c.hex.toLowerCase() === o.colorKey.toLowerCase());
-            if (ci < 0) { st.palette.push({ hex: o.colorKey, name: 'Import ' + o.colorKey, needle: Math.min(15, st.palette.length + 1) }); ci = st.palette.length - 1; }
+            if (ci < 0) ci = addPaletteColor(o.colorKey, 'Import');
             const base = o.type === 'fill' ? st.defaults.fill : o.type === 'run' ? st.defaults.run : st.defaults.colA;
             const ob = makeObj(o.type, { points: o.points, holes: o.holes, color: ci });
             ob.params = { ...base, ...o.params };
@@ -1853,7 +1939,7 @@
       const ids = [];
       r.objects.forEach((o) => {
         let ci = st.palette.findIndex((c) => c.hex.toLowerCase() === o.colorKey.toLowerCase());
-        if (ci < 0) { st.palette.push({ hex: o.colorKey, name: 'Auto ' + o.colorKey, needle: Math.min(15, st.palette.length + 1) }); ci = st.palette.length - 1; }
+        if (ci < 0) ci = addPaletteColor(o.colorKey, 'Auto');
         const ob = makeObj(o.type, { points: o.points, holes: o.holes, color: ci });
         ob.params = { ...(o.type === 'fill' ? st.defaults.fill : st.defaults.colA), ...o.params };
         st.objects.push(ob); ids.push(ob.id);
@@ -1923,7 +2009,7 @@
   const commands = {
     new: () => modal('Neues Design', '<p>Aktuelles Design verwerfen?</p>', [{ label: 'Abbrechen' }, { label: 'Neu', primary: true, action: () => { pushUndo(); st.objects = []; st.bg = null; sel = new Set(); changed(); } }]),
     save: () => {
-      const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, customHoops: st.customHoops, fabric: st.fabric, material: st.material, settings: st.settings, defaults: st.defaults, bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null });
+      const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, customHoops: st.customHoops, fabric: st.fabric, material: st.material, settings: st.settings, defaults: st.defaults, threadBrand: st.threadBrand, threadAuto: st.threadAuto, bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null });
       download(data, (st.name || 'design') + '.stick.json', 'application/json');
     },
     open: () => pickFile('.json,.stick.json', (txt, f) => {
@@ -1933,7 +2019,7 @@
         st.objects = d.objects || []; st.palette = d.palette || st.palette; st.hoop = d.hoop || st.hoop;
         st.fabric = d.fabric || st.fabric;
         if (Array.isArray(d.customHoops)) { const ids = new Set(st.customHoops.map((c) => c.id)); st.customHoops = st.customHoops.concat(d.customHoops.filter((c) => !ids.has(c.id))); saveCustomHoops(); }
-        renderHoopSel(); st.material = d.material || st.material; st.objects.forEach(invalidate); Object.assign(st.settings, d.settings || {});
+        renderHoopSel(); st.material = d.material || st.material; if (d.threadBrand) st.threadBrand = d.threadBrand; if (d.threadAuto === false) st.threadAuto = false; st.objects.forEach(invalidate); Object.assign(st.settings, d.settings || {});
         if (d.defaults) Object.keys(d.defaults).forEach((k) => Object.assign(st.defaults[k] || (st.defaults[k] = {}), d.defaults[k]));
         st.name = d.name || f.name.replace(/\..*$/, '');
         nextId = Math.max(0, ...st.objects.map((o) => o.id || 0)) + 1;
@@ -2037,6 +2123,7 @@
     help: helpDialog,
     addColor: () => { st.palette.push({ hex: '#888888', name: 'Neue Farbe', needle: Math.min(15, st.palette.length + 1) }); renderPalette(); editColor(st.palette.length - 1); },
     editColor: () => editColor(st.curColor),
+    threadBrand: () => threadBrandDialog(),
     delColor: () => {
       if (st.palette.length <= 1) return;
       const i = st.curColor;

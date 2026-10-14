@@ -146,6 +146,15 @@ Das Programm empfiehlt außerdem:
 *Details & Tipps…* zeigt alle Werte und Hinweise. Die Empfehlung steht auch auf dem gedruckten Arbeitsblatt.
 Die Werte sind bewährte Richtwerte. Ein Probestick auf dem Originalstoff ersetzen sie nicht.
 
+### Echte Garnfarben (Farbkarten)
+14 Farbkarten mit Nummern: Madeira Polyneon / Rayon / Burmilana, Isacord, Gunold, Robison-Anton (Poly/Rayon),
+Sulky (Rayon/Poly), Mettler Poly Sheen, Marathon, Brother, Coats Alcazar, Gütermann Creativ Dekor.
+- **Farbe bearbeiten**: Marke wählen, nach Nummer oder Name suchen (auch deutsch: „rot“, „blau“ …). Ohne Suche werden die 24 ähnlichsten Garne angezeigt.
+- **Garnmarke…** (unter der Palette): ordnet allen Farben das nächstliegende Garn der Marke zu (Farbabstand ΔE in Lab, mit Vorschau).
+- Neue Farben aus Vektor-Import und Auto-Digitalisieren werden automatisch dem nächsten Garn der gewählten Marke zugeordnet (abschaltbar).
+- Garnnummern stehen in der Palette und auf dem Arbeitsblatt.
+Die Farbwerte stammen aus den Paletten von Ink/Stitch und sind Bildschirm-Näherungen – maßgeblich ist die echte Farbkarte.
+
 ### Sticheigenschaften (rechts)
 
 Für jedes Objekt (oder als Vorgabe für das gewählte Werkzeug):

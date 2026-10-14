@@ -99,3 +99,11 @@ main { display: flex; height: calc(100% - 38px - 34px); }
 .hoopbar select { max-width: 260px; padding: 3px; border-radius: 4px; border: 0; font: inherit; font-size: 12px; }
 
 .tb.fit { border: 1px solid #5a6b7d; }
+
+.threads { display: flex; flex-wrap: wrap; gap: 4px; max-height: 220px; overflow-y: auto; border: 1px solid var(--line); border-radius: 4px; padding: 4px; }
+.threads button { display: flex; flex-direction: column; align-items: center; width: 74px; padding: 3px !important; font-size: 11px; background: #fff !important; }
+.threads button.on { outline: 2px solid var(--accent); }
+.threads button span { width: 40px; height: 18px; border-radius: 3px; border: 1px solid #999; margin-bottom: 2px; }
+.threads button small { color: #6a7480; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70px; }
+.tbtab td { padding: 2px 6px; font-size: 12px; }
+.sw2 { display: inline-block; width: 22px; height: 14px; border: 1px solid #999; border-radius: 2px; vertical-align: middle; }
