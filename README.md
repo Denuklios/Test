@@ -157,6 +157,13 @@ wird bei Bedarf quer gelegt). Jede Einspannung wird eine eigene Datei; Passkreuz
 einer Einspannung und am Anfang der nächsten gestickt. Objekte, die größer als ein Feld sind, werden gemeldet
 (vorher mit dem Messer teilen). Ergebnis: ZIP mit Dateien und Anleitung.
 
+### Anordnen, Gruppen, Einrasten
+Menü **Anordnen**: links/mittig/rechts, oben/mittig/unten ausrichten (ein Objekt → am Rahmen, mehrere → aneinander),
+waagrecht/senkrecht verteilen, Gruppieren (Strg+G) und Gruppierung lösen (Strg+Shift+G).
+**Kopien anordnen**: im Kreis (Anzahl, Radius, Mittelpunkt, mitdrehen) oder als Raster (Spalten × Reihen, Abstände).
+**Einrasten** (Taste G) an Raster und Hilfslinien beim Digitalisieren, Verschieben und Umformen; Rasterweite und
+Hilfslinien unter *Ansicht → Hilfslinien & Rasterweite…* (werden im Projekt gespeichert).
+
 ### Füllarten
 Unter *Eigenschaften → Füllart*: **Tatami**, **Satin** (fester Winkel), **Kontur** (Reihen parallel zum Rand),
 **Spirale** (Ringe gehen fließend ineinander über), **Welle** (Wellenhöhe/-länge einstellbar), **Muster** (Rauten, Diagonal,

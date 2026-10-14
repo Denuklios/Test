@@ -34,7 +34,7 @@
       fill: { ...S.DEFAULTS.fill },
     },
   };
-  const view = { scale: 2, ox: 0, oy: 0, trueView: true, jumps: false, grid: true, points: false };
+  const view = { scale: 2, ox: 0, oy: 0, trueView: true, jumps: false, grid: true, points: false, snap: false, gridStep: 5 };
   let tool = 'select';
   let draft = null;
   let sel = new Set();
@@ -257,6 +257,14 @@
       }
     }
     ctx.restore();
+    // Hilfslinien
+    for (const gd of st.guides || []) {
+      ctx.strokeStyle = 'rgba(0,150,200,.8)'; ctx.lineWidth = 1; ctx.setLineDash([8, 4]);
+      ctx.beginPath();
+      if (gd.axis === 'v') { const sx = toScr({ x: gd.pos, y: 0 }).x; ctx.moveTo(sx, 0); ctx.lineTo(sx, r.height); }
+      else { const sy = toScr({ x: 0, y: gd.pos }).y; ctx.moveTo(0, sy); ctx.lineTo(r.width, sy); }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
     if (h.shape !== 'none') {
       // Sicherheitsabstand
       if (h.margin) { hoopPath(h, h.margin); ctx.setLineDash([6, 4]); ctx.strokeStyle = 'rgba(200,60,60,.55)'; ctx.lineWidth = 1; ctx.stroke(); ctx.setLineDash([]); }
@@ -776,6 +784,8 @@
     }
   }
 
+  function hintFlash(t) { $('#hint').textContent = t; clearTimeout(hintFlash.t); hintFlash.t = setTimeout(setHint, 2500); }
+
   function setHint() {
     const H = {
       select: 'Klicken = auswählen, ziehen = verschieben, Rahmen ziehen = mehrere wählen. Mittlere Maustaste/Alt+Ziehen = Ansicht verschieben, Mausrad = Zoom.',
@@ -815,6 +825,7 @@
 
   /* ======================= Digitalisieren ======================= */
   function addPoint(p, curve, jump) {
+    p = snapPt(p);
     if (!draft) draft = { tool, pts: [], phase: 0, holes: [] };
     if (draft.tool === 'fill' && draft.phase === 2) {
       if (!draft.angleStart) draft.angleStart = p;
@@ -945,6 +956,172 @@
     changed();
   }
 
+  /* ---------- Einrasten, Ausrichten, Gruppen, Anordnungen ---------- */
+  const guideList = () => (st.guides = st.guides || []);
+  // Punkt an Raster oder Hilfslinie einrasten (nur wenn „Einrasten“ an ist)
+  function snapPt(p) {
+    if (!view.snap) return p;
+    const tol = 8 / view.scale;
+    const one = (v, axis) => {
+      let best = v, bd = tol;
+      for (const g of guideList()) if (g.axis === axis && Math.abs(g.pos - v) < bd) { bd = Math.abs(g.pos - v); best = g.pos; }
+      if (best === v) { const q = Math.round(v / view.gridStep) * view.gridStep; if (Math.abs(q - v) < Math.max(tol, view.gridStep / 2)) best = q; }
+      return best;
+    };
+    return { ...p, x: one(p.x, 'v'), y: one(p.y, 'h') };
+  }
+  // Verschiebung so anpassen, dass Kante oder Mitte der Auswahl einrastet
+  function snapDelta(bb, dx, dy) {
+    if (!view.snap || !bb) return { x: dx, y: dy };
+    const tol = 8 / view.scale;
+    const axis = (vals, d, ax) => {
+      let best = null;
+      for (const v of vals) {
+        const t = v + d;
+        const cands = guideList().filter((g) => g.axis === ax).map((g) => g.pos);
+        cands.push(Math.round(t / view.gridStep) * view.gridStep, 0);
+        for (const c of cands) { const e = c - t; if (Math.abs(e) < tol && (!best || Math.abs(e) < Math.abs(best))) best = e; }
+      }
+      return d + (best || 0);
+    };
+    return { x: axis([bb.x0, (bb.x0 + bb.x1) / 2, bb.x1], dx, 'v'), y: axis([bb.y0, (bb.y0 + bb.y1) / 2, bb.y1], dy, 'h') };
+  }
+  function bbOfObjs(objs) {
+    const pts = [];
+    objs.forEach((o) => { ensure(o); if (o._bb) pts.push({ x: o._bb.x0, y: o._bb.y0 }, { x: o._bb.x1, y: o._bb.y1 }); });
+    return pts.length ? G.bbox(pts) : null;
+  }
+  const selBBox = () => bbOfObjs(selected());
+  const moveObj = (o, dx, dy) => { forEachPoint(o, (q) => { q.x += dx; q.y += dy; }); invalidate(o); };
+
+  // Kopien mit neuen Nummern; Gruppen bleiben innerhalb der Kopie zusammen
+  function copyObjs(objs) {
+    const gmap = new Map();
+    return objs.map((o) => {
+      const c = clone(o);
+      c.id = nextId++;
+      if (o.grp !== undefined) { if (!gmap.has(o.grp)) gmap.set(o.grp, (typeof o.grp === 'number' ? nextGrp++ : 'g' + nextId + '_' + gmap.size)); c.grp = gmap.get(o.grp); }
+      return c;
+    });
+  }
+
+  // Einheiten der Auswahl (Gruppe = eine Einheit)
+  function selUnits() {
+    const m = new Map();
+    selected().forEach((o) => { const k = o.grp !== undefined ? 'g' + o.grp : 'o' + o.id; if (!m.has(k)) m.set(k, []); m.get(k).push(o); });
+    return [...m.values()].map((objs) => ({ objs, bb: bbOfObjs(objs) })).filter((u) => u.bb);
+  }
+
+  function align(mode) {
+    const units = selUnits();
+    if (!units.length) return;
+    // eine Einheit: am Rahmen (Mitte) ausrichten, sonst an der gemeinsamen Umrandung
+    const B = units.length === 1 ? (() => { const h = hoop(); const a = (h.w || 100) / 2 - (h.margin || 0), b = (h.h || 100) / 2 - (h.margin || 0); return { x0: -a, x1: a, y0: -b, y1: b }; })()
+      : units.reduce((a, u) => ({ x0: Math.min(a.x0, u.bb.x0), y0: Math.min(a.y0, u.bb.y0), x1: Math.max(a.x1, u.bb.x1), y1: Math.max(a.y1, u.bb.y1) }), { x0: Infinity, y0: Infinity, x1: -Infinity, y1: -Infinity });
+    pushUndo();
+    if (mode === 'distH' || mode === 'distV') {
+      const hz = mode === 'distH';
+      const us = units.slice().sort((a, b) => (hz ? a.bb.x0 - b.bb.x0 : a.bb.y0 - b.bb.y0));
+      if (us.length < 3) return;
+      const total = us.reduce((a, u) => a + (hz ? u.bb.x1 - u.bb.x0 : u.bb.y1 - u.bb.y0), 0);
+      const gap = ((hz ? B.x1 - B.x0 : B.y1 - B.y0) - total) / (us.length - 1);
+      let pos = hz ? B.x0 : B.y0;
+      for (const u of us) {
+        const d = pos - (hz ? u.bb.x0 : u.bb.y0);
+        u.objs.forEach((o) => moveObj(o, hz ? d : 0, hz ? 0 : d));
+        pos += (hz ? u.bb.x1 - u.bb.x0 : u.bb.y1 - u.bb.y0) + gap;
+      }
+    } else {
+      for (const u of units) {
+        const b = u.bb;
+        const dx = { left: B.x0 - b.x0, right: B.x1 - b.x1, centerH: (B.x0 + B.x1) / 2 - (b.x0 + b.x1) / 2 }[mode] || 0;
+        const dy = { top: B.y0 - b.y0, bottom: B.y1 - b.y1, centerV: (B.y0 + B.y1) / 2 - (b.y0 + b.y1) / 2 }[mode] || 0;
+        u.objs.forEach((o) => moveObj(o, dx, dy));
+      }
+    }
+    changed();
+  }
+
+  function groupSel(on) {
+    const objs = selected();
+    if (!objs.length) return;
+    pushUndo();
+    if (on) { const g = nextGrp++; objs.forEach((o) => { o.grp = g; }); }
+    else objs.forEach((o) => { delete o.grp; delete o.textSpec; });
+    changed();
+  }
+
+  // Objekt drehen/verschieben (Füllwinkel mitdrehen)
+  function xform(o, fn, dAngle) {
+    forEachPoint(o, (p) => { const q = fn(p); p.x = q.x; p.y = q.y; });
+    if (o.type === 'fill' && dAngle) o.params.angle = (o.params.angle || 0) + dAngle;
+    invalidate(o);
+  }
+
+  function arrayDialog() {
+    const objs = selected();
+    if (!objs.length) return modal('Anordnen', '<p>Bitte zuerst Objekte auswählen.</p>');
+    modal('Kopien anordnen (Kreis / Raster)',
+      field('Art', '<select id="arKind"><option value="circle">Kreis</option><option value="grid">Raster (Reihen × Spalten)</option></select>') +
+      '<div id="arC">' + field('Anzahl insgesamt', '<input id="arN" type="number" value="6" min="2" max="72">') +
+      field('Radius (mm)', '<input id="arR" type="number" value="40" min="0">') +
+      field('Mittelpunkt', '<select id="arM"><option value="hoop">Rahmenmitte</option><option value="below">unter der Auswahl (Radius)</option></select>') +
+      field('Kopien mitdrehen', '<input type="checkbox" id="arRot" checked>') + '</div>' +
+      '<div id="arG" style="display:none">' + field('Spalten', '<input id="arCols" type="number" value="3" min="1" max="30">') + field('Reihen', '<input id="arRows" type="number" value="2" min="1" max="30">') +
+      field('Abstand waagrecht (mm)', '<input id="arDx" type="number" value="10">') + field('Abstand senkrecht (mm)', '<input id="arDy" type="number" value="10">') + '</div>',
+      [{ label: 'Abbrechen' }, { label: 'Anordnen', primary: true, action: () => {
+        const bb = bbOfObjs(objs);
+        const c0 = { x: (bb.x0 + bb.x1) / 2, y: (bb.y0 + bb.y1) / 2 };
+        pushUndo();
+        const made = [];
+        if (val('arKind') === 'circle') {
+          const n = Math.max(2, Math.min(72, Math.round(num('arN') || 6))), R = Math.max(0, num('arR') || 0), rot = $('#arRot').checked;
+          const center = val('arM') === 'hoop' ? { x: 0, y: 0 } : { x: c0.x, y: c0.y + R };
+          // Original auf den Kreis setzen (oben), falls Radius angegeben
+          if (R > 0) { const tgt = { x: center.x, y: center.y - R }; objs.forEach((o) => moveObj(o, tgt.x - c0.x, tgt.y - c0.y)); }
+          const cc = R > 0 ? { x: center.x, y: center.y - R } : c0;
+          for (let k = 1; k < n; k++) {
+            const a = (2 * Math.PI * k) / n, deg = (360 * k) / n;
+            copyObjs(objs).forEach((c) => {
+              if (rot) xform(c, (p) => G.rot(p, a, center), deg);
+              else { const t = G.rot(cc, a, center); xform(c, (p) => ({ x: p.x + t.x - cc.x, y: p.y + t.y - cc.y })); }
+              made.push(c);
+            });
+          }
+        } else {
+          const cols = Math.max(1, Math.round(num('arCols') || 1)), rows = Math.max(1, Math.round(num('arRows') || 1));
+          const sx = bb.x1 - bb.x0 + (num('arDx') || 0), sy = bb.y1 - bb.y0 + (num('arDy') || 0);
+          for (let j = 0; j < rows; j++) for (let i = 0; i < cols; i++) {
+            if (!i && !j) continue;
+            copyObjs(objs).forEach((c) => { xform(c, (p) => ({ x: p.x + i * sx, y: p.y + j * sy })); made.push(c); });
+          }
+        }
+        // Kopien gleicher Farbe direkt hinter das Original (weniger Farbwechsel)
+        const last = Math.max(...objs.map((o) => st.objects.indexOf(o)));
+        st.objects.splice(last + 1, 0, ...made);
+        sel = new Set([...objs, ...made].map((o) => o.id));
+        changed();
+      } }]);
+    $('#arKind').onchange = () => { const c = val('arKind') === 'circle'; $('#arC').style.display = c ? '' : 'none'; $('#arG').style.display = c ? 'none' : ''; };
+  }
+
+  function guideDialog() {
+    const list = guideList();
+    modal('Hilfslinien & Einrasten',
+      field('Einrasten an Raster/Hilfslinien', `<input type="checkbox" id="gdSnap" ${view.snap ? 'checked' : ''}>`) +
+      field('Rasterweite (mm)', `<input id="gdStep" type="number" value="${view.gridStep}" min="0.5" max="50" step="0.5">`) +
+      field('Neue Hilfslinie', '<select id="gdAxis"><option value="v">senkrecht bei X</option><option value="h">waagrecht bei Y</option></select>') +
+      field('Position (mm, 0 = Rahmenmitte)', '<input id="gdPos" type="number" value="0" step="0.5">') +
+      `<p>${list.length ? 'Vorhandene: ' + list.map((g) => `${g.axis === 'v' ? 'X' : 'Y'} = ${fmt2(g.axis === 'h' ? -g.pos : g.pos)}`).join(', ') : 'Noch keine Hilfslinien.'}</p>`,
+      [{ label: 'Alle Hilfslinien löschen', action: () => { st.guides = []; draw(); } }, { label: 'Abbrechen' },
+        { label: 'Übernehmen', primary: true, action: () => {
+          view.snap = $('#gdSnap').checked; view.gridStep = Math.max(0.5, num('gdStep') || 5);
+          const pos = num('gdPos');
+          if (isFinite(pos) && $('#gdPos').value !== '') list.push({ axis: val('gdAxis'), pos: val('gdAxis') === 'h' ? -pos : pos });
+          draw();
+        } }]);
+  }
+
   function forEachPoint(o, f) {
     controlArrays(o).forEach((arr) => arr.forEach(f));
   }
@@ -1036,15 +1213,19 @@
     drag.cx = e.offsetX; drag.cy = e.offsetY;
     if (drag.kind === 'pan') { view.ox = drag.ox + e.offsetX - drag.sx; view.oy = drag.oy + e.offsetY - drag.sy; draw(); }
     else if (drag.kind === 'move' && drag.moved) {
-      if (!drag.undone) { pushUndo(); drag.undone = true; }
-      const dx = p.x - drag.last.x, dy = p.y - drag.last.y;
+      if (!drag.undone) { pushUndo(); drag.undone = true; drag.bb0 = selBBox(); drag.off = { x: 0, y: 0 }; }
+      // Gesamtverschiebung seit Beginn, an Raster/Hilfslinien einrasten
+      const tot = snapDelta(drag.bb0, p.x - drag.start.x, p.y - drag.start.y);
+      const dx = tot.x - drag.off.x, dy = tot.y - drag.off.y;
+      drag.off = tot;
       drag.last = p;
       for (const o of selected()) { forEachPoint(o, (q) => { q.x += dx; q.y += dy; }); invalidate(o); }
       changed();
     } else if (drag.kind === 'node' && drag.moved) {
       if (!drag.undone) { pushUndo(); drag.undone = true; }
-      const dx = p.x - drag.last.x, dy = p.y - drag.last.y;
-      drag.last = p;
+      const sp = selNodes.length === 1 ? snapPt(p, selNodes[0].arr[selNodes[0].i]) : p;
+      const dx = sp.x - drag.last.x, dy = sp.y - drag.last.y;
+      drag.last = sp;
       for (const n of selNodes) { n.arr[n.i].x += dx; n.arr[n.i].y += dy; }
       invalidate(drag.o);
       changed(true);
@@ -1151,6 +1332,8 @@
     if (ctrl && k.toLowerCase() === 'e') { e.preventDefault(); run('exportDst'); return; }
     if (ctrl && k.toLowerCase() === 'd') { e.preventDefault(); run('duplicate'); return; }
     if (ctrl && k.toLowerCase() === 'a') { e.preventDefault(); run('selectAll'); return; }
+    if (ctrl && k.toLowerCase() === 'g') { e.preventDefault(); run(e.shiftKey ? 'ungroup' : 'group'); return; }
+    if (!ctrl && (k === 'g' || k === 'G') && !draft) { run('toggleSnap'); return; }
     if (k === 'Enter') { e.preventDefault(); if (draft) finishDraft(false); return; }
     if (k === 'Escape') {
       if (draft) { draft = null; setHint(); draw(); }
@@ -2367,7 +2550,7 @@
   const commands = {
     new: () => modal('Neues Design', '<p>Aktuelles Design verwerfen?</p>', [{ label: 'Abbrechen' }, { label: 'Neu', primary: true, action: () => { pushUndo(); st.objects = []; st.bg = null; sel = new Set(); changed(); } }]),
     save: () => {
-      const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, customHoops: st.customHoops, fabric: st.fabric, material: st.material, settings: st.settings, defaults: st.defaults, threadBrand: st.threadBrand, threadAuto: st.threadAuto, bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null });
+      const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, customHoops: st.customHoops, fabric: st.fabric, material: st.material, settings: st.settings, defaults: st.defaults, threadBrand: st.threadBrand, threadAuto: st.threadAuto, guides: st.guides || [], bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null });
       download(data, (st.name || 'design') + '.stick.json', 'application/json');
     },
     open: () => pickFile('.json,.stick.json', (txt, f) => {
@@ -2377,10 +2560,11 @@
         st.objects = d.objects || []; st.palette = d.palette || st.palette; st.hoop = d.hoop || st.hoop;
         st.fabric = d.fabric || st.fabric;
         if (Array.isArray(d.customHoops)) { const ids = new Set(st.customHoops.map((c) => c.id)); st.customHoops = st.customHoops.concat(d.customHoops.filter((c) => !ids.has(c.id))); saveCustomHoops(); }
-        renderHoopSel(); st.material = d.material || st.material; if (d.threadBrand) st.threadBrand = d.threadBrand; if (d.threadAuto === false) st.threadAuto = false; st.objects.forEach(invalidate); Object.assign(st.settings, d.settings || {});
+        renderHoopSel(); st.material = d.material || st.material; if (d.threadBrand) st.threadBrand = d.threadBrand; st.guides = d.guides || []; if (d.threadAuto === false) st.threadAuto = false; st.objects.forEach(invalidate); Object.assign(st.settings, d.settings || {});
         if (d.defaults) Object.keys(d.defaults).forEach((k) => Object.assign(st.defaults[k] || (st.defaults[k] = {}), d.defaults[k]));
         st.name = d.name || f.name.replace(/\..*$/, '');
         nextId = Math.max(0, ...st.objects.map((o) => o.id || 0)) + 1;
+        nextGrp = Math.max(0, ...st.objects.map((o) => (typeof o.grp === 'number' ? o.grp : 0))) + 1;
         st.bg = null;
         if (d.bg && d.bg.src) { const b = d.bg; loadBg(b.src, b.w, () => Object.assign(st.bg, { x: b.x, y: b.y, opacity: b.opacity, visible: b.visible !== false })); }
         sel = new Set(); renderPalette(); changed(); zoomFit();
@@ -2418,7 +2602,8 @@
       if (!objs.length) return;
       pushUndo();
       const ids = [];
-      objs.forEach((o) => { const c = clone(o); c.id = nextId++; controlArrays(c).forEach((a) => a.forEach((p) => { p.x += 5; p.y += 5; })); st.objects.push(c); ids.push(c.id); });
+      const copies = copyObjs(objs);
+      copies.forEach((c) => { controlArrays(c).forEach((a) => a.forEach((p) => { p.x += 5; p.y += 5; })); st.objects.push(c); ids.push(c.id); });
       sel = new Set(ids); changed();
     },
     delete: () => { if (!sel.size) return; pushUndo(); st.objects = st.objects.filter((o) => !sel.has(o.id)); sel = new Set(); changed(); },
@@ -2469,6 +2654,13 @@
     toggleTrue: () => { view.trueView = !view.trueView; draw(); },
     toggleJumps: () => { view.jumps = !view.jumps; draw(); },
     toggleGrid: () => { view.grid = !view.grid; draw(); },
+    toggleSnap: () => { view.snap = !view.snap; hintFlash(view.snap ? `Einrasten an (Raster ${fmt2(view.gridStep)} mm und Hilfslinien)` : 'Einrasten aus'); },
+    guides: () => guideDialog(),
+    alignLeft: () => align('left'), alignCenterH: () => align('centerH'), alignRight: () => align('right'),
+    alignTop: () => align('top'), alignCenterV: () => align('centerV'), alignBottom: () => align('bottom'),
+    distH: () => align('distH'), distV: () => align('distV'),
+    group: () => groupSel(true), ungroup: () => groupSel(false),
+    array: () => arrayDialog(),
     togglePoints: () => { view.points = !view.points; draw(); },
     zoomFit, zoomHoop,
     machineSettings: machineDialog,
