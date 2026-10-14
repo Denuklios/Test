@@ -137,6 +137,27 @@
     return inside;
   }
 
+  // Schleifen entfernen, die beim Versetzen einer Linie an der Innenseite enger Kurven/Ecken entstehen
+  function removeLoops(pl, window = 600) {
+    const out = pl.slice();
+    for (let i = 0; i + 1 < out.length; i++) {
+      const a = out[i], b = out[i + 1];
+      for (let j = Math.min(out.length - 2, i + window); j >= i + 2; j--) {
+        const c = out[j], d = out[j + 1];
+        const den = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x);
+        if (Math.abs(den) < 1e-12) continue;
+        const t = ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) / den;
+        const u = ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) / den;
+        if (t >= 0 && t <= 1 && u >= 0 && u <= 1) {
+          // Schleife zwischen i+1 und j durch den Schnittpunkt ersetzen (weitester Treffer zuerst)
+          out.splice(i + 1, j - i, { x: a.x + (b.x - a.x) * t, y: a.y + (b.y - a.y) * t });
+          break;
+        }
+      }
+    }
+    return out;
+  }
+
   function segIntersect(p1, p2, p3, p4) {
     const d = (p2.x - p1.x) * (p4.y - p3.y) - (p2.y - p1.y) * (p4.x - p3.x);
     if (Math.abs(d) < 1e-12) return false;
@@ -233,5 +254,5 @@
     return { x0, y0, x1, y1 };
   }
 
-  HW.geo = { dist, lerp, rot, polyLength, buildPath, resample, pointAt, offsetPolyline, signedArea, pointInRings, segmentInside, distToSeg, nearestOnRing, ringPath, rdp, bbox };
+  HW.geo = { removeLoops, dist, lerp, rot, polyLength, buildPath, resample, pointAt, offsetPolyline, signedArea, pointInRings, segmentInside, distToSeg, nearestOnRing, ringPath, rdp, bbox };
 })(typeof window !== 'undefined' ? window : globalThis);

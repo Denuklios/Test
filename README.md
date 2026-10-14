@@ -57,6 +57,11 @@ Zusätzlich gibt es zehn TrueType-Schriften und funktionieren auf jedem PC, auch
 - **Kurzstiche**: An der Innenseite enger Bögen wird jeder zweite Einstich verkürzt, damit sich dort kein Fadenknäuel bildet (abschaltbar).
 - Die Dichte wird wie bei Hatch/Wilcom angegeben: Abstand zweier Einstiche auf derselben Seite (Vorgabe 0,40 mm).
 
+- **Kurzstiche** (wie bei Hatch/Wilcom): An der gestauchten Innenseite von Bögen und Ecken endet jeder zweite Stich früher,
+  je enger die Kurve, desto kürzer. In sehr engen Ecken verteilen sich die Einstiche auf drei Reihen. So entsteht kein
+  Fadenknubbel und kein Loch im Stoff, die Rundung läuft weich. Abschaltbar pro Objekt („Kurzstiche in Bögen“).
+- Satinlinien drehen sich in Ecken fächerförmig mit; überschlagene Innenkanten werden abgeschnitten, und die Dichte
+  richtet sich im Fächer nach der Außenkante (keine Lücken außen).
 ### Automatische Verbindungen (Ein-/Ausstieg, versteckte Laufwege)
 
 - **Ein- und Ausstieg berechnen:** Für jedes Objekt wird festgelegt, an welchem Ende es beginnt und endet. Gerechnet wird über die ganze Kette (Viterbi-Verfahren), sodass die Summe aller Wege minimal ist. Beispiel: Ein „C“ vor einem „A“ beginnt oben und endet unten, nahe dem linken Fuß des A. Flächen beginnen an dem Randpunkt, der dem vorigen Objekt am nächsten liegt. Geschlossene Laufstiche beginnen am nächstgelegenen Punkt.

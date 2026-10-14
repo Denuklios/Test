@@ -69,7 +69,10 @@
     segPairs.forEach((sp, si) => {
       const la = G.polyLength(sp.L), lb = G.polyLength(sp.R);
       // Dichte zwischen Mitte und Außenkante messen, damit Bögen außen nicht lückig werden
-      const n = Math.max(1, Math.round(((la + lb) / 2 + Math.max(la, lb)) / 2 / spacing));
+      // je stärker der Fächer (Ecke/enger Bogen), desto mehr zählt die Außenkante – innen helfen die Kurzstiche
+      const q = Math.min(la, lb) / (Math.max(la, lb) || 1);
+      const w = Math.max(0.5, Math.min(1, 1.5 - q));
+      const n = Math.max(1, Math.round((((la + lb) / 2) * (1 - w) + Math.max(la, lb) * w) / spacing));
       for (let j = si === 0 ? 0 : 1; j <= n; j++) {
         res.push({ a: G.pointAt(sp.L, (la * j) / n), b: G.pointAt(sp.R, (lb * j) / n) });
       }
@@ -164,7 +167,9 @@
       if (closed) c = c.concat([c[0]]);
       c = G.resample(c, 0.25, 180);
       const w = obj.params.width / 2;
-      return [{ L: G.offsetPolyline(c, -w), R: G.offsetPolyline(c, w) }];
+      // Innenkante enger Kurven/Ecken ohne Schleifen; Stiche drehen sich wie bei Säule B senkrecht mit
+      const L = G.removeLoops(G.offsetPolyline(c, -w)), R = G.removeLoops(G.offsetPolyline(c, w));
+      return turningPairs(L, R);
     }
     return null;
   }
@@ -215,19 +220,31 @@
       push(out, cr[cr.length - 1].a);
       return out;
     }
-    // Deckstich mit Zugkompensation
+    // Deckstich mit Zugkompensation und Kurzstichen
     const pc = p.pull || 0;
+    // Einstichabstand je Seite (über ±2 Kreuzungen geglättet) – Innenseite von Bögen/Ecken ist gestaucht
+    const sideGap = (k, side) => {
+      let sum = 0, n = 0;
+      for (let i = Math.max(1, k - 2); i <= Math.min(cr.length - 1, k + 2); i++) { sum += G.dist(cr[i - 1][side], cr[i][side]); n++; }
+      return n ? sum / n : cs;
+    };
     const pens = cr.map((c, k) => {
       const L = G.dist(c.a, c.b) || 1;
       const ux = (c.b.x - c.a.x) / L, uy = (c.b.y - c.a.y) / L;
       const onA = k % 2 === 0;
-      // Kurzstiche: an der Innenseite enger Bögen jeden zweiten Einstich nach innen versetzen
-      if (p.shortSt !== false && k >= 2 && (k >> 1) % 2 === 1) {
-        const side = onA ? G.dist(c.a, cr[k - 2].a) : G.dist(c.b, cr[k - 2].b);
-        const lim = 0.6 * p.spacing;
-        if (side < lim && L > 1.2) {
-          const f = Math.min(0.4, ((lim - side) / lim) * 0.45);
-          return onA ? G.lerp(c.a, c.b, f) : G.lerp(c.b, c.a, f);
+      // Kurzstiche (wie Hatch/Wilcom): an der gestauchten Innenseite endet jeder zweite Stich früher,
+      // damit sich die Einstiche auf mehrere Reihen verteilen statt auf einem Haufen zu liegen
+      if (p.shortSt !== false && L > 1.2) {
+        const dS = sideGap(k, onA ? 'a' : 'b'), dO = sideGap(k, onA ? 'b' : 'a');
+        const r = dO > 1e-6 ? dS / dO : 1;
+        if (r < 0.75) {
+          const m = k >> 1; // Nummer des Einstichs auf dieser Seite
+          let f = Math.min(0.45, (1 - r) * 0.55);
+          // sehr enge Ecken: drei Reihen (lang, kurz, mittel, kurz …)
+          const lvl = r < 0.3 ? [0, 1, 0.5, 1][m % 4] : m % 2;
+          f *= lvl;
+          f = Math.min(f, Math.max(0, (L - 0.8) / L)); // Reststich nicht kürzer als 0,8 mm
+          if (f > 0.02) return onA ? G.lerp(c.a, c.b, f) : G.lerp(c.b, c.a, f);
         }
       }
       return onA ? { x: c.a.x - ux * pc, y: c.a.y - uy * pc } : { x: c.b.x + ux * pc, y: c.b.y + uy * pc };
