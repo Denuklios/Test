@@ -650,6 +650,7 @@
     if (!objs.length) return;
     const f = document.createElement('div');
     f.className = 'field';
+    f.dataset.help = 'p:connect';
     const lb = document.createElement('label'); lb.textContent = 'Verbindung davor';
     lb.title = 'Wie die Maschine vom vorigen Objekt zu diesem kommt';
     const sl = document.createElement('select');
@@ -661,6 +662,7 @@
     el.appendChild(f);
     const f2 = document.createElement('div');
     f2.className = 'field';
+    f2.dataset.help = 'p:stopBefore';
     const l2 = document.createElement('label'); l2.textContent = 'Maschine stoppt davor';
     l2.title = 'Stopp (z. B. Applikationsstoff oder Puff-Schaum auflegen). In der DST ein Farbwechsel auf dieselbe Nadel.';
     const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = objs.every((o) => o.stopBefore);
@@ -677,14 +679,14 @@
     if (g0) {
       el.innerHTML = `<p>Text „${String(objs[0].textSpec.text).replace(/</g, '&lt;')}“ (${String(objs[0].textSpec.font).startsWith('ink:') ? ((HW.INKFONT_INDEX || []).find((f) => 'ink:' + f.id === objs[0].textSpec.font) || {}).name : objs[0].textSpec.font}, ${objs.length} Objekte)</p>`;
       const btn = document.createElement('button');
-      btn.textContent = 'Text bearbeiten…';
+      btn.textContent = 'Text bearbeiten…'; btn.dataset.help = 'p:textEdit';
       btn.onclick = () => textDialog(null, objs[0].grp);
       const brk = document.createElement('button');
-      brk.textContent = 'Gruppierung lösen';
+      brk.textContent = 'Gruppierung lösen'; brk.dataset.help = 'p:textBreak';
       brk.title = 'Buchstaben einzeln bearbeiten (Text ist danach nicht mehr änderbar)';
       brk.onclick = () => { pushUndo(); objs.forEach((o) => { delete o.grp; delete o.textSpec; }); changed(); };
       const gb = document.createElement('button');
-      gb.textContent = 'Buchstaben anpassen…';
+      gb.textContent = 'Buchstaben anpassen…'; gb.dataset.help = 'p:glyphs';
       gb.title = 'Einzelne Buchstaben verschieben, drehen, vergrößern; Abstände (Kerning)';
       gb.onclick = () => glyphDialog(objs[0].grp);
       const row = document.createElement('div'); row.className = 'row'; row.append(btn, gb, brk);
@@ -724,13 +726,14 @@
       f.className = 'field';
       const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = autoOn;
       cb.onchange = () => { pushUndo(); objs.forEach((o) => { o.autoFab = cb.checked; invalidate(o); }); changed(); };
+      f.dataset.help = 'p:autoFab';
       const lb = document.createElement('label'); lb.textContent = 'An Stoff anpassen (automatisch)';
       lb.title = 'Dichte, Zugausgleich, Unterlage und Stichlänge werden aus Stoff und Säulenbreite berechnet.';
       f.append(lb, cb);
       el.appendChild(f);
       if (autoOn && objs.some((o) => o.manual && Object.keys(o.manual).length)) {
         const r = document.createElement('div'); r.className = 'row';
-        const bt = document.createElement('button'); bt.textContent = 'Von Hand geänderte Werte wieder automatisch';
+        const bt = document.createElement('button'); bt.textContent = 'Von Hand geänderte Werte wieder automatisch'; bt.dataset.help = 'p:resetManual';
         bt.onclick = () => { pushUndo(); objs.forEach((o) => { delete o.manual; invalidate(o); }); changed(); };
         r.appendChild(bt); el.appendChild(r);
       }
@@ -749,6 +752,7 @@
       if (type === 'fill' && key === 'borderWidth' && target.border !== 'satin') continue;
       const f = document.createElement('div');
       f.className = 'field';
+      f.dataset.help = `p:${fabKind || 'run'}.${key}`;
       let inp;
       if (kind === 'select') {
         inp = document.createElement('select');
@@ -3063,6 +3067,7 @@
     toggleTrue: () => { view.trueView = !view.trueView; draw(); },
     toggleJumps: () => { view.jumps = !view.jumps; draw(); },
     toggleGrid: () => { view.grid = !view.grid; draw(); },
+    toggleTips: () => { HW.tips.set(!HW.tips.on); hintFlash(HW.tips.on ? 'Hilfe-Infos sind eingeschaltet – mit der Maus kurz auf einem Knopf verweilen.' : 'Hilfe-Infos sind ausgeschaltet (Einstellungen oder ⓘ unten rechts schaltet sie wieder ein).'); },
     toggleSnap: () => { view.snap = !view.snap; hintFlash(view.snap ? `Einrasten an (Raster ${fmt2(view.gridStep)} mm und Hilfslinien)` : 'Einrasten aus'); },
     guides: () => guideDialog(),
     alignLeft: () => align('left'), alignCenterH: () => align('centerH'), alignRight: () => align('right'),

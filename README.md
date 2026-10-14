@@ -192,6 +192,11 @@ dort entscheidet die Maschine. **EMB** (Wilcom-Arbeitsdatei) ist ein geschlossen
 - **Design-Bibliothek** (Strg+B): Designs mit Vorschaubild, Stichworten und Kunde im Browser speichern, suchen,
   sortieren, öffnen. Zur Sicherung zusätzlich als Projektdatei speichern.
 
+### Hilfe-Infos (Mouse-Over)
+Mit der Maus kurz über einem Knopf, Werkzeug, Menü, Eigenschaften-Feld oder Dialogfeld verweilen: ein Info-Kästchen
+erklärt in einfachen Worten, was es tut und wofür man es braucht (mit üblichen Werten). Ausschalten mit dem Haken
+*Einstellungen → Hilfe-Infos beim Überfahren* oder mit dem ⓘ-Knopf unten rechts; die Einstellung wird gemerkt.
+
 ### Füllarten
 Unter *Eigenschaften → Füllart*: **Tatami**, **Satin** (fester Winkel), **Kontur** (Reihen parallel zum Rand),
 **Spirale** (Ringe gehen fließend ineinander über), **Welle** (Wellenhöhe/-länge einstellbar), **Muster** (Rauten, Diagonal,

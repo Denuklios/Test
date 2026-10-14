@@ -110,6 +110,7 @@
     <div class="dd">
       <button data-cmd="machineSettings">Maschine, Schnitte &amp; Sprünge…</button>
       <button data-cmd="hoops">Stickrahmen…</button>
+      <button data-cmd="toggleTips" data-tipstate="on"><span class="tipchk"></span>Hilfe-Infos beim Überfahren</button>
       <button data-cmd="help">Hilfe / Tastatur</button>
     </div>
   </div>
@@ -183,6 +184,7 @@
   <span id="stats"></span>
   <button id="checkInfo" title="Stickprüfung"></button>
   <span id="coords"></span>
+  <button id="tipToggle" data-cmd="toggleTips" data-tipstate="on" data-help="id:tipToggle">ⓘ</button>
 </footer>
 
 <div id="modal" class="hidden"><div class="box"><h2 id="modalTitle"></h2><div id="modalBody"></div><div class="row end" id="modalBtns"></div></div></div>
@@ -207,6 +209,8 @@
 <script src="js/inkfont.js"></script>
 <script src="js/textfx.js"></script>
 <script src="js/inkfonts/index.js"></script>
+<script src="js/help.js"></script>
+<script src="js/help_dialogs.js"></script>
 <script src="js/app.js"></script>
 </body>
 </html>
