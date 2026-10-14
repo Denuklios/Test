@@ -34,7 +34,8 @@
       out.push({ x: t.x, y: t.y, cmd: 'stitch', obj: objId }, { x: p.x, y: p.y, cmd: 'stitch', obj: objId });
     };
     let needTie = true;
-    for (const obj of objects) {
+    for (let oi = 0; oi < objects.length; oi++) {
+      const obj = objects[oi];
       if (obj.hidden) continue;
       const pts = obj._st || [];
       if (!pts.length) continue;
@@ -48,6 +49,14 @@
           needTie = true;
         } else if (cur && (first || p.j)) {
           const d = G.dist(cur, p);
+          // versteckter Laufweg unter später gestickten Objekten statt Schnitt
+          const path = d >= trimDist && first && opts.connect ? opts.connect(cur, p, objects, oi) : null;
+          if (path) {
+            if (needTie) { out.push({ x: cur.x, y: cur.y, cmd: 'jump', obj: obj.id }); needTie = false; }
+            for (const q of path) out.push({ x: q.x, y: q.y, cmd: 'stitch', obj: obj.id, travel: true });
+            cur = p;
+            continue;
+          }
           if (d >= trimDist) {
             if (!needTie) tieOff(obj.id);
             out.push({ x: cur.x, y: cur.y, cmd: 'trim', obj: obj.id });
@@ -75,18 +84,20 @@
   }
 
   function stats(cmds) {
-    let st = 0, col = 1, tr = 0;
+    let st = 0, col = 1, tr = 0, tv = 0, inTv = false;
     let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity;
     for (const c of cmds) {
       if (c.cmd === 'stitch') {
         st++;
+        if (c.travel && !inTv) tv++;
+        inTv = !!c.travel;
         if (c.x < x0) x0 = c.x; if (c.x > x1) x1 = c.x;
         if (c.y < y0) y0 = c.y; if (c.y > y1) y1 = c.y;
       } else if (c.cmd === 'color') col++;
       else if (c.cmd === 'trim') tr++;
     }
     if (!st) { x0 = y0 = x1 = y1 = 0; col = 0; }
-    return { stitches: st, colors: col, trims: tr, w: x1 - x0, h: y1 - y0, x0, y0, x1, y1 };
+    return { stitches: st, colors: col, trims: tr, travels: tv, w: x1 - x0, h: y1 - y0, x0, y0, x1, y1 };
   }
 
   /* ---------------- DST schreiben ---------------- */

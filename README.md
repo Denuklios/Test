@@ -57,6 +57,16 @@ Zusätzlich gibt es zehn TrueType-Schriften und funktionieren auf jedem PC, auch
 - **Kurzstiche**: An der Innenseite enger Bögen wird jeder zweite Einstich verkürzt, damit sich dort kein Fadenknäuel bildet (abschaltbar).
 - Die Dichte wird wie bei Hatch/Wilcom angegeben: Abstand zweier Einstiche auf derselben Seite (Vorgabe 0,40 mm).
 
+### Automatische Verbindungen (Ein-/Ausstieg, versteckte Laufwege)
+
+- **Ein- und Ausstieg berechnen:** Für jedes Objekt wird festgelegt, an welchem Ende es beginnt und endet. Gerechnet wird über die ganze Kette (Viterbi-Verfahren), sodass die Summe aller Wege minimal ist. Beispiel: Ein „C“ vor einem „A“ beginnt oben und endet unten, nahe dem linken Fuß des A. Flächen beginnen an dem Randpunkt, der dem vorigen Objekt am nächsten liegt. Geschlossene Laufstiche beginnen am nächstgelegenen Punkt.
+- **Versteckte Laufwege (Unterwege):** Statt den Faden zu schneiden, sucht das Programm einen Laufstich-Weg, der vollständig unter Flächen oder Satinsäulen derselben Farbe liegt, die *danach noch gestickt werden*. Der Weg hält mindestens 0,5 mm Abstand zum Rand. Mit *Ansicht → Sprünge anzeigen* (Taste J) erscheinen diese Wege orange, Sprünge mit Schnitt rot gestrichelt.
+- **Fertige Ink/Stitch-Schriften** behalten die Stichreihenfolge der Digitalisierer. Zwischen den Buchstaben wird trotzdem nach versteckten Wegen gesucht.
+- **Bearbeiten → Reihenfolge optimieren:** sortiert Objekte gleicher Farbe nach kürzesten Wegen. Überlappende Objekte behalten ihre Reihenfolge, damit sich die Überdeckung nicht ändert. Das Ergebnis wird nur übernommen, wenn es weniger Schnitte bzw. kürzere Wege ergibt.
+- Ein-/Ausschalten unter *Einstellungen → Maschine & Rahmen*.
+
+Beispiel: Ein Design mit drei Schriftzügen kam statt mit 62 mit 33 Fadenschnitten aus, ein Logo statt mit 25 mit 14.
+
 ### Stickprüfung (Pop-up bei Problemen)
 
 Nach jedem Erstellen oder Ändern eines Objekts prüft das Programm, ob die Maschine es sauber sticken kann. Bei Problemen öffnet sich ein Fenster mit Erklärung und den Knöpfen **Korrigieren**, **Rückgängig** und **Trotzdem behalten**. Die Statusleiste zeigt den Prüfstatus dauerhaft an. Ein Klick darauf (oder *Bearbeiten → Stickprüfung…*) listet alle Hinweise, *Zeigen* springt zur markierten Stelle.
@@ -139,6 +149,7 @@ Bitte das Projekt immer zusätzlich speichern: Eine DST-Datei enthält nur noch 
 | Datei | Inhalt |
 |---|---|
 | `js/geometry.js` | Kurven (Ecke/Kurve wie Hatch), Polygone, Hilfsfunktionen |
+| `js/route.js` | Ein-/Ausstiege (Viterbi), versteckte Laufwege (Wegsuche unter später gestickten Flächen), Reihenfolge |
 | `js/check.js` | Stickprüfung: Stichwinkel, Dichte, Stichlängen, Maschinenprofile |
 | `js/fabric.js` | Stoffprofile, automatische Stichanpassung, Vlies-Empfehlung |
 | `js/stitchgen.js` | Lauf-, Dreifach-, Satin- und Tatami-Stiche, Unterlagen, Zugkompensation, Auto-Split |
@@ -151,5 +162,5 @@ Bitte das Projekt immer zusätzlich speichern: Eine DST-Datei enthält nur noch 
 | `tools/inkstitch_fonts.py` | Konverter Ink/Stitch-Schrift (SVG + font.json) -> StickStudio |
 | `js/app.js` | Oberfläche, Werkzeuge, Umformen, Simulation, Dialoge |
 
-Tests: `node tests/test_core.js` prüft die Stichgenerierung und den DST-Hin- und Rückweg, `node tests/test_satin.js` die Satin-Erkennung (Ring, Bogen, L, T), `node tests/test_fabric.js` die Stoff-Automatik, `node tests/test_check.js` die Stickprüfung.
+Tests: `node tests/test_core.js` prüft die Stichgenerierung und den DST-Hin- und Rückweg, `node tests/test_satin.js` die Satin-Erkennung (Ring, Bogen, L, T), `node tests/test_fabric.js` die Stoff-Automatik, `node tests/test_check.js` die Stickprüfung, `node tests/test_route.js` die Verbindungsberechnung.
 Die erzeugten DST-Dateien wurden zusätzlich mit der unabhängigen Bibliothek *pyembroidery* gegengelesen.

@@ -31,7 +31,7 @@
     fabric: '#f4f1ea',
     material: 'baumwolle',
     bg: null,
-    settings: { trimDist: 2.0, lock: true, trimJumps: 3, spm: 800, machine: 'industrie', limits: {}, checkPopup: true },
+    settings: { trimDist: 2.0, lock: true, trimJumps: 3, spm: 800, machine: 'industrie', limits: {}, checkPopup: true, autoRoute: true, hideTravel: true },
     defaults: {
       run: { ...S.DEFAULTS.run },
       triple: { ...S.DEFAULTS.run, style: 'triple' },
@@ -93,7 +93,7 @@
     return { id: nextId++, type: base, color: st.curColor, params: { ...(st.defaults[dk] || {}) }, points: [], ...data };
   }
 
-  function invalidate(o) { o._st = null; o._rings = null; o._bb = null; pendingCheck.add(o.id); }
+  function invalidate(o) { o._st = null; o._rings = null; o._bb = null; o._cover = undefined; pendingCheck.add(o.id); }
   function ensure(o) {
     if (!o._st) {
       pendingCheck.add(o.id);
@@ -104,8 +104,29 @@
   }
 
   function changed(keepPlay) {
+    // Ein-/Ausstiege der Reihe nach wählen (kürzeste Verbindung); das Ende des vorigen Objekts bestimmt den Einstieg des nächsten
+    let prevExit = null;
+    const vis = st.objects.filter((o) => !o.hidden && (o.type === 'manual' ? o.stitches.length : o.points.length));
+    const planned = st.settings.autoRoute ? HW.route.plan(vis) : [];
+    vis.forEach((o, i) => {
+      let routeOnly = false;
+      if (st.settings.autoRoute) {
+        let r = planned[i];
+        // Flächen: Einstieg am tatsächlichen Ende des vorigen Objekts
+        if (o.type === 'fill' && prevExit) r = HW.route.choose(o, prevExit, null, false);
+        if (JSON.stringify(r) !== JSON.stringify(o._route || null)) { routeOnly = !!o._st; o._route = r; o._st = null; o._bb = null; }
+      } else if (o._route) { routeOnly = !!o._st; o._route = null; o._st = null; }
+      if (!o._st) {
+        // nur Ein-/Ausstieg geändert -> keine Bearbeitung durch den Benutzer (kein Prüf-Pop-up)
+        const had = pendingCheck.has(o.id);
+        ensure(o);
+        if (routeOnly && !had) pendingCheck.delete(o.id);
+      }
+      const s = o._st;
+      if (s && s.length) prevExit = s[s.length - 1];
+    });
     for (const o of st.objects) ensure(o);
-    cmds = D.assemble(st.objects, st.palette, st.settings);
+    cmds = D.assemble(st.objects, st.palette, { ...st.settings, connect: st.settings.hideTravel ? HW.route.connect : null });
     const n = cmds.length;
     const sl = $('#playSlider');
     sl.max = n;
@@ -262,6 +283,14 @@
       if (c.cmd !== 'trim' && c.cmd !== 'color') prev = s;
     }
     flush();
+    if (view.jumps) {
+      // versteckte Laufwege hervorheben
+      ctx.strokeStyle = 'rgba(230,120,0,.9)'; ctx.lineWidth = 2; ctx.setLineDash([2, 2]);
+      ctx.beginPath();
+      let pv = null;
+      for (let i = 0; i < n; i++) { const c = list[i]; const q = toScr(c); if (c.travel && pv) { ctx.moveTo(pv.x, pv.y); ctx.lineTo(q.x, q.y); } if (c.cmd !== 'trim' && c.cmd !== 'color') pv = q; }
+      ctx.stroke(); ctx.setLineDash([]);
+    }
     if (view.jumps && jumps.length) {
       ctx.setLineDash([4, 4]);
       ctx.strokeStyle = 'rgba(200,0,0,.6)'; ctx.lineWidth = 1;
@@ -468,6 +497,12 @@
       [{ label: 'Geschwindigkeit übernehmen', action: () => { st.settings.spm = f.spm; renderStats(); } }, { label: 'OK', primary: true }]);
   }
 
+  function jumpLen() {
+    let J = 0, last = null;
+    for (const q of cmds) { if (q.cmd === 'jump' && last) J += Math.hypot(q.x - last.x, q.y - last.y); if (q.cmd !== 'trim' && q.cmd !== 'color') last = q; }
+    return J;
+  }
+
   function renderStats() {
     const s = D.stats(cmds);
     const mins = s.stitches / st.settings.spm + s.colors * 0.15 + s.trims * 0.05;
@@ -477,7 +512,7 @@
       if (h.w) out = s.x0 < -h.w / 2 + 5 || s.x1 > h.w / 2 - 5 || s.y0 < -h.h / 2 + 5 || s.y1 > h.h / 2 - 5;
       else if (h.d) out = cmds.some((c) => c.cmd === 'stitch' && Math.hypot(c.x, c.y) > h.d / 2 - 5);
     }
-    $('#stats').innerHTML = `Stiche: <b>${s.stitches.toLocaleString('de-DE')}</b> · Farben: ${s.colors} · Schnitte: ${s.trims} · Größe: ${fmt(s.w)} × ${fmt(s.h)} mm · ca. ${fmt(mins, 0)} min` +
+    $('#stats').innerHTML = `Stiche: <b>${s.stitches.toLocaleString('de-DE')}</b> · Farben: ${s.colors} · Schnitte: ${s.trims}${s.travels ? ` · versteckte Wege: ${s.travels}` : ''} · Größe: ${fmt(s.w)} × ${fmt(s.h)} mm · ca. ${fmt(mins, 0)} min` +
       (out ? ' · <span class="warn">⚠ ragt über den Rahmen</span>' : '');
   }
 
@@ -1301,6 +1336,7 @@
           ob.params = { ...base, ...o.params };
           if (o.type === 'fill' && !isInk(spec.font)) ob.params.underlay = o.params.fillType === 'satin' ? 'none' : 'edge';
           ob.grp = gid; ob.textSpec = spec;
+          if (isInk(spec.font)) ob.fixedDir = true; // fertige Schriften: Stichreihenfolge der Digitalisierer beibehalten
           return ob;
         });
         st.objects.splice(Math.min(at, st.objects.length), 0, ...made);
@@ -1370,6 +1406,8 @@
       field('Pop-up bei Problemen', `<input type="checkbox" id="mPop" ${st.settings.checkPopup ? 'checked' : ''}>`) +
       field('Rahmen', `<select id="mHoop">${Object.entries(HOOPS).map(([k, h]) => `<option value="${k}" ${k === st.hoop ? 'selected' : ''}>${h.name}</option>`).join('')}</select>`) +
       field('Stofffarbe', `<input type="color" id="mFabric" value="${st.fabric}">`) +
+      field('Ein-/Ausstieg automatisch (kürzeste Verbindung)', `<input type="checkbox" id="mRoute" ${st.settings.autoRoute ? 'checked' : ''}>`) +
+      field('Versteckte Laufwege statt Schnitt', `<input type="checkbox" id="mTravel" ${st.settings.hideTravel ? 'checked' : ''}>`) +
       field('Fadenschnitt ab Sprung (mm)', `<input id="mTrim" type="number" step="0.5" min="0.5" value="${st.settings.trimDist}">`) +
       field('Vernähen (Anfang/Ende)', `<input type="checkbox" id="mLock" ${st.settings.lock ? 'checked' : ''}>`) +
       field('Schnitt-Codierung (Sprünge)', `<select id="mJumps">${[1, 2, 3, 4, 5].map((n) => `<option ${n === st.settings.trimJumps ? 'selected' : ''}>${n}</option>`).join('')}</select>`) +
@@ -1383,6 +1421,8 @@
           st.settings.limits = lim;
         }
         st.settings.checkPopup = $('#mPop').checked;
+        st.settings.autoRoute = $('#mRoute').checked;
+        st.settings.hideTravel = $('#mTravel').checked;
         st.hoop = val('mHoop'); st.fabric = val('mFabric');
         st.settings.trimDist = Math.max(0.5, num('mTrim') || 2);
         st.settings.lock = $('#mLock').checked;
@@ -1609,6 +1649,24 @@
       setTool('reshape'); changed();
     },
     check: () => issueDialog(issues, false),
+    optimizeOrder: () => {
+      const before = D.stats(cmds);
+      const score = (s) => s.trims * 10 + jumpLen();
+      const b0 = score(before);
+      const old = st.objects;
+      pushUndo();
+      st.objects = HW.route.optimizeOrder(st.objects);
+      changed();
+      let after = D.stats(cmds);
+      if (score(after) >= b0) {
+        // nicht besser -> alte Reihenfolge behalten
+        undoStack.pop();
+        st.objects = old;
+        changed();
+        return modal('Reihenfolge optimieren', '<p>Die aktuelle Reihenfolge ist bereits optimal – es wurde nichts geändert.</p>');
+      }
+      modal('Reihenfolge optimiert', `<p>Objekte gleicher Farbe wurden nach kürzesten Wegen sortiert. Überlappende Objekte behalten ihre Reihenfolge, Schriften bleiben unverändert.</p><p>Schnitte: ${before.trims} → <b>${after.trims}</b><br>Versteckte Laufwege: ${before.travels} → <b>${after.travels}</b></p>`);
+    },
     sortColor: () => {
       pushUndo();
       const firstIdx = {};

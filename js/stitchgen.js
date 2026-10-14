@@ -307,7 +307,7 @@
       let best = null;
       for (const ring of rings) {
         const A = G.nearestOnRing(from, ring), B = G.nearestOnRing(to, ring);
-        if (A.d < 0.3 && B.d < 0.3) { best = G.ringPath(ring, A, B); break; }
+        if (A.d < 0.8 && B.d < 0.8) { best = G.ringPath(ring, A, B); break; }
       }
       if (best && G.polyLength(best) < d * 4 + 10) { runAlong(out, best, 2.5); push(out, to); }
       else push(out, to, 1);
@@ -340,6 +340,8 @@
           dir = 1 - dir;
           return;
         } else {
+          // Reihenwechsel: bei flachem Rand liegen die Reihenenden weit auseinander -> in kurzen Stichen verbinden
+          if (k > 0 && cur && G.dist(cur, a) > Math.max(o.len, 3)) travel(cur, a);
           push(out, a);
           const L = o.len, offs = [0, 0.5, 0.25, 0.75][((s.r % 4) + 4) % 4] * L;
           const minEnd = L * 0.3;
@@ -372,7 +374,7 @@
     const ang = (p.angle * Math.PI) / 180;
     const out = [];
     const ul = p.underlay || 'none';
-    let start = null;
+    let start = obj._entry || null;
     const addRot = (a, opts) => {
       const rr = rings.map((r) => r.map((q) => G.rot(q, -a)));
       const sp = start ? G.rot(start, -a) : null;
@@ -386,7 +388,14 @@
       const sgn = G.signedArea(rings[0]) > 0 ? 1 : -1;
       const off = G.offsetPolyline(G.resample(r0, 0.5, 180), 0.35 * sgn);
       const a = Math.abs(G.signedArea(off)), b = Math.abs(G.signedArea(G.offsetPolyline(G.resample(r0, 0.5, 180), -0.35 * sgn)));
-      runAlong(out, a < b ? off : G.offsetPolyline(G.resample(r0, 0.5, 180), -0.35 * sgn), 2.5);
+      let edge = a < b ? off : G.offsetPolyline(G.resample(r0, 0.5, 180), -0.35 * sgn);
+      if (start) {
+        // Kantenlauf am Einstiegspunkt beginnen lassen
+        let bi = 0;
+        edge.forEach((q, i) => { if (G.dist(q, start) < G.dist(edge[bi], start)) bi = i; });
+        edge = edge.slice(bi, -1).concat(edge.slice(0, bi + 1));
+      }
+      runAlong(out, edge, 2.5);
       start = out[out.length - 1];
     }
     if (ul.includes('tatami')) addRot(ang + Math.PI / 2, { spacing: 2.2, len: 3.5, pull: 0, inset: 0.45 });
@@ -418,9 +427,12 @@
 
   // fabId: Stoffprofil – passt Dichte, Länge, Zugausgleich, Unterlage automatisch an (siehe fabric.js)
   function generate(obj, fabId) {
+    const orig = obj;
+    // gewählter Ein-/Ausstieg (route.js): Richtung umdrehen, Startpunkt, Einstieg bei Flächen
+    if (obj._route && HW.route) obj = HW.route.apply(obj);
     if (fabId && HW.fabric && obj.params) {
       const eff = HW.fabric.effective(obj, fabId);
-      obj._eff = eff;
+      orig._eff = eff;
       obj = { ...obj, params: eff.params };
     }
     switch (obj.type) {
