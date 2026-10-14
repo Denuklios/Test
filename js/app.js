@@ -1336,6 +1336,7 @@
     if (ctrl && k.toLowerCase() === 'e') { e.preventDefault(); run('exportDst'); return; }
     if (ctrl && k.toLowerCase() === 'd') { e.preventDefault(); run('duplicate'); return; }
     if (ctrl && k.toLowerCase() === 'a') { e.preventDefault(); run('selectAll'); return; }
+    if (ctrl && k.toLowerCase() === 'b') { e.preventDefault(); run('library'); return; }
     if (ctrl && k.toLowerCase() === 'g') { e.preventDefault(); run(e.shiftKey ? 'ungroup' : 'group'); return; }
     if (!ctrl && (k === 'g' || k === 'G') && !draft) { run('toggleSnap'); return; }
     if (k === 'Enter') { e.preventDefault(); if (draft) finishDraft(false); return; }
@@ -1704,6 +1705,255 @@
     };
     ['mhHoop', 'mhOv'].forEach((id) => ($('#' + id).onchange = mk));
     mk();
+  }
+
+  /* ---------- Design zeichnen (Vorschaubilder, Mockup) ---------- */
+  // T: mm → Pixel, sc: Pixel je mm
+  function paintDesign(x, c, T, sc, opts = {}) {
+    let col = colOf((byId((c.find((q) => q.obj) || {}).obj) || {}).color ?? 0), prev = null;
+    x.lineCap = 'round';
+    const w = Math.max(0.6, 0.42 * sc);
+    for (const pass of opts.shadow ? [0, 1] : [1]) {
+      prev = null;
+      col = colOf((byId((c.find((q) => q.obj) || {}).obj) || {}).color ?? 0);
+      for (const q of c) {
+        if (q.cmd === 'color') { col = colOf(q.color); continue; }
+        if (q.cmd === 'stitch' && prev && !q.travel) {
+          const a = T(prev), b = T(q);
+          x.strokeStyle = pass ? col : 'rgba(0,0,0,.25)';
+          x.lineWidth = pass ? w : w * 1.6;
+          x.beginPath();
+          if (pass) { x.moveTo(a[0], a[1]); x.lineTo(b[0], b[1]); } else { x.moveTo(a[0] + w * 0.4, a[1] + w * 0.6); x.lineTo(b[0] + w * 0.4, b[1] + w * 0.6); }
+          x.stroke();
+        }
+        if (q.cmd === 'stitch' || q.cmd === 'jump') prev = q;
+      }
+    }
+  }
+  function thumbnail(c, size = 180) {
+    const s2 = D.stats(c);
+    const cv2 = document.createElement('canvas'); cv2.width = cv2.height = size;
+    const x = cv2.getContext('2d');
+    x.fillStyle = '#fff'; x.fillRect(0, 0, size, size);
+    if (!s2.stitches) return cv2.toDataURL();
+    const sc = (size - 12) / Math.max(s2.w, s2.h, 1);
+    const ox = size / 2 - ((s2.x0 + s2.x1) / 2) * sc, oy = size / 2 - ((s2.y0 + s2.y1) / 2) * sc;
+    paintDesign(x, c, (p) => [ox + p.x * sc, oy + p.y * sc], sc);
+    return cv2.toDataURL('image/png');
+  }
+
+  /* ---------- Produkt-Vorschau (Mockup) ---------- */
+  // Umrisse in mm, (0,0) = Halsausschnitt Mitte oben bzw. Mitte des Produkts
+  const PRODUCTS = {
+    tshirt: { name: 'T-Shirt', spots: { brustL: ['Brust links', 95, 190], mitte: ['Brust Mitte', 0, 230], ruecken: ['Rücken oben', 0, 170] },
+      outline: [[-75, 0], [-200, 35], [-300, 180], [-225, 240], [-185, 200], [-180, 700], [180, 700], [185, 200], [225, 240], [300, 180], [200, 35], [75, 0], [0, 35]], neck: true },
+    polo: { name: 'Polo', spots: { brustL: ['Brust links', 95, 190], mitte: ['Brust Mitte', 0, 240], aermel: ['Ärmel links', 250, 150] },
+      outline: [[-70, 0], [-200, 35], [-290, 200], [-220, 250], [-185, 205], [-180, 720], [180, 720], [185, 205], [220, 250], [290, 200], [200, 35], [70, 0], [0, 25]], placket: true },
+    hoodie: { name: 'Hoodie', spots: { brustL: ['Brust links', 95, 200], mitte: ['Brust Mitte', 0, 230] },
+      outline: [[-90, 0], [-230, 40], [-320, 560], [-260, 580], [-210, 250], [-200, 720], [200, 720], [210, 250], [260, 580], [320, 560], [230, 40], [90, 0], [0, 70]], hood: true, pocket: true },
+    cap: { name: 'Kappe (Front)', spots: { front: ['Front Mitte', 0, -10], seite: ['Seite', 75, 0] },
+      outline: [[-110, 60], [-105, 0], [-80, -55], [-35, -85], [0, -90], [35, -85], [80, -55], [105, 0], [110, 60]], cap: true },
+    towel: { name: 'Handtuch', spots: { unten: ['Bordüre unten', 0, 360], mitte: ['Mitte', 0, 0], ecke: ['Ecke unten rechts', 170, 380] },
+      outline: [[-250, -500], [250, -500], [250, 500], [-250, 500]], towel: true },
+    tasche: { name: 'Tasche', spots: { mitte: ['Mitte', 0, 40] },
+      outline: [[-190, -150], [190, -150], [190, 230], [-190, 230]], bag: true },
+  };
+  function mockupDialog() {
+    if (!cmds.some((q) => q.cmd === 'stitch')) return modal('Produkt-Vorschau', '<p>Das Design enthält noch keine Stiche.</p>');
+    const ms = (st.settings.mockup = st.settings.mockup || { prod: 'tshirt', spot: 'brustL', color: '#ffffff' });
+    const prodOpts = Object.entries(PRODUCTS).map(([k, v]) => `<option value="${k}" ${k === ms.prod ? 'selected' : ''}>${v.name}</option>`).join('');
+    modal('Produkt-Vorschau (Mockup)',
+      field('Produkt', `<select id="mkP">${prodOpts}</select>`) + field('Platzierung', '<select id="mkS"></select>') +
+      field('Stofffarbe', `<input type="color" id="mkC" value="${ms.color}">`) +
+      '<canvas id="mkCv" width="640" height="720" style="width:100%;background:#eceff3"></canvas><p id="mkInfo" style="color:#6a7480"></p>',
+      [{ label: 'Als Bild speichern', action: () => { $('#mkCv').toBlob((bl) => download(bl, safeName(st.name) + '_Vorschau.png', 'image/png')); return false; } }, { label: 'Schließen', primary: true }]);
+    const fillSpots = () => {
+      const pr = PRODUCTS[val('mkP')];
+      $('#mkS').innerHTML = Object.entries(pr.spots).map(([k, v]) => `<option value="${k}" ${k === ms.spot ? 'selected' : ''}>${v[0]}</option>`).join('');
+    };
+    const draw2 = () => {
+      ms.prod = val('mkP'); ms.spot = val('mkS'); ms.color = val('mkC');
+      const pr = PRODUCTS[ms.prod], sp = pr.spots[ms.spot] || Object.values(pr.spots)[0];
+      const c = $('#mkCv'), x = c.getContext('2d');
+      const ol = pr.outline.map(([a, b]) => ({ x: a, y: b }));
+      const bb = G.bbox(pr.cap ? ol.concat([{ x: -160, y: 160 }, { x: 160, y: 160 }]) : pr.bag ? ol.concat([{ x: 0, y: -360 }]) : ol);
+      const sc = Math.min((c.width - 40) / (bb.x1 - bb.x0), (c.height - 40) / (bb.y1 - bb.y0));
+      const ox = c.width / 2 - ((bb.x0 + bb.x1) / 2) * sc, oy = c.height / 2 - ((bb.y0 + bb.y1) / 2) * sc;
+      const T = (p) => [ox + p.x * sc, oy + p.y * sc];
+      x.clearRect(0, 0, c.width, c.height);
+      x.fillStyle = '#eceff3'; x.fillRect(0, 0, c.width, c.height);
+      // Kleidungsstück
+      x.save();
+      x.beginPath();
+      ol.forEach((p, i) => { const [a, b] = T(p); if (!i) x.moveTo(a, b); else x.lineTo(a, b); });
+      if (pr.cap) { const [a, b] = T({ x: 160, y: 95 }), [e, f] = T({ x: -160, y: 95 }); x.quadraticCurveTo(...T({ x: 120, y: 120 }), a, b); x.quadraticCurveTo(...T({ x: 0, y: 160 }), e, f); x.quadraticCurveTo(...T({ x: -120, y: 120 }), ...T(ol[0])); }
+      x.closePath();
+      x.fillStyle = ms.color; x.fill();
+      x.lineWidth = 2; x.strokeStyle = 'rgba(0,0,0,.35)'; x.stroke();
+      x.clip();
+      // Falten/Schatten
+      const gr = x.createLinearGradient(T({ x: bb.x0, y: 0 })[0], 0, T({ x: bb.x1, y: 0 })[0], 0);
+      gr.addColorStop(0, 'rgba(0,0,0,.10)'); gr.addColorStop(0.5, 'rgba(255,255,255,.06)'); gr.addColorStop(1, 'rgba(0,0,0,.12)');
+      x.fillStyle = gr; x.fillRect(0, 0, c.width, c.height);
+      x.strokeStyle = 'rgba(0,0,0,.18)'; x.lineWidth = 1.5;
+      const line = (pts) => { x.beginPath(); pts.forEach((p, i) => { const [a, b] = T({ x: p[0], y: p[1] }); if (!i) x.moveTo(a, b); else x.lineTo(a, b); }); x.stroke(); };
+      if (pr.neck || pr.placket || pr.hood) line([[-75, 0], [-40, 30], [0, 40], [40, 30], [75, 0]]);
+      if (pr.placket) { line([[0, 25], [0, 150]]); [60, 105].forEach((y) => { x.beginPath(); x.arc(...T({ x: 0, y }), 3, 0, 7); x.stroke(); }); }
+      if (pr.hood) { line([[-90, 0], [-70, 80], [0, 110], [70, 80], [90, 0]]); line([[-25, 100], [-30, 260]]); line([[25, 100], [30, 260]]); }
+      if (pr.pocket) line([[-140, 640], [-110, 470], [110, 470], [140, 640]]);
+      if (pr.neck || pr.placket || pr.hood) { line([[-180, 690], [180, 690]]); line([[-185, 200], [-200, 40]]); line([[185, 200], [200, 40]]); }
+      if (pr.cap) { line([[0, -90], [0, 60]]); line([[-80, -55], [-60, 60]]); line([[80, -55], [60, 60]]); x.beginPath(); x.arc(...T({ x: 0, y: -88 }), 5, 0, 7); x.stroke(); }
+      if (pr.towel) { x.fillStyle = 'rgba(0,0,0,.07)'; for (const y of [300, 420]) { const [a, b] = T({ x: -250, y }), [e, f] = T({ x: 250, y: y + 40 }); x.fillRect(a, b, e - a, f - b); } }
+      if (pr.bag) { x.restore(); x.save(); x.lineWidth = 10; x.strokeStyle = ms.color; x.beginPath(); x.moveTo(...T({ x: -110, y: -150 })); x.bezierCurveTo(...T({ x: -110, y: -420 }), ...T({ x: 110, y: -420 }), ...T({ x: 110, y: -150 })); x.stroke(); x.lineWidth = 1; x.strokeStyle = 'rgba(0,0,0,.35)'; x.stroke(); }
+      x.restore();
+      // Design in Originalgröße
+      const s2 = D.stats(cmds);
+      const cx = (s2.x0 + s2.x1) / 2, cy = (s2.y0 + s2.y1) / 2;
+      paintDesign(x, cmds, (p) => T({ x: sp[1] + p.x - cx, y: sp[2] + p.y - cy }), sc, { shadow: true });
+      $('#mkInfo').textContent = `${pr.name}, ${sp[0]}: Design ${fmt2(s2.w)} × ${fmt2(s2.h)} mm (maßstabsgetreu, Kleidungsstück ca. Größe L). Übliche Größen: Brust links 70–100 mm breit, Brust Mitte bis 250 mm, Kappe Front bis ca. 110 × 55 mm.`;
+    };
+    $('#mkP').onchange = () => { fillSpots(); draw2(); };
+    $('#mkS').onchange = draw2; $('#mkC').oninput = draw2;
+    fillSpots(); draw2();
+  }
+
+  /* ---------- Preiskalkulation & Angebot ---------- */
+  const PRICE_DEF = { mode: 'stitches', per1000: 0.9, minPiece: 3.5, perColor: 0.1, hourRate: 48, setup: 35, digitize: 0, hoopMin: 1.5, garment: 0, vat: 19, tiers: '1:0, 10:5, 25:10, 50:15, 100:20' };
+  function priceDialog() {
+    const s2 = D.stats(cmds);
+    if (!s2.stitches) return modal('Preiskalkulation', '<p>Das Design enthält noch keine Stiche.</p>');
+    const P = (st.settings.price = { ...PRICE_DEF, ...(st.settings.price || {}) });
+    const nf = (v) => v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    modal('Preiskalkulation & Angebot',
+      `<p>${st.name}: <b>${s2.stitches.toLocaleString('de-DE')}</b> Stiche · ${s2.colors} Farben · ${s2.trims} Schnitte · ${fmt2(s2.w)} × ${fmt2(s2.h)} mm</p>` +
+      field('Berechnung', `<select id="pcM"><option value="stitches" ${P.mode === 'stitches' ? 'selected' : ''}>nach Stichzahl (je 1000 Stiche)</option><option value="time" ${P.mode === 'time' ? 'selected' : ''}>nach Maschinenzeit (Stundensatz)</option></select>`) +
+      field('Preis je 1000 Stiche (€)', `<input id="pcK" type="number" step="0.05" value="${P.per1000}">`) +
+      field('Stundensatz Maschine (€)', `<input id="pcH" type="number" step="1" value="${P.hourRate}">`) +
+      field('Aufschlag je Farbe (€)', `<input id="pcC" type="number" step="0.05" value="${P.perColor}">`) +
+      field('Mindestpreis je Stück (€)', `<input id="pcMin" type="number" step="0.5" value="${P.minPiece}">`) +
+      field('Einspannen je Stück (min)', `<input id="pcHoop" type="number" step="0.5" value="${P.hoopMin}">`) +
+      field('Textil je Stück (€, 0 = beigestellt)', `<input id="pcG" type="number" step="0.5" value="${P.garment}">`) +
+      field('Einrichtung je Auftrag (€)', `<input id="pcS" type="number" step="1" value="${P.setup}">`) +
+      field('Digitalisierung einmalig (€)', `<input id="pcD" type="number" step="1" value="${P.digitize}">`) +
+      field('Mengenrabatt (Stück:%)', `<input id="pcT" value="${P.tiers}">`) +
+      field('MwSt. (%)', `<input id="pcV" type="number" value="${P.vat}">`) +
+      '<div id="pcOut"></div>',
+      [{ label: 'Angebot drucken', action: () => { offer(); return false; } }, { label: 'Schließen', primary: true }]);
+    let rows = [];
+    const calc = () => {
+      Object.assign(P, { mode: val('pcM'), per1000: num('pcK') || 0, hourRate: num('pcH') || 0, perColor: num('pcC') || 0, minPiece: num('pcMin') || 0, hoopMin: num('pcHoop') || 0, garment: num('pcG') || 0, setup: num('pcS') || 0, digitize: num('pcD') || 0, tiers: val('pcT'), vat: num('pcV') || 0 });
+      const mins = s2.stitches / (st.settings.spm || 800) + s2.colors * 0.15 + s2.trims * 0.05 + P.hoopMin;
+      const base = P.mode === 'time' ? (mins / 60) * P.hourRate : (s2.stitches / 1000) * P.per1000 + s2.colors * P.perColor;
+      const piece = Math.max(P.minPiece, base);
+      const tiers = P.tiers.split(',').map((t) => t.split(':').map(Number)).filter((t) => t[0] > 0).sort((a, b) => a[0] - b[0]);
+      rows = tiers.map(([q, d]) => {
+        const unit = piece * (1 - (d || 0) / 100) + P.garment;
+        const net = unit * q + P.setup + P.digitize;
+        return { q, d, unit, net, gross: net * (1 + P.vat / 100), time: (mins * q) / 60 };
+      });
+      $('#pcOut').innerHTML = `<p>Maschinenzeit je Stück ca. <b>${fmt2(mins)} min</b> (bei ${st.settings.spm || 800} Stichen/min, inkl. Farbwechsel, Schnitte, Einspannen).</p>
+        <table class="tbtab" style="width:100%"><tr><th>Menge</th><th>Rabatt</th><th>Stück netto</th><th>Gesamt netto</th><th>Gesamt brutto</th><th>Maschine</th></tr>
+        ${rows.map((r) => `<tr><td>${r.q}</td><td>${r.d || 0} %</td><td>${nf(r.unit)} €</td><td>${nf(r.net)} €</td><td><b>${nf(r.gross)} €</b></td><td>${fmt2(r.time)} h</td></tr>`).join('')}</table>
+        <p style="color:#6a7480">Gesamt enthält Einrichtung${P.digitize ? ' und Digitalisierung' : ''} einmal je Auftrag. Werte werden im Projekt gespeichert.</p>`;
+    };
+    const offer = () => {
+      const w = window.open('', '_blank');
+      if (!w) return;
+      const img = thumbnail(cmds, 260);
+      w.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Angebot ${st.name}</title><style>body{font:14px system-ui;margin:30px;max-width:760px}td,th{padding:4px 10px;border-bottom:1px solid #ddd;text-align:right}td:first-child,th:first-child{text-align:left}img{float:right;border:1px solid #ccc}</style></head><body>
+        <img src="${img}"><h2>Angebot Stickerei</h2><p>Datum: ${new Date().toLocaleDateString('de-DE')}<br>Motiv: <b>${st.name}</b><br>Größe: ${fmt2(s2.w)} × ${fmt2(s2.h)} mm · ${s2.stitches.toLocaleString('de-DE')} Stiche · ${s2.colors} Farben</p>
+        <table style="clear:both;width:100%"><tr><th>Menge</th><th>Stückpreis netto</th><th>Gesamt netto</th><th>MwSt. ${P.vat} %</th><th>Gesamt brutto</th></tr>
+        ${rows.map((r) => `<tr><td>${r.q} Stück</td><td>${nf(r.unit)} €</td><td>${nf(r.net)} €</td><td>${nf(r.gross - r.net)} €</td><td><b>${nf(r.gross)} €</b></td></tr>`).join('')}</table>
+        <p>Im Gesamtpreis enthalten: Einrichtung ${nf(P.setup)} €${P.digitize ? `, Digitalisierung ${nf(P.digitize)} €` : ''}. ${P.garment ? `Textil je Stück ${nf(P.garment)} € enthalten.` : 'Textilien werden beigestellt.'}</p>
+        <script>setTimeout(()=>print(),300)<\/script></body></html>`);
+      w.document.close();
+    };
+    $('#modalBody').querySelectorAll('input,select').forEach((e) => (e.oninput = e.onchange = calc));
+    calc();
+  }
+
+  /* ---------- Design-Bibliothek (im Browser gespeichert, IndexedDB) ---------- */
+  const LIB = {
+    db: null,
+    open() {
+      if (this.db) return Promise.resolve(this.db);
+      return new Promise((res, rej) => {
+        const r = indexedDB.open('stickstudio', 1);
+        r.onupgradeneeded = () => r.result.createObjectStore('designs', { keyPath: 'id', autoIncrement: true });
+        r.onsuccess = () => { this.db = r.result; res(this.db); };
+        r.onerror = () => rej(r.error);
+      });
+    },
+    tx(mode, fn) { return this.open().then((db) => new Promise((res, rej) => { const t = db.transaction('designs', mode); const s2 = t.objectStore('designs'); const r = fn(s2); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); })); },
+    all() { return this.tx('readonly', (s2) => s2.getAll()); },
+    put(rec) { return this.tx('readwrite', (s2) => s2.put(rec)); },
+    del(id) { return this.tx('readwrite', (s2) => s2.delete(id)); },
+  };
+  function librarySave(after) {
+    const s2 = D.stats(cmds);
+    modal('In Bibliothek speichern',
+      field('Name', `<input id="lbN" value="${String(st.name).replace(/"/g, '&quot;')}">`) +
+      field('Stichworte (Komma)', `<input id="lbT" value="${(st.libTags || []).join(', ')}" placeholder="Logo, Verein, Kappe">`) +
+      field('Kunde', `<input id="lbK" value="${st.libCustomer || ''}">`),
+      [{ label: 'Abbrechen' }, { label: 'Speichern', primary: true, action: () => {
+        st.name = val('lbN').trim() || st.name;
+        st.libTags = val('lbT').split(',').map((t) => t.trim()).filter(Boolean);
+        st.libCustomer = val('lbK').trim();
+        const rec = { name: st.name, tags: st.libTags, customer: st.libCustomer, date: Date.now(), stitches: s2.stitches, w: s2.w, h: s2.h, colors: s2.colors, thumb: thumbnail(cmds), data: projectJSON() };
+        if (st.libId) rec.id = st.libId;
+        LIB.put(rec).then((id) => { st.libId = id ?? st.libId; hintFlash('In der Bibliothek gespeichert.'); if (after) after(); })
+          .catch((e) => modal('Bibliothek', `<p>Speichern nicht möglich: ${e}</p>`));
+      } }]);
+  }
+  function libraryDialog() {
+    modal('Design-Bibliothek',
+      '<div class="row" style="margin:0 0 8px"><input id="lbQ" placeholder="Suchen: Name, Stichwort, Kunde …" style="flex:1;padding:4px 6px"><select id="lbSort"><option value="date">neueste zuerst</option><option value="name">Name</option><option value="stitches">Stichzahl</option></select><button id="lbAdd">+ Aktuelles Design speichern</button></div>' +
+      '<div id="lbGrid" class="libgrid">Lade …</div><p style="color:#6a7480">Die Bibliothek liegt im Browser dieses Computers. Zur Sicherung Designs zusätzlich als Projektdatei speichern.</p>',
+      [{ label: 'Schließen', primary: true }]);
+    let recs = [];
+    const esc = (t) => String(t || '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
+    const show = () => {
+      const q = val('lbQ').toLowerCase().trim(), so = val('lbSort');
+      const list = recs.filter((r) => !q || [r.name, r.customer, ...(r.tags || [])].join(' ').toLowerCase().includes(q))
+        .sort((a, b) => (so === 'name' ? a.name.localeCompare(b.name) : so === 'stitches' ? a.stitches - b.stitches : b.date - a.date));
+      $('#lbGrid').innerHTML = list.length ? list.map((r) => `<div class="libcard"><img src="${r.thumb}" alt=""><b>${esc(r.name)}</b>
+        <small>${fmt2(r.w)} × ${fmt2(r.h)} mm · ${r.stitches.toLocaleString('de-DE')} St. · ${r.colors} F.<br>${esc(r.customer)}${r.customer && r.tags && r.tags.length ? ' · ' : ''}${esc((r.tags || []).join(', '))}<br>${new Date(r.date).toLocaleDateString('de-DE')}</small>
+        <div class="row"><button data-open="${r.id}">Öffnen</button><button data-del="${r.id}" title="Löschen">🗑</button></div></div>`).join('') : '<p>Keine Designs gefunden.</p>';
+      $('#lbGrid').querySelectorAll('[data-open]').forEach((b) => (b.onclick = () => {
+        const r = recs.find((x) => x.id === +b.dataset.open);
+        closeModal();
+        loadProject(JSON.parse(r.data), r.name);
+        st.libId = r.id; st.libTags = r.tags || []; st.libCustomer = r.customer || '';
+      }));
+      $('#lbGrid').querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => {
+        if (!confirm('Design aus der Bibliothek löschen?')) return;
+        LIB.del(+b.dataset.del).then(load);
+      }));
+    };
+    const load = () => LIB.all().then((r) => { recs = r || []; show(); }).catch((e) => { $('#lbGrid').textContent = 'Bibliothek nicht verfügbar: ' + e; });
+    $('#lbQ').oninput = show; $('#lbSort').onchange = show;
+    $('#lbAdd').onclick = () => { if (!cmds.some((q) => q.cmd === 'stitch')) return; librarySave(() => libraryDialog()); };
+    load();
+  }
+
+  /* ---------- Projekt als Daten ---------- */
+  function projectJSON() {
+    const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, customHoops: st.customHoops, fabric: st.fabric, material: st.material, settings: st.settings, defaults: st.defaults, threadBrand: st.threadBrand, threadAuto: st.threadAuto, guides: st.guides || [], libTags: st.libTags, libCustomer: st.libCustomer, bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null });
+    return data;
+  }
+  function loadProject(d, fname = '') {
+    pushUndo();
+    st.objects = d.objects || []; st.palette = d.palette || st.palette; st.hoop = d.hoop || st.hoop;
+    st.fabric = d.fabric || st.fabric;
+    if (Array.isArray(d.customHoops)) { const ids = new Set(st.customHoops.map((c) => c.id)); st.customHoops = st.customHoops.concat(d.customHoops.filter((c) => !ids.has(c.id))); saveCustomHoops(); }
+    renderHoopSel(); st.material = d.material || st.material; if (d.threadBrand) st.threadBrand = d.threadBrand; st.guides = d.guides || []; if (d.threadAuto === false) st.threadAuto = false; st.objects.forEach(invalidate); Object.assign(st.settings, d.settings || {});
+    if (d.defaults) Object.keys(d.defaults).forEach((k) => Object.assign(st.defaults[k] || (st.defaults[k] = {}), d.defaults[k]));
+    st.name = d.name || fname.replace(/\..*$/, '');
+    nextId = Math.max(0, ...st.objects.map((o) => o.id || 0)) + 1;
+    nextGrp = Math.max(0, ...st.objects.map((o) => (typeof o.grp === 'number' ? o.grp : 0))) + 1;
+    st.bg = null;
+    if (d.bg && d.bg.src) { const b = d.bg; loadBg(b.src, b.w, () => Object.assign(st.bg, { x: b.x, y: b.y, opacity: b.opacity, visible: b.visible !== false })); }
+    sel = new Set(); renderPalette(); changed(); zoomFit();
   }
 
   /* ---------- Applikation, Knockdown, Kappe ---------- */
@@ -2714,24 +2964,11 @@
   const commands = {
     new: () => modal('Neues Design', '<p>Aktuelles Design verwerfen?</p>', [{ label: 'Abbrechen' }, { label: 'Neu', primary: true, action: () => { pushUndo(); st.objects = []; st.bg = null; sel = new Set(); changed(); } }]),
     save: () => {
-      const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, customHoops: st.customHoops, fabric: st.fabric, material: st.material, settings: st.settings, defaults: st.defaults, threadBrand: st.threadBrand, threadAuto: st.threadAuto, guides: st.guides || [], bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null });
-      download(data, (st.name || 'design') + '.stick.json', 'application/json');
+      download(projectJSON(), (st.name || 'design') + '.stick.json', 'application/json');
     },
     open: () => pickFile('.json,.stick.json', (txt, f) => {
       try {
-        const d = JSON.parse(txt);
-        pushUndo();
-        st.objects = d.objects || []; st.palette = d.palette || st.palette; st.hoop = d.hoop || st.hoop;
-        st.fabric = d.fabric || st.fabric;
-        if (Array.isArray(d.customHoops)) { const ids = new Set(st.customHoops.map((c) => c.id)); st.customHoops = st.customHoops.concat(d.customHoops.filter((c) => !ids.has(c.id))); saveCustomHoops(); }
-        renderHoopSel(); st.material = d.material || st.material; if (d.threadBrand) st.threadBrand = d.threadBrand; st.guides = d.guides || []; if (d.threadAuto === false) st.threadAuto = false; st.objects.forEach(invalidate); Object.assign(st.settings, d.settings || {});
-        if (d.defaults) Object.keys(d.defaults).forEach((k) => Object.assign(st.defaults[k] || (st.defaults[k] = {}), d.defaults[k]));
-        st.name = d.name || f.name.replace(/\..*$/, '');
-        nextId = Math.max(0, ...st.objects.map((o) => o.id || 0)) + 1;
-        nextGrp = Math.max(0, ...st.objects.map((o) => (typeof o.grp === 'number' ? o.grp : 0))) + 1;
-        st.bg = null;
-        if (d.bg && d.bg.src) { const b = d.bg; loadBg(b.src, b.w, () => Object.assign(st.bg, { x: b.x, y: b.y, opacity: b.opacity, visible: b.visible !== false })); }
-        sel = new Set(); renderPalette(); changed(); zoomFit();
+        loadProject(JSON.parse(txt), f.name);
       } catch (e) { modal('Fehler', '<p>Datei konnte nicht gelesen werden.</p>'); }
     }, 'text'),
     importDst: () => pickFile('.dst,.DST,.pes,.PES,.jef,.JEF,.exp,.EXP,.pec,.PEC', (buf, f) => {
@@ -2850,6 +3087,10 @@
     editColor: () => editColor(st.curColor),
     threadBrand: () => threadBrandDialog(),
     applique: () => appliqueDialog(),
+    mockup: () => mockupDialog(),
+    price: () => priceDialog(),
+    library: () => libraryDialog(),
+    librarySave: () => librarySave(),
     teamNames: () => teamDialog(),
     multiHoop: () => multiHoopDialog(),
     knockdown: () => knockdownDialog(),

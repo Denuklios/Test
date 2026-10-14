@@ -107,3 +107,8 @@ main { display: flex; height: calc(100% - 38px - 34px); }
 .threads button small { color: #6a7480; font-size: 9.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 70px; }
 .tbtab td { padding: 2px 6px; font-size: 12px; }
 .sw2 { display: inline-block; width: 22px; height: 14px; border: 1px solid #999; border-radius: 2px; vertical-align: middle; }
+
+.libgrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; max-height: 55vh; overflow-y: auto; }
+.libcard { border: 1px solid var(--line); border-radius: 6px; padding: 6px; display: flex; flex-direction: column; gap: 3px; font-size: 12px; }
+.libcard img { width: 100%; aspect-ratio: 1; object-fit: contain; background: #fff; border-radius: 4px; }
+.libcard small { color: var(--muted); }

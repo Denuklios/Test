@@ -179,6 +179,14 @@ pyembroidery (MIT-Lizenz) portiert, siehe `js/vendor/PYEMBROIDERY-LICENSE.txt`; 
 byte-identisch mit pyembroidery. Hinweis: PES und JEF kennen keinen „Sprung ohne Schnitt“ bzw. keinen Schnittbefehl –
 dort entscheidet die Maschine. **EMB** (Wilcom-Arbeitsdatei) ist ein geschlossenes Format und kann nicht gelesen werden.
 
+### Produkt-Vorschau, Preis, Bibliothek
+- **Produkt-Vorschau** (*Datei → Produkt-Vorschau*): Design maßstabsgetreu auf T-Shirt, Polo, Hoodie, Kappe, Handtuch
+  oder Tasche, Platzierung und Stofffarbe wählbar, als PNG speichern.
+- **Preiskalkulation & Angebot**: nach Stichzahl (je 1000 Stiche) oder Maschinenzeit (Stundensatz), Farbaufschlag,
+  Mindestpreis, Einspannzeit, Textil, Einrichtung, Digitalisierung, Mengenrabatte, MwSt.; Angebot mit Vorschaubild drucken.
+- **Design-Bibliothek** (Strg+B): Designs mit Vorschaubild, Stichworten und Kunde im Browser speichern, suchen,
+  sortieren, öffnen. Zur Sicherung zusätzlich als Projektdatei speichern.
+
 ### Füllarten
 Unter *Eigenschaften → Füllart*: **Tatami**, **Satin** (fester Winkel), **Kontur** (Reihen parallel zum Rand),
 **Spirale** (Ringe gehen fließend ineinander über), **Welle** (Wellenhöhe/-länge einstellbar), **Muster** (Rauten, Diagonal,
