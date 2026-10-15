@@ -413,8 +413,29 @@
   }
   function isClosedArr(o, k) { return o.type === 'fill' || (o.type === 'run' && o.params.closed && k === 0); }
 
+  // Säule A: zwei Kanten (blau / orange) und dünne Linien je Punktpaar (= Stichrichtung)
+  const SIDE_COL = ['#1f6feb', '#e07b00'];
+  function drawColAEdges(pts) {
+    for (const side of [0, 1]) {
+      const e = pts.filter((_, i) => i % 2 === side);
+      if (e.length < 2) continue;
+      const path = G.buildPath(e, false).pts;
+      ctx.strokeStyle = SIDE_COL[side]; ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      path.forEach((p, i) => { const q = toScr(p); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); });
+      ctx.stroke();
+    }
+    ctx.strokeStyle = 'rgba(60,60,60,.45)'; ctx.lineWidth = 1; ctx.setLineDash([4, 3]);
+    for (let i = 0; i + 1 < pts.length; i += 2) {
+      const a = toScr(pts[i]), b = toScr(pts[i + 1]);
+      ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
+    }
+    ctx.setLineDash([]);
+  }
+
   function drawCtrlPath(o, pts, closed, color) {
     if (!pts.length) return;
+    if (o.type === 'colA') { drawColAEdges(pts); return; }
     const path = o.type === 'manual' ? pts : G.buildPath(pts, closed).pts;
     ctx.strokeStyle = color; ctx.lineWidth = 1;
     ctx.beginPath();
@@ -426,7 +447,7 @@
   function drawNode(p, active, kind) {
     const s = toScr(p);
     ctx.fillStyle = active ? '#1f6feb' : '#fff';
-    ctx.strokeStyle = kind === 'jump' ? '#d00' : '#1f6feb';
+    ctx.strokeStyle = kind === 'jump' ? '#d00' : kind === 'L' ? SIDE_COL[0] : kind === 'R' ? SIDE_COL[1] : '#1f6feb';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     if (p.c) ctx.arc(s.x, s.y, 4.5, 0, Math.PI * 2);
@@ -441,16 +462,9 @@
     ctx.save();
     controlArrays(o).forEach((arr, k) => {
       drawCtrlPath(o, arr, isClosedArr(o, k), 'rgba(31,111,235,.7)');
-      if (o.type === 'colA') {
-        ctx.strokeStyle = 'rgba(31,111,235,.35)';
-        for (let i = 0; i + 1 < arr.length; i += 2) {
-          const a = toScr(arr[i]), b = toScr(arr[i + 1]);
-          ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke();
-        }
-      }
       arr.forEach((p, i) => {
         if (o.type === 'manual' && view.scale < 3 && arr.length > 400) return;
-        drawNode(o.type === 'manual' ? { x: p.x, y: p.y } : p, selNodes.some((n) => n.arr === arr && n.i === i), p.j ? 'jump' : '');
+        drawNode(o.type === 'manual' ? { x: p.x, y: p.y } : p, selNodes.some((n) => n.arr === arr && n.i === i), p.j ? 'jump' : o.type === 'colA' ? (i % 2 ? 'R' : 'L') : '');
       });
     });
     if (o.type === 'fill') {
@@ -503,7 +517,7 @@
     ctx.save();
     controlArrays(o).forEach((arr, k) => {
       drawCtrlPath(o, arr, isClosedArr(o, k) && draft.phase > 0, 'rgba(31,111,235,.8)');
-      arr.forEach((p) => drawNode(p, false, p.j ? 'jump' : ''));
+      arr.forEach((p, i) => drawNode(p, false, p.j ? 'jump' : o.type === 'colA' ? (i % 2 ? 'R' : 'L') : ''));
     });
     if (draft.angleStart && mouse.mm) {
       const a = toScr(draft.angleStart), b = toScr(mouse.mm);
@@ -712,6 +726,12 @@
     const defs = defsFor(type);
     if (!g0) el.innerHTML = '';
     if (objs.length) connectField(el, objs);
+    if (objs.length && objs.every((o) => o.type === 'colC')) {
+      const r = document.createElement('div'); r.className = 'row';
+      const bt = document.createElement('button'); bt.textContent = 'In Satin A umwandeln (Breite frei formen)'; bt.dataset.help = 'cmd:toColA';
+      bt.onclick = () => toColA();
+      r.appendChild(bt); el.appendChild(r);
+    }
     if (type === 'manual') {
       el.insertAdjacentHTML('beforeend', `<p>${objs[0].stitches.length} Einzelstiche. Mit <b>Umformen</b> jeden Stich verschieben (Entf = löschen, Doppelklick = einfügen).</p>`);
       return;
@@ -812,6 +832,12 @@
     };
     let h = H[tool] || '';
     if (draft && draft.tool === 'colB' && draft.phase === 1) h = 'Jetzt die ZWEITE Seite digitalisieren, Enter = fertig.';
+    if (tool === 'colA') {
+      const n = draft ? draft.pts.length : 0;
+      h = `Satin A – Punkt ${n + 1}: jetzt auf die ${n % 2 ? 'ORANGE Kante (Seite 2)' : 'BLAUE Kante (Seite 1)'} klicken${n >= 2 ? ` · Paar ${(n >> 1) + 1}` : ''}. ` +
+        'Immer abwechselnd Seite 1 / Seite 2, jedes Paar gibt Breite und Stichrichtung vor. Linksklick = Ecke, Rechtsklick = Kurve. ' +
+        (n >= 4 ? 'Enter = fertig, ' : '') + 'Rücktaste = letzten Punkt zurück, Esc = abbrechen.';
+    }
     if (draft && draft.tool === 'fill' && draft.phase === 1) h = 'Loch digitalisieren (Enter schließt das Loch) – oder sofort Enter: keine (weiteren) Löcher.';
     if (draft && draft.tool === 'fill' && draft.phase === 2) h = 'Stichwinkel: zwei Punkte klicken – oder Enter für Vorgabewinkel.';
     if (curveMode && draft) h += ' [Touch: Kurvenpunkt-Modus aktiv]';
@@ -962,6 +988,38 @@
     else best.arr.splice(best.i + 1, 0, { x: p.x, y: p.y, c: true });
     invalidate(o);
     changed();
+  }
+
+  // Satinlinie mit fester Breite (C) in Satinsäule A umwandeln: danach jede Kante einzeln formen
+  function colCtoA(o) {
+    const pts = o.points, n = pts.length, w = (o.params.width || 3) / 2, closed = !!o.params.closed;
+    if (n < 2) return false;
+    const path = G.buildPath(pts, closed);
+    const out = [];
+    pts.forEach((p, i) => {
+      const k = path.idx ? path.idx[i] : null;
+      const pl = path.pts;
+      let a, b;
+      if (k !== null && k !== undefined) { a = pl[Math.max(0, k - 2)]; b = pl[Math.min(pl.length - 1, k + 2)]; }
+      else { a = pts[Math.max(0, i - 1)]; b = pts[Math.min(n - 1, i + 1)]; }
+      const L = Math.hypot(b.x - a.x, b.y - a.y) || 1, nx = -(b.y - a.y) / L, ny = (b.x - a.x) / L;
+      out.push({ x: p.x - nx * w, y: p.y - ny * w, c: !!p.c }, { x: p.x + nx * w, y: p.y + ny * w, c: !!p.c });
+    });
+    if (closed) out.push({ ...out[0] }, { ...out[1] });
+    o.type = 'colA';
+    o.points = out;
+    delete o.params.closed;
+    invalidate(o);
+    return true;
+  }
+  function toColA() {
+    const objs = selected().filter((o) => o.type === 'colC');
+    if (!objs.length) return modal('In Satin A umwandeln', '<p>Bitte zuerst eine oder mehrere <b>Satinlinien (Satin C)</b> auswählen.</p>');
+    pushUndo();
+    objs.forEach(colCtoA);
+    setTool('reshape');
+    changed();
+    hintFlash('Umgewandelt: Jetzt mit Umformen die blauen und orangen Kantenpunkte einzeln ziehen, um die Breite zu verändern. Doppelklick fügt ein Punktpaar ein.');
   }
 
   /* ---------- Einrasten, Ausrichten, Gruppen, Anordnungen ---------- */
@@ -1354,6 +1412,7 @@
       e.preventDefault();
       if (draft.angleStart) draft.angleStart = null;
       else draft.pts.pop();
+      setHint();
       draw();
       return;
     }
@@ -3075,6 +3134,7 @@
     distH: () => align('distH'), distV: () => align('distV'),
     group: () => groupSel(true), ungroup: () => groupSel(false),
     array: () => arrayDialog(),
+    toColA: () => toColA(),
     textOnPath: () => textOnPathDialog(),
     monogram: () => monogramDialog(),
     togglePoints: () => { view.points = !view.points; draw(); },

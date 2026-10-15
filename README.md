@@ -51,6 +51,16 @@ Zusätzlich gibt es zehn TrueType-Schriften und funktionieren auf jedem PC, auch
 - **Doppelklick** auf einen Text (oder *Text bearbeiten…* rechts) ändert Text, Schrift oder Größe nachträglich.
 - *Gruppierung lösen* macht die Buchstaben zu Einzelobjekten.
 
+### Satin A – Breite frei (wie Hatch „Column A“)
+Für Satin mit wechselnder Dicke: Werkzeug **Satin A**, dann die Außenkanten **immer abwechselnd** anklicken –
+Seite 1 (blau), Seite 2 (orange), Seite 1, Seite 2 … Jedes Punktpaar legt Breite und Stichrichtung fest.
+**Linksklick = Ecke (gerade), Rechtsklick = Kurve**; die Punkte eines Paars dürfen verschieden sein (eine Seite Ecke,
+die andere Kurve). Rücktaste nimmt den letzten Punkt zurück, Esc bricht ab, Enter = fertig. Der Hinweis unten zeigt,
+welche Kante als Nächstes dran ist; die Satin-Vorschau läuft live mit. Danach mit *Umformen* jeden Kantenpunkt einzeln
+ziehen, Leertaste wechselt Ecke ↔ Kurve, Doppelklick fügt ein Punktpaar ein.
+Eine **Satinlinie mit fester Breite (Satin C)** lässt sich mit „In Satin A umwandeln“ (Eigenschaften oder Menü
+Bearbeiten) in eine solche Säule verwandeln und dann stellenweise breiter oder schmaler ziehen.
+
 ### Satin in Kurven
 
 - Satinstiche drehen in Bögen mit. Säule B richtet die Stiche senkrecht zur Mittellinie zwischen beiden Kanten aus.
