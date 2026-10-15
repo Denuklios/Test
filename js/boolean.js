@@ -170,35 +170,54 @@
       const c = Math.floor((p.x - gr.x0) * RES), r = Math.floor((p.y - gr.y0) * RES);
       return c >= 0 && r >= 0 && c < gr.w && r < gr.h && cutE[r * gr.w + c] === 1;
     };
-    // Stich gilt als verdeckt, wenn mindestens 3/4 seiner Länge unter dem oberen Objekt liegen
-    const covered = cr.map((c) => {
-      let n = 0;
-      for (let k = 0; k <= 8; k++) if (inCut(G.lerp(c.a, c.b, (k + 0.5) / 9.5))) n++;
-      return n >= 7;
-    });
-    if (!covered.some(Boolean)) return null;
-    const runs = [];
-    let cur = [];
-    cr.forEach((c, i) => { if (!covered[i]) cur.push(c); else if (cur.length) { runs.push(cur); cur = []; } });
-    if (cur.length) runs.push(cur);
-    // Ring (geschlossene Säule): letztes und erstes Stück verbinden
-    const ring = G.dist(cr[0].a, cr[cr.length - 1].a) < 0.3 && G.dist(cr[0].b, cr[cr.length - 1].b) < 0.3;
-    if (ring && runs.length > 1 && !covered[0] && !covered[cr.length - 1]) runs[0] = runs.pop().concat(runs[0]);
-    const out = [];
-    for (const run of runs) {
-      const mids = run.map((c) => G.lerp(c.a, c.b, 0.5));
-      if (run.length < 3 || G.polyLength(mids) < 0.8) continue; // zu kurze Reste weglassen
-      // Punktpaare etwa alle 1,5 mm (Anfang und Ende immer), als Eckpunkte – die Kanten sind schon fein aufgelöst
-      const pts = [];
-      let last = null;
-      run.forEach((c, i) => {
-        const m = mids[i];
-        if (i === 0 || i === run.length - 1 || G.dist(m, last) >= 1.5) {
-          pts.push({ x: c.a.x, y: c.a.y, c: false }, { x: c.b.x, y: c.b.y, c: false });
-          last = m;
+    // Jeden Satinstich entlang seiner Länge abtasten und in freie (sichtbare) Teilstücke zerlegen.
+    // Spuren: F = ganzer Stich frei, A = Teil am Anfang, B = Teil am Ende, M = Teil in der Mitte.
+    // Kreuzt ein oberes Objekt die Säule in der Mitte, wird sie so der Länge nach in zwei Säulen geteilt (wie Hatch).
+    const N = 32;
+    let changed = false;
+    const lanes = cr.map((c) => {
+      const L = G.dist(c.a, c.b);
+      const f = [];
+      for (let k = 0; k < N; k++) f.push(inCut(G.lerp(c.a, c.b, (k + 0.5) / N)));
+      if (!f.some(Boolean)) return { F: c };
+      changed = true;
+      const res = {};
+      for (let i = 0; i < N;) {
+        if (f[i]) { i++; continue; }
+        let j = i; while (j < N && !f[j]) j++;
+        if (((j - i) / N) * L >= 0.6) {
+          const seg = { a: G.lerp(c.a, c.b, i / N), b: G.lerp(c.a, c.b, j / N) };
+          const key = i === 0 && j === N ? 'F' : i === 0 ? 'A' : j === N ? 'B' : 'M';
+          if (!res[key] || G.dist(seg.a, seg.b) > G.dist(res[key].a, res[key].b)) res[key] = seg;
         }
-      });
-      if (pts.length >= 4) out.push(pts);
+        i = j;
+      }
+      return res;
+    });
+    if (!changed) return null;
+    const ring = G.dist(cr[0].a, cr[cr.length - 1].a) < 0.3 && G.dist(cr[0].b, cr[cr.length - 1].b) < 0.3;
+    const out = [];
+    for (const key of ['F', 'A', 'M', 'B']) {
+      const runs = [];
+      let cur = [];
+      lanes.forEach((l) => { if (l[key]) cur.push(l[key]); else if (cur.length) { runs.push(cur); cur = []; } });
+      if (cur.length) runs.push(cur);
+      if (key === 'F' && ring && runs.length > 1 && lanes[0].F && lanes[lanes.length - 1].F) runs[0] = runs.pop().concat(runs[0]);
+      for (const run of runs) {
+        const mids = run.map((c) => G.lerp(c.a, c.b, 0.5));
+        if (run.length < 3 || G.polyLength(mids) < 0.8) continue; // zu kurze Reste weglassen
+        // Punktpaare etwa alle 1 mm (Anfang und Ende immer), als Eckpunkte – die Kanten sind schon fein aufgelöst
+        const pts = [];
+        let last = null;
+        run.forEach((c, i) => {
+          const m = mids[i];
+          if (i === 0 || i === run.length - 1 || G.dist(m, last) >= 1.0) {
+            pts.push({ x: c.a.x, y: c.a.y, c: false }, { x: c.b.x, y: c.b.y, c: false });
+            last = m;
+          }
+        });
+        if (pts.length >= 4) out.push(pts);
+      }
     }
     return out;
   }

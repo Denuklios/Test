@@ -91,6 +91,7 @@
 
     /* ---------- Werkzeuge ---------- */
     'tool:select': ['Auswählen (Esc)', 'Objekte anklicken, verschieben, mit Shift mehrere wählen oder einen Rahmen um mehrere ziehen. Doppelklick auf Text = Text bearbeiten.'],
+    'tool:pan': ['Verschieben (Hand, Taste H)', 'Ansicht mit gedrückter Maustaste in jede Richtung schieben. Geht auch jederzeit: Leertaste gedrückt halten und Maus bewegen, Mausrad (hoch/runter), Shift + Mausrad (links/rechts).'],
     'tool:reshape': ['Umformen (R)', 'Einzelne Punkte eines Objekts verschieben, einfügen (Doppelklick) oder löschen (Entf). Leertaste wechselt Ecke ↔ Kurve.'],
     'tool:run': ['Laufstich', 'Eine einfache Stichlinie, z. B. für Umrisse oder feine Details. Linksklick = Ecke, Rechtsklick = Kurve, Enter = fertig.'],
     'tool:triple': ['Dreifachstich', 'Wie Laufstich, aber jeder Stich wird dreimal gestickt – kräftigere, gut sichtbare Linie.'],

@@ -825,6 +825,7 @@
 
   function setHint() {
     const H = {
+      pan: 'Verschieben: mit gedrückter Maustaste ziehen, um die Ansicht zu verschieben. Esc = zurück zum Auswählen.',
       select: 'Klicken = auswählen, ziehen = verschieben, Rahmen ziehen = mehrere wählen. Ansicht verschieben: Mausrad (Shift = seitlich), Leertaste + Ziehen oder mittlere Maustaste. Strg + Mausrad = Zoom.',
       reshape: 'Punkte ziehen. Leertaste = Ecke ↔ Kurve, Entf = Punkt löschen, Doppelklick auf Linie = Punkt einfügen. Oranger Griff = Stichwinkel.',
       run: 'Linksklick = Eckpunkt, Rechtsklick = Kurvenpunkt. Enter = fertig, Rücktaste = letzten Punkt löschen, Esc = abbrechen.',
@@ -859,7 +860,7 @@
     tool = t;
     draft = null;
     document.querySelectorAll('#toolbox [data-tool]').forEach((b) => b.classList.toggle('active', b.dataset.tool === t));
-    cv.style.cursor = t === 'select' ? 'default' : t === 'reshape' ? 'pointer' : 'crosshair';
+    cv.style.cursor = t === 'select' ? 'default' : t === 'reshape' ? 'pointer' : t === 'pan' ? 'grab' : 'crosshair';
     selNodes = [];
     setHint();
     renderProps();
@@ -1235,7 +1236,7 @@
       return;
     }
     const p = toMM(e.offsetX, e.offsetY);
-    const pan = spacePan || e.button === 1 || e.altKey || (e.button === 2 && (tool === 'select' || tool === 'reshape'));
+    const pan = spacePan || tool === 'pan' || e.button === 1 || e.altKey || (e.button === 2 && (tool === 'select' || tool === 'reshape'));
     if (pan) { drag = { kind: 'pan', sx: e.offsetX, sy: e.offsetY, ox: view.ox, oy: view.oy }; return; }
     drag = { kind: 'click', sx: e.offsetX, sy: e.offsetY, cx: e.offsetX, cy: e.offsetY, start: p, button: e.button, moved: false, shift: e.shiftKey || e.ctrlKey };
     if (tool === 'select') {
@@ -1277,6 +1278,13 @@
       const ns = Math.max(0.2, Math.min(80, (pinch.scale * d) / pinch.d));
       const mmC = { x: (pinch.cx - pinch.ox) / pinch.scale, y: (pinch.cy - pinch.oy) / pinch.scale };
       view.scale = ns; view.ox = cx - mmC.x * ns; view.oy = cy - mmC.y * ns;
+      draw();
+      return;
+    }
+    // Leertaste gehalten: Maus bewegen verschiebt die Ansicht auch ohne Klick
+    if (spacePan && !drag && mouse.x !== undefined && e.pointerType !== 'touch') {
+      view.ox += e.offsetX - mouse.x; view.oy += e.offsetY - mouse.y;
+      mouse = { x: e.offsetX, y: e.offsetY, mm: toMM(e.offsetX, e.offsetY) };
       draw();
       return;
     }
@@ -1439,7 +1447,7 @@
 
   // Leertaste gedrückt halten + ziehen = Ansicht verschieben (Hand)
   let spacePan = false;
-  window.addEventListener('keyup', (e) => { if (e.key === ' ' && spacePan) { spacePan = false; cv.style.cursor = tool === 'select' ? 'default' : tool === 'reshape' ? 'pointer' : 'crosshair'; } });
+  window.addEventListener('keyup', (e) => { if (e.key === ' ' && spacePan) { e.preventDefault(); spacePan = false; cv.style.cursor = tool === 'select' ? 'default' : tool === 'reshape' ? 'pointer' : 'crosshair'; } });
 
   function zoomAt(x, y, f) {
     const p = toMM(x, y);
@@ -1556,6 +1564,7 @@
     if (!ctrl && k.toLowerCase() === 't') { view.trueView = !view.trueView; draw(); }
     if (!ctrl && k.toLowerCase() === 'j') { view.jumps = !view.jumps; draw(); }
     if (!ctrl && k.toLowerCase() === 'r' && !draft) setTool('reshape');
+    if (!ctrl && k.toLowerCase() === 'h' && !draft) setTool('pan');
   });
 
   /* ======================= Dialoge ======================= */
@@ -2818,22 +2827,37 @@
     const isShape = (q) => !q.hidden && !q.knockdown && !q.applPart && ['fill', 'colA', 'colB', 'colC'].includes(q.type);
     pushUndo();
     let cut = 0, gone = 0, split = 0, cols = 0;
+    const why = new Map(); // Begründung je ausgewähltem Objekt, falls nichts passiert
+    const nr = (q) => `${st.objects.indexOf(q) + 1}. ${objName(q)}`;
+    const bbHit = (a, b) => a._bb && b._bb && a._bb.x0 < b._bb.x1 && b._bb.x0 < a._bb.x1 && a._bb.y0 < b._bb.y1 && b._bb.y0 < a._bb.y1;
+    objs.forEach(ensure);
     for (const o of objs.slice()) {
-      if (!isShape(o) || o.puff) continue;
+      const inScope = !scope || scope.has(o.id);
+      if (!isShape(o) || o.puff) {
+        if (inScope) why.set(o.id, `${nr(o)}: ${o.type === 'run' ? 'Laufstiche' : o.type === 'manual' ? 'Einzelstiche (z. B. aus einer DST) haben keine Form' : o.puff ? '3D-Puff' : o.applPart ? 'Teil einer Applikation' : o.knockdown ? 'Knockdown' : 'diese Objektart'} – wird nicht gekürzt.`);
+        continue;
+      }
       const i = st.objects.indexOf(o);
       if (i < 0) continue;
       let cutters = st.objects.slice(i + 1).filter(isShape);
       if (scope && !scope.has(o.id)) cutters = cutters.filter((q) => scope.has(q.id));
-      if (!cutters.length) continue;
+      cutters = cutters.filter((q) => bbHit(o, q));
+      if (!cutters.length) {
+        if (inScope) {
+          const below = st.objects.slice(0, i).filter((q) => isShape(q) && bbHit(o, q));
+          why.set(o.id, `${nr(o)}: ${below.length ? `liegt <b>oben</b> (wird nach ${below.map(nr).join(', ')} gestickt) – an ihm selbst wird nichts gekürzt` : 'kein späteres Objekt liegt darüber'}.`);
+        }
+        continue;
+      }
       if (o.type === 'fill') {
         const res = HW.boolean.subtract(o, cutters, st.settings.overlapKeep ?? 0.5);
-        if (!res) continue;
+        if (!res) { if (inScope) why.set(o.id, `${nr(o)}: wird von ${cutters.map(nr).join(', ')} nur am Rand berührt (weniger als ${fmt(st.settings.overlapKeep ?? 0.5)} mm Überlappung bleiben ohnehin stehen).`); continue; }
         if (!res.length) gone++; else { cut++; if (res.length > 1) split += res.length - 1; }
         replaceWithShapes(o, res);
       } else {
         // Satinsäule: verdeckte Stiche weglassen, sichtbare Stücke bleiben Satin
         const res = HW.boolean.trimColumn(o, cutters, st.settings.overlapKeep ?? 0.5);
-        if (!res) continue;
+        if (!res) { if (inScope) why.set(o.id, `${nr(o)}: wird von ${cutters.map(nr).join(', ')} nur am Rand berührt (weniger als ${fmt(st.settings.overlapKeep ?? 0.5)} mm Überlappung bleiben ohnehin stehen).`); continue; }
         const at = st.objects.indexOf(o);
         const pieces = res.map((pts) => ({ ...clone(o), id: freshId(), type: 'colA', points: pts, side2: undefined, params: { ...o.params, closed: undefined } }));
         st.objects.splice(at, 1, ...pieces);
@@ -2842,7 +2866,8 @@
     }
     if (!cut && !gone && !cols) {
       undoStack.pop();
-      if (!silent) modal('Überlappungen entfernen', `<p>Keine verdeckten Bereiche gefunden${scope ? ' – an den <b>ausgewählten</b> Objekten. Ohne Auswahl wird das ganze Design geprüft' : ''}.</p><p style="color:#6a7480">Gekürzt werden Flächen und Satinsäulen, die <b>früher</b> gestickt werden und von einem <b>späteren</b> Objekt (weiter unten in der Reihenfolge) verdeckt sind. Laufstiche bleiben unverändert. Liegt das verdeckte Objekt in der Reihenfolge weiter unten, wird es zuletzt gestickt und ist sichtbar – dann zuerst die Reihenfolge ändern.</p>`);
+      const list = [...why.values()].slice(0, 12);
+      if (!silent) modal('Überlappungen entfernen', `<p>Keine verdeckten Bereiche gefunden${scope ? ' – an den <b>ausgewählten</b> Objekten. Ohne Auswahl wird das ganze Design geprüft' : ''}.</p>${list.length ? `<p><b>Warum:</b></p><ul style="margin:0 0 8px 18px;padding:0">${list.map((t) => `<li>${t}</li>`).join('')}</ul>` : ''}<p style="color:#6a7480">Gekürzt werden Flächen und Satinsäulen, die <b>früher</b> gestickt werden und von einem <b>späteren</b> Objekt (weiter unten in der Reihenfolge) verdeckt sind. Laufstiche bleiben unverändert. Liegt das verdeckte Objekt in der Reihenfolge weiter unten, wird es zuletzt gestickt und ist sichtbar – dann zuerst die Reihenfolge ändern.</p>`);
       return;
     }
     sel = new Set([...sel].filter((id) => byId(id)));
@@ -3336,7 +3361,9 @@
     b.addEventListener('mouseenter', () => { if (document.querySelector('.menu.open') && !b.parentElement.classList.contains('open')) { document.querySelectorAll('.menu').forEach((x) => x.classList.remove('open')); b.parentElement.classList.add('open'); } });
   });
   document.addEventListener('click', () => document.querySelectorAll('.menu').forEach((x) => x.classList.remove('open')));
-  document.querySelectorAll('[data-cmd]').forEach((b) => b.addEventListener('click', () => run(b.dataset.cmd)));
+  document.querySelectorAll('[data-cmd]').forEach((b) => b.addEventListener('click', () => { b.blur(); run(b.dataset.cmd); }));
+  // Knöpfe geben den Fokus sofort ab – sonst würde die Leertaste (Ansicht verschieben) den zuletzt geklickten Knopf auslösen
+  document.addEventListener('click', (e) => { const b = e.target.closest('button'); if (b && !b.closest('#modal')) b.blur(); }, true);
   document.querySelectorAll('[data-tool]').forEach((b) => b.addEventListener('click', () => setTool(b.dataset.tool)));
   $('#hoopSel').addEventListener('change', () => setHoop($('#hoopSel').value));
   $('#hoopBtn').addEventListener('click', () => hoopDialog());

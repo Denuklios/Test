@@ -210,7 +210,8 @@ erklärt in einfachen Worten, was es tut und wofür man es braucht (mit übliche
 ### Ansicht verschieben und zoomen
 - **Mausrad** = hoch/runter, **Shift + Mausrad** = links/rechts, **Strg + Mausrad** = Zoom (Touchpad: zwei Finger
   verschieben, Spreizen zoomt).
-- **Leertaste gedrückt halten + ziehen** oder mittlere Maustaste = Ansicht verschieben.
+- **Leertaste gedrückt halten + Maus bewegen** (mit oder ohne Klick), Werkzeug **Verschieben ✋** (Taste H) oder
+  mittlere Maustaste = Ansicht verschieben.
 - **Bildlaufleisten** rechts und unten; **Pfeiltasten** verschieben die Ansicht, wenn nichts ausgewählt ist.
 - Wer lieber mit dem Rad zoomt: *Ansicht → Mausrad zoomt (statt scrollen)*.
 
@@ -220,7 +221,9 @@ sichtbar); ohne Auswahl das ganze Design.
 
 ### Überlappungen entfernen
 Kürzt Flächen **und Satinsäulen** (Satin A/B/C, Schriften), die von später gestickten Objekten verdeckt werden. Bei
-Satin fallen die verdeckten Stiche weg und die Säule wird in die sichtbaren Stücke geteilt. Mit Auswahl werden nur
+Satin fallen verdeckte Stiche weg, teilweise verdeckte werden bis unter den Rand des oberen Objekts gekürzt; kreuzt ein
+oberes Objekt eine breite Säule in der Mitte, wird sie der Länge nach in zwei Säulen geteilt. Findet das Programm nichts,
+nennt es für jedes ausgewählte Objekt den Grund. Mit Auswahl werden nur
 Überlappungen bearbeitet, an denen ein ausgewähltes Objekt beteiligt ist – egal ob es oben oder unten liegt.
 
 ### Füllarten
