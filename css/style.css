@@ -120,3 +120,11 @@ main { display: flex; height: calc(100% - 38px - 34px); }
 [data-tipstate="on"] .tipchk::before { content: '✓'; color: var(--accent); font-weight: 700; }
 #tipToggle { border: 1px solid var(--line); border-radius: 50%; width: 24px; height: 24px; padding: 0; background: var(--bg); font-size: 14px; line-height: 1; }
 #tipToggle[data-tipstate="on"] { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+.sbar { position: absolute; background: rgba(0,0,0,.06); z-index: 5; }
+.sbar.v { right: 0; top: 0; bottom: 12px; width: 12px; }
+.sbar.h { left: 0; right: 12px; bottom: 0; height: 12px; }
+.sbar .thumb { position: absolute; background: rgba(60,70,85,.45); border-radius: 6px; }
+.sbar.v .thumb { left: 2px; right: 2px; }
+.sbar.h .thumb { top: 2px; bottom: 2px; }
+.sbar:hover .thumb { background: rgba(31,111,235,.65); }

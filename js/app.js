@@ -368,7 +368,15 @@
     const first = cmds.find((c) => c.obj && objMap.get(c.obj));
     if (first) curCol = colOf(objMap.get(first.obj).color);
     const colorFn = (c) => { if (c.cmd === 'color') curCol = colOf(c.color); return curCol; };
-    const end = drawStitchList(cmds, colorFn, 1, playN);
+    let end;
+    const pr = playRange();
+    if (pr && playN < cmds.length) {
+      // Auswahl abspielen: ganzes Design blass, die Auswahl Stich für Stich bis zur aktuellen Position
+      drawStitchList(cmds, colorFn, 0.15);
+      const part = [];
+      for (let i = pr.i0; i < Math.min(playN, pr.i1); i++) if (pr.ids.has(cmds[i].obj) && cmds[i].cmd !== 'color') part.push(cmds[i]);
+      end = drawStitchList(part, (c) => colOf((objMap.get(c.obj) || {}).color ?? 0), 1);
+    } else end = drawStitchList(cmds, colorFn, 1, playN);
     if (playN < cmds.length && end) {
       ctx.strokeStyle = '#d00'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(end.x, end.y, 7, 0, 7); ctx.moveTo(end.x - 11, end.y); ctx.lineTo(end.x + 11, end.y); ctx.moveTo(end.x, end.y - 11); ctx.lineTo(end.x, end.y + 11); ctx.stroke();
@@ -393,6 +401,7 @@
     }
     ctx.restore();
     if (draft) drawDraft();
+    try { updateScrollbars(); } catch (e) { /* Leisten noch nicht angelegt */ }
     if (tool === 'knife' && knifeStart && mouse.mm) {
       const a = toScr(knifeStart), b = toScr(mouse.mm);
       ctx.save(); ctx.strokeStyle = '#d32f2f'; ctx.lineWidth = 2; ctx.setLineDash([6, 3]);
@@ -816,7 +825,7 @@
 
   function setHint() {
     const H = {
-      select: 'Klicken = auswählen, ziehen = verschieben, Rahmen ziehen = mehrere wählen. Mittlere Maustaste/Alt+Ziehen = Ansicht verschieben, Mausrad = Zoom.',
+      select: 'Klicken = auswählen, ziehen = verschieben, Rahmen ziehen = mehrere wählen. Ansicht verschieben: Mausrad (Shift = seitlich), Leertaste + Ziehen oder mittlere Maustaste. Strg + Mausrad = Zoom.',
       reshape: 'Punkte ziehen. Leertaste = Ecke ↔ Kurve, Entf = Punkt löschen, Doppelklick auf Linie = Punkt einfügen. Oranger Griff = Stichwinkel.',
       run: 'Linksklick = Eckpunkt, Rechtsklick = Kurvenpunkt. Enter = fertig, Rücktaste = letzten Punkt löschen, Esc = abbrechen.',
       triple: 'Linksklick = Eckpunkt, Rechtsklick = Kurvenpunkt. Enter = fertig.',
@@ -1226,7 +1235,7 @@
       return;
     }
     const p = toMM(e.offsetX, e.offsetY);
-    const pan = e.button === 1 || e.altKey || (e.button === 2 && (tool === 'select' || tool === 'reshape'));
+    const pan = spacePan || e.button === 1 || e.altKey || (e.button === 2 && (tool === 'select' || tool === 'reshape'));
     if (pan) { drag = { kind: 'pan', sx: e.offsetX, sy: e.offsetY, ox: view.ox, oy: view.oy }; return; }
     drag = { kind: 'click', sx: e.offsetX, sy: e.offsetY, cx: e.offsetX, cy: e.offsetY, start: p, button: e.button, moved: false, shift: e.shiftKey || e.ctrlKey };
     if (tool === 'select') {
@@ -1351,11 +1360,86 @@
     if (tool === 'select') { const o = hitObj(toMM(e.offsetX, e.offsetY)); if (o && o.grp && o.textSpec) textDialog(null, o.grp); }
   });
 
+  // Mausrad: Standard wie in den meisten Programmen – Rad = hoch/runter, Shift = links/rechts, Strg = Zoom
+  // (Touchpad: zwei Finger verschieben, Spreizen zoomt). Umschaltbar: Rad = Zoom wie früher.
+  let wheelZoom = false;
+  try { wheelZoom = localStorage.getItem('stickstudio.wheel') === 'zoom'; } catch (e) { /* privat */ }
+  document.querySelectorAll('[data-cmd=toggleWheel]').forEach((b) => (b.dataset.tipstate = wheelZoom ? 'on' : 'off'));
   cv.addEventListener('wheel', (e) => {
     e.preventDefault();
-    const f = Math.pow(1.0015, -e.deltaY);
-    zoomAt(e.offsetX, e.offsetY, f);
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    const dx = e.deltaX * unit, dy = e.deltaY * unit;
+    if (e.ctrlKey || e.metaKey || (wheelZoom && !e.shiftKey)) {
+      zoomAt(e.offsetX, e.offsetY, Math.pow(1.0015, -dy * (e.ctrlKey && !wheelZoom && Math.abs(dy) < 50 ? 4 : 1)));
+      return;
+    }
+    if (e.shiftKey && !dx) panBy(-dy, 0);
+    else panBy(-dx, -dy);
   }, { passive: false });
+
+  function panBy(dx, dy) { view.ox += dx; view.oy += dy; draw(); }
+
+  // Bildlaufleisten (rechts und unten): zeigen, welcher Teil von Rahmen + Design sichtbar ist, zum Ziehen
+  const sbV = document.createElement('div'), sbH = document.createElement('div');
+  sbV.className = 'sbar v'; sbH.className = 'sbar h';
+  sbV.innerHTML = '<div class="thumb"></div>'; sbH.innerHTML = '<div class="thumb"></div>';
+  sbV.dataset.help = 'id:scrollbar'; sbH.dataset.help = 'id:scrollbar';
+  $('#stage').append(sbV, sbH);
+  function worldBox() {
+    const h = hoop();
+    let x0 = -(h.w || 100) / 2, x1 = (h.w || 100) / 2, y0 = -(h.h || 100) / 2, y1 = (h.h || 100) / 2;
+    const s2 = D.stats(cmds);
+    if (s2.stitches) { x0 = Math.min(x0, s2.x0); x1 = Math.max(x1, s2.x1); y0 = Math.min(y0, s2.y0); y1 = Math.max(y1, s2.y1); }
+    const m = Math.max(x1 - x0, y1 - y0) * 0.25;
+    return { x0: x0 - m, x1: x1 + m, y0: y0 - m, y1: y1 + m };
+  }
+  function updateScrollbars() {
+    const r = cv.getBoundingClientRect();
+    if (!r.width) return;
+    const w = worldBox(), a = toMM(0, 0), b = toMM(r.width, r.height);
+    // sichtbarer Ausschnitt gegenüber Gesamtbereich (Ausschnitt kann auch darüber hinausgehen)
+    const set = (bar, horiz) => {
+      const lo = Math.min(horiz ? w.x0 : w.y0, horiz ? a.x : a.y), hi = Math.max(horiz ? w.x1 : w.y1, horiz ? b.x : b.y);
+      const v0 = ((horiz ? a.x : a.y) - lo) / (hi - lo), v1 = ((horiz ? b.x : b.y) - lo) / (hi - lo);
+      const t = bar.firstChild;
+      bar.style.display = v1 - v0 > 0.985 ? 'none' : '';
+      if (horiz) { t.style.left = v0 * 100 + '%'; t.style.width = Math.max(4, (v1 - v0) * 100) + '%'; }
+      else { t.style.top = v0 * 100 + '%'; t.style.height = Math.max(4, (v1 - v0) * 100) + '%'; }
+      bar._range = { lo, hi };
+    };
+    set(sbH, true); set(sbV, false);
+  }
+  [sbH, sbV].forEach((bar) => {
+    const horiz = bar === sbH;
+    bar.addEventListener('pointerdown', (e) => {
+      e.preventDefault(); e.stopPropagation();
+      bar.setPointerCapture(e.pointerId);
+      const rb = bar.getBoundingClientRect(), len = horiz ? rb.width : rb.height;
+      const { lo, hi } = bar._range || { lo: 0, hi: 1 };
+      const mmPerPx = (hi - lo) / len;
+      // Klick neben den Schieber: dorthin springen
+      if (e.target === bar) {
+        const r = cv.getBoundingClientRect();
+        const pos = lo + ((horiz ? e.clientX - rb.left : e.clientY - rb.top) / len) * (hi - lo);
+        if (horiz) view.ox = r.width / 2 - pos * view.scale; else view.oy = r.height / 2 - pos * view.scale;
+        draw();
+      }
+      let last = horiz ? e.clientX : e.clientY;
+      const mv = (ev) => {
+        const cur = horiz ? ev.clientX : ev.clientY;
+        const d = (cur - last) * mmPerPx * view.scale;
+        last = cur;
+        if (horiz) view.ox -= d; else view.oy -= d;
+        draw();
+      };
+      const up = () => { bar.removeEventListener('pointermove', mv); bar.removeEventListener('pointerup', up); };
+      bar.addEventListener('pointermove', mv); bar.addEventListener('pointerup', up);
+    });
+  });
+
+  // Leertaste gedrückt halten + ziehen = Ansicht verschieben (Hand)
+  let spacePan = false;
+  window.addEventListener('keyup', (e) => { if (e.key === ' ' && spacePan) { spacePan = false; cv.style.cursor = tool === 'select' ? 'default' : tool === 'reshape' ? 'pointer' : 'crosshair'; } });
 
   function zoomAt(x, y, f) {
     const p = toMM(x, y);
@@ -1416,6 +1500,11 @@
       draw();
       return;
     }
+    if (k === ' ' && !(tool === 'reshape' && selNodes.length)) {
+      e.preventDefault();
+      if (!spacePan) { spacePan = true; cv.style.cursor = 'grab'; }
+      return;
+    }
     if (k === ' ' && tool === 'reshape' && selNodes.length) {
       e.preventDefault();
       pushUndo();
@@ -1443,6 +1532,13 @@
       return;
     }
     if (k === 'Delete') { run('delete'); return; }
+    if (k.startsWith('Arrow') && !sel.size && !draft) {
+      // nichts ausgewählt: Pfeiltasten verschieben die Ansicht
+      e.preventDefault();
+      const st2 = e.shiftKey ? 200 : 60;
+      panBy(k === 'ArrowLeft' ? st2 : k === 'ArrowRight' ? -st2 : 0, k === 'ArrowUp' ? st2 : k === 'ArrowDown' ? -st2 : 0);
+      return;
+    }
     if (k.startsWith('Arrow') && sel.size) {
       e.preventDefault();
       const s = e.shiftKey ? 1 : 0.1;
@@ -2709,26 +2805,56 @@
     return made;
   }
 
+  // neue, sicher eindeutige Objektnummer
+  function freshId() {
+    const m = st.objects.reduce((a, o) => Math.max(a, o.id || 0), 0);
+    if (nextId <= m) nextId = m + 1;
+    return nextId++;
+  }
   function removeOverlaps(silent) {
     const objs = st.objects.filter((o) => !o.hidden);
+    // Mit Auswahl: nur Überlappungen, an denen ein ausgewähltes Objekt beteiligt ist (oben oder unten)
     const scope = sel.size && !silent ? new Set(selected().map((o) => o.id)) : null;
+    const isShape = (q) => !q.hidden && !q.knockdown && !q.applPart && ['fill', 'colA', 'colB', 'colC'].includes(q.type);
     pushUndo();
-    let cut = 0, gone = 0, split = 0;
+    let cut = 0, gone = 0, split = 0, cols = 0;
     for (const o of objs.slice()) {
-      if (o.type !== 'fill' || o.knockdown || o.appliquePart) continue;
-      if (scope && !scope.has(o.id)) continue;
+      if (!isShape(o) || o.puff) continue;
       const i = st.objects.indexOf(o);
-      const cutters = st.objects.slice(i + 1).filter((q) => !q.hidden && !q.knockdown && ['fill', 'colA', 'colB', 'colC'].includes(q.type));
-      const res = HW.boolean.subtract(o, cutters, st.settings.overlapKeep ?? 0.5);
-      if (!res) continue;
-      if (!res.length) gone++; else { cut++; if (res.length > 1) split += res.length - 1; }
-      replaceWithShapes(o, res);
+      if (i < 0) continue;
+      let cutters = st.objects.slice(i + 1).filter(isShape);
+      if (scope && !scope.has(o.id)) cutters = cutters.filter((q) => scope.has(q.id));
+      if (!cutters.length) continue;
+      if (o.type === 'fill') {
+        const res = HW.boolean.subtract(o, cutters, st.settings.overlapKeep ?? 0.5);
+        if (!res) continue;
+        if (!res.length) gone++; else { cut++; if (res.length > 1) split += res.length - 1; }
+        replaceWithShapes(o, res);
+      } else {
+        // Satinsäule: verdeckte Stiche weglassen, sichtbare Stücke bleiben Satin
+        const res = HW.boolean.trimColumn(o, cutters, st.settings.overlapKeep ?? 0.5);
+        if (!res) continue;
+        const at = st.objects.indexOf(o);
+        const pieces = res.map((pts) => ({ ...clone(o), id: freshId(), type: 'colA', points: pts, side2: undefined, params: { ...o.params, closed: undefined } }));
+        st.objects.splice(at, 1, ...pieces);
+        if (!pieces.length) gone++; else { cols++; if (pieces.length > 1) split += pieces.length - 1; }
+      }
     }
-    if (!cut && !gone) { undoStack.pop(); if (!silent) modal('Überlappungen entfernen', '<p>Keine überlappenden Flächen gefunden.</p>'); return; }
+    if (!cut && !gone && !cols) {
+      undoStack.pop();
+      if (!silent) modal('Überlappungen entfernen', `<p>Keine verdeckten Bereiche gefunden${scope ? ' – an den <b>ausgewählten</b> Objekten. Ohne Auswahl wird das ganze Design geprüft' : ''}.</p><p style="color:#6a7480">Gekürzt werden Flächen und Satinsäulen, die <b>früher</b> gestickt werden und von einem <b>späteren</b> Objekt (weiter unten in der Reihenfolge) verdeckt sind. Laufstiche bleiben unverändert. Liegt das verdeckte Objekt in der Reihenfolge weiter unten, wird es zuletzt gestickt und ist sichtbar – dann zuerst die Reihenfolge ändern.</p>`);
+      return;
+    }
     sel = new Set([...sel].filter((id) => byId(id)));
     pendingCheck.clear(); changed(); pendingCheck.clear();
-    modal('Überlappungen entfernt', `<p>${cut} Fläche(n) unter anderen Objekten ausgespart${split ? `, dabei ${split} zusätzliche Teilstück(e)` : ''}${gone ? `, ${gone} vollständig verdeckte Fläche(n) entfernt` : ''}.</p><p style="color:#6a7480">Unter den Rändern der oberen Objekte bleiben ${fmt(st.settings.overlapKeep ?? 0.5)} mm Überlappung, damit keine Lücken entstehen. Mit Strg+Z rückgängig.</p>`);
+    const parts = [];
+    if (cut) parts.push(`${cut} Fläche(n) unter anderen Objekten ausgespart`);
+    if (cols) parts.push(`${cols} Satinsäule(n) gekürzt (verdeckte Stiche entfernt)`);
+    if (split) parts.push(`dabei ${split} zusätzliche Teilstück(e)`);
+    if (gone) parts.push(`${gone} vollständig verdeckte(s) Objekt(e) entfernt`);
+    if (!silent || cut || cols || gone) modal('Überlappungen entfernt', `<p>${parts.join(', ')}.</p><p style="color:#6a7480">Unter den Rändern der oberen Objekte bleiben ${fmt(st.settings.overlapKeep ?? 0.5)} mm Überlappung, damit keine Lücken entstehen. Mit Strg+Z rückgängig.</p>`);
   }
+
 
   function combineSel(op) {
     const objs = selected().filter((o) => ['fill', 'colA', 'colB', 'colC'].includes(o.type));
@@ -3011,7 +3137,7 @@
       <tr><td>Doppelklick</td><td>(Umformen) Punkt einfügen</td></tr>
       <tr><td>Entf</td><td>Punkt bzw. Objekt löschen</td></tr>
       <tr><td>Pfeiltasten</td><td>0,1 mm verschieben (mit Shift 1 mm)</td></tr>
-      <tr><td>Mausrad / + / −</td><td>Zoom, <b>0</b> = alles zeigen</td></tr>
+      <tr><td>Mausrad</td><td>hoch/runter scrollen (Shift = links/rechts)</td></tr><tr><td>Strg + Mausrad / + / −</td><td>Zoom, <b>0</b> = alles zeigen</td></tr><tr><td>Leertaste + Ziehen</td><td>Ansicht verschieben (auch mittlere Maustaste)</td></tr><tr><td>Pfeiltasten</td><td>ohne Auswahl: Ansicht verschieben</td></tr>
       <tr><td>Mittlere Taste / Alt+Ziehen</td><td>Ansicht verschieben</td></tr>
       <tr><td>T / J</td><td>TrueView / Sprünge anzeigen</td></tr>
       <tr><td>Strg+Z / Strg+Y</td><td>Rückgängig / Wiederholen</td></tr>
@@ -3127,6 +3253,12 @@
     toggleJumps: () => { view.jumps = !view.jumps; draw(); },
     toggleGrid: () => { view.grid = !view.grid; draw(); },
     toggleTips: () => { HW.tips.set(!HW.tips.on); hintFlash(HW.tips.on ? 'Hilfe-Infos sind eingeschaltet – mit der Maus kurz auf einem Knopf verweilen.' : 'Hilfe-Infos sind ausgeschaltet (Einstellungen oder ⓘ unten rechts schaltet sie wieder ein).'); },
+    toggleWheel: () => {
+      wheelZoom = !wheelZoom;
+      try { localStorage.setItem('stickstudio.wheel', wheelZoom ? 'zoom' : 'scroll'); } catch (e) { /* privat */ }
+      document.querySelectorAll('[data-cmd=toggleWheel]').forEach((b) => (b.dataset.tipstate = wheelZoom ? 'on' : 'off'));
+      hintFlash(wheelZoom ? 'Mausrad = Zoom. Verschieben: Shift + Rad (links/rechts), Leertaste + Ziehen oder Bildlaufleisten.' : 'Mausrad = hoch/runter, Shift + Rad = links/rechts, Strg + Rad = Zoom.');
+    },
     toggleSnap: () => { view.snap = !view.snap; hintFlash(view.snap ? `Einrasten an (Raster ${fmt2(view.gridStep)} mm und Hilfslinien)` : 'Einrasten aus'); },
     guides: () => guideDialog(),
     alignLeft: () => align('left'), alignCenterH: () => align('centerH'), alignRight: () => align('right'),
@@ -3215,20 +3347,37 @@
   const slider = $('#playSlider');
   slider.addEventListener('input', () => { playN = +slider.value; playing = false; $('#playBtn').textContent = '▶'; draw(); });
   let lastT = 0;
+  // Bereich der Maschinenbefehle der ausgewählten Objekte (null = keine Auswahl → ganzes Design)
+  function playRange() {
+    if (!sel.size) return null;
+    let i0 = -1, i1 = -1;
+    cmds.forEach((c, i) => { if (sel.has(c.obj)) { if (i0 < 0) i0 = i; i1 = i + 1; } });
+    return i0 < 0 ? null : { i0, i1, ids: sel };
+  }
   function tick(t) {
     if (!playing) return;
     const dt = lastT ? (t - lastT) / 1000 : 0;
     lastT = t;
-    playN = Math.min(cmds.length, playN + Math.max(1, dt * +$('#playSpeed').value));
+    const pr = playRange();
+    const stop = pr ? pr.i1 : cmds.length;
+    // in der Auswahl nur die eigenen Stiche zählen (Sprünge über andere Objekte hinweg sofort)
+    let step = Math.max(1, dt * +$('#playSpeed').value);
+    while (step > 0 && playN < stop) { playN++; if (!pr || pr.ids.has((cmds[Math.floor(playN) - 1] || {}).obj)) step--; }
+    playN = Math.min(stop, playN);
     slider.value = Math.floor(playN);
     draw();
-    if (playN >= cmds.length) { playing = false; $('#playBtn').textContent = '▶'; playN = Infinity; return; }
+    if (playN >= stop) { playing = false; $('#playBtn').textContent = '▶'; if (!pr) playN = Infinity; return; }
     requestAnimationFrame(tick);
   }
   $('#playBtn').addEventListener('click', () => {
     playing = !playing;
     $('#playBtn').textContent = playing ? '⏸' : '▶';
-    if (playing) { if (!isFinite(playN) || playN >= cmds.length) playN = 0; lastT = 0; requestAnimationFrame(tick); }
+    if (playing) {
+      const pr = playRange();
+      if (pr) { if (!isFinite(playN) || playN < pr.i0 || playN >= pr.i1) playN = pr.i0; hintFlash(`Spielt nur die Auswahl ab (${sel.size} Objekt${sel.size === 1 ? '' : 'e'}). Esc hebt die Auswahl auf – dann läuft das ganze Design.`); }
+      else if (!isFinite(playN) || playN >= cmds.length) playN = 0;
+      lastT = 0; requestAnimationFrame(tick);
+    }
   });
 
   window.addEventListener('resize', resize);

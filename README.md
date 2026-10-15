@@ -207,6 +207,22 @@ Mit der Maus kurz über einem Knopf, Werkzeug, Menü, Eigenschaften-Feld oder Di
 erklärt in einfachen Worten, was es tut und wofür man es braucht (mit üblichen Werten). Ausschalten mit dem Haken
 *Einstellungen → Hilfe-Infos beim Überfahren* oder mit dem ⓘ-Knopf unten rechts; die Einstellung wird gemerkt.
 
+### Ansicht verschieben und zoomen
+- **Mausrad** = hoch/runter, **Shift + Mausrad** = links/rechts, **Strg + Mausrad** = Zoom (Touchpad: zwei Finger
+  verschieben, Spreizen zoomt).
+- **Leertaste gedrückt halten + ziehen** oder mittlere Maustaste = Ansicht verschieben.
+- **Bildlaufleisten** rechts und unten; **Pfeiltasten** verschieben die Ansicht, wenn nichts ausgewählt ist.
+- Wer lieber mit dem Rad zoomt: *Ansicht → Mausrad zoomt (statt scrollen)*.
+
+### Sticksimulation
+▶ spielt die Stickreihenfolge ab. Ist etwas ausgewählt, läuft **nur die Auswahl** (der Rest des Designs bleibt blass
+sichtbar); ohne Auswahl das ganze Design.
+
+### Überlappungen entfernen
+Kürzt Flächen **und Satinsäulen** (Satin A/B/C, Schriften), die von später gestickten Objekten verdeckt werden. Bei
+Satin fallen die verdeckten Stiche weg und die Säule wird in die sichtbaren Stücke geteilt. Mit Auswahl werden nur
+Überlappungen bearbeitet, an denen ein ausgewähltes Objekt beteiligt ist – egal ob es oben oder unten liegt.
+
 ### Füllarten
 Unter *Eigenschaften → Füllart*: **Tatami**, **Satin** (fester Winkel), **Kontur** (Reihen parallel zum Rand),
 **Spirale** (Ringe gehen fließend ineinander über), **Welle** (Wellenhöhe/-länge einstellbar), **Muster** (Rauten, Diagonal,

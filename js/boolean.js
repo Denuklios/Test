@@ -150,5 +150,58 @@
     return a ? c / a : 0;
   }
 
-  HW.boolean = { ringsOf, subtract, combine, knife, coveredFraction, maskToShapes, paint, grid, morph, RES };
+  /**
+   * Satinsäule (A, B, C) unter späteren Objekten kürzen: verdeckte Stiche fallen weg, die Säule zerfällt in
+   * die sichtbaren Stücke. Rückgabe: null (nichts verdeckt), [] (ganz verdeckt) oder Liste von Punktpaar-Listen (Säule A).
+   */
+  function trimColumn(o, cutters, keep = 0.5) {
+    const cr = HW.stitch.satinCrossings(o);
+    if (cr.length < 2) return null;
+    const own = ringsOf(o);
+    if (!own) return null;
+    const ob = bbOf([own]);
+    const cs = cutters.map((c) => ringsOf(c)).filter((r) => r && overlaps(bbOf([r]), ob));
+    if (!cs.length) return null;
+    const gr = grid(ob);
+    const cut = new Uint8Array(gr.w * gr.h);
+    cs.forEach((r) => paint(gr, r, cut));
+    const cutE = morph(cut, gr.w, gr.h, Math.round(keep * RES));
+    const inCut = (p) => {
+      const c = Math.floor((p.x - gr.x0) * RES), r = Math.floor((p.y - gr.y0) * RES);
+      return c >= 0 && r >= 0 && c < gr.w && r < gr.h && cutE[r * gr.w + c] === 1;
+    };
+    // Stich gilt als verdeckt, wenn mindestens 3/4 seiner Länge unter dem oberen Objekt liegen
+    const covered = cr.map((c) => {
+      let n = 0;
+      for (let k = 0; k <= 8; k++) if (inCut(G.lerp(c.a, c.b, (k + 0.5) / 9.5))) n++;
+      return n >= 7;
+    });
+    if (!covered.some(Boolean)) return null;
+    const runs = [];
+    let cur = [];
+    cr.forEach((c, i) => { if (!covered[i]) cur.push(c); else if (cur.length) { runs.push(cur); cur = []; } });
+    if (cur.length) runs.push(cur);
+    // Ring (geschlossene Säule): letztes und erstes Stück verbinden
+    const ring = G.dist(cr[0].a, cr[cr.length - 1].a) < 0.3 && G.dist(cr[0].b, cr[cr.length - 1].b) < 0.3;
+    if (ring && runs.length > 1 && !covered[0] && !covered[cr.length - 1]) runs[0] = runs.pop().concat(runs[0]);
+    const out = [];
+    for (const run of runs) {
+      const mids = run.map((c) => G.lerp(c.a, c.b, 0.5));
+      if (run.length < 3 || G.polyLength(mids) < 0.8) continue; // zu kurze Reste weglassen
+      // Punktpaare etwa alle 1,5 mm (Anfang und Ende immer), als Eckpunkte – die Kanten sind schon fein aufgelöst
+      const pts = [];
+      let last = null;
+      run.forEach((c, i) => {
+        const m = mids[i];
+        if (i === 0 || i === run.length - 1 || G.dist(m, last) >= 1.5) {
+          pts.push({ x: c.a.x, y: c.a.y, c: false }, { x: c.b.x, y: c.b.y, c: false });
+          last = m;
+        }
+      });
+      if (pts.length >= 4) out.push(pts);
+    }
+    return out;
+  }
+
+  HW.boolean = { trimColumn, ringsOf, subtract, combine, knife, coveredFraction, maskToShapes, paint, grid, morph, RES };
 })(typeof window !== 'undefined' ? window : globalThis);
