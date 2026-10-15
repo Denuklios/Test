@@ -5,6 +5,12 @@ Es erzeugt **DST-Dateien (Tajima)** für die **Texi 1501** und alle anderen Taji
 
 ## Starten
 
+**Wichtig:** Es gibt zwei Arten, StickStudio zu benutzen.
+
+1. **Nur das Programm (ohne Anmeldung):** `index.html` doppelklicken. Dann gibt es **kein** Konto-Menü, keine Verwaltung und keine Testversion. Das ist die reine Zeichenansicht für dich zum Ausprobieren.
+2. **Online-Version mit Anmeldung, Testversion und Verwaltung:** Sie läuft über einen kleinen Server. Zum Ausprobieren auf dem eigenen Computer genügt ein Doppelklick auf **`start-lokal.bat`** (Windows) bzw. **`start-lokal.command`** (Mac/Linux). Dafür muss einmalig [Node.js](https://nodejs.org) (LTS, mindestens 22.13) installiert sein. Das Skript fragt nach deiner E-Mail und einem Passwort (das wird dein Admin-Login) und öffnet den Browser. Die Verwaltung liegt dann unter `http://localhost:8080/admin` und im Programm unter **Konto → Verwaltung**.
+
+
 `index.html` doppelklicken (Chrome, Edge oder Firefox). Es wird nichts installiert, und es ist keine Internetverbindung nötig.
 Am besten mit Maus am PC arbeiten: Linke und rechte Maustaste haben beim Zeichnen unterschiedliche Bedeutung.
 
