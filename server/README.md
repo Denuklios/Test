@@ -56,6 +56,9 @@ Das Admin-Konto läuft nie ab. Das Passwort danach unter „Mein Konto“ änder
 | `COOKIE_SECURE` | `1` = Cookie nur über HTTPS | automatisch, wenn `BASE_URL` mit `https://` beginnt |
 | `TRUST_PROXY` | `1`, wenn der Server hinter einem Reverse-Proxy läuft (echte IP für die Anmeldesperre) | – |
 | `REGISTRATION` | `closed` = keine neuen Registrierungen, Konten nur über die Verwaltung | offen |
+| `EVENT_DAYS` | So viele Tage bleibt das Protokoll (Anmeldungen mit IP-Adresse usw.) erhalten, danach wird es automatisch gelöscht | `90` |
+| `GEOIP` | `off` = keine Länderdaten laden. Sonst lädt der Server monatlich die kostenlose Länderdatei von DB-IP (CC BY 4.0) selbst herunter und speichert sie in `DATA_DIR/geoip-country.csv`. | an |
+| `GEOIP_FILE` | Eigener Pfad zur Länderdatei (CSV: Start,Ende,Land) | `DATA_DIR/geoip-country.csv` |
 | `MAX_PROJECTS` | maximale Zahl Designs pro Konto | `2000` |
 | `NODE_ENV` | `production` = Programmseite zwischenspeichern | – |
 
@@ -106,6 +109,19 @@ WantedBy=multi-user.target
 ```
 
 Geheimnisse wie `ADMIN_PASSWORD`, `SMTP_PASS` und `LEMONSQUEEZY_SECRET` gehören in `/etc/stickstudio.env`. Die Datei darf nur für root lesbar sein (`chmod 600`).
+
+## Verwaltung (`/admin`)
+
+Nur Admin-Konten kommen hinein. Der Bereich hat diese Reiter:
+
+- **Übersicht:** Konten, aktive Abos, Testphase, abgelaufen; neue Konten (7/30 Tage), Aktivität (24 Std./7 Tage), bald ablaufende Lizenzen; Diagramm der Anmeldungen der letzten 14 Tage; Kunden nach Land; „Noch zu erledigen“.
+- **Benutzer & Lizenzen:** Suche, Filter (Testphase, Abo, abgelaufen, läuft bald ab, nie angemeldet, gesperrt), Sortierung, Spalten für Registrierung, letzte Anmeldung, Aktivität, letzte IP-Adresse und Land, „+1 Jahr“, Bearbeiten, CSV-Export für Excel.
+- **Einstellungen & Firmendaten:** Testtage, Abo-Link, Preis, Firmendaten und die Länderdaten (Download per Knopf).
+- **Kündigungen & Widerrufe** und **Protokoll** (mit Filter nach Ereignis, E-Mail oder IP).
+
+**Woher kommt das Land?** Aus der IP-Adresse wird nur das **Land** bestimmt, nie der Ort. Die Zuordnung läuft auf deinem Server mit einer lokalen Datei. Beim Herunterladen der Datei werden keine Kundendaten übertragen. Hinter einem Reverse-Proxy muss `TRUST_PROXY=1` gesetzt sein, sonst steht überall die Adresse des Proxys da.
+
+**Datenschutz:** Das Protokoll mit IP-Adressen wird nach `EVENT_DAYS` (Standard 90) Tagen automatisch gelöscht. Die zuletzt verwendete IP-Adresse im Konto bleibt bis zur Löschung des Kontos. Beides steht in der Datenschutzerklärung.
 
 ## Abo mit Lemon Squeezy
 

@@ -7,10 +7,12 @@ process.env.DATA_DIR = tmp;
 process.env.ADMIN_EMAIL = 'chef@example.com';
 process.env.ADMIN_PASSWORD = 'admin-passwort-123';
 process.env.PORT = '0';
+process.env.TRUST_PROXY = '1';
+process.env.GEOIP = 'off';
 process.env.LEMONSQUEEZY_SECRET = 'ls-geheim';
 delete process.env.LEMONSQUEEZY_API_KEY;
 delete process.env.SMTP_HOST;
-const { server, db, ensureAdmin } = require('../server/server.js');
+const { server, db, ensureAdmin, geo } = require('../server/server.js');
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.log('FEHLER:', m); } else console.log('ok', m); };
@@ -137,8 +139,28 @@ const ok = (c, m) => { if (!c) { fail++; console.log('FEHLER:', m); } else conso
   const tok = new URL(link).searchParams.get('token');
   r = await req('anon', '/reset', form({ token: tok, password: 'neues-passwort-99', password2: 'neues-passwort-99' }));
   ok(r.status === 200, 'Passwort über Link neu gesetzt');
-  r = await req('kunde2', '/login', form({ email: 'kunde@example.com', password: 'neues-passwort-99' }));
+  // Länderdaten (Beispieldatei) und Anmeldung mit IP-Adresse
+  fs.writeFileSync(path.join(tmp, 'geo.csv'), '203.0.113.0,203.0.113.255,DE\n198.51.100.0,198.51.100.255,FR\n2001:db8::,2001:db8::ffff,AT\n');
+  geo.load(path.join(tmp, 'geo.csv'));
+  const f2 = form({ email: 'kunde@example.com', password: 'neues-passwort-99' });
+  r = await req('kunde2', '/login', { ...f2, headers: { ...f2.headers, 'X-Forwarded-For': '203.0.113.9' } });
   ok(r.status === 303, 'Anmeldung mit neuem Passwort');
+  r = await api('admin', '/api/admin/users?q=kunde');
+  const u2 = (await r.json())[0];
+  ok(u2.last_ip === '203.0.113.9' && u2.last_country === 'DE' && u2.last_seen > 0, `letzte IP und Land gespeichert (${u2.last_ip} ${u2.last_country})`);
+  ok(geo.lookup('198.51.100.7') === 'FR' && geo.lookup('::ffff:203.0.113.1') === 'DE' && geo.lookup('2001:db8::5') === 'AT' && geo.lookup('8.8.8.8') === '' && geo.isLocal('192.168.1.5'), 'Länderzuordnung IPv4 und IPv6');
+  r = await api('admin', '/api/admin/stats');
+  const st = await r.json();
+  ok(st.byCountry.some((x) => x.c === 'DE') && st.active24h >= 1 && Array.isArray(st.daily) && st.geo.loaded, 'Statistik mit Ländern, Aktivität und Verlauf');
+  r = await api('admin', '/api/admin/users.csv');
+  const csv = await r.text();
+  ok(r.status === 200 && csv.includes('Letzte IP') && csv.includes('203.0.113.9') && csv.includes('kunde@example.com'), 'Benutzerliste als CSV');
+  r = await api('admin', '/api/admin/events?kind=login&q=203.0.113');
+  const ev = await r.json();
+  ok(ev.rows.length >= 1 && ev.rows.every((x) => x.kind === 'login') && ev.rows[0].info.includes('DE') && ev.kinds.length > 0, 'Protokoll mit Filter');
+  r = await api('kunde2', '/api/admin/stats');
+  ok(r.status === 403, 'Statistik nur für Admin');
+  db.prepare("INSERT INTO events(user_id, kind, info, at) VALUES(NULL, 'login', 'alt', ?)").run(Date.now() - 400 * 864e5);
   r = await req('anon', '/reset', form({ token: tok, password: 'nochmal-passwort', password2: 'nochmal-passwort' }));
   ok(r.status === 400, 'Link nur einmal gültig');
 

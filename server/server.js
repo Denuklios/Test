@@ -11,6 +11,7 @@ const DB = require('./db');
 const pages = require('./pages');
 const mail = require('./mail');
 const fileio = require('./fileio');
+const geo = require('./geoip');
 
 const ROOT = path.join(__dirname, '..');
 const ENV = process.env;
@@ -22,6 +23,10 @@ const SESSION_DAYS = 30;
 const DAY = 864e5;
 
 const db = DB.open(DATA_DIR);
+const GEO_FILE = ENV.GEOIP_FILE || path.join(DATA_DIR, 'geoip-country.csv');
+geo.load(GEO_FILE);
+const EVENT_DAYS = +(ENV.EVENT_DAYS || 90); // so lange bleibt das Protokoll (mit IP-Adressen)
+const countryOf = (ip) => (geo.isLocal(ip) ? '' : geo.lookup(ip));
 const now = () => Date.now();
 
 /* ---------- Einstellungen (in der Verwaltung änderbar) ---------- */
@@ -362,8 +367,9 @@ async function route(req, res) {
     if (!u || !checkPass(String(f.password || ''), u.pass)) return page(pages.login(lang, { text: lang === 'de' ? 'E-Mail oder Passwort falsch.' : 'Wrong email or password.' }, email), 401);
     if (u.blocked) return page(pages.login(lang, { text: lang === 'de' ? 'Dieses Konto ist gesperrt. Bitte wende dich an den Support.' : 'This account is blocked. Please contact support.' }, email), 403);
     if (!u.verified && mail.enabled()) { await sendVerify(u, lang); return page(pages.info(lang, pages.T[lang].verifyTitle, pages.T[lang].verifySent)); }
-    db.prepare('UPDATE users SET last_login = ? WHERE id = ?').run(now(), u.id);
-    logEvent(u.id, 'login', ipOf(req));
+    { const ip = ipOf(req), cc = countryOf(ip);
+      db.prepare('UPDATE users SET last_login = ?, last_seen = ?, last_ip = ?, last_country = ? WHERE id = ?').run(now(), now(), ip, cc, u.id);
+      logEvent(u.id, 'login', `${ip}${cc ? ' · ' + cc : ''}`); }
     return redirect(res, '/', { 'Set-Cookie': [sidCookie(newSession(u.id), SESSION_DAYS * 86400), langCookie(u.lang || lang)] });
   }
   if (p === '/register' && m === 'GET') return user ? redirect(res, '/') : page(pages.register(lang, null, {}, +s.trial_days || 0));
@@ -380,7 +386,9 @@ async function route(req, res) {
     if (f.accept !== '1') return err(L === 'de' ? 'Bitte AGB und Datenschutzerklärung bestätigen.' : 'Please accept the terms and the privacy policy.');
     if (db.prepare('SELECT id FROM users WHERE email = ?').get(v.email)) return err(L === 'de' ? 'Für diese E-Mail-Adresse gibt es schon ein Konto. Bitte anmelden oder „Passwort vergessen“ nutzen.' : 'An account with this email already exists. Please sign in or use “Forgot password”.', 409);
     const id = createUser({ email: v.email, password: f.password, name: v.name, lang: L, verified: mail.enabled() ? 0 : 1, accepted: 1 });
-    logEvent(id, 'register', ipOf(req));
+    { const ip = ipOf(req), cc = countryOf(ip);
+      db.prepare('UPDATE users SET last_ip = ?, last_country = ?, reg_country = ?, last_seen = ?, last_login = ? WHERE id = ?').run(ip, cc, cc, now(), now(), id);
+      logEvent(id, 'register', `${ip}${cc ? ' · ' + cc : ''}`); }
     const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
     if (mail.enabled()) { await sendVerify(u, L); return page(pages.info(L, pages.T[L].verifyTitle, pages.T[L].verifySent)); }
     return redirect(res, '/', { 'Set-Cookie': [sidCookie(newSession(id), SESSION_DAYS * 86400), langCookie(L)] });
@@ -496,6 +504,10 @@ async function route(req, res) {
     return redirect(res, '/login' + (url.searchParams.get('lang') ? '?lang=' + lang : ''));
   }
   const lic = license(user);
+  if (now() - (user.last_seen || 0) > 5 * 60e3) {
+    const ip = ipOf(req), cc = countryOf(ip);
+    db.prepare('UPDATE users SET last_seen = ?, last_ip = ?, last_country = ? WHERE id = ?').run(now(), ip, cc || user.last_country, user.id);
+  }
 
   if (p === '/' || p === '/index.html') return page(appHtml());
   if (p === '/config.js') {
@@ -610,14 +622,14 @@ async function route(req, res) {
     if (user.role !== 'admin') return json(res, 403, { error: 'forbidden' });
     if (p === '/api/admin/users' && m === 'GET') {
       const q = '%' + (url.searchParams.get('q') || '') + '%';
-      const rows = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal,
+      const rows = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen,
         (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS projects FROM users u WHERE u.email LIKE ? OR u.name LIKE ? ORDER BY u.created DESC LIMIT 500`).all(q, q);
       let list = rows;
       // Suche nach der Kennung aus einer weitergegebenen Programmdatei
       const qq = (url.searchParams.get('q') || '').trim().toLowerCase();
       if (!list.length && /^[0-9a-f]{16}$/.test(qq)) {
         const hit = db.prepare('SELECT id FROM users').all().find((r) => mark(r) === qq);
-        if (hit) list = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal,
+        if (hit) list = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen,
           (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS projects FROM users u WHERE u.id = ?`).all(hit.id);
       }
       return json(res, 200, list.map((r) => ({ ...r, license: license(r), mark: mark(r) })));
@@ -674,12 +686,14 @@ async function route(req, res) {
       return json(res, 200, { id, link: `${BASE_URL}/reset?token=${tok}` });
     }
     if (p === '/api/admin/settings') {
-      if (m === 'GET') return json(res, 200, { settings: s, mail: mail.enabled(), webhook: !!ENV.LEMONSQUEEZY_SECRET, lsApi: !!ENV.LEMONSQUEEZY_API_KEY, webhookUrl: `${BASE_URL}/api/webhook/lemonsqueezy`, baseUrl: BASE_URL });
+      if (m === 'GET') return json(res, 200, { settings: s, mail: mail.enabled(), webhook: !!ENV.LEMONSQUEEZY_SECRET, lsApi: !!ENV.LEMONSQUEEZY_API_KEY, geo: geo.status(), keepDays: EVENT_DAYS, webhookUrl: `${BASE_URL}/api/webhook/lemonsqueezy`, baseUrl: BASE_URL });
       if (m === 'POST') { setSettings(await readJson(req)); return json(res, 200, { ok: true }); }
     }
     if (p === '/api/admin/events' && m === 'GET') {
-      const rows = db.prepare('SELECT e.*, u.email FROM events e LEFT JOIN users u ON u.id = e.user_id ORDER BY e.id DESC LIMIT 300').all();
-      return json(res, 200, rows);
+      const kind = url.searchParams.get('kind') || '', qq = '%' + (url.searchParams.get('q') || '') + '%';
+      const rows = db.prepare('SELECT e.*, u.email FROM events e LEFT JOIN users u ON u.id = e.user_id WHERE (? = \'\' OR e.kind = ?) AND (u.email LIKE ? OR e.info LIKE ? OR ? = \'%%\') ORDER BY e.id DESC LIMIT 500').all(kind, kind, qq, qq, qq);
+      const kinds = db.prepare('SELECT kind, COUNT(*) AS n FROM events GROUP BY kind ORDER BY n DESC').all();
+      return json(res, 200, { rows, kinds, keepDays: EVENT_DAYS });
     }
     if (p === '/api/admin/stats' && m === 'GET') {
       const t = now();
@@ -692,7 +706,34 @@ async function route(req, res) {
         projects: q('SELECT COUNT(*) AS n FROM projects'),
         subs: q("SELECT COUNT(*) AS n FROM users WHERE sub_status IN ('active','on_trial','past_due')"),
         openRequests: q("SELECT COUNT(*) AS n FROM requests WHERE status = 'open'"),
+        newUsers7: q("SELECT COUNT(*) AS n FROM users WHERE role != 'admin' AND created > ?", t - 7 * DAY),
+        newUsers30: q("SELECT COUNT(*) AS n FROM users WHERE role != 'admin' AND created > ?", t - 30 * DAY),
+        active24h: q("SELECT COUNT(*) AS n FROM users WHERE last_seen > ?", t - DAY),
+        active7: q("SELECT COUNT(*) AS n FROM users WHERE last_seen > ?", t - 7 * DAY),
+        neverLoggedIn: q("SELECT COUNT(*) AS n FROM users WHERE role != 'admin' AND last_login = 0"),
+        expiring30: q("SELECT COUNT(*) AS n FROM users WHERE role != 'admin' AND MAX(license_until, trial_until) > ? AND MAX(license_until, trial_until) < ?", t, t + 30 * DAY),
+        byCountry: db.prepare("SELECT last_country AS c, COUNT(*) AS n FROM users WHERE role != 'admin' AND last_country != '' GROUP BY last_country ORDER BY n DESC LIMIT 15").all(),
+        unknownCountry: q("SELECT COUNT(*) AS n FROM users WHERE role != 'admin' AND last_country = ''"),
+        daily: db.prepare("SELECT strftime('%Y-%m-%d', at / 1000, 'unixepoch') AS day, SUM(kind = 'login') AS logins, SUM(kind = 'register') AS regs FROM events WHERE kind IN ('login','register') AND at > ? GROUP BY day ORDER BY day").all(t - 14 * DAY),
+        geo: geo.status(),
       });
+    }
+    if (p === '/api/admin/users.csv' && m === 'GET') {
+      const rows = db.prepare('SELECT * FROM users ORDER BY created DESC').all();
+      const d = (ms) => (ms ? new Date(ms).toISOString() : '');
+      const cell = (v) => { v = String(v ?? ''); if (/^[=+\-@]/.test(v)) v = "'" + v; return /[",;\n]/.test(v) ? '"' + v.replace(/"/g, '""') + '"' : v; };
+      const head = ['E-Mail', 'Name', 'Rolle', 'Sprache', 'Status', 'Registriert', 'Land Registrierung', 'Test bis', 'Lizenz bis', 'Abo', 'Abo verlängert sich', 'Letzte Anmeldung', 'Zuletzt aktiv', 'Letzte IP', 'Land', 'Gesperrt', 'Notiz'];
+      const lines = [head.join(';')];
+      for (const r of rows) {
+        const l = license(r);
+        lines.push([r.email, r.name, r.role, r.lang, r.role === 'admin' ? 'Admin' : r.blocked ? 'gesperrt' : l.viewOnly ? 'abgelaufen' : l.trial ? 'Testphase' : r.sub_id ? 'Abo' : 'Lizenz', d(r.created), r.reg_country, d(r.trial_until), d(r.license_until), r.sub_status, d(r.sub_renews), d(r.last_login), d(r.last_seen), r.last_ip, r.last_country, r.blocked ? 'ja' : '', r.note].map(cell).join(';'));
+      }
+      logEvent(user.id, 'admin-export', 'Benutzerliste als CSV');
+      return send(res, 200, '\ufeff' + lines.join('\r\n'), 'text/csv; charset=utf-8', { 'Content-Disposition': 'attachment; filename="stickstudio-benutzer.csv"' });
+    }
+    if (p === '/api/admin/geoip' && m === 'POST') {
+      try { const i = await geo.update(GEO_FILE); logEvent(user.id, 'geoip', `Länderdaten aktualisiert (${i.entries} Bereiche)`); return json(res, 200, geo.status()); }
+      catch (e) { return json(res, 502, { error: (user.lang === 'en' ? 'Download failed: ' : 'Download fehlgeschlagen: ') + e.message }); }
     }
     if (p === '/api/admin/requests' && m === 'GET') {
       return json(res, 200, db.prepare('SELECT r.*, u.email AS account FROM requests r LEFT JOIN users u ON u.id = r.user_id ORDER BY r.id DESC LIMIT 300').all().map((r) => ({ ...r, info: JSON.parse(r.info || '[]') })));
@@ -738,8 +779,16 @@ const server = http.createServer((req, res) => {
 if (require.main === module) {
   ensureAdmin();
   server.listen(PORT, () => console.log(`StickStudio läuft auf ${BASE_URL} (Port ${PORT}, Daten in ${DATA_DIR})`));
+  // Protokoll aufräumen (Datenschutz) und Länderdaten aktuell halten
+  const housekeeping = () => {
+    try { db.prepare('DELETE FROM events WHERE at < ?').run(now() - EVENT_DAYS * DAY); db.prepare('DELETE FROM sessions WHERE expires < ?').run(now()); db.prepare('DELETE FROM tokens WHERE expires < ?').run(now()); } catch (e) { console.error(e); }
+    const g = geo.status();
+    if (ENV.GEOIP !== 'off' && (!g.loaded || now() - g.updated > 35 * DAY)) geo.update(GEO_FILE).then((i) => console.log(`Länderdaten geladen (${i.entries} Bereiche)`)).catch((e) => console.log('Länderdaten nicht geladen: ' + e.message));
+  };
+  setTimeout(housekeeping, 20e3).unref();
+  setInterval(housekeeping, 24 * 60 * 60e3).unref();
   // stündlich: Verlängerungshinweise per E-Mail
   setInterval(() => renewalReminders().catch((e) => console.error(e)), 60 * 60e3).unref();
   setTimeout(() => renewalReminders().catch((e) => console.error(e)), 30e3).unref();
 }
-module.exports = { server, db, ensureAdmin, createUser, license, renewalReminders };
+module.exports = { server, db, ensureAdmin, createUser, license, renewalReminders, geo };
