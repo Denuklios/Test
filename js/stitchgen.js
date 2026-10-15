@@ -53,7 +53,7 @@
         push(out, base[i]);
       }
     } else {
-      // Bohnenstich (Hin-Zurück-Hin pro Stich, wie Hatch "Bean")
+      // Bohnenstich (Hin-Zurück-Hin pro Stich)
       push(out, base[0]);
       for (let i = 1; i < base.length; i++) {
         push(out, base[i]); push(out, base[i - 1]); push(out, base[i]);
@@ -178,7 +178,7 @@
     const p = obj.params;
     const segs = railsFor(obj);
     if (!segs) return [];
-    // Abstand wie bei Hatch/Wilcom: von Einstich zu Einstich auf derselben Seite
+    // Abstand: von Einstich zu Einstich auf derselben Seite
     const cs = p.spacing / 2;
     const cr = crossings(segs, cs);
     if (cr.length < 2) return [];
@@ -232,7 +232,7 @@
       const L = G.dist(c.a, c.b) || 1;
       const ux = (c.b.x - c.a.x) / L, uy = (c.b.y - c.a.y) / L;
       const onA = k % 2 === 0;
-      // Kurzstiche (wie Hatch/Wilcom): an der gestauchten Innenseite endet jeder zweite Stich früher,
+      // Kurzstiche: an der gestauchten Innenseite endet jeder zweite Stich früher,
       // damit sich die Einstiche auf mehrere Reihen verteilen statt auf einem Haufen zu liegen
       if (p.shortSt !== false && L > 1.2) {
         const dS = sideGap(k, onA ? 'a' : 'b'), dO = sideGap(k, onA ? 'b' : 'a');

@@ -1,4 +1,4 @@
-/* Fertig digitalisierte Stickschriften (aus der Ink/Stitch-Schriftsammlung, siehe fonts/inkstitch).
+/* Fertig digitalisierte Stickschriften (siehe fonts/stickfonts).
    Laden bei Bedarf und Setzen von Text -> Stickobjekte (Satinsäulen, Füllungen, Laufstiche). */
 (function (g) {
   const HW = (g.HW = g.HW || {});
@@ -18,7 +18,7 @@
     (waiting[id] = waiting[id] || []).push(resolve);
     if (waiting[id].length > 1) return;
     const s = document.createElement('script');
-    s.src = 'js/inkfonts/' + id + '.js';
+    s.src = 'js/stickfonts/' + id + '.js';
     s.onerror = () => { delete waiting[id]; reject(new Error('Schrift nicht gefunden: ' + id)); };
     document.head.appendChild(s);
   });

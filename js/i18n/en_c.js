@@ -264,7 +264,7 @@
     'Satin C – Linie mit fester Breite': "Satin C – line with fixed width",
     'Eine Satinraupe mit fester Breite entlang einer Linie – ideal für Ränder und Schriftzüge. Mitte zeichnen, Breite rechts einstellen.':
       "A satin column of fixed width along a line – ideal for borders and lettering. Draw the center line, set the width on the right.",
-    'Satin A – Breite frei (wie Hatch „Column A“)': "Satin A – free width (like Hatch “Column A”)",
+    'Satin A – Breite frei': "Satin A – free width",
     'Für Satin mit wechselnder Dicke: Kanten immer abwechselnd anklicken – blaue Seite, orange Seite, blau, orange … Jedes Paar legt Breite und Stichrichtung fest. Linksklick = Ecke, Rechtsklick = Kurve, Enter = fertig.':
       "For satin with varying width: click the edges alternately – blue side, orange side, blue, orange … Each pair sets width and stitch direction. Left-click = corner, right-click = curve, Enter = done.",
     'Satin B – zwei Kanten nacheinander': "Satin B – two edges one after the other",

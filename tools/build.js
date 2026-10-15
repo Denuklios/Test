@@ -12,7 +12,7 @@ const ROOT = path.join(__dirname, '..');
 const OUT = path.join(ROOT, 'dist');
 
 // Reine Daten (Schriften) bleiben eigene Dateien; Formatcode gehört nur auf den Server.
-const DATA = new Set(['js/fonts.js', 'js/inkfonts/index.js']);
+const DATA = new Set(['js/fonts.js', 'js/stickfonts/index.js']);
 const SERVER_ONLY = new Set(['js/dst_io.js', 'js/formats.js']);
 
 function sources() {

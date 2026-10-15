@@ -2573,7 +2573,7 @@
     const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
     modal(editGrp ? 'Text bearbeiten' : 'Text einfügen',
       field('Text', `<textarea id="tText" rows="2" style="width:100%">${esc(spec0.text)}</textarea>`) +
-      field('Schriftart', `<select id="tFont">${inkOpts ? `<optgroup label="Stickschriften – fertig digitalisiert (Ink/Stitch)">${inkOpts}</optgroup>` : ''}<optgroup label="Schriften – automatisch in Satin umgewandelt">${fonts}</optgroup><optgroup label="Systemschriften">${sys}</optgroup></select>`) +
+      field('Schriftart', `<select id="tFont">${inkOpts ? `<optgroup label="Stickschriften – fertig digitalisiert">${inkOpts}</optgroup>` : ''}<optgroup label="Schriften – automatisch in Satin umgewandelt">${fonts}</optgroup><optgroup label="Systemschriften">${sys}</optgroup></select>`) +
       '<p id="tInfo" style="color:#6a7480;margin:2px 0 6px"></p>' +
       field('Höhe Großbuchstaben (mm)', `<input id="tH" type="number" step="0.5" min="3" max="300" value="${spec0.height}">`) +
       field('Zeichenabstand (%)', `<input id="tSp" type="number" step="1" min="-30" max="100" value="${spec0.spacing}">`) +

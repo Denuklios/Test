@@ -3,7 +3,7 @@
 global.window = global;
 ['geometry', 'stitchgen', 'inkfont'].forEach((m) => require('../js/' + m + '.js'));
 const fs = require('fs'), path = require('path'), G = HW.geo;
-const dir = path.join(__dirname, '../js/inkfonts');
+const dir = path.join(__dirname, '../js/stickfonts');
 for (const f of fs.readdirSync(dir)) if (f !== 'index.js') require(path.join(dir, f));
 let fail = 0, cols = 0;
 const bad = [];

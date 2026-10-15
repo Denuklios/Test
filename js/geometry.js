@@ -31,7 +31,7 @@
   /**
    * Baut aus Kontrollpunkten {x,y,c} (c=true: Kurvenpunkt, sonst Eckpunkt)
    * eine Polylinie. Liefert {pts, idx} – idx[i] ist der Index des i-ten Kontrollpunkts in pts.
-   * Wie in Hatch: Eckpunkte erzeugen Knicke, Kurvenpunkte glatte Übergänge.
+   * Eckpunkte erzeugen Knicke, Kurvenpunkte glatte Übergänge.
    */
   function buildPath(cps, closed) {
     const n = cps.length;

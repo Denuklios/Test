@@ -96,7 +96,7 @@
     'tool:run': ['Laufstich', 'Eine einfache Stichlinie, z. B. für Umrisse oder feine Details. Linksklick = Ecke, Rechtsklick = Kurve, Enter = fertig.'],
     'tool:triple': ['Dreifachstich', 'Wie Laufstich, aber jeder Stich wird dreimal gestickt – kräftigere, gut sichtbare Linie.'],
     'tool:colC': ['Satin C – Linie mit fester Breite', 'Eine Satinraupe mit fester Breite entlang einer Linie – ideal für Ränder und Schriftzüge. Mitte zeichnen, Breite rechts einstellen.'],
-    'tool:colA': ['Satin A – Breite frei (wie Hatch „Column A“)', 'Für Satin mit wechselnder Dicke: Kanten immer abwechselnd anklicken – blaue Seite, orange Seite, blau, orange … Jedes Paar legt Breite und Stichrichtung fest. Linksklick = Ecke, Rechtsklick = Kurve, Enter = fertig.'],
+    'tool:colA': ['Satin A – Breite frei', 'Für Satin mit wechselnder Dicke: Kanten immer abwechselnd anklicken – blaue Seite, orange Seite, blau, orange … Jedes Paar legt Breite und Stichrichtung fest. Linksklick = Ecke, Rechtsklick = Kurve, Enter = fertig.'],
     'tool:colB': ['Satin B – zwei Kanten nacheinander', 'Erst die eine Kante komplett zeichnen, Enter, dann die andere Kante. Die Stichrichtung dreht automatisch mit. Linksklick = Ecke, Rechtsklick = Kurve.'],
     'cmd:toColA': ['In Satin A umwandeln', 'Macht aus einer Satinlinie mit fester Breite (Satin C) eine Säule mit zwei einzelnen Kanten. Danach mit „Umformen“ die Kantenpunkte ziehen, um die Breite stellenweise zu ändern.'],
     'tool:fill': ['Fläche (Tatami)', 'Füllt eine geschlossene Form mit Reihen-Stichen. Umriss zeichnen, Enter, optional Löcher, dann den Stichwinkel.'],

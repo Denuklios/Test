@@ -172,7 +172,7 @@
     };
     // Jeden Satinstich entlang seiner Länge abtasten und in freie (sichtbare) Teilstücke zerlegen.
     // Spuren: F = ganzer Stich frei, A = Teil am Anfang, B = Teil am Ende, M = Teil in der Mitte.
-    // Kreuzt ein oberes Objekt die Säule in der Mitte, wird sie so der Länge nach in zwei Säulen geteilt (wie Hatch).
+    // Kreuzt ein oberes Objekt die Säule in der Mitte, wird sie so der Länge nach in zwei Säulen geteilt.
     const N = 32;
     let changed = false;
     const lanes = cr.map((c) => {

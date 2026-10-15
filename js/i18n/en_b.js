@@ -245,7 +245,7 @@
     'Text bearbeiten': 'Edit text',
     'Text einfügen': 'Insert text',
     'Schriftart': 'Font',
-    'Stickschriften – fertig digitalisiert (Ink/Stitch)': 'Embroidery fonts – pre-digitized (Ink/Stitch)',
+    'Stickschriften – fertig digitalisiert': 'Embroidery fonts – pre-digitized',
     'Schriften – automatisch in Satin umgewandelt': 'Fonts – automatically converted to satin',
     'Systemschriften': 'System fonts',
     'Höhe Großbuchstaben (mm)': 'Capital height (mm)',

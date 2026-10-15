@@ -1,4 +1,4 @@
-# StickStudio – Stickprogramm im Stil von Wilcom Hatch
+# StickStudio – Stickprogramm (Digitalisier-Software)
 
 Ein Stickprogramm (Digitalisier-Software), das im Browser läuft – ohne Installation, auch offline.
 Es erzeugt **DST-Dateien (Tajima)** für die **Texi 1501** und alle anderen Tajima-kompatiblen Maschinen.
@@ -6,7 +6,7 @@ Es erzeugt **DST-Dateien (Tajima)** für die **Texi 1501** und alle anderen Taji
 ## Starten
 
 `index.html` doppelklicken (Chrome, Edge oder Firefox). Es wird nichts installiert, und es ist keine Internetverbindung nötig.
-Am besten mit Maus am PC arbeiten: Wie bei Hatch werden linke und rechte Maustaste unterschiedlich verwendet.
+Am besten mit Maus am PC arbeiten: Linke und rechte Maustaste haben beim Zeichnen unterschiedliche Bedeutung.
 
 ## Online-Version (mit Anmeldung, Testversion und Lizenz)
 
@@ -28,7 +28,7 @@ ADMIN_EMAIL=du@deine-firma.de ADMIN_PASSWORD='ein-langes-passwort' node --no-war
 # → http://localhost:8080
 ```
 
-## Bedienung wie bei Hatch
+## Bedienung
 
 | Eingabe | Wirkung |
 |---|---|
@@ -58,10 +58,10 @@ ADMIN_EMAIL=du@deine-firma.de ADMIN_PASSWORD='ein-langes-passwort' node --no-war
 
 ### Schriften
 
-**28 fertig digitalisierte Stickschriften** aus der Ink/Stitch-Sammlung sind eingebaut: Schreibschriften (z. B. Pacificlo, Chopin, Magnolia, Amitaclo), serifenlose Schriften (z. B. Excalibur, Medium, Geneva Rounded, Barstitch), Serifenschriften (z. B. Apex, Venezia, Violin Serif, DejaVu) und Zierschriften.
+**28 fertig digitalisierte Stickschriften** sind eingebaut: Schreibschriften (z. B. Pacificlo, Chopin, Magnolia, Amitaclo), serifenlose Schriften (z. B. Excalibur, Medium, Geneva Rounded, Barstitch), Serifenschriften (z. B. Apex, Venezia, Violin Serif, DejaVu) und Zierschriften.
 Profis haben sie Satinsäule für Satinsäule von Hand gesetzt, samt Stichrichtung, Unterlage und Reihenfolge. Deshalb sticken sie deutlich sauberer als automatisch umgewandelte Schriften.
 Sie werden erst geladen, wenn man sie auswählt. Der Dialog zeigt die empfohlene Größe, die Lizenz und fehlende Zeichen an.
-Herkunft und Lizenzen: `fonts/inkstitch/README.md`.
+Herkunft und Lizenzen: `fonts/stickfonts/README.md`.
 
 Zusätzlich gibt es zehn TrueType-Schriften und funktionieren auf jedem PC, auch ohne Internet:
 (Anton, Bebas Neue, Archivo Black, Passion One, Righteous, Alfa Slab One, Graduate, Pacifico, Great Vibes; SIL Open Font License, siehe `fonts/LIZENZEN.txt`) sowie die Systemschriften des PCs. Diese werden beim Einfügen automatisch in Satinsäulen umgewandelt.
@@ -71,7 +71,7 @@ Zusätzlich gibt es zehn TrueType-Schriften und funktionieren auf jedem PC, auch
 - **Doppelklick** auf einen Text (oder *Text bearbeiten…* rechts) ändert Text, Schrift oder Größe nachträglich.
 - *Gruppierung lösen* macht die Buchstaben zu Einzelobjekten.
 
-### Satin A – Breite frei (wie Hatch „Column A“)
+### Satin A – Breite frei
 Für Satin mit wechselnder Dicke: Werkzeug **Satin A**, dann die Außenkanten **immer abwechselnd** anklicken –
 Seite 1 (blau), Seite 2 (orange), Seite 1, Seite 2 … Jedes Punktpaar legt Breite und Stichrichtung fest.
 **Linksklick = Ecke (gerade), Rechtsklick = Kurve**; die Punkte eines Paars dürfen verschieden sein (eine Seite Ecke,
@@ -85,9 +85,9 @@ Bearbeiten) in eine solche Säule verwandeln und dann stellenweise breiter oder 
 
 - Satinstiche drehen in Bögen mit. Säule B richtet die Stiche senkrecht zur Mittellinie zwischen beiden Kanten aus.
 - **Kurzstiche**: An der Innenseite enger Bögen wird jeder zweite Einstich verkürzt, damit sich dort kein Fadenknäuel bildet (abschaltbar).
-- Die Dichte wird wie bei Hatch/Wilcom angegeben: Abstand zweier Einstiche auf derselben Seite (Vorgabe 0,40 mm).
+- Die Dichte wird so angegeben: Abstand zweier Einstiche auf derselben Seite (Vorgabe 0,40 mm).
 
-- **Kurzstiche** (wie bei Hatch/Wilcom): An der gestauchten Innenseite von Bögen und Ecken endet jeder zweite Stich früher,
+- **Kurzstiche:** An der gestauchten Innenseite von Bögen und Ecken endet jeder zweite Stich früher,
   je enger die Kurve, desto kürzer. In sehr engen Ecken verteilen sich die Einstiche auf drei Reihen. So entsteht kein
   Fadenknubbel und kein Loch im Stoff, die Rundung läuft weich. Abschaltbar pro Objekt („Kurzstiche in Bögen“).
 - Satinlinien drehen sich in Ecken fächerförmig mit; überschlagene Innenkanten werden abgeschnitten, und die Dichte
@@ -96,7 +96,7 @@ Bearbeiten) in eine solche Säule verwandeln und dann stellenweise breiter oder 
 
 - **Ein- und Ausstieg berechnen:** Für jedes Objekt wird festgelegt, an welchem Ende es beginnt und endet. Gerechnet wird über die ganze Kette (Viterbi-Verfahren), sodass die Summe aller Wege minimal ist. Beispiel: Ein „C“ vor einem „A“ beginnt oben und endet unten, nahe dem linken Fuß des A. Flächen beginnen an dem Randpunkt, der dem vorigen Objekt am nächsten liegt. Geschlossene Laufstiche beginnen am nächstgelegenen Punkt.
 - **Versteckte Laufwege (Unterwege):** Statt den Faden zu schneiden, sucht das Programm einen Laufstich-Weg, der vollständig unter Flächen oder Satinsäulen derselben Farbe liegt, die *danach noch gestickt werden*. Der Weg hält mindestens 0,5 mm Abstand zum Rand. Mit *Ansicht → Sprünge anzeigen* (Taste J) erscheinen diese Wege orange, Sprünge mit Schnitt rot gestrichelt.
-- **Fertige Ink/Stitch-Schriften** behalten die Stichreihenfolge der Digitalisierer. Zwischen den Buchstaben wird trotzdem nach versteckten Wegen gesucht.
+- **Fertige Stickschriften** behalten die Stichreihenfolge der Digitalisierer. Zwischen den Buchstaben wird trotzdem nach versteckten Wegen gesucht.
 - **Bearbeiten → Reihenfolge optimieren:** sortiert Objekte gleicher Farbe nach kürzesten Wegen. Überlappende Objekte behalten ihre Reihenfolge, damit sich die Überdeckung nicht ändert. Das Ergebnis wird nur übernommen, wenn es weniger Schnitte bzw. kürzere Wege ergibt.
 - Ein-/Ausschalten unter *Einstellungen → Maschine & Rahmen*.
 
@@ -155,11 +155,6 @@ Die Grenzwerte gelten für jede Stickmaschine und lassen sich unter *Einstellung
 Dort lässt sich das Pop-up auch abschalten.
 Die Prüfung wurde an allen eingebauten Profi-Schriften abgestimmt, damit sie bei sauber digitalisierten Motiven nicht grundlos warnt.
 
-### Ideen aus Ink/Stitch
-
-- **E-Stich** (Applikations- oder Langettenstich) als Stichart für Satinsäulen
-- Satin-Dichte als Abstand der Einstiche auf derselben Seite, Unterlagen Mittellauf, Kontur und Zickzack wie in Ink/Stitch
-- Schriften mit Unterschneidung (Kerning) und Zeichenvorschub wie in der Ink/Stitch-Schriftverwaltung
 
 ### Stoff-Automatik (Stoff & Stickvlies)
 
@@ -212,7 +207,7 @@ Export: **DST** (Tajima/Texi), **PES** (Brother, Version 1 mit Vorschau-Icons), 
 gewählt), **EXP** (Melco/Bernina). Import aller vier Formate inkl. Garnfarben (PES/JEF). Die Formatlogik ist aus
 pyembroidery (MIT-Lizenz) portiert, siehe `js/vendor/PYEMBROIDERY-LICENSE.txt`; die geschriebenen Dateien sind
 byte-identisch mit pyembroidery. Hinweis: PES und JEF kennen keinen „Sprung ohne Schnitt“ bzw. keinen Schnittbefehl –
-dort entscheidet die Maschine. **EMB** (Wilcom-Arbeitsdatei) ist ein geschlossenes Format und kann nicht gelesen werden.
+dort entscheidet die Maschine. **EMB** (Arbeitsdatei eines anderen Herstellers) ist ein geschlossenes Format und kann nicht gelesen werden.
 
 ### Produkt-Vorschau, Preis, Bibliothek
 - **Produkt-Vorschau** (*Datei → Produkt-Vorschau*): Design maßstabsgetreu auf T-Shirt, Polo, Hoodie, Kappe, Handtuch
@@ -277,7 +272,7 @@ Sulky (Rayon/Poly), Mettler Poly Sheen, Marathon, Brother, Coats Alcazar, Güter
 - **Garnmarke…** (unter der Palette): ordnet allen Farben das nächstliegende Garn der Marke zu (Farbabstand ΔE in Lab, mit Vorschau).
 - Neue Farben aus Vektor-Import und Auto-Digitalisieren werden automatisch dem nächsten Garn der gewählten Marke zugeordnet (abschaltbar).
 - Garnnummern stehen in der Palette und auf dem Arbeitsblatt.
-Die Farbwerte stammen aus den Paletten von Ink/Stitch und sind Bildschirm-Näherungen – maßgeblich ist die echte Farbkarte.
+Die Farbwerte sind Bildschirm-Näherungen – maßgeblich ist die echte Farbkarte.
 
 ### Sticheigenschaften (rechts)
 
@@ -318,7 +313,7 @@ Bitte das Projekt immer zusätzlich speichern: Eine DST-Datei enthält nur noch 
 
 | Datei | Inhalt |
 |---|---|
-| `js/geometry.js` | Kurven (Ecke/Kurve wie Hatch), Polygone, Hilfsfunktionen |
+| `js/geometry.js` | Kurven (Ecke/Kurve), Polygone, Hilfsfunktionen |
 | `js/hoops.js` | Rahmenbibliothek, eigene Rahmen, Passt-Prüfung, Einpassen |
 | `js/route.js` | Ein-/Ausstiege (Viterbi), versteckte Laufwege (Wegsuche unter später gestickten Flächen), Reihenfolge |
 | `js/check.js` | Stickprüfung: Stichwinkel, Dichte, Stichlängen, Maschinenprofile |
@@ -329,8 +324,7 @@ Bitte das Projekt immer zusätzlich speichern: Eine DST-Datei enthält nur noch 
 | `js/satinauto.js` | Drehende Satinsäulen aus Flächen: Abstandstransformation, Skelett, Mittellinien, Breitenmessung |
 | `js/fonts.js` | Eingebettete TrueType-Schriften (erzeugt aus `fonts/*.ttf`) |
 | `js/inkfont.js` | Laden und Setzen der fertig digitalisierten Stickschriften |
-| `js/inkfonts/` | Die Ink/Stitch-Schriften im StickStudio-Format (je Schrift eine Datei) |
-| `tools/inkstitch_fonts.py` | Konverter Ink/Stitch-Schrift (SVG + font.json) -> StickStudio |
+| `js/stickfonts/` | Die eingebauten Stickschriften im StickStudio-Format (je Schrift eine Datei) |
 | `js/app.js` | Oberfläche, Werkzeuge, Umformen, Simulation, Dialoge |
 
 Tests: `node tests/test_core.js` prüft die Stichgenerierung und den DST-Hin- und Rückweg, `node tests/test_satin.js` die Satin-Erkennung (Ring, Bogen, L, T), `node tests/test_fabric.js` die Stoff-Automatik, `node tests/test_check.js` die Stickprüfung, `node tests/test_route.js` die Verbindungsberechnung, `node tests/test_connect.js` Schnitt/Sprung und Rahmen.
