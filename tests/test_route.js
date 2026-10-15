@@ -1,5 +1,5 @@
 // Prüft Ein-/Ausstieg, versteckte Laufwege und Reihenfolge. Aufruf: node tests/test_route.js
-require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/satinauto.js'); require('../js/fabric.js'); require('../js/dst.js'); require('../js/route.js');
+require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/satinauto.js'); require('../js/fabric.js'); require('../js/dst.js'); require('../js/dst_io.js'); require('../js/route.js');
 const HW = globalThis.HW, S = HW.stitch, R = HW.route, D = HW.dst, G = HW.geo;
 let fails = 0, nid = 1;
 const ok = (c, m) => { console.log((c ? 'OK   ' : 'FEHL ') + m); if (!c) fails++; };

@@ -1,0 +1,592 @@
+/* StickStudio-Server: Anmeldung, Lizenzen, Projekte, Stickdatei-Export, Verwaltung, Rechtstexte.
+   Start:  node server/server.js        (Node.js 22.13 oder neuer, keine Zusatzpakete)
+   Einstellungen über Umgebungsvariablen – siehe server/README.md */
+'use strict';
+const http = require('http');
+const fs = require('fs');
+const path = require('path');
+const crypto = require('crypto');
+const { URL } = require('url');
+const DB = require('./db');
+const pages = require('./pages');
+const mail = require('./mail');
+const fileio = require('./fileio');
+
+const ROOT = path.join(__dirname, '..');
+const ENV = process.env;
+const PORT = +(ENV.PORT || 8080);
+const DATA_DIR = ENV.DATA_DIR || path.join(ROOT, 'data');
+const BASE_URL = (ENV.BASE_URL || `http://localhost:${PORT}`).replace(/\/$/, '');
+const SECURE_COOKIE = ENV.COOKIE_SECURE ? ENV.COOKIE_SECURE === '1' : BASE_URL.startsWith('https://');
+const SESSION_DAYS = 30;
+const DAY = 864e5;
+
+const db = DB.open(DATA_DIR);
+const now = () => Date.now();
+
+/* ---------- Einstellungen (in der Verwaltung änderbar) ---------- */
+const SETTING_DEFAULTS = {
+  trial_days: '14', license_days: '365', buy_url: '', support_email: '',
+  company: '', owner: '', street: '', zip_city: '', country: 'Deutschland', email: '', phone: '', vat_id: '', register: '',
+  hosting_provider: '', payment_provider: '', supervisory_authority: '',
+  price_text_de: '', price_text_en: '', license_term_de: '12 Monate', license_term_en: '12 months', legal_date: '',
+};
+function settings() {
+  const s = { ...SETTING_DEFAULTS };
+  for (const r of db.prepare('SELECT key, value FROM settings').all()) s[r.key] = r.value;
+  return s;
+}
+function setSettings(obj) {
+  const st = db.prepare('INSERT INTO settings(key, value) VALUES(?, ?) ON CONFLICT(key) DO UPDATE SET value = excluded.value');
+  for (const [k, v] of Object.entries(obj)) if (k in SETTING_DEFAULTS) st.run(k, String(v ?? '').slice(0, 2000));
+}
+const logEvent = (userId, kind, info = '') => db.prepare('INSERT INTO events(user_id, kind, info, at) VALUES(?, ?, ?, ?)').run(userId ?? null, kind, String(info).slice(0, 500), now());
+
+/* ---------- Passwörter, Sitzungen, Tokens ---------- */
+function hashPass(pw) {
+  const salt = crypto.randomBytes(16);
+  const h = crypto.scryptSync(pw, salt, 32, { N: 16384, r: 8, p: 1 });
+  return `scrypt$${salt.toString('hex')}$${h.toString('hex')}`;
+}
+function checkPass(pw, stored) {
+  const [alg, salt, hex] = String(stored).split('$');
+  if (alg !== 'scrypt' || !salt || !hex) return false;
+  const h = crypto.scryptSync(pw, Buffer.from(salt, 'hex'), 32, { N: 16384, r: 8, p: 1 });
+  return crypto.timingSafeEqual(h, Buffer.from(hex, 'hex'));
+}
+const sha = (s) => crypto.createHash('sha256').update(s).digest('hex');
+const validPw = (pw) => typeof pw === 'string' && pw.length >= 10 && pw.length <= 200;
+const validEmail = (e) => typeof e === 'string' && e.length <= 200 && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(e);
+
+function newSession(userId) {
+  const tok = crypto.randomBytes(32).toString('base64url');
+  db.prepare('INSERT INTO sessions(hash, user_id, expires, created) VALUES(?, ?, ?, ?)').run(sha(tok), userId, now() + SESSION_DAYS * DAY, now());
+  db.prepare('DELETE FROM sessions WHERE expires < ?').run(now());
+  return tok;
+}
+function newToken(userId, kind, hours) {
+  const tok = crypto.randomBytes(32).toString('base64url');
+  db.prepare('DELETE FROM tokens WHERE user_id = ? AND kind = ?').run(userId, kind);
+  db.prepare('INSERT INTO tokens(hash, user_id, kind, expires) VALUES(?, ?, ?, ?)').run(sha(tok), userId, kind, now() + hours * 36e5);
+  return tok;
+}
+function useToken(tok, kind) {
+  const r = db.prepare('SELECT * FROM tokens WHERE hash = ? AND kind = ?').get(sha(String(tok || '')), kind);
+  if (!r || r.expires < now()) return null;
+  db.prepare('DELETE FROM tokens WHERE hash = ?').run(r.hash);
+  return r.user_id;
+}
+
+function cookies(req) {
+  const out = {};
+  for (const part of String(req.headers.cookie || '').split(';')) {
+    const i = part.indexOf('=');
+    if (i > 0) out[part.slice(0, i).trim()] = decodeURIComponent(part.slice(i + 1).trim());
+  }
+  return out;
+}
+function sessionUser(req) {
+  const tok = cookies(req).sid;
+  if (!tok) return null;
+  const r = db.prepare('SELECT u.* FROM sessions s JOIN users u ON u.id = s.user_id WHERE s.hash = ? AND s.expires > ?').get(sha(tok), now());
+  if (!r || r.blocked) return null;
+  return r;
+}
+const sidCookie = (tok, maxAge) => `sid=${tok}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${SECURE_COOKIE ? '; Secure' : ''}`;
+
+/* ---------- Lizenz ---------- */
+function license(u) {
+  const t = now();
+  const admin = u.role === 'admin';
+  const until = Math.max(u.license_until, u.trial_until);
+  const active = admin || until > t;
+  const trial = !admin && u.license_until <= t && u.trial_until > t;
+  return {
+    active, trial, admin,
+    until: admin ? null : until || null,
+    licenseUntil: u.license_until || null, trialUntil: u.trial_until || null,
+    daysLeft: admin ? null : Math.max(0, Math.ceil((until - t) / DAY)),
+    viewOnly: !active,
+  };
+}
+const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, lang: u.lang, verified: !!u.verified, created: u.created, license: license(u) });
+
+/* ---------- Schutz vor zu vielen Versuchen ---------- */
+const hits = new Map();
+function limited(key, max, windowMs) {
+  const t = now();
+  const arr = (hits.get(key) || []).filter((x) => x > t - windowMs);
+  arr.push(t);
+  hits.set(key, arr);
+  if (hits.size > 50000) hits.clear();
+  return arr.length > max;
+}
+const ipOf = (req) => (ENV.TRUST_PROXY === '1' ? String(req.headers['x-forwarded-for'] || '').split(',')[0].trim() : '') || req.socket.remoteAddress || '';
+
+/* ---------- Antworten ---------- */
+const SEC_HEADERS = {
+  'X-Content-Type-Options': 'nosniff',
+  'Referrer-Policy': 'same-origin',
+  'X-Frame-Options': 'DENY',
+  'Permissions-Policy': 'camera=(), microphone=(), geolocation=()',
+  'Content-Security-Policy': "default-src 'self'; img-src 'self' data: blob:; style-src 'self' 'unsafe-inline'; script-src 'self'; worker-src 'self' blob:; connect-src 'self'; font-src 'self' data:; object-src 'none'; frame-ancestors 'none'; base-uri 'self'; form-action 'self'",
+};
+function send(res, code, body, type = 'text/html; charset=utf-8', extra = {}) {
+  res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-store', ...SEC_HEADERS, ...extra });
+  res.end(body);
+}
+const json = (res, code, obj, extra) => send(res, code, JSON.stringify(obj), 'application/json; charset=utf-8', extra);
+const redirect = (res, to, extra = {}) => { res.writeHead(303, { Location: to, ...SEC_HEADERS, ...extra }); res.end(); };
+
+function readBody(req, limit) {
+  return new Promise((resolve, reject) => {
+    const chunks = [];
+    let n = 0;
+    req.on('data', (c) => {
+      n += c.length;
+      if (n > limit) { reject(Object.assign(new Error('Zu groß'), { code: 413 })); req.destroy(); return; }
+      chunks.push(c);
+    });
+    req.on('end', () => resolve(Buffer.concat(chunks)));
+    req.on('error', reject);
+  });
+}
+async function readForm(req) {
+  const b = await readBody(req, 64 * 1024);
+  return Object.fromEntries(new URLSearchParams(b.toString('utf8')));
+}
+async function readJson(req, limit = 1 << 20) {
+  const b = await readBody(req, limit);
+  try { return JSON.parse(b.toString('utf8') || '{}'); } catch (e) { throw Object.assign(new Error('Ungültige Daten'), { code: 400 }); }
+}
+
+/* ---------- Sprache ---------- */
+function langOf(req, u) {
+  const q = new URL(req.url, 'http://x').searchParams.get('lang');
+  if (q === 'de' || q === 'en') return q;
+  const c = cookies(req).lang;
+  if (c === 'de' || c === 'en') return c;
+  if (u && (u.lang === 'de' || u.lang === 'en')) return u.lang;
+  return /^de\b/i.test(String(req.headers['accept-language'] || 'de')) ? 'de' : 'en';
+}
+const langCookie = (l) => `lang=${l}; Path=/; SameSite=Lax; Max-Age=31536000${SECURE_COOKIE ? '; Secure' : ''}`;
+
+/* ---------- Statische Dateien (nur angemeldet; Formatcode bleibt auf dem Server) ---------- */
+const MIME = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
+const SERVER_ONLY = new Set(['js/dst_io.js', 'js/formats.js']);
+const APP_DIRS = ['js/', 'css/', 'fonts/'];
+function staticFile(res, rel, cacheable) {
+  const norm = path.posix.normalize(rel).replace(/^\/+/, '');
+  if (norm.includes('..') || SERVER_ONLY.has(norm)) return false;
+  const file = path.join(ROOT, norm);
+  if (!file.startsWith(ROOT + path.sep)) return false;
+  let st;
+  try { st = fs.statSync(file); } catch (e) { return false; }
+  if (!st.isFile()) return false;
+  const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
+  res.writeHead(200, { 'Content-Type': type, 'Cache-Control': cacheable ? 'private, max-age=3600' : 'no-cache', ...SEC_HEADERS });
+  fs.createReadStream(file).pipe(res);
+  return true;
+}
+
+// Programmseite: index.html ohne den Formatcode, dafür mit Online-Anbindung
+let indexCache = null;
+function appHtml() {
+  if (!indexCache || ENV.NODE_ENV !== 'production') {
+    let h = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+    h = h.replace(/\s*<script src="js\/(dst_io|formats)\.js"><\/script>/g, '');
+    // Konfiguration vor der Sprachumschaltung (Kontosprache), Online-Anbindung vor dem Programm
+    h = h.replace('<script src="js/i18n.js"></script>', '<script src="/config.js"></script>\n<script src="js/i18n.js"></script>');
+    h = h.replace('<script src="js/app.js"></script>', '<script src="js/online.js"></script>\n<script src="js/app.js"></script>');
+    indexCache = h;
+  }
+  return indexCache;
+}
+
+/* ---------- Konten ---------- */
+function createUser({ email, password, name = '', lang = 'de', role = 'user', verified = 0, accepted = 0 }) {
+  const s = settings();
+  const t = now();
+  const trialUntil = role === 'admin' ? 0 : t + Math.max(0, +s.trial_days || 0) * DAY;
+  const r = db.prepare('INSERT INTO users(email, name, pass, role, lang, verified, trial_until, accepted_terms, created) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)')
+    .run(email.trim().toLowerCase(), String(name).slice(0, 120), hashPass(password), role, lang, verified ? 1 : 0, trialUntil, accepted ? t : 0, t);
+  return Number(r.lastInsertRowid);
+}
+
+// Erster Start: Admin-Konto aus ADMIN_EMAIL / ADMIN_PASSWORD (oder mit zufälligem Passwort, das einmal angezeigt wird)
+function ensureAdmin() {
+  const has = db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n;
+  const email = (ENV.ADMIN_EMAIL || '').trim().toLowerCase();
+  if (email && ENV.ADMIN_PASSWORD) {
+    const u = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    if (!u) { createUser({ email, password: ENV.ADMIN_PASSWORD, role: 'admin', verified: 1, accepted: 1 }); console.log(`Admin-Konto angelegt: ${email}`); }
+    else if (u.role !== 'admin') db.prepare("UPDATE users SET role = 'admin' WHERE id = ?").run(u.id);
+    return;
+  }
+  if (!has) {
+    const pw = crypto.randomBytes(9).toString('base64url');
+    const em = email || 'admin@localhost';
+    createUser({ email: em, password: pw, role: 'admin', verified: 1, accepted: 1 });
+    console.log(`\n*** Admin-Konto angelegt: ${em}  Passwort: ${pw}\n*** Bitte nach der ersten Anmeldung unter „Mein Konto“ ändern.\n`);
+  }
+}
+
+async function sendVerify(u, lang) {
+  const tok = newToken(u.id, 'verify', 72);
+  const link = `${BASE_URL}/verify?token=${tok}`;
+  await mail.send(u.email, lang === 'de' ? 'StickStudio – E-Mail bestätigen' : 'StickStudio – confirm your email',
+    lang === 'de' ? `Hallo,\n\nbitte bestätige deine E-Mail-Adresse für StickStudio:\n${link}\n\nDer Link ist 3 Tage gültig.\n` : `Hello,\n\nplease confirm your email address for StickStudio:\n${link}\n\nThe link is valid for 3 days.\n`);
+}
+
+/* ---------- Lemon Squeezy (Zahlung) – vorbereitet ---------- */
+function extendLicense(userId, days, reason) {
+  const u = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
+  if (!u) return false;
+  const from = Math.max(now(), u.license_until);
+  db.prepare('UPDATE users SET license_until = ? WHERE id = ?').run(from + days * DAY, userId);
+  logEvent(userId, 'license', `${reason}: +${days} Tage`);
+  return true;
+}
+
+/* ---------- Routen ---------- */
+async function route(req, res) {
+  const url = new URL(req.url, 'http://x');
+  const p = url.pathname;
+  const m = req.method;
+  const user = sessionUser(req);
+  const lang = langOf(req, user);
+  const setLang = url.searchParams.get('lang') ? { 'Set-Cookie': langCookie(lang) } : {};
+  const page = (html, code = 200) => send(res, code, html, 'text/html; charset=utf-8', setLang);
+  const s = settings();
+
+  // API: nur gleiche Herkunft (Schutz vor fremden Seiten)
+  if (p.startsWith('/api/') && m !== 'GET' && p !== '/api/webhook/lemonsqueezy') {
+    const origin = req.headers.origin;
+    const host = req.headers['x-forwarded-host'] || req.headers.host;
+    if ((origin && new URL(origin).host !== host) || req.headers['x-requested-with'] !== 'StickStudio') return json(res, 403, { error: 'forbidden' });
+  }
+
+  /* --- öffentlich --- */
+  if (p.startsWith('/site/')) return staticFile(res, p, true) || send(res, 404, 'Not found', 'text/plain');
+  if (p === '/favicon.ico') return send(res, 204, '');
+  if (p.startsWith('/legal/')) {
+    const html = pages.legal(ROOT, lang, p.slice(7), s, user);
+    return html ? page(html) : page(pages.info(lang, pages.T[lang].notFound, pages.T[lang].notFound, false), 404);
+  }
+  if (p === '/login' && m === 'GET') return user ? redirect(res, '/') : page(pages.login(lang));
+  if (p === '/login' && m === 'POST') {
+    const f = await readForm(req);
+    const email = String(f.email || '').trim().toLowerCase();
+    if (limited('login:' + ipOf(req), 20, 15 * 60e3) || limited('login:' + email, 8, 15 * 60e3)) return page(pages.login(lang, { text: lang === 'de' ? 'Zu viele Versuche. Bitte in 15 Minuten erneut versuchen.' : 'Too many attempts. Please try again in 15 minutes.' }, email), 429);
+    const u = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    if (!u || !checkPass(String(f.password || ''), u.pass)) return page(pages.login(lang, { text: lang === 'de' ? 'E-Mail oder Passwort falsch.' : 'Wrong email or password.' }, email), 401);
+    if (u.blocked) return page(pages.login(lang, { text: lang === 'de' ? 'Dieses Konto ist gesperrt. Bitte wende dich an den Support.' : 'This account is blocked. Please contact support.' }, email), 403);
+    if (!u.verified && mail.enabled()) { await sendVerify(u, lang); return page(pages.info(lang, pages.T[lang].verifyTitle, pages.T[lang].verifySent)); }
+    db.prepare('UPDATE users SET last_login = ? WHERE id = ?').run(now(), u.id);
+    logEvent(u.id, 'login', ipOf(req));
+    return redirect(res, '/', { 'Set-Cookie': [sidCookie(newSession(u.id), SESSION_DAYS * 86400), langCookie(u.lang || lang)] });
+  }
+  if (p === '/register' && m === 'GET') return user ? redirect(res, '/') : page(pages.register(lang, null, {}, +s.trial_days || 0));
+  if (p === '/register' && m === 'POST') {
+    const f = await readForm(req);
+    const v = { email: String(f.email || '').trim().toLowerCase(), name: String(f.name || '').trim() };
+    const L = f.lang === 'en' ? 'en' : f.lang === 'de' ? 'de' : lang;
+    const err = (text, code = 400) => page(pages.register(L, { text }, v, +s.trial_days || 0), code);
+    if (ENV.REGISTRATION === 'closed') return err(L === 'de' ? 'Die Registrierung ist zurzeit geschlossen.' : 'Registration is currently closed.', 403);
+    if (limited('reg:' + ipOf(req), 5, 60 * 60e3)) return err(L === 'de' ? 'Zu viele Registrierungen. Bitte später erneut versuchen.' : 'Too many sign-ups. Please try again later.', 429);
+    if (!validEmail(v.email)) return err(L === 'de' ? 'Bitte eine gültige E-Mail-Adresse eingeben.' : 'Please enter a valid email address.');
+    if (!validPw(f.password)) return err(L === 'de' ? 'Das Passwort muss mindestens 10 Zeichen lang sein.' : 'The password must be at least 10 characters long.');
+    if (f.password !== f.password2) return err(L === 'de' ? 'Die Passwörter stimmen nicht überein.' : 'The passwords do not match.');
+    if (f.accept !== '1') return err(L === 'de' ? 'Bitte AGB und Datenschutzerklärung bestätigen.' : 'Please accept the terms and the privacy policy.');
+    if (db.prepare('SELECT id FROM users WHERE email = ?').get(v.email)) return err(L === 'de' ? 'Für diese E-Mail-Adresse gibt es schon ein Konto. Bitte anmelden oder „Passwort vergessen“ nutzen.' : 'An account with this email already exists. Please sign in or use “Forgot password”.', 409);
+    const id = createUser({ email: v.email, password: f.password, name: v.name, lang: L, verified: mail.enabled() ? 0 : 1, accepted: 1 });
+    logEvent(id, 'register', ipOf(req));
+    const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+    if (mail.enabled()) { await sendVerify(u, L); return page(pages.info(L, pages.T[L].verifyTitle, pages.T[L].verifySent)); }
+    return redirect(res, '/', { 'Set-Cookie': [sidCookie(newSession(id), SESSION_DAYS * 86400), langCookie(L)] });
+  }
+  if (p === '/verify' && m === 'GET') {
+    const id = useToken(url.searchParams.get('token'), 'verify');
+    if (!id) return page(pages.info(lang, pages.T[lang].verifyTitle, pages.T[lang].badLink, false), 400);
+    db.prepare('UPDATE users SET verified = 1 WHERE id = ?').run(id);
+    return page(pages.info(lang, pages.T[lang].verifyTitle, pages.T[lang].verified));
+  }
+  if (p === '/forgot' && m === 'GET') return page(pages.forgot(lang));
+  if (p === '/forgot' && m === 'POST') {
+    const f = await readForm(req);
+    const email = String(f.email || '').trim().toLowerCase();
+    const okMsg = { ok: true, text: mail.enabled() ? (lang === 'de' ? 'Wenn ein Konto existiert, haben wir eine E-Mail geschickt.' : 'If an account exists, we have sent an email.') : (lang === 'de' ? `E-Mail-Versand ist noch nicht eingerichtet. Bitte wende dich an ${s.support_email || s.email || 'den Support'}.` : `Email sending is not set up yet. Please contact ${s.support_email || s.email || 'support'}.`) };
+    if (limited('forgot:' + ipOf(req), 5, 60 * 60e3)) return page(pages.forgot(lang, okMsg));
+    const u = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    if (u && !u.blocked && mail.enabled()) {
+      const tok = newToken(u.id, 'reset', 1);
+      const link = `${BASE_URL}/reset?token=${tok}`;
+      const L = u.lang || lang;
+      await mail.send(u.email, L === 'de' ? 'StickStudio – Passwort zurücksetzen' : 'StickStudio – reset your password',
+        L === 'de' ? `Hallo,\n\nüber diesen Link kannst du ein neues Passwort festlegen (1 Stunde gültig):\n${link}\n\nWenn du das nicht angefordert hast, ignoriere diese E-Mail.\n` : `Hello,\n\nuse this link to set a new password (valid for 1 hour):\n${link}\n\nIf you did not request this, just ignore this email.\n`);
+    }
+    return page(pages.forgot(lang, okMsg));
+  }
+  if (p === '/reset' && m === 'GET') return page(pages.reset(lang, url.searchParams.get('token') || ''));
+  if (p === '/reset' && m === 'POST') {
+    const f = await readForm(req);
+    if (!validPw(f.password)) return page(pages.reset(lang, f.token, { text: lang === 'de' ? 'Das Passwort muss mindestens 10 Zeichen lang sein.' : 'The password must be at least 10 characters long.' }), 400);
+    if (f.password !== f.password2) return page(pages.reset(lang, f.token, { text: lang === 'de' ? 'Die Passwörter stimmen nicht überein.' : 'The passwords do not match.' }), 400);
+    const id = useToken(f.token, 'reset');
+    if (!id) return page(pages.info(lang, pages.T[lang].resetTitle, pages.T[lang].badLink, false), 400);
+    db.prepare('UPDATE users SET pass = ?, verified = 1 WHERE id = ?').run(hashPass(f.password), id);
+    db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+    logEvent(id, 'password-reset');
+    return page(pages.info(lang, pages.T[lang].resetTitle, pages.T[lang].resetDone));
+  }
+  if (p === '/logout' && m === 'POST') {
+    const tok = cookies(req).sid;
+    if (tok) db.prepare('DELETE FROM sessions WHERE hash = ?').run(sha(tok));
+    return redirect(res, '/login', { 'Set-Cookie': sidCookie('', 0) });
+  }
+
+  // Zahlungsanbieter meldet Kauf/Verlängerung (Lemon Squeezy, Signatur mit LEMONSQUEEZY_SECRET)
+  if (p === '/api/webhook/lemonsqueezy' && m === 'POST') {
+    const secret = ENV.LEMONSQUEEZY_SECRET;
+    const raw = await readBody(req, 1 << 20);
+    if (!secret) return json(res, 503, { error: 'not configured' });
+    const sig = String(req.headers['x-signature'] || '');
+    const calc = crypto.createHmac('sha256', secret).update(raw).digest('hex');
+    if (sig.length !== calc.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(calc))) return json(res, 401, { error: 'bad signature' });
+    let ev;
+    try { ev = JSON.parse(raw.toString('utf8')); } catch (e) { return json(res, 400, { error: 'bad json' }); }
+    const name = ev.meta && ev.meta.event_name;
+    const attrs = (ev.data && ev.data.attributes) || {};
+    const custom = (ev.meta && ev.meta.custom_data) || {};
+    const email = String(attrs.user_email || attrs.customer_email || '').toLowerCase();
+    let u = custom.user_id ? db.prepare('SELECT * FROM users WHERE id = ?').get(+custom.user_id) : null;
+    if (!u && email) u = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
+    if (['order_created', 'subscription_payment_success'].includes(name) && u) {
+      if (name === 'order_created' && attrs.status && attrs.status !== 'paid') return json(res, 200, { ok: true, ignored: 'not paid' });
+      extendLicense(u.id, +s.license_days || 365, 'Zahlung ' + name);
+    } else if (['order_refunded'].includes(name) && u) {
+      logEvent(u.id, 'refund', 'Erstattung gemeldet – Lizenz bitte prüfen');
+    } else logEvent(u ? u.id : null, 'webhook', `${name} (kein Konto gefunden: ${email})`);
+    return json(res, 200, { ok: true });
+  }
+
+  /* --- ab hier nur angemeldet --- */
+  if (!user) {
+    if (p.startsWith('/api/')) return json(res, 401, { error: 'login' });
+    return redirect(res, '/login' + (url.searchParams.get('lang') ? '?lang=' + lang : ''));
+  }
+  const lic = license(user);
+
+  if (p === '/' || p === '/index.html') return page(appHtml());
+  if (p === '/config.js') {
+    const cfg = { online: true, user: publicUser(user), lang: user.lang || lang, buyUrl: buyUrl(s, user), support: s.support_email || s.email || '' };
+    return send(res, 200, `window.STICK_CONFIG = ${JSON.stringify(cfg).replace(/</g, '\\u003c')};`, 'text/javascript; charset=utf-8');
+  }
+  if (p === '/account' && m === 'GET') return page(pages.account(lang, user));
+  if (p === '/admin' && m === 'GET') return user.role === 'admin' ? page(pages.admin(lang, user)) : redirect(res, '/');
+  if (APP_DIRS.some((d) => p.startsWith('/' + d))) return staticFile(res, p, true) || send(res, 404, 'Not found', 'text/plain');
+
+  /* --- API --- */
+  if (p === '/api/me') {
+    if (m === 'GET') return json(res, 200, { user: publicUser(user), buyUrl: buyUrl(s, user), trialDays: +s.trial_days });
+  }
+  if (p === '/api/account/lang' && m === 'POST') {
+    const b = await readJson(req);
+    const l = b.lang === 'en' ? 'en' : 'de';
+    db.prepare('UPDATE users SET lang = ? WHERE id = ?').run(l, user.id);
+    return json(res, 200, { ok: true }, { 'Set-Cookie': langCookie(l) });
+  }
+  if (p === '/api/account/password' && m === 'POST') {
+    const b = await readJson(req);
+    if (!checkPass(String(b.old || ''), user.pass)) return json(res, 400, { error: lang === 'de' ? 'Das bisherige Passwort ist falsch.' : 'The current password is wrong.' });
+    if (!validPw(b.password)) return json(res, 400, { error: lang === 'de' ? 'Das neue Passwort muss mindestens 10 Zeichen lang sein.' : 'The new password must be at least 10 characters long.' });
+    db.prepare('UPDATE users SET pass = ? WHERE id = ?').run(hashPass(b.password), user.id);
+    // andere Sitzungen beenden, aktuelle behalten
+    db.prepare('DELETE FROM sessions WHERE user_id = ? AND hash != ?').run(user.id, sha(cookies(req).sid));
+    logEvent(user.id, 'password-change');
+    return json(res, 200, { ok: true });
+  }
+  if (p === '/api/account/name' && m === 'POST') {
+    const b = await readJson(req);
+    db.prepare('UPDATE users SET name = ? WHERE id = ?').run(String(b.name || '').slice(0, 120), user.id);
+    return json(res, 200, { ok: true });
+  }
+  if (p === '/api/account/export' && m === 'GET') {
+    // Datenauskunft / Datenübertragbarkeit (DSGVO Art. 15, 20)
+    const projects = db.prepare('SELECT id, name, tags, customer, stitches, w, h, colors, data, created, updated FROM projects WHERE user_id = ?').all(user.id);
+    const out = { user: publicUser(user), acceptedTerms: user.accepted_terms ? new Date(user.accepted_terms).toISOString() : null, projects: projects.map((r) => ({ ...r, tags: JSON.parse(r.tags), data: JSON.parse(r.data) })) };
+    return send(res, 200, JSON.stringify(out, null, 1), 'application/json; charset=utf-8', { 'Content-Disposition': 'attachment; filename="stickstudio-daten.json"' });
+  }
+  if (p === '/api/account' && m === 'DELETE') {
+    const b = await readJson(req);
+    if (!checkPass(String(b.password || ''), user.pass)) return json(res, 400, { error: lang === 'de' ? 'Passwort falsch.' : 'Wrong password.' });
+    if (user.role === 'admin' && db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n <= 1) return json(res, 400, { error: lang === 'de' ? 'Das letzte Admin-Konto kann nicht gelöscht werden.' : 'The last admin account cannot be deleted.' });
+    db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
+    logEvent(null, 'account-deleted', `Konto ${user.id} gelöscht`);
+    return json(res, 200, { ok: true }, { 'Set-Cookie': sidCookie('', 0) });
+  }
+
+  // Projekte („Meine Designs“)
+  if (p === '/api/projects' && m === 'GET') {
+    const rows = db.prepare('SELECT id, name, tags, customer, stitches, w, h, colors, thumb, created, updated FROM projects WHERE user_id = ? ORDER BY updated DESC').all(user.id);
+    return json(res, 200, rows.map((r) => ({ ...r, tags: JSON.parse(r.tags), date: r.updated })));
+  }
+  const pm = /^\/api\/projects\/(\d+)$/.exec(p);
+  if (pm && m === 'GET') {
+    const r = db.prepare('SELECT * FROM projects WHERE id = ? AND user_id = ?').get(+pm[1], user.id);
+    if (!r) return json(res, 404, { error: 'not found' });
+    return json(res, 200, { ...r, tags: JSON.parse(r.tags), date: r.updated });
+  }
+  if ((p === '/api/projects' && m === 'POST') || (pm && m === 'PUT')) {
+    if (!lic.active) return json(res, 402, { error: 'license', message: lang === 'de' ? 'Deine Lizenz ist abgelaufen – Speichern ist nur mit gültiger Lizenz möglich.' : 'Your license has expired – saving requires a valid license.' });
+    const b = await readJson(req, 25 << 20);
+    if (typeof b.data !== 'string' || !b.data.startsWith('{')) return json(res, 400, { error: 'data' });
+    const row = [String(b.name || 'Design').slice(0, 120), JSON.stringify((Array.isArray(b.tags) ? b.tags : []).slice(0, 30).map((x) => String(x).slice(0, 40))), String(b.customer || '').slice(0, 120),
+      b.stitches | 0, +b.w || 0, +b.h || 0, b.colors | 0, String(b.thumb || '').startsWith('data:image/') ? String(b.thumb).slice(0, 400000) : '', b.data];
+    const count = db.prepare('SELECT COUNT(*) AS n FROM projects WHERE user_id = ?').get(user.id).n;
+    if (pm) {
+      const r = db.prepare('UPDATE projects SET name=?, tags=?, customer=?, stitches=?, w=?, h=?, colors=?, thumb=?, data=?, updated=? WHERE id=? AND user_id=?').run(...row, now(), +pm[1], user.id);
+      if (!r.changes) return json(res, 404, { error: 'not found' });
+      return json(res, 200, { id: +pm[1] });
+    }
+    if (count >= +(ENV.MAX_PROJECTS || 2000)) return json(res, 400, { error: lang === 'de' ? 'Maximale Anzahl Designs erreicht.' : 'Maximum number of designs reached.' });
+    const r = db.prepare('INSERT INTO projects(user_id, name, tags, customer, stitches, w, h, colors, thumb, data, created, updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').run(user.id, ...row, now(), now());
+    return json(res, 200, { id: Number(r.lastInsertRowid) });
+  }
+  if (pm && m === 'DELETE') {
+    db.prepare('DELETE FROM projects WHERE id = ? AND user_id = ?').run(+pm[1], user.id);
+    return json(res, 200, { ok: true });
+  }
+
+  // Stickdatei erzeugen – nur mit gültiger Lizenz (Testversion zählt)
+  if (p === '/api/export' && m === 'POST') {
+    if (!lic.active) return json(res, 402, { error: 'license', message: lang === 'de' ? 'Deine Lizenz ist abgelaufen – Stickdateien können nur mit gültiger Lizenz erzeugt werden.' : 'Your license has expired – embroidery files can only be created with a valid license.' });
+    if (limited('export:' + user.id, 600, 60 * 60e3)) return json(res, 429, { error: 'zu viele Exporte' });
+    const b = await readJson(req, 80 << 20);
+    try {
+      const bytes = fileio.write(String(b.fmt || 'dst'), b.cmds, b.palette, { name: b.name, firstColor: b.firstColor, settings: b.settings });
+      return send(res, 200, Buffer.from(bytes), 'application/octet-stream');
+    } catch (e) { return json(res, 400, { error: e.message }); }
+  }
+  if (p === '/api/import' && m === 'POST') {
+    const fmt = String(url.searchParams.get('fmt') || '').toLowerCase();
+    const raw = await readBody(req, 20 << 20);
+    try { return json(res, 200, fileio.read(fmt, new Uint8Array(raw))); } catch (e) { return json(res, 400, { error: e.message }); }
+  }
+
+  /* --- Verwaltung --- */
+  if (p.startsWith('/api/admin/')) {
+    if (user.role !== 'admin') return json(res, 403, { error: 'forbidden' });
+    if (p === '/api/admin/users' && m === 'GET') {
+      const q = '%' + (url.searchParams.get('q') || '') + '%';
+      const rows = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login,
+        (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS projects FROM users u WHERE u.email LIKE ? OR u.name LIKE ? ORDER BY u.created DESC LIMIT 500`).all(q, q);
+      return json(res, 200, rows.map((r) => ({ ...r, license: license(r) })));
+    }
+    const um = /^\/api\/admin\/users\/(\d+)(\/reset|\/extend)?$/.exec(p);
+    if (um) {
+      const id = +um[1];
+      const u = db.prepare('SELECT * FROM users WHERE id = ?').get(id);
+      if (!u) return json(res, 404, { error: 'not found' });
+      if (um[2] === '/extend' && m === 'POST') {
+        const b = await readJson(req);
+        extendLicense(id, Math.max(1, Math.min(3650, b.days | 0 || +s.license_days || 365)), 'Admin ' + user.email);
+        return json(res, 200, { ok: true });
+      }
+      if (um[2] === '/reset' && m === 'POST') {
+        const tok = newToken(id, 'reset', 72);
+        logEvent(id, 'admin-reset-link', user.email);
+        return json(res, 200, { link: `${BASE_URL}/reset?token=${tok}` });
+      }
+      if (!um[2] && m === 'POST') {
+        const b = await readJson(req);
+        const toTs = (v) => (v === null || v === '' ? 0 : Math.max(0, +new Date(v) || 0));
+        if (id === user.id && (b.blocked || (b.role && b.role !== 'admin'))) return json(res, 400, { error: 'Das eigene Admin-Konto kann nicht gesperrt oder herabgestuft werden.' });
+        const upd = {
+          license_until: b.license_until !== undefined ? toTs(b.license_until) : u.license_until,
+          trial_until: b.trial_until !== undefined ? toTs(b.trial_until) : u.trial_until,
+          blocked: b.blocked !== undefined ? (b.blocked ? 1 : 0) : u.blocked,
+          role: b.role === 'admin' || b.role === 'user' ? b.role : u.role,
+          verified: b.verified !== undefined ? (b.verified ? 1 : 0) : u.verified,
+          note: b.note !== undefined ? String(b.note).slice(0, 2000) : u.note,
+          name: b.name !== undefined ? String(b.name).slice(0, 120) : u.name,
+        };
+        db.prepare('UPDATE users SET license_until=?, trial_until=?, blocked=?, role=?, verified=?, note=?, name=? WHERE id=?').run(upd.license_until, upd.trial_until, upd.blocked, upd.role, upd.verified, upd.note, upd.name, id);
+        if (upd.blocked) db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
+        logEvent(id, 'admin-edit', `${user.email}: ${JSON.stringify(b).slice(0, 300)}`);
+        return json(res, 200, { ok: true });
+      }
+      if (!um[2] && m === 'DELETE') {
+        if (id === user.id) return json(res, 400, { error: 'Das eigene Konto bitte unter „Mein Konto“ löschen.' });
+        db.prepare('DELETE FROM users WHERE id = ?').run(id);
+        logEvent(null, 'admin-delete', `${user.email} löscht Konto ${u.email}`);
+        return json(res, 200, { ok: true });
+      }
+    }
+    if (p === '/api/admin/users' && m === 'POST') {
+      const b = await readJson(req);
+      const email = String(b.email || '').trim().toLowerCase();
+      if (!validEmail(email)) return json(res, 400, { error: 'E-Mail ungültig' });
+      if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) return json(res, 409, { error: 'E-Mail existiert schon' });
+      const pw = crypto.randomBytes(9).toString('base64url');
+      const id = createUser({ email, password: pw, name: b.name || '', lang: b.lang === 'en' ? 'en' : 'de', verified: 1, accepted: 0 });
+      const tok = newToken(id, 'reset', 72);
+      logEvent(id, 'admin-create', user.email);
+      return json(res, 200, { id, link: `${BASE_URL}/reset?token=${tok}` });
+    }
+    if (p === '/api/admin/settings') {
+      if (m === 'GET') return json(res, 200, { settings: s, mail: mail.enabled(), webhook: !!ENV.LEMONSQUEEZY_SECRET, webhookUrl: `${BASE_URL}/api/webhook/lemonsqueezy`, baseUrl: BASE_URL });
+      if (m === 'POST') { setSettings(await readJson(req)); return json(res, 200, { ok: true }); }
+    }
+    if (p === '/api/admin/events' && m === 'GET') {
+      const rows = db.prepare('SELECT e.*, u.email FROM events e LEFT JOIN users u ON u.id = e.user_id ORDER BY e.id DESC LIMIT 300').all();
+      return json(res, 200, rows);
+    }
+    if (p === '/api/admin/stats' && m === 'GET') {
+      const t = now();
+      const q = (sql, ...a) => db.prepare(sql).get(...a).n;
+      return json(res, 200, {
+        users: q('SELECT COUNT(*) AS n FROM users'),
+        licensed: q('SELECT COUNT(*) AS n FROM users WHERE license_until > ?', t),
+        trial: q('SELECT COUNT(*) AS n FROM users WHERE license_until <= ? AND trial_until > ?', t, t),
+        expired: q("SELECT COUNT(*) AS n FROM users WHERE role != 'admin' AND license_until <= ? AND trial_until <= ?", t, t),
+        projects: q('SELECT COUNT(*) AS n FROM projects'),
+      });
+    }
+    if (p === '/api/admin/test-mail' && m === 'POST') {
+      const ok = await mail.send(user.email, 'StickStudio – Test', 'Diese Test-E-Mail zeigt, dass der E-Mail-Versand funktioniert.');
+      return json(res, ok ? 200 : 500, { ok });
+    }
+  }
+  return p.startsWith('/api/') ? json(res, 404, { error: 'not found' }) : page(pages.info(lang, pages.T[lang].notFound, pages.T[lang].notFound, false), 404);
+}
+
+// Kauf-Link mit Kundendaten (Lemon Squeezy: checkout[email] und checkout[custom][user_id])
+function buyUrl(s, u) {
+  if (!s.buy_url) return '';
+  try {
+    const x = new URL(s.buy_url);
+    if (/lemonsqueezy\.com$/.test(x.hostname)) {
+      x.searchParams.set('checkout[email]', u.email);
+      x.searchParams.set('checkout[custom][user_id]', String(u.id));
+    }
+    return x.toString();
+  } catch (e) { return s.buy_url; }
+}
+
+const server = http.createServer((req, res) => {
+  route(req, res).catch((e) => {
+    if (!res.headersSent) {
+      if (e.code === 413) return json(res, 413, { error: 'Datei zu groß' });
+      if (e.code === 400) return json(res, 400, { error: e.message });
+      console.error(e);
+      send(res, 500, 'Interner Fehler', 'text/plain; charset=utf-8');
+    }
+  });
+});
+
+if (require.main === module) {
+  ensureAdmin();
+  server.listen(PORT, () => console.log(`StickStudio läuft auf ${BASE_URL} (Port ${PORT}, Daten in ${DATA_DIR})`));
+}
+module.exports = { server, db, ensureAdmin, createUser, license };

@@ -8,6 +8,24 @@ Es erzeugt **DST-Dateien (Tajima)** für die **Texi 1501** und alle anderen Taji
 `index.html` doppelklicken (Chrome, Edge oder Firefox). Es wird nichts installiert, und es ist keine Internetverbindung nötig.
 Am besten mit Maus am PC arbeiten: Wie bei Hatch werden linke und rechte Maustaste unterschiedlich verwendet.
 
+## Online-Version (mit Anmeldung, Testversion und Lizenz)
+
+Für den Verkauf läuft StickStudio auf einem eigenen Server:
+
+- Kunden registrieren sich und bekommen eine **Testversion** (Standard 14 Tage).
+- Nach Ablauf können sie ihre Designs **nur noch ansehen**.
+- Stickdateien erzeugt nur der Server.
+- Du verwaltest alles als **Admin** unter `/admin`.
+- Die Oberfläche ist auf **Deutsch und Englisch** umschaltbar.
+- Rechtstexte (Impressum, AGB, Widerruf, Datenschutz, Lizenzen) liegen als Entwürfe in `legal/`.
+
+Einrichtung, Hosting, Bezahlung und Sicherung: siehe **[server/README.md](server/README.md)**.
+
+```bash
+ADMIN_EMAIL=du@deine-firma.de ADMIN_PASSWORD='ein-langes-passwort' node --no-warnings server/server.js
+# → http://localhost:8080
+```
+
 ## Bedienung wie bei Hatch
 
 | Eingabe | Wirkung |

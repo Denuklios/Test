@@ -1,5 +1,5 @@
 // Prüft Verbindungsarten (Stich / Sprung ohne Schnitt / Schnitt) und Stickrahmen. Aufruf: node tests/test_connect.js [out.dst]
-require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/dst.js'); require('../js/hoops.js');
+require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/dst.js'); require('../js/dst_io.js'); require('../js/hoops.js');
 const HW = globalThis.HW, S = HW.stitch, D = HW.dst, H = HW.hoops;
 let fails = 0, nid = 1;
 const ok = (c, m) => { console.log((c ? 'OK   ' : 'FEHL ') + m); if (!c) fails++; };

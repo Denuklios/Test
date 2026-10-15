@@ -1,5 +1,5 @@
 // Prüft die Stoff-Automatik. Aufruf: node tests/test_fabric.js
-require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/fabric.js'); require('../js/dst.js');
+require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/fabric.js'); require('../js/dst.js'); require('../js/dst_io.js');
 const HW = globalThis.HW, S = HW.stitch, F = HW.fabric;
 let fails = 0;
 const ok = (c, m) => { console.log((c ? 'OK   ' : 'FEHL ') + m); if (!c) fails++; };

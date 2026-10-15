@@ -1,6 +1,6 @@
 // Füllarten, 3D-Puff
 global.window = global;
-['geometry', 'stitchgen', 'satinauto', 'autodigitize', 'boolean', 'fills', 'dst'].forEach((m) => require('../js/' + m + '.js'));
+['geometry', 'stitchgen', 'satinauto', 'autodigitize', 'boolean', 'fills', 'dst', 'dst_io'].forEach((m) => require('../js/' + m + '.js'));
 const S = HW.stitch, G = HW.geo;
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.log('FEHLER:', m); } else console.log('ok', m); };

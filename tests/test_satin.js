@@ -1,5 +1,5 @@
 // Prüft die Erkennung drehender Satinsäulen. Aufruf: node tests/test_satin.js
-require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/dst.js'); require('../js/satinauto.js'); require('../js/autodigitize.js');
+require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/dst.js'); require('../js/dst_io.js'); require('../js/satinauto.js'); require('../js/autodigitize.js');
 const HW = globalThis.HW, G = HW.geo;
 let fails = 0;
 const ok = (c, m) => { console.log((c ? 'OK   ' : 'FEHL ') + m); if (!c) fails++; };

@@ -1,6 +1,6 @@
 // Rundreise PES/JEF/EXP: schreiben, mit eigenem Leser zurücklesen, Stiche/Farben/Ausdehnung vergleichen.
 // Aufruf: node tests/test_formats.js [ausgabeordner]  (schreibt dann test.pes/.jef/.exp + test.json zum Gegenprüfen)
-require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/dst.js'); require('../js/formats.js');
+require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/dst.js'); require('../js/dst_io.js'); require('../js/formats.js');
 const HW = globalThis.HW, S = HW.stitch, D = HW.dst, F = HW.formats;
 const fs = require('fs'), path = require('path');
 let fails = 0;

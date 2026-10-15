@@ -117,6 +117,7 @@
     'id:playSlider': ['Stickfortschritt', 'Ziehen zeigt das Design bis zu einem bestimmten Stich – praktisch, um die Reihenfolge Schritt für Schritt zu prüfen.'],
     'id:playSpeed': ['Geschwindigkeit der Simulation', 'Wie schnell die Simulation abläuft. Hat keinen Einfluss auf die Maschine.'],
     'id:checkInfo': ['Stickprüfung', 'Grün = alles in Ordnung. Gelb/Rot = Hinweise zu Dichte, Winkeln, Stichlängen. Klicken zeigt Details und Korrekturen.'],
+    'id:accountMenu': ['Konto', 'Dein Konto: Lizenz und Laufzeit, Passwort ändern, Rechtstexte und Abmelden.'],
     'id:tipToggle': ['Hilfe-Infos ein/aus', 'Schaltet diese Info-Kästchen ein oder aus. Die Einstellung wird gemerkt.'],
     'id:palette': ['Farbpalette', 'Klick auf eine Farbe = aktive Farbe für neue Objekte; ist etwas ausgewählt, bekommt es diese Farbe. Die Zahl ist die Nadelnummer.'],
     'id:objlist': ['Stickreihenfolge', 'Alle Objekte in der Reihenfolge, in der gestickt wird (oben zuerst). Klick wählt aus, das Auge blendet aus.'],
@@ -192,7 +193,9 @@
   function show(el, h) {
     if (!tip) { tip = document.createElement('div'); tip.id = 'helpTip'; document.body.appendChild(tip); }
     const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
-    tip.innerHTML = (h[2] ? `<div class="tipx">${esc(h[2])}</div>` : '') + `<b>${esc(h[0])}</b><div>${esc(h[1])}</div>`;
+    const tr = (x) => (HW.i18n ? HW.i18n.t(x) : x);
+    tip.setAttribute('data-noi18n', '');
+    tip.innerHTML = (h[2] ? `<div class="tipx">${esc(tr(h[2]))}</div>` : '') + `<b>${esc(tr(h[0]))}</b><div>${esc(tr(h[1]))}</div>`;
     tip.style.display = 'block';
     const r = el.getBoundingClientRect(), tw = tip.offsetWidth, th = tip.offsetHeight;
     let x = r.left, y = r.bottom + 8;

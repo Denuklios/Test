@@ -1,5 +1,5 @@
 // Kerntests: Stichgenerierung + DST-Rundreise. Aufruf: node tests/test_core.js [out.dst]
-require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/dst.js'); require('../js/satinauto.js'); require('../js/autodigitize.js');
+require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/dst.js'); require('../js/dst_io.js'); require('../js/satinauto.js'); require('../js/autodigitize.js');
 const HW = globalThis.HW, S = HW.stitch, D = HW.dst;
 const fs = require('fs');
 let fails = 0;

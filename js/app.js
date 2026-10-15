@@ -56,7 +56,9 @@
   const byId = (id) => st.objects.find((o) => o.id === id);
   const selected = () => st.objects.filter((o) => sel.has(o.id));
   const colOf = (i) => (st.palette[i] || st.palette[0] || { hex: '#000' }).hex;
-  const fmt = (v, d = 1) => Number(v).toFixed(d).replace('.', ',');
+  const fmt = (v, d = 1) => (HW.i18n ? HW.i18n.num(v, d) : Number(v).toFixed(d).replace('.', ','));
+  const loc = () => (HW.i18n ? HW.i18n.locale() : 'de-DE');
+  const tr = (x) => (HW.i18n ? HW.i18n.t(x) : x);
 
   function snapshot() { return JSON.stringify({ o: clone(st.objects), p: st.palette }); }
   function pushUndo() {
@@ -275,7 +277,7 @@
       // Beschriftung
       const top = toScr({ x: 0, y: -h.h / 2 - 12 });
       ctx.fillStyle = '#2b323a'; ctx.font = '12px system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
-      ctx.fillText(`${h.name} – Stickfeld ${h.shape === 'round' ? 'Ø ' + h.w : h.w + ' × ' + h.h} mm`, top.x, top.y - 4);
+      ctx.fillText(tr(`${h.name} – Stickfeld ${h.shape === 'round' ? 'Ø ' + h.w : h.w + ' × ' + h.h} mm`), top.x, top.y - 4);
     }
     ctx.restore();
   }
@@ -583,7 +585,7 @@
     const h = hoop();
     const hc = s.stitches ? HW.hoops.check(h, cmds.filter((c) => c.cmd === 'stitch')) : { ok: true };
     const out = !hc.ok;
-    $('#stats').innerHTML = `Stiche: <b>${s.stitches.toLocaleString('de-DE')}</b> · Farben: ${s.colors} · Schnitte: ${s.trims}${s.travels ? ` · versteckte Wege: ${s.travels}` : ''} · Größe: ${fmt(s.w)} × ${fmt(s.h)} mm · ca. ${fmt(mins, 0)} min` +
+    $('#stats').innerHTML = `Stiche: <b>${s.stitches.toLocaleString(loc())}</b> · Farben: ${s.colors} · Schnitte: ${s.trims}${s.travels ? ` · versteckte Wege: ${s.travels}` : ''} · Größe: ${fmt(s.w)} × ${fmt(s.h)} mm · ca. ${fmt(mins, 0)} min` +
       (s.floats ? ` · Sprünge ohne Schnitt: ${s.floats}` : '') +
       (out ? ` · <span class="warn" id="hoopWarn" title="Klicken für Rahmen-Optionen" style="cursor:pointer">⚠ ${hc.outField ? 'ragt über das Stickfeld' : 'im Sicherheitsabstand'}</span>` : '');
     const hw = $('#hoopWarn');
@@ -1694,13 +1696,17 @@
   }
 
   /* ---------- Export in mehreren Formaten, Teamnamen, Mehrfach-Einspannung ---------- */
-  const EXPORT_FMTS = () => [['dst', 'DST – Tajima / Texi'], ...(HW.formats ? [['pes', 'PES – Brother'], ['jef', 'JEF – Janome'], ['exp', 'EXP – Melco / Bernina']] : [])];
+  const EXPORT_FMTS = () => [['dst', 'DST – Tajima / Texi'], ...(HW.formats || HW.online ? [['pes', 'PES – Brother'], ['jef', 'JEF – Janome'], ['exp', 'EXP – Melco / Bernina']] : [])];
   const safeName = (n) => String(n).replace(/[^\w\-äöüÄÖÜß ]/g, '_').trim() || 'design';
-  function exportBytes(c, name, fmt) {
-    if (fmt === 'dst' || !HW.formats) return D.writeDST(c, name, st.settings);
+  // Stickdatei erzeugen – online auf dem Server (nur mit gültiger Lizenz), offline im Browser
+  async function exportBytes(c, name, fmt) {
     const fo = c.find((q) => q.obj);
-    return HW.formats.write(fmt, c, st.palette, { name, firstColor: fo ? (byId(fo.obj) || {}).color || 0 : 0 });
+    const firstColor = fo ? (byId(fo.obj) || {}).color || 0 : 0;
+    if (HW.online) return HW.online.exportFile(fmt, c, st.palette, { name, firstColor, settings: { trimJumps: st.settings.trimJumps } });
+    if (fmt === 'dst' || !HW.formats) return D.writeDST(c, name, st.settings);
+    return HW.formats.write(fmt, c, st.palette, { name, firstColor });
   }
+  const exportFailed = (e) => (e && e.license && HW.online ? HW.online.licenseDialog() : modal(tr('Export'), `<p>${tr('Die Stickdatei konnte nicht erzeugt werden:')} ${String((e && e.message) || e).replace(/</g, '&lt;')}</p>`));
   const fmtSelect = (id, v = 'dst') => `<select id="${id}">${EXPORT_FMTS().map(([k, t]) => `<option value="${k}" ${k === v ? 'selected' : ''}>${t}</option>`).join('')}</select>`;
   const cloneObjs = (objs) => objs.map((o) => ({ ...clone(o), _ack: o._ack }));
 
@@ -1725,12 +1731,13 @@
         const old = st.objects.filter((o) => String(o.grp) === String(grp));
         const spec0 = old[0].textSpec;
         $('#tmInfo').textContent = 'Berechne …';
-        fontReady(spec0).then(() => {
+        fontReady(spec0).then(async () => {
           const bb = G.bbox(old.flatMap((o) => { ensure(o); return o._bb ? [{ x: o._bb.x0, y: o._bb.y0 }, { x: o._bb.x1, y: o._bb.y1 }] : []; }));
           const center = { x: (bb.x0 + bb.x1) / 2, y: (bb.y0 + bb.y1) / 2 };
           const at = st.objects.indexOf(old[0]);
           const files = [], rows = [];
-          names.forEach((nm, i) => {
+          for (let i = 0; i < names.length; i++) {
+            const nm = names[i];
             let spec = { ...spec0, text: nm };
             let made = buildText(spec, center, old[0].color, grp);
             const w = () => { const b = G.bbox(made.flatMap((o) => o.points)); return b.x1 - b.x0; };
@@ -1740,9 +1747,10 @@
             const c = computeCmds(objs, true);
             const s2 = D.stats(c);
             const fn = `${String(i + 1).padStart(2, '0')}_${base}_${safeName(nm)}.${fmt}`;
-            files.push({ name: fn, data: exportBytes(c, nm, fmt) });
+            $('#tmInfo').textContent = `${tr('Berechne …')} ${i + 1}/${names.length}`;
+            try { files.push({ name: fn, data: await exportBytes(c, nm, fmt) }); } catch (e) { exportFailed(e); return; }
             rows.push(`${fn}\t${nm}\t${s2.stitches} Stiche\t${fmt2(s2.w)} x ${fmt2(s2.h)} mm\tSchrifthöhe ${spec.height} mm`);
-          });
+          }
           files.push({ name: 'Namensliste.txt', data: 'Datei\tName\tStiche\tGröße\tHinweis\r\n' + rows.join('\r\n') });
           download(HW.zip.zip(files), base + '_Namen.zip', 'application/zip');
           closeModal();
@@ -1752,7 +1760,7 @@
         return false;
       } }]);
   }
-  const fmt2 = (v) => (Math.round(v * 10) / 10).toString().replace('.', ',');
+  const fmt2 = (v) => { const r = (Math.round(v * 10) / 10).toString(); return HW.i18n && HW.i18n.lang !== 'de' ? r : r.replace('.', ','); };
 
   // Großes Design auf mehrere Einspannungen verteilen, mit Passmarken zum Ausrichten
   // beide Lagen des Rahmens probieren (hoch/quer) – weniger Einspannungen gewinnt
@@ -1822,14 +1830,15 @@
       field('Passmarken', '<input type="checkbox" id="mhReg" checked>') +
       field('Format', fmtSelect('mhFmt')) +
       '<canvas id="mhPrev" width="520" height="300" style="width:100%;background:#fff"></canvas><div id="mhInfo"></div>',
-      [{ label: 'Abbrechen' }, { label: 'Dateien erzeugen', primary: true, action: () => {
+      [{ label: 'Abbrechen' }, { label: 'Dateien erzeugen', primary: true, action: async () => {
         const plan = mk();
         if (!plan) return false;
         const fmt = val('mhFmt'), base = safeName(st.name);
         let ci = -1;
         if ($('#mhReg').checked) { ci = st.palette.findIndex((c) => c.name === 'Passmarke'); if (ci < 0) { st.palette.push({ hex: '#9e9e9e', name: 'Passmarke', needle: Math.min(15, st.palette.length + 1) }); ci = st.palette.length - 1; renderPalette(); } }
         const files = [], txt = [];
-        plan.cells.forEach((c, k) => {
+        for (let k = 0; k < plan.cells.length; k++) {
+          const c = plan.cells[k];
           let objs = cloneObjs(st.objects.filter((o) => c.objs.includes(o)));
           if (ci >= 0) {
             const prev = plan.cells[k - 1], next = plan.cells[k + 1];
@@ -1838,10 +1847,10 @@
           }
           const cm = computeCmds(objs, true);
           const fn = `${base}_Einspannung_${k + 1}_von_${plan.cells.length}.${fmt}`;
-          files.push({ name: fn, data: exportBytes(cm, base + ' ' + (k + 1), fmt) });
+          try { files.push({ name: fn, data: await exportBytes(cm, base + ' ' + (k + 1), fmt) }); } catch (e) { exportFailed(e); return; }
           const s2 = D.stats(cm);
           txt.push(`${k + 1}. ${fn}: Feld Spalte ${c.i + 1}, Reihe ${c.j + 1} – Mitte bei x=${fmt2((c.x0 + c.x1) / 2 - plan.bb.x0)} mm, y=${fmt2((c.y0 + c.y1) / 2 - plan.bb.y0)} mm vom linken oberen Motivrand; ${s2.stitches} Stiche`);
-        });
+        }
         files.push({ name: 'Anleitung.txt', data: ['Mehrfach-Einspannung ' + st.name, plan.rotated ? 'Rahmen quer (um 90° gedreht) verwenden.' : '', ...txt, '', 'Ablauf: Einspannung 1 sticken (am Ende werden die Passmarken gestickt). Stoff neu einspannen, Rahmen so verschieben, dass die Nadel genau über dem Mittelpunkt des ersten Passkreuzes steht (Kreuze der neuen Datei werden zuerst gestickt – vorher mit der Positions-/Trace-Funktion prüfen). Passmarken nach dem Sticken entfernen.'].join('\r\n') });
         download(HW.zip.zip(files), base + '_Einspannungen.zip', 'application/zip');
       } }]);
@@ -1993,7 +2002,7 @@
     const P = (st.settings.price = { ...PRICE_DEF, ...(st.settings.price || {}) });
     const nf = (v) => v.toLocaleString('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     modal('Preiskalkulation & Angebot',
-      `<p>${st.name}: <b>${s2.stitches.toLocaleString('de-DE')}</b> Stiche · ${s2.colors} Farben · ${s2.trims} Schnitte · ${fmt2(s2.w)} × ${fmt2(s2.h)} mm</p>` +
+      `<p>${st.name}: <b>${s2.stitches.toLocaleString(loc())}</b> Stiche · ${s2.colors} Farben · ${s2.trims} Schnitte · ${fmt2(s2.w)} × ${fmt2(s2.h)} mm</p>` +
       field('Berechnung', `<select id="pcM"><option value="stitches" ${P.mode === 'stitches' ? 'selected' : ''}>nach Stichzahl (je 1000 Stiche)</option><option value="time" ${P.mode === 'time' ? 'selected' : ''}>nach Maschinenzeit (Stundensatz)</option></select>`) +
       field('Preis je 1000 Stiche (€)', `<input id="pcK" type="number" step="0.05" value="${P.per1000}">`) +
       field('Stundensatz Maschine (€)', `<input id="pcH" type="number" step="1" value="${P.hourRate}">`) +
@@ -2029,19 +2038,21 @@
       if (!w) return;
       const img = thumbnail(cmds, 260);
       w.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Angebot ${st.name}</title><style>body{font:14px system-ui;margin:30px;max-width:760px}td,th{padding:4px 10px;border-bottom:1px solid #ddd;text-align:right}td:first-child,th:first-child{text-align:left}img{float:right;border:1px solid #ccc}</style></head><body>
-        <img src="${img}"><h2>Angebot Stickerei</h2><p>Datum: ${new Date().toLocaleDateString('de-DE')}<br>Motiv: <b>${st.name}</b><br>Größe: ${fmt2(s2.w)} × ${fmt2(s2.h)} mm · ${s2.stitches.toLocaleString('de-DE')} Stiche · ${s2.colors} Farben</p>
+        <img src="${img}"><h2>Angebot Stickerei</h2><p>Datum: ${new Date().toLocaleDateString(loc())}<br>Motiv: <b>${st.name}</b><br>Größe: ${fmt2(s2.w)} × ${fmt2(s2.h)} mm · ${s2.stitches.toLocaleString(loc())} Stiche · ${s2.colors} Farben</p>
         <table style="clear:both;width:100%"><tr><th>Menge</th><th>Stückpreis netto</th><th>Gesamt netto</th><th>MwSt. ${P.vat} %</th><th>Gesamt brutto</th></tr>
         ${rows.map((r) => `<tr><td>${r.q} Stück</td><td>${nf(r.unit)} €</td><td>${nf(r.net)} €</td><td>${nf(r.gross - r.net)} €</td><td><b>${nf(r.gross)} €</b></td></tr>`).join('')}</table>
         <p>Im Gesamtpreis enthalten: Einrichtung ${nf(P.setup)} €${P.digitize ? `, Digitalisierung ${nf(P.digitize)} €` : ''}. ${P.garment ? `Textil je Stück ${nf(P.garment)} € enthalten.` : 'Textilien werden beigestellt.'}</p>
-        <script>setTimeout(()=>print(),300)<\/script></body></html>`);
+        </body></html>`);
       w.document.close();
+      if (HW.i18n) HW.i18n.apply(w.document.body);
+      setTimeout(() => w.print(), 300);
     };
     $('#modalBody').querySelectorAll('input,select').forEach((e) => (e.oninput = e.onchange = calc));
     calc();
   }
 
   /* ---------- Design-Bibliothek (im Browser gespeichert, IndexedDB) ---------- */
-  const LIB = {
+  const LIB_LOCAL = {
     db: null,
     open() {
       if (this.db) return Promise.resolve(this.db);
@@ -2056,7 +2067,8 @@
     all() { return this.tx('readonly', (s2) => s2.getAll()); },
     put(rec) { return this.tx('readwrite', (s2) => s2.put(rec)); },
     del(id) { return this.tx('readwrite', (s2) => s2.delete(id)); },
-  };
+  };  const LIB = HW.online ? HW.online.lib : LIB_LOCAL;
+
   function librarySave(after) {
     const s2 = D.stats(cmds);
     modal('In Bibliothek speichern',
@@ -2069,8 +2081,8 @@
         st.libCustomer = val('lbK').trim();
         const rec = { name: st.name, tags: st.libTags, customer: st.libCustomer, date: Date.now(), stitches: s2.stitches, w: s2.w, h: s2.h, colors: s2.colors, thumb: thumbnail(cmds), data: projectJSON() };
         if (st.libId) rec.id = st.libId;
-        LIB.put(rec).then((id) => { st.libId = id ?? st.libId; hintFlash('In der Bibliothek gespeichert.'); if (after) after(); })
-          .catch((e) => modal('Bibliothek', `<p>Speichern nicht möglich: ${e}</p>`));
+        LIB.put(rec).then((id) => { st.libId = id ?? st.libId; hintFlash(HW.online ? 'In „Meine Designs“ gespeichert.' : 'In der Bibliothek gespeichert.'); if (after) after(); })
+          .catch((e) => (e && e.license && HW.online ? HW.online.licenseDialog() : modal('Bibliothek', `<p>Speichern nicht möglich: ${String((e && e.message) || e).replace(/</g, '&lt;')}</p>`)));
       } }]);
   }
   function libraryDialog() {
@@ -2085,16 +2097,17 @@
       const list = recs.filter((r) => !q || [r.name, r.customer, ...(r.tags || [])].join(' ').toLowerCase().includes(q))
         .sort((a, b) => (so === 'name' ? a.name.localeCompare(b.name) : so === 'stitches' ? a.stitches - b.stitches : b.date - a.date));
       $('#lbGrid').innerHTML = list.length ? list.map((r) => `<div class="libcard"><img src="${r.thumb}" alt=""><b>${esc(r.name)}</b>
-        <small>${fmt2(r.w)} × ${fmt2(r.h)} mm · ${r.stitches.toLocaleString('de-DE')} St. · ${r.colors} F.<br>${esc(r.customer)}${r.customer && r.tags && r.tags.length ? ' · ' : ''}${esc((r.tags || []).join(', '))}<br>${new Date(r.date).toLocaleDateString('de-DE')}</small>
+        <small>${fmt2(r.w)} × ${fmt2(r.h)} mm · ${r.stitches.toLocaleString(loc())} St. · ${r.colors} F.<br>${esc(r.customer)}${r.customer && r.tags && r.tags.length ? ' · ' : ''}${esc((r.tags || []).join(', '))}<br>${new Date(r.date).toLocaleDateString(loc())}</small>
         <div class="row"><button data-open="${r.id}">Öffnen</button><button data-del="${r.id}" title="Löschen">🗑</button></div></div>`).join('') : '<p>Keine Designs gefunden.</p>';
-      $('#lbGrid').querySelectorAll('[data-open]').forEach((b) => (b.onclick = () => {
-        const r = recs.find((x) => x.id === +b.dataset.open);
+      $('#lbGrid').querySelectorAll('[data-open]').forEach((b) => (b.onclick = async () => {
+        let r = recs.find((x) => x.id === +b.dataset.open);
+        if (!r.data && LIB.get) r = await LIB.get(r.id); // online: Inhalt erst beim Öffnen laden
         closeModal();
         loadProject(JSON.parse(r.data), r.name);
         st.libId = r.id; st.libTags = r.tags || []; st.libCustomer = r.customer || '';
       }));
       $('#lbGrid').querySelectorAll('[data-del]').forEach((b) => (b.onclick = () => {
-        if (!confirm('Design aus der Bibliothek löschen?')) return;
+        if (!confirm(tr('Design aus der Bibliothek löschen?'))) return;
         LIB.del(+b.dataset.del).then(load);
       }));
     };
@@ -2634,7 +2647,7 @@
       if (!spec.text.trim()) return;
       if (ink) {
         const id = spec.font.slice(4);
-        if (!HW.INKFONTS[id]) { x.fillStyle = '#888'; x.fillText('Schrift wird geladen …', 10, 20); HW.loadInkFont(id).then(prev).catch(() => {}); return; }
+        if (!HW.INKFONTS[id]) { x.fillStyle = '#888'; x.fillText(tr('Schrift wird geladen …'), 10, 20); HW.loadInkFont(id).then(prev).catch(() => {}); return; }
         const r = inkText(spec, { x: 0, y: 0 });
         const pts = r.objects.flatMap((o) => o.points);
         if (!pts.length) return;
@@ -2791,7 +2804,7 @@
     if (own.length) warn.push(`Stickprüfung: ${own.length} Hinweis(e) – unten in der Statusleiste ansehen.`);
     modal('An Rahmen angepasst',
       `<p>${sel.size ? 'Die Auswahl' : 'Das Design'} wurde auf <b>${Math.round(fTotal * 100)} %</b> skaliert und in die Mitte von „${h.name}“ gesetzt.</p>` +
-      `<p>Größe: ${fmt(before.w)} × ${fmt(before.h)} mm → <b>${fmt(after.w)} × ${fmt(after.h)} mm</b><br>Stiche: ${before.stitches.toLocaleString('de-DE')} → <b>${after.stitches.toLocaleString('de-DE')}</b></p>` +
+      `<p>Größe: ${fmt(before.w)} × ${fmt(before.h)} mm → <b>${fmt(after.w)} × ${fmt(after.h)} mm</b><br>Stiche: ${before.stitches.toLocaleString(loc())} → <b>${after.stitches.toLocaleString(loc())}</b></p>` +
       `<p style="color:#4a525c">Die Stiche wurden aus den Formen neu berechnet: Dichte und Stichlängen bleiben gleich fein, Satin-Abstand, Zugausgleich und Unterlage richten sich nach der neuen Breite und dem Stoff (${HW.fabric.byId(st.material).name}), breite Satinstiche werden geteilt.</p>` +
       (warn.length ? `<p style="color:#b26a00">⚠ ${warn.join('<br>⚠ ')}</p>` : '<p style="color:#2e7d32">✓ Keine Probleme gefunden.</p>'),
       [{ label: 'Rückgängig', action: () => { undo(); } }, { label: 'OK', primary: true }]);
@@ -3141,13 +3154,15 @@
       if (q.cmd !== 'trim') prev = pt;
     }
     perColor[ci] = count;
-    const rows = seq.map((p, i) => { const c2 = st.palette[p] || {}; return `<tr><td>${i + 1}</td><td><span style="display:inline-block;width:30px;height:16px;background:${c2.hex};border:1px solid #999"></span></td><td>${c2.name || ''}${stops[i] ? `<br><b>STOPP</b> – ${({ tack: 'Applikationsstoff auflegen', cover: 'überstehenden Stoff abschneiden', stop: 'z. B. Puff-Schaum auflegen' })[stops[i]] || 'Stopp'} (gleiche Nadel)` : ''}</td><td>Nadel ${c2.needle || ''}</td><td>${(perColor[i] || 0).toLocaleString('de-DE')} Stiche</td></tr>`; }).join('');
+    const rows = seq.map((p, i) => { const c2 = st.palette[p] || {}; return `<tr><td>${i + 1}</td><td><span style="display:inline-block;width:30px;height:16px;background:${c2.hex};border:1px solid #999"></span></td><td>${c2.name || ''}${stops[i] ? `<br><b>STOPP</b> – ${({ tack: 'Applikationsstoff auflegen', cover: 'überstehenden Stoff abschneiden', stop: 'z. B. Puff-Schaum auflegen' })[stops[i]] || 'Stopp'} (gleiche Nadel)` : ''}</td><td>Nadel ${c2.needle || ''}</td><td>${(perColor[i] || 0).toLocaleString(loc())} Stiche</td></tr>`; }).join('');
     const w = window.open('', '_blank');
     if (!w) return modal('Arbeitsblatt', '<p>Popup wurde blockiert – bitte Popups erlauben.</p>');
     w.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Arbeitsblatt ${st.name}</title><style>body{font:13px system-ui;margin:20px}td{padding:3px 10px;border-bottom:1px solid #ddd}img{max-width:100%;border:1px solid #ccc}</style></head><body>
-      <h2>${st.name}</h2><p>Stiche: <b>${s.stitches.toLocaleString('de-DE')}</b> · Farbwechsel: ${s.colors - 1} · Schnitte: ${s.trims} · Größe: ${fmt(s.w)} × ${fmt(s.h)} mm · Rahmen: ${hoop().name}</p>
-      <img src="${c.toDataURL()}">${(() => { const r = HW.fabric.recommend(st.material, st.objects, s); return `<h3>Stoff &amp; Vlies</h3><p>Stoff: <b>${r.fabric.name}</b><br>Vlies: ${r.vlies}<br>Topper: ${r.topper}<br>Nadel: ${r.needle} · max. ${r.spm} Stiche/min</p>${r.warn.length ? '<p>⚠ ' + r.warn.join('<br>⚠ ') + '</p>' : ''}`; })()}<h3>Farbfolge</h3><table>${rows}</table><script>setTimeout(()=>print(),300)<\/script></body></html>`);
+      <h2>${st.name}</h2><p>Stiche: <b>${s.stitches.toLocaleString(loc())}</b> · Farbwechsel: ${s.colors - 1} · Schnitte: ${s.trims} · Größe: ${fmt(s.w)} × ${fmt(s.h)} mm · Rahmen: ${hoop().name}</p>
+      <img src="${c.toDataURL()}">${(() => { const r = HW.fabric.recommend(st.material, st.objects, s); return `<h3>Stoff &amp; Vlies</h3><p>Stoff: <b>${r.fabric.name}</b><br>Vlies: ${r.vlies}<br>Topper: ${r.topper}<br>Nadel: ${r.needle} · max. ${r.spm} Stiche/min</p>${r.warn.length ? '<p>⚠ ' + r.warn.join('<br>⚠ ') + '</p>' : ''}`; })()}<h3>Farbfolge</h3><table>${rows}</table></body></html>`);
     w.document.close();
+    if (HW.i18n) HW.i18n.apply(w.document.body);
+    setTimeout(() => w.print(), 300);
   }
 
   function helpDialog() {
@@ -3185,11 +3200,13 @@
         loadProject(JSON.parse(txt), f.name);
       } catch (e) { modal('Fehler', '<p>Datei konnte nicht gelesen werden.</p>'); }
     }, 'text'),
-    importDst: () => pickFile('.dst,.DST,.pes,.PES,.jef,.JEF,.exp,.EXP,.pec,.PEC', (buf, f) => {
+    importDst: () => pickFile('.dst,.DST,.pes,.PES,.jef,.JEF,.exp,.EXP,.pec,.PEC', async (buf, f) => {
       const ext = (f.name.split('.').pop() || 'dst').toLowerCase();
       let c, colors = [];
       try {
-        if (ext === 'dst') c = D.readDST(new Uint8Array(buf));
+        // online liest der Server die Datei (der Formatcode liegt nur dort)
+        if (HW.online) { const r = await HW.online.importFile(ext, new Uint8Array(buf)); c = r.cmds; colors = r.colors || []; }
+        else if (ext === 'dst') c = D.readDST(new Uint8Array(buf));
         else { const r = HW.formats.read(ext, new Uint8Array(buf)); c = r.cmds; colors = r.colors || []; }
       } catch (e) { return modal('Import', `<p>Datei konnte nicht gelesen werden: ${String(e.message || e).replace(/</g, '&lt;')}</p>`); }
       pushUndo();
@@ -3215,7 +3232,7 @@
         st.name = val('eName').trim() || 'design';
         const fmt = val('eFmt');
         st.settings.exportFmt = fmt;
-        download(exportBytes(cmds, st.name, fmt), safeName(st.name) + '.' + fmt, 'application/octet-stream');
+        exportBytes(cmds, st.name, fmt).then((b) => download(b, safeName(st.name) + '.' + fmt, 'application/octet-stream')).catch(exportFailed);
       } }]);
     },
     worksheet,
@@ -3348,7 +3365,10 @@
     }
     changed();
   }
-  function run(name, arg) { if (commands[name]) commands[name](arg); }
+  function run(name, arg) {
+    if (HW.online && HW.online.blocked(name)) { HW.online.licenseDialog(); return; }
+    if (commands[name]) commands[name](arg);
+  }
 
   /* ======================= Menü, Werkzeuge, Player ======================= */
   document.querySelectorAll('.menu > button').forEach((b) => {
@@ -3417,4 +3437,7 @@
   setTool('select');
   changed();
   zoomHoop();
+  // Sprache: Umschalter oben rechts, Texte werden beim Wechsel sofort übersetzt
+  document.querySelectorAll('[data-lang-btn]').forEach((b) => b.addEventListener('click', () => { b.blur(); HW.i18n.setLang(b.dataset.langBtn); renderStats(); renderProps(); renderList(); draw(); }));
+  if (HW.i18n) HW.i18n.start();
 })();

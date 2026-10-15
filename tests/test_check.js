@@ -1,5 +1,5 @@
 // Prüft die Stickprüfung. Aufruf: node tests/test_check.js
-require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/fabric.js'); require('../js/dst.js'); require('../js/check.js');
+require('../js/geometry.js'); require('../js/stitchgen.js'); require('../js/fabric.js'); require('../js/dst.js'); require('../js/dst_io.js'); require('../js/check.js');
 const HW = globalThis.HW, S = HW.stitch, C = HW.check;
 let fails = 0, id = 1;
 const ok = (c, m) => { console.log((c ? 'OK   ' : 'FEHL ') + m); if (!c) fails++; };
