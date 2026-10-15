@@ -1,13 +1,14 @@
 /* Seiten außerhalb des Programms: Anmeldung, Konto, Verwaltung, Rechtstexte */
-:root { --bg: #eef0f3; --panel: #fff; --line: #d5d9df; --text: #1d232b; --muted: #6a7480; --accent: #1f6feb; --danger: #c62828; --ok: #2e7d32; }
+:root { --bg: #f2f0ec; --panel: #fff; --line: #dad6cf; --text: #1d232b; --muted: #6f6a63; --accent: #5f7f66; --accent-soft: #e2ebe3; --bar: #5a5148; --danger: #c62828; --ok: #2e7d32; }
 * { box-sizing: border-box; }
+input, select, button { accent-color: var(--accent); }
 body { margin: 0; font: 15px/1.5 system-ui, "Segoe UI", Roboto, sans-serif; color: var(--text); background: var(--bg); min-height: 100vh; display: flex; flex-direction: column; }
-header.top { display: flex; align-items: center; gap: 12px; padding: 10px 20px; background: #26303b; color: #fff; }
+header.top { display: flex; align-items: center; gap: 12px; padding: 10px 20px; background: var(--bar); color: #fff; }
 header.top .logo { color: #fff; font-weight: 700; font-size: 17px; text-decoration: none; margin-right: auto; }
 header.top nav { display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
-header.top nav a, header.top nav button { color: #cfd6de; text-decoration: none; background: none; border: 0; font: inherit; cursor: pointer; padding: 0; }
+header.top nav a, header.top nav button { color: #e6e0d8; text-decoration: none; background: none; border: 0; font: inherit; cursor: pointer; padding: 0; }
 header.top nav a:hover, header.top nav button:hover { color: #fff; }
-header.top .lang { border: 1px solid #5a6b7d; border-radius: 4px; padding: 1px 8px; font-size: 13px; }
+header.top .lang { border: 1px solid #8d8277; border-radius: 4px; padding: 1px 8px; font-size: 13px; }
 form.inline { display: inline; margin: 0; }
 main { flex: 1; padding: 32px 16px; }
 footer { display: flex; gap: 18px; justify-content: center; flex-wrap: wrap; padding: 14px; font-size: 13px; color: var(--muted); border-top: 1px solid var(--line); background: var(--panel); }
@@ -56,3 +57,5 @@ dialog::backdrop { background: rgba(0,0,0,.35); }
 fieldset.radio { border: 0; padding: 0; margin: 0 0 12px; }
 fieldset.radio legend { font-size: 14px; color: var(--muted); margin-bottom: 4px; padding: 0; }
 fieldset.radio .check { margin: 4px 0; align-items: center; }
+a { color: #46664f; }
+a:hover { color: #34503c; }

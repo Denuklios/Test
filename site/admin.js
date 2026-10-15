@@ -85,7 +85,7 @@
       <label>${T('Notiz (nur für dich)', 'Note (only for you)')}<textarea id="eNote">${esc(u.note)}</textarea></label>
       <div id="eMsg"></div>
       <div class="row" style="justify-content:space-between;margin-top:10px"><div class="row"><button id="eReset">${T('Link zum Passwort-Setzen', 'Password reset link')}</button><button id="eDel" class="danger">${T('Konto löschen', 'Delete account')}</button></div>
-      <div class="row"><button id="eCancel">${T('Abbrechen', 'Cancel')}</button><button id="eSave" style="background:#1f6feb;color:#fff;border-color:#1f6feb">${T('Speichern', 'Save')}</button></div></div>`;
+      <div class="row"><button id="eCancel">${T('Abbrechen', 'Cancel')}</button><button id="eSave" style="background:var(--accent);color:#fff;border-color:var(--accent)">${T('Speichern', 'Save')}</button></div></div>`;
     dlg.showModal();
     const $ = (id) => document.getElementById(id);
     const msg = (ok, text) => { $('eMsg').innerHTML = `<div class="msg ${ok ? 'ok' : 'err'}">${text}</div>`; };
@@ -111,7 +111,7 @@
       <label>${T('E-Mail', 'Email')}<input type="email" id="nEmail"></label><label>${T('Name / Firma', 'Name / company')}<input id="nName"></label>
       <label>${T('Sprache', 'Language')}<select id="nLang"><option value="de">Deutsch</option><option value="en">English</option></select></label>
       <p class="muted">${T('Das Konto startet mit der normalen Testphase. Danach bekommst du einen Link, mit dem der Kunde sein Passwort festlegt.', 'The account starts with the normal trial. You then get a link the customer uses to set their password.')}</p><div id="nMsg"></div>
-      <div class="row" style="justify-content:flex-end"><button id="nCancel">${T('Schließen', 'Close')}</button><button id="nSave" style="background:#1f6feb;color:#fff;border-color:#1f6feb">${T('Anlegen', 'Create')}</button></div>`;
+      <div class="row" style="justify-content:flex-end"><button id="nCancel">${T('Schließen', 'Close')}</button><button id="nSave" style="background:var(--accent);color:#fff;border-color:var(--accent)">${T('Anlegen', 'Create')}</button></div>`;
     dlg.showModal();
     const $ = (id) => document.getElementById(id);
     $('nCancel').onclick = () => { dlg.close(); users(); };
@@ -143,7 +143,7 @@
       ${f('payment_provider', T('Zahlungsanbieter (Name, Anschrift)', 'Payment provider (name, address)'))}
       ${f('supervisory_authority', T('Zuständige Datenschutz-Aufsichtsbehörde', 'Data protection supervisory authority'), T('Die Behörde deines Bundeslandes.', 'The authority of your federal state.'))}
       ${f('legal_date', T('Stand der Rechtstexte (Datum)', 'Version date of legal texts'), '', 'date')}
-      <div id="sMsg"></div><button id="sSave" style="background:#1f6feb;color:#fff;border-color:#1f6feb">${T('Einstellungen speichern', 'Save settings')}</button>
+      <div id="sMsg"></div><button id="sSave" style="background:var(--accent);color:#fff;border-color:var(--accent)">${T('Einstellungen speichern', 'Save settings')}</button>
       <p class="muted">${T('Vorschau der Rechtstexte:', 'Preview legal texts:')} <a href="/legal/impressum" target="_blank">Impressum</a> · <a href="/legal/agb" target="_blank">AGB</a> · <a href="/legal/widerruf" target="_blank">Widerruf</a> · <a href="/legal/datenschutz" target="_blank">Datenschutz</a> · <a href="/legal/lizenzen" target="_blank">Lizenzen</a>. ${T('Rot markierte Felder fehlen noch.', 'Fields marked red are still missing.')}</p>`;
     document.getElementById('sSave').onclick = async () => {
       const out = {};

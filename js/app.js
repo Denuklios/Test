@@ -234,7 +234,7 @@
     } else {
       // Rahmenkörper (ca. 12 mm breit)
       hoopPath(h, -12);
-      ctx.fillStyle = '#9aa2ac'; ctx.fill();
+      ctx.fillStyle = '#a49d94'; ctx.fill();
       hoopPath(h, -12); ctx.lineWidth = 1; ctx.strokeStyle = '#6b737d'; ctx.stroke();
       // Stoff im Stickfeld
       hoopPath(h, 0);
@@ -388,7 +388,7 @@
       if (!o._bb) continue;
       const a = toScr({ x: o._bb.x0, y: o._bb.y0 }), b = toScr({ x: o._bb.x1, y: o._bb.y1 });
       ctx.save();
-      ctx.setLineDash([5, 4]); ctx.strokeStyle = '#1f6feb'; ctx.lineWidth = 1;
+      ctx.setLineDash([5, 4]); ctx.strokeStyle = '#4d7a5a'; ctx.lineWidth = 1;
       ctx.strokeRect(a.x - 4, a.y - 4, b.x - a.x + 8, b.y - a.y + 8);
       ctx.restore();
     }
@@ -410,7 +410,7 @@
       ctx.beginPath(); ctx.moveTo(a.x, a.y); ctx.lineTo(b.x, b.y); ctx.stroke(); ctx.restore();
     }
     if (drag && drag.kind === 'band') {
-      ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = '#1f6feb';
+      ctx.save(); ctx.setLineDash([4, 3]); ctx.strokeStyle = '#4d7a5a';
       ctx.strokeRect(drag.sx, drag.sy, drag.cx - drag.sx, drag.cy - drag.sy); ctx.restore();
     }
   }
@@ -425,7 +425,7 @@
   function isClosedArr(o, k) { return o.type === 'fill' || (o.type === 'run' && o.params.closed && k === 0); }
 
   // Säule A: zwei Kanten (blau / orange) und dünne Linien je Punktpaar (= Stichrichtung)
-  const SIDE_COL = ['#1f6feb', '#e07b00'];
+  const SIDE_COL = ['#4d7a5a', '#e07b00'];
   function drawColAEdges(pts) {
     for (const side of [0, 1]) {
       const e = pts.filter((_, i) => i % 2 === side);
@@ -457,8 +457,8 @@
 
   function drawNode(p, active, kind) {
     const s = toScr(p);
-    ctx.fillStyle = active ? '#1f6feb' : '#fff';
-    ctx.strokeStyle = kind === 'jump' ? '#d00' : kind === 'L' ? SIDE_COL[0] : kind === 'R' ? SIDE_COL[1] : '#1f6feb';
+    ctx.fillStyle = active ? '#4d7a5a' : '#fff';
+    ctx.strokeStyle = kind === 'jump' ? '#d00' : kind === 'L' ? SIDE_COL[0] : kind === 'R' ? SIDE_COL[1] : '#4d7a5a';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
     if (p.c) ctx.arc(s.x, s.y, 4.5, 0, Math.PI * 2);
@@ -813,7 +813,7 @@
         } else { target[key] = v; renderProps(); }
       };
       const lb = document.createElement('label'); lb.textContent = label;
-      if (isAuto(key)) { const t = document.createElement('small'); t.textContent = ' · auto'; t.style.color = '#1f6feb'; lb.appendChild(t); }
+      if (isAuto(key)) { const t = document.createElement('small'); t.textContent = ' · auto'; t.style.color = '#4d7a5a'; lb.appendChild(t); }
       else if (autoOn && managed.includes(key)) { const t = document.createElement('small'); t.textContent = ' · von Hand'; t.style.color = '#b26a00'; lb.appendChild(t); }
       f.append(lb, inp);
       el.appendChild(f);
@@ -1869,7 +1869,7 @@
         if (q.cmd === 'stitch' && prev) { x.strokeStyle = colOf((byId(q.obj) || {}).color ?? 0); x.beginPath(); x.moveTo(...T(prev)); x.lineTo(...T(q)); x.stroke(); }
         if (q.cmd !== 'trim' && q.cmd !== 'color') prev = q;
       }
-      const cols = ['#1f6feb', '#d81b60', '#2e7d32', '#ef6c00', '#6a1b9a', '#00838f'];
+      const cols = ['#4d7a5a', '#d81b60', '#2e7d32', '#ef6c00', '#6a1b9a', '#00838f'];
       plan.cells.forEach((q, k) => {
         x.strokeStyle = cols[k % cols.length]; x.setLineDash([6, 4]); x.lineWidth = 2;
         const [a, b] = T({ x: q.x0, y: q.y0 }), [e, f] = T({ x: q.x1, y: q.y1 });

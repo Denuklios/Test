@@ -1,18 +1,19 @@
 :root {
-  --bg: #eef0f3; --panel: #ffffff; --line: #d5d9df; --text: #1d232b; --muted: #6a7480;
-  --accent: #1f6feb; --accent-soft: #dce8fd; --danger: #c62828;
+  --bg: #f2f0ec; --panel: #ffffff; --line: #dad6cf; --text: #1d232b; --muted: #6f6a63;
+  --accent: #5f7f66; --accent-soft: #e2ebe3; --bar: #5a5148; --bar-hover: #70665b; --danger: #c62828;
 }
 * { box-sizing: border-box; }
+input, select, button { accent-color: var(--accent); }
 html, body { margin: 0; height: 100%; font: 13px/1.35 system-ui, "Segoe UI", Roboto, sans-serif; color: var(--text); background: var(--bg); overflow: hidden; }
 button { font: inherit; cursor: pointer; }
 .hidden { display: none !important; }
 kbd { font-size: 11px; color: var(--muted); margin-left: auto; padding-left: 16px; }
 
-#menubar { height: 38px; display: flex; align-items: center; gap: 2px; padding: 0 8px; background: #26303b; color: #fff; position: relative; z-index: 20; }
+#menubar { height: 38px; display: flex; align-items: center; gap: 2px; padding: 0 8px; background: var(--bar); color: #fff; position: relative; z-index: 20; }
 .brand { font-weight: 700; margin-right: 12px; letter-spacing: .3px; }
 .menu { position: relative; }
 .menu > button, .tb { background: none; border: 0; color: #fff; padding: 6px 10px; border-radius: 4px; }
-.menu > button:hover, .tb:hover, .menu.open > button { background: #3a4654; }
+.menu > button:hover, .tb:hover, .menu.open > button { background: var(--bar-hover); }
 .tb.primary { background: var(--accent); font-weight: 600; }
 .dd { display: none; position: absolute; top: 100%; left: 0; min-width: 250px; background: var(--panel); color: var(--text); border: 1px solid var(--line); border-radius: 6px; box-shadow: 0 8px 24px rgba(0,0,0,.18); padding: 4px; }
 .menu.open .dd { display: block; }
@@ -30,7 +31,7 @@ main { display: flex; height: calc(100% - 38px - 34px); }
 #toolbox button:hover { background: var(--bg); }
 #toolbox button.active { background: var(--accent-soft); border-color: var(--accent); }
 
-#stage { flex: 1; position: relative; overflow: hidden; background: #c9ced6; }
+#stage { flex: 1; position: relative; overflow: hidden; background: #d3cfc8; }
 #cv { position: absolute; inset: 0; width: 100%; height: 100%; touch-action: none; cursor: crosshair; }
 #hint { position: absolute; left: 10px; bottom: 10px; max-width: 70%; background: rgba(255,255,255,.93); border: 1px solid var(--line); border-radius: 6px; padding: 6px 10px; pointer-events: none; font-size: 12.5px; }
 #hint:empty { display: none; }
@@ -95,10 +96,10 @@ main { display: flex; height: calc(100% - 38px - 34px); }
 .issue.fehler { border-color: var(--danger); background: #fdf0f0; }
 .issue .why { color: #4a525c; font-size: 12.5px; margin-top: 2px; }
 
-.hoopbar { color: #cfd6de; font-size: 12px; display: flex; align-items: center; gap: 6px; }
+.hoopbar { color: #e6e0d8; font-size: 12px; display: flex; align-items: center; gap: 6px; }
 .hoopbar select { max-width: 260px; padding: 3px; border-radius: 4px; border: 0; font: inherit; font-size: 12px; }
 
-.tb.fit { border: 1px solid #5a6b7d; }
+.tb.fit { border: 1px solid #8d8277; }
 
 .threads { display: flex; flex-wrap: wrap; gap: 4px; max-height: 220px; overflow-y: auto; border: 1px solid var(--line); border-radius: 4px; padding: 4px; }
 .threads button { display: flex; flex-direction: column; align-items: center; width: 74px; padding: 3px !important; font-size: 11px; background: #fff !important; }
@@ -131,8 +132,8 @@ main { display: flex; height: calc(100% - 38px - 34px); }
 
 /* Sprache, Konto-Menü, Lizenz-Hinweis (Online-Version) */
 .langsw { display: flex; gap: 2px; margin-right: 6px; }
-.langsw button { background: none; border: 1px solid #5a6b7d; color: #cfd6de; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
-.langsw button.on { background: #cfd6de; color: #26303b; font-weight: 700; }
+.langsw button { background: none; border: 1px solid #8d8277; color: #e6e0d8; padding: 2px 6px; border-radius: 4px; font-size: 11px; }
+.langsw button.on { background: #e6e0d8; color: var(--bar); font-weight: 700; }
 .dd a { display: flex; padding: 6px 10px; border-radius: 4px; color: inherit; text-decoration: none; }
 .dd a:hover { background: var(--accent-soft); }
 .dd form { margin: 0; }
