@@ -12,9 +12,10 @@ Am besten mit Maus am PC arbeiten: Wie bei Hatch werden linke und rechte Maustas
 
 Für den Verkauf läuft StickStudio auf einem eigenen Server:
 
-- Kunden registrieren sich und bekommen eine **Testversion** (Standard 14 Tage).
-- Nach Ablauf können sie ihre Designs **nur noch ansehen**.
-- Stickdateien erzeugt nur der Server.
+- Kunden registrieren sich und bekommen eine **Testversion** (Standard 14 Tage), danach ein **Abo** über Lemon Squeezy.
+- Ohne aktives Abo können sie ihre Designs **nur noch ansehen**.
+- Stickdateien erzeugt nur der Server. Der Browser bekommt nur eine verschleierte Programmdatei (`npm run build`).
+- „Verträge hier kündigen“ und „Vertrag widerrufen“ sind eingebaut.
 - Du verwaltest alles als **Admin** unter `/admin`.
 - Die Oberfläche ist auf **Deutsch und Englisch** umschaltbar.
 - Rechtstexte (Impressum, AGB, Widerruf, Datenschutz, Lizenzen) liegen als Entwürfe in `legal/`.
@@ -22,6 +23,7 @@ Für den Verkauf läuft StickStudio auf einem eigenen Server:
 Einrichtung, Hosting, Bezahlung und Sicherung: siehe **[server/README.md](server/README.md)**.
 
 ```bash
+npm install && npm run build
 ADMIN_EMAIL=du@deine-firma.de ADMIN_PASSWORD='ein-langes-passwort' node --no-warnings server/server.js
 # → http://localhost:8080
 ```
@@ -56,13 +58,13 @@ ADMIN_EMAIL=du@deine-firma.de ADMIN_PASSWORD='ein-langes-passwort' node --no-war
 
 ### Schriften
 
-**31 fertig digitalisierte Stickschriften** aus der Ink/Stitch-Sammlung sind eingebaut: Schreibschriften (z. B. Pacificlo, Chopin, Magnolia, Amitaclo), serifenlose Schriften (z. B. Excalibur, Medium, Geneva Rounded, Barstitch), Serifenschriften (z. B. Apex, Venezia, Violin Serif, DejaVu) und Zierschriften.
+**28 fertig digitalisierte Stickschriften** aus der Ink/Stitch-Sammlung sind eingebaut: Schreibschriften (z. B. Pacificlo, Chopin, Magnolia, Amitaclo), serifenlose Schriften (z. B. Excalibur, Medium, Geneva Rounded, Barstitch), Serifenschriften (z. B. Apex, Venezia, Violin Serif, DejaVu) und Zierschriften.
 Profis haben sie Satinsäule für Satinsäule von Hand gesetzt, samt Stichrichtung, Unterlage und Reihenfolge. Deshalb sticken sie deutlich sauberer als automatisch umgewandelte Schriften.
 Sie werden erst geladen, wenn man sie auswählt. Der Dialog zeigt die empfohlene Größe, die Lizenz und fehlende Zeichen an.
 Herkunft und Lizenzen: `fonts/inkstitch/README.md`.
 
 Zusätzlich gibt es zehn TrueType-Schriften und funktionieren auf jedem PC, auch ohne Internet:
-(Anton, Bebas Neue, Archivo Black, Passion One, Righteous, Alfa Slab One, Graduate, Pacifico, Kaushan Script, Great Vibes; SIL Open Font License, siehe `fonts/LIZENZEN.txt`) sowie die Systemschriften des PCs. Diese werden beim Einfügen automatisch in Satinsäulen umgewandelt.
+(Anton, Bebas Neue, Archivo Black, Passion One, Righteous, Alfa Slab One, Graduate, Pacifico, Great Vibes; SIL Open Font License, siehe `fonts/LIZENZEN.txt`) sowie die Systemschriften des PCs. Diese werden beim Einfügen automatisch in Satinsäulen umgewandelt.
 
 - Einstellbar sind Höhe, Zeichenabstand und **Bogen** (Radius in mm; negativ = Text unten am Kreis).
 - **Stichart Satin**: Für jeden Buchstaben wird die Mittellinie der Striche berechnet. Daraus entstehen Satinsäulen, deren Stiche immer quer zur Strichrichtung liegen, auch in Kurven und Bögen. Es werden „Säule A“-Objekte, die sich mit *Umformen* nachbearbeiten lassen.
@@ -151,7 +153,7 @@ Die Grenzwerte gelten für jede Stickmaschine und lassen sich unter *Einstellung
 - **Haushaltsmaschine** (Brother, Bernina, Janome, Pfaff, Husqvarna …)
 
 Dort lässt sich das Pop-up auch abschalten.
-Die Prüfung wurde an allen 31 eingebauten Profi-Schriften abgestimmt, damit sie bei sauber digitalisierten Motiven nicht grundlos warnt.
+Die Prüfung wurde an allen eingebauten Profi-Schriften abgestimmt, damit sie bei sauber digitalisierten Motiven nicht grundlos warnt.
 
 ### Ideen aus Ink/Stitch
 

@@ -9,4 +9,4 @@ Copyright (c) 2011, Pablo Impallari (www.impallari.com|impallari@gmail.com),
 Copyright (c) 2011 by Brian J. Bonislawsky DBA Astigmatic (AOETI)
 Copyright (c) 2011 Fontstage (info@fontstage.com), with Reserved Font Names, 'Passion'
 
-Alle Schriften: SIL Open Font License 1.1 (Volltext siehe OFL.txt). Anton, Bebas Neue, Archivo Black, Pacifico, Kaushan Script und Great Vibes wurden auf den Latin-1-Zeichensatz reduziert; Schriften mit "Reserved Font Name" (Alfa Slab One, Graduate, Passion One, Righteous) liegen unverändert bei.
+Alle Schriften: SIL Open Font License 1.1 (Volltext siehe OFL.txt). Anton, Bebas Neue, Archivo Black, Pacifico und Great Vibes wurden auf den Latin-1-Zeichensatz reduziert; Schriften mit "Reserved Font Name" (Alfa Slab One, Graduate, Passion One, Righteous) liegen unverändert bei.

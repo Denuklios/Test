@@ -6,7 +6,10 @@ Die Stickdateien (DST/PES/JEF/EXP) erzeugt nur der Server. Der Formatcode wird n
 - **Konten:** Registrierung mit Zustimmung zu AGB und Datenschutz, Anmeldung, Abmeldung, „Passwort vergessen“, Passwort ändern, Konto löschen und Datenauskunft (DSGVO).
 - **Testversion:** gilt nach der Registrierung sofort, Standard 14 Tage, in der Verwaltung einstellbar.
 - **Nach Ablauf:** Kunden können ihre Designs nur noch ansehen. Speichern, Export, Teamnamen und Mehrfach-Rahmen sind gesperrt, auch auf dem Server (HTTP 402).
-- **Lizenz:** wird automatisch über Lemon Squeezy verlängert (Webhook) oder von Hand in der Verwaltung („+1 Jahr“, Datum frei setzen).
+- **Abo:** Kunden schließen ein Abo über Lemon Squeezy ab. Die Lizenz folgt automatisch dem Abo: aktiv, gekündigt (Zugang bis zum Ende des bezahlten Zeitraums) oder beendet. Lizenzen lassen sich zusätzlich von Hand in der Verwaltung setzen.
+- **„Verträge hier kündigen“ (§ 312k BGB) und „Vertrag widerrufen“:** Beide sind auf jeder Seite verlinkt und ohne Anmeldung nutzbar, mit Bestätigungsseite und Eingangsbestätigung per E-Mail. Mit `LEMONSQUEEZY_API_KEY` wird eine Kündigung direkt bei Lemon Squeezy ausgeführt, sonst erscheint sie als offener Fall in der Verwaltung.
+- **Verlängerungshinweis:** Der Server schickt etwa zwei Wochen vor jeder Verlängerung automatisch eine E-Mail (AGB § 5 Abs. 5).
+- **Code-Schutz:** Der Browser bekommt nur eine verschleierte Programmdatei, nie die lesbaren Quelltexte. Jede ausgelieferte Kopie trägt eine Kennung des Kontos (siehe unten).
 - **Verwaltung (`/admin`):** Benutzer suchen, sperren und verlängern, Reset-Link erzeugen, Firmendaten für die Rechtstexte pflegen, Protokoll einsehen.
 - **Rechtstexte:** Impressum, AGB, Widerruf, Datenschutz und Lizenzen auf Deutsch und Englisch, ausgeliefert unter `/legal/…`. Die Platzhalter werden aus den Firmendaten gefüllt (siehe `legal/README.md`).
 - **Sprache:** Deutsch und Englisch, umschaltbar oben rechts. Die Wahl wird am Konto gespeichert.
@@ -18,6 +21,15 @@ Die Stickdateien (DST/PES/JEF/EXP) erzeugt nur der Server. Der Formatcode wird n
 - **Optional E-Mail-Versand per SMTP**, für Bestätigungen und „Passwort vergessen“.
 
 ## Starten
+
+Einmalig die verschleierte Programmdatei bauen (braucht Internet für `npm install`):
+
+```bash
+npm install
+npm run build        # erzeugt dist/app.<…>.js – nach jeder Programmänderung neu bauen
+```
+
+Ohne Build läuft der Server auch, liefert dann aber die lesbaren Quelltexte aus. Das ist nur für die Entwicklung gedacht.
 
 ```bash
 ADMIN_EMAIL=du@deine-firma.de ADMIN_PASSWORD='ein-langes-passwort' \
@@ -39,13 +51,15 @@ Das Admin-Konto läuft nie ab. Das Passwort danach unter „Mein Konto“ änder
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Admin-Konto beim ersten Start | – |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASS`, `MAIL_FROM` | E-Mail-Versand (Port 465 = TLS, 587 = STARTTLS). Ohne `SMTP_HOST` erscheinen die Mails nur im Log. | – |
 | `LEMONSQUEEZY_SECRET` | Signatur-Geheimnis des Lemon-Squeezy-Webhooks | – |
+| `LEMONSQUEEZY_API_KEY` | API-Schlüssel von Lemon Squeezy. Damit werden Kündigungen über „Verträge hier kündigen“ und beim Löschen eines Kontos automatisch ausgeführt. | – |
+| `MARK_SECRET` | Geheimnis für die Konto-Kennung in der Programmdatei. Setzen und nie ändern, sonst passen alte Kennungen nicht mehr. | aus `DATA_DIR` abgeleitet |
 | `COOKIE_SECURE` | `1` = Cookie nur über HTTPS | automatisch, wenn `BASE_URL` mit `https://` beginnt |
 | `TRUST_PROXY` | `1`, wenn der Server hinter einem Reverse-Proxy läuft (echte IP für die Anmeldesperre) | – |
 | `REGISTRATION` | `closed` = keine neuen Registrierungen, Konten nur über die Verwaltung | offen |
 | `MAX_PROJECTS` | maximale Zahl Designs pro Konto | `2000` |
 | `NODE_ENV` | `production` = Programmseite zwischenspeichern | – |
 
-Testtage, Lizenzdauer, Kauf-Link, Preis und Firmendaten werden in der **Verwaltung → Einstellungen & Firmendaten** gepflegt, nicht über Umgebungsvariablen.
+Testtage, Abo-Link, Preis und Firmendaten werden in der **Verwaltung → Einstellungen & Firmendaten** gepflegt, nicht über Umgebungsvariablen.
 
 ## Mit Docker
 
@@ -93,18 +107,25 @@ WantedBy=multi-user.target
 
 Geheimnisse wie `ADMIN_PASSWORD`, `SMTP_PASS` und `LEMONSQUEEZY_SECRET` gehören in `/etc/stickstudio.env`. Die Datei darf nur für root lesbar sein (`chmod 600`).
 
-## Bezahlung mit Lemon Squeezy
+## Abo mit Lemon Squeezy
 
 Lemon Squeezy tritt als Verkäufer auf (Merchant of Record) und kümmert sich um Rechnungen und die Umsatzsteuer in der EU.
 
-1. Bei Lemon Squeezy ein Produkt anlegen, z. B. „StickStudio 1 Jahr“, und den **Checkout-Link** in der Verwaltung als Kauf-Link eintragen.
-   Der Server hängt die E-Mail und die Konto-Nummer des Kunden automatisch an.
+1. Bei Lemon Squeezy ein **Abo-Produkt** anlegen (*Subscription*, z. B. monatlich oder jährlich) und den **Checkout-Link** in der Verwaltung als Abo-Link eintragen.
+   Der Server hängt die E-Mail und die Konto-Nummer des Kunden automatisch an, damit das Abo dem richtigen Konto zugeordnet wird.
 2. Unter *Settings → Webhooks* einen Webhook anlegen:
    - **URL:** `https://stick.deine-firma.de/api/webhook/lemonsqueezy`
-   - **Ereignisse:** `order_created`, `subscription_payment_success`, `order_refunded`
+   - **Ereignisse:** alle `subscription_*`-Ereignisse (created, updated, cancelled, resumed, expired, paused, unpaused, payment_success, payment_failed, payment_recovered) sowie `order_refunded`
    - **Signing secret:** selbst wählen und als `LEMONSQUEEZY_SECRET` setzen
-3. Nach jeder Zahlung verlängert sich die Lizenz automatisch um die eingestellte Dauer (Standard 365 Tage).
-   Erstattungen erscheinen im Protokoll. Die Lizenz dann bei Bedarf von Hand anpassen.
+3. Unter *Settings → API* einen Schlüssel anlegen und als `LEMONSQUEEZY_API_KEY` setzen. Das ist optional, aber empfohlen: Dann wird eine Kündigung über „Verträge hier kündigen“ sofort bei Lemon Squeezy ausgeführt.
+4. **Was dann automatisch passiert:**
+   - **Abo aktiv:** Die Lizenz gilt bis zur nächsten Verlängerung plus 3 Tage Puffer.
+   - **Gekündigt:** Der Zugang bleibt bis zum Ende des bezahlten Zeitraums, danach gilt „nur ansehen“.
+   - **Zahlung fehlgeschlagen:** Der Zugang bleibt, solange Lemon Squeezy die Zahlung erneut versucht.
+   - **Abo beendet oder pausiert:** Es gilt sofort „nur ansehen“.
+   - **Konto gelöscht:** Das Abo wird gekündigt.
+   - **Abo verwalten:** Kunden ändern Zahlungsart und sehen Rechnungen im Kundenportal von Lemon Squeezy. Der Knopf „Abo verwalten“ führt direkt dorthin.
+5. **Widerruf und Erstattung** bearbeitest du von Hand. Ein Widerruf erscheint in der Verwaltung unter „Kündigungen & Widerrufe“. Dort das Abo bei Lemon Squeezy beenden und den Betrag (ggf. anteilig) erstatten, dann als erledigt markieren.
 
 Ohne Zahlungsanbieter verlängerst du die Lizenzen einfach selbst in der Verwaltung.
 
@@ -125,8 +146,12 @@ Die Sicherungen außerhalb des Servers aufbewahren und alte nach 30 Tagen lösch
 - Die Anmeldung wird nach mehreren Fehlversuchen gebremst.
 - Schutz vor fremden Seiten: Die API verlangt eine eigene Kopfzeile, und der Server prüft die Herkunft (Origin).
 - Strenge Content-Security-Policy, keine externen Skripte oder Schriften.
-- **Grenze:** Das Zeichenprogramm selbst läuft im Browser, sein JavaScript ist also für angemeldete Nutzer einsehbar.
-  Ohne gültige Lizenz entstehen aber keine Stickdateien, weil Export und Speichern nur auf dem Server laufen.
+- **Programmcode:** Der Browser bekommt nur eine zusammengefasste, verschleierte Datei. Namen sind unkenntlich und Texte verschlüsselt abgelegt.
+  Die lesbaren Quelltexte und der Code für die Stickformate verlassen den Server nie. Die Datei gibt es nur nach Anmeldung.
+- **Konto-Kennung:** Jede ausgelieferte Programmdatei beginnt mit einer Kennung des Kontos, z. B. `lizenziert für Konto 3f9a…`.
+  Taucht eine Kopie irgendwo auf, gibst du die Kennung in der Verwaltung ins Suchfeld ein und siehst, von welchem Konto sie stammt.
+- **Grenze:** Was im Browser läuft, kann man grundsätzlich mitschneiden. Eine abgespeicherte Kopie ist aber wertlos:
+  Ohne Server und gültiges Abo gibt es keinen Export, kein Speichern und keine Stickdatei.
 
 ## Test
 

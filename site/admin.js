@@ -13,15 +13,29 @@
   const date = (ms) => (ms ? new Date(ms).toLocaleDateString(de ? 'de-DE' : 'en-GB') : '–');
   const dIn = (ms) => (ms ? new Date(ms).toISOString().slice(0, 10) : '');
   const status = (u) => (u.role === 'admin' ? `<span class="pill admin">Admin</span>` : u.blocked ? `<span class="pill bad">${T('gesperrt', 'blocked')}</span>`
-    : u.license.viewOnly ? `<span class="pill bad">${T('abgelaufen', 'expired')}</span>` : u.license.trial ? `<span class="pill trial">${T('Test', 'trial')} · ${u.license.daysLeft} ${T('T.', 'd')}</span>` : `<span class="pill ok">${T('Lizenz', 'licensed')} · ${u.license.daysLeft} ${T('T.', 'd')}</span>`);
+    : u.license.viewOnly ? `<span class="pill bad">${T('abgelaufen', 'expired')}</span>` : u.license.trial ? `<span class="pill trial">${T('Test', 'trial')} · ${u.license.daysLeft} ${T('T.', 'd')}</span>` : `<span class="pill ok">${u.sub_id ? 'Abo' : T('Lizenz', 'licensed')} · ${u.license.daysLeft} ${T('T.', 'd')}</span>`)
+    + (u.sub_status && u.role !== 'admin' ? `<br><span class="muted">Abo: ${esc(SUB[u.sub_status] || u.sub_status)}</span>` : '');
+  const SUB = { active: T('aktiv', 'active'), on_trial: T('Probezeit', 'on trial'), past_due: T('Zahlung offen', 'payment due'), cancelled: T('gekündigt', 'cancelled'), expired: T('beendet', 'expired'), unpaid: T('unbezahlt', 'unpaid'), paused: T('pausiert', 'paused') };
 
   root.innerHTML = `<h1>${T('Verwaltung', 'Administration')}</h1><div class="tabs">
     <button data-tab="dash" class="on">${T('Übersicht', 'Overview')}</button><button data-tab="users">${T('Benutzer & Lizenzen', 'Users & licenses')}</button>
-    <button data-tab="settings">${T('Einstellungen & Firmendaten', 'Settings & company data')}</button><button data-tab="log">${T('Protokoll', 'Log')}</button></div><div id="tab"></div>
+    <button data-tab="settings">${T('Einstellungen & Firmendaten', 'Settings & company data')}</button><button data-tab="requests">${T('Kündigungen & Widerrufe', 'Cancellations & withdrawals')}</button><button data-tab="log">${T('Protokoll', 'Log')}</button></div><div id="tab"></div>
     <dialog id="dlg"></dialog>`;
   const tab = document.getElementById('tab'), dlg = document.getElementById('dlg');
-  const tabs = { dash, users, settings, log };
+  const tabs = { dash, users, settings, log, requests };
   root.querySelectorAll('[data-tab]').forEach((b) => (b.onclick = () => { root.querySelectorAll('[data-tab]').forEach((x) => x.classList.toggle('on', x === b)); tabs[b.dataset.tab](); }));
+
+  async function requests() {
+    const list = await api('/api/admin/requests');
+    tab.innerHTML = list.length ? `<table class="list"><tr><th>${T('Eingang', 'Received')}</th><th>${T('Art', 'Type')}</th><th>${T('Kunde', 'Customer')}</th><th>${T('Angaben', 'Details')}</th><th>Status</th></tr>
+      ${list.map((r) => `<tr><td>${new Date(r.at).toLocaleString(de ? 'de-DE' : 'en-GB')}</td><td>${r.kind === 'cancel' ? T('Kündigung', 'Cancellation') : T('Widerruf', 'Withdrawal')}</td>
+      <td>${esc(r.name)}<br><span class="muted">${esc(r.email)}${r.account ? '' : ` – ${T('kein Konto gefunden', 'no account found')}`}</span></td>
+      <td class="muted">${r.info.filter(([k]) => !/^(Name|E-Mail|Email|Eingegangen|Received)/.test(k)).map(([k, v]) => `${esc(k)}: ${esc(v)}`).join('<br>')}</td>
+      <td>${r.status === 'done' ? `<span class="pill ok">${T('erledigt', 'done')}</span><br><span class="muted">${esc(r.result)}</span>` : `<span class="pill bad">${T('offen', 'open')}</span><br><button data-done="${r.id}">${T('Als erledigt markieren', 'Mark as done')}</button>`}</td></tr>`).join('')}</table>
+      <p class="muted">${T('Kündigung: Abo bei Lemon Squeezy zum Laufzeitende beenden (passiert automatisch, wenn LEMONSQUEEZY_API_KEY gesetzt ist). Widerruf: Abo beenden und Betrag (ggf. anteilig) erstatten.', 'Cancellation: end the subscription at Lemon Squeezy at the end of the term (automatic if LEMONSQUEEZY_API_KEY is set). Withdrawal: end the subscription and refund (pro rata if applicable).')}</p>`
+      : `<p class="muted">${T('Keine Kündigungen oder Widerrufe.', 'No cancellations or withdrawals.')}</p>`;
+    tab.querySelectorAll('[data-done]').forEach((b) => (b.onclick = async () => { await api('/api/admin/requests/' + b.dataset.done, { method: 'POST', body: { done: true } }); requests(); }));
+  }
 
   async function dash() {
     const s = await api('/api/admin/stats');
@@ -29,14 +43,16 @@
     const todo = [];
     if (!set.mail) todo.push(T('E-Mail-Versand (SMTP) ist nicht eingerichtet – „Passwort vergessen“ und E-Mail-Bestätigung funktionieren erst danach.', 'Email (SMTP) is not set up – “forgot password” and email confirmation only work after that.'));
     if (!set.settings.company || !set.settings.street) todo.push(T('Firmendaten für Impressum und Rechtstexte fehlen (Reiter „Einstellungen“).', 'Company data for the legal notice and legal texts is missing (“Settings” tab).'));
-    if (!set.settings.buy_url) todo.push(T('Kein Kauf-Link eingetragen – Kunden sehen dann „bitte Support kontaktieren“.', 'No purchase link set – customers will be told to contact support.'));
-    if (!set.webhook) todo.push(T('Automatische Lizenzverlängerung nach Zahlung ist nicht eingerichtet (LEMONSQUEEZY_SECRET). Lizenzen dann von Hand verlängern.', 'Automatic license extension after payment is not set up (LEMONSQUEEZY_SECRET). Extend licenses manually.'));
-    tab.innerHTML = `<div class="stats"><div><b>${s.users}</b>${T('Konten', 'accounts')}</div><div><b>${s.licensed}</b>${T('mit Lizenz', 'licensed')}</div><div><b>${s.trial}</b>${T('in der Testphase', 'in trial')}</div><div><b>${s.expired}</b>${T('abgelaufen', 'expired')}</div><div><b>${s.projects}</b>${T('Designs', 'designs')}</div></div>
+    if (s.openRequests) todo.unshift(T(`${s.openRequests} offene Kündigung(en)/Widerruf(e) – bitte im Reiter „Kündigungen & Widerrufe“ bearbeiten (ggf. Abo bei Lemon Squeezy beenden bzw. erstatten).`, `${s.openRequests} open cancellation(s)/withdrawal(s) – please handle them in the “Cancellations & withdrawals” tab.`));
+    if (!set.settings.buy_url) todo.push(T('Kein Abo-Link eingetragen – Kunden sehen dann „bitte Support kontaktieren“.', 'No subscription link set – customers will be told to contact support.'));
+    if (!set.webhook) todo.push(T('Abo-Anbindung ist nicht eingerichtet (LEMONSQUEEZY_SECRET). Lizenzen dann von Hand verlängern.', 'Subscription webhook is not set up (LEMONSQUEEZY_SECRET). Extend licenses manually.'));
+    if (set.webhook && !set.lsApi) todo.push(T('Optional: LEMONSQUEEZY_API_KEY setzen – dann werden Kündigungen über „Verträge hier kündigen“ automatisch bei Lemon Squeezy ausgeführt.', 'Optional: set LEMONSQUEEZY_API_KEY so cancellations are carried out at Lemon Squeezy automatically.'));
+    tab.innerHTML = `<div class="stats"><div><b>${s.users}</b>${T('Konten', 'accounts')}</div><div><b>${s.subs}</b>${T('Abos aktiv', 'active subscriptions')}</div><div><b>${s.licensed}</b>${T('mit Lizenz', 'licensed')}</div><div><b>${s.trial}</b>${T('in der Testphase', 'in trial')}</div><div><b>${s.expired}</b>${T('abgelaufen', 'expired')}</div><div><b>${s.projects}</b>${T('Designs', 'designs')}</div></div>
       ${todo.length ? `<h2>${T('Noch zu erledigen', 'To do')}</h2><ul>${todo.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}`;
   }
 
   async function users(q = '') {
-    tab.innerHTML = `<div class="row"><input id="q" placeholder="${T('Suchen: E-Mail oder Name', 'Search: email or name')}" value="${esc(q)}" style="flex:1"><button id="new">+ ${T('Benutzer anlegen', 'Add user')}</button></div><div id="list" class="muted">…</div>`;
+    tab.innerHTML = `<div class="row"><input id="q" placeholder="${T('Suchen: E-Mail, Name oder Kennung aus einer Programmdatei', 'Search: email, name or id from a program file')}" value="${esc(q)}" style="flex:1"><button id="new">+ ${T('Benutzer anlegen', 'Add user')}</button></div><div id="list" class="muted">…</div>`;
     const list = await api('/api/admin/users?q=' + encodeURIComponent(q));
     document.getElementById('list').innerHTML = `<table class="list"><tr><th>${T('E-Mail / Name', 'Email / name')}</th><th>Status</th><th>${T('Lizenz bis', 'License until')}</th><th>${T('Test bis', 'Trial until')}</th><th>${T('Designs', 'Designs')}</th><th>${T('Letzte Anmeldung', 'Last sign-in')}</th><th></th></tr>
       ${list.map((u) => `<tr><td>${esc(u.email)}${u.name ? `<br><span class="muted">${esc(u.name)}</span>` : ''}${u.note ? `<br><span class="muted">📝 ${esc(u.note)}</span>` : ''}</td><td>${status(u)}${u.verified ? '' : `<br><span class="muted">${T('E-Mail unbestätigt', 'email unconfirmed')}</span>`}</td>
@@ -59,6 +75,7 @@
 
   function edit(u, done) {
     dlg.innerHTML = `<h2>${esc(u.email)}</h2>
+      <p class="muted">${T('Kennung', 'Id')}: <code>${esc(u.mark)}</code>${u.sub_id ? ` · Abo ${esc(u.sub_id)}: ${esc(SUB[u.sub_status] || u.sub_status)}${u.sub_renews ? ` · ${T('verlängert sich am', 'renews on')} ${date(u.sub_renews)}` : ''}${u.sub_ends ? ` · ${T('endet am', 'ends on')} ${date(u.sub_ends)}` : ''}` : ''}</p>
       <label>${T('Name / Firma', 'Name / company')}<input id="eName" value="${esc(u.name)}"></label>
       <div class="grid2"><label>${T('Lizenz gültig bis', 'License valid until')}<input type="date" id="eLic" value="${dIn(u.license_until)}"></label>
       <label>${T('Testversion bis', 'Trial until')}<input type="date" id="eTrial" value="${dIn(u.trial_until)}"></label></div>
@@ -112,7 +129,7 @@
     tab.innerHTML = `<h2>${T('Lizenz & Verkauf', 'License & sales')}</h2><div class="grid2">
       ${f('trial_days', T('Testzeitraum (Tage)', 'Trial period (days)'), T('Für neue Konten. 0 = keine Testversion.', 'For new accounts. 0 = no trial.'), 'number')}
       ${f('license_days', T('Lizenzdauer bei Kauf (Tage)', 'License length on purchase (days)'), T('Wird bei Zahlung bzw. „+1 Jahr“ gutgeschrieben.', 'Added on payment or “+1 year”.'), 'number')}</div>
-      ${f('buy_url', T('Kauf-Link (z. B. Lemon Squeezy Checkout)', 'Purchase link (e.g. Lemon Squeezy checkout)'), T('Kunden-E-Mail und Konto-Nummer werden bei Lemon Squeezy automatisch angehängt.', 'Customer email and account id are appended automatically for Lemon Squeezy.'))}
+      ${f('buy_url', T('Abo-Link (Lemon Squeezy Checkout des Abo-Produkts)', 'Subscription link (Lemon Squeezy checkout of the subscription product)'), T('Kunden-E-Mail und Konto-Nummer werden bei Lemon Squeezy automatisch angehängt.', 'Customer email and account id are appended automatically for Lemon Squeezy.'))}
       <div class="grid2">${f('price_text_de', 'Preis (Text, deutsch)', 'z. B. „99 € pro Jahr inkl. MwSt.“')}${f('price_text_en', 'Price (text, English)', 'e.g. “€99 per year incl. VAT”')}
       ${f('license_term_de', 'Laufzeit (deutsch)')}${f('license_term_en', 'Term (English)')}</div>
       <p class="muted">${T('Zahlungs-Webhook', 'Payment webhook')}: ${webhook ? '✓' : '✗'} <code>${esc(webhookUrl)}</code><br>${T('E-Mail-Versand', 'Email sending')}: ${mail ? '✓' : '✗'} ${mail ? `<button id="testMail">${T('Test-E-Mail an mich', 'Send test email to me')}</button>` : ''}<br>${T('Adresse', 'Address')}: <code>${esc(baseUrl)}</code></p>

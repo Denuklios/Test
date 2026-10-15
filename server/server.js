@@ -109,7 +109,8 @@ function license(u) {
     viewOnly: !active,
   };
 }
-const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, lang: u.lang, verified: !!u.verified, created: u.created, license: license(u) });
+const subInfo = (u) => (u.sub_id ? { status: u.sub_status, renews: u.sub_renews || null, ends: u.sub_ends || null, portal: u.sub_portal || '' } : null);
+const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, lang: u.lang, verified: !!u.verified, created: u.created, license: license(u), sub: subInfo(u) });
 
 /* ---------- Schutz vor zu vielen Versuchen ---------- */
 const hits = new Map();
@@ -177,7 +178,7 @@ const SERVER_ONLY = new Set(['js/dst_io.js', 'js/formats.js']);
 const APP_DIRS = ['js/', 'css/', 'fonts/'];
 function staticFile(res, rel, cacheable) {
   const norm = path.posix.normalize(rel).replace(/^\/+/, '');
-  if (norm.includes('..') || SERVER_ONLY.has(norm)) return false;
+  if (norm.includes('..') || SERVER_ONLY.has(norm) || sourceBlocked(norm)) return false;
   const file = path.join(ROOT, norm);
   if (!file.startsWith(ROOT + path.sep)) return false;
   let st;
@@ -189,19 +190,41 @@ function staticFile(res, rel, cacheable) {
   return true;
 }
 
-// Programmseite: index.html ohne den Formatcode, dafür mit Online-Anbindung
+// Programmseite: index.html ohne den Formatcode, dafür mit Online-Anbindung.
+// Gibt es einen Build (npm run build → dist/), wird statt der lesbaren Quelltexte nur EINE verschleierte Datei geladen.
 let indexCache = null;
+let bundle = null; // { name, code, data: [...] }
+setImmediate(() => loadBundle());
+function loadBundle() {
+  try {
+    const man = JSON.parse(fs.readFileSync(path.join(ROOT, 'dist', 'manifest.json'), 'utf8'));
+    bundle = { name: man.bundle, code: fs.readFileSync(path.join(ROOT, 'dist', man.bundle), 'utf8'), data: man.data || [] };
+  } catch (e) { bundle = null; }
+  return bundle;
+}
 function appHtml() {
   if (!indexCache || ENV.NODE_ENV !== 'production') {
     let h = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-    h = h.replace(/\s*<script src="js\/(dst_io|formats)\.js"><\/script>/g, '');
-    // Konfiguration vor der Sprachumschaltung (Kontosprache), Online-Anbindung vor dem Programm
-    h = h.replace('<script src="js/i18n.js"></script>', '<script src="/config.js"></script>\n<script src="js/i18n.js"></script>');
-    h = h.replace('<script src="js/app.js"></script>', '<script src="js/online.js"></script>\n<script src="js/app.js"></script>');
+    if (ENV.NODE_ENV !== 'production' || !bundle) loadBundle();
+    if (bundle) {
+      // alle Programm-Skripte durch die eine Datei ersetzen; Schriftdaten bleiben eigene Dateien
+      h = h.replace(/\s*<script src="js\/[^"]+"><\/script>/g, '');
+      h = h.replace('</body>', ['/config.js', ...bundle.data, '/app/' + bundle.name].map((src) => `<script src="${src}"></script>\n`).join('') + '</body>');
+    } else {
+      h = h.replace(/\s*<script src="js\/(dst_io|formats)\.js"><\/script>/g, '');
+      // Konfiguration vor der Sprachumschaltung (Kontosprache), Online-Anbindung vor dem Programm
+      h = h.replace('<script src="js/i18n.js"></script>', '<script src="/config.js"></script>\n<script src="js/i18n.js"></script>');
+      h = h.replace('<script src="js/app.js"></script>', '<script src="js/online.js"></script>\n<script src="js/app.js"></script>');
+    }
     indexCache = h;
   }
   return indexCache;
 }
+// Mit Build: lesbare Programmdateien werden nicht mehr ausgeliefert, nur Daten (Schriften, pdf.js)
+const sourceBlocked = (rel) => !!bundle && /^js\/[^/]+\.js$/.test(rel) && !bundle.data.includes(rel);
+// Jede ausgelieferte Kopie trägt eine Kennung des Kontos (Weitergabe nachvollziehbar)
+const mark = (u) => crypto.createHmac('sha256', SECRET_MARK).update(String(u.id)).digest('hex').slice(0, 16);
+const SECRET_MARK = ENV.MARK_SECRET || crypto.createHash('sha256').update(DATA_DIR + 'stickstudio').digest('hex');
 
 /* ---------- Konten ---------- */
 function createUser({ email, password, name = '', lang = 'de', role = 'user', verified = 0, accepted = 0 }) {
@@ -238,7 +261,64 @@ async function sendVerify(u, lang) {
     lang === 'de' ? `Hallo,\n\nbitte bestätige deine E-Mail-Adresse für StickStudio:\n${link}\n\nDer Link ist 3 Tage gültig.\n` : `Hello,\n\nplease confirm your email address for StickStudio:\n${link}\n\nThe link is valid for 3 days.\n`);
 }
 
-/* ---------- Lemon Squeezy (Zahlung) – vorbereitet ---------- */
+/* ---------- Abo über Lemon Squeezy ---------- */
+const GRACE = 3 * DAY; // Puffer, falls die Verlängerungszahlung etwas später eingeht
+// Abo-Stand von Lemon Squeezy übernehmen; die Lizenz folgt dem Abo
+function applySubscription(u, id, a) {
+  const ts = (v) => (v ? +new Date(v) || 0 : 0);
+  const status = String(a.status || '');
+  const renews = ts(a.renews_at), ends = ts(a.ends_at);
+  let until = u.license_until;
+  if (['active', 'on_trial', 'past_due'].includes(status)) until = Math.max(renews ? renews + GRACE : 0, status === 'past_due' ? u.license_until : 0, now() + DAY);
+  else if (status === 'cancelled') until = ends || renews || u.license_until;
+  else if (['expired', 'unpaid', 'paused'].includes(status)) until = Math.min(u.license_until, now());
+  const portal = (a.urls && a.urls.customer_portal) || u.sub_portal || '';
+  db.prepare('UPDATE users SET sub_id=?, sub_status=?, sub_renews=?, sub_ends=?, sub_portal=?, license_until=? WHERE id=?').run(String(id), status, renews, ends, portal, until, u.id);
+  logEvent(u.id, 'abo', `${status} · Lizenz bis ${new Date(until).toISOString().slice(0, 10)}`);
+}
+
+// Kündigung direkt bei Lemon Squeezy (wenn LEMONSQUEEZY_API_KEY gesetzt): endet zum Ende des bezahlten Zeitraums
+async function lsCancel(subId) {
+  if (!ENV.LEMONSQUEEZY_API_KEY || !subId) return null;
+  try {
+    const r = await fetch('https://api.lemonsqueezy.com/v1/subscriptions/' + encodeURIComponent(subId), {
+      method: 'DELETE', headers: { Accept: 'application/vnd.api+json', Authorization: 'Bearer ' + ENV.LEMONSQUEEZY_API_KEY },
+    });
+    if (!r.ok) return null;
+    return ((await r.json()).data || {}).attributes || null;
+  } catch (e) { return null; }
+}
+
+// Hinweis vor der Verlängerung (AGB § 5 Abs. 5: mindestens zwei Wochen vorher)
+async function renewalReminders() {
+  if (!mail.enabled()) return;
+  const t = now();
+  const s = settings();
+  const rows = db.prepare("SELECT * FROM users WHERE sub_status = 'active' AND sub_renews > ? AND sub_renews < ? AND sub_reminded != sub_renews").all(t, t + 15 * DAY);
+  for (const u of rows) {
+    const de = u.lang !== 'en';
+    const d = new Date(u.sub_renews).toLocaleDateString(de ? 'de-DE' : 'en-GB');
+    const price = (de ? s.price_text_de : s.price_text_en) || '';
+    const ok = await mail.send(u.email, de ? 'StickStudio – dein Abo verlängert sich bald' : 'StickStudio – your subscription renews soon',
+      de ? `Hallo,\n\ndein StickStudio-Abo verlängert sich am ${d}${price ? ` (${price})` : ''}.\nWenn du nicht verlängern möchtest, kannst du jederzeit kündigen: ${BASE_URL}/kuendigen\n${u.sub_portal ? `Abo verwalten: ${u.sub_portal}\n` : ''}\nViele Grüße\n${s.company || 'StickStudio'}\n`
+        : `Hello,\n\nyour StickStudio subscription renews on ${d}${price ? ` (${price})` : ''}.\nIf you do not want to renew, you can cancel at any time: ${BASE_URL}/kuendigen\n${u.sub_portal ? `Manage subscription: ${u.sub_portal}\n` : ''}\nBest regards\n${s.company || 'StickStudio'}\n`);
+    if (ok) db.prepare('UPDATE users SET sub_reminded = ? WHERE id = ?').run(u.sub_renews, u.id);
+  }
+}
+
+// Kündigung/Widerruf: Bestätigung an den Kunden, Info an dich
+async function confirmRequest(kind, to, lang, lines) {
+  const s = settings();
+  const de = lang === 'de';
+  const title = kind === 'cancel' ? (de ? 'Eingangsbestätigung deiner Kündigung' : 'Confirmation of your cancellation') : (de ? 'Eingangsbestätigung deines Widerrufs' : 'Confirmation of your withdrawal');
+  const body = lines.map(([k, v]) => `${k}: ${v}`).join('\n');
+  const sent = await mail.send(to, 'StickStudio – ' + title, `${de ? 'Hallo' : 'Hello'},\n\n${title}:\n\n${body}\n\n${de ? 'Viele Grüße' : 'Best regards'}\n${s.company || 'StickStudio'}\n`);
+  const owner = s.support_email || s.email;
+  if (owner) await mail.send(owner, `StickStudio – ${kind === 'cancel' ? 'Kündigung' : 'Widerruf'} von ${to}`, body + `\n\nVerwaltung: ${BASE_URL}/admin`);
+  return sent && mail.enabled();
+}
+
+/* ---------- Lizenz von Hand verlängern (Verwaltung) ---------- */
 function extendLicense(userId, days, reason) {
   const u = db.prepare('SELECT * FROM users WHERE id = ?').get(userId);
   if (!u) return false;
@@ -339,6 +419,39 @@ async function route(req, res) {
     logEvent(id, 'password-reset');
     return page(pages.info(lang, pages.T[lang].resetTitle, pages.T[lang].resetDone));
   }
+  if ((p === '/kuendigen' || p === '/widerrufen') && m === 'GET') {
+    const v = { user, name: user ? user.name : '', email: user ? user.email : '' };
+    return page(p === '/kuendigen' ? pages.cancelForm(lang, v) : pages.withdrawForm(lang, v));
+  }
+  if ((p === '/kuendigen' || p === '/widerrufen') && m === 'POST') {
+    const f = await readForm(req);
+    const kind = p === '/kuendigen' ? 'cancel' : 'withdraw';
+    const t = pages.T[lang];
+    const v = { user, name: String(f.name || '').trim().slice(0, 200), email: String(f.email || '').trim().toLowerCase().slice(0, 200), ref: String(f.ref || '').slice(0, 100),
+      kind: f.kind === 'extraordinary' ? 'extraordinary' : 'ordinary', reason: String(f.reason || '').slice(0, 2000), when: f.when === 'date' ? 'date' : 'next', date: String(f.date || '').slice(0, 10), ordered: String(f.ordered || '').slice(0, 10) };
+    const form = (m2, code) => page(kind === 'cancel' ? pages.cancelForm(lang, v, m2) : pages.withdrawForm(lang, v, m2), code);
+    if (!v.name || !validEmail(v.email)) return form({ text: t.required }, 400);
+    if (limited(kind + ':' + ipOf(req), 10, 60 * 60e3)) return form({ text: lang === 'de' ? 'Zu viele Anfragen. Bitte später erneut versuchen.' : 'Too many requests. Please try again later.' }, 429);
+    const at = new Date();
+    const atText = at.toLocaleString(lang === 'de' ? 'de-DE' : 'en-GB', { timeZone: 'Europe/Berlin' }) + (lang === 'de' ? ' Uhr' : ' (Berlin time)');
+    const lines = kind === 'cancel'
+      ? [[t.contract, t.contractName], [t.kind, v.kind === 'extraordinary' ? t.extraordinary : t.ordinary], ...(v.reason ? [[lang === 'de' ? 'Grund' : 'Reason', v.reason]] : []),
+        [t.when, v.when === 'date' && v.date ? v.date : t.nextPossible], [lang === 'de' ? 'Name' : 'Name', v.name], [t.email, v.email], ...(v.ref ? [[t.ref, v.ref]] : []), [lang === 'de' ? 'Eingegangen am' : 'Received on', atText]]
+      : [[t.statement, t.withdrawStatement], [lang === 'de' ? 'Name' : 'Name', v.name], [t.email, v.email], ...(v.ordered ? [[t.orderedOn, v.ordered]] : []), ...(v.ref ? [[t.ref, v.ref]] : []), [lang === 'de' ? 'Eingegangen am' : 'Received on', atText]];
+    const acc = (user && user.email === v.email ? user : null) || db.prepare('SELECT * FROM users WHERE email = ?').get(v.email);
+    let result = '';
+    // ordentliche Kündigung: direkt bei Lemon Squeezy beenden, wenn möglich
+    if (kind === 'cancel' && v.kind === 'ordinary' && v.when === 'next' && acc && acc.sub_id) {
+      const a = await lsCancel(acc.sub_id);
+      if (a) { applySubscription(acc, acc.sub_id, a); result = 'automatisch bei Lemon Squeezy gekündigt'; }
+    }
+    db.prepare('INSERT INTO requests(kind, user_id, name, email, info, status, result, at) VALUES(?,?,?,?,?,?,?,?)')
+      .run(kind, acc ? acc.id : null, v.name, v.email, JSON.stringify(lines), result ? 'done' : 'open', result, at.getTime());
+    logEvent(acc ? acc.id : null, kind === 'cancel' ? 'kuendigung' : 'widerruf', `${v.email}${result ? ' – ' + result : ' – bitte bearbeiten'}`);
+    const mailed = await confirmRequest(kind, v.email, lang, lines);
+    return page(pages.receipt(lang, kind === 'cancel' ? t.cancelDoneTitle : t.withdrawDoneTitle, (kind === 'cancel' ? t.cancelDone : t.withdrawDone).replace('{{at}}', atText), lines,
+      mailed ? t.mailSent.replace('{{email}}', v.email) : t.mailOff, user));
+  }
   if (p === '/logout' && m === 'POST') {
     const tok = cookies(req).sid;
     if (tok) db.prepare('DELETE FROM sessions WHERE hash = ?').run(sha(tok));
@@ -355,18 +468,25 @@ async function route(req, res) {
     if (sig.length !== calc.length || !crypto.timingSafeEqual(Buffer.from(sig), Buffer.from(calc))) return json(res, 401, { error: 'bad signature' });
     let ev;
     try { ev = JSON.parse(raw.toString('utf8')); } catch (e) { return json(res, 400, { error: 'bad json' }); }
-    const name = ev.meta && ev.meta.event_name;
-    const attrs = (ev.data && ev.data.attributes) || {};
+    const name = String((ev.meta && ev.meta.event_name) || '');
+    const data = ev.data || {};
+    const attrs = data.attributes || {};
     const custom = (ev.meta && ev.meta.custom_data) || {};
     const email = String(attrs.user_email || attrs.customer_email || '').toLowerCase();
     let u = custom.user_id ? db.prepare('SELECT * FROM users WHERE id = ?').get(+custom.user_id) : null;
+    if (!u && data.type === 'subscriptions' && data.id) u = db.prepare('SELECT * FROM users WHERE sub_id = ?').get(String(data.id));
+    if (!u && attrs.subscription_id) u = db.prepare('SELECT * FROM users WHERE sub_id = ?').get(String(attrs.subscription_id));
     if (!u && email) u = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-    if (['order_created', 'subscription_payment_success'].includes(name) && u) {
-      if (name === 'order_created' && attrs.status && attrs.status !== 'paid') return json(res, 200, { ok: true, ignored: 'not paid' });
-      extendLicense(u.id, +s.license_days || 365, 'Zahlung ' + name);
-    } else if (['order_refunded'].includes(name) && u) {
+    if (!u) logEvent(null, 'webhook', `${name} (kein Konto gefunden: ${email})`);
+    else if (data.type === 'subscriptions' && name.startsWith('subscription_')) applySubscription(u, data.id, attrs);
+    else if (name === 'subscription_payment_success') {
+      // Zahlung eingegangen – Laufzeit folgt mit subscription_updated; bis dahin mindestens bis zur nächsten Verlängerung freischalten
+      const fresh = db.prepare('SELECT * FROM users WHERE id = ?').get(u.id);
+      if (fresh.sub_renews && fresh.license_until < fresh.sub_renews + GRACE) db.prepare('UPDATE users SET license_until = ? WHERE id = ?').run(fresh.sub_renews + GRACE, u.id);
+      logEvent(u.id, 'zahlung', name);
+    } else if (name === 'order_refunded') {
       logEvent(u.id, 'refund', 'Erstattung gemeldet – Lizenz bitte prüfen');
-    } else logEvent(u ? u.id : null, 'webhook', `${name} (kein Konto gefunden: ${email})`);
+    } else logEvent(u.id, 'webhook', name);
     return json(res, 200, { ok: true });
   }
 
@@ -381,6 +501,11 @@ async function route(req, res) {
   if (p === '/config.js') {
     const cfg = { online: true, user: publicUser(user), lang: user.lang || lang, buyUrl: buyUrl(s, user), support: s.support_email || s.email || '' };
     return send(res, 200, `window.STICK_CONFIG = ${JSON.stringify(cfg).replace(/</g, '\\u003c')};`, 'text/javascript; charset=utf-8');
+  }
+  if (p.startsWith('/app/') && m === 'GET') {
+    if (!bundle || p !== '/app/' + bundle.name) return send(res, 404, 'Not found', 'text/plain');
+    const head = `/*! StickStudio – lizenziert für Konto ${mark(user)}. Weitergabe und Bearbeitung untersagt. */\nwindow.__ssk=${JSON.stringify(mark(user))};\n`;
+    return send(res, 200, head + bundle.code, 'text/javascript; charset=utf-8', { 'Cache-Control': 'private, no-store' });
   }
   if (p === '/account' && m === 'GET') return page(pages.account(lang, user));
   if (p === '/admin' && m === 'GET') return user.role === 'admin' ? page(pages.admin(lang, user)) : redirect(res, '/');
@@ -421,6 +546,12 @@ async function route(req, res) {
     const b = await readJson(req);
     if (!checkPass(String(b.password || ''), user.pass)) return json(res, 400, { error: lang === 'de' ? 'Passwort falsch.' : 'Wrong password.' });
     if (user.role === 'admin' && db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n <= 1) return json(res, 400, { error: lang === 'de' ? 'Das letzte Admin-Konto kann nicht gelöscht werden.' : 'The last admin account cannot be deleted.' });
+    // laufendes Abo mit beenden (sonst liefe die Zahlung weiter)
+    if (user.sub_id && ['active', 'on_trial', 'past_due', 'paused'].includes(user.sub_status)) {
+      const a = await lsCancel(user.sub_id);
+      db.prepare('INSERT INTO requests(kind, user_id, name, email, info, status, result, at) VALUES(?,?,?,?,?,?,?,?)')
+        .run('cancel', null, user.name || user.email, user.email, JSON.stringify([['Anlass', 'Konto gelöscht'], ['Abo', user.sub_id]]), a ? 'done' : 'open', a ? 'automatisch bei Lemon Squeezy gekündigt' : '', now());
+    }
     db.prepare('DELETE FROM users WHERE id = ?').run(user.id);
     logEvent(null, 'account-deleted', `Konto ${user.id} gelöscht`);
     return json(res, 200, { ok: true }, { 'Set-Cookie': sidCookie('', 0) });
@@ -479,9 +610,17 @@ async function route(req, res) {
     if (user.role !== 'admin') return json(res, 403, { error: 'forbidden' });
     if (p === '/api/admin/users' && m === 'GET') {
       const q = '%' + (url.searchParams.get('q') || '') + '%';
-      const rows = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login,
+      const rows = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal,
         (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS projects FROM users u WHERE u.email LIKE ? OR u.name LIKE ? ORDER BY u.created DESC LIMIT 500`).all(q, q);
-      return json(res, 200, rows.map((r) => ({ ...r, license: license(r) })));
+      let list = rows;
+      // Suche nach der Kennung aus einer weitergegebenen Programmdatei
+      const qq = (url.searchParams.get('q') || '').trim().toLowerCase();
+      if (!list.length && /^[0-9a-f]{16}$/.test(qq)) {
+        const hit = db.prepare('SELECT id FROM users').all().find((r) => mark(r) === qq);
+        if (hit) list = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal,
+          (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS projects FROM users u WHERE u.id = ?`).all(hit.id);
+      }
+      return json(res, 200, list.map((r) => ({ ...r, license: license(r), mark: mark(r) })));
     }
     const um = /^\/api\/admin\/users\/(\d+)(\/reset|\/extend)?$/.exec(p);
     if (um) {
@@ -535,7 +674,7 @@ async function route(req, res) {
       return json(res, 200, { id, link: `${BASE_URL}/reset?token=${tok}` });
     }
     if (p === '/api/admin/settings') {
-      if (m === 'GET') return json(res, 200, { settings: s, mail: mail.enabled(), webhook: !!ENV.LEMONSQUEEZY_SECRET, webhookUrl: `${BASE_URL}/api/webhook/lemonsqueezy`, baseUrl: BASE_URL });
+      if (m === 'GET') return json(res, 200, { settings: s, mail: mail.enabled(), webhook: !!ENV.LEMONSQUEEZY_SECRET, lsApi: !!ENV.LEMONSQUEEZY_API_KEY, webhookUrl: `${BASE_URL}/api/webhook/lemonsqueezy`, baseUrl: BASE_URL });
       if (m === 'POST') { setSettings(await readJson(req)); return json(res, 200, { ok: true }); }
     }
     if (p === '/api/admin/events' && m === 'GET') {
@@ -551,7 +690,18 @@ async function route(req, res) {
         trial: q('SELECT COUNT(*) AS n FROM users WHERE license_until <= ? AND trial_until > ?', t, t),
         expired: q("SELECT COUNT(*) AS n FROM users WHERE role != 'admin' AND license_until <= ? AND trial_until <= ?", t, t),
         projects: q('SELECT COUNT(*) AS n FROM projects'),
+        subs: q("SELECT COUNT(*) AS n FROM users WHERE sub_status IN ('active','on_trial','past_due')"),
+        openRequests: q("SELECT COUNT(*) AS n FROM requests WHERE status = 'open'"),
       });
+    }
+    if (p === '/api/admin/requests' && m === 'GET') {
+      return json(res, 200, db.prepare('SELECT r.*, u.email AS account FROM requests r LEFT JOIN users u ON u.id = r.user_id ORDER BY r.id DESC LIMIT 300').all().map((r) => ({ ...r, info: JSON.parse(r.info || '[]') })));
+    }
+    const rq = /^\/api\/admin\/requests\/(\d+)$/.exec(p);
+    if (rq && m === 'POST') {
+      const b = await readJson(req);
+      db.prepare('UPDATE requests SET status = ?, result = ? WHERE id = ?').run(b.done ? 'done' : 'open', String(b.result || (b.done ? 'erledigt von ' + user.email : '')).slice(0, 500), +rq[1]);
+      return json(res, 200, { ok: true });
     }
     if (p === '/api/admin/test-mail' && m === 'POST') {
       const ok = await mail.send(user.email, 'StickStudio – Test', 'Diese Test-E-Mail zeigt, dass der E-Mail-Versand funktioniert.');
@@ -588,5 +738,8 @@ const server = http.createServer((req, res) => {
 if (require.main === module) {
   ensureAdmin();
   server.listen(PORT, () => console.log(`StickStudio läuft auf ${BASE_URL} (Port ${PORT}, Daten in ${DATA_DIR})`));
+  // stündlich: Verlängerungshinweise per E-Mail
+  setInterval(() => renewalReminders().catch((e) => console.error(e)), 60 * 60e3).unref();
+  setTimeout(() => renewalReminders().catch((e) => console.error(e)), 30e3).unref();
 }
-module.exports = { server, db, ensureAdmin, createUser, license };
+module.exports = { server, db, ensureAdmin, createUser, license, renewalReminders };

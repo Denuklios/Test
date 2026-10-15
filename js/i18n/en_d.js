@@ -18,6 +18,8 @@
     'In „Meine Designs“ gespeichert.': 'Saved to “My designs”.',
     'Dein Konto: Lizenz und Laufzeit, Passwort ändern, Rechtstexte und Abmelden.': 'Your account: license and term, change password, legal texts and sign out.',
     'Deutsch': 'German', 'English': 'English', 'Neue Farbe': 'New color',
+    'Abo abschließen': 'Subscribe', 'Abo verwalten': 'Manage subscription', 'Verträge hier kündigen': 'Cancel contracts here', 'Vertrag widerrufen': 'Withdraw from contract',
+    'Abo aktiv – verlängert sich am': 'Subscription active – renews on', 'Abo gekündigt – Zugang bis': 'Subscription cancelled – access until',
     // Lizenz-Hinweis beim Umschalten im laufenden Programm (Textstücke um <b>…</b>)
     'Testversion: noch': 'Trial:', 'Tage.': 'days left.', 'Tag.': 'day left.', 'Tagen ab.': 'days.', 'Tag ab.': 'day.',
     '– Deine Lizenz ist abgelaufen. Speichern und Export sind gesperrt.': '– Your license has expired. Saving and export are locked.', 'Stiche quer zur Säule ausrichten': 'Align stitches across the column',

@@ -7,6 +7,8 @@ process.env.DATA_DIR = tmp;
 process.env.ADMIN_EMAIL = 'chef@example.com';
 process.env.ADMIN_PASSWORD = 'admin-passwort-123';
 process.env.PORT = '0';
+process.env.LEMONSQUEEZY_SECRET = 'ls-geheim';
+delete process.env.LEMONSQUEEZY_API_KEY;
 delete process.env.SMTP_HOST;
 const { server, db, ensureAdmin } = require('../server/server.js');
 
@@ -51,14 +53,23 @@ const ok = (c, m) => { if (!c) { fail++; console.log('FEHLER:', m); } else conso
   // Programmseite ohne Formatcode, Formatcode nicht abrufbar
   r = await req('kunde', '/');
   const html = await r.text();
-  ok(r.status === 200 && html.includes('js/online.js') && !html.includes('dst_io.js') && !html.includes('formats.js'), 'Programmseite ohne Formatcode, mit Online-Anbindung');
+  const built = fs.existsSync(path.join(__dirname, '..', 'dist', 'manifest.json'));
+  const bundleSrc = (/src="(\/app\/app\.[0-9a-f]+\.js)"/.exec(html) || [])[1];
+  ok(r.status === 200 && (built ? !!bundleSrc && !html.includes('js/app.js') : html.includes('js/online.js')) && !html.includes('dst_io.js') && !html.includes('formats.js'), 'Programmseite ohne Formatcode, mit Online-Anbindung' + (built ? ' (verschleierte Datei)' : ''));
   ok(r.headers.get('content-security-policy').includes("script-src 'self'"), 'Sicherheitsrichtlinie gesetzt');
   r = await req('kunde', '/js/dst_io.js');
   ok(r.status === 404, 'dst_io.js wird nicht ausgeliefert');
   r = await req('kunde', '/js/formats.js');
   ok(r.status === 404, 'formats.js wird nicht ausgeliefert');
   r = await req('kunde', '/js/app.js');
-  ok(r.status === 200, 'Programmcode angemeldet erreichbar');
+  if (built) {
+    ok(r.status === 404, 'lesbarer Quelltext wird nicht ausgeliefert');
+    r = await req('kunde', bundleSrc);
+    const code = await r.text();
+    ok(r.status === 200 && /lizenziert für Konto [0-9a-f]{16}/.test(code) && !code.includes('function removeOverlaps'), 'verschleierte Programmdatei mit Konto-Kennung');
+    r = await req('anon', bundleSrc);
+    ok(r.status === 303, 'Programmdatei ohne Anmeldung gesperrt');
+  } else ok(r.status === 200, 'Programmcode angemeldet erreichbar');
   r = await req('kunde', '/js/../server/server.js');
   ok(r.status === 404 || r.status === 303, 'kein Zugriff auf Servercode');
 
@@ -130,6 +141,46 @@ const ok = (c, m) => { if (!c) { fail++; console.log('FEHLER:', m); } else conso
   ok(r.status === 303, 'Anmeldung mit neuem Passwort');
   r = await req('anon', '/reset', form({ token: tok, password: 'nochmal-passwort', password2: 'nochmal-passwort' }));
   ok(r.status === 400, 'Link nur einmal gültig');
+
+  // Abo über Lemon Squeezy (Webhook mit Signatur)
+  const crypto = require('crypto');
+  const hook = async (body, secret = 'ls-geheim') => {
+    const raw = JSON.stringify(body);
+    return req('anon', '/api/webhook/lemonsqueezy', { method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Signature': crypto.createHmac('sha256', secret).update(raw).digest('hex') }, body: raw });
+  };
+  const kid = db.prepare('SELECT id FROM users WHERE email = ?').get('kunde@example.com').id;
+  db.prepare('UPDATE users SET license_until = 0, trial_until = 0 WHERE id = ?').run(kid);
+  const in30 = new Date(Date.now() + 30 * 864e5).toISOString();
+  r = await hook({ meta: { event_name: 'subscription_created', custom_data: { user_id: String(kid) } }, data: { type: 'subscriptions', id: '777', attributes: { status: 'active', renews_at: in30, user_email: 'kunde@example.com', urls: { customer_portal: 'https://shop.lemonsqueezy.com/billing?x=1' } } } }, 'falsch');
+  ok(r.status === 401 || r.status === 503, 'Webhook mit falscher Signatur abgelehnt');
+  r = await hook({ meta: { event_name: 'subscription_created', custom_data: { user_id: String(kid) } }, data: { type: 'subscriptions', id: '777', attributes: { status: 'active', renews_at: in30, user_email: 'kunde@example.com', urls: { customer_portal: 'https://shop.lemonsqueezy.com/billing?x=1' } } } });
+  r = await api('kunde2', '/api/me');
+  me = (await r.json()).user;
+  ok(me.sub && me.sub.status === 'active' && !me.license.viewOnly && me.license.daysLeft >= 32, `Abo aktiv → Lizenz bis Verlängerung + Puffer (${me.license.daysLeft} Tage)`);
+  const in10 = new Date(Date.now() + 10 * 864e5).toISOString();
+  r = await hook({ meta: { event_name: 'subscription_cancelled' }, data: { type: 'subscriptions', id: '777', attributes: { status: 'cancelled', ends_at: in10, user_email: 'kunde@example.com' } } });
+  me = (await (await api('kunde2', '/api/me')).json()).user;
+  ok(me.sub.status === 'cancelled' && me.license.daysLeft === 10 && !me.license.viewOnly, 'gekündigt → Zugang bis Ende des bezahlten Zeitraums');
+  r = await hook({ meta: { event_name: 'subscription_expired' }, data: { type: 'subscriptions', id: '777', attributes: { status: 'expired', user_email: 'kunde@example.com' } } });
+  me = (await (await api('kunde2', '/api/me')).json()).user;
+  ok(me.license.viewOnly, 'Abo abgelaufen → nur ansehen');
+
+  // Kündigungsbutton (§ 312k BGB) – ohne Anmeldung erreichbar
+  r = await req('anon', '/kuendigen');
+  let txt = await r.text();
+  ok(r.status === 200 && txt.includes('Jetzt kündigen') || txt.includes('Cancel now'), 'Kündigungsseite öffentlich');
+  r = await req('anon', '/legal/agb');
+  ok((await r.text()).includes('href="/kuendigen"'), 'Link „Verträge hier kündigen“ auf jeder Seite');
+  r = await req('anon', '/kuendigen?lang=de', form({ kind: 'ordinary', when: 'next', name: 'Erika Muster', email: 'kunde@example.com' }));
+  txt = await r.text();
+  ok(r.status === 200 && txt.includes('Kündigung eingegangen') && txt.includes('Eingegangen am'), 'Kündigung mit Eingangsbestätigung');
+  r = await req('anon', '/widerrufen?lang=de', form({ name: 'Erika Muster', email: 'kunde@example.com' }));
+  ok(r.status === 200 && (await r.text()).includes('Widerruf eingegangen'), 'Widerrufsfunktion mit Eingangsbestätigung');
+  r = await api('admin', '/api/admin/requests');
+  const reqs = await r.json();
+  ok(reqs.length === 2 && reqs.every((x) => x.status === 'open'), 'Kündigung und Widerruf in der Verwaltung offen');
+  r = await api('admin', '/api/admin/stats');
+  ok((await r.json()).openRequests === 2, 'Übersicht zählt offene Anfragen');
 
   // Konto löschen (DSGVO)
   r = await api('kunde2', '/api/account', 'DELETE', { password: 'neues-passwort-99' });

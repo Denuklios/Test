@@ -66,6 +66,20 @@ function open(dataDir) {
       at INTEGER NOT NULL
     );
   `);
+  // Abo (Lemon Squeezy) – Spalten bei bestehenden Datenbanken nachrüsten
+  const cols = new Set(db.prepare('PRAGMA table_info(users)').all().map((c) => c.name));
+  const add = { sub_id: "TEXT NOT NULL DEFAULT ''", sub_status: "TEXT NOT NULL DEFAULT ''", sub_portal: "TEXT NOT NULL DEFAULT ''",
+    sub_renews: 'INTEGER NOT NULL DEFAULT 0', sub_ends: 'INTEGER NOT NULL DEFAULT 0', sub_reminded: 'INTEGER NOT NULL DEFAULT 0' };
+  for (const [k, def] of Object.entries(add)) if (!cols.has(k)) db.exec(`ALTER TABLE users ADD COLUMN ${k} ${def}`);
+  db.exec(`CREATE TABLE IF NOT EXISTS requests (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      kind TEXT NOT NULL,                          -- 'cancel' | 'withdraw'
+      user_id INTEGER,
+      name TEXT NOT NULL, email TEXT NOT NULL, info TEXT NOT NULL DEFAULT '',
+      status TEXT NOT NULL DEFAULT 'open',         -- 'open' | 'done' (automatisch erledigt oder vom Admin abgehakt)
+      result TEXT NOT NULL DEFAULT '',
+      at INTEGER NOT NULL
+    );`);
   return db;
 }
 

@@ -65,15 +65,21 @@
     licenseDialog() {
       const L = lic();
       const de = !HW.i18n || HW.i18n.lang === 'de';
-      const until = L.until ? new Date(L.until).toLocaleDateString(de ? 'de-DE' : 'en-GB') : '';
+      const fmtD = (ms) => (ms ? new Date(ms).toLocaleDateString(de ? 'de-DE' : 'en-GB') : '');
+      const until = fmtD(L.until);
+      const sub = user.sub;
+      const link = sub && sub.portal && !L.viewOnly ? sub.portal : HW.online.buyUrl;
       const state = L.admin ? t('Admin-Konto – ohne Ablauf.') : L.viewOnly ? t('Deine Lizenz ist abgelaufen. Du kannst deine Designs weiter ansehen, aber nicht mehr speichern oder als Stickdatei exportieren.')
-        : L.trial ? `${t('Testversion')}: ${t('noch')} ${L.daysLeft} ${t(L.daysLeft === 1 ? 'Tag' : 'Tage')} (${t('bis')} ${until}).` : `${t('Lizenz gültig bis')} ${until}.`;
+        : L.trial ? `${t('Testversion')}: ${t('noch')} ${L.daysLeft} ${t(L.daysLeft === 1 ? 'Tag' : 'Tage')} (${t('bis')} ${until}).`
+          : sub && ['active', 'on_trial'].includes(sub.status) ? `${t('Abo aktiv – verlängert sich am')} ${fmtD(sub.renews)}.`
+            : sub && sub.status === 'cancelled' ? `${t('Abo gekündigt – Zugang bis')} ${fmtD(sub.ends || L.until)}.` : `${t('Lizenz gültig bis')} ${until}.`;
       const box = document.getElementById('modal');
       if (!box) return alert(state);
       document.getElementById('modalTitle').textContent = t('Lizenz');
       document.getElementById('modalBody').innerHTML = `<p>${state}</p>` +
-        (HW.online.buyUrl && !L.admin ? `<p><a class="buy" href="${HW.online.buyUrl}" target="_blank" rel="noopener">${t(L.viewOnly || L.trial ? 'Lizenz kaufen' : 'Lizenz verlängern')}</a></p>` : '') +
-        (!HW.online.buyUrl && !L.admin ? `<p>${t('Zum Kauf oder zur Verlängerung wende dich bitte an')} ${CFG.support || t('den Support')}.</p>` : '') +
+        (link && !L.admin ? `<p><a class="buy" href="${link}" target="_blank" rel="noopener">${t(link === HW.online.buyUrl ? 'Abo abschließen' : 'Abo verwalten')}</a></p>` : '') +
+        (!L.admin ? `<p><a href="/kuendigen" target="_blank">${t('Verträge hier kündigen')}</a> · <a href="/widerrufen" target="_blank">${t('Vertrag widerrufen')}</a></p>` : '') +
+        (!link && !L.admin ? `<p>${t('Zum Kauf oder zur Verlängerung wende dich bitte an')} ${CFG.support || t('den Support')}.</p>` : '') +
         `<p style="color:#6a7480">${t('Nach dem Kauf bitte die Seite neu laden.')}</p>`;
       const btns = document.getElementById('modalBtns');
       btns.innerHTML = '';
@@ -97,6 +103,7 @@
       <button data-act="license">Lizenz…</button>
       <a href="/account">Mein Konto</a>
       ${user.role === 'admin' ? '<a href="/admin">Verwaltung</a>' : ''}
+      <a href="/kuendigen" target="_blank">Verträge hier kündigen</a><a href="/widerrufen" target="_blank">Vertrag widerrufen</a>
       <hr><a href="/legal/agb" target="_blank">AGB</a><a href="/legal/datenschutz" target="_blank">Datenschutz</a><a href="/legal/impressum" target="_blank">Impressum</a><a href="/legal/lizenzen" target="_blank">Lizenzen</a>
       <hr><form method="post" action="/logout"><button>Abmelden</button></form></div>`;
     bar.insertBefore(menu, spacer ? spacer.nextSibling : null);
@@ -104,7 +111,10 @@
     // Öffnen/Schließen übernimmt app.js wie bei den anderen Menüs
 
     const L = lic();
-    if (!L.admin && (L.viewOnly || L.trial || (L.daysLeft !== null && L.daysLeft <= 30))) {
+    // Abo, das sich automatisch verlängert: kein Ablauf-Hinweis
+    const sub = user.sub;
+    const renewing = sub && ['active', 'on_trial'].includes(sub.status);
+    if (!L.admin && (L.viewOnly || L.trial || (!renewing && L.daysLeft !== null && L.daysLeft <= 30))) {
       const b = document.createElement('div');
       b.id = 'licBanner';
       b.className = L.viewOnly ? 'expired' : 'trial';
@@ -113,8 +123,9 @@
         : L.trial ? `Testversion: noch <b>${L.daysLeft}</b> ${L.daysLeft === 1 ? 'Tag' : 'Tage'}. `
           : `Deine Lizenz läuft in <b>${L.daysLeft}</b> ${L.daysLeft === 1 ? 'Tag' : 'Tagen'} ab. `;
       const a = document.createElement('button');
-      a.textContent = L.viewOnly || L.trial ? 'Lizenz kaufen' : 'Lizenz verlängern';
-      a.onclick = () => (HW.online.buyUrl ? window.open(HW.online.buyUrl, '_blank', 'noopener') : HW.online.licenseDialog());
+      a.textContent = L.viewOnly || L.trial || !sub ? 'Abo abschließen' : 'Abo verwalten';
+      const target = sub && sub.portal && !L.viewOnly ? sub.portal : HW.online.buyUrl;
+      a.onclick = () => (target ? window.open(target, '_blank', 'noopener') : HW.online.licenseDialog());
       b.appendChild(a);
       bar.insertAdjacentElement('afterend', b);
       document.body.classList.add('hasBanner');

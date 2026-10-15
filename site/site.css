@@ -53,3 +53,6 @@ table.list tr:hover td { background: #f7f9fb; }
 .muted { color: var(--muted); font-size: 13px; }
 dialog { border: 0; border-radius: 10px; padding: 22px; max-width: 560px; width: 94vw; box-shadow: 0 16px 48px rgba(0,0,0,.3); }
 dialog::backdrop { background: rgba(0,0,0,.35); }
+fieldset.radio { border: 0; padding: 0; margin: 0 0 12px; }
+fieldset.radio legend { font-size: 14px; color: var(--muted); margin-bottom: 4px; padding: 0; }
+fieldset.radio .check { margin: 4px 0; align-items: center; }

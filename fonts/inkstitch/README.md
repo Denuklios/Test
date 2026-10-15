@@ -20,8 +20,6 @@ Ink/Stitch ist eine kostenlose Stick-Erweiterung für das Zeichenprogramm Inksca
 | Magnolia KOR | `magnolia_KOR` | OFL-1.1 | This font has been adapted for Ink/Stitch by Corinne Renaud, |
 | MAM Script | `mam_script` | OFL-1.1 | This font has been adapted for Ink/Stitch by Marie-Ange Martin, |
 | Stebor AGS | `stebor_AGS` | OFL-1.1 | This font has been adapted for Ink/Stitch by Françoise Lapierre Baillet, |
-| Monicha | `monicha` | CC-BY-SA | This font has been adapted for Ink/Stitch by Sandrine Ratkoff Rojnoff,  and is licensed CC-BY-SA (http://creativecommons.org/licenses/by-sa/4.0/). |
-| Aventurina | `aventurina` | CC-BY-SA | This font has been adapted for Ink/Stitch by Sandrine Ratkoff Rojnoff |
 | Chopin Script | `chopin` | CC-BY-SA | This font has been adapted for Ink/Stitch by Célia Imbert Sabater and is licensed CC-BY-SA (http://creativecommons.org/licenses/by-sa/4.0/). |
 | gingo200 | `gingo200` | CC-BY-SA | This font has been created for Ink/Stitch by Sorm Prak, and is licensed CC-BY-SA (http://creativecommons.org/licenses/by-sa/4.0/). |
 | Marifenda | `marifenda` | OFL-1.1 | This font has been adapted for Ink/Stitch by Marie-Françoise BRIS and is licensed under the SIL Open Font License, Version 1.1. |
@@ -35,7 +33,6 @@ Ink/Stitch ist eine kostenlose Stick-Erweiterung für das Zeichenprogramm Inksca
 | Barstitch regular | `barstitch_regular` | OFL-1.1 | This font has been adapted for Ink/Stitch and is licensed under the SIL Open Font License, Version 1.1. |
 | Barstitch Bold | `barstitch_bold` | OFL-1.1 | This font has been adapted for Ink/Stitch  |
 | Caesarus SC FI | `caesarus_SC_FI` | OFL-1.1 | Caesarus SC FI  has been adapted for Ink/Stitch by Marie-Françoise Bris, Celia Imbert Sabater, Françoise Lapierre Baillet, Claudine Peyrat, Corinne Renaud and C |
-| DinoMouse72 | `dinomouse72` | CC-BY-SA | This Ink/Stitch embroidery alphabet is copyright 2022 by Karen Cravens d/b/a Silver Seams, and is licensed CC-BY-SA (http://creativecommons.org/licenses/by-sa/4 |
 | Geneva Simple Sans Rounded | `geneva_rounded` | CC-BY-SA | This ink/stitch font is licensed under CC-BY-SA 2.5 https://creativecommons.org/licenses/by-sa/2.5/ |
 | Glacial Tiny 60 AGS | `glacial_tiny` | OFL-1.1 | This font has been adapted for Ink/Stitch by Françoise Lapierre Baillet, and is licensed under the SIL Open Font License, Version 1.1. |
 | Apex Simple AGS | `apex_simple_AGS` | OFL-1.1 | This font Apex Simple AGS has been adapted for Ink/Stitch by  |

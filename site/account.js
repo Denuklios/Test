@@ -5,20 +5,24 @@
   const L = {
     de: {
       title: 'Mein Konto', email: 'E-Mail', name: 'Name / Firma', since: 'Konto seit', status: 'Status', until: 'Gültig bis',
-      admin: 'Admin', licensed: 'Lizenz aktiv', trial: 'Testversion', expired: 'Abgelaufen – nur ansehen', buy: 'Lizenz kaufen', renew: 'Lizenz verlängern',
+      admin: 'Admin', licensed: 'Lizenz aktiv', trial: 'Testversion', expired: 'Abgelaufen – nur ansehen', buy: 'Abo abschließen', renew: 'Abo verwalten',
+      sub: 'Abo', subActive: 'aktiv – verlängert sich am', subCancelled: 'gekündigt – Zugang bis', subPastDue: 'Zahlung offen – bitte Zahlungsart prüfen', subEnded: 'beendet',
+      manage: 'Abo verwalten (Zahlungsart, Rechnungen)', cancel: 'Verträge hier kündigen', withdraw: 'Vertrag widerrufen',
       days: 'Tage übrig', saveName: 'Name speichern', pwTitle: 'Passwort ändern', oldPw: 'Bisheriges Passwort', newPw: 'Neues Passwort (mind. 10 Zeichen)',
       newPw2: 'Neues Passwort wiederholen', changePw: 'Passwort ändern', pwMismatch: 'Die neuen Passwörter stimmen nicht überein.', saved: 'Gespeichert.',
       langTitle: 'Sprache', dataTitle: 'Meine Daten', dataInfo: 'Lade alle zu deinem Konto gespeicherten Daten (Konto und Designs) als Datei herunter.', download: 'Daten herunterladen',
-      delTitle: 'Konto löschen', delInfo: 'Löscht dein Konto und alle Designs endgültig. Vorher ggf. Daten herunterladen. Eine bezahlte Lizenz verfällt dabei.', delPw: 'Zur Bestätigung dein Passwort', del: 'Konto endgültig löschen',
+      delTitle: 'Konto löschen', delInfo: 'Löscht dein Konto und alle Designs endgültig. Vorher ggf. Daten herunterladen. Ein laufendes Abo wird dabei zum nächstmöglichen Zeitpunkt gekündigt.', delPw: 'Zur Bestätigung dein Passwort', del: 'Konto endgültig löschen',
       delConfirm: 'Konto und alle Designs wirklich endgültig löschen?', toApp: 'Zum Programm', support: 'Fragen? Schreib an',
     },
     en: {
       title: 'My account', email: 'Email', name: 'Name / company', since: 'Account since', status: 'Status', until: 'Valid until',
-      admin: 'Admin', licensed: 'License active', trial: 'Trial', expired: 'Expired – view only', buy: 'Buy license', renew: 'Renew license',
+      admin: 'Admin', licensed: 'License active', trial: 'Trial', expired: 'Expired – view only', buy: 'Subscribe', renew: 'Manage subscription',
+      sub: 'Subscription', subActive: 'active – renews on', subCancelled: 'cancelled – access until', subPastDue: 'payment due – please check your payment method', subEnded: 'ended',
+      manage: 'Manage subscription (payment method, invoices)', cancel: 'Cancel contracts here', withdraw: 'Withdraw from contract',
       days: 'days left', saveName: 'Save name', pwTitle: 'Change password', oldPw: 'Current password', newPw: 'New password (min. 10 characters)',
       newPw2: 'Repeat new password', changePw: 'Change password', pwMismatch: 'The new passwords do not match.', saved: 'Saved.',
       langTitle: 'Language', dataTitle: 'My data', dataInfo: 'Download all data stored for your account (account and designs) as a file.', download: 'Download data',
-      delTitle: 'Delete account', delInfo: 'Permanently deletes your account and all designs. Download your data first if needed. A paid license is forfeited.', delPw: 'Your password to confirm', del: 'Delete account permanently',
+      delTitle: 'Delete account', delInfo: 'Permanently deletes your account and all designs. Download your data first if needed. A running subscription is cancelled at the earliest possible date.', delPw: 'Your password to confirm', del: 'Delete account permanently',
       delConfirm: 'Really delete your account and all designs permanently?', toApp: 'Open the program', support: 'Questions? Write to',
     },
   }[lang];
@@ -33,12 +37,18 @@
 
   api('/api/me').then(({ user, buyUrl }) => {
     const l = user.license;
+    const sub = user.sub;
+    const live = sub && ['active', 'on_trial', 'past_due'].includes(sub.status);
+    const subText = !sub ? '' : sub.status === 'cancelled' ? `${L.subCancelled} ${date(sub.ends)}` : sub.status === 'past_due' ? L.subPastDue : live ? `${L.subActive} ${date(sub.renews)}` : L.subEnded;
     const pill = l.admin ? `<span class="pill admin">${L.admin}</span>` : l.viewOnly ? `<span class="pill bad">${L.expired}</span>` : l.trial ? `<span class="pill trial">${L.trial}</span>` : `<span class="pill ok">${L.licensed}</span>`;
     root.innerHTML = `<h1>${L.title}</h1>
       <div class="kv"><div>${L.email}</div><div>${esc(user.email)}</div><div>${L.since}</div><div>${date(user.created)}</div>
       <div>${L.status}</div><div>${pill}${!l.admin && !l.viewOnly ? ` · ${l.daysLeft} ${L.days}` : ''}</div>
-      ${l.admin ? '' : `<div>${L.until}</div><div>${date(l.until)}</div>`}</div>
-      ${buyUrl && !l.admin ? `<p><a class="btn primary" style="display:inline-block;width:auto;text-decoration:none" href="${esc(buyUrl)}" target="_blank" rel="noopener">${l.viewOnly || l.trial ? L.buy : L.renew}</a></p>` : ''}
+      ${l.admin ? '' : `<div>${L.until}</div><div>${date(l.until)}</div>`}
+      ${sub ? `<div>${L.sub}</div><div>${subText}</div>` : ''}</div>
+      ${!l.admin && sub && sub.portal ? `<p><a class="btn" style="display:inline-block;width:auto;text-decoration:none" href="${esc(sub.portal)}" target="_blank" rel="noopener">${L.manage}</a></p>`
+        : buyUrl && !l.admin && (!sub || !live) ? `<p><a class="btn primary" style="display:inline-block;width:auto;text-decoration:none" href="${esc(buyUrl)}" target="_blank" rel="noopener">${L.buy}</a></p>` : ''}
+      ${!l.admin ? `<p class="muted"><a href="/kuendigen">${L.cancel}</a> · <a href="/widerrufen">${L.withdraw}</a></p>` : ''}
       <p><a href="/">${L.toApp} →</a></p>
       <h2>${L.name}</h2><div class="row"><input id="nm" value="${esc(user.name)}" style="flex:1"><button id="nmSave">${L.saveName}</button></div><div id="nmMsg"></div>
       <h2>${L.pwTitle}</h2>

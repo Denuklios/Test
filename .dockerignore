@@ -1,6 +1,6 @@
 .git
 data
+dist
+node_modules
 tests
-tools
 *.png
-untrans*.txt
