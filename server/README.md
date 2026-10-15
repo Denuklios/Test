@@ -20,6 +20,26 @@ Die Stickdateien (DST/PES/JEF/EXP) erzeugt nur der Server. Der Formatcode wird n
 - **Ein Server mit Domain und HTTPS**, z. B. Hetzner, IONOS oder netcup, Standort in der EU.
 - **Optional E-Mail-Versand per SMTP**, für Bestätigungen und „Passwort vergessen“.
 
+## Einrichten auf einem eigenen Server (ca. 15 Minuten)
+
+Voraussetzung: ein gemieteter Server (z. B. Hetzner Cloud, kleinstes Modell, Ubuntu 24.04) und deine Domain. Dein bisheriger Webspace bleibt wie er ist, nur eine **Subdomain** zeigt auf den neuen Server.
+
+1. **Server mieten** und die **IP-Adresse** notieren.
+2. **Subdomain anlegen:** Beim Domain-Anbieter (DNS-Einstellungen) einen **A-Eintrag** anlegen: Name `stick` (oder wie du sie nennen willst), Ziel = IP-Adresse des Servers. Es dauert einige Minuten, bis das gilt.
+3. **ZIP auf den Server kopieren** und entpacken, z. B. vom eigenen Computer aus:
+   ```bash
+   scp StickStudio.zip root@DEINE-IP:/root/
+   ssh root@DEINE-IP
+   apt-get update && apt-get install -y unzip
+   unzip StickStudio.zip && cd StickStudio
+   ```
+4. **Einrichten:** `bash deploy/install.sh`. Das Skript fragt nach Subdomain, E-Mail und Passwort (dein Admin-Login) und erledigt den Rest: Node.js, Programm verschleiern, HTTPS-Zertifikat, Start beim Hochfahren, Firewall, tägliche Datensicherung.
+5. **Öffnen:** `https://stick.deine-firma.de`. Die Verwaltung unter `/admin`.
+
+**Aktualisieren** (neue ZIP): hochladen, entpacken und `bash deploy/install.sh` noch einmal ausführen. Die Kundendaten bleiben erhalten (liegen in `/var/lib/stickstudio`).
+
+**Hilfe:** `systemctl status stickstudio`, Meldungen mit `journalctl -u stickstudio -n 50`. Einstellungen (E-Mail, Bezahlung) stehen in `/etc/stickstudio.env`; nach Änderungen `systemctl restart stickstudio`.
+
 ## Starten
 
 Einmalig die verschleierte Programmdatei bauen (braucht Internet für `npm install`):
