@@ -1970,6 +1970,7 @@
     const g = gst();
     if (g.photo && g.photo._img) return { img: g.photo._img, x0: g.photo.x, y0: g.photo.y, w: g.photo.w, h: g.photo.h };
     if (!GM) return null;
+    if (!GM.KIND[g.kind]) { g.kind = 'tshirt'; g.spot = ''; }
     if (!GM.VIEW_LIST[g.kind] || !GM.VIEW_LIST[g.kind].includes(g.view)) g.view = GM.VIEW_LIST[g.kind][0];
     const R = GM.render(g.kind, g.view, { color: g.color, size: g.size });
     if (!R) return null;
@@ -2036,7 +2037,7 @@
   function garmentFit() {
     const L = garmentOn() ? garmentLayer() : null; if (!L) return;
     const r = cv.getBoundingClientRect();
-    const sc = Math.min((r.width - 330) / L.w, (r.height - 40) / L.h);
+    const sc = Math.min((r.width - 330) / L.w, (r.height - 90) / L.h);
     view.scale = Math.max(0.3, Math.min(8, sc));
     view.ox = (r.width - 300) / 2 - (L.x0 + L.w / 2) * view.scale; view.oy = r.height / 2 - (L.y0 + L.h / 2) * view.scale;
     draw();
@@ -2081,7 +2082,7 @@
     const opts = (o, cur) => Object.entries(o).map(([k, v]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${v}</option>`).join('');
     const vl = (GM.VIEW_LIST[g.kind] || []);
     const L = !photo ? garmentLayer() : null;
-    const spots = L ? Object.entries(L.R.anchors).map(([k, a]) => `<option value="${k}" ${k === g.spot ? 'selected' : ''}>${a[0]}</option>`).join('') : '';
+    const spots = L && L.R ? Object.entries(L.R.anchors).map(([k, a]) => `<option value="${k}" ${k === g.spot ? 'selected' : ''}>${a[0]}</option>`).join('') : '';
     const sw = GCOL.map((c) => `<button class="gmsw" data-gcol="${c}" title="${c}" style="background:${c}"></button>`).join('');
     const keepX = document.getElementById('gmX') ? document.getElementById('gmX').value : '', keepY = document.getElementById('gmY') ? document.getElementById('gmY').value : '';
     const pos = (lab) => `<div class="gmpos"><label>Seitlich (mm)<input type="number" id="gmX" step="0.5" data-gp="x" value="${keepX}"></label><label>${lab}<input type="number" id="gmY" step="0.5" data-gp="y" value="${keepY}"></label></div>`;
@@ -2153,6 +2154,7 @@
   }
   function wireGarmentBox() {
     const box = document.getElementById('garmentBox'); if (!box) return;
+    if (GM) GM.onload = () => { if (garmentOn()) { renderGarmentBox(); if (!gst().photo) garmentFit(); else draw(); } };
     box.addEventListener('click', (e) => {
       const li = e.target.closest('[data-lib]');
       if (li && !e.target.closest('button')) { const it = gLib.find((q) => q.id === li.dataset.lib); if (it) useProduct(it); return; }
