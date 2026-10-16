@@ -4,9 +4,9 @@
   'use strict';
   const HW = (g.HW = g.HW || {});
   const A = HW.GARMENT_ASSETS || {};
-  const KIND = { tshirt: 'T-Shirt', polo: 'Polo', hoodie: 'Hoodie', cap: 'Kappe' };
+  const KIND = { tshirt: 'T-Shirt', polo: 'Polo', sweat: 'Sweatshirt', hoodie: 'Hoodie', jacket: 'Softshelljacke', cap: 'Kappe' };
   const VIEW_NAMES = { front: 'Vorne', back: 'Hinten', left: 'Seite links', right: 'Seite rechts' };
-  const VIEW_LIST = { tshirt: ['front', 'back', 'left', 'right'], polo: ['front', 'back', 'left', 'right'], hoodie: ['front', 'back', 'left', 'right'], cap: ['front', 'left', 'right'] };
+  const VIEW_LIST = { tshirt: ['front', 'back', 'left', 'right'], polo: ['front', 'back', 'left', 'right'], sweat: ['front', 'back', 'left', 'right'], hoodie: ['front', 'back', 'left', 'right'], jacket: ['front', 'back', 'left', 'right'], cap: ['front', 'left', 'right'] };
   const SIZES = { S: [0.91, 0.95], M: [0.955, 0.975], L: [1, 1], XL: [1.05, 1.025], XXL: [1.1, 1.05] };
   // Platzierungen: [Name, x, y] in mm ab Bezugspunkt (x + = rechts im Bild, y + = nach unten)
   const T = {
@@ -15,6 +15,12 @@
     side: { aermel: ['Ärmel', 0, 110], seite: ['Seite (Körpermitte)', 0, 320] },
     'polo.front': { brustL: ['Brust links (am Träger)', 100, 95], brustR: ['Brust rechts', -100, 95], mitte: ['Brust Mitte (unter Leiste)', 0, 190], aermelL: ['Ärmel links', 265, 110] },
     'polo.back': { nacken: ['Nacken', 0, 40], rueckenOben: ['Rücken oben Mitte', 0, 100], rueckenMitte: ['Rücken Mitte', 0, 210] },
+    'sweat.front': { brustL: ['Brust links (am Träger)', 95, 85], brustR: ['Brust rechts', -95, 85], mitte: ['Brust Mitte', 0, 120], gross: ['Brust groß', 0, 180] },
+    'sweat.back': { nacken: ['Nacken', 0, 30], rueckenOben: ['Rücken oben Mitte', 0, 85], rueckenMitte: ['Rücken Mitte', 0, 200] },
+    'sweat.side': { aermel: ['Ärmel oben', 0, 150], aermelUnten: ['Ärmel unten', 0, 320] },
+    'jacket.front': { brustL: ['Brust links (am Träger)', 100, 50], brustR: ['Brust rechts', -100, 50], aermelL: ['Ärmel links (Logo)', 255, 100] },
+    'jacket.back': { nacken: ['Nacken', 0, 30], rueckenOben: ['Rücken oben Mitte', 0, 85], rueckenMitte: ['Rücken Mitte', 0, 200] },
+    'jacket.side': { aermel: ['Ärmel oben', 0, 150], aermelUnten: ['Ärmel unten', 0, 320] },
     'hoodie.front': { brustL: ['Brust links (am Träger)', 100, 95], brustR: ['Brust rechts', -100, 95], mitte: ['Brust Mitte', 0, 150] },
     'hoodie.back': { unterKapuze: ['Rücken oben (unter der Kapuze)', 0, 60], rueckenMitte: ['Rücken Mitte', 0, 200] },
     'hoodie.side': { aermel: ['Ärmel oben', 0, 150], aermelUnten: ['Ärmel unten', 0, 300] },
@@ -22,7 +28,7 @@
     'cap.right': { seite: ['Seite rechts', 0, 0], vorne: ['Seite vorn', 55, 0] },
     'cap.left': { seite: ['Seite links', 0, 0], vorne: ['Seite vorn', -55, 0] },
   };
-  const spotsFor = (kind, view) => T[kind + '.' + view] || (kind === 'tshirt' || kind === 'polo' ? T.side : null) || T[kind + '.side'] || {};
+  const spotsFor = (kind, view) => T[kind + '.' + view] || T[kind + '.side'] || T.side || {};
   // Bilder laden (Daten stehen als Data-URL in garment_assets.js)
   const api = { KIND, VIEW_NAMES, VIEW_LIST, SIZES, onload: null };
   for (const a of Object.values(A)) { a.img = new Image(); a.img.onload = () => { a.ok = true; if (api.onload) api.onload(); }; a.img.src = a.src; }
