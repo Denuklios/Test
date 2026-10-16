@@ -24,7 +24,8 @@
     'cmd:teamNames': ['Teamnamen', 'Ein Design, viele Namen: Text als Platzhalter, Namensliste eingeben – je Name entsteht eine eigene Stickdatei (alles in einer ZIP).'],
     'cmd:multiHoop': ['Mehrere Einspannungen', 'Für Motive, die größer als der Rahmen sind: teilt das Design in mehrere Dateien mit Passkreuzen zum genauen Ausrichten.'],
     'cmd:worksheet': ['Arbeitsblatt drucken', 'Druckt ein Blatt für die Maschine: Vorschau, Farbfolge mit Nadelnummern, Stichzahl, Größe, Vlies-Empfehlung und Stopps.'],
-    'cmd:mockup': ['Produkt-Vorschau', 'Zeigt das Design maßstabsgetreu auf T-Shirt, Polo, Hoodie, Kappe, Handtuch oder Tasche – gut, um es dem Kunden zu zeigen.'],
+    'cmd:mockup': ['Produkt-Vorschau', 'Zeigt das Design maßstabsgetreu auf der Kleidung (ist die Kleidungsvorlage eingeschaltet) oder auf T-Shirt, Polo, Hoodie, Kappe, Handtuch oder Tasche – gut, um es dem Kunden zu zeigen.'],
+    'cmd:garment': ['Kleidungsvorlage', 'Legt T-Shirt, Polo, Sweatshirt, Hoodie, Softshelljacke oder Kappe (vorne, hinten, Seiten) hinter den Stickrahmen. Kleidung unter dem Rahmen verschieben: Die Abstände von Mitte und Kragen werden in mm angezeigt. Auch mit eigenen Produktfotos.'],
     'cmd:price': ['Preiskalkulation', 'Berechnet den Stückpreis nach Stichzahl oder Maschinenzeit mit Mengenrabatten und druckt ein Angebot.'],
     'cmd:undo': ['Rückgängig (Strg+Z)', 'Macht den letzten Schritt rückgängig. Mehrfach drücken geht weiter zurück.'],
     'cmd:redo': ['Wiederholen (Strg+Y)', 'Stellt einen rückgängig gemachten Schritt wieder her.'],
@@ -91,6 +92,7 @@
 
     /* ---------- Werkzeuge ---------- */
     'tool:select': ['Auswählen (Esc)', 'Objekte anklicken, verschieben, mit Shift mehrere wählen oder einen Rahmen um mehrere ziehen. Doppelklick auf Text = Text bearbeiten.'],
+    'tool:garment': ['Kleidung verschieben', 'Schaltet die Kleidungsvorlage ein und verschiebt die Kleidung unter dem Rahmen. Rahmen und Design bleiben stehen; die genauen Abstände stehen im Kleidungs-Fenster. Pfeiltasten: 1 mm (mit Shift 10 mm).'],
     'tool:pan': ['Verschieben (Hand, Taste H)', 'Ansicht mit gedrückter Maustaste in jede Richtung schieben. Geht auch jederzeit: Leertaste gedrückt halten und Maus bewegen, Mausrad (hoch/runter), Shift + Mausrad (links/rechts).'],
     'tool:reshape': ['Umformen (R)', 'Einzelne Punkte eines Objekts verschieben, einfügen (Doppelklick) oder löschen (Entf). Leertaste wechselt Ecke ↔ Kurve.'],
     'tool:run': ['Laufstich', 'Eine einfache Stichlinie, z. B. für Umrisse oder feine Details. Linksklick = Ecke, Rechtsklick = Kurve, Enter = fertig.'],

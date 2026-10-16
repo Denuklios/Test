@@ -339,3 +339,7 @@ Die erzeugten DST-Dateien wurden zusätzlich mit der unabhängigen Bibliothek *p
 ## Kleidungsvorlagen
 
 Unter *Datei → Kleidungsvorlage hinter dem Rahmen…* (oder Werkzeug „Kleidung“) liegt T‑Shirt, Polo, Sweatshirt, Hoodie oder Kappe (vorne, hinten, Ärmel, Seiten; Größen S–XXL, frei wählbare Farbe) hinter dem Stickrahmen. Die Kleidung lässt sich unter dem Rahmen verschieben; angezeigt werden die Abstände von Mittellinie und Kragen in mm. Mit „Eigenes Foto…“ kann echte Kleidung hinterlegt werden (Maßstab über zwei Punkte). Die Vorschau und das Arbeitsblatt zeigen die Position maßstabsgetreu. Quelltext: `js/garments.js`.
+
+## Handbuch / Manual
+
+`docs/StickStudio-Handbuch.pdf` (Deutsch) und `docs/StickStudio-Manual.pdf` (English): alle Werkzeuge, Menüs, Kleidungsvorlagen, Rezepte, Konto und Verwaltung mit Bildern.

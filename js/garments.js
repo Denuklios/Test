@@ -6,7 +6,7 @@
   const A = HW.GARMENT_ASSETS || {};
   const KIND = { tshirt: 'T-Shirt', polo: 'Polo', sweat: 'Sweatshirt', hoodie: 'Hoodie', jacket: 'Softshelljacke', cap: 'Kappe' };
   const VIEW_NAMES = { front: 'Vorne', back: 'Hinten', left: 'Seite links', right: 'Seite rechts' };
-  const VIEW_LIST = { tshirt: ['front', 'back', 'left', 'right'], polo: ['front', 'back', 'left', 'right'], sweat: ['front', 'back', 'left', 'right'], hoodie: ['front', 'back', 'left', 'right'], jacket: ['front', 'back', 'left', 'right'], cap: ['front', 'left', 'right'] };
+  const VIEW_LIST = { tshirt: ['front', 'back', 'left', 'right'], polo: ['front', 'back', 'left', 'right'], sweat: ['front', 'back', 'left', 'right'], hoodie: ['front', 'back', 'left', 'right'], jacket: ['front', 'back', 'left', 'right'], cap: ['front', 'back', 'left', 'right'] };
   const SIZES = { S: [0.91, 0.95], M: [0.955, 0.975], L: [1, 1], XL: [1.05, 1.025], XXL: [1.1, 1.05] };
   // Platzierungen: [Name, x, y] in mm ab Bezugspunkt (x + = rechts im Bild, y + = nach unten)
   const T = {
@@ -25,6 +25,7 @@
     'hoodie.back': { unterKapuze: ['Rücken oben (unter der Kapuze)', 0, 60], rueckenMitte: ['Rücken Mitte', 0, 200] },
     'hoodie.side': { aermel: ['Ärmel oben', 0, 150], aermelUnten: ['Ärmel unten', 0, 300] },
     'cap.front': { mitte: ['Front Mitte', 0, -48], links: ['Front links', 50, -48], rechts: ['Front rechts', -50, -48], hoch: ['Front hoch', 0, -68] },
+    'cap.back': { mitte: ['Hinten Mitte (über der Öffnung)', 0, -45], hoch: ['Hinten hoch', 0, -62], tief: ['Hinten tief', 0, -18] },
     'cap.right': { seite: ['Seite rechts', 0, 0], vorne: ['Seite vorn', 55, 0] },
     'cap.left': { seite: ['Seite links', 0, 0], vorne: ['Seite vorn', -55, 0] },
   };
