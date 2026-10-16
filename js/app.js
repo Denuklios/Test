@@ -215,22 +215,30 @@
     return `rgb(${c[0]},${c[1]},${c[2]})`;
   }
 
-  function hoopPath(h, inset = 0) {
+  function hoopPath(h, inset = 0, append = false) {
     const c = toScr({ x: 0, y: 0 });
     const a = Math.max(0, (h.w / 2 - inset)) * view.scale, b = Math.max(0, (h.h / 2 - inset)) * view.scale;
-    ctx.beginPath();
+    if (!append) ctx.beginPath();
     if (h.shape === 'rect') {
       const r = Math.min(a, b, Math.max(0, inset < 0 ? -inset * view.scale * 0.8 : 3 * view.scale));
       if (ctx.roundRect) ctx.roundRect(c.x - a, c.y - b, 2 * a, 2 * b, r); else ctx.rect(c.x - a, c.y - b, 2 * a, 2 * b);
-    } else ctx.ellipse(c.x, c.y, a, b, 0, 0, Math.PI * 2);
+    } else { if (append) ctx.moveTo(c.x + a, c.y); ctx.ellipse(c.x, c.y, a, b, 0, 0, Math.PI * 2); }
   }
 
   function drawHoop() {
     const h = hoop();
     const r = cv.getBoundingClientRect();
     ctx.save();
+    const gOn = garmentOn();
     if (h.shape === 'none') {
-      ctx.fillStyle = st.fabric; ctx.fillRect(0, 0, r.width, r.height);
+      if (!gOn) { ctx.fillStyle = st.fabric; ctx.fillRect(0, 0, r.width, r.height); }
+    } else if (gOn) {
+      // Kleidung liegt hinter dem Rahmen: Rahmenring halbdurchsichtig, Stickfeld frei
+      hoopPath(h, -12); hoopPath(h, 0, true);
+      ctx.fillStyle = 'rgba(150,143,134,.5)'; ctx.fill('evenodd');
+      hoopPath(h, -12); ctx.lineWidth = 1.2; ctx.strokeStyle = 'rgba(70,76,84,.75)'; ctx.stroke();
+      hoopPath(h, 0); ctx.fillStyle = 'rgba(255,255,255,.07)'; ctx.fill();
+      ctx.lineWidth = 2; ctx.strokeStyle = 'rgba(40,46,54,.85)'; ctx.stroke();
     } else {
       // Rahmenkörper (ca. 12 mm breit)
       hoopPath(h, -12);
@@ -247,6 +255,7 @@
       const a = toMM(0, 0), b = toMM(r.width, r.height);
       const stp = view.scale > 4 ? 5 : 10;
       ctx.lineWidth = 1;
+      if (gOn) ctx.globalAlpha = 0.55;
       for (let x = Math.floor(a.x / stp) * stp; x <= b.x; x += stp) {
         ctx.strokeStyle = x === 0 ? 'rgba(0,0,0,.25)' : x % 50 === 0 ? 'rgba(0,0,0,.13)' : 'rgba(0,0,0,.06)';
         const sx = toScr({ x, y: 0 }).x;
@@ -356,6 +365,7 @@
   function draw() {
     const r = cv.getBoundingClientRect();
     ctx.clearRect(0, 0, r.width, r.height);
+    drawGarment();
     drawHoop();
     if (st.bg && st.bg.visible && st.bg._img) {
       ctx.save();
@@ -403,6 +413,7 @@
     }
     ctx.restore();
     if (draft) drawDraft();
+    drawGarmentCalib();
     try { updateScrollbars(); } catch (e) { /* Leisten noch nicht angelegt */ }
     if (tool === 'knife' && knifeStart && mouse.mm) {
       const a = toScr(knifeStart), b = toScr(mouse.mm);
@@ -827,6 +838,7 @@
 
   function setHint() {
     const H = {
+      garment: 'Kleidung verschieben: mit gedrückter Maustaste ziehen. Rahmen und Design bleiben stehen, die Kleidung wandert darunter. Die genauen Abstände stehen im Kleidungs-Fenster. Esc = fertig.',
       pan: 'Verschieben: mit gedrückter Maustaste ziehen, um die Ansicht zu verschieben. Esc = zurück zum Auswählen.',
       select: 'Klicken = auswählen, ziehen = verschieben, Rahmen ziehen = mehrere wählen. Ansicht verschieben: Mausrad (Shift = seitlich), Leertaste + Ziehen oder mittlere Maustaste. Strg + Mausrad = Zoom.',
       reshape: 'Punkte ziehen. Leertaste = Ecke ↔ Kurve, Entf = Punkt löschen, Doppelklick auf Linie = Punkt einfügen. Oranger Griff = Stichwinkel.',
@@ -843,6 +855,7 @@
       manual: 'Jeder Linksklick = ein Stich, Rechtsklick = Sprung. Enter = fertig.',
     };
     let h = H[tool] || '';
+    if (gcalib) h = gcalib.pts.length ? 'Maßstab: jetzt den zweiten Punkt anklicken.' : 'Maßstab festlegen: den ersten Punkt anklicken (z. B. die linke Brustkante), dann den zweiten (rechte Brustkante). Danach die echte Länge eingeben. Esc = abbrechen.';
     if (draft && draft.tool === 'colB' && draft.phase === 1) h = 'Jetzt die ZWEITE Seite digitalisieren, Enter = fertig.';
     if (tool === 'colA') {
       const n = draft ? draft.pts.length : 0;
@@ -862,7 +875,9 @@
     tool = t;
     draft = null;
     document.querySelectorAll('#toolbox [data-tool]').forEach((b) => b.classList.toggle('active', b.dataset.tool === t));
-    cv.style.cursor = t === 'select' ? 'default' : t === 'reshape' ? 'pointer' : t === 'pan' ? 'grab' : 'crosshair';
+    cv.style.cursor = t === 'select' ? 'default' : t === 'reshape' ? 'pointer' : t === 'pan' || t === 'garment' ? 'grab' : 'crosshair';
+    if (t === 'garment' && !garmentOn()) { gst().on = true; garmentFocus(); }
+    if (t !== 'garment' && gcalib && t !== 'select') gcalib = null;
     selNodes = [];
     setHint();
     renderProps();
@@ -1240,8 +1255,12 @@
     const p = toMM(e.offsetX, e.offsetY);
     const pan = spacePan || tool === 'pan' || e.button === 1 || e.altKey || (e.button === 2 && (tool === 'select' || tool === 'reshape'));
     if (pan) { drag = { kind: 'pan', sx: e.offsetX, sy: e.offsetY, ox: view.ox, oy: view.oy }; return; }
+    if (gcalib && e.button === 0) { garmentCalibClick(p); return; }
     drag = { kind: 'click', sx: e.offsetX, sy: e.offsetY, cx: e.offsetX, cy: e.offsetY, start: p, button: e.button, moved: false, shift: e.shiftKey || e.ctrlKey };
-    if (tool === 'select') {
+    if (tool === 'garment') {
+      const g = gst();
+      drag.kind = 'garment'; drag.g0 = { dx: g.dx, dy: g.dy, px: g.photo ? g.photo.x : 0, py: g.photo ? g.photo.y : 0 };
+    } else if (tool === 'select') {
       const o = hitObj(p);
       if (o) {
         const grp = o.grp ? st.objects.filter((q) => q.grp === o.grp).map((q) => q.id) : [o.id];
@@ -1297,7 +1316,12 @@
     if (Math.hypot(e.offsetX - drag.sx, e.offsetY - drag.sy) > 4) drag.moved = true;
     drag.cx = e.offsetX; drag.cy = e.offsetY;
     if (drag.kind === 'pan') { view.ox = drag.ox + e.offsetX - drag.sx; view.oy = drag.oy + e.offsetY - drag.sy; draw(); }
-    else if (drag.kind === 'move' && drag.moved) {
+    else if (drag.kind === 'garment') {
+      // Kleidung unter dem Rahmen verschieben (Rahmen und Design bleiben stehen)
+      const g = gst(), mx = (e.offsetX - drag.sx) / view.scale, my = (e.offsetY - drag.sy) / view.scale;
+      if (g.photo) { g.photo.x = drag.g0.px + mx; g.photo.y = drag.g0.py + my; } else { g.dx = drag.g0.dx - mx; g.dy = drag.g0.dy - my; }
+      draw(); updateGarmentReadout();
+    } else if (drag.kind === 'move' && drag.moved) {
       if (!drag.undone) { pushUndo(); drag.undone = true; drag.bb0 = selBBox(); drag.off = { x: 0, y: 0 }; }
       // Gesamtverschiebung seit Beginn, an Raster/Hilfslinien einrasten
       const tot = snapDelta(drag.bb0, p.x - drag.start.x, p.y - drag.start.y);
@@ -1339,6 +1363,7 @@
       return;
     }
     if (d.kind === 'band') { renderList(); renderProps(); draw(); return; }
+    if (d.kind === 'garment') { renderGarmentBox(); return; }
     if (d.kind === 'shape') {
       if (d.moved && draft.shape) {
         pushUndo();
@@ -1400,6 +1425,8 @@
     let x0 = -(h.w || 100) / 2, x1 = (h.w || 100) / 2, y0 = -(h.h || 100) / 2, y1 = (h.h || 100) / 2;
     const s2 = D.stats(cmds);
     if (s2.stitches) { x0 = Math.min(x0, s2.x0); x1 = Math.max(x1, s2.x1); y0 = Math.min(y0, s2.y0); y1 = Math.max(y1, s2.y1); }
+    const gl = garmentOn() ? garmentLayer() : null;
+    if (gl) { x0 = Math.min(x0, gl.x0); y0 = Math.min(y0, gl.y0); x1 = Math.max(x1, gl.x0 + gl.w); y1 = Math.max(y1, gl.y0 + gl.h); }
     const m = Math.max(x1 - x0, y1 - y0) * 0.25;
     return { x0: x0 - m, x1: x1 + m, y0: y0 - m, y1: y1 + m };
   }
@@ -1542,6 +1569,15 @@
       return;
     }
     if (k === 'Delete') { run('delete'); return; }
+    if (gcalib && k === 'Escape') { gcalib = null; setHint(); draw(); return; }
+    if (tool === 'garment' && k.startsWith('Arrow') && !draft) {
+      e.preventDefault();
+      const g = gst(), q = e.shiftKey ? 10 : 1;
+      const mx = k === 'ArrowLeft' ? -q : k === 'ArrowRight' ? q : 0, my = k === 'ArrowUp' ? -q : k === 'ArrowDown' ? q : 0;
+      if (g.photo) { g.photo.x -= mx; g.photo.y -= my; } else { g.dx += mx; g.dy += my; }
+      draw(); updateGarmentReadout(); renderGarmentBox();
+      return;
+    }
     if (k.startsWith('Arrow') && !sel.size && !draft) {
       // nichts ausgewählt: Pfeiltasten verschieben die Ansicht
       e.preventDefault();
@@ -1919,6 +1955,194 @@
     return cv2.toDataURL('image/png');
   }
 
+  /* ---------- Kleidungsvorlage hinter dem Stickrahmen ---------- */
+  const GM = HW.garments;
+  const GCOL = ['#ffffff', '#111111', '#1f2a44', '#0033a0', '#c8102e', '#8a8d8f', '#00843d', '#d9c9a8', '#6b4423', '#ffd100'];
+  let gcalib = null;
+  function gst() {
+    if (!st.garment) st.garment = { on: false, kind: 'tshirt', view: 'front', size: 'L', color: '#ffffff', spot: 'brustL', dx: 0, dy: 0, photo: null };
+    return st.garment;
+  }
+  const garmentOn = () => !!(st.garment && st.garment.on);
+  // Geometrie der Kleidung in Welt-Millimetern (Rahmenmitte = 0/0)
+  function garmentLayer() {
+    const g = gst();
+    if (g.photo && g.photo._img) return { img: g.photo._img, x0: g.photo.x, y0: g.photo.y, w: g.photo.w, h: g.photo.h };
+    if (!GM) return null;
+    if (!GM.VIEW_LIST[g.kind] || !GM.VIEW_LIST[g.kind].includes(g.view)) g.view = GM.VIEW_LIST[g.kind][0];
+    const R = GM.render(g.kind, g.view, { color: g.color, size: g.size });
+    if (!R) return null;
+    const a = R.anchors[g.spot] || Object.values(R.anchors)[0];
+    if (!R.anchors[g.spot]) g.spot = Object.keys(R.anchors)[0];
+    const ox = -(a[1] + g.dx), oy = -(a[2] + g.dy);
+    return { img: R.canvas, R, x0: ox - R.ox / R.ppm, y0: oy - R.oy / R.ppm, w: R.canvas.width / R.ppm, h: R.canvas.height / R.ppm, a, ox, oy };
+  }
+  function drawGarment() {
+    if (!garmentOn()) return;
+    const L = garmentLayer(); if (!L) return;
+    const p = toScr({ x: L.x0, y: L.y0 });
+    ctx.save(); ctx.imageSmoothingQuality = 'high';
+    ctx.drawImage(L.img, p.x, p.y, L.w * view.scale, L.h * view.scale);
+    // Mittellinie und Kragenlinie als Orientierung
+    if (L.R && !gst().photo) {
+      const c = toScr({ x: L.ox, y: L.oy + L.R.collarY - L.a[2] + L.a[2] });
+      ctx.setLineDash([6, 5]); ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(30,60,90,.45)';
+      if (L.R.refs && L.R.refs.center) { ctx.beginPath(); ctx.moveTo(c.x, toScr({ x: 0, y: L.y0 }).y); ctx.lineTo(c.x, toScr({ x: 0, y: L.y0 + L.h }).y); ctx.stroke(); }
+    }
+    ctx.restore();
+  }
+  function drawGarmentCalib() {
+    if (!gcalib) return;
+    ctx.save(); ctx.strokeStyle = '#d6336c'; ctx.fillStyle = '#d6336c'; ctx.lineWidth = 2;
+    const P = gcalib.pts.map(toScr);
+    P.forEach((p) => { ctx.beginPath(); ctx.arc(p.x, p.y, 5, 0, 7); ctx.fill(); });
+    if (P.length === 1) { const m = toScr(mouse); ctx.beginPath(); ctx.moveTo(P[0].x, P[0].y); ctx.lineTo(m.x, m.y); ctx.stroke(); }
+    if (P.length === 2) { ctx.beginPath(); ctx.moveTo(P[0].x, P[0].y); ctx.lineTo(P[1].x, P[1].y); ctx.stroke(); }
+    ctx.restore();
+  }
+  function garmentRef() {
+    const g = gst(), L = garmentOn() && !g.photo ? garmentLayer() : null;
+    if (!L) return null;
+    // Bezugspunkt = Mitte des Designs (ohne Design: Rahmenmitte)
+    const s = D.stats(cmds), cx = s.stitches ? (s.x0 + s.x1) / 2 : 0, cy = s.stitches ? (s.y0 + s.y1) / 2 : 0;
+    return { x: L.a[1] + g.dx + cx, y: L.a[2] + g.dy + cy, collar: L.R.collarY, cap: g.kind === 'cap', center: !!(L.R.refs && L.R.refs.center), cx, cy };
+  }
+  function updateGarmentReadout() {
+    const el = document.getElementById('gmRead'); if (!el) return;
+    const r = garmentRef(), g = gst();
+    if (g.photo) { el.textContent = 'Eigenes Foto: Maßstab ' + (g.photo.scaled ? 'gesetzt' : 'noch nicht gesetzt (Button „Maßstab festlegen")') + '. Das Foto mit dem Werkzeug verschieben.'; return; }
+    if (!r) { el.textContent = ''; return; }
+    const sx = document.getElementById('gmX'), sy = document.getElementById('gmY');
+    const X = r.x, Y = r.y - r.collar;
+    if (sx && document.activeElement !== sx) sx.value = (Math.round(X * 10) / 10);
+    if (sy && document.activeElement !== sy) sy.value = (Math.round(Y * 10) / 10);
+    const s = D.stats(cmds), top = s.stitches ? (r.y - r.cy - r.collar) + s.y0 : null;
+    el.textContent = `Designmitte: ${fmt2(Math.abs(X))} mm ${Math.abs(X) < 0.05 ? 'genau auf der Mittellinie' : X > 0 ? 'rechts von der Mitte (im Bild)' : 'links von der Mitte (im Bild)'}; ` +
+      `${fmt2(Math.abs(Y))} mm ${Y >= 0 ? (r.cap ? 'unter der Schirmnaht' : 'unter dem Kragen') : (r.cap ? 'über der Schirmnaht' : 'über dem Kragen')}.` +
+      (top != null ? ` Oberkante des Designs: ${fmt2(Math.abs(top))} mm ${top >= 0 ? 'unter' : 'über'} ${r.cap ? 'der Naht' : 'dem Kragen'}.` : '');
+  }
+  function garmentFit() {
+    const L = garmentOn() ? garmentLayer() : null; if (!L) return;
+    const r = cv.getBoundingClientRect();
+    const sc = Math.min((r.width - 330) / L.w, (r.height - 40) / L.h);
+    view.scale = Math.max(0.3, Math.min(8, sc));
+    view.ox = (r.width - 300) / 2 - (L.x0 + L.w / 2) * view.scale; view.oy = r.height / 2 - (L.y0 + L.h / 2) * view.scale;
+    draw();
+  }
+  function garmentFocus() {
+    const g = gst(); g.on = true;
+    renderGarmentBox(); garmentFit();
+  }
+  function garmentClose() { gst().on = false; gcalib = null; renderGarmentBox(); setTool('select'); draw(); }
+  function renderGarmentBox() {
+    const box = document.getElementById('garmentBox'); if (!box) return;
+    if (!garmentOn()) { box.classList.add('hidden'); box.innerHTML = ''; return; }
+    const g = gst(), photo = !!g.photo;
+    box.classList.remove('hidden');
+    const opts = (o, cur) => Object.entries(o).map(([k, v]) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${v}</option>`).join('');
+    const vl = (GM.VIEW_LIST[g.kind] || []);
+    const L = !photo ? garmentLayer() : null;
+    const spots = L ? Object.entries(L.R.anchors).map(([k, a]) => `<option value="${k}" ${k === g.spot ? 'selected' : ''}>${a[0]}</option>`).join('') : '';
+    const sw = GCOL.map((c) => `<button class="gmsw" data-gcol="${c}" title="${c}" style="background:${c}"></button>`).join('');
+    const keepX = document.getElementById('gmX') ? document.getElementById('gmX').value : '', keepY = document.getElementById('gmY') ? document.getElementById('gmY').value : '';
+    box.innerHTML = `<div class="gmhead"><b>Kleidung</b><button data-gact="close" title="Kleidung ausblenden">✕</button></div>` +
+      (photo ? `<div class="gmrow"><span>Eigenes Foto</span><button data-gact="calib">Maßstab festlegen</button></div><div class="gmrow"><button data-gact="nophoto">Foto entfernen</button><button data-gact="fit">Ansicht anpassen</button></div>`
+        : `<label>Art<select data-g="kind">${opts(GM.KIND, g.kind)}</select></label>
+      <label>Seite<select data-g="view">${opts(Object.fromEntries(vl.map((v) => [v, GM.VIEW_NAMES[v]])), g.view)}</select></label>
+      ${g.kind === 'cap' ? '' : `<label>Größe<select data-g="size">${opts(Object.fromEntries(Object.keys(GM.SIZES).map((k) => [k, k])), g.size)}</select></label>`}
+      <label>Stelle<select data-g="spot">${spots}</select></label>
+      <div class="gmcol">${sw}<input type="color" data-g="color" value="${g.color}" title="Eigene Farbe"></div>
+      <div class="gmpos"><label>Seitlich (mm)<input type="number" id="gmX" step="0.5" data-gp="x" value="${keepX}"></label><label>${g.kind === 'cap' ? 'Unter Naht (mm)' : 'Unter Kragen (mm)'}<input type="number" id="gmY" step="0.5" data-gp="y" value="${keepY}"></label></div>
+      <div class="gmrow"><button data-gact="center">Auf Mitte</button><button data-gact="spot">Stelle zurücksetzen</button></div>
+      <div class="gmrow"><button data-gact="fit">Ansicht anpassen</button><button data-gact="photo">Eigenes Foto…</button></div>`) +
+      `<p id="gmRead" class="gmread"></p><p class="gmnote">Verschieben: Werkzeug „Kleidung" und ziehen oder Pfeiltasten (Shift = 10 mm). Rahmen und Design bleiben stehen.</p>`;
+    updateGarmentReadout();
+  }
+  function garmentPhoto() {
+    pickFile('image/*', (buf, f) => {
+      const url = URL.createObjectURL(new Blob([buf], { type: f.type || 'image/jpeg' }));
+      const img = new Image();
+      img.onload = () => {
+        const mx = 1600, k = Math.min(1, mx / Math.max(img.width, img.height));
+        const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
+        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
+        const src = c.toDataURL('image/jpeg', 0.85), im2 = new Image();
+        im2.onload = () => {
+          const g = gst(), w = 500, h = w * c.height / c.width;
+          g.photo = { src, x: -w / 2, y: -h / 2, w, h, scaled: false, _img: im2 };
+          g.on = true; renderGarmentBox(); garmentFit(); setTool('garment');
+          modal('Eigenes Foto', '<p>Das Foto liegt jetzt hinter dem Rahmen. Damit die Millimeter stimmen, bitte den Maßstab festlegen: Zwei Punkte auf dem Foto anklicken, deren echte Entfernung bekannt ist (z. B. Breite der Brust von Naht zu Naht oder ein daneben liegendes Maßband), und die Länge in mm eingeben.</p><p>Tipp: Kleidung flach hinlegen und gerade von oben fotografieren.</p>');
+        };
+        im2.src = src;
+      };
+      img.onerror = () => modal('Eigenes Foto', '<p>Das Bild konnte nicht gelesen werden.</p>');
+      img.src = url;
+    }, 'buffer');
+  }
+  function garmentCalibClick(p) {
+    gcalib.pts.push({ x: p.x, y: p.y });
+    if (gcalib.pts.length < 2) { setHint(); draw(); return; }
+    const [a, b] = gcalib.pts, d = Math.hypot(a.x - b.x, a.y - b.y);
+    draw();
+    modal('Maßstab', field('Echte Entfernung der beiden Punkte (mm)', '<input id="gcL" type="number" min="1" step="1" value="300">'), [
+      { label: 'Abbrechen', action: () => { gcalib = null; setHint(); draw(); } },
+      { label: 'Übernehmen', primary: true, action: () => {
+        const real = parseFloat(val('gcL')), g = gst();
+        if (!(real > 0) || !(d > 0)) return false;
+        const k = real / d, ph = g.photo;
+        // um die Mitte des ersten Punktes skalieren, damit das Foto nicht wegspringt
+        ph.x = a.x + (ph.x - a.x) * k; ph.y = a.y + (ph.y - a.y) * k; ph.w *= k; ph.h *= k; ph.scaled = true;
+        gcalib = null; setHint(); renderGarmentBox(); draw();
+      } },
+    ]);
+  }
+  function garmentPreview(w = 640) {
+    // Bild: Kleidung + Stickerei maßstabsgetreu, für Vorschau-Dialog und Arbeitsblatt
+    if (!garmentOn() || !cmds.some((q) => q.cmd === 'stitch')) return null;
+    const L = garmentLayer(); if (!L) return null;
+    const sc = w / L.w, c = document.createElement('canvas');
+    c.width = w; c.height = Math.round(L.h * sc);
+    const x = c.getContext('2d'); x.drawImage(L.img, 0, 0, c.width, c.height);
+    paintDesign(x, cmds, (p) => [(p.x - L.x0) * sc, (p.y - L.y0) * sc], sc, { shadow: true });
+    return c;
+  }
+  function wireGarmentBox() {
+    const box = document.getElementById('garmentBox'); if (!box) return;
+    box.addEventListener('click', (e) => {
+      const t = e.target.closest('button'); if (!t) return;
+      const g = gst();
+      if (t.dataset.gcol) { g.color = t.dataset.gcol; renderGarmentBox(); draw(); return; }
+      const a = t.dataset.gact;
+      if (a === 'close') garmentClose();
+      else if (a === 'fit') garmentFit();
+      else if (a === 'center') { const r = garmentRef(); if (r) g.dx -= r.x; renderGarmentBox(); draw(); }
+      else if (a === 'spot') { g.dx = 0; g.dy = 0; renderGarmentBox(); draw(); }
+      else if (a === 'photo') garmentPhoto();
+      else if (a === 'nophoto') { g.photo = null; renderGarmentBox(); garmentFit(); }
+      else if (a === 'calib') { gcalib = { pts: [] }; setTool('garment'); setHint(); draw(); }
+    });
+    box.addEventListener('change', (e) => {
+      const t = e.target, g = gst();
+      if (t.dataset.g) {
+        g[t.dataset.g] = t.value;
+        if (t.dataset.g === 'kind') { g.view = GM.VIEW_LIST[g.kind][0]; g.spot = ''; g.dx = g.dy = 0; }
+        if (t.dataset.g === 'view' || t.dataset.g === 'size') { g.spot = ''; g.dx = g.dy = 0; }
+        if (t.dataset.g === 'spot') g.dx = g.dy = 0;
+        garmentLayer(); renderGarmentBox(); if (t.dataset.g !== 'color') garmentFit(); else draw();
+      }
+    });
+    box.addEventListener('input', (e) => {
+      const t = e.target, g = gst();
+      if (t.dataset.g === 'color') { g.color = t.value; draw(); return; }
+      if (t.dataset.gp) {
+        const r = garmentRef(); if (!r) return;
+        const v = parseFloat(t.value); if (!isFinite(v)) return;
+        if (t.dataset.gp === 'x') g.dx += v - r.x; else g.dy += v + r.collar - r.y;
+        draw(); updateGarmentReadout();
+      }
+    });
+  }
+
   /* ---------- Produkt-Vorschau (Mockup) ---------- */
   // Umrisse in mm, (0,0) = Halsausschnitt Mitte oben bzw. Mitte des Produkts
   const PRODUCTS = {
@@ -1936,6 +2160,14 @@
       outline: [[-190, -150], [190, -150], [190, 230], [-190, 230]], bag: true },
   };
   function mockupDialog() {
+    if (garmentOn()) {
+      const c = garmentPreview(720);
+      if (!c) return modal('Vorschau', '<p>Das Design enthält noch keine Stiche.</p>');
+      modal('Vorschau auf der Kleidung', '<div id="gvWrap"></div><p style="color:#6a7480">Maßstabsgetreu, so wie das Design im Stickrahmen-Fenster auf der Kleidung liegt.</p>',
+        [{ label: 'Als Bild speichern', action: () => { c.toBlob((bl) => download(bl, safeName(st.name) + '_Vorschau.png', 'image/png')); return false; } }, { label: 'Schließen', primary: true }]);
+      c.style.cssText = 'width:100%;background:#eceff3'; $('#gvWrap').appendChild(c);
+      return;
+    }
     if (!cmds.some((q) => q.cmd === 'stitch')) return modal('Produkt-Vorschau', '<p>Das Design enthält noch keine Stiche.</p>');
     const ms = (st.settings.mockup = st.settings.mockup || { prod: 'tshirt', spot: 'brustL', color: '#ffffff' });
     const prodOpts = Object.entries(PRODUCTS).map(([k, v]) => `<option value="${k}" ${k === ms.prod ? 'selected' : ''}>${v.name}</option>`).join('');
@@ -2119,7 +2351,7 @@
 
   /* ---------- Projekt als Daten ---------- */
   function projectJSON() {
-    const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, customHoops: st.customHoops, fabric: st.fabric, material: st.material, settings: st.settings, defaults: st.defaults, threadBrand: st.threadBrand, threadAuto: st.threadAuto, guides: st.guides || [], libTags: st.libTags, libCustomer: st.libCustomer, bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null });
+    const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, customHoops: st.customHoops, fabric: st.fabric, material: st.material, settings: st.settings, defaults: st.defaults, threadBrand: st.threadBrand, threadAuto: st.threadAuto, guides: st.guides || [], libTags: st.libTags, libCustomer: st.libCustomer, bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null, garment: st.garment ? { ...clone(st.garment), photo: st.garment.photo ? { src: st.garment.photo.src, x: st.garment.photo.x, y: st.garment.photo.y, w: st.garment.photo.w, h: st.garment.photo.h, scaled: st.garment.photo.scaled } : null } : null });
     return data;
   }
   function loadProject(d, fname = '') {
@@ -2134,6 +2366,12 @@
     nextGrp = Math.max(0, ...st.objects.map((o) => (typeof o.grp === 'number' ? o.grp : 0))) + 1;
     st.bg = null;
     if (d.bg && d.bg.src) { const b = d.bg; loadBg(b.src, b.w, () => Object.assign(st.bg, { x: b.x, y: b.y, opacity: b.opacity, visible: b.visible !== false })); }
+    st.garment = null; gcalib = null;
+    if (d.garment && typeof d.garment === 'object') {
+      const gg = d.garment, g = gst(); Object.assign(g, { on: !!gg.on, kind: gg.kind, view: gg.view, size: gg.size, color: gg.color, spot: gg.spot, dx: +gg.dx || 0, dy: +gg.dy || 0, photo: null });
+      if (gg.photo && gg.photo.src) { const im = new Image(); im.onload = () => { g.photo = { ...gg.photo, _img: im }; renderGarmentBox(); draw(); }; im.src = gg.photo.src; }
+    }
+    renderGarmentBox();
     sel = new Set(); renderPalette(); changed(); zoomFit();
   }
 
@@ -3159,7 +3397,7 @@
     if (!w) return modal('Arbeitsblatt', '<p>Popup wurde blockiert – bitte Popups erlauben.</p>');
     w.document.write(`<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Arbeitsblatt ${st.name}</title><style>body{font:13px system-ui;margin:20px}td{padding:3px 10px;border-bottom:1px solid #ddd}img{max-width:100%;border:1px solid #ccc}</style></head><body>
       <h2>${st.name}</h2><p>Stiche: <b>${s.stitches.toLocaleString(loc())}</b> · Farbwechsel: ${s.colors - 1} · Schnitte: ${s.trims} · Größe: ${fmt(s.w)} × ${fmt(s.h)} mm · Rahmen: ${hoop().name}</p>
-      <img src="${c.toDataURL()}">${(() => { const r = HW.fabric.recommend(st.material, st.objects, s); return `<h3>Stoff &amp; Vlies</h3><p>Stoff: <b>${r.fabric.name}</b><br>Vlies: ${r.vlies}<br>Topper: ${r.topper}<br>Nadel: ${r.needle} · max. ${r.spm} Stiche/min</p>${r.warn.length ? '<p>⚠ ' + r.warn.join('<br>⚠ ') + '</p>' : ''}`; })()}<h3>Farbfolge</h3><table>${rows}</table></body></html>`);
+      <img src="${c.toDataURL()}">${(() => { const gp = garmentPreview(900); return gp ? `<h3>Position auf der Kleidung</h3><img src="${gp.toDataURL()}">` : ''; })()}${(() => { const r = HW.fabric.recommend(st.material, st.objects, s); return `<h3>Stoff &amp; Vlies</h3><p>Stoff: <b>${r.fabric.name}</b><br>Vlies: ${r.vlies}<br>Topper: ${r.topper}<br>Nadel: ${r.needle} · max. ${r.spm} Stiche/min</p>${r.warn.length ? '<p>⚠ ' + r.warn.join('<br>⚠ ') + '</p>' : ''}`; })()}<h3>Farbfolge</h3><table>${rows}</table></body></html>`);
     w.document.close();
     if (HW.i18n) HW.i18n.apply(w.document.body);
     setTimeout(() => w.print(), 300);
@@ -3179,6 +3417,7 @@
       <tr><td>Pfeiltasten</td><td>0,1 mm verschieben (mit Shift 1 mm)</td></tr>
       <tr><td>Mausrad</td><td>hoch/runter scrollen (Shift = links/rechts)</td></tr><tr><td>Strg + Mausrad / + / −</td><td>Zoom, <b>0</b> = alles zeigen</td></tr><tr><td>Leertaste + Ziehen</td><td>Ansicht verschieben (auch mittlere Maustaste)</td></tr><tr><td>Pfeiltasten</td><td>ohne Auswahl: Ansicht verschieben</td></tr>
       <tr><td>Mittlere Taste / Alt+Ziehen</td><td>Ansicht verschieben</td></tr>
+      <tr><td>Werkzeug „Kleidung“</td><td>Kleidung hinter dem Rahmen verschieben (Ziehen oder Pfeiltasten, Shift = 10 mm)</td></tr>
       <tr><td>T / J</td><td>TrueView / Sprünge anzeigen</td></tr>
       <tr><td>Strg+Z / Strg+Y</td><td>Rückgängig / Wiederholen</td></tr>
       <tr><td>Strg+E</td><td>DST exportieren</td></tr>
@@ -3191,6 +3430,7 @@
 
   /* ======================= Befehle ======================= */
   const commands = {
+    garment: () => { setTool('garment'); },
     new: () => modal('Neues Design', '<p>Aktuelles Design verwerfen?</p>', [{ label: 'Abbrechen' }, { label: 'Neu', primary: true, action: () => { pushUndo(); st.objects = []; st.bg = null; sel = new Set(); changed(); } }]),
     save: () => {
       download(projectJSON(), (st.name || 'design') + '.stick.json', 'application/json');
@@ -3439,5 +3679,6 @@
   zoomHoop();
   // Sprache: Umschalter oben rechts, Texte werden beim Wechsel sofort übersetzt
   document.querySelectorAll('[data-lang-btn]').forEach((b) => b.addEventListener('click', () => { b.blur(); HW.i18n.setLang(b.dataset.langBtn); renderStats(); renderProps(); renderList(); draw(); }));
+  wireGarmentBox();
   if (HW.i18n) HW.i18n.start();
 })();

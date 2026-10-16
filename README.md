@@ -335,3 +335,7 @@ Bitte das Projekt immer zusätzlich speichern: Eine DST-Datei enthält nur noch 
 
 Tests: `node tests/test_core.js` prüft die Stichgenerierung und den DST-Hin- und Rückweg, `node tests/test_satin.js` die Satin-Erkennung (Ring, Bogen, L, T), `node tests/test_fabric.js` die Stoff-Automatik, `node tests/test_check.js` die Stickprüfung, `node tests/test_route.js` die Verbindungsberechnung, `node tests/test_connect.js` Schnitt/Sprung und Rahmen.
 Die erzeugten DST-Dateien wurden zusätzlich mit der unabhängigen Bibliothek *pyembroidery* gegengelesen.
+
+## Kleidungsvorlagen
+
+Unter *Datei → Kleidungsvorlage hinter dem Rahmen…* (oder Werkzeug „Kleidung“) liegt T‑Shirt, Polo, Sweatshirt, Hoodie oder Kappe (vorne, hinten, Ärmel, Seiten; Größen S–XXL, frei wählbare Farbe) hinter dem Stickrahmen. Die Kleidung lässt sich unter dem Rahmen verschieben; angezeigt werden die Abstände von Mittellinie und Kragen in mm. Mit „Eigenes Foto…“ kann echte Kleidung hinterlegt werden (Maßstab über zwei Punkte). Die Vorschau und das Arbeitsblatt zeigen die Position maßstabsgetreu. Quelltext: `js/garments.js`.
