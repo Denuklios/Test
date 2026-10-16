@@ -377,78 +377,85 @@
   }
 
   /* ================= Kappe (Basecap, 6 Segmente) ================= */
-  function capBody(x, o, crown, inner) {
+  // Maße wie eine echte Kappe: Krone ca. 190 mm breit und flach gewölbt, Schirm leicht nach unten gebogen
+  function capBody(x, o, crown, bb, inner) {
     const L = lum(o.rgb);
-    castShadow(x, crown, 10, 0.32, 0, 4);
+    castShadow(x, crown, 9, 0.3, 0, 3);
     piece(x, crown, o, {
-      tex: 'twill', edgeW: 28, edgeA: 0.28, bb: { x0: -112, y0: -96, x1: 116, y1: 90 },
+      tex: 'twill', edgeW: 22, edgeA: 0.3, bb,
       inner: (c) => {
-        const gr = c.createRadialGradient(-10, -46, 8, 0, -10, 150); gr.addColorStop(0, css([255, 255, 255], L > 0.5 ? 0.14 : 0.2)); gr.addColorStop(0.65, 'rgba(255,255,255,0)'); gr.addColorStop(1, css([0, 0, 0], 0.24));
-        c.fillStyle = gr; c.fillRect(-130, -110, 260, 210);
+        const gr = c.createRadialGradient(-14, -34, 6, 0, 0, 120); gr.addColorStop(0, css([255, 255, 255], L > 0.5 ? 0.12 : 0.17)); gr.addColorStop(0.6, 'rgba(255,255,255,0)'); gr.addColorStop(1, css([0, 0, 0], 0.22));
+        c.fillStyle = gr; c.fillRect(-130, -80, 260, 180);
         inner(c);
       },
     });
   }
   function capSeam(c, o, pts) {
-    soft(c, curve(...pts), 5, [0, 0, 0], 0.15, 4); stroke(c, curve(...pts), 0.7, css(dark(o.rgb, 0.55), 0.5));
-    const off = pts.map((q) => [q[0] + 2.6, q[1]]); topstitch(c, curve(...off), o);
+    soft(c, curve(...pts), 3.5, [0, 0, 0], 0.16, 4); stroke(c, curve(...pts), 0.6, css(dark(o.rgb, 0.55), 0.55));
+    const off = pts.map((q) => [q[0] + 2.2, q[1]]); topstitch(c, curve(...off), o, 1.8);
   }
   function capButton(x, o, cx, cy, rx) {
-    x.save(); const gx = x.createRadialGradient(cx - 3, cy - 3, 1, cx, cy, rx); gx.addColorStop(0, css(light(o.rgb, 0.4))); gx.addColorStop(1, css(dark(o.rgb, 0.4))); x.fillStyle = gx;
-    x.beginPath(); x.ellipse(cx, cy, rx, rx * 0.62, 0, 0, 7); x.fill(); x.strokeStyle = 'rgba(0,0,0,.35)'; x.lineWidth = 0.6; x.stroke(); x.restore();
+    x.save(); const gx = x.createRadialGradient(cx - 2, cy - 2, 1, cx, cy, rx); gx.addColorStop(0, css(light(o.rgb, 0.4))); gx.addColorStop(1, css(dark(o.rgb, 0.45))); x.fillStyle = gx;
+    x.beginPath(); x.ellipse(cx, cy, rx, rx * 0.7, 0, 0, 7); x.fill(); x.strokeStyle = 'rgba(0,0,0,.4)'; x.lineWidth = 0.6; x.stroke(); x.restore();
   }
   function eyelet(x, o, ex, ey) {
-    x.save(); x.fillStyle = css(dark(o.rgb, 0.3)); x.beginPath(); x.arc(ex, ey, 3, 0, 7); x.fill(); x.strokeStyle = css(light(o.rgb, 0.3), 0.7); x.lineWidth = 0.8; x.stroke(); x.restore();
+    x.save(); x.fillStyle = css(dark(o.rgb, 0.45)); x.beginPath(); x.ellipse(ex, ey, 2.4, 2, 0, 0, 7); x.fill(); x.strokeStyle = css(light(o.rgb, 0.35), 0.8); x.lineWidth = 0.7; x.stroke(); x.restore();
+  }
+  function capBill(x, o, path, bb, sh) {
+    castShadow(x, path, 10, 0.34, 0, 5);
+    piece(x, path, o, { base: dark(o.rgb, 0.04), tex: 'twill', edgeW: 10, edgeA: 0.28, bb, inner: sh });
   }
   function drawCap(x, view, o) {
-    const body = o.rgb;
+    const body = o.rgb, L = lum(body);
+    const rimLine = (c, pts) => { soft(x, c, 2.6, [0, 0, 0], 0.26, 3); stroke(x, c, 0.7, css(dark(body, 0.6), 0.55)); };
     if (view === 'front') {
-      // Schirm von vorn: schmale, nach unten gebogene Sichel unter der Krone
-      const bill = new Path2D(); bill.moveTo(-104, 60); bill.bezierCurveTo(-116, 96, -74, 126, 0, 128); bill.bezierCurveTo(74, 126, 116, 96, 104, 60); bill.bezierCurveTo(60, 78, -60, 78, -104, 60); bill.closePath();
-      castShadow(x, bill, 12, 0.36, 0, 6);
-      piece(x, bill, o, { base: dark(body, 0.05), tex: 'twill', edgeW: 16, edgeA: 0.22, bb: { x0: -120, y0: 56, x1: 120, y1: 132 }, inner: (c) => { const g3 = c.createLinearGradient(0, 62, 0, 128); g3.addColorStop(0, 'rgba(0,0,0,.32)'); g3.addColorStop(0.45, 'rgba(0,0,0,.04)'); g3.addColorStop(1, 'rgba(255,255,255,.08)'); c.fillStyle = g3; c.fillRect(-130, 56, 260, 80); } });
-      for (const k of [8, 15, 22]) topstitch(x, curve([-96 + k * 0.4, 66 + k * 0.25], [-96 + k * 0.4, 100 + k * 0.4], [-40, 122 - k * 0.5], [0, 122 - k * 0.5]), o), topstitch(x, curve([0, 122 - k * 0.5], [40, 122 - k * 0.5], [96 - k * 0.4, 100 + k * 0.4], [96 - k * 0.4, 66 + k * 0.25]), o);
-      const crown = new Path2D(); crown.moveTo(-100, 62); crown.bezierCurveTo(-108, -2, -70, -78, 0, -80); crown.bezierCurveTo(70, -78, 108, -2, 100, 62); crown.bezierCurveTo(56, 76, -56, 76, -98, 62); crown.closePath();
-      capBody(x, o, crown, (c) => {
-        capSeam(c, o, [[0, -80], [0, -20], [0, 40], [0, 74]]);
-        capSeam(c, o, [[-30, -76], [-64, -34], [-72, 20], [-68, 66]]); capSeam(c, o, [[30, -76], [64, -34], [72, 20], [68, 66]]);
-        // Frontpanel leicht heller (versteift)
-        const fp = new Path2D(); fp.moveTo(0, -80); fp.bezierCurveTo(-24, -78, -58, -44, -68, 66); fp.bezierCurveTo(-30, 74, 30, 74, 68, 66); fp.bezierCurveTo(58, -44, 24, -78, 0, -80); c.fillStyle = css([255, 255, 255], 0.05); c.fill(fp);
+      // Schirm von vorn: flache, nach unten gebogene Fläche, breiter als die Krone
+      const bill = new Path2D(); bill.moveTo(-100, 40); bill.bezierCurveTo(-118, 62, -80, 96, 0, 98); bill.bezierCurveTo(80, 96, 118, 62, 100, 40); bill.lineTo(-100, 40); bill.closePath();
+      capBill(x, o, bill, { x0: -120, y0: 38, x1: 120, y1: 100 }, (c) => {
+        const g = c.createLinearGradient(0, 44, 0, 98); g.addColorStop(0, 'rgba(0,0,0,.34)'); g.addColorStop(0.35, 'rgba(255,255,255,.04)'); g.addColorStop(1, 'rgba(0,0,0,.16)');
+        c.fillStyle = g; c.fillRect(-130, 38, 260, 66);
       });
-      capButton(x, o, 0, -80, 8);
-      for (const e of [[-78, -14], [78, -14]]) eyelet(x, o, e[0], e[1]);
-      const rim = curve([-98, 62], [-56, 76], [56, 76], [98, 62]); soft(x, rim, 3, [0, 0, 0], 0.22, 3); stroke(x, rim, 0.7, css(dark(body, 0.6), 0.5));
+      // Steppnähte parallel zur Schirmkante
+      for (const k of [5, 10]) topstitch(x, curve([-92 + k * 0.5, 50 + k * 0.1], [-102 + k * 0.5, 66], [-70, 92 - k], [0, 93 - k]), o, 1.6), topstitch(x, curve([0, 93 - k], [70, 92 - k], [102 - k * 0.5, 66], [92 - k * 0.5, 50 + k * 0.1]), o, 1.6);
+      const crown = new Path2D(); crown.moveTo(-95, 44); crown.bezierCurveTo(-102, -6, -64, -52, 0, -54); crown.bezierCurveTo(64, -52, 102, -6, 95, 44); crown.bezierCurveTo(60, 54, -60, 54, -95, 44); crown.closePath();
+      capBody(x, o, crown, { x0: -105, y0: -58, x1: 105, y1: 58 }, (c) => {
+        capSeam(c, o, [[0, -54], [0, -10], [0, 28], [0, 52]]);
+        capSeam(c, o, [[-6, -53], [-46, -34], [-62, 6], [-58, 46]]); capSeam(c, o, [[6, -53], [46, -34], [62, 6], [58, 46]]);
+        const fp = new Path2D(); fp.moveTo(0, -54); fp.bezierCurveTo(-30, -48, -58, -20, -58, 46); fp.bezierCurveTo(-30, 53, 30, 53, 58, 46); fp.bezierCurveTo(58, -20, 30, -48, 0, -54); c.fillStyle = css([255, 255, 255], 0.05); c.fill(fp);
+      });
+      capButton(x, o, 0, -54, 6.5);
+      for (const e of [[-76, -2], [76, -2]]) eyelet(x, o, e[0], e[1]);
+      rimLine(curve([-95, 44], [-60, 54], [60, 54], [95, 44]));
     } else if (view === 'back') {
-      const crown = new Path2D(); crown.moveTo(-100, 66); crown.bezierCurveTo(-108, 0, -70, -78, 0, -80); crown.bezierCurveTo(70, -78, 108, 0, 100, 66); crown.bezierCurveTo(56, 80, -56, 80, -98, 66); crown.closePath();
-      capBody(x, o, crown, (c) => {
-        capSeam(c, o, [[0, -80], [0, -20], [0, 40], [0, 78]]);
-        capSeam(c, o, [[-30, -76], [-62, -34], [-70, 20], [-66, 70]]); capSeam(c, o, [[30, -76], [62, -34], [70, 20], [66, 70]]);
+      const crown = new Path2D(); crown.moveTo(-95, 48); crown.bezierCurveTo(-102, -2, -64, -52, 0, -54); crown.bezierCurveTo(64, -52, 102, -2, 95, 48); crown.bezierCurveTo(60, 56, -60, 56, -95, 48); crown.closePath();
+      capBody(x, o, crown, { x0: -105, y0: -58, x1: 105, y1: 60 }, (c) => {
+        capSeam(c, o, [[0, -54], [0, -10], [0, 30], [0, 54]]);
+        capSeam(c, o, [[-6, -53], [-46, -34], [-62, 8], [-60, 50]]); capSeam(c, o, [[6, -53], [46, -34], [62, 8], [60, 50]]);
       });
-      capButton(x, o, 0, -80, 8);
-      for (const e of [[-76, -8], [76, -8]]) eyelet(x, o, e[0], e[1]);
-      // Rückenband mit Schnalle
-      const st = new Path2D(); st.moveTo(-70, 52); st.bezierCurveTo(-30, 62, 30, 62, 70, 52); st.lineTo(70, 70); st.bezierCurveTo(30, 80, -30, 80, -70, 70); st.closePath();
-      castShadow(x, st, 3, 0.25, 0, 1.5);
-      piece(x, st, o, { base: dark(body, 0.1), tex: 'rib', texAlpha: 0.3, edgeW: 5, edgeA: 0.2, bb: { x0: -72, y0: 48, x1: 72, y1: 82 } });
-      x.save(); x.strokeStyle = css(light(body, 0.55), 0.95); x.lineWidth = 3; x.strokeRect(-12, 56, 24, 17); x.restore();
-      for (let k = -4; k <= 4; k++) { if (Math.abs(k) < 2) continue; x.fillStyle = 'rgba(0,0,0,.35)'; x.beginPath(); x.arc(k * 12, 62 + Math.abs(k) * 0.6, 1.5, 0, 7); x.fill(); }
-      const rim = curve([-98, 66], [-56, 80], [56, 80], [98, 66]); soft(x, rim, 3, [0, 0, 0], 0.22, 3); stroke(x, rim, 0.7, css(dark(body, 0.6), 0.5));
+      capButton(x, o, 0, -54, 6.5);
+      for (const e of [[-78, 0], [78, 0]]) eyelet(x, o, e[0], e[1]);
+      // Verschlussband mit Schnalle
+      const st = new Path2D(); st.moveTo(-62, 34); st.bezierCurveTo(-30, 42, 30, 42, 62, 34); st.lineTo(62, 47); st.bezierCurveTo(30, 55, -30, 55, -62, 47); st.closePath();
+      castShadow(x, st, 2.5, 0.25, 0, 1.2);
+      piece(x, st, o, { base: dark(body, 0.1), tex: 'rib', texAlpha: 0.3, edgeW: 4, edgeA: 0.2, bb: { x0: -64, y0: 30, x1: 64, y1: 58 } });
+      x.save(); x.strokeStyle = css(light(body, 0.55), 0.95); x.lineWidth = 2.4; x.strokeRect(-9, 38, 18, 12); x.restore();
+      for (let k = 2; k <= 5; k++) for (const sg of [-1, 1]) { x.fillStyle = 'rgba(0,0,0,.35)'; x.beginPath(); x.arc(sg * k * 9, 42 + k * 0.5, 1.2, 0, 7); x.fill(); }
+      rimLine(curve([-95, 48], [-60, 56], [60, 56], [95, 48]));
     } else {
       // Seitenansicht: Schirm zeigt nach links (bei „rechts“ gespiegelt)
       x.save(); if (view === 'right') x.scale(-1, 1);
-      const bill = new Path2D(); bill.moveTo(-60, 40); bill.lineTo(-96, 44); bill.bezierCurveTo(-140, 40, -186, 56, -218, 80); bill.bezierCurveTo(-224, 92, -212, 100, -196, 99); bill.bezierCurveTo(-150, 94, -112, 88, -80, 80); bill.lineTo(-60, 78); bill.closePath();
-      castShadow(x, bill, 10, 0.32, 0, 5);
-      piece(x, bill, o, { base: dark(body, 0.06), tex: 'twill', edgeW: 12, edgeA: 0.26, bb: { x0: -224, y0: 40, x1: -80, y1: 100 } });
-      for (const k of [6, 12, 18]) topstitch(x, curve([-100, 52 + k * 0.2], [-146, 52 + k * 0.5], [-190, 66 + k * 0.4], [-212 + k * 0.4, 86]), o);
-      const crown = new Path2D(); crown.moveTo(-96, 58); crown.bezierCurveTo(-102, -30, -56, -94, 12, -94); crown.bezierCurveTo(78, -94, 112, -42, 112, 16); crown.bezierCurveTo(112, 40, 108, 54, 100, 62); crown.bezierCurveTo(40, 78, -40, 78, -96, 58); crown.closePath();
-      capBody(x, o, crown, (c) => {
-        capSeam(c, o, [[10, -94], [-2, -30], [8, 30], [4, 72]]);
-        capSeam(c, o, [[-52, -78], [-72, -30], [-72, 22], [-80, 62]]);
-        capSeam(c, o, [[62, -86], [88, -40], [92, 10], [90, 56]]);
+      const bill = new Path2D(); bill.moveTo(-60, 28); bill.lineTo(-84, 34); bill.bezierCurveTo(-124, 35, -168, 46, -202, 68); bill.bezierCurveTo(-207, 74, -203, 80, -195, 79); bill.bezierCurveTo(-156, 68, -112, 58, -84, 54); bill.lineTo(-60, 52); bill.closePath();
+      capBill(x, o, bill, { x0: -210, y0: 30, x1: -70, y1: 84 }, (c) => { const g = c.createLinearGradient(0, 34, 0, 80); g.addColorStop(0, 'rgba(255,255,255,.10)'); g.addColorStop(1, 'rgba(0,0,0,.3)'); c.fillStyle = g; c.fillRect(-220, 30, 160, 60); });
+      topstitch(x, curve([-84, 40], [-124, 42], [-160, 52], [-192, 68]), o, 1.6);
+      const crown = new Path2D(); crown.moveTo(-86, 46); crown.bezierCurveTo(-92, -4, -60, -48, -6, -56); crown.bezierCurveTo(50, -64, 100, -34, 100, 16); crown.bezierCurveTo(100, 34, 98, 44, 94, 50); crown.bezierCurveTo(30, 60, -40, 58, -86, 46); crown.closePath();
+      capBody(x, o, crown, { x0: -96, y0: -64, x1: 106, y1: 62 }, (c) => {
+        capSeam(c, o, [[-4, -56], [-34, -36], [-60, 0], [-70, 44]]);
+        capSeam(c, o, [[-2, -56], [30, -40], [58, -6], [66, 50]]);
+        const fp = new Path2D(); fp.moveTo(-4, -56); fp.bezierCurveTo(-34, -36, -60, 0, -70, 44); fp.lineTo(-90, 46); fp.lineTo(-92, -10); fp.closePath(); c.fillStyle = css([255, 255, 255], 0.05); c.fill(fp);
       });
-      capButton(x, o, 12, -94, 8);
-      eyelet(x, o, -34, -34); eyelet(x, o, 34, -50);
-      const rim = curve([-96, 58], [-50, 78], [50, 78], [100, 62]); soft(x, rim, 3, [0, 0, 0], 0.22, 3); stroke(x, rim, 0.7, css(dark(body, 0.6), 0.5));
+      capButton(x, o, -3, -57, 6.5);
+      eyelet(x, o, -10, -26); eyelet(x, o, 4, -30);
+      rimLine(curve([-86, 46], [-40, 58], [30, 60], [94, 50]));
       x.restore();
     }
   }
@@ -477,10 +484,10 @@
       sleeve: { bb: { x0: -230, y0: -50, x1: 230, y1: 640 }, anchors: { oben: ['Ärmel oben', 0, 110], mitte: ['Ärmel Mitte', 0, 260], unten: ['Ärmel unten', 0, 420] }, collarY: 0, refs: { center: true, sleeve: true } },
     },
     cap: {
-      front: { bb: { x0: -130, y0: -110, x1: 130, y1: 140 }, anchors: { mitte: ['Front Mitte', 0, 14], links: ['Front links', 56, 14], rechts: ['Front rechts', -56, 14], hoch: ['Front hoch', 0, -14] }, collarY: 62, refs: { center: true, cap: true } },
-      back: { bb: { x0: -130, y0: -110, x1: 130, y1: 100 }, anchors: { mitte: ['Hinten Mitte (über dem Band)', 0, 6], tief: ['Hinten unten', 0, 28] }, collarY: 62, refs: { center: true, cap: true } },
-      left: { bb: { x0: -240, y0: -110, x1: 130, y1: 120 }, anchors: { seite: ['Seite links', 40, 8], vorne: ['Seite vorn', -48, 8] }, collarY: 62, refs: { cap: true } },
-      right: { bb: { x0: -130, y0: -110, x1: 240, y1: 120 }, anchors: { seite: ['Seite rechts', -40, 8], vorne: ['Seite vorn', 48, 8] }, collarY: 62, refs: { cap: true } },
+      front: { bb: { x0: -125, y0: -62, x1: 125, y1: 102 }, anchors: { mitte: ['Front Mitte', 0, 0], links: ['Front links', 48, 0], rechts: ['Front rechts', -48, 0], hoch: ['Front hoch', 0, -22] }, collarY: 50, refs: { center: true, cap: true } },
+      back: { bb: { x0: -110, y0: -62, x1: 110, y1: 62 }, anchors: { mitte: ['Hinten Mitte (über dem Band)', 0, -12], tief: ['Hinten unten', 0, 10] }, collarY: 50, refs: { center: true, cap: true } },
+      left: { bb: { x0: -210, y0: -66, x1: 110, y1: 84 }, anchors: { seite: ['Seite links', 40, 0], vorne: ['Seite vorn', -40, 0] }, collarY: 50, refs: { cap: true } },
+      right: { bb: { x0: -110, y0: -66, x1: 210, y1: 84 }, anchors: { seite: ['Seite rechts', -40, 0], vorne: ['Seite vorn', 40, 0] }, collarY: 50, refs: { cap: true } },
     },
   };
   const KIND = { tshirt: 'T-Shirt', polo: 'Polo', sweat: 'Sweatshirt', hoodie: 'Hoodie', cap: 'Kappe' };

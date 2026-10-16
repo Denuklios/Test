@@ -158,3 +158,11 @@ body.hasBanner main { height: calc(100% - 38px - 34px - 30px); }
 #garmentBox .gmpos { border-top: 1px solid var(--line); padding-top: 4px; }
 #garmentBox .gmread { margin: 6px 0 2px; font-weight: 600; }
 #garmentBox .gmnote { margin: 4px 0 0; color: #6a7480; font-size: 11.5px; }
+#garmentBox .gmlib { border-top: 1px solid var(--line); margin-top: 6px; padding-top: 6px; }
+#garmentBox .gmlh { display: flex; justify-content: space-between; align-items: center; }
+#garmentBox .gmgrid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; margin-top: 6px; max-height: 170px; overflow: auto; }
+#garmentBox .gmitem { position: relative; border: 1px solid var(--line); border-radius: 6px; padding: 3px; cursor: pointer; background: #fff; text-align: center; }
+#garmentBox .gmitem.on { outline: 2px solid var(--accent, #7b9a82); }
+#garmentBox .gmitem img { width: 100%; height: 56px; object-fit: contain; display: block; }
+#garmentBox .gmitem span { display: block; font-size: 10.5px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+#garmentBox .gmdel { position: absolute; right: 1px; top: 1px; padding: 0 4px; line-height: 14px; font-size: 10px; opacity: .75; }

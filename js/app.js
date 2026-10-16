@@ -855,7 +855,8 @@
       manual: 'Jeder Linksklick = ein Stich, Rechtsklick = Sprung. Enter = fertig.',
     };
     let h = H[tool] || '';
-    if (gcalib) h = gcalib.pts.length ? 'Maßstab: jetzt den zweiten Punkt anklicken.' : 'Maßstab festlegen: den ersten Punkt anklicken (z. B. die linke Brustkante), dann den zweiten (rechte Brustkante). Danach die echte Länge eingeben. Esc = abbrechen.';
+    if (gcalib && gcalib.ref) h = 'Bezugspunkt setzen: die Mitte des Halsausschnitts am Kragen anklicken (bei Kappen die Mitte der Schirmnaht). Esc = abbrechen.';
+    else if (gcalib) h = gcalib.pts.length ? 'Maßstab: jetzt den zweiten Punkt anklicken.' : 'Maßstab festlegen: den ersten Punkt anklicken (z. B. die linke Brustkante), dann den zweiten (rechte Brustkante). Danach die echte Länge eingeben. Esc = abbrechen.';
     if (draft && draft.tool === 'colB' && draft.phase === 1) h = 'Jetzt die ZWEITE Seite digitalisieren, Enter = fertig.';
     if (tool === 'colA') {
       const n = draft ? draft.pts.length : 0;
@@ -2001,25 +2002,36 @@
     ctx.restore();
   }
   function garmentRef() {
-    const g = gst(), L = garmentOn() && !g.photo ? garmentLayer() : null;
+    const g = gst(), L = garmentOn() ? garmentLayer() : null;
     if (!L) return null;
     // Bezugspunkt = Mitte des Designs (ohne Design: Rahmenmitte)
     const s = D.stats(cmds), cx = s.stitches ? (s.x0 + s.x1) / 2 : 0, cy = s.stitches ? (s.y0 + s.y1) / 2 : 0;
+    if (g.photo) {
+      const ph = g.photo; if (ph.rx == null) return null;
+      return { x: cx - (ph.x + ph.rx * ph.w), y: cy - (ph.y + ph.ry * ph.h), collar: 0, cap: false, photo: true, cx, cy };
+    }
     return { x: L.a[1] + g.dx + cx, y: L.a[2] + g.dy + cy, collar: L.R.collarY, cap: g.kind === 'cap', center: !!(L.R.refs && L.R.refs.center), cx, cy };
+  }
+  // Design so bewegen, dass die Abstände (seitlich, unter Bezug) die gewünschten Werte haben
+  function garmentSetPos(X, Y) {
+    const g = gst(), r = garmentRef(); if (!r) return;
+    if (X != null) { if (g.photo) g.photo.x -= X - r.x; else g.dx += X - r.x; }
+    if (Y != null) { if (g.photo) g.photo.y -= Y + r.collar - r.y; else g.dy += Y + r.collar - r.y; }
   }
   function updateGarmentReadout() {
     const el = document.getElementById('gmRead'); if (!el) return;
     const r = garmentRef(), g = gst();
-    if (g.photo) { el.textContent = 'Eigenes Foto: Maßstab ' + (g.photo.scaled ? 'gesetzt' : 'noch nicht gesetzt (Button „Maßstab festlegen")') + '. Das Foto mit dem Werkzeug verschieben.'; return; }
+    if (g.photo && !r) { el.textContent = 'Eigenes Foto: Maßstab ' + (g.photo.scaled ? 'gesetzt' : 'noch nicht gesetzt (Button „Maßstab festlegen")') + '. Für Abstände zusätzlich den Bezugspunkt setzen. Das Foto mit dem Werkzeug verschieben.'; return; }
     if (!r) { el.textContent = ''; return; }
     const sx = document.getElementById('gmX'), sy = document.getElementById('gmY');
     const X = r.x, Y = r.y - r.collar;
     if (sx && document.activeElement !== sx) sx.value = (Math.round(X * 10) / 10);
     if (sy && document.activeElement !== sy) sy.value = (Math.round(Y * 10) / 10);
     const s = D.stats(cmds), top = s.stitches ? (r.y - r.cy - r.collar) + s.y0 : null;
+    const ref = r.photo ? 'dem Bezugspunkt' : r.cap ? 'der Schirmnaht' : 'dem Kragen';
     el.textContent = `Designmitte: ${fmt2(Math.abs(X))} mm ${Math.abs(X) < 0.05 ? 'genau auf der Mittellinie' : X > 0 ? 'rechts von der Mitte (im Bild)' : 'links von der Mitte (im Bild)'}; ` +
-      `${fmt2(Math.abs(Y))} mm ${Y >= 0 ? (r.cap ? 'unter der Schirmnaht' : 'unter dem Kragen') : (r.cap ? 'über der Schirmnaht' : 'über dem Kragen')}.` +
-      (top != null ? ` Oberkante des Designs: ${fmt2(Math.abs(top))} mm ${top >= 0 ? 'unter' : 'über'} ${r.cap ? 'der Naht' : 'dem Kragen'}.` : '');
+      `${fmt2(Math.abs(Y))} mm ${Y >= 0 ? 'unter' : 'über'} ${ref}.` +
+      (top != null ? ` Oberkante des Designs: ${fmt2(Math.abs(top))} mm ${top >= 0 ? 'unter' : 'über'} ${r.cap ? 'der Naht' : r.photo ? 'dem Bezugspunkt' : 'dem Kragen'}.` : '');
   }
   function garmentFit() {
     const L = garmentOn() ? garmentLayer() : null; if (!L) return;
@@ -2034,6 +2046,33 @@
     renderGarmentBox(); garmentFit();
   }
   function garmentClose() { gst().on = false; gcalib = null; renderGarmentBox(); setTool('select'); draw(); }
+  /* --- Eigene Produkte (Bibliothek im Browser, IndexedDB) --- */
+  let gLib = [];
+  const libDB = () => new Promise((res, rej) => {
+    try {
+      const q = indexedDB.open('stickstudio-products', 1);
+      q.onupgradeneeded = () => q.result.createObjectStore('p', { keyPath: 'id' });
+      q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
+    } catch (e) { rej(e); }
+  });
+  const libTx = (mode, fn) => libDB().then((db) => new Promise((res, rej) => { const t = db.transaction('p', mode), r = fn(t.objectStore('p')); t.oncomplete = () => res(r && r.result); t.onerror = () => rej(t.error); }));
+  const libLoad = () => libTx('readonly', (s) => s.getAll()).then((a) => { gLib = (a || []).sort((x, y) => x.t - y.t); renderGarmentBox(); }).catch(() => {});
+  const libSave = (it) => libTx('readwrite', (s) => s.put(it)).catch(() => {});
+  const libDel = (id) => libTx('readwrite', (s) => s.delete(id)).then(libLoad).catch(() => {});
+  function useProduct(it) {
+    const im = new Image();
+    im.onload = () => {
+      const g = gst(), w = it.w || 500, h = w * (it.ar || im.height / im.width);
+      g.photo = { src: it.src, x: -w / 2, y: -h / 2, w, h, scaled: !!it.scaled, rx: it.rx == null ? null : it.rx, ry: it.ry == null ? null : it.ry, libId: it.id, _img: im };
+      g.on = true; renderGarmentBox(); garmentFit(); setTool('garment');
+    };
+    im.src = it.src;
+  }
+  function saveProductState() {
+    const ph = gst().photo; if (!ph || !ph.libId) return;
+    const it = gLib.find((q) => q.id === ph.libId); if (!it) return;
+    Object.assign(it, { w: ph.w, ar: ph.h / ph.w, scaled: ph.scaled, rx: ph.rx, ry: ph.ry }); libSave(it);
+  }
   function renderGarmentBox() {
     const box = document.getElementById('garmentBox'); if (!box) return;
     if (!garmentOn()) { box.classList.add('hidden'); box.innerHTML = ''; return; }
@@ -2045,16 +2084,19 @@
     const spots = L ? Object.entries(L.R.anchors).map(([k, a]) => `<option value="${k}" ${k === g.spot ? 'selected' : ''}>${a[0]}</option>`).join('') : '';
     const sw = GCOL.map((c) => `<button class="gmsw" data-gcol="${c}" title="${c}" style="background:${c}"></button>`).join('');
     const keepX = document.getElementById('gmX') ? document.getElementById('gmX').value : '', keepY = document.getElementById('gmY') ? document.getElementById('gmY').value : '';
+    const pos = (lab) => `<div class="gmpos"><label>Seitlich (mm)<input type="number" id="gmX" step="0.5" data-gp="x" value="${keepX}"></label><label>${lab}<input type="number" id="gmY" step="0.5" data-gp="y" value="${keepY}"></label></div>`;
+    const lib = `<div class="gmlib"><div class="gmlh"><b>Meine Produkte</b><button data-gact="photo">+ Hochladen…</button></div>` +
+      (gLib.length ? `<div class="gmgrid">${gLib.map((it) => `<div class="gmitem ${g.photo && g.photo.libId === it.id ? 'on' : ''}" data-lib="${it.id}" title="${(it.name || '').replace(/"/g, '&quot;')}"><img src="${it.thumb}" alt=""><span>${(it.name || 'Produkt').replace(/</g, '&lt;')}</span><button class="gmdel" data-ldel="${it.id}" title="Löschen">✕</button></div>`).join('')}</div>` : '<p class="gmnote">Hier lassen sich eigene Produktfotos (z. B. Ihre Kappen, Shirts oder Taschen) ablegen und jederzeit wieder verwenden. Die Bilder bleiben in diesem Browser gespeichert.</p>') + '</div>';
     box.innerHTML = `<div class="gmhead"><b>Kleidung</b><button data-gact="close" title="Kleidung ausblenden">✕</button></div>` +
-      (photo ? `<div class="gmrow"><span>Eigenes Foto</span><button data-gact="calib">Maßstab festlegen</button></div><div class="gmrow"><button data-gact="nophoto">Foto entfernen</button><button data-gact="fit">Ansicht anpassen</button></div>`
+      (photo ? `<div class="gmrow"><button data-gact="calib">Maßstab festlegen</button><button data-gact="ref">Bezugspunkt setzen</button></div>${garmentRef() ? pos('Unter Bezugspunkt (mm)') : ''}<div class="gmrow"><button data-gact="nophoto">Zurück zu den Vorlagen</button><button data-gact="fit">Ansicht anpassen</button></div>`
         : `<label>Art<select data-g="kind">${opts(GM.KIND, g.kind)}</select></label>
       <label>Seite<select data-g="view">${opts(Object.fromEntries(vl.map((v) => [v, GM.VIEW_NAMES[v]])), g.view)}</select></label>
       ${g.kind === 'cap' ? '' : `<label>Größe<select data-g="size">${opts(Object.fromEntries(Object.keys(GM.SIZES).map((k) => [k, k])), g.size)}</select></label>`}
       <label>Stelle<select data-g="spot">${spots}</select></label>
       <div class="gmcol">${sw}<input type="color" data-g="color" value="${g.color}" title="Eigene Farbe"></div>
-      <div class="gmpos"><label>Seitlich (mm)<input type="number" id="gmX" step="0.5" data-gp="x" value="${keepX}"></label><label>${g.kind === 'cap' ? 'Unter Naht (mm)' : 'Unter Kragen (mm)'}<input type="number" id="gmY" step="0.5" data-gp="y" value="${keepY}"></label></div>
+      ${pos(g.kind === 'cap' ? 'Unter Naht (mm)' : 'Unter Kragen (mm)')}
       <div class="gmrow"><button data-gact="center">Auf Mitte</button><button data-gact="spot">Stelle zurücksetzen</button></div>
-      <div class="gmrow"><button data-gact="fit">Ansicht anpassen</button><button data-gact="photo">Eigenes Foto…</button></div>`) +
+      <div class="gmrow"><button data-gact="fit">Ansicht anpassen</button></div>`) + lib +
       `<p id="gmRead" class="gmread"></p><p class="gmnote">Verschieben: Werkzeug „Kleidung" und ziehen oder Pfeiltasten (Shift = 10 mm). Rahmen und Design bleiben stehen.</p>`;
     updateGarmentReadout();
   }
@@ -2063,23 +2105,26 @@
       const url = URL.createObjectURL(new Blob([buf], { type: f.type || 'image/jpeg' }));
       const img = new Image();
       img.onload = () => {
-        const mx = 1600, k = Math.min(1, mx / Math.max(img.width, img.height));
-        const c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k);
-        c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); URL.revokeObjectURL(url);
-        const src = c.toDataURL('image/jpeg', 0.85), im2 = new Image();
-        im2.onload = () => {
-          const g = gst(), w = 500, h = w * c.height / c.width;
-          g.photo = { src, x: -w / 2, y: -h / 2, w, h, scaled: false, _img: im2 };
-          g.on = true; renderGarmentBox(); garmentFit(); setTool('garment');
-          modal('Eigenes Foto', '<p>Das Foto liegt jetzt hinter dem Rahmen. Damit die Millimeter stimmen, bitte den Maßstab festlegen: Zwei Punkte auf dem Foto anklicken, deren echte Entfernung bekannt ist (z. B. Breite der Brust von Naht zu Naht oder ein daneben liegendes Maßband), und die Länge in mm eingeben.</p><p>Tipp: Kleidung flach hinlegen und gerade von oben fotografieren.</p>');
-        };
-        im2.src = src;
+        const mk = (m) => { const k = Math.min(1, m / Math.max(img.width, img.height)), c = document.createElement('canvas'); c.width = Math.round(img.width * k); c.height = Math.round(img.height * k); c.getContext('2d').drawImage(img, 0, 0, c.width, c.height); return c; };
+        const big = mk(1600), src = big.toDataURL('image/jpeg', 0.85), thumb = mk(120).toDataURL('image/jpeg', 0.7);
+        URL.revokeObjectURL(url);
+        modal('Eigenes Produkt', field('Name', `<input id="gpName" type="text" value="${(f.name || 'Produkt').replace(/\.[^.]+$/, '').replace(/"/g, '')}">`) +
+          '<p>Das Foto wird in „Meine Produkte" abgelegt. Danach bitte den Maßstab festlegen: Zwei Punkte auf dem Foto anklicken, deren echte Entfernung bekannt ist (z. B. Breite der Brust von Naht zu Naht oder ein daneben liegendes Maßband), und die Länge in mm eingeben. Optional den Bezugspunkt setzen (Mitte Halsausschnitt bzw. Schirmnaht), dann werden die Abstände in mm angezeigt.</p><p>Tipp: Kleidung flach hinlegen und gerade von oben fotografieren.</p>',
+          [{ label: 'Abbrechen' }, { label: 'Speichern', primary: true, action: () => {
+            const it = { id: 'p' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5), t: Date.now(), name: val('gpName') || 'Produkt', src, thumb, w: 500, ar: big.height / big.width, scaled: false, rx: null, ry: null };
+            gLib.push(it); libSave(it); useProduct(it);
+          } }]);
       };
-      img.onerror = () => modal('Eigenes Foto', '<p>Das Bild konnte nicht gelesen werden.</p>');
+      img.onerror = () => modal('Eigenes Produkt', '<p>Das Bild konnte nicht gelesen werden.</p>');
       img.src = url;
     }, 'buffer');
   }
   function garmentCalibClick(p) {
+    if (gcalib.ref) {
+      const ph = gst().photo;
+      ph.rx = (p.x - ph.x) / ph.w; ph.ry = (p.y - ph.y) / ph.h; gcalib = null; saveProductState();
+      setHint(); renderGarmentBox(); draw(); return;
+    }
     gcalib.pts.push({ x: p.x, y: p.y });
     if (gcalib.pts.length < 2) { setHint(); draw(); return; }
     const [a, b] = gcalib.pts, d = Math.hypot(a.x - b.x, a.y - b.y);
@@ -2090,9 +2135,9 @@
         const real = parseFloat(val('gcL')), g = gst();
         if (!(real > 0) || !(d > 0)) return false;
         const k = real / d, ph = g.photo;
-        // um die Mitte des ersten Punktes skalieren, damit das Foto nicht wegspringt
+        // um den ersten Punkt skalieren, damit das Foto nicht wegspringt
         ph.x = a.x + (ph.x - a.x) * k; ph.y = a.y + (ph.y - a.y) * k; ph.w *= k; ph.h *= k; ph.scaled = true;
-        gcalib = null; setHint(); renderGarmentBox(); draw();
+        gcalib = null; saveProductState(); setHint(); renderGarmentBox(); draw();
       } },
     ]);
   }
@@ -2109,17 +2154,21 @@
   function wireGarmentBox() {
     const box = document.getElementById('garmentBox'); if (!box) return;
     box.addEventListener('click', (e) => {
+      const li = e.target.closest('[data-lib]');
+      if (li && !e.target.closest('button')) { const it = gLib.find((q) => q.id === li.dataset.lib); if (it) useProduct(it); return; }
       const t = e.target.closest('button'); if (!t) return;
       const g = gst();
       if (t.dataset.gcol) { g.color = t.dataset.gcol; renderGarmentBox(); draw(); return; }
+      if (t.dataset.ldel) { e.stopPropagation(); const it = gLib.find((q) => q.id === t.dataset.ldel); modal('Produkt löschen', `<p>„${((it && it.name) || '').replace(/</g, '&lt;')}" aus „Meine Produkte" entfernen?</p>`, [{ label: 'Abbrechen' }, { label: 'Löschen', primary: true, action: () => { if (g.photo && g.photo.libId === t.dataset.ldel) { g.photo = null; } libDel(t.dataset.ldel); draw(); } }]); return; }
       const a = t.dataset.gact;
       if (a === 'close') garmentClose();
       else if (a === 'fit') garmentFit();
-      else if (a === 'center') { const r = garmentRef(); if (r) g.dx -= r.x; renderGarmentBox(); draw(); }
+      else if (a === 'center') { garmentSetPos(0, null); renderGarmentBox(); draw(); }
       else if (a === 'spot') { g.dx = 0; g.dy = 0; renderGarmentBox(); draw(); }
       else if (a === 'photo') garmentPhoto();
       else if (a === 'nophoto') { g.photo = null; renderGarmentBox(); garmentFit(); }
       else if (a === 'calib') { gcalib = { pts: [] }; setTool('garment'); setHint(); draw(); }
+      else if (a === 'ref') { gcalib = { pts: [], ref: true }; setTool('garment'); setHint(); draw(); }
     });
     box.addEventListener('change', (e) => {
       const t = e.target, g = gst();
@@ -2135,9 +2184,8 @@
       const t = e.target, g = gst();
       if (t.dataset.g === 'color') { g.color = t.value; draw(); return; }
       if (t.dataset.gp) {
-        const r = garmentRef(); if (!r) return;
         const v = parseFloat(t.value); if (!isFinite(v)) return;
-        if (t.dataset.gp === 'x') g.dx += v - r.x; else g.dy += v + r.collar - r.y;
+        if (t.dataset.gp === 'x') garmentSetPos(v, null); else garmentSetPos(null, v);
         draw(); updateGarmentReadout();
       }
     });
@@ -2351,7 +2399,7 @@
 
   /* ---------- Projekt als Daten ---------- */
   function projectJSON() {
-    const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, customHoops: st.customHoops, fabric: st.fabric, material: st.material, settings: st.settings, defaults: st.defaults, threadBrand: st.threadBrand, threadAuto: st.threadAuto, guides: st.guides || [], libTags: st.libTags, libCustomer: st.libCustomer, bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null, garment: st.garment ? { ...clone(st.garment), photo: st.garment.photo ? { src: st.garment.photo.src, x: st.garment.photo.x, y: st.garment.photo.y, w: st.garment.photo.w, h: st.garment.photo.h, scaled: st.garment.photo.scaled } : null } : null });
+    const data = JSON.stringify({ app: 'StickStudio', version: 1, name: st.name, objects: clone(st.objects), palette: st.palette, hoop: st.hoop, customHoops: st.customHoops, fabric: st.fabric, material: st.material, settings: st.settings, defaults: st.defaults, threadBrand: st.threadBrand, threadAuto: st.threadAuto, guides: st.guides || [], libTags: st.libTags, libCustomer: st.libCustomer, bg: st.bg ? { ...clone(st.bg), src: st.bg.src } : null, garment: st.garment ? { ...clone(st.garment), photo: st.garment.photo ? { src: st.garment.photo.src, x: st.garment.photo.x, y: st.garment.photo.y, w: st.garment.photo.w, h: st.garment.photo.h, scaled: st.garment.photo.scaled, rx: st.garment.photo.rx, ry: st.garment.photo.ry } : null } : null });
     return data;
   }
   function loadProject(d, fname = '') {
@@ -3679,6 +3727,6 @@
   zoomHoop();
   // Sprache: Umschalter oben rechts, Texte werden beim Wechsel sofort übersetzt
   document.querySelectorAll('[data-lang-btn]').forEach((b) => b.addEventListener('click', () => { b.blur(); HW.i18n.setLang(b.dataset.langBtn); renderStats(); renderProps(); renderList(); draw(); }));
-  wireGarmentBox();
+  wireGarmentBox(); libLoad();
   if (HW.i18n) HW.i18n.start();
 })();
