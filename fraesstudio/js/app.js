@@ -540,7 +540,7 @@
 
   // ---------------------------------------------------------------- Zeichenwerkzeuge
   const TOOL_HINTS = {
-    select: 'Klicken = auswählen, Umschalt = mehrere, ziehen = verschieben. Griffe: Größe (Ecken behalten das Seitenverhältnis), oben: drehen.',
+    select: 'Klicken = auswählen, Umschalt = mehrere, ziehen = verschieben. Griffe: Größe, oben: drehen. Ansicht verschieben: Leertaste halten oder zwei Finger.',
     node: 'Punkt ziehen = verschieben · Doppelklick auf die Linie = Punkt einfügen · Leertaste = Ecke/Kurve · Entf = Punkt löschen',
     line: '<b>Linksklick</b> = Eckpunkt · <b>Rechtsklick</b> = Kurvenpunkt · Klick auf den ersten Punkt schließt · <b>Enter</b> = fertig · Rücktaste = letzter Punkt weg',
     rect: 'Rechteck aufziehen · Umschalt = Quadrat · Alt = von der Mitte aus',
@@ -598,12 +598,31 @@
   }
 
   // ---------------------------------------------------------------- Maus
-  let spaceDown = false;
+  // Ansicht verschieben wie in StickStudio: Leertaste halten (Maus bewegen oder ziehen), zwei Finger am Touchpad,
+  // mittlere oder rechte Maustaste. Zoomen: Finger spreizen bzw. Strg + Mausrad (umschaltbar: Mausrad = Zoom).
+  let spaceDown = false, overCanvas = false, lastMouse = null;
+  let wheelZoom = store.get('fs.wheelZoom', false);
+  const setSpace = (on) => {
+    spaceDown = on;
+    cv.classList.toggle('pan', on);
+    if (on && document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+  };
   cv.addEventListener('contextmenu', (e) => e.preventDefault());
+  cv.addEventListener('pointerenter', () => { overCanvas = true; });
+  cv.addEventListener('pointerleave', () => { overCanvas = false; lastMouse = null; });
   cv.addEventListener('wheel', (e) => {
     e.preventDefault();
     const r = cv.getBoundingClientRect();
-    zoomAt(Math.exp(-e.deltaY * 0.0015), e.clientX - r.left, e.clientY - r.top);
+    const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+    const dx = e.deltaX * unit, dy = e.deltaY * unit;
+    if (e.ctrlKey || e.metaKey || (wheelZoom && !e.shiftKey)) {
+      // Spreizen am Touchpad liefert kleine Werte mit Strg -> etwas kräftiger
+      zoomAt(Math.exp(-dy * (e.ctrlKey && !wheelZoom && Math.abs(dy) < 50 ? 0.006 : 0.0015)), e.clientX - r.left, e.clientY - r.top);
+      return;
+    }
+    if (e.shiftKey && !dx) S.view.ox -= dy;
+    else { S.view.ox -= dx; S.view.oy -= dy; }
+    redraw();
   }, { passive: false });
 
   cv.addEventListener('pointerdown', (e) => {
@@ -611,6 +630,8 @@
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
     const raw = s2w(sx, sy);
     cv.setPointerCapture(e.pointerId);
+    // Eingabefelder verlassen, damit Tasten (Leertaste, Pfeile, Entf) wieder bei der Zeichnung ankommen
+    if (document.activeElement && /^(INPUT|SELECT|TEXTAREA|BUTTON)$/.test(document.activeElement.tagName)) document.activeElement.blur();
     if (e.button === 1 || spaceDown || (e.button === 2 && S.tool !== 'line')) {
       S.drag = { kind: 'pan', sx, sy, ox: S.view.ox, oy: S.view.oy };
       cv.classList.add('pan');
@@ -679,6 +700,10 @@
     const sx = e.clientX - r.left, sy = e.clientY - r.top;
     const raw = s2w(sx, sy);
     $('#coords').textContent = `X ${fmt(raw.x)}  Y ${fmt(raw.y)} mm`;
+    // Leertaste gehalten: Ansicht folgt der Maus, auch ohne Klick
+    const lm = lastMouse;
+    lastMouse = { sx, sy };
+    if (spaceDown && !S.drag && lm && e.pointerType !== 'touch') { S.view.ox += sx - lm.sx; S.view.oy += sy - lm.sy; redraw(); return; }
     const d = S.drag;
     if (d && d.kind === 'pan') { S.view.ox = d.ox + sx - d.sx; S.view.oy = d.oy + sy - d.sy; redraw(); return; }
     if (S.mode !== 'design') { const o = hitTest(raw); const h = o ? o.id : null; if (h !== S.hover) { S.hover = h; redraw(); } return; }
@@ -1028,6 +1053,11 @@
     toPath, toLines, breakApart,
     editText() { const o = selObjs()[0]; if (o && o.kind === 'text') textDialog(o); },
     fit: () => fit(), zoomIn: () => zoomAt(1.25, cv.clientWidth / 2, cv.clientHeight / 2), zoomOut: () => zoomAt(0.8, cv.clientWidth / 2, cv.clientHeight / 2),
+    toggleWheel() {
+      wheelZoom = !wheelZoom;
+      store.set('fs.wheelZoom', wheelZoom);
+      status(wheelZoom ? 'Mausrad = Zoom. Verschieben: Leertaste halten, Umschalt + Rad oder mittlere Maustaste.' : 'Mausrad / zwei Finger = verschieben, Strg + Rad bzw. Spreizen = Zoom.');
+    },
     toggleSnap() { S.snap = !S.snap; store.set('fs.snap', S.snap); updateSnapInfo(); },
     togglePaths() { S.showPathsDesign = !S.showPathsDesign; if (S.showPathsDesign) computeAll(); redraw(); },
     toggleTheme() {
@@ -2286,6 +2316,13 @@
   document.addEventListener('keydown', (e) => {
     if (!$('#modal').classList.contains('hidden')) return;
     const tag = e.target.tagName;
+    // Leertaste über der Zeichenfläche verschiebt immer – auch wenn gerade ein Zahlenfeld aktiv ist
+    if (e.key === ' ' && overCanvas && S.mode !== 'sim' && tag !== 'TEXTAREA' && !(tag === 'INPUT' && e.target.type === 'text')
+        && !(S.mode === 'design' && S.tool === 'node' && S.nodeSel)) {
+      e.preventDefault();
+      if (!spaceDown) setSpace(true);
+      return;
+    }
     if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
     const k = e.key, ctrl = e.ctrlKey || e.metaKey;
     if (ctrl) {
@@ -2296,6 +2333,7 @@
     }
     if (k === 'F1') { e.preventDefault(); helpDialog(); return; }
     if (['1', '2', '3', '4'].includes(k) && !(S.draw && S.draw.kind === 'line')) { setMode(['design', 'cam', 'sim', 'machine'][+k - 1]); return; }
+    if (k === ' ' && S.mode !== 'design' && S.mode !== 'sim') { e.preventDefault(); if (!spaceDown) setSpace(true); return; }
     if (S.mode === 'machine') {
       const jog = { ArrowLeft: [-1, 0, 0], ArrowRight: [1, 0, 0], ArrowUp: [0, 1, 0], ArrowDown: [0, -1, 0], PageUp: [0, 0, 1], PageDown: [0, 0, -1] }[k];
       if (jog && S.grbl && S.grbl.connected && !S.grbl.job) {
@@ -2306,7 +2344,12 @@
       if (k === 'f' || k === 'F') fit();
       return;
     }
-    if (k === ' ') { spaceDown = true; if (S.tool === 'node' && S.nodeSel) { e.preventDefault(); const o = objById(S.nodeSel.id); snapshot(); o.nodes[S.nodeSel.i].c = !o.nodes[S.nodeSel.i].c; touch(o); changed(); } else e.preventDefault(); return; }
+    if (k === ' ') {
+      e.preventDefault();
+      if (S.tool === 'node' && S.nodeSel) { const o = objById(S.nodeSel.id); snapshot(); o.nodes[S.nodeSel.i].c = !o.nodes[S.nodeSel.i].c; touch(o); changed(); }
+      else if (!spaceDown) setSpace(true);
+      return;
+    }
     if (k === 'Escape') {
       if (S.draw) { S.draw = null; redraw(); return; }
       if (S.tool !== 'select') setTool('select'); else { S.sel = []; renderSide(); redraw(); }
@@ -2333,7 +2376,8 @@
     if (tools[k.toLowerCase()]) { setTool(tools[k.toLowerCase()]); return; }
     if (k === 'g' || k === 'G') cmds.toggleSnap();
   });
-  document.addEventListener('keyup', (e) => { if (e.key === ' ') spaceDown = false; });
+  document.addEventListener('keyup', (e) => { if (e.key === ' ' && spaceDown) { e.preventDefault(); setSpace(false); } });
+  window.addEventListener('blur', () => { if (spaceDown) setSpace(false); });
 
   // ---------------------------------------------------------------- Hilfe
   function helpDialog() {
@@ -2350,7 +2394,9 @@
         <tr><td>V R L Q K P S T M</td><td>Auswahl, Umformen, Linie, Rechteck, Kreis, Vieleck, Stern, Text, Messen</td></tr>
         <tr><td>Umschalt beim Aufziehen</td><td>Quadrat / Kreis · beim Drehen 15°-Schritte · bei Eckgriffen freies Skalieren</td></tr>
         <tr><td>Pfeiltasten</td><td>Verschieben 1 mm (Umschalt 10 mm, Alt 0,1 mm) · im Fräsen-Schritt: Maschine verfahren</td></tr>
-        <tr><td>Mausrad · mittlere Taste · Leertaste</td><td>Zoomen · Ansicht verschieben</td></tr>
+        <tr><td>Leertaste halten</td><td>Ansicht verschieben – Maus bewegen oder ziehen</td></tr>
+        <tr><td>Zwei Finger / Mausrad</td><td>Ansicht verschieben (Umschalt = waagrecht) · auch mittlere oder rechte Maustaste ziehen</td></tr>
+        <tr><td>Finger spreizen / Strg + Rad</td><td>Zoomen (Ansicht → „Mausrad: Zoom/Verschieben“ stellt das Rad auf Zoom um)</td></tr>
         <tr><td>F · G · C</td><td>Alles zeigen · Raster fangen ein/aus · Kamerabild ein/aus</td></tr>
         <tr><td>Datei aufs Fenster ziehen</td><td>Bild (→ 3D-Relief oder Umriss), SVG, DXF, STL, G-Code, Projekt</td></tr>
         <tr><td>1 2 3 4</td><td>Arbeitsschritt wechseln</td></tr>

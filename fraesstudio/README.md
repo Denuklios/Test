@@ -83,7 +83,8 @@ Bilder, SVG, DXF, STL, G-Code und Projekte können direkt auf die Zeichenfläche
 |---|---|
 | V R L Q K P S T M | Auswahl, Umformen, Linie, Rechteck, Kreis, Vieleck, Stern, Text, Messen |
 | Enter / Rücktaste / Esc | Linie fertig / letzten Punkt weg / abbrechen |
-| Leertaste | (Umformen) Punkt Ecke ↔ Kurve; sonst gedrückt halten = Ansicht verschieben |
+| Leertaste halten | Ansicht verschieben (Maus bewegen oder ziehen); beim Umformen mit gewähltem Punkt: Ecke ↔ Kurve |
+| Zwei Finger / Mausrad | Ansicht verschieben; Finger spreizen oder Strg + Rad = Zoom (im Menü Ansicht auf „Rad = Zoom“ umstellbar) |
 | Pfeiltasten | Objekte verschieben (Umschalt 10 mm, Alt 0,1 mm); im Schritt 4: Maschine verfahren |
 | 1 2 3 4 | Arbeitsschritt wechseln |
 | F, G, C | Alles zeigen, Raster fangen, Kamerabild ein/aus |
