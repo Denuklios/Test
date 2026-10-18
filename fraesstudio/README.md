@@ -75,6 +75,25 @@ Eine USB-Webcam fest über der Fräse montieren. Knopf **„Kamera“** → im L
 (Maserung, vorhandene Bohrungen, ein schon bearbeitetes Teil) setzen. Live-Bild oder Standbild, Deckkraft und Linsenkorrektur einstellbar, Taste **C** blendet ein/aus.
 Die Einstellung bleibt gespeichert; nach dem Wechsel des Werkstücks die Ecken neu anklicken.
 
+## Verbinden: USB oder WLAN
+
+**„Verbinden …“** (Schritt 4) bietet drei Wege:
+
+| Weg | Wann | So geht es |
+|---|---|---|
+| **USB-Kabel** | am sichersten, immer wenn möglich | Chrome oder Edge. Anschluss in der Liste wählen (meist „USB-SERIAL CH340“). Die Baudrate wird automatisch erkannt. |
+| **WLAN über den Server** (empfohlen für WLAN) | FräsStudio läuft auf deinem Pi / Server (`https://…/fraesstudio/`) | Der Server verbindet sich per **Telnet (Port 23)** mit der Maschine. Nur die **IP-Adresse** eintragen. Geht auch am Tablet. |
+| **WLAN direkt** (experimentell) | FräsStudio per Doppelklick geöffnet (`file://`) oder `http://`-Seite | Ausgabe per WebSocket (Port 81), Befehle per HTTP. Die Firmware bündelt die Antworten (ca. alle 0,5 s) – gut zum Verfahren, für lange Aufträge besser Telnet/Brücke. |
+
+**WLAN an der TTC450 einrichten:** Per USB verbinden → Knopf **„WLAN“** → Name und Passwort deines WLANs eingeben → „Einrichten“. FräsStudio sendet die üblichen GRBL-ESP32-Einstellungen (`$Radio/Mode=STA`, `$Sta/SSID`, `$Sta/Password`, `$Telnet/Enable=ON`, `$System/Control=RESTART`).
+Die **IP-Adresse** zeigt „WLAN“ → „IP-Adresse anzeigen“ (nach dem Neustart wieder per USB verbinden) oder die Geräteliste deines Routers. Im Router am besten eine feste IP für die Maschine vergeben.
+Ohne Einrichtung öffnet die Maschine ein eigenes WLAN **MKS_DLC** (Adresse 192.168.4.1).
+*Die Befehle sind GRBL-ESP32-Standard; die Twotrees-Firmware kann abweichen. Meldet die Konsole „$-Befehl unbekannt“, WLAN am Touch-Display oder im Webbrowser (`http://IP-der-Maschine`) einrichten.*
+
+**Sicherheit der WLAN-Brücke:** Sie erlaubt nur angemeldeten Konten mit FräsStudio-Zugang und nur Ziele im eigenen Netz (oder die Maschine aus `CNC_HOST`). Wer Zugang hat, kann **aus der Ferne fräsen** – nur freischalten, wem du das zutraust, und nie unbeaufsichtigt starten. Bricht die Browser-Verbindung ab (Tab zu, Netz weg), löst der Server einen **Not-Aus (Soft-Reset)** an der Maschine aus. Ganz abschalten: `CNC_BRIDGE=off` in `/etc/stickstudio.env`.
+
+**Wenn die Verbindung nicht klappt:** FräsStudio zeigt, welches Gerät es gefunden hat und was empfangen wurde. Typische Ursachen: Maschine aus (24 V!), Kabel nur zum Laden, CH340-Treiber fehlt, ein anderes Programm (Candle, UGS, LaserGRBL) hält den Anschluss, Platine hängt im Neustart (Maschine aus- und einschalten).
+
 ## Größere Spindel (500 W / 800 W)
 
 Unter **Bearbeiten → Maschine…** das passende Profil wählen:
@@ -144,9 +163,9 @@ Schriften: SIL Open Font License (`js/lib/LIZENZEN.txt`). 3D-Darstellung mit Web
 | `js/sim.js`, `js/view3d.js` | Abtrag-Simulation und 3D-Ansicht |
 | `js/camera.js` | Kamerabild entzerren |
 | `js/depthai.js`, `js/lib/ort/` | KI-Tiefenschätzung (ONNX Runtime Web, MIT) |
-| `js/machine.js` | GRBL-Steuerung über USB |
+| `js/machine.js` | GRBL-Steuerung über USB, WLAN-Brücke oder WLAN direkt |
 | `js/app.js` | Bedienoberfläche |
 
-Tests: `node fraesstudio/tests/test_cam.js` (prüft Fräsbahnen, G-Code, Importe und per Simulation, dass Reliefs nicht zu tief gefräst werden).
+Tests: `node fraesstudio/tests/test_cam.js` (Fräsbahnen, G-Code, Importe, Simulation) und `node fraesstudio/tests/test_machine.js` (Maschinensteuerung: Verbindungsprüfung, Roh-Bytes, Streaming, Werkzeugwechsel).
 
 **Sicherheit:** Fräsen ist gefährlich. Jede Fräsbahn in der 3D-Vorschau prüfen, Schutzbrille tragen und während des Fräsens an der Maschine bleiben.

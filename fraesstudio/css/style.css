@@ -233,3 +233,10 @@ button:disabled { opacity: .45; cursor: default; }
 .undoBtns .tb { font-size: 17px; line-height: 1; padding: 5px 9px; }
 .undoBtns .tb:disabled { opacity: .35; cursor: default; background: none; }
 #viewBtns .sep { width: 1px; background: var(--line); margin: 3px 2px; }
+.connopt { display: flex; gap: 10px; align-items: flex-start; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; margin: 6px 0; cursor: pointer; }
+.connopt:hover { border-color: var(--accent); }
+.connopt.off { opacity: .55; cursor: default; }
+.connopt input { margin-top: 3px; width: auto !important; }
+#modal code, .errbox code { background: var(--bg); padding: 1px 5px; border-radius: 4px; font: 12px ui-monospace, Consolas, monospace; word-break: break-all; }
+#modal details { margin-top: 10px; }
+#modal ul, #modal ol { margin: 6px 0 6px 18px; padding: 0; }

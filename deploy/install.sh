@@ -131,7 +131,7 @@ echo "--- Einstellungen"
 if [ -f "$ENVF" ]; then cp "$ENVF" "$ENVF.bak"; MARK=$(grep '^MARK_SECRET=' "$ENVF" | cut -d= -f2- || true); fi
 MARK=${MARK:-$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)}
 KEEP=""
-[ -f "$ENVF.bak" ] && KEEP=$(grep -E '^(SMTP_|MAIL_FROM|LEMONSQUEEZY_|REGISTRATION|EVENT_DAYS|GEOIP)' "$ENVF.bak" || true)
+[ -f "$ENVF.bak" ] && KEEP=$(grep -E '^(SMTP_|MAIL_FROM|LEMONSQUEEZY_|REGISTRATION|EVENT_DAYS|GEOIP|CNC_)' "$ENVF.bak" || true)
 cat > "$ENVF" <<ENV
 #MODE=$MODE
 #PROXY=$PROXY_KIND
@@ -146,6 +146,10 @@ ADMIN_PASSWORD=$ADMIN_PASSWORD
 MARK_SECRET=$MARK
 # Nur für dich und freigeschaltete Konten? Dann keine neuen Registrierungen zulassen:
 #REGISTRATION=closed
+# WLAN-Brücke zur Fräse (FräsStudio): Telnet zur Maschine im Heimnetz. Nur diese Maschine erlauben (empfohlen):
+#CNC_HOST=192.168.1.50
+# Brücke ganz abschalten (dann nur USB / WLAN direkt):
+#CNC_BRIDGE=off
 # E-Mail-Versand (später ausfüllen, dann: systemctl restart stickstudio)
 #SMTP_HOST=
 #SMTP_PORT=465
@@ -184,7 +188,9 @@ if [ "$MODE" = caddy ]; then
 $CADDY_MARK
 $DOMAIN {
     encode gzip
-    reverse_proxy 127.0.0.1:$PORT
+    reverse_proxy 127.0.0.1:$PORT {
+        flush_interval -1
+    }
 }
 CADDY
 fi
@@ -234,6 +240,8 @@ if [ "$MODE" = proxy ]; then
         echo "  [x] Websockets Support   [x] Block Common Exploits"
         echo "  Reiter SSL:         Request a new SSL Certificate, [x] Force SSL, [x] HTTP/2"
         echo "  Reiter Advanced:    client_max_body_size 30m;"
+        echo "                      proxy_buffering off;   (damit die WLAN-Brücke zur Fräse in Echtzeit läuft)"
+        echo "                      proxy_read_timeout 3600s;"
         echo
         echo "Anderer Proxy: Ziel ist http://$IP:$PORT – Kopfzeilen Host und X-Forwarded-For weitergeben." ;;
       nginx)
@@ -248,6 +256,8 @@ if [ "$MODE" = proxy ]; then
         echo "        proxy_set_header X-Forwarded-For \$remote_addr;"
         echo "        proxy_set_header X-Forwarded-Host \$host;"
         echo "        proxy_set_header X-Forwarded-Proto \$scheme;"
+        echo "        proxy_buffering off;          # WLAN-Brücke zur Fräse (Echtzeit-Datenstrom)"
+        echo "        proxy_read_timeout 3600s;"
         echo "    }"
         echo "    listen 80;"
         echo "}"
@@ -259,7 +269,9 @@ if [ "$MODE" = proxy ]; then
         echo
         echo "$DOMAIN {"
         echo "    encode gzip"
-        echo "    reverse_proxy 127.0.0.1:$PORT"
+        echo "    reverse_proxy 127.0.0.1:$PORT {"
+        echo "        flush_interval -1"
+        echo "    }"
         echo "}"
         echo
         echo "Dann:  systemctl reload caddy   (HTTPS holt Caddy selbst)" ;;
@@ -270,7 +282,7 @@ if [ "$MODE" = proxy ]; then
         echo "<VirtualHost *:80>"
         echo "    ServerName $DOMAIN"
         echo "    ProxyPreserveHost On"
-        echo "    ProxyPass / http://127.0.0.1:$PORT/"
+        echo "    ProxyPass / http://127.0.0.1:$PORT/ flushpackets=on"
         echo "    ProxyPassReverse / http://127.0.0.1:$PORT/"
         echo "</VirtualHost>"
         echo

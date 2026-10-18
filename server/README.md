@@ -68,6 +68,18 @@ Hinweise für den Raspberry Pi: am besten **64-Bit Raspberry Pi OS** (32 Bit geh
 Willst du nur selbst zugreifen, `REGISTRATION=closed` in `/etc/stickstudio.env` aktivieren (`#` entfernen) und `systemctl restart stickstudio`.
 **Sicherungen** (`/var/backups/stickstudio`) am besten mit in die Nextcloud/NAS-Sicherung aufnehmen.
 
+## WLAN-Brücke zur Fräse (FräsStudio)
+
+FräsStudio kann die Fräse (z. B. TTC450 mit MKS-DLC32-Platine) **über den Server per Telnet (Port 23)** steuern. Voraussetzung: Server und Maschine sind im selben Heimnetz, in der Maschine ist WLAN und Telnet aktiv (siehe `fraesstudio/README.md`).
+
+- Nur für **angemeldete Konten mit FräsStudio-Zugang**. Ziele nur im eigenen Netz (192.168.x.x, 10.x.x.x, 172.16–31.x.x), nur Port 23.
+- `CNC_HOST=192.168.1.50`: erlaubt **nur diese Maschine** (empfohlen) und trägt sie im Dialog vor.
+- `CNC_PORTS=2323,…`: zusätzliche erlaubte Telnet-Ports.
+- `CNC_BRIDGE=off`: Brücke abgeschaltet.
+- **Not-Aus:** Bricht die Verbindung des Browsers ab, sendet der Server nach 3 Sekunden einen Soft-Reset (0x18) an die Maschine (Spindel aus, Bewegung gestoppt).
+- Der Reverse Proxy darf den Datenstrom nicht puffern (`proxy_buffering off` bzw. `flush_interval -1`); `deploy/install.sh` setzt das in seinen Vorlagen.
+- **Achtung Fernsteuerung:** Wer Zugang hat, kann aus der Ferne fräsen. Nur vertrauenswürdigen Konten den FräsStudio-Zugang geben.
+
 ## Starten
 
 Einmalig die verschleierte Programmdatei bauen (braucht Internet für `npm install`):
@@ -94,6 +106,7 @@ Das Admin-Konto läuft nie ab. Das Passwort danach unter „Mein Konto“ änder
 | Variable | Bedeutung | Standard |
 |---|---|---|
 | `PORT` | Port des Servers | `8080` |
+| `CNC_HOST`, `CNC_PORTS`, `CNC_BRIDGE` | WLAN-Brücke zur Fräse (siehe Abschnitt oben) | alle Adressen im Heimnetz, Port 23 |
 | `HOST` | Adresse, auf der der Server lauscht, z. B. `127.0.0.1` = nur für einen Reverse Proxy auf demselben Rechner | alle |
 | `BASE_URL` | öffentliche Adresse, z. B. `https://stick.deine-firma.de`, für Links in E-Mails | `http://localhost:PORT` |
 | `DATA_DIR` | Ordner für die Datenbank `stickstudio.db` | `./data` |

@@ -1999,11 +1999,21 @@
   $$('[data-view]').forEach((b) => b.addEventListener('click', () => view3d && view3d.preset(b.dataset.view)));
 
   // ---------------------------------------------------------------- Maschine
+  let alarmHinted = false;
   function machineInit() {
     if (S.grbl) return;
     const g = (S.grbl = new FS.Grbl());
-    g.on('connect', () => { $('#mConnect').textContent = 'Trennen'; $('#mConnect').classList.remove('primary'); log('Verbunden.', 'info'); updConn(); });
-    g.on('disconnect', () => { $('#mConnect').textContent = 'Verbinden (USB)'; $('#mConnect').classList.add('primary'); log('Getrennt.', 'info'); updConn(); });
+    g.on('connect', () => {
+      alarmHinted = false;
+      $('#mConnect').textContent = 'Trennen'; $('#mConnect').classList.remove('primary');
+      log(`Verbunden (${{ usb: 'USB' + (g.baud ? ', ' + g.baud + ' Baud' : ''), bridge: 'WLAN über den Server', ws: 'WLAN direkt' }[g.kind] || g.kind}).`, 'info');
+      updConn();
+    });
+    g.on('disconnect', (lost) => {
+      $('#mConnect').textContent = 'Verbinden …'; $('#mConnect').classList.add('primary');
+      log(lost ? 'Verbindung verloren.' : 'Getrennt.', lost ? 'err' : 'info'); updConn();
+      if (lost && !g.job) status('Verbindung zur Maschine verloren.', true);
+    });
     g.on('status', (st) => {
       const el = $('#mState');
       const names = { Idle: 'Bereit', Run: 'Läuft', Hold: 'Angehalten', Jog: 'Verfährt', Alarm: 'ALARM – entsperren', Door: 'Tür offen', Check: 'Prüfmodus', Home: 'Referenzfahrt', Sleep: 'Ruhezustand', Getrennt: 'Getrennt' };
@@ -2012,6 +2022,7 @@
       $('#droX').textContent = fmt3(st.wpos.x); $('#droY').textContent = fmt3(st.wpos.y); $('#droZ').textContent = fmt3(st.wpos.z);
       $('#ovF').textContent = st.ov[0] + ' %'; $('#ovS').textContent = st.ov[2] + ' %';
       updConn();
+      if (st.state === 'Alarm' && !alarmHinted) { alarmHinted = true; log('Die Maschine steht im Alarm (nach dem Einschalten normal): „Entsperren“ ($X) oder „Referenzfahrt“ ($H) drücken.', 'err'); }
       if (S.mode === 'machine') redraw();
     });
     g.on('log', (l, cls) => log(l, cls));
@@ -2019,7 +2030,8 @@
     g.on('progress', (j) => jobUi(j));
     g.on('jobdone', (j) => {
       jobUi(null);
-      if (!j.aborted) modal('Fertig', `<p>Auftrag „${esc(j.name)}“ abgeschlossen in ${FS.gcode.fmtTime((Date.now() - j.start) / 1000)}.${j.errors ? ` <b>${j.errors} Fehlermeldung(en)</b> – siehe Konsole.` : ''}</p>`);
+      if (j.lost) modal('Verbindung während des Auftrags verloren', `<p>Die Verbindung zur Maschine ist abgebrochen, während „${esc(j.name)}“ lief (Zeile ${j.acked} von ${j.total}).</p><p><b>Bitte an der Maschine prüfen:</b> Die Spindel läuft evtl. noch. Im Zweifel den Not-Aus bzw. den Spindelschalter benutzen. Danach neu verbinden, Nullpunkt prüfen und ggf. neu starten.</p>`);
+      else if (!j.aborted) modal('Fertig', `<p>Auftrag „${esc(j.name)}“ abgeschlossen in ${FS.gcode.fmtTime((Date.now() - j.start) / 1000)}.${j.errors ? ` <b>${j.errors} Fehlermeldung(en)</b> – siehe Konsole.` : ''}</p>`);
     });
     g.on('toolchange', (msg) => toolChangeDialog(msg));
   }
@@ -2046,14 +2058,121 @@
   $('#mConnect').onclick = async () => {
     machineInit();
     if (S.grbl.connected) { if (S.grbl.job && !(await confirmBox('Trennen?', 'Ein Auftrag läuft. Wirklich trennen?', 'Trennen', true))) return; S.grbl.disconnect(); return; }
-    if (!FS.Grbl.supported()) {
-      modal('USB-Verbindung nicht möglich', `<p>Dieser Browser kann nicht direkt mit der Fräse sprechen (Web Serial fehlt).</p>
-        <p><b>Lösung:</b> FräsStudio in <b>Google Chrome</b> oder <b>Microsoft Edge</b> öffnen.</p>
-        <p>Alternativ: G-Code speichern, auf die SD-Karte der TTC450 kopieren und am Touchdisplay starten – oder mit Candle senden.</p>`);
+    connectDialog();
+  };
+  $('#mWifi').onclick = () => { machineInit(); wifiAssistant(); };
+
+  // ---- Verbindungsdialog: USB, WLAN über den Server, WLAN direkt
+  async function connectDialog() {
+    const env = FS.Grbl.env();
+    const saved = Object.assign({ kind: 'usb', host: '', baud: 'auto' }, store.get('fs.conn', {}));
+    let cfg = { enabled: false, host: '' };
+    if (env.server) { try { const r = await fetch('/api/cnc/config', { headers: { 'X-Requested-With': 'StickStudio' } }); if (r.ok) cfg = await r.json(); } catch (e) { /* Seite ohne Server */ } }
+    const can = {
+      usb: env.serial,
+      bridge: env.server && cfg.enabled,
+      ws: env.direct,
+    };
+    const why = {
+      usb: !env.secure ? 'Geht nicht auf unverschlüsselten (http://) Seiten – FräsStudio per Doppelklick oder über https öffnen.' : 'Nur in Chrome oder Edge am Computer.',
+      bridge: !env.server ? 'Nur wenn FräsStudio über den StickStudio-Server geöffnet ist (https://…/fraesstudio/).' : 'Am Server abgeschaltet.',
+      ws: 'Geht nicht von einer https-Seite aus. Nutze „WLAN über den Server“.',
+    };
+    if (!can[saved.kind]) saved.kind = can.usb ? 'usb' : can.bridge ? 'bridge' : can.ws ? 'ws' : 'usb';
+    if (!saved.host && cfg.host) saved.host = cfg.host;
+    const row = (k, title, text) => `<label class="connopt ${can[k] ? '' : 'off'}"><input type="radio" name="ck" value="${k}" ${saved.kind === k ? 'checked' : ''} ${can[k] ? '' : 'disabled'}><span><b>${title}</b><br><span class="muted small">${can[k] ? text : esc(why[k])}</span></span></label>`;
+    const html = `
+      ${row('usb', 'USB-Kabel', 'Am sichersten. Fräse per USB am Computer, Maschine eingeschaltet. Es erscheint eine Liste der Anschlüsse – den der Fräse wählen (meist „USB-SERIAL CH340“).')}
+      ${row('bridge', 'WLAN über den Server', 'Empfohlen für WLAN. Der Server im Heimnetz verbindet sich per Telnet (Port 23) mit der Maschine. Sicher: Not-Aus bei Verbindungsabbruch.')}
+      ${row('ws', 'WLAN direkt (experimentell)', 'Ohne Server, direkt aus dem Browser (WebSocket). Etwas träge, gut für Verfahren und kurze Aufträge.')}
+      <div id="cnWifi" class="${saved.kind === 'usb' ? 'hidden' : ''}">
+        ${field('IP-Adresse der Maschine', `<input id="cnHost" value="${esc(saved.host || '')}" placeholder="z. B. 192.168.1.50  (oder IP:Port)" autocomplete="off">`)}
+        ${cfg.host ? `<p class="muted small">Am Server ist die Maschine ${esc(cfg.host)} eingestellt.</p>` : ''}
+      </div>
+      <div id="cnUsb" class="${saved.kind === 'usb' ? '' : 'hidden'}">
+        ${field('Baudrate', `<select id="cnBaud">${['auto', 115200, 250000, 921600, 57600, 9600].map((b) => `<option value="${b}" ${String(saved.baud) === String(b) ? 'selected' : ''}>${b === 'auto' ? 'automatisch erkennen' : b}</option>`).join('')}</select>`)}
+      </div>
+      <details class="small"><summary class="muted">Wie kommt die TTC450 ins WLAN?</summary>
+        <ol><li>Maschine per <b>USB</b> verbinden und unten auf <b>„WLAN“</b> drücken: Name und Passwort deines WLANs eintragen, „Einrichten“.</li>
+        <li>Die Maschine startet neu und meldet sich im Router an. Die <b>IP-Adresse</b> zeigt „WLAN“ → „IP anzeigen“ (nach erneutem Verbinden per USB) oder die Geräteliste deines Routers.</li>
+        <li>Hier die IP eintragen. Tipp: im Router für die Maschine eine <b>feste IP</b> vergeben.</li>
+        <li>Ohne Einrichtung öffnet die Maschine ein eigenes WLAN <b>MKS_DLC</b> (Adresse 192.168.4.1) – dann mit dem Computer in dieses WLAN gehen und „WLAN direkt“ nutzen.</li></ol>
+        <p>Firmware-Befehle können je nach Version abweichen; im Zweifel am Touch-Display oder im Webbrowser (<code>http://IP-der-Maschine</code>) einrichten.</p></details>`;
+    let pick = null;
+    const r = await modal('Mit der Maschine verbinden', html, [
+      { label: 'Abbrechen', value: null },
+      { label: 'Verbinden', primary: true, value: 'go', onClick: () => {
+        const kind = ($('input[name=ck]:checked') || {}).value;
+        if (!kind) return false;
+        pick = { kind, host: $('#cnHost') ? $('#cnHost').value.trim() : '', baud: $('#cnBaud') ? $('#cnBaud').value : 'auto' };
+        if (kind !== 'usb' && !pick.host) { status('Bitte die IP-Adresse der Maschine eintragen.', true); $('#cnHost').focus(); return false; }
+      } },
+    ], { wide: true, noFocus: true, onOpen: (b) => b.addEventListener('change', (e) => {
+      if (e.target.name !== 'ck') return;
+      $('#cnWifi').classList.toggle('hidden', e.target.value === 'usb');
+      $('#cnUsb').classList.toggle('hidden', e.target.value !== 'usb');
+    }) });
+    if (r !== 'go' || !pick) return;
+    store.set('fs.conn', pick);
+    const busy = $('#busy'), bt = $('#busy span');
+    busy.classList.remove('hidden');
+    bt.textContent = pick.kind === 'usb' ? 'Anschluss wählen, dann Verbinden …' : 'Verbinde mit der Maschine …';
+    try {
+      const hp = /^(.+):(\d{1,5})$/.exec(pick.host); // „192.168.1.50:23“ → Adresse und Port
+      await S.grbl.connect(pick.kind === 'usb' ? { kind: 'usb', baud: pick.baud, first: S.machine.baud } : { kind: pick.kind, host: hp ? hp[1] : pick.host, port: hp ? +hp[2] : 23 });
+    } catch (e) {
+      busy.classList.add('hidden');
+      if (e.cancelled && !e.html) return;
+      modal('Verbindung fehlgeschlagen', `<p><b>${esc(e.message)}</b></p>${e.html || ''}<p class="muted small">Die Konsole unten zeigt weitere Meldungen.</p>`, [{ label: 'Hilfe: WLAN', value: 'w' }, { label: 'Nochmal versuchen', primary: true, value: 'again' }, { label: 'Schließen', value: 'x' }], { wide: true }).then((a) => { if (a === 'again') connectDialog(); if (a === 'w') wifiAssistant(); });
+      log('Verbindung fehlgeschlagen: ' + e.message, 'err');
+      return;
+    } finally { busy.classList.add('hidden'); bt.textContent = 'Fräsbahnen werden berechnet …'; }
+  }
+
+  // ---- WLAN der Maschine einrichten (per USB) und IP-Adresse anzeigen
+  async function wifiAssistant() {
+    if (!S.grbl || !S.grbl.connected) {
+      modal('WLAN der Maschine einrichten', `<p>Dazu die Maschine bitte zuerst per <b>USB</b> verbinden („Verbinden …“ → USB-Kabel).</p>
+        <p class="muted small">Alternativ am Touch-Display einrichten oder im Webbrowser unter <code>http://192.168.4.1</code>, wenn du mit dem WLAN <b>MKS_DLC</b> der Maschine verbunden bist.</p>`);
       return;
     }
-    try { await S.grbl.connect(S.machine.baud); } catch (e) { if (e.name !== 'NotFoundError') modal('Verbindung fehlgeschlagen', `<p>${esc(e.message)}</p><p>Tipps: USB-Kabel prüfen, Candle/andere Programme schließen, Treiber (CH340) installieren.</p>`); }
-  };
+    const html = `${field('Name des WLANs (SSID)', `<input id="wfS" autocomplete="off">`)}
+      ${field('Passwort', `<input id="wfP" type="password" autocomplete="off">`)}
+      <label class="check"><input type="checkbox" id="wfT" checked> Telnet einschalten (Port 23, für „WLAN über den Server“)</label>
+      <label class="check"><input type="checkbox" id="wfR" checked> Danach neu starten (nötig, damit das WLAN aktiv wird; die USB-Verbindung bricht kurz ab)</label>
+      <p class="muted small">Gesendet werden die üblichen GRBL-ESP32-Einstellungen: <code>$Radio/Mode=STA</code>, <code>$Sta/SSID=…</code>, <code>$Sta/Password=…</code>, <code>$Telnet/Enable=ON</code>, <code>$System/Control=RESTART</code>. Erkennt deine Firmware sie nicht, meldet die Konsole „$-Befehl unbekannt“ – dann am Touch-Display einrichten.</p>
+      <div class="row"><button id="wfIp">IP-Adresse der Maschine anzeigen</button></div><div id="wfOut" class="muted"></div>`;
+    let wf = null;
+    const r = await modal('WLAN der Maschine einrichten', html, [{ label: 'Schließen', value: null }, { label: 'Einrichten', primary: true, value: 'go', onClick: () => {
+      const ssid = $('#wfS').value.trim(), pw = $('#wfP').value;
+      if (!ssid) { status('Bitte den WLAN-Namen eintragen.', true); return false; }
+      if (/[\r\n]/.test(ssid + pw)) { status('Name und Passwort dürfen keine Zeilenumbrüche enthalten.', true); return false; }
+      wf = { ssid, pw, telnet: $('#wfT').checked, restart: $('#wfR').checked };
+    } }], { noFocus: true, onOpen: (b) => {
+      $('#wfIp', b).addEventListener('click', async (e) => {
+        e.preventDefault();
+        const out = $('#wfOut'); out.textContent = 'Frage die Maschine …';
+        const lines = await S.grbl.ask('[ESP111]');
+        const ip = lines.join(' ').match(/\b\d{1,3}(?:\.\d{1,3}){3}\b/);
+        out.innerHTML = ip ? `IP-Adresse: <b>${esc(ip[0])}</b>${ip[0].startsWith('192.168.4.') ? ' (eigenes WLAN der Maschine, noch nicht im Heim-WLAN)' : ''}` : (lines.length ? esc(lines.join(' · ')) : 'Keine Antwort – evtl. noch nicht im WLAN angemeldet oder die Firmware kennt [ESP111] nicht. Schau in der Geräteliste deines Routers.');
+      });
+    } });
+    if (r !== 'go' || !wf) return;
+    const cmds2 = ['$Radio/Mode=STA', `$Sta/SSID=${wf.ssid}`, `$Sta/Password=${wf.pw}`];
+    if (wf.telnet) cmds2.push('$Telnet/Enable=ON');
+    let bad = null;
+    for (const c of cmds2) {
+      try { await S.grbl.command(c); } catch (e) { bad = { c: c.startsWith('$Sta/Password') ? '$Sta/Password=…' : c, m: e.message }; break; }
+    }
+    if (bad) { modal('WLAN einrichten fehlgeschlagen', `<p>Bei <code>${esc(bad.c)}</code> kam: <b>${esc(bad.m)}</b></p><p>Diese Firmware kennt den Befehl evtl. nicht. WLAN dann am <b>Touch-Display</b> einrichten oder im Webbrowser unter <code>http://192.168.4.1</code> (nach Verbinden mit dem WLAN „MKS_DLC“).</p>`); return; }
+    if (wf.restart) {
+      log('Starte die Maschine neu …', 'info');
+      S.grbl.command('$System/Control=RESTART').catch(() => {});
+      modal('WLAN eingerichtet', `<p>Die Maschine startet neu und meldet sich im WLAN <b>${esc(wf.ssid)}</b> an (ca. 30 Sekunden). Die USB-Verbindung bricht dabei ab.</p>
+        <p>Danach: Per USB neu verbinden → „WLAN“ → <b>IP-Adresse anzeigen</b>, oder in der Geräteliste deines Routers nachsehen. Diese IP dann bei „Verbinden“ → WLAN eintragen.</p>`);
+    } else status('WLAN-Einstellungen gesendet. Maschine neu starten, damit sie wirken.');
+  }
+
   $$('[data-zero]').forEach((b) => b.addEventListener('click', () => {
     if (!need()) return;
     const ax = b.dataset.zero.split('').map((a) => a + '0').join(' ');

@@ -363,6 +363,70 @@ function extendLicense(userId, days, reason) {
   return true;
 }
 
+/* ---------- Brücke zur Fräse per WLAN (Telnet, Port 23) ----------
+   Der Browser kann kein TCP sprechen. Der Server (im selben Heimnetz wie die Fräse) verbindet sich per Telnet
+   und reicht die Daten über HTTP (Server-Sent Events + POST) an FräsStudio weiter – funktioniert hinter HTTPS und Reverse Proxy.
+   Nur für Konten mit FräsStudio-Zugang. Ziel nur im eigenen Netz (oder CNC_HOST). Bei Verbindungsverlust: Not-Aus (Soft-Reset). */
+const net = require('net');
+const dns = require('dns').promises;
+const cnc = new Map(); // id -> Sitzung
+const CNC_MAX = 4;
+function privateIp(ip) {
+  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(ip);
+  if (!m) return false;
+  const [a, b] = [+m[1], +m[2]];
+  return a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
+}
+async function cncTarget(host, port) {
+  host = String(host || '').trim();
+  port = +port || 23;
+  const ports = new Set([23, ...String(ENV.CNC_PORTS || '').split(',').map((x) => +x).filter(Boolean)]);
+  if (!ports.has(port)) throw Object.assign(new Error('Port nicht erlaubt (nur Telnet 23).'), { code: 400 });
+  if (!/^[A-Za-z0-9.-]{1,100}$/.test(host)) throw Object.assign(new Error('Adresse ungültig.'), { code: 400 });
+  if (ENV.CNC_HOST && host.toLowerCase() !== String(ENV.CNC_HOST).toLowerCase()) throw Object.assign(new Error('Nur die am Server eingestellte Maschine ist erlaubt.'), { code: 400 });
+  let ip = host;
+  if (!/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    try { ip = (await dns.lookup(host, { family: 4 })).address; } catch (e) { throw Object.assign(new Error('Name „' + host + '“ wurde nicht gefunden.'), { code: 400 }); }
+  }
+  if (!ENV.CNC_HOST && !privateIp(ip)) throw Object.assign(new Error('Nur Adressen im eigenen Netz sind erlaubt (192.168.x.x, 10.x.x.x, 172.16–31.x.x).'), { code: 400 });
+  return { ip, port };
+}
+function cncClose(sess, reason, estop) {
+  if (!sess || sess.closed) return;
+  sess.closed = true;
+  clearTimeout(sess.grace); clearInterval(sess.beat);
+  try { if (estop && sess.sock.writable) sess.sock.write(Buffer.from([0x18])); } catch (e) { /* weg */ }
+  for (const r of sess.clients) { try { r.write(`data: ${JSON.stringify({ c: 1, m: reason || '' })}\n\n`); r.end(); } catch (e) { /* weg */ } }
+  setTimeout(() => { try { sess.sock.destroy(); } catch (e) { /* weg */ } }, estop ? 150 : 0);
+  cnc.delete(sess.id);
+  logEvent(sess.userId, 'cnc-close', (reason || '') + (estop ? ' (Not-Aus)' : ''));
+}
+function cncOpen(userId, host, port) {
+  return new Promise((resolve, reject) => {
+    for (const sess of cnc.values()) if (sess.userId === userId) cncClose(sess, 'neue Verbindung');
+    if (cnc.size >= CNC_MAX) return reject(Object.assign(new Error('Zu viele Verbindungen.'), { code: 429 }));
+    const sock = net.connect({ host, port });
+    sock.setNoDelay(true);
+    sock.setKeepAlive(true, 10000);
+    const sess = { id: crypto.randomBytes(12).toString('hex'), userId, sock, clients: new Set(), pending: [], closed: false, lastSend: 0, host: `${host}:${port}` };
+    const timer = setTimeout(() => { sock.destroy(); reject(Object.assign(new Error('Die Maschine antwortet nicht (Zeitüberschreitung). Ist sie an, im WLAN und Telnet aktiv?'), { code: 502 })); }, 6000);
+    sock.once('connect', () => {
+      clearTimeout(timer);
+      cnc.set(sess.id, sess);
+      sess.beat = setInterval(() => { for (const r of sess.clients) r.write(': ping\n\n'); }, 15000);
+      sess.grace = setTimeout(() => { if (!sess.clients.size) cncClose(sess, 'kein Browser verbunden'); }, 15000);
+      logEvent(userId, 'cnc-open', sess.host);
+      resolve(sess);
+    });
+    sock.on('data', (buf) => {
+      const msg = `data: ${JSON.stringify({ d: buf.toString('latin1') })}\n\n`;
+      if (sess.clients.size) for (const r of sess.clients) r.write(msg); else if (sess.pending.length < 200) sess.pending.push(msg);
+    });
+    sock.on('error', (e) => { clearTimeout(timer); if (!sess.closed && cnc.has(sess.id)) cncClose(sess, 'Fehler: ' + e.code); else reject(Object.assign(new Error({ ECONNREFUSED: 'Verbindung abgelehnt – ist Telnet an der Maschine aktiv (Port 23)?', EHOSTUNREACH: 'Maschine nicht erreichbar.', ENETUNREACH: 'Netz nicht erreichbar.', ETIMEDOUT: 'Zeitüberschreitung.' }[e.code] || 'Verbindungsfehler: ' + e.code), { code: 502 })); });
+    sock.on('close', () => cncClose(sess, 'Maschine hat die Verbindung beendet'));
+  });
+}
+
 /* ---------- Routen ---------- */
 async function route(req, res) {
   const url = new URL(req.url, 'http://x');
@@ -551,6 +615,46 @@ async function route(req, res) {
     }
     if (m !== 'GET' && m !== 'HEAD') return send(res, 405, 'Method not allowed', 'text/plain');
     return fraesFile(res, p.slice(FRAES_PATH.length) || 'index.html') || send(res, 404, 'Not found', 'text/plain');
+  }
+
+  /* --- Brücke zur Fräse (nur mit FräsStudio-Zugang) --- */
+  if (p.startsWith('/api/cnc/')) {
+    if (!fraesAccess(user)) return json(res, 403, { error: 'FräsStudio ist für dieses Konto nicht freigeschaltet.' });
+    if (p === '/api/cnc/config' && m === 'GET') return json(res, 200, { enabled: ENV.CNC_BRIDGE !== 'off', host: ENV.CNC_HOST || '', port: 23 });
+    if (ENV.CNC_BRIDGE === 'off') return json(res, 403, { error: 'Die WLAN-Brücke ist am Server abgeschaltet (CNC_BRIDGE=off).' });
+    if (p === '/api/cnc/open' && m === 'POST') {
+      const b = await readJson(req, 4096);
+      if (limited('cnc:' + user.id, 20, 60e3)) return json(res, 429, { error: 'Zu viele Versuche.' });
+      try {
+        const t = await cncTarget(b.host, b.port);
+        const sess = await cncOpen(user.id, t.ip, t.port);
+        return json(res, 200, { id: sess.id });
+      } catch (e) { return json(res, e.code >= 400 && e.code < 600 ? e.code : 502, { error: e.message }); }
+    }
+    const sess = cnc.get(String(url.searchParams.get('id') || ''));
+    if (!sess || sess.userId !== user.id) return json(res, 404, { error: 'Keine Verbindung (mehr).' });
+    if (p === '/api/cnc/stream' && m === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no', ...SEC_HEADERS });
+      res.write(`data: ${JSON.stringify({ o: 1 })}\n\n`);
+      for (const msg of sess.pending.splice(0)) res.write(msg);
+      sess.clients.add(res);
+      clearTimeout(sess.grace);
+      res.on('close', () => {
+        sess.clients.delete(res);
+        // Browser weg (Tab zu, Absturz, Netz weg): nach kurzer Gnadenfrist Not-Aus, damit die Fräse nicht weiterläuft
+        if (!sess.clients.size && !sess.closed) sess.grace = setTimeout(() => { if (!sess.clients.size) cncClose(sess, 'Browser getrennt', true); }, 3000);
+      });
+      return;
+    }
+    if (p === '/api/cnc/send' && m === 'POST') {
+      const body = await readBody(req, 8192);
+      if (sess.closed || !sess.sock.writable) return json(res, 410, { error: 'Verbindung beendet.' });
+      sess.sock.write(body);
+      sess.lastSend = now();
+      return send(res, 204, '');
+    }
+    if (p === '/api/cnc/close' && m === 'POST') { cncClose(sess, 'Trennen'); return json(res, 200, { ok: true }); }
+    return json(res, 404, { error: 'not found' });
   }
 
   if (p === '/' || p === '/index.html') return page(appHtml());
