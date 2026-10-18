@@ -98,6 +98,7 @@
     saveTimer = setTimeout(() => { if (!store.set('fs.doc', JSON.parse(serial(S.doc, true)))) store.set('fs.doc', null); }, 800);
     renderSide();
     redraw();
+    updUndo();
   }
   function restore(json) {
     S.doc = revive(json);
@@ -105,8 +106,15 @@
     S.results.clear();
     changed();
   }
-  const undo = () => { if (!S.undo.length) return; S.redo.push(serial(S.doc)); restore(S.undo.pop()); status('Rückgängig'); };
-  const redo = () => { if (!S.redo.length) return; S.undo.push(serial(S.doc)); restore(S.redo.pop()); status('Wiederholt'); };
+  const undo = () => { if (!S.undo.length) { status('Nichts mehr rückgängig zu machen.'); return; } S.redo.push(serial(S.doc)); restore(S.undo.pop()); status('Rückgängig'); afterHistory(); };
+  const redo = () => { if (!S.redo.length) { status('Nichts zum Wiederholen.'); return; } S.undo.push(serial(S.doc)); restore(S.redo.pop()); status('Wiederholt'); afterHistory(); };
+  function updUndo() {
+    const u = $('#undoBtn'), r = $('#redoBtn');
+    if (u) { u.disabled = !S.undo.length; u.title = `Rückgängig (Strg+Z)${S.undo.length ? ' – ' + S.undo.length + ' Schritt(e)' : ''}`; }
+    if (r) { r.disabled = !S.redo.length; r.title = `Wiederholen (Strg+Y)${S.redo.length ? ' – ' + S.redo.length + ' Schritt(e)' : ''}`; }
+  }
+  // in der 3D-Vorschau nach Rückgängig das Ergebnis neu berechnen
+  function afterHistory() { if (S.mode === 'sim') enterSim(); }
 
   // ---------------------------------------------------------------- Kleinkram
   let statusTimer;
@@ -207,6 +215,13 @@
     S.view.s = util.clamp(S.view.s * f, 0.05, 400);
     S.view.ox = sx - p.x * S.view.s;
     S.view.oy = sy + p.y * S.view.s;
+    redraw();
+  }
+
+  // Ansicht um Bildschirm-Pixel verschieben (Inhalt wandert mit) – 2D oder 3D
+  function panView(dx, dy) {
+    if (S.mode === 'sim') { if (view3d) view3d.pan(dx, dy); return; }
+    S.view.ox += dx; S.view.oy += dy;
     redraw();
   }
 
@@ -1062,10 +1077,14 @@
     offset: offsetDialog, array: arrayDialog,
     toPath, toLines, breakApart,
     editText() { const o = selObjs()[0]; if (o && o.kind === 'text') textDialog(o); },
-    fit: () => fit(), zoomIn: () => zoomAt(1.25, cv.clientWidth / 2, cv.clientHeight / 2), zoomOut: () => zoomAt(0.8, cv.clientWidth / 2, cv.clientHeight / 2),
+    fit: () => (S.mode === 'sim' && view3d ? view3d.preset('iso') : fit()),
+    zoomIn: () => (S.mode === 'sim' && view3d ? view3d.zoom(0.8) : zoomAt(1.25, cv.clientWidth / 2, cv.clientHeight / 2)),
+    zoomOut: () => (S.mode === 'sim' && view3d ? view3d.zoom(1.25) : zoomAt(0.8, cv.clientWidth / 2, cv.clientHeight / 2)),
+    panLeft: () => panView(80, 0), panRight: () => panView(-80, 0), panUp: () => panView(0, 80), panDown: () => panView(0, -80),
     toggleWheel() {
       wheelZoom = !wheelZoom;
       store.set('fs.wheelZoom', wheelZoom);
+      if (view3d) view3d.wheelZoom = wheelZoom;
       status(wheelZoom ? 'Mausrad = Zoom. Verschieben: Leertaste halten, Umschalt + Rad oder mittlere Maustaste.' : 'Mausrad / zwei Finger = verschieben, Strg + Rad bzw. Spreizen = Zoom.');
     },
     toggleSnap() { S.snap = !S.snap; store.set('fs.snap', S.snap); updateSnapInfo(); },
@@ -1905,7 +1924,7 @@
   let view3d = null;
   async function enterSim() {
     if (!view3d) {
-      try { view3d = new FS.View3D($('#cv3d')); } catch (e) { modal('3D-Vorschau nicht möglich', `<p>${esc(e.message)}</p><p>Bitte einen aktuellen Chrome, Edge oder Firefox verwenden.</p>`); return; }
+      try { view3d = new FS.View3D($('#cv3d')); view3d.wheelZoom = wheelZoom; } catch (e) { modal('3D-Vorschau nicht möglich', `<p>${esc(e.message)}</p><p>Bitte einen aktuellen Chrome, Edge oder Firefox verwenden.</p>`); return; }
     }
     const gc = await buildAll();
     S.gc = gc;
@@ -2365,7 +2384,7 @@
     $('#toolbox').classList.toggle('hidden', m !== 'design');
     $('#cv').classList.toggle('hidden', m === 'sim');
     $('#cv3d').classList.toggle('hidden', m !== 'sim');
-    $('#viewBtns').classList.toggle('hidden', m === 'sim');
+    $('#viewBtns').classList.toggle('sim', m === 'sim');
     $('#camBar').classList.toggle('hidden', !cam.on || m === 'sim');
     S.simPlaying = false;
     if (m === 'design') hint(TOOL_HINTS[S.tool]);
@@ -2417,6 +2436,14 @@
     if (k === 'F1') { e.preventDefault(); helpDialog(); return; }
     if (['1', '2', '3', '4'].includes(k) && !(S.draw && S.draw.kind === 'line')) { setMode(['design', 'cam', 'sim', 'machine'][+k - 1]); return; }
     if (k === ' ' && S.mode !== 'design' && S.mode !== 'sim') { e.preventDefault(); if (!spaceDown) setSpace(true); return; }
+    if (S.mode === 'sim') {
+      const pv = { ArrowLeft: [60, 0], ArrowRight: [-60, 0], ArrowUp: [0, 60], ArrowDown: [0, -60] }[k];
+      if (pv) { e.preventDefault(); panView(pv[0], pv[1]); return; }
+      if (k === '+') { cmds.zoomIn(); return; }
+      if (k === '-') { cmds.zoomOut(); return; }
+      if (k === 'f' || k === 'F') { cmds.fit(); return; }
+      return;
+    }
     if (S.mode === 'machine') {
       const jog = { ArrowLeft: [-1, 0, 0], ArrowRight: [1, 0, 0], ArrowUp: [0, 1, 0], ArrowDown: [0, -1, 0], PageUp: [0, 0, 1], PageDown: [0, 0, -1] }[k];
       if (jog && S.grbl && S.grbl.connected && !S.grbl.job) {
@@ -2483,6 +2510,8 @@
         <tr><td>F · G · C</td><td>Alles zeigen · Raster fangen ein/aus · Kamerabild ein/aus</td></tr>
         <tr><td>Datei aufs Fenster ziehen</td><td>Bild (→ 3D-Relief oder Umriss), SVG, DXF, STL, G-Code, Projekt</td></tr>
         <tr><td>1 2 3 4</td><td>Arbeitsschritt wechseln</td></tr>
+        <tr><td>↶ ↷ oben</td><td>Rückgängig / Wiederholen (auch Strg+Z / Strg+Y)</td></tr>
+        <tr><td>3D-Vorschau</td><td>Links ziehen = drehen · Leertaste, zwei Finger, rechte Maustaste, Pfeiltasten oder Knöpfe unten rechts = verschieben</td></tr>
         <tr><td>Strg+Z/Y/C/V/D/A</td><td>Rückgängig, Wiederholen, Kopieren, Einfügen, Duplizieren, Alles</td></tr>
         <tr><td>Strg+S/O/E/I</td><td>Speichern, Öffnen, G-Code speichern, Importieren</td></tr>
       </table>`, [{ label: 'Tipps für die TTC450', value: 'tips' }, { label: 'Schließen', primary: true }], { wide: true }).then((r) => { if (r === 'tips') ttcTips(); });
@@ -2569,5 +2598,5 @@
   requestAnimationFrame(() => { fit(); if (!store.get('fs.welcomed', false)) welcomeDialog(); });
   window.addEventListener('beforeunload', (e) => { if (S.grbl && S.grbl.job) { e.preventDefault(); e.returnValue = ''; } });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); redraw(); });
-  FS.app = { S, cmds, setMode, computeAll, buildAll };
+  FS.app = { S, cmds, setMode, computeAll, buildAll, view3d: () => view3d };
 })();

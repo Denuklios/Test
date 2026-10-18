@@ -139,31 +139,83 @@
     }
 
     bind() {
-      let drag = null;
-      this.cv.addEventListener('contextmenu', (e) => e.preventDefault());
-      this.cv.addEventListener('pointerdown', (e) => { drag = { x: e.clientX, y: e.clientY, b: e.button, shift: e.shiftKey }; this.cv.setPointerCapture(e.pointerId); });
-      this.cv.addEventListener('pointerup', () => { drag = null; });
-      this.cv.addEventListener('pointermove', (e) => {
-        if (!drag) return;
+      let drag = null, space = false, over = false, last = null;
+      this.wheelZoom = false;
+      const cv = this.cv;
+      cv.addEventListener('contextmenu', (e) => e.preventDefault());
+      cv.addEventListener('pointerenter', () => { over = true; });
+      cv.addEventListener('pointerleave', () => { over = false; last = null; });
+      // Leertaste halten: verschieben (Maus bewegen oder ziehen) – wie in der 2D-Ansicht
+      window.addEventListener('keydown', (e) => {
+        if (e.key !== ' ' || !over || cv.classList.contains('hidden')) return;
+        const tag = e.target.tagName;
+        if (tag === 'TEXTAREA' || (tag === 'INPUT' && e.target.type === 'text')) return;
+        e.preventDefault();
+        if (document.activeElement && document.activeElement !== document.body) document.activeElement.blur();
+        space = true;
+        cv.style.cursor = 'grab';
+      });
+      window.addEventListener('keyup', (e) => { if (e.key === ' ' && space) { e.preventDefault(); space = false; cv.style.cursor = ''; } });
+      window.addEventListener('blur', () => { space = false; cv.style.cursor = ''; });
+      cv.addEventListener('pointerdown', (e) => {
+        // Links ziehen = drehen; Umschalt, Leertaste, rechte oder mittlere Taste = verschieben
+        drag = { x: e.clientX, y: e.clientY, pan: e.button !== 0 || e.shiftKey || space };
+        cv.setPointerCapture(e.pointerId);
+      });
+      cv.addEventListener('pointerup', () => { drag = null; });
+      cv.addEventListener('pointermove', (e) => {
+        const lm = last;
+        last = { x: e.clientX, y: e.clientY };
+        if (!drag) {
+          if (space && lm) this.pan(e.clientX - lm.x, e.clientY - lm.y);
+          return;
+        }
         const dx = e.clientX - drag.x, dy = e.clientY - drag.y;
         drag.x = e.clientX; drag.y = e.clientY;
-        const c = this.cam;
-        if (drag.b === 0 && !drag.shift) {
-          c.yaw -= dx * 0.008;
-          c.pitch = Math.max(0.05, Math.min(1.55, c.pitch + dy * 0.008));
-        } else {
-          // Verschieben: rechts = (-sin, cos), vorne = (-cos, -sin) in der Ebene
-          const s = c.dist / 700, sy = Math.sin(c.yaw), cy = Math.cos(c.yaw);
-          c.tx += (sy * dx - cy * dy) * s;
-          c.ty += (-cy * dx - sy * dy) * s;
-        }
-        this.dirty = true;
+        if (drag.pan || space) this.pan(dx, dy);
+        else this.orbit(dx, dy);
       });
-      this.cv.addEventListener('wheel', (e) => {
+      // Zwei Finger = verschieben, Spreizen / Strg + Rad = zoomen (Mausrad = Zoom, wenn so eingestellt)
+      cv.addEventListener('wheel', (e) => {
         e.preventDefault();
-        this.cam.dist = Math.max(20, Math.min(3000, this.cam.dist * Math.exp(e.deltaY * 0.0012)));
-        this.dirty = true;
+        const unit = e.deltaMode === 1 ? 16 : e.deltaMode === 2 ? 400 : 1;
+        const dx = e.deltaX * unit, dy = e.deltaY * unit;
+        if (e.ctrlKey || e.metaKey || (this.wheelZoom && !e.shiftKey)) this.zoom(Math.exp(dy * (e.ctrlKey && !this.wheelZoom && Math.abs(dy) < 50 ? 0.006 : 0.0012)));
+        else if (e.shiftKey && !dx) this.pan(-dy, 0);
+        else this.pan(-dx, -dy);
       }, { passive: false });
+    }
+
+    // Ansicht um Bildschirm-Pixel verschieben: der Inhalt folgt der Maus
+    pan(dx, dy) {
+      const c = this.cam;
+      const H = Math.max(1, this.cv.clientHeight);
+      const s = (2 * c.dist * Math.tan(0.35)) / H; // mm je Pixel in Zielentfernung (Blickwinkel 0,7 rad)
+      // Verschieben in der Bildebene: rechts = (-sin y, cos y, 0), oben = (-cos y·sin p, -sin y·sin p, cos p)
+      const sy = Math.sin(c.yaw), cy = Math.cos(c.yaw), sp = Math.sin(c.pitch), cp = Math.cos(c.pitch);
+      c.tx += (sy * dx - cy * sp * dy) * s;
+      c.ty += (-cy * dx - sy * sp * dy) * s;
+      c.tz += cp * dy * s;
+      this.dirty = true;
+    }
+    // Bildschirmposition (CSS-Pixel) eines Punktes in mm – für Tests und Hilfen
+    project(x, y, z) {
+      const c = this.cam, W = this.cv.clientWidth, H = this.cv.clientHeight;
+      const eye = [c.tx + c.dist * Math.cos(c.pitch) * Math.cos(c.yaw), c.ty + c.dist * Math.cos(c.pitch) * Math.sin(c.yaw), c.tz + c.dist * Math.sin(c.pitch)];
+      const m = m4.mul(m4.persp(0.7, W / H, 1, 10000), m4.look(eye, [c.tx, c.ty, c.tz], [0, 0, 1]));
+      const v = [x, y, z, 1], o = [0, 0, 0, 0];
+      for (let r = 0; r < 4; r++) for (let k = 0; k < 4; k++) o[r] += m[k * 4 + r] * v[k];
+      return { x: ((o[0] / o[3] + 1) / 2) * W, y: ((1 - o[1] / o[3]) / 2) * H };
+    }
+    orbit(dx, dy) {
+      const c = this.cam;
+      c.yaw -= dx * 0.008;
+      c.pitch = Math.max(0.05, Math.min(1.55, c.pitch + dy * 0.008));
+      this.dirty = true;
+    }
+    zoom(f) {
+      this.cam.dist = Math.max(20, Math.min(3000, this.cam.dist * f));
+      this.dirty = true;
     }
 
     preset(name) {

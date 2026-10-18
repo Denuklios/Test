@@ -103,6 +103,8 @@ Bilder, SVG, DXF, STL, G-Code und Projekte können direkt auf die Zeichenfläche
 | Zwei Finger / Mausrad | Ansicht verschieben; Finger spreizen oder Strg + Rad = Zoom (im Menü Ansicht auf „Rad = Zoom“ umstellbar) |
 | Pfeiltasten | Objekte verschieben (Umschalt 10 mm, Alt 0,1 mm); im Schritt 4: Maschine verfahren |
 | 1 2 3 4 | Arbeitsschritt wechseln |
+| ↶ ↷ (oben in der Leiste) | Rückgängig / Wiederholen, auch Strg+Z / Strg+Y |
+| 3D-Vorschau | Links ziehen = drehen · Leertaste halten, zwei Finger, rechte Maustaste oder Pfeiltasten = verschieben · Spreizen / Strg + Rad = zoomen · Knöpfe unten rechts |
 | F, G, C | Alles zeigen, Raster fangen, Kamerabild ein/aus |
 | Strg+Z / Y / C / V / D / A / S / O / E / I | Rückgängig, Wiederholen, Kopieren, Einfügen, Duplizieren, Alles, Speichern, Öffnen, G-Code, Import |
 

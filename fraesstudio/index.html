@@ -90,6 +90,10 @@
     </div>
   </div>
 
+  <span class="undoBtns">
+    <button class="tb" id="undoBtn" data-cmd="undo" title="Rückgängig (Strg+Z)" disabled>↶</button>
+    <button class="tb" id="redoBtn" data-cmd="redo" title="Wiederholen (Strg+Y)" disabled>↷</button>
+  </span>
   <nav id="modes">
     <button data-mode="design" class="active"><b>1</b> Entwerfen</button>
     <button data-mode="cam"><b>2</b> Fräsbahnen</button>
@@ -125,9 +129,14 @@
     <canvas id="cv3d" class="hidden"></canvas>
     <div id="hint"></div>
     <div id="viewBtns">
-      <button data-cmd="zoomOut" title="Verkleinern">−</button>
-      <button data-cmd="fit" title="Alles zeigen">⤢</button>
-      <button data-cmd="zoomIn" title="Vergrößern">+</button>
+      <button data-cmd="panLeft" title="Ansicht nach links (Pfeiltaste)">←</button>
+      <button data-cmd="panUp" title="Ansicht nach oben">↑</button>
+      <button data-cmd="panDown" title="Ansicht nach unten">↓</button>
+      <button data-cmd="panRight" title="Ansicht nach rechts">→</button>
+      <span class="sep"></span>
+      <button data-cmd="zoomOut" title="Verkleinern (−)">−</button>
+      <button data-cmd="fit" title="Alles zeigen (F)">⤢</button>
+      <button data-cmd="zoomIn" title="Vergrößern (+)">+</button>
     </div>
     <div id="camBar" class="hidden"><span>Kamera</span><input id="camOpacity" type="range" min="10" max="100" value="80" title="Deckkraft"><label><input type="checkbox" id="camLive" checked> live</label><button data-cmd="camera">Einrichten</button><button data-cmd="toggleCam" title="Ausblenden">✕</button></div>
     <div id="dropHint" class="hidden">Datei hier loslassen<br><small>Bild, SVG, DXF, STL, G-Code oder Projekt</small></div>
@@ -201,7 +210,7 @@
           <button data-view="front">Vorne</button>
         </div>
         <label class="check"><input type="checkbox" id="simPaths" checked> Fräsbahnen zeigen</label>
-        <p class="muted small">Ziehen = drehen, Umschalt/rechte Maustaste = verschieben, Mausrad = zoomen</p>
+        <p class="muted small">Ziehen = drehen · Leertaste halten, zwei Finger, rechte Maustaste oder Pfeiltasten = verschieben · Spreizen / Strg + Rad = zoomen</p>
       </div>
       <div class="panel grow">
         <h3>Ablauf</h3>
