@@ -56,6 +56,20 @@ Eine USB-Webcam fest über der Fräse montieren. Knopf **„Kamera“** → im L
 (Maserung, vorhandene Bohrungen, ein schon bearbeitetes Teil) setzen. Live-Bild oder Standbild, Deckkraft und Linsenkorrektur einstellbar, Taste **C** blendet ein/aus.
 Die Einstellung bleibt gespeichert; nach dem Wechsel des Werkstücks die Ecken neu anklicken.
 
+## Größere Spindel (500 W / 800 W)
+
+Unter **Bearbeiten → Maschine…** das passende Profil wählen:
+
+| Profil | Drehzahl | Wirkung in FräsStudio |
+|---|---|---|
+| TTC450 80 W (Standard) | 8.000 U/min, per Programm | Werkzeugwerte wie in der Bibliothek |
+| TTC450 500 W | bis 12.000 U/min, per Programm | Zustellung ca. ×2, Vorschub ×1,4 |
+| TTC450 800 W (Twotrees-Fräsmotor-Satz) | 10.000–30.000 U/min am **Drehregler** (6 Stufen) | Zustellung ca. ×2,5 (höchstens 1× Fräserdurchmesser), Vorschub ×1,5, Drehzahl je nach Fräser |
+
+Beim 800-W-Motor schaltet FräsStudio den Motor nur ein und aus. Die passende **Reglerstufe** steht bei jeder Fräsbahn, in der Start-Checkliste, im G-Code und beim Werkzeugwechsel.
+Der Vorschub bleibt auf den Höchstwert der Achsen (1000 mm/min) begrenzt. Der Gewinn kommt vor allem von den tieferen Zustellungen, im Beispielschild etwa 11 statt 32 Minuten.
+Leistung, Drehzahlbereich und Stufen lassen sich auch für eigene Spindeln eintragen.
+
 ## Ziehen und Ablegen
 
 Bilder, SVG, DXF, STL, G-Code und Projekte können direkt auf die Zeichenfläche gezogen werden.

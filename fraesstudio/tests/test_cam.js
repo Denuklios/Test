@@ -214,5 +214,18 @@ ok(ras.nx > 40 && near(ras.zr, 5), 'STL: Dreieck gerastert');
   ok(w.w === 100 && px(10, 25) < 30 && px(90, 25) > 225 && px(30, 5) < 30 && px(70, 45) > 225, 'Kamera: Bild wird aufs Werkstück entzerrt');
 }
 
+// 800-W-Fräsmotor mit Drehregler
+{
+  const m8 = FS.tools.MACHINES.ttc450_800, m80 = FS.tools.MACHINES.ttc450;
+  const t1 = tools.find((t) => t.id === 't1');
+  const a = FS.tools.cutParams(t1, 'weichholz', m80), b = FS.tools.cutParams(t1, 'weichholz', m8);
+  ok(b.stepdown > a.stepdown * 2 && b.stepdown <= t1.d && b.feed > a.feed && b.feed <= m8.maxFeed, `800 W: Zustellung ${a.stepdown} → ${b.stepdown} mm, Vorschub ${a.feed} → ${b.feed} mm/min`);
+  ok(b.rpm >= 10000 && b.rpm <= 30000 && FS.tools.cutParams(tools.find((t) => t.id === 't3'), 'weichholz', m8).rpm > b.rpm, `800 W: Drehzahl 3,175 mm = ${b.rpm}, kleine Fräser schneller`);
+  ok(FS.tools.dialFor(10000, m8).step === 1 && FS.tools.dialFor(30000, m8).step === 6 && FS.tools.dialFor(18000, m8).step === 3, 'Drehregler: Stufen 1–6 von 10.000 bis 30.000 U/min');
+  const c8 = { ...ctx, machine: m8 };
+  const g8 = FS.gcode.build([FS.cam.compute(FS.cam.makeOp('profile', [sq.id], 't1'), c8), FS.cam.compute(FS.cam.makeOp('vcarve', [small.id], 't7'), c8)], c8);
+  ok(/\(DREHREGLER Stufe \d/.test(g8.text) && /^M3 S1000$/m.test(g8.text) && /WERKZEUGWECHSEL:.*DREHREGLER Stufe/.test(g8.text), 'G-Code 800 W: Motor ein/aus, Reglerstufe als Hinweis und beim Werkzeugwechsel');
+}
+
 if (fails) { console.log(`\n${fails} Fehler`); process.exit(1); }
 console.log('\nAlle Prüfungen bestanden.');

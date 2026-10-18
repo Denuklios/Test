@@ -33,21 +33,49 @@
     { id: 'messing', name: 'Messing (nur 500-W-Spindel, sehr vorsichtig)', feed: 0.25, depth: 0.15, color: '#d8b75c' },
   ];
 
+  // power: Spindelleistung in W. spindle: 'pwm' = Drehzahl per S-Wert, 'manual' = Drehregler am Motor (dial = Anzahl Stufen)
   const MACHINES = {
-    ttc450: { id: 'ttc450', name: 'Twotrees TTC450 (80-W-Spindel)', w: 460, h: 460, z: 80, maxRpm: 8000, sMax: 1000, maxFeed: 1000, maxZFeed: 400, rapid: 1000, baud: 115200, rxBuffer: 127 },
-    ttc450_500: { id: 'ttc450_500', name: 'Twotrees TTC450 (500-W-Spindel)', w: 460, h: 460, z: 80, maxRpm: 12000, sMax: 1000, maxFeed: 1000, maxZFeed: 400, rapid: 1000, baud: 115200, rxBuffer: 127 },
-    custom: { id: 'custom', name: 'Eigene GRBL-Maschine', w: 300, h: 180, z: 45, maxRpm: 10000, sMax: 1000, maxFeed: 1500, maxZFeed: 500, rapid: 1500, baud: 115200, rxBuffer: 127 },
+    ttc450: { id: 'ttc450', name: 'Twotrees TTC450 (80-W-Spindel)', w: 460, h: 460, z: 80, power: 80, minRpm: 0, maxRpm: 8000, spindle: 'pwm', dial: 0, sMax: 1000, maxFeed: 1000, maxZFeed: 400, rapid: 1000, baud: 115200, rxBuffer: 127 },
+    ttc450_500: { id: 'ttc450_500', name: 'Twotrees TTC450 (500-W-Spindel)', w: 460, h: 460, z: 80, power: 500, minRpm: 0, maxRpm: 12000, spindle: 'pwm', dial: 0, sMax: 1000, maxFeed: 1000, maxZFeed: 400, rapid: 1000, baud: 115200, rxBuffer: 127 },
+    ttc450_800: { id: 'ttc450_800', name: 'Twotrees TTC450 (800-W-Fräsmotor, Drehregler)', w: 460, h: 460, z: 80, power: 800, minRpm: 10000, maxRpm: 30000, spindle: 'manual', dial: 6, sMax: 1000, maxFeed: 1000, maxZFeed: 400, rapid: 1000, baud: 115200, rxBuffer: 127 },
+    custom: { id: 'custom', name: 'Eigene GRBL-Maschine', w: 300, h: 180, z: 45, power: 300, minRpm: 0, maxRpm: 10000, spindle: 'pwm', dial: 0, sMax: 1000, maxFeed: 1500, maxZFeed: 500, rapid: 1500, baud: 115200, rxBuffer: 127 },
   };
 
-  // Schnittwerte für Werkzeug + Material
+  // Mehr Spindelleistung -> tiefere Zustellung und etwas mehr Vorschub. Die Werkzeugwerte gelten für 80 W.
+  function powerFactors(mach) {
+    const p = Math.max(40, mach.power || 80);
+    const k = Math.log10(p / 80);
+    return { depth: Math.max(1, Math.min(3, 1 + 1.5 * k)), feed: Math.max(1, Math.min(2, 1 + 0.5 * k)) };
+  }
+
+  // Drehzahl: schwache Spindeln immer voll; schnelle Motoren nach Werkzeugdurchmesser (kleine Fräser schneller)
+  function rpmFor(tool, mach) {
+    if (mach.maxRpm <= 12000) return Math.min(mach.maxRpm, tool.rpm);
+    const d = tool.type === 'vbit' ? 3 : tool.d;
+    const f = d <= 1.5 ? 0.95 : d <= 2.5 ? 0.8 : d <= 4 ? 0.6 : d <= 6.5 ? 0.5 : 0.4;
+    return Math.max(mach.minRpm || 0, Math.min(mach.maxRpm, Math.round((mach.maxRpm * f) / 1000) * 1000));
+  }
+
+  // Stufe am Drehregler (1..dial, gleichmäßig von minRpm bis maxRpm) für eine Drehzahl
+  function dialFor(rpm, mach) {
+    if (!(mach.dial > 1)) return null;
+    const t = (rpm - mach.minRpm) / Math.max(1, mach.maxRpm - mach.minRpm);
+    const step = Math.max(1, Math.min(mach.dial, Math.round(1 + t * (mach.dial - 1))));
+    return { step, rpm: Math.round(mach.minRpm + ((step - 1) * (mach.maxRpm - mach.minRpm)) / (mach.dial - 1)) };
+  }
+
+  // Schnittwerte für Werkzeug + Material + Maschine
   function cutParams(tool, matId, machine) {
     const m = MATERIALS.find((x) => x.id === matId) || MATERIALS[0];
     const mach = machine || MACHINES.ttc450;
+    const pf = powerFactors(mach);
+    // Zustellung höchstens 1× Werkzeugdurchmesser (V-Fräser/Gravierstichel ausgenommen)
+    const maxDepth = tool.type === 'vbit' ? Infinity : Math.max(tool.d, tool.stepdown);
     return {
-      feed: Math.min(mach.maxFeed, Math.round(tool.feed * m.feed)),
-      plunge: Math.min(mach.maxZFeed, Math.round(tool.plunge * m.feed)),
-      stepdown: Math.max(0.05, +(tool.stepdown * m.depth).toFixed(2)),
-      rpm: Math.min(mach.maxRpm, tool.rpm),
+      feed: Math.min(mach.maxFeed, Math.round(tool.feed * m.feed * pf.feed)),
+      plunge: Math.min(mach.maxZFeed, Math.round(tool.plunge * m.feed * pf.feed)),
+      stepdown: Math.max(0.05, +Math.min(maxDepth, tool.stepdown * m.depth * pf.depth).toFixed(2)),
+      rpm: rpmFor(tool, mach),
     };
   }
 
@@ -64,5 +92,5 @@
 
   const describe = (t) => `${t.name}`;
 
-  FS.tools = { TYPES, DEFAULT_TOOLS, MATERIALS, MACHINES, cutParams, profile, describe };
+  FS.tools = { TYPES, DEFAULT_TOOLS, MATERIALS, MACHINES, cutParams, profile, describe, powerFactors, rpmFor, dialFor };
 })(typeof window !== 'undefined' ? window : globalThis);

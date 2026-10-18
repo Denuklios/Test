@@ -1236,7 +1236,7 @@
         ${field('Zustellung', inputN('wS', t.stepdown, 0.05), 'mm')}
         ${field('Überlappung', inputN('wO', t.stepover, 1), '%')}
       </div>
-      <p class="muted small">Werte gelten für Weichholz; das gewählte Material passt Vorschub und Zustellung automatisch an. Höchstvorschub der Maschine: ${S.machine.maxFeed} mm/min.</p>`;
+      <p class="muted small">Werte gelten für Weichholz und die 80-W-Spindel; Material und Spindelleistung (Maschine: ${esc(S.machine.name)}) passen Vorschub, Zustellung und Drehzahl automatisch an. Höchstvorschub: ${S.machine.maxFeed} mm/min.</p>`;
     const render = () => {
       $('#tlList').innerHTML = list();
       $('#tlForm').innerHTML = form(S.doc.tools.find((t) => t.id === cur));
@@ -1285,6 +1285,8 @@
     const html = `${field('Maschine', `<select id="mmId">${Object.values(TL.MACHINES).map((x) => `<option value="${x.id}" ${x.id === m.id ? 'selected' : ''}>${esc(x.name)}</option>`).join('')}</select>`)}
       <div class="grid2">
         ${field('X', inputN('mmW', m.w, 1), 'mm')}${field('Y', inputN('mmH', m.h, 1), 'mm')}${field('Z', inputN('mmZ', m.z, 1), 'mm')}
+        ${field('Leistung', inputN('mmP', m.power || 80, 10), 'W')}
+        ${field('Min U/min', inputN('mmRn', m.minRpm || 0, 100), '')}
         ${field('Max U/min', inputN('mmR', m.maxRpm, 100), '')}
         ${field('S max ($30)', inputN('mmS', m.sMax, 1), '')}
         ${field('Max Vorschub', inputN('mmF', m.maxFeed, 10), 'mm/min')}
@@ -1292,15 +1294,20 @@
         ${field('Eilgang', inputN('mmRa', m.rapid, 10), 'mm/min')}
         ${field('Baudrate', inputN('mmB', m.baud, 1), '')}
       </div>
-      <p class="muted small">Die TTC450 steuert die Spindeldrehzahl über S0 bis S1000 ($30=1000). Lies im Fräsen-Schritt mit „$$“ die Einstellungen deiner Maschine aus, falls du unsicher bist.</p>`;
+      ${field('Drehzahl einstellen', `<select id="mmSp"><option value="pwm" ${m.spindle !== 'manual' ? 'selected' : ''}>vom Programm (S-Wert)</option><option value="manual" ${m.spindle === 'manual' ? 'selected' : ''}>von Hand am Drehregler</option></select>`)}
+      ${field('Stufen am Drehregler', inputN('mmDi', m.dial || 6, 1, 'min="2" max="12"'))}
+      <p class="muted small">Die Leistung bestimmt, wie stark FräsStudio Zustellung und Vorschub gegenüber der 80-W-Spindel erhöht (Vorschub bleibt auf den Höchstwert der Achsen begrenzt).
+      Beim 800-W-Fräsmotor stellst du die Drehzahl am Drehregler ein – FräsStudio sagt dir für jedes Werkzeug die passende Stufe und schaltet den Motor nur ein und aus.
+      Die TTC450 steuert die Spindel über S0 bis S1000 ($30=1000); mit „$$“ in der Konsole liest du die Einstellungen aus.</p>`;
     modal('Maschine', html, [{ label: 'Abbrechen', value: null }, { label: 'Übernehmen', primary: true, value: 'ok' }], {
       onOpen: (b) => $('#mmId', b).addEventListener('change', (e) => {
         const p = TL.MACHINES[e.target.value];
-        [['mmW', 'w'], ['mmH', 'h'], ['mmZ', 'z'], ['mmR', 'maxRpm'], ['mmS', 'sMax'], ['mmF', 'maxFeed'], ['mmFZ', 'maxZFeed'], ['mmRa', 'rapid'], ['mmB', 'baud']].forEach(([i, k]) => { $('#' + i).value = p[k]; });
+        [['mmW', 'w'], ['mmH', 'h'], ['mmZ', 'z'], ['mmP', 'power'], ['mmRn', 'minRpm'], ['mmR', 'maxRpm'], ['mmS', 'sMax'], ['mmF', 'maxFeed'], ['mmFZ', 'maxZFeed'], ['mmRa', 'rapid'], ['mmB', 'baud'], ['mmSp', 'spindle']].forEach(([i, k]) => { $('#' + i).value = p[k]; });
+        $('#mmDi').value = p.dial || 6;
       }),
     }).then((r) => {
       if (r !== 'ok') return;
-      const v = { id: $('#mmId').value, w: val('mmW'), h: val('mmH'), z: val('mmZ'), maxRpm: val('mmR'), sMax: val('mmS'), maxFeed: val('mmF'), maxZFeed: val('mmFZ'), rapid: val('mmRa'), baud: val('mmB') };
+      const v = { id: $('#mmId').value, w: val('mmW'), h: val('mmH'), z: val('mmZ'), power: val('mmP'), minRpm: val('mmRn'), maxRpm: val('mmR'), spindle: $('#mmSp').value, dial: Math.round(val('mmDi')), sMax: val('mmS'), maxFeed: val('mmF'), maxZFeed: val('mmFZ'), rapid: val('mmRa'), baud: val('mmB') };
       store.set('fs.machine', v);
       loadMachine();
       $('#machName').textContent = S.machine.name;
@@ -1701,7 +1708,7 @@
     else h += `<div class="row"><button data-act="tools">Werkzeuge…</button></div>`;
     if (r && r.key === opKey(op)) {
       for (const w of r.res.warnings) h += `<div class="warnbox">${esc(w)}</div>`;
-      h += `<p class="muted small">Dauer ≈ ${FS.gcode.fmtTime(r.time)} · Vorschub ${r.res.cut.feed} mm/min · Zustellung ${fmt(r.res.cut.stepdown)} mm · ${r.res.cut.rpm} U/min</p>`;
+      h += `<p class="muted small">Dauer ≈ ${FS.gcode.fmtTime(r.time)} · Vorschub ${r.res.cut.feed} mm/min · Zustellung ${fmt(r.res.cut.stepdown)} mm · ${rpmText(r.res.cut.rpm)}</p>`;
     }
     $('#opedit').innerHTML = h;
   }
@@ -1775,6 +1782,10 @@
     }
     status('G-Code gespeichert.');
   }
+  const rpmText = (rpm) => {
+    const d = S.machine.spindle === 'manual' ? TL.dialFor(rpm, S.machine) : null;
+    return d ? `Drehregler Stufe ${d.step} (≈ ${d.rpm.toLocaleString('de-DE')} U/min)` : `${rpm.toLocaleString('de-DE')} U/min`;
+  };
   const zeroText = (z) => ({ ll: 'links unten', lc: 'unten Mitte', lr: 'rechts unten', cl: 'links Mitte', c: 'Mitte', cr: 'rechts Mitte', ul: 'links oben', uc: 'oben Mitte', ur: 'rechts oben' }[z || 'll']);
 
   // ---------------------------------------------------------------- 3D-Vorschau
@@ -1940,8 +1951,10 @@
   $('#mSpindle').onclick = () => {
     if (!need()) return;
     spindleOn = !spindleOn;
-    const s = Math.round(Math.min(1, val('mRpm') / S.machine.maxRpm) * S.machine.sMax);
+    const manual = S.machine.spindle === 'manual';
+    const s = manual ? S.machine.sMax : Math.round(Math.min(1, val('mRpm') / S.machine.maxRpm) * S.machine.sMax);
     S.grbl.command(spindleOn ? 'M3 S' + s : 'M5').catch(() => {});
+    if (spindleOn && manual) status('Drehzahl am Drehregler des Fräsmotors einstellen.');
     $('#mSpindle').textContent = spindleOn ? 'Spindel aus' : 'Spindel an';
   };
   $('#mProbe').onclick = () => probeDialog();
@@ -1996,9 +2009,11 @@
     if (S.grbl.job) { S.grbl.resumeJob(); return; }
     if (S.grbl.status.state === 'Alarm') { status('Maschine ist im Alarm – zuerst entsperren.', true); return; }
     const firstTool = (S.job.text.match(/\((.*?) - (.*?)\)/) || [])[2];
+    const firstDial = (S.job.text.match(/\(DREHREGLER (Stufe \d+ = ca\. \d+ U\/min)\)/) || [])[1];
     const ok = await modal('Vor dem Start prüfen', `<ul>
       <li>Werkstück fest eingespannt, Spannmittel außerhalb der Fräsbahnen?</li>
       <li>Richtiges Werkzeug eingesetzt${firstTool ? `: <b>${esc(firstTool)}</b>` : ''}?</li>
+      ${firstDial ? `<li>Drehregler am Fräsmotor auf <b>${esc(firstDial)}</b> gestellt und Motorschalter auf „Ein“ bzw. Steuerbox verbunden?</li>` : ''}
       <li>X/Y-Nullpunkt am richtigen Punkt (${esc(zeroText(S.doc.stock.zeroXY))}) und Z genullt?</li>
       <li>Schutzbrille, Absaugung, Hände weg von der Spindel.</li></ul>`,
     [{ label: 'Abbrechen', value: false }, { label: '▶ Jetzt fräsen', primary: true, value: true }]);
@@ -2243,7 +2258,11 @@
     if (m === 'design') hint(TOOL_HINTS[S.tool]);
     if (m === 'cam') { hint('Objekte anklicken (Umschalt = mehrere) und rechts eine Bearbeitung wählen.'); if (!S.selOp && S.doc.ops.length) S.selOp = S.doc.ops[0].id; computeAll(); }
     if (m === 'sim') { hint(''); enterSim(); }
-    if (m === 'machine') { hint(''); machineInit(); $('#machName').textContent = S.machine.name; }
+    if (m === 'machine') {
+      hint(''); machineInit(); $('#machName').textContent = S.machine.name;
+      $('#mRpm').classList.toggle('hidden', S.machine.spindle === 'manual');
+      $('#mRpm').value = Math.min(S.machine.maxRpm, Math.max(S.machine.minRpm || 0, +$('#mRpm').value || S.machine.maxRpm));
+    }
     renderSide();
     requestAnimationFrame(() => redraw());
   }
@@ -2341,6 +2360,7 @@
   }
   function ttcTips() {
     modal('Tipps für die Twotrees TTC450', `<ul>
+      <li><b>800-W-Fräsmotor:</b> Twotrees bietet einen 800-W-Satz (10.000–30.000 U/min, Drehregler, Steuerbox) für TTC450 und TTC450 Pro an. Unter <i>Bearbeiten → Maschine…</i> das Profil „800-W-Fräsmotor“ wählen: Zustellungen werden größer, die passende Reglerstufe steht bei jeder Fräsbahn und beim Werkzeugwechsel. Gehörschutz tragen – der Motor ist deutlich lauter.</li>
       <li><b>Spindel:</b> Die 80-W-Spindel mag kleine Zustellungen. Lieber mehrere flache Durchgänge (Voreinstellung 1 mm in Weichholz) als einen tiefen. Mit der 500-W-Spindel in „Maschine…“ das passende Profil wählen.</li>
       <li><b>Vorschub:</b> Bis etwa 800–1000 mm/min. In Hartholz und Acryl langsamer; das Material im Werkstück-Dialog passt die Werte an.</li>
       <li><b>Nullpunkt:</b> Fräse über die gewählte Ecke fahren (Pfeile), „X0“ und „Y0“ drücken. Z mit der Messplatte antasten oder mit einem Blatt Papier: Fräser absenken, bis das Papier gerade klemmt, dann „Z0“.</li>

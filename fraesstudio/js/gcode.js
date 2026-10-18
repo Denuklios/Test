@@ -76,19 +76,23 @@
       curTool = sec.tool;
       L.push('');
       L.push(`(${clean(sec.name)} - ${clean(tool.name)})`);
+      // Motor mit Drehregler: per Programm nur ein/aus (volles S), Drehzahl stellt man am Regler ein
+      const dial = mach.spindle === 'manual' ? FS.tools.dialFor(cut.rpm, mach) : null;
+      const s = dial ? mach.sMax : Math.round(Math.min(1, cut.rpm / mach.maxRpm) * mach.sMax);
+      const dialTxt = dial ? ` - DREHREGLER Stufe ${dial.step} = ca. ${dial.rpm} U/min` : '';
       if (lastTool && lastTool.id !== tool.id) {
         toolChanges++;
         L.push('M5');
-        L.push(`(WERKZEUGWECHSEL: ${clean(tool.name)} einsetzen - Z neu nullen und fortsetzen)`);
+        L.push(`(WERKZEUGWECHSEL: ${clean(tool.name)} einsetzen${dialTxt} - Z neu nullen und fortsetzen)`);
         L.push('M0');
         // Nach dem Wechsel kann die Maschine irgendwo stehen: erst Z hoch, dann alle Achsen neu ausgeben
         L.push(`G0 Z${num(safeZ - O.z)}`);
         pos = { x: Infinity, y: Infinity, z: safeZ };
       }
-      const s = Math.round(Math.min(1, cut.rpm / mach.maxRpm) * mach.sMax);
       if (!lastTool || lastTool.id !== tool.id) {
+        if (dial) L.push(`(DREHREGLER Stufe ${dial.step} = ca. ${dial.rpm} U/min)`);
         L.push(`M3 S${s}`);
-        L.push('G4 P3');
+        L.push(dial ? 'G4 P5' : 'G4 P3');
       }
       lastTool = tool;
       for (const ch of sec.chains) {
