@@ -13,6 +13,7 @@
     engrave: 'Gravieren (auf Linie)',
     relief_rough: '3D-Relief schruppen',
     relief_finish: '3D-Relief schlichten',
+    relief_rest: '3D-Restmaterial',
     face: 'Planfräsen',
   };
 
@@ -24,6 +25,7 @@
     engrave: { depth: 0.5 },
     relief_rough: { allowance: 0.5, angle: 0 },
     relief_finish: { angle: 0, both: false },
+    relief_rest: { refToolId: '', angle: 0, minRest: 0.05 },
     face: { depth: 0.5, angle: 0, margin: 2 },
   };
 
@@ -485,12 +487,15 @@
     return { chains, warnings, clear };
   }
 
-  // 3D-Vereinfachung (Ramer-Douglas-Peucker mit z)
+  // 3D-Vereinfachung (Ramer-Douglas-Peucker mit z). Eilgang-Punkte bleiben erhalten; jeder Abschnitt dazwischen
+  // wird für sich vereinfacht (sonst würde bei vielen Eilgängen die ganze Bahn immer wieder durchsucht).
   function simplify3(pl, tol) {
     if (pl.length < 3) return pl;
     const keep = new Uint8Array(pl.length);
     keep[0] = keep[pl.length - 1] = 1;
-    const stack = [[0, pl.length - 1]];
+    const stack = [];
+    let s0 = 0;
+    for (let i = 1; i < pl.length; i++) if (pl[i].rapid || i === pl.length - 1) { keep[i] = 1; if (i - s0 > 1) stack.push([s0, i]); s0 = i; }
     while (stack.length) {
       const [s, e] = stack.pop();
       const a = pl[s], b = pl[e];
@@ -500,10 +505,11 @@
         const p = pl[i];
         let t = L2 > 0 ? ((p.x - a.x) * dx + (p.y - a.y) * dy + (p.z - a.z) * dz) / L2 : 0;
         t = Math.max(0, Math.min(1, t));
-        const d = Math.hypot(p.x - a.x - t * dx, p.y - a.y - t * dy, p.z - a.z - t * dz);
-        if (d > md || p.rapid) { md = p.rapid ? Infinity : d; mi = i; }
+        const ex = p.x - a.x - t * dx, ey = p.y - a.y - t * dy, ez = p.z - a.z - t * dz;
+        const d = ex * ex + ey * ey + ez * ez;
+        if (d > md) { md = d; mi = i; }
       }
-      if (md > tol && mi > 0) { keep[mi] = 1; stack.push([s, mi], [mi, e]); }
+      if (md > tol * tol && mi > 0) { keep[mi] = 1; stack.push([s, mi], [mi, e]); }
     }
     return pl.filter((_, i) => keep[i]);
   }
@@ -542,10 +548,12 @@
       const h = S.at(x, y);
       surf[j * W + i] = h === null ? 0 : h; // außerhalb: Oberfläche (Wand bleibt stehen)
     }
+    // Profilteile höher als die ganze Relieftiefe können nie die Höhe bestimmen (spart beim Kegel viel Rechenzeit)
+    const maxP = (o.depth || 5) + 0.01;
     const fp = [];
     for (let dj = -pad; dj <= pad; dj++) for (let di = -pad; di <= pad; di++) {
       const p = prof(Math.hypot(di * cs, dj * cs));
-      if (p !== Infinity) fp.push(dj * W + di, p);
+      if (p <= maxP) fp.push(dj * W + di, p);
     }
     const comp = new Float32Array(nx * ny);
     for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
@@ -570,7 +578,7 @@
     for (const o of reliefs) {
       const cs = gridCell(o);
       const G = dropCutterGrid(o, tool, cs);
-      const so = Math.max(cs, (tool.d * (op.stepover || tool.stepover || 12)) / 100);
+      const so = Math.max(cs, (FS.tools.effD(tool) * (op.stepover || tool.stepover || 12)) / 100);
       const rowStep = Math.max(1, Math.round(so / cs));
       const dirs = op.both ? ['x', 'y'] : [op.angle === 90 ? 'y' : 'x'];
       for (const dir of dirs) {
@@ -611,17 +619,7 @@
       let chain = null, last = null;
       const X = (i) => G.x0 + i * G.cs, Y = (j) => G.y0 + j * G.cs;
       // Obergrenze des stehenden Materials: Maximum der Bahnhöhen im Umkreis von 2 Werkzeugradien (getrennter Max-Filter)
-      const D = new Float32Array(G.comp), tmp = new Float32Array(D.length), kr = Math.ceil(tool.d / G.cs) + 1;
-      for (let j = 0; j < G.ny; j++) for (let i = 0; i < G.nx; i++) {
-        let m = -Infinity;
-        for (let d = Math.max(0, i - kr); d <= Math.min(G.nx - 1, i + kr); d++) m = Math.max(m, D[j * G.nx + d]);
-        tmp[j * G.nx + i] = m;
-      }
-      for (let j = 0; j < G.ny; j++) for (let i = 0; i < G.nx; i++) {
-        let m = -Infinity;
-        for (let d = Math.max(0, j - kr); d <= Math.min(G.ny - 1, j + kr); d++) m = Math.max(m, tmp[d * G.nx + i]);
-        D[j * G.nx + i] = m;
-      }
+      const D = maxFilter(G.comp, G.nx, G.ny, Math.ceil(tool.d / G.cs) + 1);
       // sichere Verbindungshöhe: knapp über dem Material, das nach der vorigen Ebene noch steht
       const linkZ = (i0, j0, i1, j1) => {
         const n = Math.max(Math.abs(i1 - i0), Math.abs(j1 - j0), 1);
@@ -674,6 +672,93 @@
     return { chains, warnings };
   }
 
+  // Maximum im Quadrat (2k+1)² – getrennt in Zeilen und Spalten
+  function maxFilter(src, nx, ny, k) {
+    const tmp = new Float32Array(src.length), out = new Float32Array(src.length);
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      let m = -Infinity;
+      for (let d = Math.max(0, i - k); d <= Math.min(nx - 1, i + k); d++) m = Math.max(m, src[j * nx + d]);
+      tmp[j * nx + i] = m;
+    }
+    for (let j = 0; j < ny; j++) for (let i = 0; i < nx; i++) {
+      let m = -Infinity;
+      for (let d = Math.max(0, j - k); d <= Math.min(ny - 1, j + k); d++) m = Math.max(m, tmp[d * nx + i]);
+      out[j * nx + i] = m;
+    }
+    return out;
+  }
+
+  // ---------------- 3D-Restmaterial ----------------
+  // Ein feiner Fräser arbeitet nur dort nach, wo er tiefer kommt als das vorherige (größere) Werkzeug.
+  function reliefRest(op, objs, tool, cut, tools) {
+    const chains = [], warnings = [];
+    const reliefs = objs.filter((o) => o.kind === 'relief');
+    if (!reliefs.length) return { chains, warnings: ['Bitte ein 3D-Relief auswählen.'] };
+    const ref = tools.find((t) => t.id === op.refToolId);
+    if (!ref) return { chains, warnings: ['Bitte das vorherige Werkzeug angeben (das, mit dem geschlichtet wurde).'] };
+    if (FS.tools.effD(ref) <= FS.tools.effD(tool) + 1e-6) warnings.push('Das Werkzeug für das Restmaterial sollte feiner sein als das vorherige.');
+    const minRest = Math.max(0.01, op.minRest || 0.05);
+    let restCells = 0;
+    for (const o of reliefs) {
+      const cs = gridCell(o);
+      const A = dropCutterGrid(o, tool, cs), B = dropCutterGrid(o, ref, cs);
+      const { nx, ny } = A;
+      // Restbereiche: feiner Fräser kommt deutlich tiefer; etwas aufweiten, damit Übergänge sauber werden
+      let mask = new Float32Array(nx * ny);
+      for (let i = 0; i < mask.length; i++) mask[i] = Math.min(0, A.comp[i]) < Math.min(0, B.comp[i]) - minRest ? 1 : 0;
+      mask = maxFilter(mask, nx, ny, Math.max(1, Math.round(FS.tools.effD(tool) / cs / 2)));
+      for (const v of mask) restCells += v;
+      // Obergrenze des stehenden Materials (nach dem Schlichten mit dem großen Werkzeug) für Verbindungsfahrten
+      const D = maxFilter(B.comp, nx, ny, Math.ceil(ref.d / cs) + 1);
+      const so = Math.max(cs, (FS.tools.effD(tool) * (op.stepover || tool.stepover || 15)) / 100);
+      const rowStep = Math.max(1, Math.round(so / cs)), maxGap = Math.max(2, Math.round((FS.tools.effD(tool) * 4) / cs));
+      const alongY = op.angle === 90;
+      const nA = alongY ? nx : ny, nB = alongY ? ny : nx;
+      const idx = (a, b) => (alongY ? b * nx + a : a * nx + b);
+      const XY = (a, b) => (alongY ? { x: A.x0 + a * cs, y: A.y0 + b * cs } : { x: A.x0 + b * cs, y: A.y0 + a * cs });
+      const zAt = (a, b) => Math.min(0, A.comp[idx(a, b)]);
+      let chain = null, last = null, flip = false;
+      for (let a = 0; a < nA; a += rowStep) {
+        const runs = [];
+        let st = -1;
+        for (let b = 0; b <= nB; b++) {
+          const w = b < nB && mask[idx(a, b)] > 0;
+          if (w && st < 0) st = b;
+          if (!w && st >= 0) { runs.push([st, b - 1]); st = -1; }
+        }
+        if (!runs.length) continue;
+        const ordered = flip ? runs.slice().reverse().map(([p, q]) => [q, p]) : runs;
+        flip = !flip;
+        for (const [b0, b1] of ordered) {
+          if (!chain) chain = { pts: [], clearZ: 0 };
+          else if (Math.abs(last.a - a) <= rowStep && Math.abs(last.b - b0) <= maxGap) {
+            // kurz: auf der Endkontur entlang
+            const n = Math.max(Math.abs(last.b - b0), Math.abs(last.a - a), 1);
+            for (let k = 1; k < n; k++) {
+              const aa = Math.round(last.a + ((a - last.a) * k) / n), bb = Math.round(last.b + ((b0 - last.b) * k) / n);
+              chain.pts.push({ ...XY(aa, bb), z: Math.max(zAt(aa, bb), zAt(last.a, bb), zAt(a, bb)) });
+            }
+          } else {
+            // weit: knapp über dem stehenden Material im Eilgang
+            const n = Math.max(Math.abs(last.b - b0), Math.abs(last.a - a), 1);
+            let h = -Infinity;
+            for (let k = 0; k <= n; k++) {
+              const aa = Math.round(last.a + ((a - last.a) * k) / n), bb = Math.round(last.b + ((b0 - last.b) * k) / n);
+              h = Math.max(h, Math.min(0, D[idx(aa, bb)]));
+            }
+            chain.pts.push({ ...XY(last.a, last.b), z: h + 0.5, rapid: true }, { ...XY(a, b0), z: h + 0.5, rapid: true });
+          }
+          const sb = b0 <= b1 ? 1 : -1;
+          for (let b = b0; sb > 0 ? b <= b1 : b >= b1; b += sb) chain.pts.push({ ...XY(a, b), z: zAt(a, b) });
+          last = { a, b: b1 };
+        }
+      }
+      if (chain) chains.push({ pts: simplify3(chain.pts, 0.005), clearZ: 0 });
+    }
+    if (!restCells) warnings.push('Kein Restmaterial gefunden – das vorherige Werkzeug erreicht schon alles.');
+    return { chains, warnings };
+  }
+
   // ---------------- Auswertung ----------------
   /** Eine Bearbeitung berechnen. ctx: {objects, tools, stock, machine} */
   function compute(op, ctx) {
@@ -697,6 +782,7 @@
         case 'engrave': res = engrave(op, objs, tool, cut); break;
         case 'relief_rough': res = reliefRough(op, objs, tool, cut); break;
         case 'relief_finish': res = reliefFinish(op, objs, tool, cut); break;
+        case 'relief_rest': res = reliefRest(op, objs, tool, cut, ctx.tools); break;
         case 'face': res = face(op, ctx.stock, tool, cut); break;
         default: res = { chains: [], warnings: ['Unbekannte Bearbeitung'] };
       }

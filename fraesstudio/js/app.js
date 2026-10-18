@@ -40,6 +40,16 @@
     S.machine = Object.assign({}, TL.MACHINES[m.id] || TL.MACHINES.ttc450, m);
   }
   loadMachine();
+  // Neue Standardwerkzeuge (konische Kugelfräser) einmalig in eine schon gespeicherte Bibliothek übernehmen
+  function addNewDefaultTools(list) {
+    for (const t of TL.DEFAULT_TOOLS) if (t.type === 'taperball' && !list.some((x) => x.id === t.id)) list.push(util.deep(t));
+    return list;
+  }
+  if (!store.get('fs.toolsV2', false)) {
+    const lib = store.get('fs.tools', null);
+    if (lib) store.set('fs.tools', addNewDefaultTools(lib));
+    store.set('fs.toolsV2', true);
+  }
 
   // Höhenbilder nicht in jeden Rückgängig-Schritt kopieren
   const assets = new Map();
@@ -1251,14 +1261,14 @@
 
   function toolLibrary(selectId) {
     let cur = selectId || (S.doc.tools[0] && S.doc.tools[0].id);
-    const list = () => S.doc.tools.map((t) => `<tr class="toolrow ${t.id === cur ? 'sel' : ''}" data-t="${t.id}"><td>${esc(t.name)}</td><td>${TL.TYPES[t.type]}</td><td>Ø ${fmt(t.d)}${t.type === 'vbit' ? ', ' + t.angle + '°' : ''}</td></tr>`).join('');
+    const list = () => S.doc.tools.map((t) => `<tr class="toolrow ${t.id === cur ? 'sel' : ''}" data-t="${t.id}"><td>${esc(t.name)}</td><td>${TL.TYPES[t.type]}</td><td>Ø ${fmt(t.d)}${t.type === 'vbit' ? ', ' + t.angle + '°' : t.type === 'taperball' ? ', Spitze Ø ' + fmt(t.tip) : ''}</td></tr>`).join('');
     const form = (t) => !t ? '' : `
       ${field('Name', `<input id="wN" value="${esc(t.name)}">`)}
       ${field('Art', `<select id="wT">${Object.entries(TL.TYPES).map(([k, v]) => `<option value="${k}" ${k === t.type ? 'selected' : ''}>${v}</option>`).join('')}</select>`)}
       <div class="grid2">
         ${field('Ø', inputN('wD', t.d, 0.01, 'min="0.05"'), 'mm')}
         ${field('Schneiden', inputN('wF', t.flutes || 2, 1, 'min="1"'))}
-        ${t.type === 'vbit' ? field('Winkel', inputN('wA', t.angle || 60, 1, 'min="5" max="170"'), '°') + field('Spitze', inputN('wTip', t.tip || 0, 0.05, 'min="0"'), 'mm') : ''}
+        ${t.type === 'vbit' || t.type === 'taperball' ? field(t.type === 'taperball' ? 'Kegel gesamt' : 'Winkel', inputN('wA', t.angle || (t.type === 'taperball' ? 30 : 60), 1, 'min="1" max="170"'), '°') + field(t.type === 'taperball' ? 'Kugel-Ø Spitze' : 'Spitze', inputN('wTip', t.tip || (t.type === 'taperball' ? 0.5 : 0), 0.05, 'min="0"'), 'mm') : ''}
         ${field('Schn.-länge', inputN('wL', t.len || 10, 0.5), 'mm')}
         ${field('Drehzahl', inputN('wR', t.rpm, 100), 'U/min')}
         ${field('Vorschub', inputN('wFe', t.feed, 10), 'mm/min')}
@@ -1277,6 +1287,7 @@
       Object.assign(t, { name: $('#wN').value, type: $('#wT').value, d: Math.max(0.05, val('wD')), flutes: Math.max(1, val('wF')), len: val('wL'), rpm: val('wR'), feed: val('wFe'), plunge: val('wP'), stepdown: Math.max(0.01, val('wS')), stepover: util.clamp(val('wO'), 1, 100) });
       if ($('#wA')) { t.angle = util.clamp(val('wA'), 5, 170); t.tip = Math.max(0, val('wTip')); }
       if (t.type === 'vbit' && !t.angle) t.angle = 60;
+      if (t.type === 'taperball') { t.angle = t.angle || 30; t.tip = Math.max(0.05, Math.min(t.d, t.tip || 0.5)); }
     };
     const html = `<div style="display:grid;grid-template-columns:1.1fr 1fr;gap:14px">
       <div><table><tbody id="tlList"></tbody></table>
@@ -1456,21 +1467,36 @@
     const asp = img.height / img.width;
     const st = S.doc.stock;
     const w0 = Math.max(10, Math.min(st.w * 0.8, (st.h * 0.8) / asp));
-    const html = `<div class="relgrid"><div>
+    let aiDepth = null, aiBusy = false;
+    const html = `${field('Bildart', `<select id="rlMode"><option value="gray">Höhenbild / Graustufen (hell = hoch, dunkel = tief)</option><option value="ai">Foto oder Render – KI schätzt die Tiefe</option></select>`)}
+      <div id="rlAi" class="hidden">
+        <div class="info" id="rlAiInfo">Die KI erkennt aus Licht und Schatten, was vorne und hinten ist, und macht daraus eine Höhenkarte.</div>
+        <div class="row"><button id="rlAiRun" class="primary">KI-Tiefe berechnen</button><button id="rlAiFile" title="Falls kein Internet: Modelldatei (depth-anything-v2-small, .onnx) von Hand wählen">Modelldatei wählen…</button></div>
+        ${field('Feine Details aus dem Bild', `<input id="rlDet" type="range" min="0" max="1" step="0.05" value="0.3">`)}
+      </div>
+      <div class="relgrid"><div>
         <canvas id="rlPrev" width="320" height="${Math.round(320 * Math.min(1.4, asp))}"></canvas>
-        <div class="graybar"></div><div class="graylbl"><span>schwarz = tief</span><span>grau = dazwischen</span><span>weiß = flach</span></div>
+        <div class="graybar"></div><div class="graylbl" id="rlLbl"><span>schwarz = tief</span><span>grau = dazwischen</span><span>weiß = flach</span></div>
       </div><div id="rl3d"></div></div>
       <div class="grid2">${field('Breite', inputN('rlW', w0.toFixed(0), 1, 'min="1"'), 'mm')}${field('Höhe', inputN('rlH', (w0 * asp).toFixed(1), 1, 'min="1"'), 'mm')}</div>
-      <div class="grid2">${field('Tiefe (schwarz)', inputN('rlD', Math.min(5, st.t * 0.6).toFixed(1), 0.5, 'min="0.1"'), 'mm')}
+      <div class="grid2">${field('Tiefe (tiefste Stelle)', inputN('rlD', Math.min(5, st.t * 0.6).toFixed(1), 0.5, 'min="0.1"'), 'mm')}
         ${field('Auflösung', `<select id="rlR"><option value="300">normal</option><option value="500" selected>fein</option><option value="800">sehr fein</option></select>`)}</div>
       ${field('Grautöne <span class="muted small">(links höher, rechts tiefer)</span>', `<input id="rlG" type="range" min="0.3" max="3" step="0.05" value="1">`)}
       ${field('Glätten', `<input id="rlS" type="range" min="0" max="6" value="1">`)}
       <label class="check"><input type="checkbox" id="rlI"> umkehren (weiß = tief, schwarz = flach)</label>
       <label class="check"><input type="checkbox" id="rlOps" checked> Fräsbahnen gleich anlegen (schruppen + schlichten)</label>
       <p id="rlInfo" class="muted small"></p>`;
+    const aiMode = () => $('#rlMode') && $('#rlMode').value === 'ai';
     const heights = (maxPx) => {
       const px = imagePixels(img, maxPx);
-      const f32 = FS.relief.heightsFromRGBA(px.data, px.w, px.h, Math.round(val('rlS')) * (maxPx > 200 ? 1 : 0.5) | 0);
+      const sm = Math.round(val('rlS')) * (maxPx > 200 ? 1 : 0.5) | 0;
+      let f32;
+      if (aiMode() && aiDepth) {
+        // KI-Tiefe auf Bildgröße bringen, feine Details aus der Helligkeit dazu, dann glätten
+        const lum = FS.relief.heightsFromRGBA(px.data, px.w, px.h, 0);
+        f32 = FS.depthAI.addDetail(FS.depthAI.resample(aiDepth, px.w, px.h), lum, px.w, px.h, val('rlDet') * 0.5, Math.max(1, Math.round(px.w / 150)));
+        if (sm > 0) f32 = FS.relief.blur(px.w, px.h, f32, sm);
+      } else f32 = FS.relief.heightsFromRGBA(px.data, px.w, px.h, sm);
       const gm = val('rlG') || 1, inv = $('#rlI').checked;
       for (let i = 0; i < f32.length; i++) { let v = Math.pow(Math.max(0, Math.min(1, f32[i])), gm); if (inv) v = 1 - v; f32[i] = v; }
       return { nx: px.w, ny: px.h, f32 };
@@ -1481,7 +1507,15 @@
       if (!c) return;
       const x = c.getContext('2d');
       x.filter = $('#rlI').checked ? 'invert(1)' : 'none';
-      x.drawImage(img, 0, 0, c.width, c.height);
+      if (aiMode() && aiDepth) {
+        // KI-Höhenkarte als Graustufenbild zeigen
+        const hm = heights(320), id = x.createImageData(hm.nx, hm.ny);
+        for (let i = 0; i < hm.f32.length; i++) { const v = hm.f32[i] * 255; id.data.set([v, v, v, 255], i * 4); }
+        const t = document.createElement('canvas'); t.width = hm.nx; t.height = hm.ny; t.getContext('2d').putImageData(id, 0, 0);
+        x.filter = 'none';
+        x.drawImage(t, 0, 0, c.width, c.height);
+      } else x.drawImage(img, 0, 0, c.width, c.height);
+      $('#rlLbl').innerHTML = aiMode() ? '<span>hinten = tief</span><span>KI-Höhenkarte</span><span>vorne = hoch</span>' : '<span>schwarz = tief</span><span>grau = dazwischen</span><span>weiß = flach</span>';
       clearTimeout(tmr);
       tmr = setTimeout(() => {
         if (!relView || !$('#rl3d')) return;
@@ -1502,6 +1536,37 @@
         $('#rl3d', body).appendChild(relCanvas);
         if (!relView) { try { relView = new FS.View3D(relCanvas); } catch (e) { $('#rl3d', body).innerHTML = '<p class="muted small">3D-Vorschau nicht verfügbar (WebGL2).</p>'; } }
         if (relView) relView.placed = false;
+        const aiInfo = (t, err) => { const el = $('#rlAiInfo'); if (el) { el.className = err ? 'errbox' : 'info'; el.innerHTML = t; } };
+        const runAi = async () => {
+          if (aiBusy) return;
+          aiBusy = true;
+          $('#rlAiRun').disabled = true;
+          try {
+            aiDepth = await FS.depthAI.estimate(img, (m) => aiInfo(esc(m)));
+            aiInfo('Fertig. Die KI-Höhenkarte ist links zu sehen, rechts das 3D-Ergebnis. Mit „Feine Details“ kommen Strukturen (Haare, Fell) aus dem Bild dazu.');
+            prev();
+          } catch (e) {
+            aiInfo(`Die KI konnte nicht geladen werden: ${esc(e.message)}<br>Ohne Internet: die Datei <b>model_quantized.onnx</b> von <a href="${FS.depthAI.MODEL_URL}" target="_blank" rel="noopener">HuggingFace (Depth Anything V2 Small)</a> laden und mit „Modelldatei wählen…“ öffnen.`, true);
+          } finally { aiBusy = false; const b = $('#rlAiRun'); if (b) b.disabled = false; }
+        };
+        $('#rlMode', body).addEventListener('change', async () => {
+          $('#rlAi').classList.toggle('hidden', !aiMode());
+          if (aiMode() && !aiDepth) {
+            const src = await FS.depthAI.modelSource();
+            if (src === 'internet') aiInfo('Beim ersten Mal wird das KI-Modell geladen (ca. 27 MB, einmalig – danach auch ohne Internet). Dann „KI-Tiefe berechnen“ drücken.');
+            else runAi();
+          }
+          prev();
+        });
+        $('#rlAiRun', body).addEventListener('click', (e) => { e.preventDefault(); runAi(); });
+        $('#rlAiFile', body).addEventListener('click', async (e) => {
+          e.preventDefault();
+          const mf = await pickFile('.onnx', 'buffer');
+          if (!mf) return;
+          await FS.depthAI.setModelFile(mf.data);
+          aiInfo(`Modell „${esc(mf.name)}“ gespeichert.`);
+          runAi();
+        });
         body.addEventListener('input', (e) => {
           if (e.target.id === 'rlW') $('#rlH').value = (val('rlW') * asp).toFixed(1);
           if (e.target.id === 'rlH') $('#rlW').value = (val('rlH') / asp).toFixed(1);
@@ -1512,6 +1577,7 @@
     });
     if (r !== 'ok') return;
     const hm = heights(+$('#rlR').value);
+    if (aiMode() && !aiDepth) status('Hinweis: Die KI-Tiefe wurde nicht berechnet – das Relief nutzt die Helligkeit.', true);
     const w = Math.max(1, val('rlW')), depth = Math.max(0.1, val('rlD'));
     const o = FS.relief.makeRelief(f.name.replace(/\.[^.]+$/, ''), hm.nx, hm.ny, hm.f32, w, (w * hm.ny) / hm.nx, depth);
     assets.set(o.hm.id, o.hm);
@@ -1569,7 +1635,8 @@
   function opKey(op) {
     const objs = op.objIds.map(objById).filter(Boolean);
     const tool = S.doc.tools.find((t) => t.id === op.toolId);
-    const extra = op.type === 'vcarve' && op.clearToolId ? S.doc.tools.find((t) => t.id === op.clearToolId) : null;
+    const extra = op.type === 'vcarve' && op.clearToolId ? S.doc.tools.find((t) => t.id === op.clearToolId)
+      : op.type === 'relief_rest' && op.refToolId ? S.doc.tools.find((t) => t.id === op.refToolId) : null;
     return serial({ op, objs, tool, extra, st: S.doc.stock, m: [S.machine.maxFeed, S.machine.maxZFeed, S.machine.maxRpm] });
   }
   function resultFor(op) {
@@ -1605,6 +1672,10 @@
     const pick = (f) => (T.find(f) || T[0]).id;
     if (type === 'vcarve' || type === 'engrave') return pick((t) => t.type === 'vbit' && t.angle >= 60);
     if (type === 'relief_finish') return pick((t) => t.type === 'ball');
+    if (type === 'relief_rest') {
+      const fine = T.filter((t) => t.type === 'taperball' || (t.type === 'ball' && t.d < 2)).sort((a, b) => TL.effD(a) - TL.effD(b));
+      return (fine[0] || T[0]).id;
+    }
     if (type === 'drill') return pick((t) => t.type === 'flat');
     if (type === 'face') return pick((t) => t.type === 'flat' && t.d >= 3);
     return pick((t) => t.type === 'flat' && Math.abs(t.d - 3.175) < 0.01);
@@ -1618,6 +1689,11 @@
     if (type === 'profile') { op.depth = +(S.doc.stock.t + 0.3).toFixed(2); op.tabs = true; op.tabHeight = Math.min(2, S.doc.stock.t / 3); }
     if (type === 'pocket') op.depth = Math.min(3, S.doc.stock.t / 2);
     if (type === 'drill') op.depth = +(S.doc.stock.t + 0.3).toFixed(2);
+    if (type === 'relief_rest') {
+      // Vergleich mit dem Werkzeug, mit dem dieses Relief geschlichtet wird
+      const prev = S.doc.ops.filter((o) => (o.type === 'relief_finish' || o.type === 'relief_rough') && o.objIds.some((id) => op.objIds.includes(id))).pop();
+      op.refToolId = prev ? prev.toolId : defaultTool('relief_finish');
+    }
     const n = S.doc.ops.filter((o) => o.type === type).length;
     if (n) op.name += ' ' + (n + 1);
     S.doc.ops.push(op);
@@ -1721,6 +1797,13 @@
         h += field('Aufmaß', nIn('allowance', op.allowance, 0.05, 'min="0"'), 'mm');
         h += field('Überlappung', nIn('stepover', op.stepover || tool.stepover, 1, 'min="5" max="95"'), '%');
         break;
+      case 'relief_rest':
+        h += field('Vorheriges Werkzeug', `<select data-k="refToolId">${toolOptions(op.refToolId, (t) => t.id !== op.toolId && t.type !== 'drill')}</select>`);
+        h += field('Richtung', sel('angle', [[0, 'Zeilen in X'], [90, 'Zeilen in Y']], op.angle || 0));
+        h += field('Überlappung', nIn('stepover', op.stepover || tool.stepover, 1, 'min="2" max="60"'), '%');
+        h += field('Nur wo mehr Rest als', nIn('minRest', op.minRest || 0.05, 0.01, 'min="0.01"'), 'mm');
+        h += '<p class="muted small">Der feine Fräser arbeitet nur dort, wo das vorherige Werkzeug nicht hinkam (enge Rillen, Haare, Augen). Erst schlichten, dann diese Bahn.</p>';
+        break;
       case 'relief_finish':
         h += field('Richtung', sel('dir', [['x', 'Zeilen in X'], ['y', 'Zeilen in Y'], ['both', 'X und Y (feiner)']], op.both ? 'both' : op.angle === 90 ? 'y' : 'x'));
         h += field('Überlappung', nIn('stepover', op.stepover || tool.stepover, 1, 'min="2" max="60"'), '%');
@@ -1752,7 +1835,7 @@
     if (t.type === 'checkbox') op[k] = t.checked;
     else if (k === 'dir') { op.both = t.value === 'both'; op.angle = t.value === 'y' ? 90 : 0; }
     else if (t.type === 'number') op[k] = t.value === '' ? 0 : num(t.value);
-    else if (k === 'step') op[k] = +t.value;
+    else if (k === 'step' || k === 'angle') op[k] = +t.value;
     else op[k] = t.value;
     if (k === 'toolId') { op.stepdown = 0; op.feed = 0; op.plunge = 0; op.rpm = 0; }
     changed({ keepResults: true });
@@ -2412,7 +2495,8 @@
       <li><b>Nullpunkt:</b> Fräse über die gewählte Ecke fahren (Pfeile), „X0“ und „Y0“ drücken. Z mit der Messplatte antasten oder mit einem Blatt Papier: Fräser absenken, bis das Papier gerade klemmt, dann „Z0“.</li>
       <li><b>Ausschneiden:</b> Kontur außen, Tiefe = Materialstärke + 0,3 mm, Haltestege an. Opferplatte unterlegen!</li>
       <li><b>Schrift:</b> V-Carving mit 60°- oder 90°-V-Fräser ergibt scharfe Ecken. Für feine Gravur der 30°-Stichel.</li>
-      <li><b>3D-Relief:</b> Erst mit dem 3,175-mm-Schaftfräser schruppen (Aufmaß 0,5 mm), dann mit dem Kugelfräser schlichten (Überlappung 10–15 %).</li>
+      <li><b>3D-Relief:</b> Erst mit dem 3,175-mm-Schaftfräser schruppen (Aufmaß 0,5 mm), dann mit dem Kugelfräser schlichten (Überlappung 10–15 %). Für feine Details (Haare, Augen) danach „3D Rest“ mit einem konischen Kugelfräser (z. B. R0,25) – der arbeitet nur dort, wo der dicke Fräser nicht hinkam.</li>
+      <li><b>Foto als Relief:</b> „Bild → 3D“, Bildart „Foto oder Render“: Die KI schätzt die Tiefe aus Licht und Schatten. Für Höhenbilder (Depth Maps) die Bildart „Höhenbild“ nehmen.</li>
       <li><b>Offline fräsen:</b> G-Code je Werkzeug speichern, auf die SD-Karte kopieren und am Display starten.</li>
       <li><b>Verbindung:</b> Chrome oder Edge verwenden. Falls die Maschine nicht erscheint: CH340-USB-Treiber installieren und Candle schließen.</li>
     </ul>`, [{ label: 'Schließen', primary: true }], { wide: true });
@@ -2476,7 +2560,7 @@
   readColors();
   const saved = store.get('fs.doc', null);
   if (saved && saved.objects) {
-    try { S.doc = revive(JSON.stringify(saved)); S.doc.tools = S.doc.tools || util.deep(TL.DEFAULT_TOOLS); } catch (e) { S.doc = newDoc(); }
+    try { S.doc = revive(JSON.stringify(saved)); S.doc.tools = addNewDefaultTools(S.doc.tools || util.deep(TL.DEFAULT_TOOLS)); } catch (e) { S.doc = newDoc(); }
   }
   new ResizeObserver(() => redraw()).observe(cv);
   updateSnapInfo();

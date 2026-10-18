@@ -52,6 +52,22 @@ Knopf **„Bild → 3D“** links, *Datei → 3D-Relief aus Bild* oder einfach e
 Im Dialog: Breite/Höhe, Tiefe (für Schwarz), Regler für die Grautöne (höher/tiefer), Glätten, Umkehren – mit 3D-Vorschau.
 Auf Wunsch werden die Fräsbahnen gleich angelegt (Schaftfräser schruppen, Kugelfräser schlichten).
 
+## Foto oder Render → 3D (KI-Tiefenschätzung)
+
+Bei normalen Fotos und gerenderten Bildern stimmt „hell = hoch“ nicht, denn Licht und Schatten würden mitgefräst.
+Im Dialog „Bild → 3D“ deshalb die Bildart **„Foto oder Render – KI schätzt die Tiefe“** wählen. Die KI (Depth Anything V2 Small) erkennt, was vorne und hinten ist, und macht daraus eine Höhenkarte.
+
+- **„Feine Details aus dem Bild“** legt Strukturen wie Haare, Fell oder Holzschnitzerei aus der Helligkeit obendrauf.
+- **Modell:** Das KI-Modell (ca. 27 MB) wird einmal geladen und im Browser gespeichert, danach geht es auch ohne Internet. Auf dem eigenen Server lädt es `deploy/install.sh` gleich mit herunter.
+- **Ohne Internet:** `model_quantized.onnx` von [HuggingFace](https://huggingface.co/onnx-community/depth-anything-v2-small/tree/main/onnx) laden und im Dialog mit „Modelldatei wählen…“ öffnen.
+- **Grenzen:** Die KI schätzt nur. Gekaufte STL-Dateien bzw. Höhenkarten sind genauer. Bei fremden Motiven (Wasserzeichen!) das Urheberrecht beachten: das Motiv bzw. die Datei beim Anbieter kaufen.
+
+## Feine Reliefs: konische Kugelfräser und Restmaterial
+
+- In der Werkzeugbibliothek gibt es **konische Kugelfräser** (R0,25 / R0,5 / R0,75 mit 3,175-mm-Schaft): Sie sind vorne sehr fein und hinten trotzdem stabil.
+- **„3D Rest“** (Restmaterial) arbeitet nach dem Schlichten nur die Stellen nach, an die der dicke Fräser nicht kam, zum Beispiel enge Rillen, Haare oder Augen. Als „Vorheriges Werkzeug“ das Schlicht-Werkzeug angeben. Das spart gegenüber komplettem Feinschlichten oft Stunden.
+- **Typische Reihenfolge:** 3D schruppen (Schaftfräser 3,175) → 3D schlichten (Kugelfräser 3,175) → 3D Rest (konischer Kugelfräser R0,25).
+
 ## Kamera von oben
 
 Eine USB-Webcam fest über der Fräse montieren. Knopf **„Kamera“** → im Livebild die 4 Ecken des eingespannten Werkstücks anklicken
@@ -125,6 +141,7 @@ Schriften: SIL Open Font License (`js/lib/LIZENZEN.txt`). 3D-Darstellung mit Web
 | `js/gcode.js` | G-Code schreiben und lesen |
 | `js/sim.js`, `js/view3d.js` | Abtrag-Simulation und 3D-Ansicht |
 | `js/camera.js` | Kamerabild entzerren |
+| `js/depthai.js`, `js/lib/ort/` | KI-Tiefenschätzung (ONNX Runtime Web, MIT) |
 | `js/machine.js` | GRBL-Steuerung über USB |
 | `js/app.js` | Bedienoberfläche |
 

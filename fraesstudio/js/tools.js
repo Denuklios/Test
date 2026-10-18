@@ -3,7 +3,7 @@
 (function (g) {
   const FS = (g.FS = g.FS || {});
 
-  const TYPES = { flat: 'Schaftfräser', ball: 'Kugelfräser', vbit: 'V-Fräser / Gravierstichel', drill: 'Bohrer' };
+  const TYPES = { flat: 'Schaftfräser', ball: 'Kugelfräser', taperball: 'Konischer Kugelfräser', vbit: 'V-Fräser / Gravierstichel', drill: 'Bohrer' };
 
   // feed/plunge in mm/min, stepdown in mm, stepover in % vom Durchmesser
   const DEFAULT_TOOLS = [
@@ -17,6 +17,10 @@
     { id: 't8', name: 'Kugelfräser 3,175 mm (R 1,59)', type: 'ball', d: 3.175, flutes: 2, len: 12, rpm: 8000, feed: 600, plunge: 150, stepdown: 1.0, stepover: 12 },
     { id: 't9', name: 'Kugelfräser 1,5 mm (R 0,75)', type: 'ball', d: 1.5, flutes: 2, len: 6, rpm: 8000, feed: 400, plunge: 100, stepdown: 0.5, stepover: 10 },
     { id: 't10', name: 'Bohrer 3 mm', type: 'drill', d: 3, flutes: 2, len: 20, rpm: 8000, feed: 300, plunge: 100, stepdown: 1.5, stepover: 0 },
+    // Konische Kugelfräser für feine Reliefs: d = Schaft, tip = Kugel-Ø an der Spitze, angle = Kegelwinkel gesamt
+    { id: 't11', name: 'Konischer Kugelfräser R0,25 (Spitze Ø 0,5 mm, 30°)', type: 'taperball', d: 3.175, tip: 0.5, angle: 30, flutes: 2, len: 15, rpm: 8000, feed: 500, plunge: 120, stepdown: 0.5, stepover: 20 },
+    { id: 't12', name: 'Konischer Kugelfräser R0,5 (Spitze Ø 1 mm, 30°)', type: 'taperball', d: 3.175, tip: 1, angle: 30, flutes: 2, len: 15, rpm: 8000, feed: 600, plunge: 150, stepdown: 0.8, stepover: 15 },
+    { id: 't13', name: 'Konischer Kugelfräser R0,75 (Spitze Ø 1,5 mm, 20°)', type: 'taperball', d: 3.175, tip: 1.5, angle: 20, flutes: 2, len: 15, rpm: 8000, feed: 600, plunge: 150, stepdown: 1, stepover: 15 },
   ];
 
   // Faktoren auf Vorschub (feed) und Zustellung (depth)
@@ -51,7 +55,7 @@
   // Drehzahl: schwache Spindeln immer voll; schnelle Motoren nach Werkzeugdurchmesser (kleine Fräser schneller)
   function rpmFor(tool, mach) {
     if (mach.maxRpm <= 12000) return Math.min(mach.maxRpm, tool.rpm);
-    const d = tool.type === 'vbit' ? 3 : tool.d;
+    const d = tool.type === 'vbit' ? 3 : tool.type === 'taperball' ? Math.max(0.5, tool.tip || 1) : tool.d;
     const f = d <= 1.5 ? 0.95 : d <= 2.5 ? 0.8 : d <= 4 ? 0.6 : d <= 6.5 ? 0.5 : 0.4;
     return Math.max(mach.minRpm || 0, Math.min(mach.maxRpm, Math.round((mach.maxRpm * f) / 1000) * 1000));
   }
@@ -87,10 +91,18 @@
       const t = Math.tan(((tool.angle || 60) * Math.PI) / 360), tip = (tool.tip || 0) / 2;
       return (r) => (r > R ? Infinity : r <= tip ? 0 : (r - tip) / t);
     }
+    if (tool.type === 'taperball') {
+      // Kugel (Radius rb) geht tangential in den Kegel (halber Winkel a) über
+      const rb = Math.max(0.01, (tool.tip || 0.5) / 2), a = Math.max(0.5, (tool.angle || 30) / 2) * (Math.PI / 180);
+      const r0 = rb * Math.cos(a), h0 = rb * (1 - Math.sin(a)), ta = Math.tan(a);
+      return (r) => (r > R ? Infinity : r <= r0 ? rb - Math.sqrt(Math.max(0, rb * rb - r * r)) : h0 + (r - r0) / ta);
+    }
     return (r) => (r > R ? Infinity : 0);
   }
 
   const describe = (t) => `${t.name}`;
+  // wirksamer Durchmesser für die Überlappung (beim konischen Kugelfräser die Spitze)
+  const effD = (t) => (t.type === 'taperball' ? t.tip || t.d : t.d);
 
-  FS.tools = { TYPES, DEFAULT_TOOLS, MATERIALS, MACHINES, cutParams, profile, describe, powerFactors, rpmFor, dialFor };
+  FS.tools = { TYPES, DEFAULT_TOOLS, MATERIALS, MACHINES, cutParams, profile, describe, powerFactors, rpmFor, dialFor, effD };
 })(typeof window !== 'undefined' ? window : globalThis);

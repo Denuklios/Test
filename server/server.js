@@ -179,7 +179,7 @@ function langOf(req, u) {
 const langCookie = (l) => `lang=${l}; Path=/; SameSite=Lax; Max-Age=31536000${SECURE_COOKIE ? '; Secure' : ''}`;
 
 /* ---------- Statische Dateien (nur angemeldet; Formatcode bleibt auf dem Server) ---------- */
-const MIME = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
+const MIME = { '.onnx': 'application/octet-stream', '.mjs': 'text/javascript; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
 const SERVER_ONLY = new Set(['js/dst_io.js', 'js/formats.js']);
 const APP_DIRS = ['js/', 'css/', 'fonts/'];
 function staticFile(res, rel, cacheable) {
@@ -201,7 +201,14 @@ const FRAES_PATH = '/fraesstudio/';
 const FRAES_ROOT = path.join(ROOT, 'fraesstudio');
 const nextCookie = (v, maxAge) => `next=${v}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${SECURE_COOKIE ? '; Secure' : ''}`;
 // FräsStudio braucht Kamera (Bild von oben) und USB (Web Serial zur Fräse) – nur für diese Seiten erlaubt
-const FRAES_HEADERS = { ...SEC_HEADERS, 'Permissions-Policy': 'camera=(self), serial=(self), microphone=(), geolocation=()' };
+// KI-Tiefenschätzung: WebAssembly ausführen und (falls das Modell nicht auf dem Server liegt) von HuggingFace laden
+const FRAES_HEADERS = {
+  ...SEC_HEADERS,
+  'Permissions-Policy': 'camera=(self), serial=(self), microphone=(), geolocation=()',
+  'Content-Security-Policy': SEC_HEADERS['Content-Security-Policy']
+    .replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'")
+    .replace("connect-src 'self'", "connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co"),
+};
 function fraesFile(res, rel) {
   let dec;
   try { dec = decodeURIComponent(rel); } catch (e) { return false; }

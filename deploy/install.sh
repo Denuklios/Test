@@ -112,6 +112,19 @@ cd "$APP"
 npm ci --no-audit --no-fund
 npm run build
 rm -rf node_modules tests tools docs fraesstudio/tests
+# KI-Modell für „Foto → 3D-Relief“ (Depth Anything V2 Small, Apache-2.0, ca. 27 MB) – einmalig, bleibt bei Updates erhalten
+MODEL_DIR=/var/lib/stickstudio-models
+mkdir -p "$MODEL_DIR"
+if [ ! -s "$MODEL_DIR/depth-anything-v2-small.onnx" ]; then
+  echo "--- KI-Modell herunterladen"
+  curl -fL --retry 3 -o "$MODEL_DIR/depth-anything-v2-small.onnx.part" \
+    https://huggingface.co/onnx-community/depth-anything-v2-small/resolve/main/onnx/model_quantized.onnx \
+    && mv "$MODEL_DIR/depth-anything-v2-small.onnx.part" "$MODEL_DIR/depth-anything-v2-small.onnx" \
+    || { rm -f "$MODEL_DIR/depth-anything-v2-small.onnx.part"; echo "Hinweis: KI-Modell nicht geladen – FräsStudio lädt es dann beim ersten Gebrauch im Browser."; }
+fi
+if [ -s "$MODEL_DIR/depth-anything-v2-small.onnx" ]; then
+  mkdir -p fraesstudio/models && ln -sf "$MODEL_DIR/depth-anything-v2-small.onnx" fraesstudio/models/depth-anything-v2-small.onnx
+fi
 chown -R stickstudio:stickstudio "$APP" "$DATA" /var/backups/stickstudio
 
 echo "--- Einstellungen"

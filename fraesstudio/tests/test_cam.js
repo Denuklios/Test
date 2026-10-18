@@ -214,6 +214,68 @@ ok(ras.nx > 40 && near(ras.zr, 5), 'STL: Dreieck gerastert');
   ok(w.w === 100 && px(10, 25) < 30 && px(90, 25) > 225 && px(30, 5) < 30 && px(70, 45) > 225, 'Kamera: Bild wird aufs Werkstück entzerrt');
 }
 
+// Konischer Kugelfräser: Profil (Kugel geht tangential in den Kegel über)
+{
+  const tb = tools.find((t) => t.id === 't11');
+  const pr = FS.tools.profile(tb);
+  const rb = 0.25, a = (15 * Math.PI) / 180, r0 = rb * Math.cos(a);
+  ok(pr(0) === 0 && near(pr(r0), rb * (1 - Math.sin(a)), 1e-9) && near(pr(r0 + 0.001) - pr(r0), 0.001 / Math.tan(a), 1e-4) && pr(2) === Infinity, 'Konischer Kugelfräser: Profil stetig, Kegel 15° je Seite, Schaft 3,175');
+  ok(FS.tools.effD(tb) === 0.5 && FS.tools.cutParams(tb, 'weichholz', machine).rpm <= machine.maxRpm, 'Konischer Kugelfräser: Überlappung nach Spitze');
+}
+
+// 3D-Restmaterial: feine Rillen, die der 3,175er Kugelfräser nicht erreicht
+{
+  const N = 240, f = new Float32Array(N * N);
+  for (let j = 0; j < N; j++) for (let i = 0; i < N; i++) {
+    const x = i / (N - 1), y = j / (N - 1);
+    let v = 0.4 + 0.6 * Math.exp(-((x - 0.5) ** 2 + (y - 0.5) ** 2) * 6);
+    if (Math.abs(Math.sin(x * Math.PI * 12)) < 0.35) v -= 0.25; // schmale Rillen (ca. 0,75 mm breit, 1 mm tief)
+    f[j * N + i] = Math.max(0, v);
+  }
+  const rel2 = FS.relief.makeRelief('Rillen', N, N, f, 40, 40, 4);
+  rel2.tf = FS.M.translate(60, 60);
+  const st = { ...stock, w: 120, h: 120 };
+  const c4 = { objects: [rel2], tools, stock: st, machine };
+  const fin = FS.cam.compute(FS.cam.makeOp('relief_finish', [rel2.id], 't8'), c4);
+  const restOp = FS.cam.makeOp('relief_rest', [rel2.id], 't11'); restOp.refToolId = 't8';
+  const t0 = Date.now();
+  const rest = FS.cam.compute(restOp, c4);
+  ok(rest.chains.length > 0 && rest.warnings.length === 0, `Restmaterial: Bahnen nur in den Rillen (${Date.now() - t0} ms)`);
+  const g = FS.gcode.build([fin, rest], c4);
+  const sim = FS.sim.create(st, 0.1);
+  const S0 = FS.cam.reliefSampler(rel2);
+  const err = () => {
+    let sum = 0, n = 0, gouge = 0;
+    for (let y = 45; y <= 75; y += 0.1) for (let x = 45; x <= 75; x += 0.1) {
+      const w = S0.at(x, y), h = FS.sim.heightAt(sim, x, y);
+      if (w === null) continue;
+      if (h < w - 0.08) gouge++;
+      if (Math.abs(Math.sin(((x - 40) / 40) * Math.PI * 12)) < 0.3) { sum += h - w; n++; } // nur in den Rillen
+    }
+    return { mean: sum / n, gouge };
+  };
+  FS.sim.run(sim, g.moves.filter((m) => m.op === 0), null, Infinity);
+  const e1 = err();
+  FS.sim.run(sim, g.moves, null, Infinity);
+  const e2 = err();
+  // Werkzeugpositionen direkt prüfen (seitliche Toleranz = Rasterweite 0,1 mm, wie bei Höhenkarten-CAM üblich)
+  const tool = tools.find((t) => t.id === 't11'), pr = FS.tools.profile(tool), R = tool.d / 2;
+  let worst = 0;
+  const pts = rest.chains.flatMap((c) => c.pts).filter((q) => !q.rapid);
+  for (let k = 0; k < pts.length; k += Math.max(1, Math.floor(pts.length / 800))) {
+    const q = pts[k];
+    let need = -Infinity;
+    for (let dy = -R; dy <= R; dy += 0.025) for (let dx = -R; dx <= R; dx += 0.025) {
+      const rr = Math.hypot(dx, dy);
+      if (rr + 0.1 > R) continue;
+      const h = S0.at(q.x + dx, q.y + dy);
+      need = Math.max(need, (h === null ? 0 : h) - pr(rr + 0.1));
+    }
+    worst = Math.max(worst, need - q.z);
+  }
+  ok(e2.mean < e1.mean * 0.6 && worst < 0.03 && sim.warnings.size === 0, `Restmaterial: Rest in den Rillen ${e1.mean.toFixed(2)} → ${e2.mean.toFixed(2)} mm, nicht zu tief (${worst.toFixed(3)}), keine Eilgänge im Material`);
+}
+
 // 800-W-Fräsmotor mit Drehregler
 {
   const m8 = FS.tools.MACHINES.ttc450_800, m80 = FS.tools.MACHINES.ttc450;
