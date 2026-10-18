@@ -2418,6 +2418,13 @@
   }
 
   // ---------------------------------------------------------------- Start
+  // Über den StickStudio-Server geschützt aufgerufen: Konto und Abmelden anbieten
+  if (/^https?:$/.test(location.protocol) && location.pathname.startsWith('/fraesstudio/')) {
+    const box = document.createElement('span');
+    box.className = 'acct';
+    box.innerHTML = '<a class="tb" href="/account" title="Mein Konto">Konto</a><form method="post" action="/logout"><button class="tb" title="Abmelden">Abmelden</button></form>';
+    $('#connDot').after(box);
+  }
   const th = store.get('fs.theme', null);
   if (th) document.documentElement.dataset.theme = th;
   readColors();

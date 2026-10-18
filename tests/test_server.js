@@ -204,6 +204,43 @@ const ok = (c, m) => { if (!c) { fail++; console.log('FEHLER:', m); } else conso
   r = await api('admin', '/api/admin/stats');
   ok((await r.json()).openRequests === 2, 'Übersicht zählt offene Anfragen');
 
+  // FräsStudio: nur angemeldet und vom Admin freigeschaltet
+  r = await req('anon2', '/fraesstudio/');
+  const nextC = (r.headers.getSetCookie ? r.headers.getSetCookie() : []).find((c) => c.startsWith('next='));
+  ok(r.status === 303 && r.headers.get('location').startsWith('/login') && nextC && nextC.includes('/fraesstudio/'), 'FräsStudio ohne Anmeldung → Login (merkt sich das Ziel)');
+  r = await req('anon2', '/fraesstudio/js/cam.js');
+  ok(r.status === 303, 'FräsStudio-Code ohne Anmeldung gesperrt');
+  r = await req('kunde2', '/fraesstudio/');
+  ok(r.status === 403, 'FräsStudio für Kunden ohne Freischaltung gesperrt');
+  r = await req('kunde2', '/fraesstudio/js/cam.js');
+  ok(r.status === 403, 'FräsStudio-Code für Kunden ohne Freischaltung gesperrt');
+  r = await req('admin', '/fraesstudio');
+  ok(r.status === 303 && r.headers.get('location') === '/fraesstudio/', '/fraesstudio → /fraesstudio/');
+  r = await req('admin', '/fraesstudio/');
+  const fhtml = await r.text();
+  ok(r.status === 200 && fhtml.includes('FräsStudio') && /camera=\(self\)/.test(r.headers.get('permissions-policy')) && /serial=\(self\)/.test(r.headers.get('permissions-policy')), 'Admin öffnet FräsStudio (Kamera und USB erlaubt)');
+  r = await req('admin', '/fraesstudio/js/core.js');
+  ok(r.status === 200 && (r.headers.get('content-type') || '').startsWith('text/javascript'), 'FräsStudio-Dateien für Admin');
+  r = await req('admin', '/fraesstudio/%2e%2e/server/db.js');
+  ok(r.status === 404, 'kein Zugriff außerhalb des FräsStudio-Ordners');
+  r = await req('admin', '/fraesstudio/tests/test_cam.js');
+  ok(r.status === 404, 'FräsStudio-Tests werden nicht ausgeliefert');
+  const fid = db.prepare('SELECT id FROM users WHERE email = ?').get('kunde@example.com').id;
+  r = await api('admin', '/api/admin/users/' + fid, 'POST', { fraes: true });
+  ok(r.status === 200, 'Admin schaltet FräsStudio für Kunden frei');
+  r = await req('kunde2', '/fraesstudio/');
+  ok(r.status === 200, 'freigeschalteter Kunde öffnet FräsStudio');
+  r = await api('kunde2', '/api/me');
+  ok((await r.json()).user.fraes === true, 'Konto zeigt FräsStudio-Zugang');
+  r = await api('admin', '/api/admin/users/' + fid, 'POST', { fraes: false });
+  r = await req('kunde2', '/fraesstudio/');
+  ok(r.status === 403, 'Zugang wieder entzogen');
+  // Anmeldung über die FräsStudio-Adresse führt dorthin zurück
+  await req('anon3', '/fraesstudio/');
+  jar.anon3 = (jar.anon3 ? jar.anon3 + '; ' : '') + 'next=/fraesstudio/';
+  r = await req('anon3', '/login', form({ email: 'chef@example.com', password: 'admin-passwort-123' }));
+  ok(r.status === 303 && r.headers.get('location') === '/fraesstudio/', 'nach Anmeldung zurück zu FräsStudio');
+
   // Konto löschen (DSGVO)
   r = await api('kunde2', '/api/account', 'DELETE', { password: 'neues-passwort-99' });
   ok(r.status === 200 && !db.prepare('SELECT * FROM users WHERE email = ?').get('kunde@example.com'), 'Konto gelöscht');

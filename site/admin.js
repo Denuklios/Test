@@ -21,7 +21,8 @@
   const group = (u) => (u.role === 'admin' ? 'admin' : u.blocked ? 'blocked' : u.license.viewOnly ? 'expired' : u.license.trial ? 'trial' : u.sub_status && ['active', 'on_trial', 'past_due'].includes(u.sub_status) ? 'sub' : u.sub_status === 'cancelled' ? 'cancelled' : 'license');
   const status = (u) => (u.role === 'admin' ? `<span class="pill admin">Admin</span>` : u.blocked ? `<span class="pill bad">${T('gesperrt', 'blocked')}</span>`
     : u.license.viewOnly ? `<span class="pill bad">${T('abgelaufen', 'expired')}</span>` : u.license.trial ? `<span class="pill trial">${T('Test', 'trial')} · ${u.license.daysLeft} ${T('T.', 'd')}</span>` : `<span class="pill ok">${u.sub_id ? 'Abo' : T('Lizenz', 'licensed')} · ${u.license.daysLeft} ${T('T.', 'd')}</span>`)
-    + (u.sub_status && u.role !== 'admin' ? `<br><span class="muted">Abo: ${esc(SUB[u.sub_status] || u.sub_status)}</span>` : '');
+    + (u.sub_status && u.role !== 'admin' ? `<br><span class="muted">Abo: ${esc(SUB[u.sub_status] || u.sub_status)}</span>` : '')
+    + (u.fraes && u.role !== 'admin' ? `<br><span class="muted">+ FräsStudio</span>` : '');
   const SUB = { active: T('aktiv', 'active'), on_trial: T('Probezeit', 'on trial'), past_due: T('Zahlung offen', 'payment due'), cancelled: T('gekündigt', 'cancelled'), expired: T('beendet', 'expired'), unpaid: T('unbezahlt', 'unpaid'), paused: T('pausiert', 'paused') };
 
   root.innerHTML = `<h1>${T('Verwaltung', 'Administration')}</h1><div class="tabs">
@@ -119,6 +120,7 @@
       <label>${T('Testversion bis', 'Trial until')}<input type="date" id="eTrial" value="${dIn(u.trial_until)}"></label></div>
       <div class="grid2"><label>${T('Rolle', 'Role')}<select id="eRole"><option value="user">${T('Kunde', 'Customer')}</option><option value="admin" ${u.role === 'admin' ? 'selected' : ''}>Admin</option></select></label>
       <label>${T('E-Mail bestätigt', 'Email confirmed')}<select id="eVer"><option value="1">${T('ja', 'yes')}</option><option value="0" ${u.verified ? '' : 'selected'}>${T('nein', 'no')}</option></select></label></div>
+      <label class="check"><input type="checkbox" id="eFraes" ${u.fraes || u.role === 'admin' ? 'checked' : ''} ${u.role === 'admin' ? 'disabled' : ''}> <span>${T('Zugang zu FräsStudio (Fräsprogramm unter /fraesstudio/)', 'Access to FräsStudio (CNC program at /fraesstudio/)')}</span></label>
       <label class="check"><input type="checkbox" id="eBlock" ${u.blocked ? 'checked' : ''}> <span>${T('Konto sperren (Anmeldung nicht mehr möglich)', 'Block account (no sign-in possible)')}</span></label>
       <label>${T('Notiz (nur für dich)', 'Note (only for you)')}<textarea id="eNote">${esc(u.note)}</textarea></label>
       <div id="eMsg"></div>
@@ -130,7 +132,7 @@
     $('eCancel').onclick = () => dlg.close();
     $('eSave').onclick = async () => {
       try {
-        await api('/api/admin/users/' + u.id, { method: 'POST', body: { name: $('eName').value, license_until: $('eLic').value ? $('eLic').value + 'T23:59:59' : '', trial_until: $('eTrial').value ? $('eTrial').value + 'T23:59:59' : '', role: $('eRole').value, verified: $('eVer').value === '1', blocked: $('eBlock').checked, note: $('eNote').value } });
+        await api('/api/admin/users/' + u.id, { method: 'POST', body: { name: $('eName').value, license_until: $('eLic').value ? $('eLic').value + 'T23:59:59' : '', trial_until: $('eTrial').value ? $('eTrial').value + 'T23:59:59' : '', role: $('eRole').value, verified: $('eVer').value === '1', blocked: $('eBlock').checked, fraes: $('eFraes').checked, note: $('eNote').value } });
         dlg.close(); done();
       } catch (e) { msg(false, esc(e.message)); }
     };

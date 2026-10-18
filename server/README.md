@@ -14,7 +14,18 @@ Die Stickdateien (DST/PES/JEF/EXP) erzeugt nur der Server. Der Formatcode wird n
 - **Rechtstexte:** Impressum, AGB, Widerruf, Datenschutz und Lizenzen auf Deutsch und Englisch, ausgeliefert unter `/legal/…`. Die Platzhalter werden aus den Firmendaten gefüllt (siehe `legal/README.md`).
 - **Sprache:** Deutsch und Englisch, umschaltbar oben rechts. Die Wahl wird am Konto gespeichert.
 
-## Voraussetzungen
+## FräsStudio (geschützt)
+
+Das Fräsprogramm aus dem Ordner `fraesstudio/` läuft auf demselben Server unter **`https://deine-subdomain/fraesstudio/`**.
+Es ist **nur nach Anmeldung** erreichbar und nur für Konten, die in der Verwaltung freigeschaltet sind:
+
+- **Admin** (du) hat immer Zugang.
+- Für andere Konten in **Verwaltung → Benutzer → Bearbeiten** das Häkchen **„Zugang zu FräsStudio“** setzen. Ein normales StickStudio-Konto oder eine Testversion reicht nicht.
+- Ohne Anmeldung leitet der Server zur Anmeldeseite und danach zurück zu FräsStudio. Ohne Freischaltung erscheint „nicht freigeschaltet“, auch für die einzelnen Programmdateien.
+- Nur auf diesen Seiten erlaubt der Server Kamera (Bild von oben) und USB (Steuerung der Fräse).
+- Willst du die Registrierung ganz schließen, `REGISTRATION=closed` setzen (siehe unten).
+
+
 
 - **Node.js 22.13 oder neuer.** Zusatzpakete sind nicht nötig, die Datenbank ist das eingebaute SQLite.
 - **Ein Server mit Domain und HTTPS**, z. B. Hetzner, IONOS oder netcup, Standort in der EU.

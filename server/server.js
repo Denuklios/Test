@@ -115,7 +115,8 @@ function license(u) {
   };
 }
 const subInfo = (u) => (u.sub_id ? { status: u.sub_status, renews: u.sub_renews || null, ends: u.sub_ends || null, portal: u.sub_portal || '' } : null);
-const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, lang: u.lang, verified: !!u.verified, created: u.created, license: license(u), sub: subInfo(u) });
+const fraesAccess = (u) => !!u && (u.role === 'admin' || !!u.fraes);
+const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, lang: u.lang, verified: !!u.verified, created: u.created, license: license(u), sub: subInfo(u), fraes: fraesAccess(u) });
 
 /* ---------- Schutz vor zu vielen Versuchen ---------- */
 const hits = new Map();
@@ -191,6 +192,28 @@ function staticFile(res, rel, cacheable) {
   if (!st.isFile()) return false;
   const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
   res.writeHead(200, { 'Content-Type': type, 'Cache-Control': cacheable ? 'private, max-age=3600' : 'no-cache', ...SEC_HEADERS });
+  fs.createReadStream(file).pipe(res);
+  return true;
+}
+
+/* ---------- FräsStudio (Ordner fraesstudio/, nur angemeldet und freigeschaltet) ---------- */
+const FRAES_PATH = '/fraesstudio/';
+const FRAES_ROOT = path.join(ROOT, 'fraesstudio');
+const nextCookie = (v, maxAge) => `next=${v}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${SECURE_COOKIE ? '; Secure' : ''}`;
+// FräsStudio braucht Kamera (Bild von oben) und USB (Web Serial zur Fräse) – nur für diese Seiten erlaubt
+const FRAES_HEADERS = { ...SEC_HEADERS, 'Permissions-Policy': 'camera=(self), serial=(self), microphone=(), geolocation=()' };
+function fraesFile(res, rel) {
+  let dec;
+  try { dec = decodeURIComponent(rel); } catch (e) { return false; }
+  const norm = path.posix.normalize(dec).replace(/^\/+/, '');
+  if (norm.includes('..') || norm.startsWith('tests/') || norm.endsWith('.md')) return false;
+  const file = path.join(FRAES_ROOT, norm);
+  if (!file.startsWith(FRAES_ROOT + path.sep)) return false;
+  let st;
+  try { st = fs.statSync(file); } catch (e) { return false; }
+  if (!st.isFile()) return false;
+  const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
+  res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'private, no-cache', ...FRAES_HEADERS });
   fs.createReadStream(file).pipe(res);
   return true;
 }
@@ -370,7 +393,8 @@ async function route(req, res) {
     { const ip = ipOf(req), cc = countryOf(ip);
       db.prepare('UPDATE users SET last_login = ?, last_seen = ?, last_ip = ?, last_country = ? WHERE id = ?').run(now(), now(), ip, cc, u.id);
       logEvent(u.id, 'login', `${ip}${cc ? ' · ' + cc : ''}`); }
-    return redirect(res, '/', { 'Set-Cookie': [sidCookie(newSession(u.id), SESSION_DAYS * 86400), langCookie(u.lang || lang)] });
+    const back = cookies(req).next === FRAES_PATH ? FRAES_PATH : '/';
+    return redirect(res, back, { 'Set-Cookie': [sidCookie(newSession(u.id), SESSION_DAYS * 86400), langCookie(u.lang || lang), nextCookie('', 0)] });
   }
   if (p === '/register' && m === 'GET') return user ? redirect(res, '/') : page(pages.register(lang, null, {}, +s.trial_days || 0));
   if (p === '/register' && m === 'POST') {
@@ -501,12 +525,25 @@ async function route(req, res) {
   /* --- ab hier nur angemeldet --- */
   if (!user) {
     if (p.startsWith('/api/')) return json(res, 401, { error: 'login' });
-    return redirect(res, '/login' + (url.searchParams.get('lang') ? '?lang=' + lang : ''));
+    // nach der Anmeldung zurück zu FräsStudio
+    const extra = p === '/fraesstudio' || p.startsWith(FRAES_PATH) ? { 'Set-Cookie': nextCookie(FRAES_PATH, 1800) } : {};
+    return redirect(res, '/login' + (url.searchParams.get('lang') ? '?lang=' + lang : ''), extra);
   }
   const lic = license(user);
   if (now() - (user.last_seen || 0) > 5 * 60e3) {
     const ip = ipOf(req), cc = countryOf(ip);
     db.prepare('UPDATE users SET last_seen = ?, last_ip = ?, last_country = ? WHERE id = ?').run(now(), ip, cc || user.last_country, user.id);
+  }
+
+  /* --- FräsStudio: nur für freigeschaltete Konten --- */
+  if (p === '/fraesstudio') return redirect(res, FRAES_PATH);
+  if (p.startsWith(FRAES_PATH)) {
+    if (!fraesAccess(user)) {
+      logEvent(user.id, 'fraes-verweigert', p.slice(0, 100));
+      return page(pages.info(lang, 'FräsStudio', lang === 'de' ? 'Für dieses Konto ist FräsStudio nicht freigeschaltet. Bitte wende dich an den Betreiber.' : 'FräsStudio is not enabled for this account. Please contact the operator.', false), 403);
+    }
+    if (m !== 'GET' && m !== 'HEAD') return send(res, 405, 'Method not allowed', 'text/plain');
+    return fraesFile(res, p.slice(FRAES_PATH.length) || 'index.html') || send(res, 404, 'Not found', 'text/plain');
   }
 
   if (p === '/' || p === '/index.html') return page(appHtml());
@@ -622,14 +659,14 @@ async function route(req, res) {
     if (user.role !== 'admin') return json(res, 403, { error: 'forbidden' });
     if (p === '/api/admin/users' && m === 'GET') {
       const q = '%' + (url.searchParams.get('q') || '') + '%';
-      const rows = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen,
+      const rows = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen, u.fraes,
         (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS projects FROM users u WHERE u.email LIKE ? OR u.name LIKE ? ORDER BY u.created DESC LIMIT 500`).all(q, q);
       let list = rows;
       // Suche nach der Kennung aus einer weitergegebenen Programmdatei
       const qq = (url.searchParams.get('q') || '').trim().toLowerCase();
       if (!list.length && /^[0-9a-f]{16}$/.test(qq)) {
         const hit = db.prepare('SELECT id FROM users').all().find((r) => mark(r) === qq);
-        if (hit) list = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen,
+        if (hit) list = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen, u.fraes,
           (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS projects FROM users u WHERE u.id = ?`).all(hit.id);
       }
       return json(res, 200, list.map((r) => ({ ...r, license: license(r), mark: mark(r) })));
@@ -661,8 +698,9 @@ async function route(req, res) {
           verified: b.verified !== undefined ? (b.verified ? 1 : 0) : u.verified,
           note: b.note !== undefined ? String(b.note).slice(0, 2000) : u.note,
           name: b.name !== undefined ? String(b.name).slice(0, 120) : u.name,
+          fraes: b.fraes !== undefined ? (b.fraes ? 1 : 0) : u.fraes,
         };
-        db.prepare('UPDATE users SET license_until=?, trial_until=?, blocked=?, role=?, verified=?, note=?, name=? WHERE id=?').run(upd.license_until, upd.trial_until, upd.blocked, upd.role, upd.verified, upd.note, upd.name, id);
+        db.prepare('UPDATE users SET license_until=?, trial_until=?, blocked=?, role=?, verified=?, note=?, name=?, fraes=? WHERE id=?').run(upd.license_until, upd.trial_until, upd.blocked, upd.role, upd.verified, upd.note, upd.name, upd.fraes, id);
         if (upd.blocked) db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
         logEvent(id, 'admin-edit', `${user.email}: ${JSON.stringify(b).slice(0, 300)}`);
         return json(res, 200, { ok: true });

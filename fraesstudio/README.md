@@ -10,6 +10,9 @@ Vorbilder: die einfache Bedienung von **Easel**, der Funktionsumfang von **Carbi
 `index.html` doppelklicken – am besten in **Google Chrome** oder **Microsoft Edge** (nur diese können die Fräse per USB steuern).
 Es wird nichts installiert, eine Internetverbindung ist nicht nötig. Das Projekt wird automatisch im Browser zwischengespeichert.
 
+**Online mit Passwort:** Auf dem StickStudio-Server liegt FräsStudio unter `/fraesstudio/` und ist nur nach Anmeldung und Freischaltung durch den Admin erreichbar (siehe `server/README.md`, Abschnitt „FräsStudio“).
+Bitte FräsStudio **nicht** auf einen normalen Webspace ohne diesen Server legen. Dort wäre es für jeden offen, und ein Passwort nur in der Seite selbst lässt sich umgehen.
+
 ## Die vier Arbeitsschritte
 
 | Schritt | Was passiert |
