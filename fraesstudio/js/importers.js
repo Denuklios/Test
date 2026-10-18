@@ -50,7 +50,8 @@
     const f = new Float32Array(nx * ny);
     for (let i = 0; i < nx * ny; i++) {
       const r = rgba[i * 4], gg = rgba[i * 4 + 1], b = rgba[i * 4 + 2], a = rgba[i * 4 + 3] / 255;
-      f[i] = ((0.299 * r + 0.587 * gg + 0.114 * b) / 255) * a;
+      // durchsichtige Bereiche zählen als weiß (= flach), wie bei Logos mit freigestelltem Hintergrund
+      f[i] = ((0.299 * r + 0.587 * gg + 0.114 * b) / 255) * a + (1 - a);
     }
     return smooth > 0 ? blur(nx, ny, f, smooth) : f;
   }

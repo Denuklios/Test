@@ -18,7 +18,7 @@
       <hr>
       <button data-cmd="importVector">Zeichnung importieren (SVG, DXF)… <kbd>Strg+I</kbd></button>
       <button data-cmd="importTrace">Bild nachzeichnen (PNG, JPG → Umriss)…</button>
-      <button data-cmd="importRelief">3D-Relief aus Bild (Höhenbild)…</button>
+      <button data-cmd="importRelief">3D-Relief aus Bild (schwarz = tief, weiß = flach)…</button>
       <button data-cmd="importStl">3D-Modell als Relief (STL)…</button>
       <hr>
       <button data-cmd="exportGcode">G-Code speichern… <kbd>Strg+E</kbd></button>
@@ -75,6 +75,9 @@
       <button data-cmd="toggleSnap">Am Raster fangen ein/aus <kbd>G</kbd></button>
       <button data-cmd="togglePaths">Fräsbahnen im Entwurf zeigen ein/aus</button>
       <button data-cmd="toggleTheme">Hell / Dunkel umschalten</button>
+      <hr>
+      <button data-cmd="camera">Kamera einrichten…</button>
+      <button data-cmd="toggleCam">Kamerabild ein/aus <kbd>C</kbd></button>
     </div>
   </div>
   <div class="menu"><button>Hilfe</button>
@@ -112,6 +115,8 @@
     <div class="group">Hilfen</div>
     <button data-tool="measure" title="Messen (M)"><b>⟷</b><span>Messen</span></button>
     <button data-cmd="importVector" title="SVG oder DXF importieren"><b>⇪</b><span>Import</span></button>
+    <button data-cmd="importRelief" title="Schwarz-Weiß-Bild als 3D-Relief: schwarz = tief, weiß = flach"><b>◩</b><span>Bild → 3D</span></button>
+    <button data-cmd="camera" title="Kamerabild von oben (Webcam über der Fräse)"><b>◉</b><span>Kamera</span></button>
   </aside>
 
   <section id="stage">
@@ -123,6 +128,8 @@
       <button data-cmd="fit" title="Alles zeigen">⤢</button>
       <button data-cmd="zoomIn" title="Vergrößern">+</button>
     </div>
+    <div id="camBar" class="hidden"><span>Kamera</span><input id="camOpacity" type="range" min="10" max="100" value="80" title="Deckkraft"><label><input type="checkbox" id="camLive" checked> live</label><button data-cmd="camera">Einrichten</button><button data-cmd="toggleCam" title="Ausblenden">✕</button></div>
+    <div id="dropHint" class="hidden">Datei hier loslassen<br><small>Bild, SVG, DXF, STL, G-Code oder Projekt</small></div>
     <div id="busy" class="hidden"><div class="spin"></div><span>Fräsbahnen werden berechnet …</span></div>
   </section>
 
@@ -301,6 +308,7 @@
 <script src="js/cam.js"></script>
 <script src="js/gcode.js"></script>
 <script src="js/sim.js"></script>
+<script src="js/camera.js"></script>
 <script src="js/view3d.js"></script>
 <script src="js/machine.js"></script>
 <script src="js/app.js"></script>

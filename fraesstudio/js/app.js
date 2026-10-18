@@ -33,6 +33,8 @@
     sim: null, simMoves: null, simPlaying: false, gc: null,
     cursor: null, snapMark: null,
   };
+  const cam = { stream: null, video: null, on: false, img: null, timer: null, fc: null,
+    cal: Object.assign({ deviceId: '', raw: null, k1: 0, opacity: 0.8, live: true }, store.get('fs.cam', {})) };
   function loadMachine() {
     const m = store.get('fs.machine', { id: 'ttc450' });
     S.machine = Object.assign({}, TL.MACHINES[m.id] || TL.MACHINES.ttc450, m);
@@ -267,6 +269,12 @@
     x.shadowColor = 'rgba(0,0,0,.25)'; x.shadowBlur = 10; x.shadowOffsetY = 3;
     x.fillRect(a.x, b.y, b.x - a.x, a.y - b.y);
     x.shadowColor = 'transparent';
+    if (cam.on && cam.img) {
+      x.globalAlpha = cam.cal.opacity;
+      x.imageSmoothingQuality = 'high';
+      x.drawImage(cam.img, a.x, b.y, b.x - a.x, a.y - b.y);
+      x.globalAlpha = 1;
+    }
     // Raster
     const steps = [0.5, 1, 2, 5, 10, 20, 50, 100];
     const minor = steps.find((q) => q * s >= 9) || 100;
@@ -1307,12 +1315,35 @@
     status('Projekt gespeichert: ' + name + '.fsp');
   }
   async function openProject() {
-    const f = await pickFile('.fsp,.json,.svg,.dxf,.nc,.gcode,.tap,.ngc,.stl');
-    if (!f) return;
-    const ext = f.name.split('.').pop().toLowerCase();
-    if (['svg', 'dxf'].includes(ext)) return importVectorText(f.name, f.data);
-    if (['nc', 'gcode', 'tap', 'ngc'].includes(ext)) { setMode('machine'); setJob(f.data, f.name); return; }
-    if (ext === 'stl') { status('STL bitte über Datei → 3D-Modell als Relief öffnen.', true); return; }
+    const f = await pickFile('.fsp,.json,.svg,.dxf,.nc,.gcode,.tap,.ngc,.stl,image/*');
+    if (f) openDropped(f.file);
+  }
+  const readAs = (file, as) => new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result);
+    r.onerror = () => reject(r.error);
+    if (as === 'buffer') r.readAsArrayBuffer(file); else if (as === 'url') r.readAsDataURL(file); else r.readAsText(file);
+  });
+  // Datei öffnen – egal ob über „Öffnen“ oder per Ziehen und Ablegen
+  async function openDropped(file) {
+    const ext = file.name.split('.').pop().toLowerCase();
+    if (file.type.startsWith('image/') && ext !== 'svg') {
+      const data = await readAs(file, 'url');
+      const r = await modal('Bild verwenden als …', `<p>Was soll aus <b>${esc(file.name)}</b> werden?</p>
+        <p class="small"><b>3D-Relief:</b> schwarz wird tief, grau dazwischen, weiß bleibt flach.<br><b>Umriss:</b> die dunklen Flächen werden zu Linien (für Kontur, Tasche, V-Carving).</p>`,
+      [{ label: 'Abbrechen', value: null }, { label: 'Umriss nachzeichnen', value: 'trace' }, { label: '3D-Relief', primary: true, value: 'relief' }]);
+      if (r === 'relief') importRelief({ name: file.name, data });
+      if (r === 'trace') importTrace({ name: file.name, data });
+      return;
+    }
+    if (ext === 'svg' || ext === 'dxf') return importVectorText(file.name, await readAs(file, 'text'));
+    if (ext === 'stl') return importStl({ name: file.name, data: await readAs(file, 'buffer') });
+    if (['nc', 'gcode', 'tap', 'ngc'].includes(ext)) { setMode('machine'); setJob(await readAs(file, 'text'), file.name); return; }
+    if (ext === 'fsp' || ext === 'json') return openProjectText(file.name, await readAs(file, 'text'));
+    status('Dieser Dateityp wird nicht unterstützt: .' + ext, true);
+  }
+  function openProjectText(name, text) {
+    const f = { name, data: text };
     try {
       const d = revive(f.data);
       if (!d.objects || !d.stock) throw new Error('Keine FräsStudio-Datei');
@@ -1343,8 +1374,8 @@
     } catch (e) { modal('Import fehlgeschlagen', `<p>${esc(e.message)}</p>`); }
   }
 
-  async function importTrace() {
-    const f = await pickFile('image/*', 'url');
+  async function importTrace(given) {
+    const f = given || (await pickFile('image/*', 'url'));
     if (!f) return;
     const img = await loadImage(f.data).catch((e) => { modal('Fehler', esc(e.message)); });
     if (!img) return;
@@ -1378,39 +1409,93 @@
     setMode('design');
   }
 
-  async function importRelief() {
-    const f = await pickFile('image/*', 'url');
+  // Schwarz-Weiß-Bild -> 3D-Relief (schwarz = tief, grau = dazwischen, weiß = flach), mit 3D-Vorschau
+  let relView = null, relCanvas = null;
+  async function importRelief(given) {
+    const f = given || (await pickFile('image/*', 'url'));
     if (!f) return;
     const img = await loadImage(f.data).catch(() => null);
-    if (!img) return;
+    if (!img) { modal('Fehler', '<p>Das Bild konnte nicht gelesen werden.</p>'); return; }
     const asp = img.height / img.width;
-    const html = `<p class="muted small">Helle Bildteile werden hoch (bleiben stehen), dunkle werden tief gefräst. Ideal sind Graustufen-Höhenbilder (Depth Maps).</p>
-      <canvas id="rlPrev" width="300" height="${Math.round(300 * Math.min(1.2, asp))}"></canvas>
-      <div class="grid2">${field('Breite', inputN('rlW', Math.min(120, S.doc.stock.w * 0.8).toFixed(0), 1), 'mm')}${field('Tiefe', inputN('rlD', Math.min(5, S.doc.stock.t * 0.6).toFixed(1), 0.5), 'mm')}</div>
-      ${field('Auflösung', `<select id="rlR"><option value="300">normal (300 px)</option><option value="500" selected>fein (500 px)</option><option value="800">sehr fein (800 px)</option></select>`)}
+    const st = S.doc.stock;
+    const w0 = Math.max(10, Math.min(st.w * 0.8, (st.h * 0.8) / asp));
+    const html = `<div class="relgrid"><div>
+        <canvas id="rlPrev" width="320" height="${Math.round(320 * Math.min(1.4, asp))}"></canvas>
+        <div class="graybar"></div><div class="graylbl"><span>schwarz = tief</span><span>grau = dazwischen</span><span>weiß = flach</span></div>
+      </div><div id="rl3d"></div></div>
+      <div class="grid2">${field('Breite', inputN('rlW', w0.toFixed(0), 1, 'min="1"'), 'mm')}${field('Höhe', inputN('rlH', (w0 * asp).toFixed(1), 1, 'min="1"'), 'mm')}</div>
+      <div class="grid2">${field('Tiefe (schwarz)', inputN('rlD', Math.min(5, st.t * 0.6).toFixed(1), 0.5, 'min="0.1"'), 'mm')}
+        ${field('Auflösung', `<select id="rlR"><option value="300">normal</option><option value="500" selected>fein</option><option value="800">sehr fein</option></select>`)}</div>
+      ${field('Grautöne <span class="muted small">(links höher, rechts tiefer)</span>', `<input id="rlG" type="range" min="0.3" max="3" step="0.05" value="1">`)}
       ${field('Glätten', `<input id="rlS" type="range" min="0" max="6" value="1">`)}
-      <label class="check"><input type="checkbox" id="rlI"> umkehren</label>`;
+      <label class="check"><input type="checkbox" id="rlI"> umkehren (weiß = tief, schwarz = flach)</label>
+      <label class="check"><input type="checkbox" id="rlOps" checked> Fräsbahnen gleich anlegen (schruppen + schlichten)</label>
+      <p id="rlInfo" class="muted small"></p>`;
+    const heights = (maxPx) => {
+      const px = imagePixels(img, maxPx);
+      const f32 = FS.relief.heightsFromRGBA(px.data, px.w, px.h, Math.round(val('rlS')) * (maxPx > 200 ? 1 : 0.5) | 0);
+      const gm = val('rlG') || 1, inv = $('#rlI').checked;
+      for (let i = 0; i < f32.length; i++) { let v = Math.pow(Math.max(0, Math.min(1, f32[i])), gm); if (inv) v = 1 - v; f32[i] = v; }
+      return { nx: px.w, ny: px.h, f32 };
+    };
+    let tmr = 0;
     const prev = () => {
-      const c = $('#rlPrev'), x = c.getContext('2d');
+      const c = $('#rlPrev');
+      if (!c) return;
+      const x = c.getContext('2d');
       x.filter = $('#rlI').checked ? 'invert(1)' : 'none';
       x.drawImage(img, 0, 0, c.width, c.height);
+      clearTimeout(tmr);
+      tmr = setTimeout(() => {
+        if (!relView || !$('#rl3d')) return;
+        const hm = heights(160), depth = Math.max(0.1, val('rlD')), w = Math.max(1, val('rlW'));
+        const cell = w / (hm.nx - 1);
+        const h = new Float32Array(hm.nx * hm.ny);
+        for (let j = 0; j < hm.ny; j++) for (let i = 0; i < hm.nx; i++) h[(hm.ny - 1 - j) * hm.nx + i] = -depth * (1 - hm.f32[j * hm.nx + i]);
+        relView.setStock({ w: (hm.nx - 1) * cell, h: (hm.ny - 1) * cell, t: depth + Math.max(2, depth * 0.4) }, material().color);
+        relView.setHeights({ nx: hm.nx, ny: hm.ny, cell, h });
+        if (!relView.placed) { relView.preset('iso'); relView.cam.dist *= 0.75; relView.placed = true; }
+      }, 120);
+      $('#rlInfo').textContent = `Relief ${fmt(val('rlW'))} × ${fmt(val('rlH'))} mm, ${fmt(val('rlD'))} mm tief${val('rlD') > st.t ? ' – tiefer als das Material!' : ''}`;
     };
-    const r = await modal('3D-Relief aus Bild', html, [{ label: 'Abbrechen', value: null }, { label: 'Erstellen', primary: true, value: 'ok' }], { onOpen: (b) => { b.addEventListener('input', prev); prev(); } });
+    const r = await modal('3D-Relief aus Bild', html, [{ label: 'Abbrechen', value: null }, { label: 'Erstellen', primary: true, value: 'ok' }], {
+      wide: true,
+      onOpen: (body) => {
+        if (!relCanvas) { relCanvas = document.createElement('canvas'); relCanvas.id = 'relPrev3d'; }
+        $('#rl3d', body).appendChild(relCanvas);
+        if (!relView) { try { relView = new FS.View3D(relCanvas); } catch (e) { $('#rl3d', body).innerHTML = '<p class="muted small">3D-Vorschau nicht verfügbar (WebGL2).</p>'; } }
+        if (relView) relView.placed = false;
+        body.addEventListener('input', (e) => {
+          if (e.target.id === 'rlW') $('#rlH').value = (val('rlW') * asp).toFixed(1);
+          if (e.target.id === 'rlH') $('#rlW').value = (val('rlH') / asp).toFixed(1);
+          prev();
+        });
+        prev();
+      },
+    });
     if (r !== 'ok') return;
-    const px = imagePixels(img, +$('#rlR').value);
-    const hf = FS.relief.heightsFromRGBA(px.data, px.w, px.h, Math.round(val('rlS')));
-    const w = Math.max(1, val('rlW'));
-    const o = FS.relief.makeRelief(f.name.replace(/\.[^.]+$/, ''), px.w, px.h, hf, w, (w * px.h) / px.w, Math.max(0.1, val('rlD')));
-    o.invert = $('#rlI').checked;
+    const hm = heights(+$('#rlR').value);
+    const w = Math.max(1, val('rlW')), depth = Math.max(0.1, val('rlD'));
+    const o = FS.relief.makeRelief(f.name.replace(/\.[^.]+$/, ''), hm.nx, hm.ny, hm.f32, w, (w * hm.ny) / hm.nx, depth);
     assets.set(o.hm.id, o.hm);
-    o.tf = M.translate(S.doc.stock.w / 2, S.doc.stock.h / 2);
-    addObjects([o]);
+    o.tf = M.translate(st.w / 2, st.h / 2);
+    snapshot();
+    S.doc.objects.push(o);
+    S.sel = [o.id];
+    if ($('#rlOps') ? $('#rlOps').checked : true) {
+      const r1 = CAM.makeOp('relief_rough', [o.id], defaultTool('relief_rough'));
+      const r2 = CAM.makeOp('relief_finish', [o.id], defaultTool('relief_finish'));
+      r1.name = o.name + ' schruppen'; r2.name = o.name + ' schlichten';
+      S.doc.ops.push(r1, r2);
+      S.selOp = r2.id;
+    }
+    changed();
     setMode('design');
-    status('Relief erstellt. Weiter mit Fräsbahnen → 3D schruppen und 3D schlichten.');
+    status(depth > st.t ? 'Achtung: Relief ist tiefer als das Material.' : 'Relief erstellt. Taste 3 zeigt das Ergebnis in der 3D-Vorschau.', depth > st.t);
   }
 
-  async function importStl() {
-    const f = await pickFile('.stl', 'buffer');
+  async function importStl(given) {
+    const f = given || (await pickFile('.stl', 'buffer'));
     if (!f) return;
     let ras;
     try { ras = FS.importers.rasterSTL(FS.importers.parseSTL(f.data), 600); } catch (e) { modal('Fehler', `<p>${esc(e.message)}</p>`); return; }
@@ -1981,6 +2066,166 @@
     }
   }
 
+  // ---------------------------------------------------------------- Kamera (Webcam über der Fräse)
+  function camVideo() {
+    if (!cam.video) { cam.video = document.createElement('video'); cam.video.muted = true; cam.video.playsInline = true; }
+    return cam.video;
+  }
+  async function camStart(deviceId) {
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error('Dieser Browser erlaubt keinen Kamerazugriff. Bitte Chrome oder Edge verwenden.');
+    camStop();
+    const c = { width: { ideal: 1920 }, height: { ideal: 1080 } };
+    if (deviceId) c.deviceId = { ideal: deviceId };
+    cam.stream = await navigator.mediaDevices.getUserMedia({ video: c, audio: false });
+    const v = camVideo();
+    v.srcObject = cam.stream;
+    await v.play();
+    const tr = cam.stream.getVideoTracks()[0];
+    const set = tr && tr.getSettings ? tr.getSettings() : {};
+    if (set.deviceId) cam.cal.deviceId = set.deviceId;
+  }
+  function camStop() { if (cam.stream) cam.stream.getTracks().forEach((t) => t.stop()); cam.stream = null; }
+  function camFrame() {
+    const v = cam.video;
+    if (!v || !v.videoWidth) return null;
+    const k = Math.min(1, 1280 / v.videoWidth);
+    const w = Math.round(v.videoWidth * k), h = Math.round(v.videoHeight * k);
+    if (!cam.fc) cam.fc = document.createElement('canvas');
+    cam.fc.width = w; cam.fc.height = h;
+    const x = cam.fc.getContext('2d', { willReadFrequently: true });
+    x.drawImage(v, 0, 0, w, h);
+    return { data: x.getImageData(0, 0, w, h).data, w, h };
+  }
+  const camAspect = () => (cam.video && cam.video.videoWidth ? cam.video.videoWidth / cam.video.videoHeight : 16 / 9);
+  const camPts = (raw, k1) => raw.map((p) => FS.camera.undistort(p, k1, camAspect()));
+  function camUpdate() {
+    if (!cam.on || !cam.cal.raw || cam.cal.raw.length < 4) return;
+    const fr = camFrame();
+    if (!fr) return;
+    const st = S.doc.stock;
+    const res = Math.min(3, 900 / Math.max(st.w, st.h));
+    const w = FS.camera.warp(fr, camPts(cam.cal.raw, cam.cal.k1), st, res, cam.cal.k1);
+    if (!cam.img) cam.img = document.createElement('canvas');
+    cam.img.width = w.w; cam.img.height = w.h;
+    cam.img.getContext('2d').putImageData(new ImageData(w.data, w.w, w.h), 0, 0);
+    redraw();
+  }
+  function camLoop() {
+    clearInterval(cam.timer);
+    cam.timer = null;
+    if (cam.on && cam.cal.live) cam.timer = setInterval(() => { if (S.mode !== 'sim' && $('#modal').classList.contains('hidden')) camUpdate(); }, 500);
+  }
+  async function camShow(on) {
+    if (on && (!cam.cal.raw || cam.cal.raw.length < 4)) { cameraDialog(); return; }
+    cam.on = on;
+    $('#camBar').classList.toggle('hidden', !on || S.mode === 'sim');
+    if (on) {
+      if (!cam.stream) {
+        try { await camStart(cam.cal.deviceId); } catch (e) { cam.on = false; $('#camBar').classList.add('hidden'); modal('Kamera nicht verfügbar', `<p>${esc(e.message)}</p>`); return; }
+      }
+      $('#camOpacity').value = Math.round(cam.cal.opacity * 100);
+      $('#camLive').checked = cam.cal.live;
+      setTimeout(camUpdate, 400);
+      camLoop();
+    } else { clearInterval(cam.timer); camStop(); cam.img = null; redraw(); }
+  }
+  $('#camOpacity').addEventListener('input', (e) => { cam.cal.opacity = e.target.value / 100; store.set('fs.cam', cam.cal); redraw(); });
+  $('#camLive').addEventListener('change', (e) => { cam.cal.live = e.target.checked; store.set('fs.cam', cam.cal); camLoop(); camUpdate(); });
+
+  async function cameraDialog() {
+    try { await camStart(cam.cal.deviceId); } catch (e) {
+      modal('Kamera nicht verfügbar', `<p>${esc(e.message)}</p><p>Tipps: USB-Webcam anschließen, im Browser den Kamerazugriff erlauben (Schloss-Symbol links neben der Adresse) und andere Programme schließen, die die Kamera benutzen.</p>`);
+      return;
+    }
+    let devices = [];
+    try { devices = (await navigator.mediaDevices.enumerateDevices()).filter((d) => d.kind === 'videoinput'); } catch (e) { /* ohne Liste */ }
+    const st = S.doc.stock;
+    const names = ['links unten', 'rechts unten', 'rechts oben', 'links oben'];
+    let raw = cam.cal.raw ? cam.cal.raw.map((p) => ({ ...p })) : [];
+    let k1 = cam.cal.k1 || 0, open = true, dragI = -1;
+    const html = `${devices.length > 1 ? field('Kamera', `<select id="cmDev">${devices.map((d, i) => `<option value="${esc(d.deviceId)}" ${d.deviceId === cam.cal.deviceId ? 'selected' : ''}>${esc(d.label || 'Kamera ' + (i + 1))}</option>`).join('')}</select>`) : ''}
+      <div class="camstep" id="cmStep"></div>
+      <div class="camwrap" id="cmWrap"><canvas id="cmOver"></canvas></div>
+      <div class="grid2">${field('Linsenkorrektur', `<input id="cmK" type="range" min="-0.4" max="0.4" step="0.01" value="${k1}">`)}${field('Deckkraft', `<input id="cmO" type="range" min="10" max="100" value="${Math.round(cam.cal.opacity * 100)}">`)}</div>
+      <div class="row"><button id="cmReset">Ecken neu anklicken</button></div>
+      <p class="muted small">Webcam fest über der Fräse montieren. Werkstück einspannen und im Bild seine 4 Ecken in der angezeigten Reihenfolge anklicken (Punkte lassen sich nachträglich ziehen).
+      Das Raster (alle 50 mm) muss auf dem Werkstück liegen – sind die Kanten gebogen, die Linsenkorrektur verstellen. Maße aus „Werkstück einrichten“: ${fmt(st.w)} × ${fmt(st.h)} mm.</p>`;
+    const toCanvas = (p, c) => ({ x: p.x * c.width, y: p.y * c.height });
+    const overlay = () => {
+      const c = $('#cmOver');
+      if (!open || !c) return;
+      const dpr = window.devicePixelRatio || 1;
+      if (c.width !== Math.round(c.clientWidth * dpr)) { c.width = Math.round(c.clientWidth * dpr); c.height = Math.round(c.clientHeight * dpr); }
+      const x = c.getContext('2d');
+      x.clearRect(0, 0, c.width, c.height);
+      if (raw.length === 4) {
+        const H = FS.camera.homography([{ x: 0, y: 0 }, { x: st.w, y: 0 }, { x: st.w, y: st.h }, { x: 0, y: st.h }], camPts(raw, k1));
+        const P = (mx, my) => { const q = FS.camera.applyH(H, { x: mx, y: my }); const d = FS.camera.distort(q.x, q.y, k1, camAspect()); return toCanvas(d, c); };
+        x.strokeStyle = 'rgba(80,200,255,.85)'; x.lineWidth = 1.5 * dpr;
+        const line = (a, b, n = 40) => { x.beginPath(); for (let i = 0; i <= n; i++) { const t = i / n, p = P(a.x + (b.x - a.x) * t, a.y + (b.y - a.y) * t); i ? x.lineTo(p.x, p.y) : x.moveTo(p.x, p.y); } x.stroke(); };
+        for (let gx = 0; gx <= st.w + 1e-6; gx += 50) line({ x: gx, y: 0 }, { x: gx, y: st.h });
+        for (let gy = 0; gy <= st.h + 1e-6; gy += 50) line({ x: 0, y: gy }, { x: st.w, y: gy });
+        x.strokeStyle = '#ffd43b'; x.lineWidth = 2.5 * dpr;
+        line({ x: 0, y: 0 }, { x: st.w, y: 0 }); line({ x: st.w, y: 0 }, { x: st.w, y: st.h }); line({ x: st.w, y: st.h }, { x: 0, y: st.h }); line({ x: 0, y: st.h }, { x: 0, y: 0 });
+      }
+      raw.forEach((p, i) => {
+        const q = toCanvas(p, c);
+        x.fillStyle = '#e8590c'; x.strokeStyle = '#fff'; x.lineWidth = 2 * dpr;
+        x.beginPath(); x.arc(q.x, q.y, 7 * dpr, 0, Math.PI * 2); x.fill(); x.stroke();
+        x.fillStyle = '#fff'; x.font = `bold ${12 * dpr}px system-ui`; x.fillText(String(i + 1), q.x + 10 * dpr, q.y - 8 * dpr);
+      });
+      $('#cmStep').textContent = raw.length < 4 ? `Klicke die Ecke ${raw.length + 1} von 4 an: ${names[raw.length]} (vom Werkstück aus gesehen, X nach rechts, Y nach hinten)` : 'Fertig ausgerichtet – Punkte bei Bedarf verschieben.';
+      requestAnimationFrame(overlay);
+    };
+    const r = await modal('Kamera von oben', html, [{ label: 'Abbrechen', value: null }, { label: 'Übernehmen und einblenden', primary: true, value: 'ok' }], {
+      wide: true, noFocus: true,
+      onOpen: (body) => {
+        const wrap = $('#cmWrap', body), c = $('#cmOver', body);
+        wrap.insertBefore(camVideo(), c);
+        const pos = (e) => { const r2 = c.getBoundingClientRect(); return { x: (e.clientX - r2.left) / r2.width, y: (e.clientY - r2.top) / r2.height }; };
+        c.addEventListener('pointerdown', (e) => {
+          const p = pos(e), r2 = c.getBoundingClientRect();
+          dragI = raw.findIndex((q) => Math.hypot((q.x - p.x) * r2.width, (q.y - p.y) * r2.height) < 14);
+          if (dragI < 0 && raw.length < 4) raw.push(p);
+          if (dragI >= 0) c.setPointerCapture(e.pointerId);
+        });
+        c.addEventListener('pointermove', (e) => { if (dragI >= 0) raw[dragI] = pos(e); });
+        c.addEventListener('pointerup', () => { dragI = -1; });
+        $('#cmReset', body).onclick = () => { raw = []; };
+        $('#cmK', body).oninput = (e) => { k1 = +e.target.value; };
+        const dev = $('#cmDev', body);
+        if (dev) dev.onchange = async () => { try { await camStart(dev.value); } catch (e) { status(e.message, true); } };
+        overlay();
+      },
+    });
+    open = false;
+    if (r !== 'ok' || raw.length < 4) { if (!cam.on) camStop(); if (r === 'ok') status('Bitte alle 4 Ecken anklicken.', true); return; }
+    cam.cal.raw = raw; cam.cal.k1 = k1; cam.cal.opacity = val('cmO') / 100 || cam.cal.opacity;
+    store.set('fs.cam', cam.cal);
+    cam.on = false;
+    camShow(true);
+  }
+  cmds.camera = cameraDialog;
+  cmds.toggleCam = () => camShow(!cam.on);
+
+  // Dateien auf das Fenster ziehen
+  {
+    const stage = $('#stage');
+    let depth = 0;
+    const hasFiles = (e) => e.dataTransfer && [...e.dataTransfer.types].includes('Files');
+    stage.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; e.preventDefault(); depth++; $('#dropHint').classList.remove('hidden'); });
+    stage.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
+    stage.addEventListener('dragleave', () => { if (--depth <= 0) { depth = 0; $('#dropHint').classList.add('hidden'); } });
+    stage.addEventListener('drop', (e) => {
+      if (!hasFiles(e)) return;
+      e.preventDefault();
+      depth = 0;
+      $('#dropHint').classList.add('hidden');
+      const file = e.dataTransfer.files[0];
+      if (file) openDropped(file);
+    });
+  }
+
   // ---------------------------------------------------------------- Modi
   function setMode(m) {
     if (S.mode === m) { renderSide(); return; }
@@ -1993,6 +2238,7 @@
     $('#cv').classList.toggle('hidden', m === 'sim');
     $('#cv3d').classList.toggle('hidden', m !== 'sim');
     $('#viewBtns').classList.toggle('hidden', m === 'sim');
+    $('#camBar').classList.toggle('hidden', !cam.on || m === 'sim');
     S.simPlaying = false;
     if (m === 'design') hint(TOOL_HINTS[S.tool]);
     if (m === 'cam') { hint('Objekte anklicken (Umschalt = mehrere) und rechts eine Bearbeitung wählen.'); if (!S.selOp && S.doc.ops.length) S.selOp = S.doc.ops[0].id; computeAll(); }
@@ -2051,6 +2297,7 @@
     if (k === 'Backspace' && S.draw && S.draw.kind === 'line') { e.preventDefault(); S.draw.nodes.pop(); if (!S.draw.nodes.length) S.draw = null; redraw(); return; }
     if (k === 'Delete' || k === 'Backspace') { e.preventDefault(); cmds.delete(); return; }
     if (k === 'f' || k === 'F') { fit(); return; }
+    if (k === 'c' || k === 'C') { cmds.toggleCam(); return; }
     if (k === '+') { cmds.zoomIn(); return; }
     if (k === '-') { cmds.zoomOut(); return; }
     if (S.mode !== 'design') return;
@@ -2085,7 +2332,8 @@
         <tr><td>Umschalt beim Aufziehen</td><td>Quadrat / Kreis · beim Drehen 15°-Schritte · bei Eckgriffen freies Skalieren</td></tr>
         <tr><td>Pfeiltasten</td><td>Verschieben 1 mm (Umschalt 10 mm, Alt 0,1 mm) · im Fräsen-Schritt: Maschine verfahren</td></tr>
         <tr><td>Mausrad · mittlere Taste · Leertaste</td><td>Zoomen · Ansicht verschieben</td></tr>
-        <tr><td>F · G</td><td>Alles zeigen · Raster fangen ein/aus</td></tr>
+        <tr><td>F · G · C</td><td>Alles zeigen · Raster fangen ein/aus · Kamerabild ein/aus</td></tr>
+        <tr><td>Datei aufs Fenster ziehen</td><td>Bild (→ 3D-Relief oder Umriss), SVG, DXF, STL, G-Code, Projekt</td></tr>
         <tr><td>1 2 3 4</td><td>Arbeitsschritt wechseln</td></tr>
         <tr><td>Strg+Z/Y/C/V/D/A</td><td>Rückgängig, Wiederholen, Kopieren, Einfügen, Duplizieren, Alles</td></tr>
         <tr><td>Strg+S/O/E/I</td><td>Speichern, Öffnen, G-Code speichern, Importieren</td></tr>

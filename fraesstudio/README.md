@@ -42,6 +42,24 @@ Punkte bearbeiten, Raster- und Objektfang, Verschieben/Skalieren/Drehen mit Grif
 **Maschine:** Web Serial (115200 Baud), Statusanzeige, Positionsanzeige, Verfahren per Knopf und Tastatur (Pfeile, Bild↑/↓), Nullpunkt setzen, Z antasten mit Messplatte, Referenzfahrt, Entsperren, Spindel, Vorschub- und Drehzahl-Override, Konsole.
 Beim Werkzeugwechsel hält FräsStudio an, die Maschine bleibt bedienbar (verfahren, neu antasten), dann geht es mit „Weiter fräsen“ weiter.
 
+## Schwarz-Weiß-Bild → 3D (wie in LightBurn)
+
+Knopf **„Bild → 3D“** links, *Datei → 3D-Relief aus Bild* oder einfach ein Bild auf das Fenster ziehen.
+**Schwarz wird am tiefsten gefräst, Grautöne liegen dazwischen, Weiß bleibt flach auf der Oberfläche.** Durchsichtige Bereiche zählen als weiß.
+Im Dialog: Breite/Höhe, Tiefe (für Schwarz), Regler für die Grautöne (höher/tiefer), Glätten, Umkehren – mit 3D-Vorschau.
+Auf Wunsch werden die Fräsbahnen gleich angelegt (Schaftfräser schruppen, Kugelfräser schlichten).
+
+## Kamera von oben
+
+Eine USB-Webcam fest über der Fräse montieren. Knopf **„Kamera“** → im Livebild die 4 Ecken des eingespannten Werkstücks anklicken
+(links unten, rechts unten, rechts oben, links oben). Das Bild wird entzerrt und liegt danach unter der Zeichnung – so lassen sich Motive genau auf das echte Material
+(Maserung, vorhandene Bohrungen, ein schon bearbeitetes Teil) setzen. Live-Bild oder Standbild, Deckkraft und Linsenkorrektur einstellbar, Taste **C** blendet ein/aus.
+Die Einstellung bleibt gespeichert; nach dem Wechsel des Werkstücks die Ecken neu anklicken.
+
+## Ziehen und Ablegen
+
+Bilder, SVG, DXF, STL, G-Code und Projekte können direkt auf die Zeichenfläche gezogen werden.
+
 ## Tastatur
 
 | Taste | Wirkung |
@@ -51,7 +69,7 @@ Beim Werkzeugwechsel hält FräsStudio an, die Maschine bleibt bedienbar (verfah
 | Leertaste | (Umformen) Punkt Ecke ↔ Kurve; sonst gedrückt halten = Ansicht verschieben |
 | Pfeiltasten | Objekte verschieben (Umschalt 10 mm, Alt 0,1 mm); im Schritt 4: Maschine verfahren |
 | 1 2 3 4 | Arbeitsschritt wechseln |
-| F, G | Alles zeigen, Raster fangen |
+| F, G, C | Alles zeigen, Raster fangen, Kamerabild ein/aus |
 | Strg+Z / Y / C / V / D / A / S / O / E / I | Rückgängig, Wiederholen, Kopieren, Einfügen, Duplizieren, Alles, Speichern, Öffnen, G-Code, Import |
 
 ## Erste Schritte mit der TTC450
@@ -88,6 +106,7 @@ Schriften: SIL Open Font License (`js/lib/LIZENZEN.txt`). 3D-Darstellung mit Web
 | `js/cam.js` | Fräsbahnen |
 | `js/gcode.js` | G-Code schreiben und lesen |
 | `js/sim.js`, `js/view3d.js` | Abtrag-Simulation und 3D-Ansicht |
+| `js/camera.js` | Kamerabild entzerren |
 | `js/machine.js` | GRBL-Steuerung über USB |
 | `js/app.js` | Bedienoberfläche |
 

@@ -610,13 +610,25 @@
       let prevL = -(op.startDepth || 0);
       let chain = null, last = null;
       const X = (i) => G.x0 + i * G.cs, Y = (j) => G.y0 + j * G.cs;
+      // Obergrenze des stehenden Materials: Maximum der Bahnhöhen im Umkreis von 2 Werkzeugradien (getrennter Max-Filter)
+      const D = new Float32Array(G.comp), tmp = new Float32Array(D.length), kr = Math.ceil(tool.d / G.cs) + 1;
+      for (let j = 0; j < G.ny; j++) for (let i = 0; i < G.nx; i++) {
+        let m = -Infinity;
+        for (let d = Math.max(0, i - kr); d <= Math.min(G.nx - 1, i + kr); d++) m = Math.max(m, D[j * G.nx + d]);
+        tmp[j * G.nx + i] = m;
+      }
+      for (let j = 0; j < G.ny; j++) for (let i = 0; i < G.nx; i++) {
+        let m = -Infinity;
+        for (let d = Math.max(0, j - kr); d <= Math.min(G.ny - 1, j + kr); d++) m = Math.max(m, tmp[d * G.nx + i]);
+        D[j * G.nx + i] = m;
+      }
       // sichere Verbindungshöhe: knapp über dem Material, das nach der vorigen Ebene noch steht
       const linkZ = (i0, j0, i1, j1) => {
         const n = Math.max(Math.abs(i1 - i0), Math.abs(j1 - j0), 1);
         let h = prevL;
         for (let k = 0; k <= n; k++) {
           const ii = Math.round(i0 + ((i1 - i0) * k) / n), jj = Math.round(j0 + ((j1 - j0) * k) / n);
-          h = Math.max(h, Math.min(0, G.comp[jj * G.nx + ii] + allow));
+          h = Math.max(h, Math.min(0, D[jj * G.nx + ii] + allow));
         }
         return Math.min(h, 0) + 0.5;
       };

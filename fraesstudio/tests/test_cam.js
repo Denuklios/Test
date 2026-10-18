@@ -1,6 +1,6 @@
 // Prüft Fräsbahnen und G-Code. Aufruf: node tests/test_cam.js
 require('../js/core.js'); require('../js/fonts.js'); require('../js/ttf.js'); require('../js/shapes.js');
-require('../js/tools.js'); require('../js/importers.js'); require('../js/cam.js'); require('../js/gcode.js'); require('../js/sim.js');
+require('../js/tools.js'); require('../js/importers.js'); require('../js/cam.js'); require('../js/gcode.js'); require('../js/sim.js'); require('../js/camera.js');
 const FS = globalThis.FS, S = FS.shapes, G = FS.geo;
 let fails = 0;
 const ok = (c, m) => { console.log((c ? 'OK   ' : 'FEHL ') + m); if (!c) fails++; };
@@ -136,6 +136,26 @@ ok(r.chains.length > 0 && Math.min(...pts.map((p) => p.z)) >= -5 + 0.5 - 1e-6, `
   ok(gouge2 === 0 && med < 0.08 && sim.warnings.size === 0, `Relief schlichten: Abweichung Median ${med.toFixed(3)} mm, Rest nach Schruppen max ${maxRest.toFixed(2)} mm`);
 }
 
+// Relief mit Trichter und Verlauf (schwarz = tief): kein Eilgang durch stehendes Material
+{
+  const W = 300, H = 200, f = new Float32Array(W * H);
+  for (let y = 0; y < H; y++) for (let x = 0; x < W; x++) {
+    let v = 1;
+    const d = Math.hypot(x - 90, y - 100);
+    if (d < 70) v = d / 70;
+    if (x > 180 && x < 280 && y > 40 && y < 160) v = (x - 180) / 100;
+    f[y * W + x] = v;
+  }
+  const o = FS.relief.makeRelief('g', W, H, f, 240, 160, 5);
+  o.tf = FS.M.translate(150, 100);
+  const st = { ...stock, w: 300, h: 200, t: 18 };
+  const c3 = { objects: [o], tools, stock: st, machine };
+  const g = FS.gcode.build([FS.cam.compute(FS.cam.makeOp('relief_rough', [o.id], 't1'), c3)], c3);
+  const sim = FS.sim.create(st);
+  FS.sim.run(sim, g.moves, null, Infinity);
+  ok(sim.warnings.size === 0, 'Relief aus Graustufenbild: keine Eilgänge im Material');
+}
+
 // G-Code
 const res = [FS.cam.compute(FS.cam.makeOp('profile', [sq.id], 't1'), ctx), FS.cam.compute(FS.cam.makeOp('vcarve', [small.id], 't7'), ctx)];
 const gc = FS.gcode.build(res, { ...ctx, name: 'Test' });
@@ -173,6 +193,26 @@ const stl = new ArrayBuffer(84 + 50); const dv = new DataView(stl); dv.setUint32
 [0, 0, 0, 10, 0, 0, 0, 10, 5].forEach((v, k) => dv.setFloat32(84 + 12 + k * 4, v, true));
 const ras = FS.importers.rasterSTL(FS.importers.parseSTL(stl), 50);
 ok(ras.nx > 40 && near(ras.zr, 5), 'STL: Dreieck gerastert');
+
+// Kamera: Entzerrung
+{
+  const C = FS.camera;
+  const pts = [{ x: 0.2, y: 0.8 }, { x: 0.85, y: 0.75 }, { x: 0.8, y: 0.2 }, { x: 0.15, y: 0.25 }];
+  const H = C.homography([{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 50 }, { x: 0, y: 50 }], pts);
+  const q = C.applyH(H, { x: 100, y: 50 });
+  ok(near(q.x, 0.8, 1e-9) && near(q.y, 0.2, 1e-9), 'Kamera: Homographie trifft die Bezugspunkte');
+  // Kamerabild: linke Hälfte des Werkstücks schwarz, rechte weiß -> nach dem Entzerren wieder links/rechts
+  const sw = 200, sh = 200, data = new Uint8ClampedArray(sw * sh * 4);
+  const Hi = C.homography(pts, [{ x: 0, y: 0 }, { x: 100, y: 0 }, { x: 100, y: 50 }, { x: 0, y: 50 }]);
+  for (let j = 0; j < sh; j++) for (let i = 0; i < sw; i++) {
+    const m = C.applyH(Hi, { x: (i + 0.5) / sw, y: (j + 0.5) / sh });
+    const v = m.x < 50 ? 0 : 255;
+    data.set([v, v, v, 255], (j * sw + i) * 4);
+  }
+  const w = C.warp({ data, w: sw, h: sh }, pts, { w: 100, h: 50 }, 1);
+  const px = (x, y) => w.data[((50 - 1 - y) * w.w + x) * 4];
+  ok(w.w === 100 && px(10, 25) < 30 && px(90, 25) > 225 && px(30, 5) < 30 && px(70, 45) > 225, 'Kamera: Bild wird aufs Werkstück entzerrt');
+}
 
 if (fails) { console.log(`\n${fails} Fehler`); process.exit(1); }
 console.log('\nAlle Prüfungen bestanden.');
