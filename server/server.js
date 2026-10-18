@@ -816,7 +816,8 @@ const server = http.createServer((req, res) => {
 
 if (require.main === module) {
   ensureAdmin();
-  server.listen(PORT, () => console.log(`StickStudio läuft auf ${BASE_URL} (Port ${PORT}, Daten in ${DATA_DIR})`));
+  // HOST=127.0.0.1: nur über den Reverse Proxy auf demselben Rechner erreichbar (z. B. neben Nextcloud/Immich)
+  server.listen(PORT, ENV.HOST || undefined, () => console.log(`StickStudio läuft auf ${BASE_URL} (Port ${PORT}${ENV.HOST ? ', nur ' + ENV.HOST : ''}, Daten in ${DATA_DIR})`));
   // Protokoll aufräumen (Datenschutz) und Länderdaten aktuell halten
   const housekeeping = () => {
     try { db.prepare('DELETE FROM events WHERE at < ?').run(now() - EVENT_DAYS * DAY); db.prepare('DELETE FROM sessions WHERE expires < ?').run(now()); db.prepare('DELETE FROM tokens WHERE expires < ?').run(now()); } catch (e) { console.error(e); }
