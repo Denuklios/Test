@@ -31,6 +31,7 @@ function toast(msg, err) {
   clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add('hidden'), err ? 6000 : 2500);
 }
 function modal(html, onMount) {
+  $('.modal-box').classList.remove('wide');
   $('#modal-body').innerHTML = html;
   $('#modal').classList.remove('hidden');
   onMount && onMount($('#modal-body'));
@@ -91,13 +92,13 @@ routes[''] = () => {
   const per = Calc.periods(y, S.settings.vatPeriod).concat(Calc.periods(y - 1, S.settings.vatPeriod));
   const cur = per.find((p) => p.from <= today() && p.to >= today()) || per[0];
   const prev = per.filter((p) => p.to < today() && p.deadline >= today()).sort((a, b) => a.deadline.localeCompare(b.deadline))[0];
-  const vr = Calc.vatReport(S.invoices, S.expenses, cur.from, cur.to);
+  const vr = Calc.vatReport(S.invoices, S.expenses, cur.from, cur.to, S.incomes);
   const months = Array.from({ length: 12 }, (_, m) => inv.filter((i) => i.date.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`))
     .reduce((s, i) => s + Calc.sign(i) * Calc.toDKK(Calc.totals(i).net, i), 0));
   const mx = Math.max(1, ...months);
   const setup = !S.settings.company || !S.settings.cvr;
   $('#main').innerHTML = `
-    <h1>Übersicht <span class="spacer"></span><button class="primary" id="new-inv">+ Neue Rechnung</button></h1>
+    <h1>Übersicht <span class="spacer"></span><a class="btn" href="#/belege">📷 Beleg fotografieren</a><button class="primary" id="new-inv">+ Neue Rechnung</button></h1>
     ${setup ? `<div class="note warn">Willkommen! Bitte zuerst unter <a href="#/einstellungen">Einstellungen</a> deine Firmendaten (Name, CVR-Nr., Lunar-Konto) eintragen.</div>` : ''}
     <div class="cards">
       <div class="card stat"><div class="k">Offene Rechnungen</div><div class="v">${kr(openAmt)}</div><div class="s">${open.length} Rechnung(en)</div></div>
@@ -105,6 +106,8 @@ routes[''] = () => {
       <div class="card stat"><div class="k">Umsatz ${y} (netto)</div><div class="v">${kr(yearNet)}</div><div class="s">ohne Moms</div></div>
       <div class="card stat"><div class="k">Moms ${esc(cur.label)}</div><div class="v">${kr(vr.momstilsvar)}</div><div class="s">bisher · Frist ${dmy(cur.deadline)}</div></div>
     </div>
+    ${S.receipts.some((r) => r.status === 'review' || r.status === 'error') ? `<div class="note warn">📷 ${S.receipts.filter((r) => r.status === 'review' || r.status === 'error').length} Beleg(e) warten auf deine Prüfung. <a href="#/belege">Zu den Belegen →</a></div>` : ''}
+    ${S.expenses.some((e) => e.paid === false) ? `<div class="note">Offene Lieferantenrechnungen: <b>${kr(S.expenses.filter((e) => e.paid === false).reduce((s, e) => s + Calc.toCents(e.amount), 0))}</b>${S.expenses.some((e) => e.paid === false && e.dueDate && e.dueDate < today()) ? ' – <span style="color:var(--bad)">davon welche überfällig</span>' : ''}. <a href="#/ausgaben">Ansehen →</a></div>` : ''}
     ${prev ? `<div class="note warn">Die Momsangivelse für <b>${esc(prev.label)}</b> muss bis <b>${dmy(prev.deadline)}</b> bei SKAT eingereicht werden. <a href="#/moms">Zur Momsabrechnung →</a></div>` : ''}
     <div class="card"><b>Umsatz ${y} je Monat (netto, DKK)</b>
       <div class="bars" style="margin-bottom:22px">${months.map((v, i) => `<div style="height:${(v / mx) * 100}%" title="${kr(v)}"><span>${'JFMAMJJASOND'[i]}</span></div>`).join('')}</div></div>
@@ -500,46 +503,247 @@ routes.produkte = () => {
   $$('[data-p]').forEach((tr) => (tr.onclick = () => form(S.products.find((p) => p.id === tr.dataset.p))));
 };
 
-/* ---------- Ausgaben (Købsmoms) ---------- */
+/* ---------- Ausgaben (Købsmoms) und sonstige Einnahmen ---------- */
 const CATS = ['Material/Waren', 'Werkzeug/Maschinen', 'Büro', 'Software/Abos', 'Telefon/Internet', 'Fahrzeug/Benzin', 'Miete', 'Strom/Wasser/Heizung', 'Werbung', 'Versand', 'Bankgebühren', 'Versicherung', 'Bewirtung (25 % abziehbar)', 'Diverse'];
+const INCOME_CATS = ['Verkauf/Leistung', 'Barverkauf', 'Plattform-Auszahlung', 'Sonstige Einnahme'];
+const isPaid = (x) => x.paid !== false; // ältere Einträge ohne Angabe gelten als bezahlt
+const clip = (x) => (x.receiptId ? ` <a href="/beleg/${x.receiptId}" target="_blank" title="Beleg ansehen" onclick="event.stopPropagation()">📎</a>` : '');
+const openBadge = (x) => (isPaid(x) ? '' : ` <span class="badge ${x.dueDate && x.dueDate < today() ? 'b-over' : 'b-open'}">offen${x.dueDate ? ' bis ' + dmy(x.dueDate) : ''}</span>`);
+let moneyTab = 'expenses';
 routes.ausgaben = () => {
-  const list = S.expenses.slice().sort((a, b) => b.date.localeCompare(a.date));
-  $('#main').innerHTML = `<h1>Ausgaben (Belege) <span class="spacer"></span><button class="primary" id="add">+ Neue Ausgabe</button></h1>
-    <div class="note">Hier trägst du Einkäufe ein. Die enthaltene Moms wird automatisch als <b>Købsmoms</b> von deiner Moms-Zahllast abgezogen. Einkäufe ohne Moms aus anderen EU-Ländern (z. B. Material aus Deutschland mit Reverse Charge) als „EU-Einkauf“ markieren – dann wird die Erwerbsmoms richtig in Rubrik A berechnet.</div>
-    ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Datum</th><th>Lieferant</th><th>Text</th><th>Kategorie</th><th class="r">Betrag</th><th class="r">Moms</th></tr></thead><tbody>
-    ${list.map((e) => `<tr class="click" data-e="${e.id}"><td>${dmy(e.date)}</td><td>${esc(e.supplier)}</td><td>${esc(e.text)}</td><td>${esc(e.category)}${e.euPurchase ? ' <span class="badge b-open">EU-Einkauf</span>' : ''}</td>
-      <td class="r">${kr(Calc.toCents(e.amount))}</td><td class="r">${e.euPurchase ? '<span class="muted">Rubrik A</span>' : kr(Calc.toCents(e.vat))}</td></tr>`).join('')}</tbody></table></div>` : '<div class="card empty">Noch keine Ausgaben.</div>'}`;
-  $('#add').onclick = () => expenseForm();
+  const exp = S.expenses.slice().sort((a, b) => b.date.localeCompare(a.date));
+  const inc = S.incomes.slice().sort((a, b) => b.date.localeCompare(a.date));
+  const unpaid = S.expenses.filter((e) => !isPaid(e));
+  $('#main').innerHTML = `<h1>Ausgaben &amp; Einnahmen <span class="spacer"></span><a class="btn" href="#/belege">📷 Beleg fotografieren</a><button class="primary" id="add">+ ${moneyTab === 'expenses' ? 'Neue Ausgabe' : 'Neue Einnahme'}</button></h1>
+    <div class="tabs"><button data-t="expenses" class="${moneyTab === 'expenses' ? 'on' : ''}">Ausgaben (${exp.length})</button><button data-t="incomes" class="${moneyTab === 'incomes' ? 'on' : ''}">Sonstige Einnahmen (${inc.length})</button></div>
+    ${moneyTab === 'expenses' ? `
+    <div class="note">Die Moms in deinen Ausgaben wird automatisch als <b>Købsmoms</b> von der Zahllast abgezogen. Einkäufe ohne Moms aus anderen EU-Ländern als „EU-Einkauf“ markieren, dann wird die Erwerbsmoms in Rubrik A richtig berechnet.
+      ${unpaid.length ? `<br><b>Offene Lieferantenrechnungen: ${kr(unpaid.reduce((s, e) => s + Calc.toCents(e.amount), 0))}</b> (${unpaid.length})` : ''}</div>
+    ${exp.length ? `<div class="table-wrap"><table><thead><tr><th>Datum</th><th>Lieferant</th><th>Text</th><th>Kategorie</th><th class="r">Betrag</th><th class="r">Moms</th></tr></thead><tbody>
+    ${exp.map((e) => `<tr class="click" data-e="${e.id}"><td>${dmy(e.date)}</td><td>${esc(e.supplier)}${clip(e)}</td><td>${esc(e.text)}${openBadge(e)}</td><td>${esc(e.category)}${e.euPurchase ? ' <span class="badge b-open">EU-Einkauf</span>' : ''}</td>
+      <td class="r">${kr(Calc.toCents(e.amount))}</td><td class="r">${e.euPurchase ? '<span class="muted">Rubrik A</span>' : kr(Calc.toCents(e.vat))}</td></tr>`).join('')}</tbody></table></div>` : '<div class="card empty">Noch keine Ausgaben. Am einfachsten: Beleg fotografieren.</div>'}`
+    : `<div class="note">Einnahmen ohne eigene Rechnung, z. B. Barverkäufe oder Auszahlungen von Plattformen. Die enthaltene Moms zählt als Salgsmoms. Für Kunden schreibst du besser eine richtige Rechnung.</div>
+    ${inc.length ? `<div class="table-wrap"><table><thead><tr><th>Datum</th><th>Von</th><th>Text</th><th>Kategorie</th><th class="r">Betrag</th><th class="r">Moms</th></tr></thead><tbody>
+    ${inc.map((e) => `<tr class="click" data-i="${e.id}"><td>${dmy(e.date)}</td><td>${esc(e.name)}${clip(e)}</td><td>${esc(e.text)}${openBadge(e)}</td><td>${esc(e.category)}</td>
+      <td class="r">${kr(Calc.toCents(e.amount))}</td><td class="r">${kr(Calc.toCents(e.vat))}</td></tr>`).join('')}</tbody></table></div>` : '<div class="card empty">Noch keine sonstigen Einnahmen.</div>'}`}`;
+  $$('[data-t]').forEach((b) => (b.onclick = () => { moneyTab = b.dataset.t; routes.ausgaben(); }));
+  $('#add').onclick = () => (moneyTab === 'expenses' ? expenseForm() : incomeForm());
   $$('[data-e]').forEach((tr) => (tr.onclick = () => expenseForm(S.expenses.find((e) => e.id === tr.dataset.e))));
+  $$('[data-i]').forEach((tr) => (tr.onclick = () => incomeForm(S.incomes.find((e) => e.id === tr.dataset.i))));
 };
+const numIn = (v) => Number(String(v).replace(/\s/g, '').replace(/\.(?=\d{3}(\D|$))/g, '').replace(',', '.')) || 0;
+// Beleg ansehen bzw. nachträglich anhängen (Bogføringsloven: zu jeder Buchung gehört ein Beleg)
+function receiptRow(item, kind) {
+  if (!item) return '';
+  return `<div class="wide row small">${item.receiptId ? `<a class="btn" href="/beleg/${item.receiptId}" target="_blank">📎 Beleg ansehen</a>`
+    : `<label class="btn">📎 Beleg anhängen<input type="file" accept="image/*,application/pdf" hidden data-attach="${kind}"></label><span class="muted">Zu jeder Buchung gehört ein Beleg.</span>`}
+    ${item.bankId ? '<span class="muted">✔ mit Lunar-Buchung verknüpft</span>' : ''}</div>`;
+}
+function bindAttach(el, item, done) {
+  const inp = $('[data-attach]', el);
+  if (!inp) return;
+  inp.onchange = async () => {
+    const f = inp.files[0]; if (!f) return;
+    try { const up = await fileToUpload(f); await act(() => api('receipts', 'POST', { ...up, attachTo: { kind: inp.dataset.attach, id: item.id } }), 'Beleg angehängt'); closeModal(); done(); }
+    catch (e) { toast(e.message, true); }
+  };
+}
 function expenseForm(e) {
-  const d = e || { date: today(), category: 'Diverse', euPurchase: '', deductible: true };
+  const d = e || { date: today(), category: 'Diverse', euPurchase: '', deductible: true, paid: true };
   modal(`<h2>${e ? 'Ausgabe bearbeiten' : 'Neue Ausgabe'}</h2><div class="grid">
     <label>Datum<input type="date" name="date" value="${d.date}"></label>
     <label>Lieferant<input name="supplier" value="${esc(d.supplier || '')}"></label>
     <label class="wide">Text<input name="text" value="${esc(d.text || '')}"></label>
     <label>Kategorie<select name="category">${CATS.map((c) => `<option ${c === d.category ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
     <label>Art<select name="euPurchase"><option value="">Normal (Dänemark, mit Moms)</option><option value="goods" ${d.euPurchase === 'goods' ? 'selected' : ''}>EU-Einkauf Waren ohne Moms</option><option value="services" ${d.euPurchase === 'services' ? 'selected' : ''}>EU-/Ausland-Einkauf Dienstleistung ohne Moms</option></select></label>
-    <label><span id="amt-l">Betrag inkl. Moms (DKK)</span><input name="amount" value="${esc(num(d.amount || ''))}"></label>
-    <label class="vat-l">Darin enthaltene Moms (DKK)<div class="inline"><input name="vat" value="${esc(num(d.vat || ''))}"><button type="button" id="v25" title="20 % vom Bruttobetrag = 25 % Moms">25 %</button></div></label>
-    <label class="wide"><input type="checkbox" name="deductible" ${d.deductible !== false ? 'checked' : ''}> Moms ist abziehbar (Købsmoms)</label></div>
+    <label><span id="amt-l">Betrag inkl. Moms (DKK)</span><input name="amount" inputmode="decimal" value="${esc(num(d.amount || ''))}"></label>
+    <label class="vat-l">Darin enthaltene Moms (DKK)<div class="inline"><input name="vat" inputmode="decimal" value="${esc(num(d.vat || ''))}"><button type="button" id="v25" title="20 % vom Bruttobetrag = 25 % Moms">25 %</button></div></label>
+    <label>Rechnungs-/Belegnummer<input name="invoiceNumber" value="${esc(d.invoiceNumber || '')}"></label>
+    <label><input type="checkbox" name="paid" ${isPaid(d) ? 'checked' : ''}> Bezahlt</label>
+    <label class="due-l">Fällig am<input type="date" name="dueDate" value="${esc(d.dueDate || '')}"></label>
+    <label class="wide"><input type="checkbox" name="deductible" ${d.deductible !== false ? 'checked' : ''}> Moms ist abziehbar (Købsmoms)</label>
+    ${receiptRow(e, 'expense')}</div>
     <div class="modal-actions">${e ? '<button class="danger" id="del" style="margin-right:auto">Löschen</button>' : ''}<button onclick="closeModal()">Abbrechen</button><button class="primary" id="ok">Speichern</button></div>`, (el) => {
-    const n = (v) => Number(String(v).replace(/\./g, '').replace(',', '.')) || 0;
     const upd = () => {
       const eu = $('[name=euPurchase]', el).value;
       $('#amt-l', el).textContent = eu ? 'Betrag ohne Moms (DKK)' : 'Betrag inkl. Moms (DKK)';
       $('.vat-l', el).style.display = eu ? 'none' : '';
+      $('.due-l', el).style.display = $('[name=paid]', el).checked ? 'none' : '';
     };
-    $('[name=euPurchase]', el).onchange = upd; upd();
-    $('#v25', el).onclick = () => ($('[name=vat]', el).value = num((Math.round(n($('[name=amount]', el).value) * 20) / 100).toFixed(2)));
+    $('[name=euPurchase]', el).onchange = upd; $('[name=paid]', el).onchange = upd; upd();
+    $('#v25', el).onclick = () => ($('[name=vat]', el).value = num((Math.round(numIn($('[name=amount]', el).value) * 20) / 100).toFixed(2)));
     $('[name=amount]', el).addEventListener('change', () => { if (!$('[name=vat]', el).value) $('#v25', el).click(); });
+    bindAttach(el, e, () => routes.ausgaben());
     $('#ok', el).onclick = async () => {
       const f = formData(el);
-      f.amount = n(f.amount).toFixed(2); f.vat = f.euPurchase ? '0.00' : n(f.vat).toFixed(2);
+      f.amount = numIn(f.amount).toFixed(2); f.vat = f.euPurchase ? '0.00' : numIn(f.vat).toFixed(2);
+      if (f.paid && !isPaid(d)) f.paidDate = today();
+      if (f.paid) f.dueDate = '';
       await act(() => (e ? api('expenses/' + e.id, 'PUT', f) : api('expenses', 'POST', f)), 'Gespeichert');
       closeModal(); route();
     };
-    e && ($('#del', el).onclick = async () => { if (confirm('Ausgabe löschen?')) { await act(() => api('expenses/' + e.id, 'DELETE')); closeModal(); route(); } });
+    e && ($('#del', el).onclick = async () => { if (confirm('Ausgabe löschen?' + (e.receiptId ? ' Der Beleg bleibt unter „Belege“ erhalten.' : ''))) { await act(() => api('expenses/' + e.id, 'DELETE')); closeModal(); route(); } });
+  });
+}
+function incomeForm(e) {
+  const d = e || { date: today(), category: 'Verkauf/Leistung', paid: true };
+  modal(`<h2>${e ? 'Einnahme bearbeiten' : 'Neue Einnahme'}</h2><div class="grid">
+    <label>Datum<input type="date" name="date" value="${d.date}"></label>
+    <label>Von (Kunde/Plattform)<input name="name" value="${esc(d.name || '')}"></label>
+    <label class="wide">Text<input name="text" value="${esc(d.text || '')}"></label>
+    <label>Kategorie<select name="category">${INCOME_CATS.map((c) => `<option ${c === d.category ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+    <label>Belegnummer<input name="documentNumber" value="${esc(d.documentNumber || '')}"></label>
+    <label>Betrag inkl. Moms (DKK)<input name="amount" inputmode="decimal" value="${esc(num(d.amount || ''))}"></label>
+    <label>Darin enthaltene Moms (DKK)<div class="inline"><input name="vat" inputmode="decimal" value="${esc(num(d.vat || ''))}"><button type="button" id="v25">25 %</button></div></label>
+    <label class="wide"><input type="checkbox" name="paid" ${isPaid(d) ? 'checked' : ''}> Geld ist eingegangen</label>
+    ${receiptRow(e, 'income')}</div>
+    <div class="modal-actions">${e ? '<button class="danger" id="del" style="margin-right:auto">Löschen</button>' : ''}<button onclick="closeModal()">Abbrechen</button><button class="primary" id="ok">Speichern</button></div>`, (el) => {
+    $('#v25', el).onclick = () => ($('[name=vat]', el).value = num((Math.round(numIn($('[name=amount]', el).value) * 20) / 100).toFixed(2)));
+    bindAttach(el, e, () => routes.ausgaben());
+    $('#ok', el).onclick = async () => {
+      const f = formData(el);
+      f.amount = numIn(f.amount).toFixed(2); f.vat = numIn(f.vat).toFixed(2);
+      await act(() => (e ? api('incomes/' + e.id, 'PUT', f) : api('incomes', 'POST', f)), 'Gespeichert');
+      closeModal(); route();
+    };
+    e && ($('#del', el).onclick = async () => { if (confirm('Einnahme löschen?')) { await act(() => api('incomes/' + e.id, 'DELETE')); closeModal(); route(); } });
+  });
+}
+
+/* ---------- Belege fotografieren ---------- */
+const b64 = (blob) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(blob); });
+// Foto verkleinern (schneller hochladen, reicht zum Lesen) und richtig drehen
+async function fileToUpload(file) {
+  if (file.type === 'application/pdf') return { mime: file.type, data: await b64(file), name: file.name };
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const k = Math.min(1, 2000 / Math.max(bmp.width, bmp.height));
+    const c = document.createElement('canvas');
+    c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+    c.getContext('2d').drawImage(bmp, 0, 0, c.width, c.height);
+    const blob = await new Promise((r) => c.toBlob(r, 'image/jpeg', 0.85));
+    return { mime: 'image/jpeg', data: await b64(blob), name: file.name };
+  } catch {
+    if (['image/jpeg', 'image/png', 'image/webp', 'image/gif'].includes(file.type)) return { mime: file.type, data: await b64(file), name: file.name };
+    throw new Error(`${file.name}: Dieses Bildformat kann nicht gelesen werden – bitte als JPG fotografieren.`);
+  }
+}
+const RSTATUS = {
+  processing: ['<span class="spin"></span> wird erkannt…', 'b-open'], review: ['zu prüfen', 'b-credit'], error: ['Fehler', 'b-over'], booked: ['gebucht', 'b-paid'],
+};
+let receiptTab = 'todo', pollTimer = null;
+routes.belege = () => {
+  clearTimeout(pollTimer);
+  const todo = (r) => r.status !== 'booked';
+  const list = S.receipts.filter(receiptTab === 'todo' ? todo : receiptTab === 'booked' ? (r) => !todo(r) : () => true)
+    .sort((a, b) => b.uploadedAt.localeCompare(a.uploadedAt));
+  const ai = S.ai;
+  $('#main').innerHTML = `<h1>Belege</h1>
+    <div class="card capture">
+      <label class="btn primary big">📷 Beleg fotografieren<input type="file" accept="image/*" capture="environment" hidden id="cam"></label>
+      <label class="btn big">📁 Fotos / PDF auswählen<input type="file" accept="image/*,application/pdf" multiple hidden id="pick"></label>
+      <div class="small muted" style="flex-basis:100%">${ai.enabled
+        ? `Automatische Erkennung ist an: Ausgabe oder Einnahme, Betrag, Moms, bezahlt oder offen. ${S.settings.autoBook === 'yes' ? 'Eindeutige Belege werden sofort gebucht, unklare landen bei „Zu prüfen“.' : 'Jeder Beleg wartet auf deine Prüfung.'}`
+        : `Automatische Erkennung ist aus – Belege werden gespeichert und du trägst die Werte selbst ein. <a href="#/einstellungen">Einschalten →</a>`}</div>
+    </div>
+    <div class="tabs">${Object.entries({ todo: 'Zu prüfen', booked: 'Gebucht', all: 'Alle' }).map(([k, v]) => `<button data-rt="${k}" class="${k === receiptTab ? 'on' : ''}">${v} (${S.receipts.filter(k === 'todo' ? todo : k === 'booked' ? (r) => !todo(r) : () => true).length})</button>`).join('')}</div>
+    ${list.length ? `<div class="receipts">${list.map((r) => {
+      const d = r.draft || {};
+      const [st, cls] = RSTATUS[r.status] || ['', ''];
+      const kind = r.booked?.kind || d.kind;
+      return `<div class="rcard" data-r="${r.id}">
+        <div class="thumb" style="${r.mime.startsWith('image/') ? `background-image:url('/beleg/${r.id}')` : ''}">${r.mime === 'application/pdf' ? 'PDF' : ''}</div>
+        <div class="body"><span class="badge ${cls}">${st}</span>${r.booked?.auto ? ' <span class="muted small">automatisch</span>' : ''}
+          ${r.status === 'processing' ? `<div class="muted" style="margin-top:6px">${esc(r.name || 'Beleg')}</div>` : r.status === 'error' ? `<div style="color:var(--bad);margin-top:6px">${esc(r.error)}</div>` : `
+          <div style="margin-top:6px"><b>${esc(d.name || '–')}</b> · ${kind === 'income' ? 'Einnahme' : 'Ausgabe'}</div>
+          <div class="row" style="justify-content:space-between"><span class="muted">${dmy(d.date)}</span><span class="amt">${d.amount ? kr(Calc.toCents(d.amount)) : ''}</span></div>
+          <div class="muted">${d.paid ? 'bezahlt' : 'offen' + (d.dueDate ? ' bis ' + dmy(d.dueDate) : '')}${r.extracted && !r.extracted.confident && r.status !== 'booked' ? ' · <span style="color:var(--warn)">bitte prüfen</span>' : ''}</div>`}
+        </div></div>`;
+    }).join('')}</div>` : `<div class="card empty">${receiptTab === 'todo' ? 'Nichts zu prüfen. 👍' : 'Noch keine Belege.'}</div>`}`;
+  const upload = async (files) => {
+    let ok = 0;
+    for (const f of files) {
+      try { toast(`Lade hoch… (${ok + 1}/${files.length})`); await api('receipts', 'POST', await fileToUpload(f)); ok++; }
+      catch (e) { toast(e.message, true); }
+    }
+    await reload(); receiptTab = 'todo';
+    if (ok) toast(`${ok} Beleg${ok > 1 ? 'e' : ''} hochgeladen${S.ai.enabled ? ' – wird erkannt…' : ''}`);
+    routes.belege();
+  };
+  $('#cam').onchange = (e) => upload([...e.target.files]);
+  $('#pick').onchange = (e) => upload([...e.target.files]);
+  $$('[data-rt]').forEach((b) => (b.onclick = () => { receiptTab = b.dataset.rt; routes.belege(); }));
+  $$('[data-r]').forEach((c) => (c.onclick = () => receiptReview(S.receipts.find((r) => r.id === c.dataset.r))));
+  // solange noch erkannt wird, regelmäßig nachsehen
+  if (S.receipts.some((r) => r.status === 'processing')) pollTimer = setTimeout(pollReceipts, 3000);
+};
+async function pollReceipts() {
+  if (!location.hash.startsWith('#/belege')) return;
+  if (!$('#modal').classList.contains('hidden')) { pollTimer = setTimeout(pollReceipts, 3000); return; }
+  await reload().catch(() => {});
+  routes.belege();
+};
+function receiptReview(r) {
+  if (r.status === 'processing') return toast('Der Beleg wird gerade erkannt – einen Moment.');
+  const d = { ...(r.draft || {}) };
+  const ex = r.extracted;
+  const booked = r.booked && (r.booked.kind === 'income' ? S.incomes : S.expenses).find((x) => x.id === r.booked.id);
+  const cats = (k) => (k === 'income' ? INCOME_CATS : CATS);
+  modal(`<h2>Beleg ${r.status === 'booked' ? '<span class="badge b-paid">gebucht</span>' : 'prüfen'}</h2>
+    <div class="review">
+      <div class="pic">${r.mime.startsWith('image/') ? `<a href="/beleg/${r.id}" target="_blank"><img src="/beleg/${r.id}" alt="Beleg"></a>` : `<p style="padding:30px"><a class="btn" href="/beleg/${r.id}" target="_blank">PDF öffnen</a></p>`}</div>
+      <div>
+        ${r.status === 'error' ? `<div class="note warn">${esc(r.error)}</div>` : ''}
+        ${ex?.notes ? `<div class="note warn">Hinweis der Erkennung: ${esc(ex.notes)}</div>` : ''}
+        ${d.original && !booked ? `<div class="note ${r.rate > 0 ? '' : 'warn'}">Beleg in Fremdwährung: <b>${esc(d.original)}</b>. ${r.rate > 0 ? `Umgerechnet mit Kurs ${num(Number(r.rate).toFixed(4))}.` : 'Der Wechselkurs konnte nicht geholt werden – bitte den Betrag in DKK eintragen (steht auf dem Kontoauszug).'}</div>` : ''}
+        ${booked ? `<div class="note">Gebucht als <b>${r.booked.kind === 'income' ? 'Einnahme' : 'Ausgabe'}</b>${r.booked.auto ? ' (automatisch)' : ''}: ${esc(booked.supplier || booked.name)} · ${kr(Calc.toCents(booked.amount))} · ${dmy(booked.date)}${booked.bankId ? ' · mit Lunar-Buchung verknüpft' : ''}</div>
+          <div class="modal-actions"><button onclick="closeModal()">Schließen</button><button id="open">Buchung öffnen</button><button class="danger" id="undo">Buchung rückgängig</button></div>` : `
+        <div class="grid">
+          <label>Art<select name="kind"><option value="expense">Ausgabe (Einkauf)</option><option value="income" ${d.kind === 'income' ? 'selected' : ''}>Einnahme</option></select></label>
+          <label>Datum<input type="date" name="date" value="${esc(d.date || today())}"></label>
+          <label class="wide"><span class="nm-l">Lieferant / Geschäft</span><input name="name" value="${esc(d.name || '')}"></label>
+          <label class="wide">Text<input name="text" value="${esc(d.text || '')}"></label>
+          <label>Kategorie<select name="category"></select></label>
+          <label class="eu-l">Art des Einkaufs<select name="euPurchase"><option value="">Normal (mit Moms)</option><option value="goods" ${d.euPurchase === 'goods' ? 'selected' : ''}>EU-Einkauf Waren ohne Moms</option><option value="services" ${d.euPurchase === 'services' ? 'selected' : ''}>EU-/Ausland Dienstleistung ohne Moms</option></select></label>
+          <label><span class="amt-l">Betrag inkl. Moms (DKK)</span><input name="amount" inputmode="decimal" value="${esc(num(d.amount || ''))}"></label>
+          <label class="vat-l">Moms (DKK)<div class="inline"><input name="vat" inputmode="decimal" value="${esc(num(d.vat || ''))}"><button type="button" id="v25">25 %</button></div></label>
+          <label>Beleg-/Rechnungsnr.<input name="documentNumber" value="${esc(d.documentNumber || '')}"></label>
+          <label><input type="checkbox" name="paid" ${d.paid ? 'checked' : ''}> Bezahlt</label>
+          <label class="due-l">Fällig am<input type="date" name="dueDate" value="${esc(d.dueDate || '')}"></label>
+        </div>
+        <div class="modal-actions"><button class="danger" id="del" style="margin-right:auto">Löschen</button>${S.ai.enabled ? '<button id="retry">Neu erkennen</button>' : ''}<button onclick="closeModal()">Später</button><button class="primary" id="book">Buchen</button></div>`}
+      </div></div>`, (el) => {
+    $('.modal-box').classList.add('wide');
+    if (booked) {
+      $('#open', el).onclick = () => (r.booked.kind === 'income' ? incomeForm(booked) : expenseForm(booked));
+      $('#undo', el).onclick = async () => {
+        if (!confirm('Buchung löschen? Der Beleg bleibt erhalten und kann neu gebucht werden.')) return;
+        await act(() => api(`${r.booked.kind === 'income' ? 'incomes' : 'expenses'}/${booked.id}`, 'DELETE'), 'Buchung gelöscht');
+        receiptReview(S.receipts.find((x) => x.id === r.id));
+      };
+      return;
+    }
+    const upd = () => {
+      const k = $('[name=kind]', el).value, eu = k === 'expense' && $('[name=euPurchase]', el).value;
+      const cat = $('[name=category]', el), cur = cat.value || d.category;
+      cat.innerHTML = cats(k).map((c) => `<option ${c === cur ? 'selected' : ''}>${c}</option>`).join('');
+      $('.nm-l', el).textContent = k === 'income' ? 'Von (Kunde / Plattform)' : 'Lieferant / Geschäft';
+      $('.eu-l', el).style.display = k === 'income' ? 'none' : '';
+      $('.amt-l', el).textContent = eu ? 'Betrag ohne Moms (DKK)' : 'Betrag inkl. Moms (DKK)';
+      $('.vat-l', el).style.display = eu ? 'none' : '';
+      $('.due-l', el).style.display = $('[name=paid]', el).checked ? 'none' : '';
+    };
+    $$('select,[name=paid]', el).forEach((x) => x.addEventListener('change', upd)); upd();
+    $('#v25', el).onclick = () => ($('[name=vat]', el).value = num((Math.round(numIn($('[name=amount]', el).value) * 20) / 100).toFixed(2)));
+    $('#book', el).onclick = async () => {
+      const f = formData(el);
+      f.amount = numIn(f.amount).toFixed(2); f.vat = f.euPurchase && f.kind === 'expense' ? '0.00' : numIn(f.vat).toFixed(2);
+      const item = await act(() => api(`receipts/${r.id}/book`, 'POST', f), 'Gebucht');
+      if (item.bankId) toast('Gebucht und mit der Lunar-Buchung verknüpft ✔');
+      closeModal(); routes.belege();
+    };
+    $('#del', el).onclick = async () => { if (confirm('Beleg löschen?')) { await act(() => api('receipts/' + r.id, 'DELETE'), 'Beleg gelöscht'); closeModal(); routes.belege(); } };
+    $('#retry', el) && ($('#retry', el).onclick = async () => { await act(() => api(`receipts/${r.id}/retry`, 'POST', {})); closeModal(); routes.belege(); });
   });
 }
 
@@ -552,19 +756,22 @@ routes.bank = async () => {
   const invOpts = `<option value="">Rechnung zuordnen…</option>` + openInv.map((i) => `<option value="${i.id}">Nr. ${i.number} · ${esc(i.customerName)} · ${kr(grossDKK(i) - (i.paidAmount || 0))}</option>`).join('');
   $('#main').innerHTML = `<h1>Bank – Lunar <span class="spacer"></span><label class="btn primary" style="color:#fff">Kontoauszug (CSV) importieren<input type="file" id="csv" accept=".csv,.txt" hidden></label></h1>
     <div class="note">So geht's: In <b>Lunar Business</b> (App oder Browser) die Kontobewegungen als <b>CSV-Datei</b> exportieren und hier hochladen. Doppelte Buchungen werden erkannt.
-      Eingänge werden automatisch passenden Rechnungen vorgeschlagen (gleicher Betrag oder Rechnungsnummer im Text) – ein Klick und die Rechnung ist bezahlt. Abbuchungen kannst du direkt als Ausgabe mit Købsmoms buchen.</div>
+      Eingänge werden automatisch passenden Rechnungen vorgeschlagen (gleicher Betrag oder Rechnungsnummer im Text) – ein Klick und die Rechnung ist bezahlt. Abbuchungen kannst du direkt als Ausgabe mit Købsmoms buchen. Fotografierte Belege werden automatisch mit der passenden Abbuchung verknüpft.</div>
     <div class="tabs">${Object.entries({ open: 'Offen', matched: 'Zugeordnet', ignored: 'Ignoriert', all: 'Alle' }).map(([k, v]) => `<button data-bf="${k}" class="${k === bankFilter ? 'on' : ''}">${v} (${k === 'all' ? S.bank.length : S.bank.filter((t) => t.status === k).length})</button>`).join('')}</div>
     ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Datum</th><th>Text</th><th class="r">Betrag</th><th>Zuordnung</th></tr></thead><tbody>
     ${list.map((t) => {
       const s = sug[t.id] && S.invoices.find((i) => i.id === sug[t.id].invoiceId);
       let cell = '';
       if (t.status === 'matched') {
-        const inv = S.invoices.find((i) => i.id === t.invoiceId), ex = S.expenses.find((e) => e.id === t.expenseId);
-        cell = inv ? `<a href="#/druck/${inv.id}">Rechnung ${inv.number}</a>` : ex ? `Ausgabe: ${esc(ex.category)}` : 'zugeordnet';
+        const inv = S.invoices.find((i) => i.id === t.invoiceId), ex = S.expenses.find((e) => e.id === t.expenseId), inc = S.incomes.find((e) => e.id === t.incomeId);
+        cell = inv ? `<a href="#/druck/${inv.id}">Rechnung ${inv.number}</a>` : ex ? `Ausgabe: ${esc(ex.supplier)} (${esc(ex.category)})${clip(ex)}` : inc ? `Einnahme: ${esc(inc.name)}${clip(inc)}` : 'zugeordnet';
       } else if (t.status === 'ignored') cell = `<button class="small" data-ign="${t.id}">Wieder öffnen</button>`;
       else if (t.amount > 0) cell = `${s ? `<button class="small primary" data-match="${t.id}" data-inv-id="${s.id}">✔ Rechnung ${s.number} (${esc(s.customerName)})</button> ` : ''}
           <select class="small" data-sel="${t.id}" style="width:auto;max-width:260px">${invOpts}</select> <button class="small" data-ign="${t.id}">Ignorieren</button>`;
-      else cell = `<button class="small" data-exp="${t.id}">Als Ausgabe buchen</button> <button class="small" data-ign="${t.id}">Ignorieren</button>`;
+      else {
+        const se = sug[t.id]?.expenseId && S.expenses.find((e) => e.id === sug[t.id].expenseId);
+        cell = `${se ? `<button class="small primary" data-link="${t.id}" data-exp-id="${se.id}">✔ Rechnung von ${esc(se.supplier)} bezahlt</button> ` : ''}<button class="small" data-exp="${t.id}">Als Ausgabe buchen</button> <button class="small" data-ign="${t.id}">Ignorieren</button>`;
+      }
       return `<tr><td>${dmy(t.date)}</td><td>${esc(t.text)}</td><td class="r" style="color:${t.amount < 0 ? 'var(--bad)' : 'var(--ok)'}">${kr(t.amount)}</td><td>${cell}</td></tr>`;
     }).join('')}</tbody></table></div>` : '<div class="card empty">Keine Buchungen in dieser Ansicht.</div>'}`;
   $$('[data-bf]').forEach((b) => (b.onclick = () => { bankFilter = b.dataset.bf; routes.bank(); }));
@@ -580,6 +787,7 @@ routes.bank = async () => {
   const tx = (id) => S.bank.find((t) => t.id === id);
   $$('[data-match]').forEach((b) => (b.onclick = async () => { const t = tx(b.dataset.match); await act(() => api(`invoices/${b.dataset.invId}/pay`, 'POST', { date: t.date, amount: (t.amount / 100).toFixed(2), bankId: t.id, full: true }), 'Rechnung als bezahlt markiert'); routes.bank(); }));
   $$('[data-sel]').forEach((s) => (s.onchange = async () => { if (!s.value) return; const t = tx(s.dataset.sel); await act(() => api(`invoices/${s.value}/pay`, 'POST', { date: t.date, amount: (t.amount / 100).toFixed(2), bankId: t.id, full: confirm('Ist die Rechnung damit vollständig bezahlt?') }), 'Zahlung zugeordnet'); routes.bank(); }));
+  $$('[data-link]').forEach((b) => (b.onclick = async () => { await act(() => api(`bank/${b.dataset.link}/link`, 'POST', { kind: 'expense', id: b.dataset.expId }), 'Ausgabe als bezahlt markiert'); routes.bank(); }));
   $$('[data-ign]').forEach((b) => (b.onclick = async () => { await act(() => api(`bank/${b.dataset.ign}/ignore`, 'POST', {})); routes.bank(); }));
   $$('[data-exp]').forEach((b) => (b.onclick = () => {
     const t = tx(b.dataset.exp);
@@ -601,12 +809,12 @@ routes.moms = () => {
   const kind = S.settings.vatPeriod;
   const all = [y + 1, y, y - 1, y - 2].flatMap((yy) => Calc.periods(yy, kind)).filter((p) => p.from <= today());
   const p = all.find((x) => x.from === vatSel) || all.filter((x) => x.to < today()).sort((a, b) => b.from.localeCompare(a.from))[0] || all[0];
-  const r = Calc.vatReport(S.invoices, S.expenses, p.from, p.to);
+  const r = Calc.vatReport(S.invoices, S.expenses, p.from, p.to, S.incomes);
   const row = (code, da, de, v, hint = '') => `<tr><td><b>${da}</b><div class="muted small">${de}${hint ? ' – ' + hint : ''}</div></td>
     <td class="r code">${(v / 100).toLocaleString('da-DK', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td><td><button class="small" data-copy="${Math.round(v / 100)}">Kopieren</button></td></tr>`;
   $('#main').innerHTML = `<h1>Moms / SKAT <span class="spacer"></span><select id="per" style="width:auto">${all.sort((a, b) => b.from.localeCompare(a.from)).map((x) => `<option value="${x.from}" ${x.from === p.from ? 'selected' : ''}>${x.label}</option>`).join('')}</select></h1>
     <div class="cards">
-      <div class="card stat"><div class="k">Zeitraum</div><div class="v" style="font-size:17px">${dmy(p.from)} – ${dmy(p.to)}</div><div class="s">${r.invoiceCount} Rechnungen, ${r.expenseCount} Ausgaben</div></div>
+      <div class="card stat"><div class="k">Zeitraum</div><div class="v" style="font-size:17px">${dmy(p.from)} – ${dmy(p.to)}</div><div class="s">${r.invoiceCount} Rechnungen, ${r.expenseCount} Ausgaben${r.incomeCount ? `, ${r.incomeCount} sonstige Einnahmen` : ''}</div></div>
       <div class="card stat"><div class="k">Frist für Angabe und Zahlung</div><div class="v" style="color:${p.deadline < today() ? 'var(--muted)' : 'var(--warn)'}">${dmy(p.deadline)}</div><div class="s">${p.deadline < today() ? 'abgelaufen' : 'noch ' + Math.ceil((new Date(p.deadline) - new Date(today())) / 864e5) + ' Tage'}</div></div>
       <div class="card stat"><div class="k">${r.momstilsvar >= 0 ? 'Zu zahlen an SKAT' : 'Erstattung von SKAT'}</div><div class="v">${kr(Math.abs(r.momstilsvar))}</div><div class="s">Momstilsvar</div></div>
     </div>
@@ -640,6 +848,16 @@ routes.moms = () => {
     download(`moms-${p.from}-${p.to}.csv`, '﻿' + lines.join('\r\n'), 'text/csv');
   };
 };
+// QR-Code-Bibliothek erst bei Bedarf laden
+function loadQr() {
+  if (window.qrcode) return Promise.resolve(window.qrcode);
+  return new Promise((res, rej) => {
+    const sc = document.createElement('script');
+    sc.src = 'vendor/qrcode.js'; // qrcode-generator 1.4.4 (MIT)
+    sc.onload = () => res(window.qrcode); sc.onerror = rej;
+    document.head.appendChild(sc);
+  });
+}
 function download(name, content, type) {
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([content], { type }));
@@ -669,10 +887,31 @@ routes.einstellungen = () => {
       <label>Momsperiode bei SKAT<select name="vatPeriod">${opts({ halfyear: 'Halbjährlich (Umsatz unter 5 Mio. DKK)', quarter: 'Vierteljährlich', month: 'Monatlich (über 50 Mio. DKK)' }, s.vatPeriod)}</select></label>
       ${f('footer', 'Zusatzzeile in der Fußzeile', 'class="wide"')}
     </div></div>
+    <div class="card"><b>Belegerkennung (Fotos automatisch auslesen)</b>
+      <p class="small muted">Fotografierte Belege werden von Claude (Anthropic) gelesen: Ausgabe oder Einnahme, Lieferant, Datum, Betrag, Moms, bezahlt oder offen. Dafür brauchst du einen eigenen API-Schlüssel von <a href="https://platform.claude.com" target="_blank" rel="noopener">platform.claude.com</a> (Konto anlegen → Guthaben aufladen → „API Keys“ → „Create Key“). Ein Beleg kostet grob 10–50 Øre. Das Foto wird dafür an Anthropic geschickt.</p>
+      <div class="grid">
+        <label>API-Schlüssel<input name="aiKey" type="password" autocomplete="off" placeholder="${S.ai.fromEnv ? 'über ANTHROPIC_API_KEY gesetzt' : S.ai.hasKey ? '•••••••• gespeichert' : 'sk-ant-…'}"></label>
+        <label>Nach dem Erkennen<select name="autoBook">${opts({ yes: 'Eindeutige Belege sofort automatisch buchen', no: 'Jeden Beleg erst zur Prüfung vorlegen' }, s.autoBook)}</select></label>
+      </div>
+      <div class="small" style="margin-top:8px">${!S.ai.installed ? '<span style="color:var(--bad)">Das Erkennungs-Paket fehlt – bitte das Programm über das Startskript starten (es installiert alles automatisch).</span>' : S.ai.enabled ? '<span style="color:var(--ok)">✔ Erkennung ist eingeschaltet.</span>' : 'Erkennung ist aus.'}
+        ${S.ai.hasKey ? ' <button type="button" class="small" id="delkey">Schlüssel löschen</button>' : ''}</div></div>
+    <div class="card"><b>Mit dem Handy fotografieren</b><div id="lan" class="small" style="margin-top:8px">…</div></div>
     <div class="row"><button class="primary" id="save">Speichern</button></div>
-    <div class="card" style="margin-top:18px"><b>Datensicherung</b><p class="muted small">Das Programm legt jeden Tag automatisch eine Sicherung im Ordner <code>rechnung/data/sicherung</code> an. Nach dem dänischen Buchführungsgesetz müssen Rechnungen und Belege 5 Jahre aufbewahrt werden – bitte zusätzlich regelmäßig eine Sicherung herunterladen und extern speichern.</p>
+    <div class="card" style="margin-top:18px"><b>Datensicherung</b><p class="muted small">Das Programm legt jeden Tag automatisch eine Sicherung im Ordner <code>rechnung/data/sicherung</code> an. Nach dem dänischen Buchführungsgesetz müssen Rechnungen und Belege 5 Jahre aufbewahrt werden. Die Belegfotos liegen als Dateien in <code>rechnung/data/belege</code> – sichere deshalb regelmäßig den <b>ganzen Ordner <code>rechnung/data</code></b> extern (USB-Stick, Cloud in der EU). Der Knopf unten sichert nur die Buchungsdaten ohne Fotos.</p>
       <div class="row"><button id="bk">Sicherung herunterladen</button><label class="btn">Sicherung einspielen<input type="file" id="restore" accept=".json" hidden></label></div></div>`;
-  $('#save').onclick = async () => { await act(() => api('settings', 'PUT', formData($('#main'))), 'Einstellungen gespeichert'); };
+  $('#save').onclick = async () => { await act(() => api('settings', 'PUT', formData($('#main'))), 'Einstellungen gespeichert'); routes.einstellungen(); };
+  $('#delkey') && ($('#delkey').onclick = async () => { await act(() => api('settings', 'PUT', { aiKeyDelete: true }), 'Schlüssel gelöscht'); routes.einstellungen(); });
+  api('lan').then((l) => {
+    const el = $('#lan'); if (!el) return;
+    if (!l.open) {
+      el.innerHTML = `Das Programm ist gerade nur auf diesem Computer erreichbar. Damit dein Handy (im selben WLAN) Belege hochladen kann, starte das Programm mit <b>start-rechnung</b> und beantworte die Frage „Handy-Zugang einschalten?“ mit <b>j</b>. Dann erscheint hier ein QR-Code zum Abscannen.`;
+      return;
+    }
+    el.innerHTML = `${l.password ? '' : '<div class="note warn">Achtung: kein Passwort gesetzt – jeder im WLAN kann zugreifen.</div>'}
+      Mit der Handy-Kamera den QR-Code scannen (Handy im selben WLAN). Danach im Browser „Zum Startbildschirm hinzufügen“ – dann hast du die Belege-Kamera wie eine App.
+      <div class="row" style="margin-top:10px">${l.urls.map((u, i) => `<div><div class="qr" id="qr${i}"></div><div><code>${esc(u)}</code></div></div>`).join('') || 'Keine Netzwerkverbindung gefunden.'}</div>`;
+    loadQr().then((qrcode) => l.urls.forEach((u, i) => { const q = qrcode(0, 'M'); q.addData(u); q.make(); $('#qr' + i).innerHTML = q.createSvgTag({ cellSize: 4, margin: 2 }); })).catch(() => {});
+  }).catch(() => {});
   $('#cvr-look').onclick = async () => {
     try { const r = await api('lookup/cvr?q=' + encodeURIComponent($('[name=cvr]').value)); for (const k of ['company:name', 'street', 'zip', 'city', 'email', 'phone']) { const [a, b = a] = k.split(':'); if (r[b]) $(`[name=${a}]`).value = r[b]; } toast('Übernommen – bitte speichern'); }
     catch (e) { toast(e.message, true); }

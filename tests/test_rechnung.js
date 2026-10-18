@@ -3,9 +3,11 @@ const path = require('path');
 const os = require('os');
 const fs = require('fs');
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'rs-'));
+process.env.ANTHROPIC_API_KEY = process.env.ANTHROPIC_API_KEY || 'test-key';
 const Calc = require('../rechnung/public/calc.js');
 const DocLang = require('../rechnung/public/doclang.js');
 const Bank = require('../rechnung/bank.js');
+const Receipts = require('../rechnung/receipts.js');
 const RS = require('../rechnung/server.js');
 let fails = 0;
 const ok = (c, m) => { console.log((c ? 'OK   ' : 'FEHL ') + m); if (!c) fails++; };
@@ -97,6 +99,61 @@ eq(p.rows[0].amount, 125000, 'CSV-Eingang');
   eq(i2.status, 'credited', 'Rechnung gutgeschrieben');
   const r2 = Calc.vatReport(RS.getState().invoices, [], '2026-01-01', '2026-12-31');
   eq(r2.rubrikBYdelser, 0, 'Gutschrift hebt Rubrik B auf');
+
+  // Belege: Foto hochladen → erkennen → automatisch buchen → mit Lunar-Abbuchung verknüpfen
+  if (Receipts.available()) {
+    const fake = { docType: 'expense', counterparty: 'Bauhaus Sønderborg', counterpartyVatId: '', counterpartyCountry: 'DK', documentNumber: 'K-4711', date: '2026-06-11',
+      dueDate: '', currency: 'DKK', total: '125.00', vat: '25.00', isPaid: true, paymentMethod: 'card', category: 'Material/Waren', euPurchase: '', description: 'Schrauben', confident: true, notes: '' };
+    let next = fake;
+    Receipts.extract = async () => next;
+    const img = { mime: 'image/jpeg', data: Buffer.alloc(500, 1).toString('base64'), name: 'bon.jpg' };
+    // die Abbuchung von 125 kr. wurde oben schon als Ausgabe gebucht → wieder lösen, damit der Beleg sie findet
+    const ex0 = RS.getState().expenses.find((e) => e.amount === '125.00');
+    await A('DELETE', `expenses/${ex0.id}`);
+    const r1 = await A('POST', 'receipts', img);
+    eq(r1.status, 'processing', 'Beleg wird erkannt');
+    await new Promise((res) => setTimeout(res, 20)); await RS.idle();
+    eq(r1.status, 'booked', 'eindeutiger Beleg automatisch gebucht');
+    const e1 = RS.getState().expenses.find((e) => e.id === r1.booked.id);
+    eq(e1.vat, '25.00', 'Købsmoms aus Beleg');
+    eq(e1.bankId && RS.getState().bank.find((t) => t.id === e1.bankId).amount, -12500, 'mit Lunar-Abbuchung verknüpft');
+    // unsicher erkannte Lieferantenrechnung in EUR → bleibt zur Prüfung
+    next = { ...fake, counterparty: 'Madeira GmbH', counterpartyCountry: 'DE', currency: 'EUR', total: '100.00', vat: '0', isPaid: false, paymentMethod: 'unpaid', dueDate: '2026-07-01', euPurchase: 'goods', confident: false, notes: 'Datum schlecht lesbar' };
+    const r2 = await A('POST', 'receipts', img);
+    await new Promise((res) => setTimeout(res, 20)); await RS.idle();
+    eq(r2.status, 'review', 'unsicherer Beleg wartet auf Prüfung');
+    eq(r2.draft.euPurchase, 'goods', 'EU-Einkauf erkannt');
+    ok(r2.rate > 0 ? Number(r2.draft.amount) > 700 : r2.draft.amount === '' , `EUR umgerechnet oder Betrag offen gelassen (Kurs ${r2.rate}, Betrag „${r2.draft.amount}“)`);
+    const e2 = await A('POST', `receipts/${r2.id}/book`, { ...r2.draft, amount: '746.00' });
+    eq(e2.paid, false, 'Lieferantenrechnung offen');
+    eq(e2.dueDate, '2026-07-01', 'Fälligkeit übernommen');
+    // Einnahme-Beleg
+    next = { ...fake, docType: 'income', counterparty: 'Etsy', total: '500.00', vat: '100.00', confident: true, date: '2026-06-20' };
+    const r3 = await A('POST', 'receipts', img);
+    await new Promise((res) => setTimeout(res, 20)); await RS.idle();
+    eq(r3.booked?.kind, 'income', 'Einnahme erkannt und gebucht');
+    const r4 = Calc.vatReport(RS.getState().invoices, RS.getState().expenses, '2026-06-01', '2026-06-30', RS.getState().incomes);
+    eq(r4.salgsmoms, 10000, 'Salgsmoms aus sonstiger Einnahme');
+    // Buchung löschen → Beleg wieder zu prüfen, Bank wieder offen
+    await A('DELETE', `expenses/${e1.id}`);
+    eq(r1.status, 'review', 'Beleg nach Löschen wieder zu prüfen');
+    try { await A('DELETE', `receipts/${r3.id}`); ok(false, 'gebuchten Beleg nicht löschbar'); } catch { ok(true, 'gebuchten Beleg nicht löschbar'); }
+    // Abbuchung zuerst als Ausgabe gebucht, Beleg danach → Beleg wird angehängt, keine Doppelbuchung
+    const txS = RS.getState().bank.find((t) => t.amount === -12500);
+    eq(txS.status, 'open', 'Abbuchung nach Löschen wieder offen');
+    const exB = await A('POST', `bank/${txS.id}/expense`, { category: 'Diverse' });
+    const n0 = RS.getState().expenses.length;
+    const merged = await A('POST', `receipts/${r1.id}/book`, r1.draft);
+    eq(RS.getState().expenses.length, n0, 'keine Doppelbuchung');
+    eq(merged.id, exB.id, 'Beleg an vorhandene Ausgabe angehängt');
+    eq(merged.supplier, 'Bauhaus Sønderborg', 'Lieferant vom Beleg übernommen');
+    // Fehler der Erkennung
+    Receipts.extract = async () => { throw new Error('Der API-Schlüssel ist ungültig.'); };
+    const r5 = await A('POST', 'receipts', img);
+    await new Promise((res) => setTimeout(res, 20)); await RS.idle();
+    eq(r5.status, 'error', 'Fehler wird angezeigt');
+    ok(!JSON.stringify(await A('GET', 'state')).includes(process.env.ANTHROPIC_API_KEY), 'Schlüssel wird nicht an den Browser geschickt');
+  } else console.log('(Belegerkennung übersprungen: rechnung/node_modules fehlt – npm install im Ordner rechnung)');
 
   // Texte in allen Sprachen vollständig
   const keys = Object.keys(DocLang.T.de);

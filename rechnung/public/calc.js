@@ -66,11 +66,11 @@
 
   /* Momsangivelse für TastSelv Erhverv. Fakturierungsprinzip: es zählt das Rechnungsdatum.
      Ausgaben: amount = Brutto, vat = enthaltene (abziehbare) Moms, euPurchase = 'goods'|'services'|'' */
-  function vatReport(invoices, expenses, from, to) {
+  function vatReport(invoices, expenses, from, to, incomes) {
     const r = {
       salgsmoms: 0, momsVarekoebUdland: 0, momsYdelseskoebUdland: 0, koebsmoms: 0,
       rubrikAVarer: 0, rubrikAYdelser: 0, rubrikBVarer: 0, rubrikBVarerIkkeEU: 0, rubrikBYdelser: 0, rubrikC: 0,
-      momstilsvar: 0, invoiceCount: 0, expenseCount: 0, euSales: [],
+      momstilsvar: 0, invoiceCount: 0, expenseCount: 0, incomeCount: 0, euSales: [],
     };
     const eu = {};
     for (const inv of invoices || []) {
@@ -105,6 +105,12 @@
       } else if (ex.deductible !== false) {
         r.koebsmoms += vat;
       }
+    }
+    // Sonstige Einnahmen (z. B. aus fotografierten Belegen): enthaltene Moms ist Salgsmoms
+    for (const inc of incomes || []) {
+      if (!inPeriod(inc.date, from, to)) continue;
+      r.incomeCount = (r.incomeCount || 0) + 1;
+      r.salgsmoms += toCents(inc.vat);
     }
     r.euSales = Object.values(eu).filter((e) => e.goods || e.services);
     r.momstilsvar = r.salgsmoms + r.momsVarekoebUdland + r.momsYdelseskoebUdland - r.koebsmoms;

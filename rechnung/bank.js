@@ -91,7 +91,12 @@ function importRows(state, rows) {
 
 // Vorschlag: offene Rechnung mit gleichem Betrag (DKK) und/oder Rechnungsnummer im Buchungstext
 function suggest(state, tx) {
-  if (tx.amount <= 0) return null;
+  if (tx.amount < 0) {
+    // offene Lieferantenrechnung (z. B. fotografiert) mit gleichem Betrag
+    const ex = (state.expenses || []).find((e) => !e.paid && Math.abs(Math.round(Number(e.amount) * 100) + tx.amount) <= 100);
+    return ex ? { expenseId: ex.id, score: 2 } : null;
+  }
+  if (tx.amount === 0) return null;
   let best = null, bestScore = 0;
   for (const inv of state.invoices) {
     if (inv.status !== 'approved' || inv.type === 'credit') continue;

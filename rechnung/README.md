@@ -8,7 +8,9 @@ Ein Rechnungsprogramm wie Billy: Die Oberfläche ist auf **Deutsch**. Jede Rechn
 2. Doppelklick auf **`start-rechnung.bat`** (Windows) oder **`start-rechnung.command`** (Mac/Linux).
 3. Der Browser öffnet sich mit `http://localhost:8090`.
 
-Oder im Terminal: `npm run rechnung`
+Beim ersten Start wird einmalig das Paket für die Belegerkennung installiert (`npm install`, braucht Internet).
+
+Oder im Terminal: `cd rechnung && npm install && npm start`
 
 Deine Daten liegen in `rechnung/data/rechnung.json`. Jeden Tag wird automatisch eine Sicherung in `rechnung/data/sicherung/` angelegt (die letzten 60 Tage).
 
@@ -21,10 +23,21 @@ Deine Daten liegen in `rechnung/data/rechnung.json`. Jeden Tag wird automatisch 
 | **Produkte** | Name in drei Sprachen. Auf der Rechnung erscheint automatisch der Name in der Kundensprache. |
 | **Rechnungen** | Entwurf → genehmigen (fortlaufende Nummer, danach gesperrt) → bezahlt. Gutschriften (Kreditnota), Kopieren, Zahlungserinnerung, Rabatt, momsfreie Zeilen, Fremdwährung mit Kurs von Nationalbanken/EZB. Drucken bzw. **als PDF speichern**, E-Mail-Text in der Kundensprache. |
 | **Pflichtangaben** | Alle Angaben nach dänischem Recht: CVR-Nr., fortlaufende Nummer, Datum, Moms je Satz, bei Fremdwährung die Moms in DKK, Reverse-Charge-Hinweis mit USt-IdNr. des Kunden, Bankverbindung (Reg./Konto, IBAN/BIC), optional FI-Zahlungslinie (+71). |
+| **Belege 📷** | Beleg mit dem Handy fotografieren (oder Foto/PDF hochladen). Die Erkennung liest Ausgabe oder Einnahme, Lieferant, Datum, Betrag, Moms, bezahlt oder offen, Fälligkeit, EU-Einkauf und Fremdwährung (mit Kurs in DKK umgerechnet). Eindeutige Belege werden sofort gebucht, unklare kommen zur Prüfung. Der Beleg wird automatisch mit der passenden Lunar-Abbuchung verknüpft. Gibt es die Ausgabe schon (z. B. aus dem Kontoauszug), wird der Beleg angehängt statt doppelt gebucht. |
 | **Ausgaben** | Belege mit Købsmoms. EU-Einkäufe ohne Moms werden richtig in Rubrik A mit Erwerbsmoms berechnet. |
 | **Bank (Lunar)** | Kontoauszug aus Lunar als CSV importieren. Zahlungseingänge werden automatisch passenden Rechnungen vorgeschlagen (Betrag, Rechnungsnummer im Text). Abbuchungen mit einem Klick als Ausgabe buchen. |
 | **Moms / SKAT** | Fertige **Momsangivelse** genau mit den Feldern aus TastSelv Erhverv (Salgsmoms, Købsmoms, Rubrik A, B, C, Momstilsvar), Frist je Periode (Halbjahr/Quartal/Monat), Liste für **EU-salg uden moms**, CSV für den Steuerberater. |
 | **Übersicht** | Offene und überfällige Rechnungen, Umsatz je Monat, Moms der laufenden Periode, Erinnerung an die nächste Frist. |
+
+## Belege mit dem Handy fotografieren
+
+1. **Erkennung einschalten:** Unter Einstellungen → Belegerkennung einen API-Schlüssel von [platform.claude.com](https://platform.claude.com) eintragen (Konto anlegen, Guthaben aufladen, „API Keys“ → „Create Key“). Ein Beleg kostet grob 10–50 Øre. Ohne Schlüssel werden die Fotos trotzdem gespeichert, und du tippst die Werte selbst ein.
+2. **Handy verbinden:** Das Startskript fragt „Handy-Zugang einschalten?“ → `j` und ein Passwort vergeben. Unter Einstellungen erscheint ein QR-Code. Mit dem Handy (im selben WLAN) scannen, Passwort eingeben (Benutzername egal), dann im Browser „Zum Startbildschirm hinzufügen“. Jetzt hast du die Belege-Kamera wie eine App.
+3. **Fotografieren:** „📷 Beleg fotografieren“ → Foto → fertig. Der Rest passiert im Programm.
+
+Die Fotos liegen in `rechnung/data/belege/`. Bitte den ganzen Ordner `rechnung/data` regelmäßig sichern (5 Jahre Aufbewahrungspflicht).
+
+Unterwegs ohne WLAN geht das nur, wenn das Programm auf einem Server im Internet läuft (siehe unten, mit HTTPS und Passwort).
 
 ## Anbindung an SKAT
 

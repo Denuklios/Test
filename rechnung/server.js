@@ -8,6 +8,8 @@ const path = require('path');
 const crypto = require('crypto');
 const Calc = require('./public/calc');
 const Bank = require('./bank');
+const Receipts = require('./receipts');
+const os = require('os');
 
 const ENV = process.env;
 const PORT = +(ENV.PORT || 8090);
@@ -15,6 +17,7 @@ const HOST = ENV.HOST || '127.0.0.1';
 const DATA_DIR = ENV.DATA_DIR || path.join(__dirname, 'data');
 const FILE = path.join(DATA_DIR, 'rechnung.json');
 const PUBLIC = path.join(__dirname, 'public');
+const RECEIPT_DIR = path.join(DATA_DIR, 'belege');
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = () => crypto.randomBytes(8).toString('hex');
 
@@ -24,16 +27,17 @@ const EMPTY = () => ({
   settings: {
     company: '', owner: '', street: '', zip: '', city: '', country: 'DK', cvr: '', email: '', phone: '', web: '',
     bankName: 'Lunar', regNo: '', accountNo: '', iban: '', bic: 'LUNADK2B', fikCreditor: '', logo: '',
-    nextNumber: 1, nextCustomerNo: 1001, dueDays: 14, vatPeriod: 'quarter', defaultCurrency: 'DKK', footer: '',
+    nextNumber: 1, nextCustomerNo: 1001, dueDays: 14, vatPeriod: 'quarter', defaultCurrency: 'DKK', footer: '', autoBook: 'yes',
   },
-  customers: [], products: [], invoices: [], expenses: [], bank: [], log: [],
+  customers: [], products: [], invoices: [], expenses: [], incomes: [], receipts: [], bank: [], log: [],
+  secrets: { anthropicKey: '' },
 });
 
 function load() {
   try {
     const s = JSON.parse(fs.readFileSync(FILE, 'utf8'));
     const e = EMPTY();
-    return { ...e, ...s, settings: { ...e.settings, ...s.settings } };
+    return { ...e, ...s, settings: { ...e.settings, ...s.settings }, secrets: { ...e.secrets, ...s.secrets } };
   } catch (err) {
     if (err.code !== 'ENOENT') { console.error('Datei kann nicht gelesen werden:', FILE, err.message); process.exit(1); }
     return EMPTY();
@@ -67,7 +71,8 @@ const byId = (list, id) => list.find((x) => x.id === id) || fail('Nicht gefunden
 
 const CUSTOMER_KEYS = ['name', 'isBusiness', 'contact', 'street', 'zip', 'city', 'country', 'vatId', 'cvr', 'email', 'phone', 'language', 'currency', 'dueDays', 'note', 'ean', 'vatChecked'];
 const PRODUCT_KEYS = ['name', 'name_de', 'name_da', 'name_en', 'unit', 'price', 'kind', 'vatFree', 'currency'];
-const EXPENSE_KEYS = ['date', 'supplier', 'text', 'category', 'amount', 'vat', 'euPurchase', 'deductible', 'paid', 'currency'];
+const EXPENSE_KEYS = ['date', 'supplier', 'text', 'category', 'amount', 'vat', 'euPurchase', 'deductible', 'paid', 'paidDate', 'dueDate', 'invoiceNumber', 'currency', 'receiptId'];
+const INCOME_KEYS = ['date', 'name', 'text', 'category', 'amount', 'vat', 'paid', 'paidDate', 'documentNumber', 'receiptId'];
 const INVOICE_KEYS = ['date', 'dueDays', 'customerId', 'currency', 'exchangeRate', 'lines', 'note', 'language', 'vatScheme'];
 
 function cleanLines(lines) {
@@ -150,21 +155,135 @@ async function exchangeRate(cur, date) {
   fail('Kein Wechselkurs gefunden – bitte von Hand eintragen.', 502);
 }
 
+/* ---------- Belege (Foto/PDF → automatisch erkannt und gebucht) ---------- */
+const apiKey = () => ENV.ANTHROPIC_API_KEY || state.secrets.anthropicKey || '';
+const n2 = (v) => Number(String(v ?? '').replace(',', '.')) || 0;
+const isDate = (d) => /^\d{4}-\d{2}-\d{2}$/.test(d || '');
+const MIME_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.webp', 'image/gif': '.gif', 'application/pdf': '.pdf' };
+
+// Erkennung läuft nacheinander im Hintergrund, damit viele Fotos auf einmal kein Problem sind
+let queue = Promise.resolve();
+const enqueue = (id) => (queue = queue.then(() => recognize(id)).catch((e) => console.error('Belegerkennung:', e)));
+
+async function recognize(id) {
+  const r = state.receipts.find((x) => x.id === id);
+  if (!r || r.status !== 'processing') return;
+  try {
+    const ex = await Receipts.extract({ buffer: fs.readFileSync(path.join(RECEIPT_DIR, r.file)), mime: r.mime, company: { name: state.settings.company, cvr: state.settings.cvr }, apiKey: apiKey() });
+    r.extracted = ex;
+    r.rate = 1;
+    if (ex.currency && ex.currency.toUpperCase() !== 'DKK' && ex.docType !== 'other') {
+      try { r.rate = (await exchangeRate(ex.currency, isDate(ex.date) ? ex.date : '')).rate; } catch { r.rate = 0; }
+    }
+    r.draft = draftFromReceipt(r);
+    r.status = 'review';
+    r.error = '';
+    const sure = ex.confident && ex.docType !== 'other' && r.rate > 0 && isDate(ex.date) && n2(ex.total) > 0;
+    if (sure && state.settings.autoBook === 'yes') bookReceipt(r, r.draft, true);
+  } catch (err) {
+    r.status = 'error';
+    r.error = err.message;
+    r.draft = r.draft || emptyDraft();
+  }
+  save();
+}
+
+const emptyDraft = () => ({ kind: 'expense', date: today(), name: '', text: '', category: 'Diverse', amount: '', vat: '', euPurchase: '', paid: true, dueDate: '', documentNumber: '' });
+
+// Erkannte Werte → Buchungsvorschlag in DKK
+function draftFromReceipt(r) {
+  const ex = r.extracted || {};
+  const rate = r.rate ?? 1;
+  // ohne Wechselkurs bleibt der DKK-Betrag leer, damit nichts Falsches gebucht wird
+  const dkk = (v) => (rate > 0 ? (Math.round(n2(v) * rate * 100) / 100).toFixed(2) : '');
+  const foreign = rate !== 1 && ex.currency ? ` (${ex.total} ${ex.currency.toUpperCase()})` : '';
+  return {
+    kind: ex.docType === 'income' ? 'income' : 'expense',
+    date: isDate(ex.date) ? ex.date : today(), name: ex.counterparty || '', text: (ex.description || '') + foreign,
+    category: ex.category || 'Diverse', euPurchase: ex.euPurchase || '',
+    amount: ex.euPurchase ? dkk(n2(ex.total) - n2(ex.vat)) : dkk(ex.total), vat: ex.euPurchase ? '0.00' : dkk(ex.vat), original: rate !== 1 ? `${ex.total} ${String(ex.currency).toUpperCase()}` : '',
+    paid: !!ex.isPaid, dueDate: ex.isPaid ? '' : (isDate(ex.dueDate) ? ex.dueDate : ''), documentNumber: ex.documentNumber || '',
+  };
+}
+
+// Passende Lunar-Buchung suchen (gleicher Betrag ±1 kr., bis 3 Wochen Abstand) und verknüpfen
+function matchBank(kind, item) {
+  const cents = Math.round(n2(item.amount) * 100) * (kind === 'income' ? 1 : -1);
+  const d0 = Date.parse(item.date);
+  const tx = state.bank.find((t) => t.status === 'open' && Math.abs(t.amount - cents) <= 100 && Math.abs(Date.parse(t.date) - d0) <= 21 * 864e5);
+  if (!tx) return null;
+  tx.status = 'matched';
+  if (kind === 'income') tx.incomeId = item.id; else tx.expenseId = item.id;
+  Object.assign(item, { paid: true, paidDate: tx.date, bankId: tx.id });
+  return tx;
+}
+
+function bookReceipt(r, d, auto = false) {
+  if (r.booked) fail('Dieser Beleg ist schon gebucht.');
+  const amount = n2(d.amount);
+  if (!(amount > 0)) fail('Bitte den Betrag eintragen.');
+  if (!isDate(d.date)) fail('Bitte das Datum eintragen.');
+  const paid = d.paid === true || d.paid === 'true';
+  const base = { id: uid(), createdAt: new Date().toISOString(), date: d.date, text: str(d.text), category: str(d.category || 'Diverse', 80), amount: amount.toFixed(2), paid, paidDate: paid ? d.date : '', receiptId: r.id };
+  let item;
+  const kind = d.kind === 'income' ? 'income' : 'expense';
+  if (kind === 'income') {
+    item = { ...base, name: str(d.name || 'Einnahme', 200), vat: n2(d.vat).toFixed(2), documentNumber: str(d.documentNumber, 60) };
+    state.incomes.push(item);
+  } else {
+    // Gibt es die Ausgabe schon ohne Beleg (z. B. aus der Lunar-Buchung)? Dann Beleg anhängen statt doppelt buchen.
+    const d0 = Date.parse(d.date);
+    const dup = state.expenses.find((e) => !e.receiptId && Math.abs(n2(e.amount) - amount) <= 1 && Math.abs(Date.parse(e.date) - d0) <= 21 * 864e5);
+    if (dup) {
+      Object.assign(dup, { supplier: str(d.name || dup.supplier, 200), text: str(d.text || dup.text), category: base.category, vat: d.euPurchase ? '0.00' : n2(d.vat).toFixed(2),
+        euPurchase: ['goods', 'services'].includes(d.euPurchase) ? d.euPurchase : '', invoiceNumber: str(d.documentNumber, 60), receiptId: r.id });
+      r.booked = { kind, id: dup.id, auto, merged: true };
+      r.status = 'booked';
+      log('Beleg an vorhandene Ausgabe angehängt', `${dup.supplier} ${dup.amount} DKK`);
+      return dup;
+    }
+    item = { ...base, supplier: str(d.name || 'Unbekannt', 200), vat: d.euPurchase ? '0.00' : n2(d.vat).toFixed(2), euPurchase: ['goods', 'services'].includes(d.euPurchase) ? d.euPurchase : '',
+      deductible: d.deductible !== false, dueDate: paid ? '' : (isDate(d.dueDate) ? d.dueDate : ''), invoiceNumber: str(d.documentNumber, 60), currency: 'DKK' };
+    state.expenses.push(item);
+  }
+  matchBank(kind, item);
+  r.booked = { kind, id: item.id, auto };
+  r.status = 'booked';
+  log(`Beleg ${auto ? 'automatisch ' : ''}gebucht`, `${kind === 'income' ? 'Einnahme' : 'Ausgabe'} ${item.name || item.supplier} ${item.amount} DKK`);
+  return item;
+}
+
+function unlinkReceipt(item) {
+  const r = item.receiptId && state.receipts.find((x) => x.id === item.receiptId);
+  if (r && r.booked?.id === item.id) { r.booked = null; r.status = 'review'; }
+  for (const t of state.bank) if (t.expenseId === item.id || t.incomeId === item.id) { t.expenseId = t.incomeId = null; t.status = 'open'; }
+}
+
 /* ---------- API ---------- */
 async function api(method, parts, body, url) {
   const [res, id, action] = parts;
   const S = state.settings;
 
-  if (res === 'state' && method === 'GET') return state;
+  if (res === 'state' && method === 'GET') {
+    return { ...state, secrets: undefined, ai: { installed: Receipts.available(), enabled: Receipts.enabled(apiKey()), fromEnv: !!ENV.ANTHROPIC_API_KEY, hasKey: !!state.secrets.anthropicKey } };
+  }
+
+  // Adressen im Heimnetz, damit das Handy das Programm findet
+  if (res === 'lan' && method === 'GET') {
+    const ips = Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address);
+    return { open: HOST !== '127.0.0.1' && HOST !== 'localhost', urls: ips.map((ip) => `http://${ip}:${PORT}/#/belege`), password: !!ENV.PASSWORD };
+  }
 
   if (res === 'settings' && method === 'PUT') {
     for (const k of Object.keys(EMPTY().settings)) if (k in body) S[k] = k === 'logo' ? str(body[k], 400000) : typeof S[k] === 'number' ? Number(body[k]) || S[k] : str(body[k]);
+    if (typeof body.aiKey === 'string' && body.aiKey.trim()) state.secrets.anthropicKey = body.aiKey.trim().slice(0, 300);
+    if (body.aiKeyDelete) state.secrets.anthropicKey = '';
     log('Einstellungen geändert');
     return S;
   }
 
   // Kunden, Produkte, Ausgaben: einfache Listen
-  const simple = { customers: CUSTOMER_KEYS, products: PRODUCT_KEYS, expenses: EXPENSE_KEYS };
+  const simple = { customers: CUSTOMER_KEYS, products: PRODUCT_KEYS, expenses: EXPENSE_KEYS, incomes: INCOME_KEYS };
   if (simple[res]) {
     const list = state[res];
     if (method === 'POST' && !id) {
@@ -183,7 +302,7 @@ async function api(method, parts, body, url) {
     }
     if (method === 'DELETE') {
       if (res === 'customers' && state.invoices.some((i) => i.customerId === id && i.number)) fail('Für diesen Kunden gibt es bereits Rechnungen. Er kann nicht gelöscht werden.');
-      if (res === 'expenses') for (const t of state.bank) if (t.expenseId === id) { t.expenseId = null; t.status = 'open'; }
+      if (res === 'expenses' || res === 'incomes') unlinkReceipt(item);
       list.splice(list.indexOf(item), 1);
       log(`${res} gelöscht`, item.name || item.supplier);
       return { ok: true };
@@ -274,6 +393,46 @@ async function api(method, parts, body, url) {
     }
   }
 
+  if (res === 'receipts') {
+    if (method === 'POST' && !id) {
+      const mime = str(body.mime, 60);
+      if (!MIME_EXT[mime]) fail('Dateiformat wird nicht unterstützt (bitte JPG, PNG oder PDF).');
+      const buf = Buffer.from(String(body.data || ''), 'base64');
+      if (buf.length < 100) fail('Die Datei ist leer.');
+      const r = { id: uid(), uploadedAt: new Date().toISOString(), name: str(body.name, 200), mime, size: buf.length, status: 'review', booked: null, extracted: null, draft: emptyDraft(), error: '' };
+      r.file = r.id + MIME_EXT[mime];
+      fs.mkdirSync(RECEIPT_DIR, { recursive: true });
+      fs.writeFileSync(path.join(RECEIPT_DIR, r.file), buf);
+      state.receipts.push(r);
+      // Beleg an eine bestehende Ausgabe/Einnahme anhängen
+      const target = body.attachTo && (state[body.attachTo.kind === 'income' ? 'incomes' : 'expenses'] || []).find((x) => x.id === body.attachTo.id);
+      if (target) {
+        target.receiptId = r.id;
+        r.booked = { kind: body.attachTo.kind === 'income' ? 'income' : 'expense', id: target.id, auto: false };
+        r.status = 'booked';
+      } else if (Receipts.enabled(apiKey())) {
+        r.status = 'processing';
+        setImmediate(() => enqueue(r.id));
+      }
+      return r;
+    }
+    const r = byId(state.receipts, id);
+    if (method === 'POST' && action === 'book') return bookReceipt(r, body);
+    if (method === 'POST' && action === 'retry') {
+      if (r.booked) fail('Der Beleg ist schon gebucht.');
+      if (!Receipts.enabled(apiKey())) fail('Die automatische Erkennung ist nicht eingerichtet (Einstellungen → Belegerkennung).');
+      r.status = 'processing'; r.error = '';
+      setImmediate(() => enqueue(r.id));
+      return r;
+    }
+    if (method === 'DELETE') {
+      if (r.booked) fail('Der Beleg ist gebucht. Bitte zuerst die Buchung löschen.');
+      try { fs.unlinkSync(path.join(RECEIPT_DIR, r.file)); } catch { /* schon weg */ }
+      state.receipts.splice(state.receipts.indexOf(r), 1);
+      return { ok: true };
+    }
+  }
+
   if (res === 'bank') {
     if (method === 'POST' && id === 'import') {
       const { rows, error } = Bank.parseCsv(body.csv || '');
@@ -287,6 +446,15 @@ async function api(method, parts, body, url) {
     }
     const tx = byId(state.bank, id);
     if (method === 'POST' && action === 'ignore') { tx.status = tx.status === 'ignored' ? 'open' : 'ignored'; return tx; }
+    if (method === 'POST' && action === 'link') {
+      // Abbuchung/Eingang mit vorhandener (unbezahlter) Ausgabe bzw. Einnahme verbinden
+      const kind = body.kind === 'income' ? 'income' : 'expense';
+      const item = byId(state[kind === 'income' ? 'incomes' : 'expenses'], body.id);
+      Object.assign(item, { paid: true, paidDate: tx.date, bankId: tx.id });
+      tx.status = 'matched';
+      if (kind === 'income') tx.incomeId = item.id; else tx.expenseId = item.id;
+      return item;
+    }
     if (method === 'POST' && action === 'expense') {
       if (tx.amount >= 0) fail('Nur Abbuchungen können als Ausgabe gebucht werden.');
       const gross = -tx.amount;
@@ -312,14 +480,14 @@ async function api(method, parts, body, url) {
 
   if (res === 'vat' && method === 'GET') {
     const q = url.searchParams;
-    return Calc.vatReport(state.invoices, state.expenses, q.get('from'), q.get('to'));
+    return Calc.vatReport(state.invoices, state.expenses, q.get('from'), q.get('to'), state.incomes);
   }
 
-  if (res === 'backup' && method === 'GET') return state;
+  if (res === 'backup' && method === 'GET') return { ...state, secrets: undefined };
   if (res === 'backup' && method === 'POST') {
     if (!body || !Array.isArray(body.invoices) || !body.settings) fail('Das ist keine RechnungsStudio-Sicherung.');
     const e = EMPTY();
-    state = { ...e, ...body, settings: { ...e.settings, ...body.settings } };
+    state = { ...e, ...body, settings: { ...e.settings, ...body.settings }, secrets: state.secrets };
     log('Sicherung eingespielt');
     return { ok: true };
   }
@@ -328,7 +496,7 @@ async function api(method, parts, body, url) {
 }
 
 /* ---------- HTTP ---------- */
-const MIME = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
+const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 
 function authorized(req) {
   if (!ENV.PASSWORD) return true;
@@ -366,6 +534,13 @@ const server = http.createServer(async (req, res) => {
       if (req.method !== 'GET') save();
       return send(200, out);
     }
+    // Belegfoto/PDF anzeigen
+    const bm = url.pathname.match(/^\/beleg\/([a-f0-9]{16})$/);
+    if (bm) {
+      const r = state.receipts.find((x) => x.id === bm[1]);
+      if (!r) fail('Beleg nicht gefunden.', 404);
+      return send(200, fs.readFileSync(path.join(RECEIPT_DIR, r.file)), r.mime);
+    }
     let file = url.pathname === '/' ? '/index.html' : url.pathname;
     file = path.normalize(path.join(PUBLIC, file));
     if (!file.startsWith(PUBLIC) || !fs.existsSync(file) || fs.statSync(file).isDirectory()) file = path.join(PUBLIC, 'index.html');
@@ -377,6 +552,8 @@ const server = http.createServer(async (req, res) => {
 });
 
 if (require.main === module) {
+  // nach einem Neustart unterbrochene Erkennungen fortsetzen
+  for (const r of state.receipts) if (r.status === 'processing') enqueue(r.id);
   server.listen(PORT, HOST, () => console.log(`RechnungsStudio läuft: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}  (Daten: ${FILE})`));
 }
-module.exports = { server, api, reset: () => { state = EMPTY(); }, getState: () => state };
+module.exports = { server, api, reset: () => { state = EMPTY(); }, getState: () => state, draftFromReceipt, bookReceipt, idle: () => queue };

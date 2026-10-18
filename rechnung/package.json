@@ -1,0 +1,12 @@
+{
+  "name": "rechnungsstudio",
+  "private": true,
+  "description": "RechnungsStudio – Rechnungen, Belege, Moms/SKAT",
+  "scripts": {
+    "start": "node --no-warnings server.js"
+  },
+  "engines": { "node": ">=20" },
+  "dependencies": {
+    "@anthropic-ai/sdk": "0.135.0"
+  }
+}
