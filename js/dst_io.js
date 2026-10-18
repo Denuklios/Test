@@ -65,7 +65,10 @@
         moveTo(tx, ty, 'stitch');
       } else if (c.cmd === 'jump') moveTo(tx, ty, 'jump');
       else if (c.cmd === 'trim') {
-        const seq = [[2, 2], [-4, -4], [2, 2], [0, 0], [0, 0]].slice(0, trimJumps);
+        // etwas mehr Sprünge als eingestellt schreiben: so schneidet die Maschine auch dann, wenn ihre Schwelle
+        // höher liegt als angenommen (zusätzliche Sprünge schaden nicht); gleichbleibend winzige Bewegungen
+        const nj = Math.max(trimJumps + 2, 5), seq = [];
+        for (let k = 0; k < nj; k++) seq.push(k % 2 ? [-2, -2] : [2, 2]);
         let sum = [0, 0];
         for (const [a, b] of seq) { recs.push(encode(a, b, 'jump')); sum = [sum[0] + a, sum[1] + b]; }
         if (sum[0] || sum[1]) recs.push(encode(-sum[0], -sum[1], 'jump'));

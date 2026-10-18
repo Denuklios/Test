@@ -20,8 +20,36 @@
     out.push({ x: p.x, y: p.y, j });
   }
 
+  // Stiche entlang einer Linie mit höchstens "len" Länge; in Kurven kürzer, damit die Sehnen nicht
+  // als Vieleck über den Rand der Säule hinausragen (Pfeilhöhe höchstens "sag" mm)
+  function resampleAdaptive(pl, len, sag = 0.1) {
+    if (pl.length < 3 || len <= 0.7) return G.resample(pl, len);
+    const d = G.resample(pl, 0.25, 40);
+    const n = d.length;
+    if (n < 4) return d;
+    const ang = (i) => {
+      const a = d[Math.max(0, i - 2)], b = d[i], c = d[Math.min(n - 1, i + 2)];
+      const v1x = b.x - a.x, v1y = b.y - a.y, v2x = c.x - b.x, v2y = c.y - b.y;
+      const l1 = Math.hypot(v1x, v1y), l2 = Math.hypot(v2x, v2y);
+      if (l1 < 1e-9 || l2 < 1e-9) return 0;
+      return Math.acos(Math.max(-1, Math.min(1, (v1x * v2x + v1y * v2y) / (l1 * l2))));
+    };
+    const out = [d[0]];
+    let i = 0;
+    while (i < n - 1) {
+      const th = ang(i), arc = Math.hypot(d[Math.min(n - 1, i + 2)].x - d[Math.max(0, i - 2)].x, d[Math.min(n - 1, i + 2)].y - d[Math.max(0, i - 2)].y);
+      const r = th > 0.02 ? arc / th : 1e9;
+      const step = Math.max(0.6, Math.min(len, Math.sqrt(8 * r * sag)));
+      let j = i, acc = 0;
+      while (j < n - 1 && acc < step) { acc += G.dist(d[j], d[j + 1]); j++; if (ang(j) > 0.6) break; } // an Ecken enden
+      out.push(d[j]);
+      i = j;
+    }
+    return out;
+  }
+
   function runAlong(out, pl, len) {
-    const r = G.resample(pl, len);
+    const r = resampleAdaptive(pl, len, 0.12);
     for (const p of r) push(out, p);
   }
 
@@ -42,7 +70,7 @@
     const path = G.buildPath(obj.points, p.closed);
     let pl = path.pts;
     if (p.closed && pl.length > 1) pl = pl.concat([pl[0]]);
-    const base = G.resample(pl, p.len, 25, path.idx);
+    const base = p.style === 'single' && p.len >= 1.5 ? resampleAdaptive(pl, p.len, 0.1) : G.resample(pl, p.len, 25, path.idx);
     const out = [];
     if (p.style === 'single') base.forEach((q) => push(out, q));
     else if (p.style === 'triple') {
@@ -138,12 +166,38 @@
     return segs;
   }
 
+  // Eng gesetzte Kantenpunkte (Schriften, automatisch digitalisierte Säulen) sind oft treppenförmig:
+  // leicht glätten und alle nicht scharfen Punkte als Kurvenpunkte behandeln, damit die Satinkanten rund laufen
+  function smoothRail(rail) {
+    const n = rail.length;
+    if (n < 4) return rail;
+    for (let i = 1; i < n; i++) if (G.dist(rail[i - 1], rail[i]) > 1.2) return rail;
+    const sharp = rail.map((p, i) => {
+      if (i === 0 || i === n - 1) return true;
+      const a = rail[i - 1], b = rail[i + 1];
+      const v1x = p.x - a.x, v1y = p.y - a.y, v2x = b.x - p.x, v2y = b.y - p.y;
+      const l1 = Math.hypot(v1x, v1y), l2 = Math.hypot(v2x, v2y);
+      return l1 > 1e-9 && l2 > 1e-9 && (v1x * v2x + v1y * v2y) / (l1 * l2) < 0.42; // Knick über ca. 65°
+    });
+    let cur = rail.map((p) => ({ x: p.x, y: p.y }));
+    for (let it = 0; it < 3; it++) {
+      const nx = cur.map((p) => ({ x: p.x, y: p.y }));
+      for (let i = 1; i < n - 1; i++) {
+        if (sharp[i] || sharp[i - 1] && sharp[i + 1]) continue;
+        nx[i] = { x: (cur[i - 1].x + 2 * cur[i].x + cur[i + 1].x) / 4, y: (cur[i - 1].y + 2 * cur[i].y + cur[i + 1].y) / 4 };
+      }
+      cur = nx;
+    }
+    return cur.map((p, i) => ({ x: p.x, y: p.y, c: !sharp[i] || (i > 0 && i < n - 1 && false) }));
+  }
+
   function railsFor(obj) {
     const pts = obj.points;
     if (obj.type === 'colA') {
-      const L = [], R = [];
+      let L = [], R = [];
       for (let i = 0; i + 1 < pts.length; i += 2) { L.push(pts[i]); R.push(pts[i + 1]); }
       if (L.length < 2) return null;
+      if (obj.params && obj.params.smooth !== false) { L = smoothRail(L); R = smoothRail(R); }
       const pL = G.buildPath(L, false), pR = G.buildPath(R, false);
       const segs = [];
       for (let k = 0; k + 1 < L.length; k++) {
