@@ -3,6 +3,8 @@
 Ein Stickprogramm (Digitalisier-Software), das im Browser läuft – ohne Installation, auch offline.
 Es erzeugt **DST-Dateien (Tajima)** für die **Texi 1501** und alle anderen Tajima-kompatiblen Maschinen.
 
+> **Neu:** Im Ordner [`fraesstudio/`](fraesstudio/README.md) liegt **FräsStudio** – CAD + CAM + Steuerung für CNC-Fräsen (Twotrees TTC450 und andere GRBL-Maschinen).
+
 ## Starten
 
 **Wichtig:** Es gibt zwei Arten, StickStudio zu benutzen.
