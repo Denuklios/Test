@@ -1,0 +1,701 @@
+/* RechnungsStudio – Oberfläche (Deutsch). Rechnungen werden in der Sprache des Kunden ausgegeben. */
+'use strict';
+const $ = (s, el = document) => el.querySelector(s);
+const $$ = (s, el = document) => [...el.querySelectorAll(s)];
+const esc = (s) => String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const today = () => new Date().toISOString().slice(0, 10);
+const kr = (cents, cur = 'DKK') => DocLang.money(cents, cur, 'de');
+const dmy = (iso) => DocLang.date(iso, 'de');
+const num = (v) => String(v ?? '').replace('.', ',');
+
+let S = null; // gesamter Datenstand vom Server
+
+async function api(path, method = 'GET', body) {
+  const opt = { method, headers: { 'X-RS': '1' } };
+  if (body !== undefined) { opt.headers['Content-Type'] = 'application/json'; opt.body = JSON.stringify(body); }
+  const r = await fetch('/api/' + path, opt);
+  const data = await r.json().catch(() => ({ error: 'Keine Antwort vom Server.' }));
+  if (!r.ok) throw new Error(data.error || 'Fehler');
+  return data;
+}
+async function reload() { S = await api('state'); }
+// Änderung ausführen, danach Datenstand neu laden
+async function act(fn, okMsg) {
+  try { const r = await fn(); await reload(); if (okMsg) toast(okMsg); return r; }
+  catch (e) { toast(e.message, true); throw e; }
+}
+
+function toast(msg, err) {
+  const t = $('#toast');
+  t.textContent = msg; t.className = 'toast' + (err ? ' err' : '');
+  clearTimeout(toast.t); toast.t = setTimeout(() => t.classList.add('hidden'), err ? 6000 : 2500);
+}
+function modal(html, onMount) {
+  $('#modal-body').innerHTML = html;
+  $('#modal').classList.remove('hidden');
+  onMount && onMount($('#modal-body'));
+  const f = $('#modal-body input, #modal-body select'); f && f.focus();
+}
+const closeModal = () => $('#modal').classList.add('hidden');
+$('#modal').addEventListener('mousedown', (e) => { if (e.target.id === 'modal') closeModal(); });
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeModal(); });
+const formData = (el) => Object.fromEntries($$('[name]', el).map((i) => [i.name, i.type === 'checkbox' ? i.checked : i.value]));
+
+/* ---------- Bezeichnungen ---------- */
+const LANGS = { de: 'Deutsch', da: 'Dänisch', en: 'Englisch' };
+const UNITS = { stk: 'Stück', timer: 'Stunden', dage: 'Tage', md: 'Monat', m: 'Meter', m2: 'm²', kg: 'kg', pakke: 'Paket', '': '–' };
+const CURRENCIES = ['DKK', 'EUR', 'SEK', 'NOK', 'GBP', 'USD', 'CHF', 'PLN'];
+const SCHEMES = {
+  dk: 'Dänemark – 25 % Moms', eu_rc: 'EU-Firma – Reverse Charge, 0 %', eu_b2c: 'EU-Privatkunde – 25 % dänische Moms', export: 'Außerhalb der EU – 0 %',
+};
+const COUNTRY_LIST = ['DK', 'DE', 'SE', 'NO', 'NL', 'AT', 'CH', 'PL', 'FR', 'BE', 'FI', 'IT', 'ES', 'GB', 'US', ...Calc.EU.filter((c) => !['DE', 'SE', 'NL', 'AT', 'PL', 'FR', 'BE', 'FI', 'IT', 'ES'].includes(c))];
+const countryName = (c) => DocLang.country(c, 'de');
+const countryOpts = (sel) => COUNTRY_LIST.map((c) => `<option value="${c}" ${c === sel ? 'selected' : ''}>${esc(countryName(c))} (${c})</option>`).join('');
+const opts = (obj, sel) => Object.entries(obj).map(([k, v]) => `<option value="${k}" ${k === sel ? 'selected' : ''}>${esc(v)}</option>`).join('');
+
+function invStatus(inv) {
+  if (inv.status === 'draft') return ['Entwurf', 'b-draft'];
+  if (inv.type === 'credit') return ['Gutschrift', 'b-credit'];
+  if (inv.status === 'paid') return ['Bezahlt', 'b-paid'];
+  if (inv.status === 'credited') return ['Gutgeschrieben', 'b-credit'];
+  if (inv.dueDate < today()) return ['Überfällig', 'b-over'];
+  return ['Offen', 'b-open'];
+}
+const badge = (inv) => { const [t, c] = invStatus(inv); return `<span class="badge ${c}">${t}</span>`; };
+const isOpen = (inv) => inv.status === 'approved' && inv.type !== 'credit';
+const gross = (inv) => Calc.totals(inv).gross * Calc.sign(inv);
+const grossDKK = (inv) => Calc.toDKK(Calc.totals(inv).gross, inv) * Calc.sign(inv);
+const invTitle = (inv) => (inv.type === 'credit' ? 'Gutschrift' : 'Rechnung') + (inv.number ? ' ' + inv.number : ' (Entwurf)');
+
+/* ---------- Router ---------- */
+const routes = {};
+async function route() {
+  const [r, id] = location.hash.replace(/^#\/?/, '').split('/');
+  $$('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.r === (r === 'rechnung' || r === 'druck' ? 'rechnungen' : r || '')));
+  try { if (!S) await reload(); } catch (e) { $('#main').innerHTML = `<div class="card">Server nicht erreichbar: ${esc(e.message)}</div>`; return; }
+  (routes[r || ''] || routes[''])(id);
+  window.scrollTo(0, 0);
+}
+window.addEventListener('hashchange', route);
+const go = (h) => { if (location.hash === h) route(); else location.hash = h; };
+
+/* ---------- Übersicht ---------- */
+routes[''] = () => {
+  const inv = S.invoices.filter((i) => i.status !== 'draft');
+  const open = inv.filter(isOpen);
+  const over = open.filter((i) => i.dueDate < today());
+  const openAmt = open.reduce((s, i) => s + grossDKK(i) - (i.paidAmount || 0), 0);
+  const overAmt = over.reduce((s, i) => s + grossDKK(i) - (i.paidAmount || 0), 0);
+  const y = new Date().getFullYear();
+  const yearNet = inv.filter((i) => i.date.startsWith(y)).reduce((s, i) => s + Calc.sign(i) * Calc.toDKK(Calc.totals(i).net, i), 0);
+  const per = Calc.periods(y, S.settings.vatPeriod).concat(Calc.periods(y - 1, S.settings.vatPeriod));
+  const cur = per.find((p) => p.from <= today() && p.to >= today()) || per[0];
+  const prev = per.filter((p) => p.to < today() && p.deadline >= today()).sort((a, b) => a.deadline.localeCompare(b.deadline))[0];
+  const vr = Calc.vatReport(S.invoices, S.expenses, cur.from, cur.to);
+  const months = Array.from({ length: 12 }, (_, m) => inv.filter((i) => i.date.startsWith(`${y}-${String(m + 1).padStart(2, '0')}`))
+    .reduce((s, i) => s + Calc.sign(i) * Calc.toDKK(Calc.totals(i).net, i), 0));
+  const mx = Math.max(1, ...months);
+  const setup = !S.settings.company || !S.settings.cvr;
+  $('#main').innerHTML = `
+    <h1>Übersicht <span class="spacer"></span><button class="primary" id="new-inv">+ Neue Rechnung</button></h1>
+    ${setup ? `<div class="note warn">Willkommen! Bitte zuerst unter <a href="#/einstellungen">Einstellungen</a> deine Firmendaten (Name, CVR-Nr., Lunar-Konto) eintragen.</div>` : ''}
+    <div class="cards">
+      <div class="card stat"><div class="k">Offene Rechnungen</div><div class="v">${kr(openAmt)}</div><div class="s">${open.length} Rechnung(en)</div></div>
+      <div class="card stat"><div class="k">Davon überfällig</div><div class="v" style="color:${over.length ? 'var(--bad)' : 'inherit'}">${kr(overAmt)}</div><div class="s">${over.length} Rechnung(en)</div></div>
+      <div class="card stat"><div class="k">Umsatz ${y} (netto)</div><div class="v">${kr(yearNet)}</div><div class="s">ohne Moms</div></div>
+      <div class="card stat"><div class="k">Moms ${esc(cur.label)}</div><div class="v">${kr(vr.momstilsvar)}</div><div class="s">bisher · Frist ${dmy(cur.deadline)}</div></div>
+    </div>
+    ${prev ? `<div class="note warn">Die Momsangivelse für <b>${esc(prev.label)}</b> muss bis <b>${dmy(prev.deadline)}</b> bei SKAT eingereicht werden. <a href="#/moms">Zur Momsabrechnung →</a></div>` : ''}
+    <div class="card"><b>Umsatz ${y} je Monat (netto, DKK)</b>
+      <div class="bars" style="margin-bottom:22px">${months.map((v, i) => `<div style="height:${(v / mx) * 100}%" title="${kr(v)}"><span>${'JFMAMJJASOND'[i]}</span></div>`).join('')}</div></div>
+    <h2>Zuletzt</h2>${invoiceTable(S.invoices.slice().sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || '')).slice(0, 8))}`;
+  $('#new-inv').onclick = newInvoice;
+  bindInvoiceRows();
+};
+
+/* ---------- Rechnungsliste ---------- */
+let invFilter = 'alle';
+function invoiceTable(list) {
+  if (!list.length) return '<div class="card empty">Noch keine Rechnungen.</div>';
+  return `<div class="table-wrap"><table><thead><tr><th>Nr.</th><th>Datum</th><th>Kunde</th><th>Fällig</th><th class="r">Betrag</th><th>Status</th></tr></thead><tbody>
+    ${list.map((i) => `<tr class="click" data-inv="${i.id}"><td>${i.number ? (i.type === 'credit' ? 'G ' : '') + i.number : '–'}</td><td>${dmy(i.date)}</td>
+      <td>${esc(i.customerName || '–')} <span class="muted small">${(i.language || '').toUpperCase()}</span></td><td>${i.type === 'credit' ? '' : dmy(i.dueDate)}</td>
+      <td class="r">${kr(gross(i), i.currency)}${i.currency !== 'DKK' && i.exchangeRate ? `<div class="muted small">${kr(grossDKK(i))}</div>` : ''}</td><td>${badge(i)}</td></tr>`).join('')}
+  </tbody></table></div>`;
+}
+function bindInvoiceRows() {
+  $$('[data-inv]').forEach((tr) => (tr.onclick = () => {
+    const inv = S.invoices.find((i) => i.id === tr.dataset.inv);
+    go(inv.status === 'draft' ? `#/rechnung/${inv.id}` : `#/druck/${inv.id}`);
+  }));
+}
+routes.rechnungen = () => {
+  const F = {
+    alle: () => true, entwurf: (i) => i.status === 'draft', offen: isOpen,
+    ueberfaellig: (i) => isOpen(i) && i.dueDate < today(), bezahlt: (i) => i.status === 'paid' && i.type !== 'credit', gutschrift: (i) => i.type === 'credit',
+  };
+  const L = { alle: 'Alle', entwurf: 'Entwürfe', offen: 'Offen', ueberfaellig: 'Überfällig', bezahlt: 'Bezahlt', gutschrift: 'Gutschriften' };
+  const list = S.invoices.filter(F[invFilter]).sort((a, b) => (b.number || 1e9) - (a.number || 1e9) || b.date.localeCompare(a.date));
+  $('#main').innerHTML = `<h1>Rechnungen <span class="spacer"></span><button class="primary" id="new-inv">+ Neue Rechnung</button></h1>
+    <div class="tabs">${Object.entries(L).map(([k, v]) => `<button data-f="${k}" class="${k === invFilter ? 'on' : ''}">${v} (${S.invoices.filter(F[k]).length})</button>`).join('')}</div>
+    ${invoiceTable(list)}`;
+  $$('[data-f]').forEach((b) => (b.onclick = () => { invFilter = b.dataset.f; routes.rechnungen(); }));
+  $('#new-inv').onclick = newInvoice;
+  bindInvoiceRows();
+};
+async function newInvoice(customerId) {
+  const c = S.customers.find((x) => x.id === customerId);
+  const inv = await act(() => api('invoices', 'POST', {
+    customerId: c?.id || '', currency: c?.currency || S.settings.defaultCurrency || 'DKK', language: c?.language || 'da', dueDays: c?.dueDays || S.settings.dueDays,
+    lines: [{ text: '', qty: '1', unit: 'stk', price: '0', discount: '0', kind: 'services' }],
+  }));
+  go(`#/rechnung/${inv.id}`);
+}
+
+/* ---------- Rechnung bearbeiten (Entwurf) ---------- */
+routes.rechnung = (id) => {
+  const inv = S.invoices.find((i) => i.id === id);
+  if (!inv) return go('#/rechnungen');
+  if (inv.status !== 'draft') return go(`#/druck/${id}`);
+  const d = JSON.parse(JSON.stringify(inv));
+  const custOpts = `<option value="">– Kunde wählen –</option>` + S.customers.slice().sort((a, b) => a.name.localeCompare(b.name))
+    .map((c) => `<option value="${c.id}" ${c.id === d.customerId ? 'selected' : ''}>${esc(c.name)} (${c.country}, ${LANGS[c.language] || ''})</option>`).join('');
+  const prodOpts = `<option value="">Produkt…</option>` + S.products.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
+  $('#main').innerHTML = `
+    <h1>${d.type === 'credit' ? `Gutschrift zu Rechnung ${d.refNumber}` : 'Rechnung'} <span class="badge b-draft">Entwurf</span><span class="spacer"></span>
+      <button id="del" class="danger">Entwurf löschen</button><button id="preview">Vorschau</button><button id="save">Speichern</button><button class="primary" id="approve">Genehmigen &amp; Nummer vergeben</button></h1>
+    <div class="card"><div class="grid">
+      <label class="wide">Kunde<div class="inline"><select name="customerId">${custOpts}</select><button id="new-cust" type="button">+ Neuer Kunde</button></div></label>
+      <label>Rechnungsdatum<input type="date" name="date" value="${d.date}"></label>
+      <label>Zahlungsziel (Tage)<input type="number" min="0" name="dueDays" value="${d.dueDays}"></label>
+      <label>Sprache der Rechnung<select name="language">${opts(LANGS, d.language)}</select></label>
+      <label>Währung<select name="currency">${CURRENCIES.map((c) => `<option ${c === d.currency ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+      <label class="rate">Kurs (DKK je 1 ${esc(d.currency)})<div class="inline"><input name="exchangeRate" value="${d.currency === 'DKK' ? '1' : num(d.exchangeRate || '')}"><button id="get-rate" type="button" title="Kurs von Nationalbanken/EZB holen">Holen</button></div></label>
+      <label>Momsart<select name="vatScheme">${opts(SCHEMES, d.vatScheme)}</select></label>
+    </div><div id="scheme-note" class="small muted" style="margin-top:8px"></div></div>
+    <div class="table-wrap"><table class="lines"><thead><tr><th style="width:150px">Produkt</th><th>Beschreibung</th><th class="r">Menge</th><th>Einheit</th><th class="r">Preis</th><th class="r">Rabatt %</th><th>Art</th><th title="Zeile ohne Moms">0 %</th><th class="r">Betrag</th><th></th></tr></thead>
+      <tbody id="lines"></tbody></table>
+      <div style="padding:10px"><button id="add-line">+ Zeile</button></div></div>
+    <div class="row" style="align-items:flex-start;margin-top:14px">
+      <label style="flex:1;min-width:260px">Notiz auf der Rechnung (optional)<textarea name="note" rows="3">${esc(d.note || '')}</textarea></label>
+      <div class="totals card" id="totals"></div>
+    </div>`;
+  const tb = $('#lines');
+  const lineRow = (l, i) => `<tr data-i="${i}">
+      <td><select data-k="productId">${prodOpts}</select></td>
+      <td><textarea data-k="text" rows="1">${esc(l.text)}</textarea></td>
+      <td><input class="num" data-k="qty" value="${esc(num(l.qty))}"></td>
+      <td><select data-k="unit">${opts(UNITS, l.unit)}</select></td>
+      <td><input class="num" data-k="price" value="${esc(num(l.price))}"></td>
+      <td><input class="num" data-k="discount" value="${esc(num(l.discount))}" style="width:60px"></td>
+      <td><select data-k="kind"><option value="services" ${l.kind !== 'goods' ? 'selected' : ''}>Leistung</option><option value="goods" ${l.kind === 'goods' ? 'selected' : ''}>Ware</option></select></td>
+      <td><input type="checkbox" data-k="vatFree" ${l.vatFree ? 'checked' : ''}></td>
+      <td class="r lt"></td><td><button class="small danger" data-del>✕</button></td></tr>`;
+  const drawLines = () => { tb.innerHTML = d.lines.map(lineRow).join(''); bindLines(); calc(); };
+  const read = () => {
+    Object.assign(d, formData($('#main .card')), { note: $('[name=note]').value });
+    d.exchangeRate = String(d.exchangeRate).replace(',', '.');
+    $$('#lines tr').forEach((tr) => {
+      const l = d.lines[tr.dataset.i];
+      $$('[data-k]', tr).forEach((el) => { if (el.dataset.k !== 'productId') l[el.dataset.k] = el.type === 'checkbox' ? el.checked : el.value.replace(',', '.'); });
+    });
+  };
+  const calc = () => {
+    read();
+    const t = Calc.totals(d);
+    $$('#lines tr').forEach((tr) => ($('.lt', tr).textContent = kr(Calc.lineNet(d.lines[tr.dataset.i]), d.currency)));
+    const foreign = d.currency !== 'DKK';
+    $('#totals').innerHTML = `<div><span>Netto</span><span>${kr(t.net, d.currency)}</span></div>
+      ${t.vatLines.map((v) => `<div><span>Moms ${v.rate} %</span><span>${kr(v.vat, d.currency)}</span></div>`).join('') || '<div><span>Moms</span><span>' + kr(0, d.currency) + '</span></div>'}
+      <div class="grand"><span>Gesamt</span><span>${kr(t.gross, d.currency)}</span></div>
+      ${foreign && d.exchangeRate > 0 ? `<div class="muted small"><span>= in DKK</span><span>${kr(Calc.toDKK(t.gross, d))}</span></div>` : ''}`;
+    $('.rate').style.display = foreign ? '' : 'none';
+    $('label.rate').firstChild.textContent = `Kurs (DKK je 1 ${d.currency})`;
+    const c = S.customers.find((x) => x.id === d.customerId);
+    const auto = c ? Calc.vatScheme(c) : null;
+    $('#scheme-note').innerHTML = (auto && auto !== d.vatScheme ? `<span style="color:var(--warn)">Achtung: Für diesen Kunden wäre automatisch „${SCHEMES[auto]}“ richtig.</span> ` : '')
+      + (d.vatScheme === 'eu_rc' ? `Auf der Rechnung steht der Reverse-Charge-Hinweis in der Kundensprache, die USt-IdNr. des Kunden (${esc(c?.vatId || 'fehlt!')}) wird gedruckt. Der Betrag geht bei SKAT in Rubrik B.` : '')
+      + (d.vatScheme === 'export' ? 'Keine dänische Moms – der Betrag geht bei SKAT in Rubrik C.' : '');
+  };
+  function bindLines() {
+    $$('#lines tr').forEach((tr) => {
+      const l = d.lines[tr.dataset.i];
+      $$('input,textarea,select', tr).forEach((el) => (el.oninput = calc));
+      $('[data-del]', tr).onclick = () => { read(); d.lines.splice(tr.dataset.i, 1); drawLines(); };
+      $('[data-k=productId]', tr).onchange = (e) => {
+        read();
+        const p = S.products.find((x) => x.id === e.target.value);
+        if (!p) return;
+        let price = Calc.toCents(p.price);
+        const pc = p.currency || 'DKK';
+        if (pc !== d.currency) {
+          const rate = Number(d.exchangeRate) || 0;
+          if (pc === 'DKK' && rate > 0) price = Math.round(price / rate);
+          else if (pc !== 'DKK') toast('Produktpreis ist in ' + pc + ' – bitte Preis prüfen.', true);
+        }
+        Object.assign(l, { productId: p.id, text: p['name_' + d.language] || p.name, unit: p.unit || 'stk', price: (price / 100).toFixed(2), kind: p.kind || 'services', vatFree: !!p.vatFree });
+        drawLines();
+      };
+      const ta = $('textarea', tr);
+      const fit = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 2 + 'px'; };
+      ta.addEventListener('input', fit); fit();
+    });
+  }
+  const save = () => { read(); return act(() => api('invoices/' + id, 'PUT', d)); };
+  $$('#main .card [name], [name=note]').forEach((el) => (el.oninput = calc));
+  $('[name=customerId]').onchange = (e) => {
+    const c = S.customers.find((x) => x.id === e.target.value);
+    if (c) {
+      $('[name=language]').value = c.language || 'da';
+      $('[name=currency]').value = c.currency || 'DKK';
+      $('[name=vatScheme]').value = Calc.vatScheme(c);
+      if (c.dueDays) $('[name=dueDays]').value = c.dueDays;
+      if ((c.currency || 'DKK') !== 'DKK') getRate();
+    }
+    calc();
+  };
+  $('[name=currency]').onchange = () => { calc(); if (d.currency !== 'DKK') getRate(); };
+  $('[name=language]').onchange = () => {
+    read();
+    for (const l of d.lines) { const p = S.products.find((x) => x.id === l.productId); if (p) l.text = p['name_' + d.language] || p.name; }
+    drawLines();
+  };
+  async function getRate() {
+    read();
+    try {
+      const r = await api(`lookup/rate?currency=${d.currency}&date=${d.date}`);
+      $('[name=exchangeRate]').value = num(r.rate.toFixed(4)); calc(); toast(`Kurs ${num(r.rate.toFixed(4))} (${r.source})`);
+    } catch (e) { toast(e.message, true); }
+  }
+  $('#get-rate').onclick = getRate;
+  $('#add-line').onclick = () => { read(); d.lines.push({ text: '', qty: '1', unit: 'stk', price: '0', discount: '0', kind: d.lines.at(-1)?.kind || 'services' }); drawLines(); };
+  $('#save').onclick = async () => { await save(); toast('Gespeichert'); };
+  $('#preview').onclick = async () => { await save(); go(`#/druck/${id}`); };
+  $('#del').onclick = async () => { if (confirm('Entwurf wirklich löschen?')) { await act(() => api('invoices/' + id, 'DELETE')); go('#/rechnungen'); } };
+  $('#approve').onclick = async () => {
+    await save();
+    if (!confirm('Rechnung genehmigen? Sie bekommt dann die nächste fortlaufende Nummer und kann nicht mehr geändert werden (nur noch per Gutschrift).')) return;
+    await act(() => api(`invoices/${id}/approve`, 'POST', {}), 'Rechnung genehmigt');
+    go(`#/druck/${id}`);
+  };
+  $('#new-cust').onclick = () => customerForm(null, async (c) => { await save(); await act(() => api('invoices/' + id, 'PUT', { ...d, customerId: c.id, language: c.language, currency: c.currency || 'DKK', vatScheme: Calc.vatScheme(c) })); routes.rechnung(id); });
+  drawLines();
+};
+
+/* ---------- Rechnungsdokument (Druck/PDF) in Kundensprache ---------- */
+function renderDoc(inv, reminder) {
+  const L = DocLang.get(inv.language), lang = inv.language;
+  const s = inv.seller || S.settings;
+  const t = Calc.totals(inv);
+  const m = (c) => DocLang.money(c, inv.currency, lang);
+  const F = (k, v) => DocLang.fill(L[k], v);
+  const credit = inv.type === 'credit';
+  const docName = reminder ? L.reminder : credit ? L.credit : L.invoice;
+  const numStr = inv.number ?? '—';
+  const legal = [];
+  if (inv.vatScheme === 'eu_rc') { if (t.services) legal.push(L.rcServices); if (t.goods) legal.push(L.rcGoods); }
+  if (inv.vatScheme === 'export') legal.push(L.export);
+  const hasDisc = inv.lines.some((l) => Number(l.discount));
+  const foreign = inv.currency !== 'DKK';
+  const fik = !credit && s.fikCreditor && inv.number ? Calc.fikLine(inv.number, s.fikCreditor) : '';
+  const sellerLines = [s.company, s.owner && s.owner !== s.company ? s.owner : '', s.street, [s.zip, s.city].filter(Boolean).join(' '), s.country && s.country !== inv.customerCountry ? DocLang.country(s.country, lang) : ''].filter(Boolean);
+  const vals = { total: m(Calc.sign(inv) * t.gross), due: DocLang.date(inv.dueDate, lang), number: numStr, company: s.company, doc: docName };
+  return `<div class="doc">
+    <div class="top"><div>${S.settings.logo ? `<img class="logo" src="${S.settings.logo}" alt="">` : `<div style="font-size:16pt;font-weight:700">${esc(s.company)}</div>`}</div>
+      <div class="seller">${sellerLines.map(esc).join('<br>')}<br>${esc(L.ourVat)} ${esc(s.cvr)}${s.email ? '<br>' + esc(s.email) : ''}${s.phone ? '<br>' + esc(s.phone) : ''}${s.web ? '<br>' + esc(s.web) : ''}</div></div>
+    <div class="addr"><div class="sender">${esc([s.company, s.street, [s.zip, s.city].join(' ')].filter(Boolean).join(' · '))}</div><br>
+      <b>${esc(inv.customerName)}</b><br>${esc(inv.customerAddress || '').replace(/\n/g, '<br>')}${inv.customerCountry !== s.country ? '<br>' + esc(DocLang.country(inv.customerCountry, lang)) : ''}
+      ${inv.customerVatId ? `<br><span style="font-size:9pt">${esc(L.yourVat)}: ${esc(inv.customerVatId)}</span>` : ''}</div>
+    <div class="meta"><h1>${esc(docName)}</h1><table>
+      <tr><td>${esc(credit ? L.creditNumber : L.number)}</td><td><b>${esc(numStr)}</b></td></tr>
+      <tr><td>${esc(L.date)}</td><td>${DocLang.date(reminder ? today() : inv.date, lang)}</td></tr>
+      ${!credit ? `<tr><td>${esc(L.due)}</td><td>${DocLang.date(inv.dueDate, lang)}</td></tr>` : ''}
+      ${inv.customerNo ? `<tr><td>${esc(L.customerNo)}</td><td>${esc(inv.customerNo)}</td></tr>` : ''}</table></div>
+    ${credit && inv.refNumber ? `<p>${esc(F('refersTo', { number: inv.refNumber }))}</p>` : ''}
+    ${reminder ? `<p style="margin-top:8mm">${esc(F('reminderText', vals))}</p>` : ''}
+    <table class="items"><thead><tr><th>${esc(L.desc)}</th><th class="r">${esc(L.qty)}</th><th>${esc(L.unit)}</th><th class="r">${esc(L.price)}</th>${hasDisc ? `<th class="r">${esc(L.discount)}</th>` : ''}<th class="r">${esc(L.amount)}</th></tr></thead><tbody>
+      ${inv.lines.filter((l) => l.text || Number(l.price)).map((l) => `<tr><td>${esc(l.text)}${l.vatFree && inv.vatScheme !== 'eu_rc' && inv.vatScheme !== 'export' ? ` <span style="font-size:8pt;color:#666">(${esc(L.vatFree)})</span>` : ''}</td>
+        <td class="r">${new Intl.NumberFormat(L.locale).format(Number(l.qty) || 0)}</td><td>${esc(L.units[l.unit] ?? l.unit)}</td>
+        <td class="r">${m(Calc.toCents(l.price))}</td>${hasDisc ? `<td class="r">${Number(l.discount) ? esc(num(l.discount)) + ' %' : ''}</td>` : ''}
+        <td class="r">${m(Calc.sign(inv) * Calc.lineNet(l))}</td></tr>`).join('')}
+    </tbody></table>
+    <div class="sum"><div><span>${esc(L.net)}</span><span>${m(Calc.sign(inv) * t.net)}</span></div>
+      ${t.vatLines.length ? t.vatLines.map((v) => `<div><span>${esc(L.vat)} ${v.rate} %</span><span>${m(Calc.sign(inv) * v.vat)}</span></div>`).join('') : `<div><span>${esc(L.vat)} 0 %</span><span>${m(0)}</span></div>`}
+      <div class="grand"><span>${esc(L.total)} ${esc(inv.currency)}</span><span>${m(Calc.sign(inv) * t.gross)}</span></div>
+      ${foreign && t.vat ? `<div style="font-size:8.5pt;color:#444"><span>${esc(F('vatInDKK', { rate: new Intl.NumberFormat(L.locale, { maximumFractionDigits: 4 }).format(inv.exchangeRate) }))}</span><span>${DocLang.money(Calc.sign(inv) * Calc.toDKK(t.vat, inv), 'DKK', lang)}</span></div>` : ''}</div>
+    ${legal.length ? `<div class="legal">${legal.map((x) => `<div>${esc(x)}</div>`).join('')}</div>` : ''}
+    ${inv.note ? `<div class="legal" style="white-space:pre-line">${esc(inv.note)}</div>` : ''}
+    <div class="pay"><b>${esc(L.payment)}</b><br>${esc(credit ? L.creditText : F('payText', vals))}
+      ${!credit ? `<table style="margin-top:2mm">${s.bankName ? `<tr><td>${esc(L.bank)}</td><td>${esc(s.bankName)}</td></tr>` : ''}
+        ${s.regNo && (inv.customerCountry === 'DK' || !s.iban) ? `<tr><td>${esc(L.regKonto)}</td><td>${esc(s.regNo)} ${esc(s.accountNo)}</td></tr>` : ''}
+        ${s.iban ? `<tr><td>${esc(L.iban)}</td><td>${esc(s.iban)}</td></tr>` : ''}${s.bic && s.iban ? `<tr><td>${esc(L.bic)}</td><td>${esc(s.bic)}</td></tr>` : ''}</table>
+        ${fik && inv.currency === 'DKK' && inv.customerCountry === 'DK' ? `<div class="fik">${esc(L.fik)}: ${esc(fik)}</div>` : ''}` : ''}</div>
+    ${!credit && !reminder ? `<p style="margin-top:6mm">${esc(L.thanks)}</p>` : ''}
+    <div class="foot">${esc([s.company, [s.street, [s.zip, s.city].join(' ')].filter(Boolean).join(', '), `${L.ourVat} ${s.cvr}`, s.iban ? `IBAN ${s.iban}` : ''].filter(Boolean).join(' · '))}${s.footer ? '<br>' + esc(s.footer) : ''}</div>
+  </div>`;
+}
+
+routes.druck = (id) => {
+  const inv = S.invoices.find((i) => i.id === id);
+  if (!inv) return go('#/rechnungen');
+  const reminder = location.hash.includes('?mahnung');
+  const L = DocLang.get(inv.language);
+  const draft = inv.status === 'draft';
+  const open = isOpen(inv);
+  const rest = grossDKK(inv) - (inv.paidAmount || 0);
+  $('#main').innerHTML = `
+    <h1 class="no-print"><a class="btn" href="#/rechnungen">← Zurück</a> ${esc(invTitle(inv))} ${badge(inv)} <span class="muted small">Ausgabe auf ${LANGS[inv.language]}</span></h1>
+    ${draft ? '<div class="note warn no-print">Vorschau eines Entwurfs – noch ohne Rechnungsnummer.</div>' : ''}
+    <div class="doc-actions no-print">
+      ${draft ? `<a class="btn" href="#/rechnung/${id}">Bearbeiten</a>` : ''}
+      <button class="primary" id="print">Drucken / Als PDF speichern</button>
+      ${!draft ? `<button id="mail">Per E-Mail senden</button>` : ''}
+      ${open ? `<button id="pay">Als bezahlt markieren</button>` : ''}
+      ${open && inv.dueDate < today() ? `<a class="btn" href="#/druck/${id}?mahnung">Zahlungserinnerung</a>` : ''}
+      ${inv.payments?.length ? `<button id="unpay">Zahlung zurücknehmen</button>` : ''}
+      ${!draft && inv.type !== 'credit' && inv.status !== 'credited' ? `<button id="credit">Gutschrift erstellen</button>` : ''}
+      ${!draft && inv.type !== 'credit' ? `<button id="copy">Kopieren</button>` : ''}
+    </div>
+    ${inv.payments?.length ? `<div class="note no-print">Zahlungen: ${inv.payments.map((p) => `${dmy(p.date)} ${kr(p.amount)}`).join(', ')}${open ? ` · offen noch ${kr(rest)}` : ''}</div>` : ''}
+    <div class="doc-wrap">${renderDoc(inv, reminder)}</div>`;
+  $('#print').onclick = () => { const t = document.title; document.title = `${inv.type === 'credit' ? L.credit : L.invoice}-${inv.number || 'Entwurf'}`; window.print(); document.title = t; };
+  $('#mail') && ($('#mail').onclick = async () => {
+    const t = Calc.totals(inv);
+    const vals = { doc: inv.type === 'credit' ? L.credit : L.invoice, number: inv.number, total: DocLang.money(Calc.sign(inv) * t.gross, inv.currency, inv.language), due: DocLang.date(inv.dueDate, inv.language), company: S.settings.company };
+    const c = S.customers.find((x) => x.id === inv.customerId);
+    alert('Tipp: Speichere die Rechnung zuerst mit „Drucken / Als PDF speichern“ und hänge die PDF-Datei an die E-Mail an.');
+    location.href = `mailto:${encodeURIComponent(c?.email || '')}?subject=${encodeURIComponent(DocLang.fill(L.mailSubject, vals))}&body=${encodeURIComponent(DocLang.fill(L.mailBody, vals))}`;
+    await api(`invoices/${id}/sent`, 'POST', {}).catch(() => {});
+  });
+  $('#pay') && ($('#pay').onclick = () => modal(`<h2>Zahlung erfassen</h2><div class="grid">
+      <label>Datum<input type="date" name="date" value="${today()}"></label>
+      <label>Betrag in DKK<input name="amount" value="${num((rest / 100).toFixed(2))}"></label>
+      <label class="wide"><input type="checkbox" name="full" checked> Rechnung ist damit vollständig bezahlt (Kursdifferenz/Gebühren ausgleichen)</label></div>
+      <div class="modal-actions"><button onclick="closeModal()">Abbrechen</button><button class="primary" id="ok">Speichern</button></div>`, (el) => {
+    $('#ok', el).onclick = async () => { const f = formData(el); await act(() => api(`invoices/${id}/pay`, 'POST', { ...f, amount: f.amount.replace(/\./g, '').replace(',', '.') }), 'Zahlung gespeichert'); closeModal(); route(); };
+  }));
+  $('#unpay') && ($('#unpay').onclick = async () => { if (confirm('Zahlungen zu dieser Rechnung zurücknehmen?')) { await act(() => api(`invoices/${id}/unpay`, 'POST', {})); route(); } });
+  $('#credit') && ($('#credit').onclick = async () => { const c = await act(() => api(`invoices/${id}/credit`, 'POST', {})); go(`#/rechnung/${c.id}`); });
+  $('#copy') && ($('#copy').onclick = async () => { const c = await act(() => api(`invoices/${id}/copy`, 'POST', {})); go(`#/rechnung/${c.id}`); });
+};
+
+/* ---------- Kunden ---------- */
+routes.kunden = () => {
+  const list = S.customers.slice().sort((a, b) => a.name.localeCompare(b.name));
+  $('#main').innerHTML = `<h1>Kunden <span class="spacer"></span><input id="q" placeholder="Suchen…" style="width:200px"><button class="primary" id="add">+ Neuer Kunde</button></h1>
+    ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Nr.</th><th>Name</th><th>Land</th><th>Sprache</th><th>USt-IdNr./CVR</th><th>Momsart</th><th class="r">Offen</th><th></th></tr></thead><tbody>
+    ${list.map((c) => {
+      const open = S.invoices.filter((i) => i.customerId === c.id && isOpen(i)).reduce((s, i) => s + grossDKK(i) - (i.paidAmount || 0), 0);
+      return `<tr class="click" data-c="${c.id}" data-q="${esc((c.name + ' ' + (c.email || '') + ' ' + (c.cvr || '') + ' ' + (c.vatId || '')).toLowerCase())}"><td>${c.customerNo}</td><td><b>${esc(c.name)}</b><div class="muted small">${esc([c.city, c.email].filter(Boolean).join(' · '))}</div></td>
+      <td>${esc(countryName(c.country))}</td><td>${LANGS[c.language] || ''}</td><td>${esc(c.vatId || c.cvr || '')}${c.vatChecked ? ' <span title="per VIES geprüft">✔</span>' : ''}</td><td class="small">${SCHEMES[Calc.vatScheme(c)]}</td>
+      <td class="r">${open ? kr(open) : ''}</td><td><button class="small" data-inv-for="${c.id}">+ Rechnung</button></td></tr>`;
+    }).join('')}</tbody></table></div>` : '<div class="card empty">Noch keine Kunden. Lege den ersten Kunden an – die Sprache, die du wählst, wird für seine Rechnungen verwendet.</div>'}`;
+  $('#add').onclick = () => customerForm(null, () => routes.kunden());
+  $('#q').oninput = (e) => $$('[data-q]').forEach((tr) => (tr.style.display = tr.dataset.q.includes(e.target.value.toLowerCase()) ? '' : 'none'));
+  $$('[data-c]').forEach((tr) => (tr.onclick = (e) => { if (!e.target.dataset.invFor) customerForm(S.customers.find((c) => c.id === tr.dataset.c), () => routes.kunden()); }));
+  $$('[data-inv-for]').forEach((b) => (b.onclick = () => newInvoice(b.dataset.invFor)));
+};
+
+function customerForm(c, done) {
+  const d = c || { country: 'DK', language: 'da', currency: 'DKK', isBusiness: true, dueDays: '' };
+  modal(`<h2>${c ? 'Kunde bearbeiten' : 'Neuer Kunde'}</h2>
+    <div class="grid">
+      <label>Land<select name="country">${countryOpts(d.country)}</select></label>
+      <label>Kundentyp<select name="isBusiness"><option value="1" ${d.isBusiness !== false ? 'selected' : ''}>Firma</option><option value="0" ${d.isBusiness === false ? 'selected' : ''}>Privatperson</option></select></label>
+      <label>Sprache der Rechnungen<select name="language">${opts(LANGS, d.language)}</select></label>
+      <label class="dk-only">CVR-Nr. (Dänemark)<div class="inline"><input name="cvr" value="${esc(d.cvr || '')}"><button type="button" id="cvr-look" title="Daten aus dem CVR-Register holen">Suchen</button></div></label>
+      <label class="eu-only">USt-IdNr. / VAT-Nr.<div class="inline"><input name="vatId" value="${esc(d.vatId || '')}" placeholder="z. B. DE123456789"><button type="button" id="vies">Prüfen</button></div></label>
+      <label class="wide">Name / Firma<input name="name" value="${esc(d.name || '')}"></label>
+      <label>Ansprechpartner<input name="contact" value="${esc(d.contact || '')}"></label>
+      <label>Straße<input name="street" value="${esc(d.street || '')}"></label>
+      <label>PLZ<input name="zip" value="${esc(d.zip || '')}"></label>
+      <label>Ort<input name="city" value="${esc(d.city || '')}"></label>
+      <label>E-Mail<input name="email" type="email" value="${esc(d.email || '')}"></label>
+      <label>Telefon<input name="phone" value="${esc(d.phone || '')}"></label>
+      <label>Währung<select name="currency">${CURRENCIES.map((x) => `<option ${x === d.currency ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+      <label>Zahlungsziel (Tage, leer = Standard)<input name="dueDays" type="number" min="0" value="${esc(d.dueDays || '')}"></label>
+      <label class="dk-only">EAN-Nr. (öffentliche Kunden)<input name="ean" value="${esc(d.ean || '')}"></label>
+      <label class="wide">Interne Notiz<textarea name="note" rows="2">${esc(d.note || '')}</textarea></label>
+    </div>
+    <div class="note" id="sch"></div>
+    <div class="modal-actions">${c ? '<button class="danger" id="del" style="margin-right:auto">Löschen</button>' : ''}<button onclick="closeModal()">Abbrechen</button><button class="primary" id="ok">Speichern</button></div>`, (el) => {
+    let vatChecked = d.vatChecked || '';
+    const upd = () => {
+      const f = formData(el);
+      const dk = f.country === 'DK';
+      $$('.dk-only', el).forEach((x) => (x.style.display = dk ? '' : 'none'));
+      $$('.eu-only', el).forEach((x) => (x.style.display = !dk && f.isBusiness === '1' ? '' : 'none'));
+      $('#sch', el).textContent = 'Momsart auf Rechnungen: ' + SCHEMES[Calc.vatScheme({ country: f.country, isBusiness: f.isBusiness === '1', vatId: f.vatId })]
+        + (f.country !== 'DK' && Calc.EU.includes(f.country) && f.isBusiness === '1' && !f.vatId ? ' – mit USt-IdNr. wäre es Reverse Charge (0 %).' : '');
+    };
+    $$('[name]', el).forEach((i) => (i.oninput = i.onchange = upd));
+    $('[name=country]', el).addEventListener('change', (e) => {
+      const lang = { DK: 'da', DE: 'de', AT: 'de', CH: 'de' }[e.target.value] || 'en';
+      $('[name=language]', el).value = lang;
+      $('[name=currency]', el).value = e.target.value === 'DK' ? 'DKK' : Calc.EU.includes(e.target.value) ? 'EUR' : $('[name=currency]', el).value;
+      upd();
+    });
+    upd();
+    $('#cvr-look', el).onclick = async () => {
+      try {
+        const r = await api('lookup/cvr?q=' + encodeURIComponent($('[name=cvr]', el).value || $('[name=name]', el).value));
+        for (const k of ['name', 'cvr', 'street', 'zip', 'city', 'email', 'phone']) if (r[k]) $(`[name=${k}]`, el).value = r[k];
+        toast('Daten aus dem CVR-Register übernommen');
+      } catch (e) { toast(e.message, true); }
+    };
+    $('#vies', el).onclick = async () => {
+      try {
+        const r = await api('lookup/vies?vat=' + encodeURIComponent($('[name=vatId]', el).value));
+        if (r.valid) {
+          vatChecked = r.checkedAt;
+          if (r.name && !$('[name=name]', el).value) $('[name=name]', el).value = r.name;
+          if (r.address && !$('[name=street]', el).value) { const [st, ...rest] = r.address.split('\n'); $('[name=street]', el).value = st; const zc = rest.join(' ').trim().match(/^(\S+)\s+(.+)$/); if (zc) { $('[name=zip]', el).value = zc[1]; $('[name=city]', el).value = zc[2]; } }
+          toast('USt-IdNr. ist gültig ✔ ' + (r.name || ''));
+        } else { vatChecked = ''; toast('USt-IdNr. ist laut EU (VIES) NICHT gültig – dann keine Reverse-Charge-Rechnung!', true); }
+      } catch (e) { toast(e.message, true); }
+    };
+    $('#ok', el).onclick = async () => {
+      const f = formData(el);
+      f.isBusiness = f.isBusiness === '1';
+      if (!f.isBusiness || f.country === 'DK') f.vatId = f.country === 'DK' ? '' : f.vatId;
+      f.vatId = (f.vatId || '').replace(/[\s.\-]/g, '').toUpperCase();
+      f.vatChecked = vatChecked;
+      const r = await act(() => (c ? api('customers/' + c.id, 'PUT', f) : api('customers', 'POST', f)), 'Kunde gespeichert');
+      closeModal(); done && done(r);
+    };
+    c && ($('#del', el).onclick = async () => { if (confirm('Kunden löschen?')) { await act(() => api('customers/' + c.id, 'DELETE')); closeModal(); done && done(); } });
+  });
+}
+
+/* ---------- Produkte ---------- */
+routes.produkte = () => {
+  $('#main').innerHTML = `<h1>Produkte &amp; Leistungen <span class="spacer"></span><button class="primary" id="add">+ Neues Produkt</button></h1>
+    ${S.products.length ? `<div class="table-wrap"><table><thead><tr><th>Name</th><th>Dänisch</th><th>Englisch</th><th>Einheit</th><th>Art</th><th class="r">Preis netto</th></tr></thead><tbody>
+    ${S.products.map((p) => `<tr class="click" data-p="${p.id}"><td><b>${esc(p.name_de || p.name)}</b></td><td>${esc(p.name_da || '')}</td><td>${esc(p.name_en || '')}</td><td>${UNITS[p.unit] || ''}</td>
+      <td>${p.kind === 'goods' ? 'Ware' : 'Leistung'}${p.vatFree ? ' · momsfrei' : ''}</td><td class="r">${kr(Calc.toCents(p.price), p.currency || 'DKK')}</td></tr>`).join('')}</tbody></table></div>`
+    : '<div class="card empty">Noch keine Produkte. Trage den Namen in allen drei Sprachen ein – auf der Rechnung erscheint automatisch die Sprache des Kunden.</div>'}`;
+  const form = (p) => {
+    const d = p || { unit: 'stk', kind: 'services', currency: 'DKK' };
+    modal(`<h2>${p ? 'Produkt bearbeiten' : 'Neues Produkt'}</h2><div class="grid">
+      <label class="wide">Name Deutsch<input name="name_de" value="${esc(d.name_de || d.name || '')}"></label>
+      <label class="wide">Name Dänisch<input name="name_da" value="${esc(d.name_da || '')}"></label>
+      <label class="wide">Name Englisch<input name="name_en" value="${esc(d.name_en || '')}"></label>
+      <label>Preis netto (ohne Moms)<input name="price" value="${esc(num(d.price || ''))}"></label>
+      <label>Währung<select name="currency">${CURRENCIES.map((x) => `<option ${x === (d.currency || 'DKK') ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+      <label>Einheit<select name="unit">${opts(UNITS, d.unit)}</select></label>
+      <label>Art<select name="kind"><option value="services">Dienstleistung</option><option value="goods" ${d.kind === 'goods' ? 'selected' : ''}>Ware</option></select></label>
+      <label class="wide"><input type="checkbox" name="vatFree" ${d.vatFree ? 'checked' : ''}> Momsfrei (z. B. nach ML § 13 – nur wenn du sicher bist)</label></div>
+      <div class="modal-actions">${p ? '<button class="danger" id="del" style="margin-right:auto">Löschen</button>' : ''}<button onclick="closeModal()">Abbrechen</button><button class="primary" id="ok">Speichern</button></div>`, (el) => {
+      $('#ok', el).onclick = async () => {
+        const f = formData(el);
+        f.name = f.name_de || f.name_da || f.name_en;
+        f.price = f.price.replace(/\./g, '').replace(',', '.');
+        await act(() => (p ? api('products/' + p.id, 'PUT', f) : api('products', 'POST', f)), 'Gespeichert');
+        closeModal(); routes.produkte();
+      };
+      p && ($('#del', el).onclick = async () => { await act(() => api('products/' + p.id, 'DELETE')); closeModal(); routes.produkte(); });
+    });
+  };
+  $('#add').onclick = () => form();
+  $$('[data-p]').forEach((tr) => (tr.onclick = () => form(S.products.find((p) => p.id === tr.dataset.p))));
+};
+
+/* ---------- Ausgaben (Købsmoms) ---------- */
+const CATS = ['Material/Waren', 'Werkzeug/Maschinen', 'Büro', 'Software/Abos', 'Telefon/Internet', 'Fahrzeug/Benzin', 'Miete', 'Strom/Wasser/Heizung', 'Werbung', 'Versand', 'Bankgebühren', 'Versicherung', 'Bewirtung (25 % abziehbar)', 'Diverse'];
+routes.ausgaben = () => {
+  const list = S.expenses.slice().sort((a, b) => b.date.localeCompare(a.date));
+  $('#main').innerHTML = `<h1>Ausgaben (Belege) <span class="spacer"></span><button class="primary" id="add">+ Neue Ausgabe</button></h1>
+    <div class="note">Hier trägst du Einkäufe ein. Die enthaltene Moms wird automatisch als <b>Købsmoms</b> von deiner Moms-Zahllast abgezogen. Einkäufe ohne Moms aus anderen EU-Ländern (z. B. Material aus Deutschland mit Reverse Charge) als „EU-Einkauf“ markieren – dann wird die Erwerbsmoms richtig in Rubrik A berechnet.</div>
+    ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Datum</th><th>Lieferant</th><th>Text</th><th>Kategorie</th><th class="r">Betrag</th><th class="r">Moms</th></tr></thead><tbody>
+    ${list.map((e) => `<tr class="click" data-e="${e.id}"><td>${dmy(e.date)}</td><td>${esc(e.supplier)}</td><td>${esc(e.text)}</td><td>${esc(e.category)}${e.euPurchase ? ' <span class="badge b-open">EU-Einkauf</span>' : ''}</td>
+      <td class="r">${kr(Calc.toCents(e.amount))}</td><td class="r">${e.euPurchase ? '<span class="muted">Rubrik A</span>' : kr(Calc.toCents(e.vat))}</td></tr>`).join('')}</tbody></table></div>` : '<div class="card empty">Noch keine Ausgaben.</div>'}`;
+  $('#add').onclick = () => expenseForm();
+  $$('[data-e]').forEach((tr) => (tr.onclick = () => expenseForm(S.expenses.find((e) => e.id === tr.dataset.e))));
+};
+function expenseForm(e) {
+  const d = e || { date: today(), category: 'Diverse', euPurchase: '', deductible: true };
+  modal(`<h2>${e ? 'Ausgabe bearbeiten' : 'Neue Ausgabe'}</h2><div class="grid">
+    <label>Datum<input type="date" name="date" value="${d.date}"></label>
+    <label>Lieferant<input name="supplier" value="${esc(d.supplier || '')}"></label>
+    <label class="wide">Text<input name="text" value="${esc(d.text || '')}"></label>
+    <label>Kategorie<select name="category">${CATS.map((c) => `<option ${c === d.category ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+    <label>Art<select name="euPurchase"><option value="">Normal (Dänemark, mit Moms)</option><option value="goods" ${d.euPurchase === 'goods' ? 'selected' : ''}>EU-Einkauf Waren ohne Moms</option><option value="services" ${d.euPurchase === 'services' ? 'selected' : ''}>EU-/Ausland-Einkauf Dienstleistung ohne Moms</option></select></label>
+    <label><span id="amt-l">Betrag inkl. Moms (DKK)</span><input name="amount" value="${esc(num(d.amount || ''))}"></label>
+    <label class="vat-l">Darin enthaltene Moms (DKK)<div class="inline"><input name="vat" value="${esc(num(d.vat || ''))}"><button type="button" id="v25" title="20 % vom Bruttobetrag = 25 % Moms">25 %</button></div></label>
+    <label class="wide"><input type="checkbox" name="deductible" ${d.deductible !== false ? 'checked' : ''}> Moms ist abziehbar (Købsmoms)</label></div>
+    <div class="modal-actions">${e ? '<button class="danger" id="del" style="margin-right:auto">Löschen</button>' : ''}<button onclick="closeModal()">Abbrechen</button><button class="primary" id="ok">Speichern</button></div>`, (el) => {
+    const n = (v) => Number(String(v).replace(/\./g, '').replace(',', '.')) || 0;
+    const upd = () => {
+      const eu = $('[name=euPurchase]', el).value;
+      $('#amt-l', el).textContent = eu ? 'Betrag ohne Moms (DKK)' : 'Betrag inkl. Moms (DKK)';
+      $('.vat-l', el).style.display = eu ? 'none' : '';
+    };
+    $('[name=euPurchase]', el).onchange = upd; upd();
+    $('#v25', el).onclick = () => ($('[name=vat]', el).value = num((Math.round(n($('[name=amount]', el).value) * 20) / 100).toFixed(2)));
+    $('[name=amount]', el).addEventListener('change', () => { if (!$('[name=vat]', el).value) $('#v25', el).click(); });
+    $('#ok', el).onclick = async () => {
+      const f = formData(el);
+      f.amount = n(f.amount).toFixed(2); f.vat = f.euPurchase ? '0.00' : n(f.vat).toFixed(2);
+      await act(() => (e ? api('expenses/' + e.id, 'PUT', f) : api('expenses', 'POST', f)), 'Gespeichert');
+      closeModal(); route();
+    };
+    e && ($('#del', el).onclick = async () => { if (confirm('Ausgabe löschen?')) { await act(() => api('expenses/' + e.id, 'DELETE')); closeModal(); route(); } });
+  });
+}
+
+/* ---------- Bank (Lunar) ---------- */
+let bankFilter = 'open';
+routes.bank = async () => {
+  const sug = await api('bank/suggest').catch(() => ({}));
+  const list = S.bank.filter((t) => bankFilter === 'all' || t.status === bankFilter);
+  const openInv = S.invoices.filter(isOpen);
+  const invOpts = `<option value="">Rechnung zuordnen…</option>` + openInv.map((i) => `<option value="${i.id}">Nr. ${i.number} · ${esc(i.customerName)} · ${kr(grossDKK(i) - (i.paidAmount || 0))}</option>`).join('');
+  $('#main').innerHTML = `<h1>Bank – Lunar <span class="spacer"></span><label class="btn primary" style="color:#fff">Kontoauszug (CSV) importieren<input type="file" id="csv" accept=".csv,.txt" hidden></label></h1>
+    <div class="note">So geht's: In <b>Lunar Business</b> (App oder Browser) die Kontobewegungen als <b>CSV-Datei</b> exportieren und hier hochladen. Doppelte Buchungen werden erkannt.
+      Eingänge werden automatisch passenden Rechnungen vorgeschlagen (gleicher Betrag oder Rechnungsnummer im Text) – ein Klick und die Rechnung ist bezahlt. Abbuchungen kannst du direkt als Ausgabe mit Købsmoms buchen.</div>
+    <div class="tabs">${Object.entries({ open: 'Offen', matched: 'Zugeordnet', ignored: 'Ignoriert', all: 'Alle' }).map(([k, v]) => `<button data-bf="${k}" class="${k === bankFilter ? 'on' : ''}">${v} (${k === 'all' ? S.bank.length : S.bank.filter((t) => t.status === k).length})</button>`).join('')}</div>
+    ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Datum</th><th>Text</th><th class="r">Betrag</th><th>Zuordnung</th></tr></thead><tbody>
+    ${list.map((t) => {
+      const s = sug[t.id] && S.invoices.find((i) => i.id === sug[t.id].invoiceId);
+      let cell = '';
+      if (t.status === 'matched') {
+        const inv = S.invoices.find((i) => i.id === t.invoiceId), ex = S.expenses.find((e) => e.id === t.expenseId);
+        cell = inv ? `<a href="#/druck/${inv.id}">Rechnung ${inv.number}</a>` : ex ? `Ausgabe: ${esc(ex.category)}` : 'zugeordnet';
+      } else if (t.status === 'ignored') cell = `<button class="small" data-ign="${t.id}">Wieder öffnen</button>`;
+      else if (t.amount > 0) cell = `${s ? `<button class="small primary" data-match="${t.id}" data-inv-id="${s.id}">✔ Rechnung ${s.number} (${esc(s.customerName)})</button> ` : ''}
+          <select class="small" data-sel="${t.id}" style="width:auto;max-width:260px">${invOpts}</select> <button class="small" data-ign="${t.id}">Ignorieren</button>`;
+      else cell = `<button class="small" data-exp="${t.id}">Als Ausgabe buchen</button> <button class="small" data-ign="${t.id}">Ignorieren</button>`;
+      return `<tr><td>${dmy(t.date)}</td><td>${esc(t.text)}</td><td class="r" style="color:${t.amount < 0 ? 'var(--bad)' : 'var(--ok)'}">${kr(t.amount)}</td><td>${cell}</td></tr>`;
+    }).join('')}</tbody></table></div>` : '<div class="card empty">Keine Buchungen in dieser Ansicht.</div>'}`;
+  $$('[data-bf]').forEach((b) => (b.onclick = () => { bankFilter = b.dataset.bf; routes.bank(); }));
+  $('#csv').onchange = async (e) => {
+    const f = e.target.files[0]; if (!f) return;
+    const buf = await f.arrayBuffer();
+    let text = new TextDecoder('utf-8').decode(buf);
+    if (text.includes('�')) text = new TextDecoder('windows-1252').decode(buf);
+    const r = await act(() => api('bank/import', 'POST', { csv: text }));
+    toast(`${r.added} neue Buchungen importiert (${r.total - r.added} schon vorhanden)`);
+    routes.bank();
+  };
+  const tx = (id) => S.bank.find((t) => t.id === id);
+  $$('[data-match]').forEach((b) => (b.onclick = async () => { const t = tx(b.dataset.match); await act(() => api(`invoices/${b.dataset.invId}/pay`, 'POST', { date: t.date, amount: (t.amount / 100).toFixed(2), bankId: t.id, full: true }), 'Rechnung als bezahlt markiert'); routes.bank(); }));
+  $$('[data-sel]').forEach((s) => (s.onchange = async () => { if (!s.value) return; const t = tx(s.dataset.sel); await act(() => api(`invoices/${s.value}/pay`, 'POST', { date: t.date, amount: (t.amount / 100).toFixed(2), bankId: t.id, full: confirm('Ist die Rechnung damit vollständig bezahlt?') }), 'Zahlung zugeordnet'); routes.bank(); }));
+  $$('[data-ign]').forEach((b) => (b.onclick = async () => { await act(() => api(`bank/${b.dataset.ign}/ignore`, 'POST', {})); routes.bank(); }));
+  $$('[data-exp]').forEach((b) => (b.onclick = () => {
+    const t = tx(b.dataset.exp);
+    modal(`<h2>Abbuchung als Ausgabe buchen</h2><p>${dmy(t.date)} · ${esc(t.text)} · <b>${kr(t.amount)}</b></p><div class="grid">
+      <label>Lieferant<input name="supplier" value="${esc(t.text)}"></label>
+      <label>Kategorie<select name="category">${CATS.map((c) => `<option>${c}</option>`).join('')}</select></label>
+      <label class="wide"><input type="checkbox" name="withVat" checked> Betrag enthält 25 % dänische Moms (Købsmoms abziehen)</label></div>
+      <div class="note small">Für EU-Einkäufe ohne Moms die Ausgabe danach unter „Ausgaben“ öffnen und als EU-Einkauf markieren.</div>
+      <div class="modal-actions"><button onclick="closeModal()">Abbrechen</button><button class="primary" id="ok">Buchen</button></div>`, (el) => {
+      $('#ok', el).onclick = async () => { await act(() => api(`bank/${t.id}/expense`, 'POST', formData(el)), 'Ausgabe gebucht'); closeModal(); routes.bank(); };
+    });
+  }));
+};
+
+/* ---------- Moms / SKAT ---------- */
+let vatSel = null;
+routes.moms = () => {
+  const y = new Date().getFullYear();
+  const kind = S.settings.vatPeriod;
+  const all = [y + 1, y, y - 1, y - 2].flatMap((yy) => Calc.periods(yy, kind)).filter((p) => p.from <= today());
+  const p = all.find((x) => x.from === vatSel) || all.filter((x) => x.to < today()).sort((a, b) => b.from.localeCompare(a.from))[0] || all[0];
+  const r = Calc.vatReport(S.invoices, S.expenses, p.from, p.to);
+  const row = (code, da, de, v, hint = '') => `<tr><td><b>${da}</b><div class="muted small">${de}${hint ? ' – ' + hint : ''}</div></td>
+    <td class="r code">${(v / 100).toLocaleString('da-DK', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}</td><td><button class="small" data-copy="${Math.round(v / 100)}">Kopieren</button></td></tr>`;
+  $('#main').innerHTML = `<h1>Moms / SKAT <span class="spacer"></span><select id="per" style="width:auto">${all.sort((a, b) => b.from.localeCompare(a.from)).map((x) => `<option value="${x.from}" ${x.from === p.from ? 'selected' : ''}>${x.label}</option>`).join('')}</select></h1>
+    <div class="cards">
+      <div class="card stat"><div class="k">Zeitraum</div><div class="v" style="font-size:17px">${dmy(p.from)} – ${dmy(p.to)}</div><div class="s">${r.invoiceCount} Rechnungen, ${r.expenseCount} Ausgaben</div></div>
+      <div class="card stat"><div class="k">Frist für Angabe und Zahlung</div><div class="v" style="color:${p.deadline < today() ? 'var(--muted)' : 'var(--warn)'}">${dmy(p.deadline)}</div><div class="s">${p.deadline < today() ? 'abgelaufen' : 'noch ' + Math.ceil((new Date(p.deadline) - new Date(today())) / 864e5) + ' Tage'}</div></div>
+      <div class="card stat"><div class="k">${r.momstilsvar >= 0 ? 'Zu zahlen an SKAT' : 'Erstattung von SKAT'}</div><div class="v">${kr(Math.abs(r.momstilsvar))}</div><div class="s">Momstilsvar</div></div>
+    </div>
+    <div class="card"><b>Momsangivelse – so wie in TastSelv Erhverv</b> <span class="muted small">(Beträge in ganzen Kronen)</span>
+    <table class="vatbox" style="margin-top:8px"><tbody>
+      ${row('', 'Salgsmoms', 'Moms auf deine Verkäufe (25 %)', r.salgsmoms)}
+      ${row('', 'Moms af varekøb i udlandet (både EU og lande uden for EU)', 'Erwerbsmoms auf Wareneinkäufe aus dem Ausland', r.momsVarekoebUdland)}
+      ${row('', 'Moms af ydelseskøb i udlandet med omvendt betalingspligt', 'Moms auf Dienstleistungen aus dem Ausland (Reverse Charge)', r.momsYdelseskoebUdland)}
+      ${row('', 'Købsmoms', 'Vorsteuer – Moms auf deine Einkäufe', r.koebsmoms)}
+      ${row('', 'Rubrik A – varer', 'Wert der Wareneinkäufe aus anderen EU-Ländern (ohne Moms)', r.rubrikAVarer)}
+      ${row('', 'Rubrik A – ydelser', 'Wert der Dienstleistungseinkäufe aus anderen EU-Ländern', r.rubrikAYdelser)}
+      ${row('', 'Rubrik B – varer (indberettes til EU-salg uden moms)', 'Warenverkäufe an EU-Firmen mit USt-IdNr.', r.rubrikBVarer)}
+      ${row('', 'Rubrik B – varer (indberettes ikke til EU-salg uden moms)', 'z. B. Montage/Installation in anderen EU-Ländern', r.rubrikBVarerIkkeEU)}
+      ${row('', 'Rubrik B – ydelser', 'Dienstleistungen an EU-Firmen (Reverse Charge)', r.rubrikBYdelser)}
+      ${row('', 'Rubrik C', 'Sonstige Lieferungen ohne dänische Moms (z. B. Export außerhalb der EU)', r.rubrikC)}
+      <tr><td><b>Momstilsvar</b><div class="muted small">= Salgsmoms + Moms Ausland − Købsmoms</div></td><td class="r code"><b>${(r.momstilsvar / 100).toLocaleString('da-DK', { maximumFractionDigits: 0 })}</b></td><td></td></tr>
+    </tbody></table></div>
+    ${r.euSales.length ? `<div class="card"><b>EU-salg uden moms (Listesystemet)</b><div class="muted small">Diese Verkäufe an EU-Firmen müssen zusätzlich unter „EU-salg uden moms“ in TastSelv gemeldet werden (Waren monatlich bzw. Dienstleistungen je nach Periode).</div>
+      <table style="margin-top:8px"><thead><tr><th>Land</th><th>USt-IdNr.</th><th>Kunde</th><th class="r">Waren</th><th class="r">Dienstleistungen</th></tr></thead><tbody>
+      ${r.euSales.map((e) => `<tr><td>${esc(e.country)}</td><td>${esc(e.vatId)}</td><td>${esc(e.name)}</td><td class="r">${Math.round(e.goods / 100).toLocaleString('da-DK')}</td><td class="r">${Math.round(e.services / 100).toLocaleString('da-DK')}</td></tr>`).join('')}
+      </tbody></table></div>` : ''}
+    <div class="row"><button id="csv">Als CSV für den Steuerberater</button><a class="btn" href="https://skat.dk/erhverv/tastselv-erhverv" target="_blank" rel="noopener">TastSelv Erhverv öffnen ↗</a></div>
+    <div class="note" style="margin-top:16px"><b>So reichst du ein:</b> In TastSelv Erhverv mit MitID Erhverv anmelden → Moms → Indberet moms → Periode wählen → die Werte von oben eintragen (Kopieren-Knopf) → Godkend. Danach den Momstilsvar bis zur Frist auf das Skattekonto zahlen.
+      <br><br>Die direkte Übertragung an SKAT per Schnittstelle (NemVirksomhed-API) ist nur für bei Skattestyrelsen registrierte Software-Anbieter freigegeben – deshalb hier zum Übernehmen mit einem Klick.</div>`;
+  $('#per').onchange = (e) => { vatSel = e.target.value; routes.moms(); };
+  $$('[data-copy]').forEach((b) => (b.onclick = () => { navigator.clipboard?.writeText(b.dataset.copy); toast('Kopiert: ' + b.dataset.copy); }));
+  $('#csv').onclick = () => {
+    const lines = [['Feld', 'Betrag DKK'], ['Salgsmoms', r.salgsmoms], ['Moms af varekøb i udlandet', r.momsVarekoebUdland], ['Moms af ydelseskøb i udlandet', r.momsYdelseskoebUdland], ['Købsmoms', r.koebsmoms],
+      ['Rubrik A varer', r.rubrikAVarer], ['Rubrik A ydelser', r.rubrikAYdelser], ['Rubrik B varer', r.rubrikBVarer], ['Rubrik B ydelser', r.rubrikBYdelser], ['Rubrik C', r.rubrikC], ['Momstilsvar', r.momstilsvar]]
+      .map(([a, b]) => `${a};${typeof b === 'number' ? (b / 100).toFixed(2).replace('.', ',') : b}`);
+    download(`moms-${p.from}-${p.to}.csv`, '﻿' + lines.join('\r\n'), 'text/csv');
+  };
+};
+function download(name, content, type) {
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob([content], { type }));
+  a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+}
+
+/* ---------- Einstellungen ---------- */
+routes.einstellungen = () => {
+  const s = S.settings;
+  const f = (k, label, extra = '') => `<label ${extra}>${label}<input name="${k}" value="${esc(s[k] ?? '')}"></label>`;
+  $('#main').innerHTML = `<h1>Einstellungen</h1>
+    <div class="card"><b>Deine Firma</b><div class="grid" style="margin-top:10px">
+      <label>CVR-Nr.<div class="inline"><input name="cvr" value="${esc(s.cvr)}"><button type="button" id="cvr-look">Aus CVR holen</button></div></label>
+      ${f('company', 'Firmenname')}${f('owner', 'Inhaber')}${f('street', 'Straße')}${f('zip', 'PLZ')}${f('city', 'Ort')}
+      <label>Land<select name="country">${countryOpts(s.country)}</select></label>
+      ${f('email', 'E-Mail')}${f('phone', 'Telefon')}${f('web', 'Webseite')}
+      <label class="wide">Logo (PNG/JPG)<div class="row">${s.logo ? `<img src="${s.logo}" style="max-height:50px">` : ''}<input type="file" id="logo" accept="image/*" style="width:auto"> ${s.logo ? '<button type="button" id="nologo">Logo entfernen</button>' : ''}</div></label>
+    </div></div>
+    <div class="card"><b>Bankverbindung (wird auf der Rechnung gedruckt)</b><div class="grid" style="margin-top:10px">
+      ${f('bankName', 'Bank')}${f('regNo', 'Reg.-Nr.')}${f('accountNo', 'Kontonummer')}${f('iban', 'IBAN (für Kunden im Ausland)')}${f('bic', 'BIC/SWIFT')}
+      ${f('fikCreditor', 'FI-Kreditornummer (optional, +71-Zahlung)')}</div>
+      <div class="muted small" style="margin-top:6px">Lunar Business: Reg.-Nr., Kontonummer und IBAN findest du in der Lunar-App unter Konto → Kontodetails.</div></div>
+    <div class="card"><b>Rechnungen &amp; Moms</b><div class="grid" style="margin-top:10px">
+      <label>Nächste Rechnungsnummer<input type="number" name="nextNumber" value="${s.nextNumber}"></label>
+      <label>Standard-Zahlungsziel (Tage)<input type="number" name="dueDays" value="${s.dueDays}"></label>
+      <label>Standardwährung<select name="defaultCurrency">${CURRENCIES.map((c) => `<option ${c === s.defaultCurrency ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+      <label>Momsperiode bei SKAT<select name="vatPeriod">${opts({ halfyear: 'Halbjährlich (Umsatz unter 5 Mio. DKK)', quarter: 'Vierteljährlich', month: 'Monatlich (über 50 Mio. DKK)' }, s.vatPeriod)}</select></label>
+      ${f('footer', 'Zusatzzeile in der Fußzeile', 'class="wide"')}
+    </div></div>
+    <div class="row"><button class="primary" id="save">Speichern</button></div>
+    <div class="card" style="margin-top:18px"><b>Datensicherung</b><p class="muted small">Das Programm legt jeden Tag automatisch eine Sicherung im Ordner <code>rechnung/data/sicherung</code> an. Nach dem dänischen Buchführungsgesetz müssen Rechnungen und Belege 5 Jahre aufbewahrt werden – bitte zusätzlich regelmäßig eine Sicherung herunterladen und extern speichern.</p>
+      <div class="row"><button id="bk">Sicherung herunterladen</button><label class="btn">Sicherung einspielen<input type="file" id="restore" accept=".json" hidden></label></div></div>`;
+  $('#save').onclick = async () => { await act(() => api('settings', 'PUT', formData($('#main'))), 'Einstellungen gespeichert'); };
+  $('#cvr-look').onclick = async () => {
+    try { const r = await api('lookup/cvr?q=' + encodeURIComponent($('[name=cvr]').value)); for (const k of ['company:name', 'street', 'zip', 'city', 'email', 'phone']) { const [a, b = a] = k.split(':'); if (r[b]) $(`[name=${a}]`).value = r[b]; } toast('Übernommen – bitte speichern'); }
+    catch (e) { toast(e.message, true); }
+  };
+  $('#logo').onchange = (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    const img = new Image();
+    img.onload = async () => {
+      const k = Math.min(1, 600 / img.width, 240 / img.height);
+      const c = document.createElement('canvas'); c.width = img.width * k; c.height = img.height * k;
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      await act(() => api('settings', 'PUT', { logo: c.toDataURL('image/png') }), 'Logo gespeichert'); routes.einstellungen();
+    };
+    img.src = URL.createObjectURL(file);
+  };
+  $('#nologo') && ($('#nologo').onclick = async () => { await act(() => api('settings', 'PUT', { logo: '' })); routes.einstellungen(); });
+  $('#bk').onclick = async () => download(`rechnungsstudio-sicherung-${today()}.json`, JSON.stringify(await api('backup')), 'application/json');
+  $('#restore').onchange = async (e) => {
+    const file = e.target.files[0]; if (!file) return;
+    if (!confirm('Achtung: Alle aktuellen Daten werden durch die Sicherung ersetzt. Fortfahren?')) return;
+    const data = JSON.parse(await file.text());
+    await act(() => api('backup', 'POST', data), 'Sicherung eingespielt'); route();
+  };
+};
+
+route();

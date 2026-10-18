@@ -5,6 +5,7 @@
   "scripts": {
     "build": "node tools/build.js",
     "start": "node --no-warnings server/server.js",
+    "rechnung": "node --no-warnings rechnung/server.js",
     "test": "for t in tests/*.js; do node --no-warnings $t || exit 1; done"
   },
   "engines": { "node": ">=22.13" },
