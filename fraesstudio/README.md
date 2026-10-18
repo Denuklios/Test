@@ -22,6 +22,8 @@ Bitte FräsStudio **nicht** auf einen normalen Webspace ohne diesen Server legen
 | **3 3D-Vorschau** | Materialabtrag simulieren, Laufzeit sehen, Warnungen (z. B. Eilgang im Material) |
 | **4 Fräsen** | TTC450 per USB verbinden, verfahren, Nullpunkt setzen, Z antasten, Auftrag starten/pausieren, Vorschub/Drehzahl anpassen |
 
+**Reihenfolge:** Kontur, Tasche, V-Carving, Gravieren und Bohren arbeiten Teil für Teil in Leserichtung (Zeilen oben nach unten, links nach rechts): Jeder Buchstabe wird in allen Tiefen fertig, bevor der nächste folgt; bei Konturen kommen Innenlöcher vor der Außenkontur. Innerhalb eines Werkzeugs gilt das ohne Hin-und-her; zwischen V-Fräser und Schaftfräser liegt ein Werkzeugwechsel.
+
 ## Funktionen
 
 **Zeichnen:** Linie/Kurve (Linksklick Ecke, Rechtsklick Kurve – wie in StickStudio), Rechteck mit Eckenradius, Kreis/Ellipse, Vieleck, Stern, Text mit 9 Schriften, Messen.

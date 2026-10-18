@@ -33,6 +33,53 @@
     return { id: FS.util.uid(), type, name: OP_TYPES[type], objIds: objIds.slice(), toolId, enabled: true, startDepth: 0, stepdown: 0, feed: 0, plunge: 0, rpm: 0, ...FS.util.deep(OP_DEFAULTS[type]) };
   }
 
+  // ---- Reihenfolge: jedes Teil (z. B. jeder Buchstabe) komplett fertig, dann das nächste – in Leserichtung ----
+  // Lesereihenfolge: Zeilen von oben nach unten, innerhalb der Zeile von links nach rechts
+  function readingOrder(items, boxOf) {
+    const arr = items.map((it) => ({ it, b: boxOf(it) }));
+    const n = arr.length;
+    // Zeilen = zusammenhängende Gruppen, deren Höhen sich genug überlappen (unabhängig von der Reihenfolge: i-Punkte, Unterlängen …)
+    const par = arr.map((_, i) => i);
+    const find = (i) => (par[i] === i ? i : (par[i] = find(par[i])));
+    if (n <= 600) {
+      for (let i = 0; i < n; i++) for (let j = i + 1; j < n; j++) {
+        const A = arr[i].b, B = arr[j].b;
+        const ov = Math.min(A.y1, B.y1) - Math.max(A.y0, B.y0);
+        if (ov >= 0.3 * Math.max(1e-6, Math.min(A.y1 - A.y0, B.y1 - B.y0))) par[find(i)] = find(j);
+      }
+    } else {
+      arr.sort((a, c) => c.b.y0 + c.b.y1 - (a.b.y0 + a.b.y1));
+      let ry = 0, prev = 0;
+      arr.forEach((e, i) => { const yc = (e.b.y0 + e.b.y1) / 2; if (i && Math.abs(yc - ry) > (e.b.y1 - e.b.y0) * 0.6) prev = i; else if (!i) ry = yc; par[i] = prev; });
+    }
+    const rows = new Map();
+    arr.forEach((e, i) => {
+      const k = find(i);
+      let r = rows.get(k);
+      if (!r) rows.set(k, (r = { list: [], y0: Infinity, y1: -Infinity }));
+      r.list.push(e); r.y0 = Math.min(r.y0, e.b.y0); r.y1 = Math.max(r.y1, e.b.y1);
+    });
+    return [...rows.values()].sort((a, c) => c.y0 + c.y1 - (a.y0 + a.y1))
+      .flatMap((r) => r.list.sort((a, c) => a.b.x0 + a.b.x1 - (c.b.x0 + c.b.x1)).map((e) => e.it));
+  }
+  const ringBox = (r) => geo.bounds([r]);
+  // Ringe zu Teilen (Außenring + Löcher) gruppieren, ohne überlappende Formen zu verschmelzen
+  function groupRings(rings) {
+    if (rings.length > 400) return rings.map((r) => ({ outer: r, holes: [] }));
+    const info = rings.map((r) => ({ r, a: Math.abs(geo.signedArea(r)), p: r[0] }));
+    for (const e of info) {
+      let best = null;
+      for (const o of info) if (o !== e && o.a > e.a && geo.pointInPoly(e.p, o.r) && (!best || o.a < best.a)) best = o;
+      e.parent = best;
+    }
+    const depth = (e) => (e.parent ? 1 + depth(e.parent) : 0);
+    const root = new Map(), groups = [];
+    for (const e of info) { e.d = depth(e); if (e.d % 2 === 0) { const g = { outer: e.r, holes: [] }; root.set(e, g); groups.push(g); } }
+    for (const e of info) if (e.d % 2 === 1) { const g = root.get(e.parent); if (g) g.holes.push(e.r); }
+    return groups;
+  }
+  const orderGroups = (groups) => readingOrder(groups, (g) => ringBox(g.outer));
+
   // gleichmäßige Zustellungen von start bis depth (positiv) -> negative z-Werte
   function levels(start, depth, step) {
     const total = depth - start;
@@ -149,16 +196,21 @@
       if (!passes[0].rings.length) warnings.push('Form ist zu klein für dieses Werkzeug.');
     }
     for (const pass of passes) {
-      // kleine (innere) Konturen zuerst, damit sich das Teil nicht vorzeitig löst
-      paths = pass.rings.map((ring) => {
-        const a = geo.signedArea(ring);
-        // Clipper: Außen gegen Uhrzeigersinn (Fläche links). Gleichlauf: außen im, innen gegen den Uhrzeigersinn.
-        const isOuter = a > 0;
+      // Teil für Teil in Leserichtung; bei jedem Teil zuerst die Innenkonturen (Löcher), zuletzt die Außenkontur,
+      // damit sich das Teil nicht vorzeitig löst
+      const orient = (ring) => {
+        const isOuter = geo.signedArea(ring) > 0; // Clipper: außen gegen den Uhrzeigersinn
+        // Gleichlauf: außen im Uhrzeigersinn, innen dagegen
         let ccw;
         if (op.side === 'inside') ccw = climb ? isOuter : !isOuter;
         else ccw = climb ? !isOuter : isOuter;
-        return { ring: geo.orient(ring, ccw), area: Math.abs(a) };
-      }).sort((p, q) => p.area - q.area);
+        return geo.orient(ring, ccw);
+      };
+      paths = [];
+      for (const g of orderGroups(groupRings(pass.rings))) {
+        for (const h of g.holes.slice().sort((x, y) => Math.abs(geo.signedArea(x)) - Math.abs(geo.signedArea(y)))) paths.push({ ring: orient(h) });
+        paths.push({ ring: orient(g.outer) });
+      }
       for (const { ring } of paths) {
         const useTabs = !!op.tabs && ring.length > 2;
         const tabTop = useTabs ? -(op.depth - op.tabHeight) : null;
@@ -201,7 +253,9 @@
   function engrave(op, objs, tool, cut) {
     const zs = levels(op.startDepth || 0, op.depth, cut.stepdown);
     const chains = [];
-    for (const ring of FS.shapes.rings(objs)) {
+    const rings = [];
+    for (const g of orderGroups(groupRings(FS.shapes.rings(objs)))) rings.push(g.outer, ...g.holes); // Buchstabe für Buchstabe
+    for (const ring of rings) {
       let pts = [], prev = -(op.startDepth || 0);
       for (const z of zs) { pts = pts.concat(loopChain(ring, prev, z, 0)); prev = z; }
       chains.push({ pts, clearZ: -(op.startDepth || 0) });
@@ -303,7 +357,17 @@
     const rings = FS.shapes.rings(objs);
     if (!rings.length) return { chains: [], warnings: ['Für eine Tasche braucht es geschlossene Formen.'] };
     const zs = levels(op.startDepth || 0, op.depth, cut.stepdown);
-    return pocketRegion(rings, tool, op, cut, zs, -(op.startDepth || 0));
+    // Jedes Teil (Buchstabe, Insel-Gruppe) für sich über ALLE Tiefen, dann das nächste – nicht Ebene für Ebene über alles
+    const shapes = orderGroups(poly.nest(poly.clip(rings, null, 'union')));
+    const chains = [], warnings = new Set();
+    let tooSmall = 0;
+    for (const sh of shapes) {
+      const res = pocketRegion([sh.outer, ...sh.holes], tool, op, cut, zs, -(op.startDepth || 0));
+      chains.push(...res.chains);
+      if (res.warnings.length && !res.chains.length) tooSmall++; else res.warnings.forEach((w) => warnings.add(w));
+    }
+    if (tooSmall) warnings.add(tooSmall === shapes.length ? 'Tasche ist zu klein für dieses Werkzeug.' : `${tooSmall} kleine Teil(e) sind zu klein für dieses Werkzeug und werden nicht ausgeräumt.`);
+    return { chains, warnings: [...warnings] };
   }
 
   // ---------------- Planfräsen ----------------
@@ -321,9 +385,8 @@
   function drill(op, objs, tool, cut) {
     const chains = [], warnings = [];
     const z0 = -(op.startDepth || 0);
-    for (const o of objs) {
-      const c = FS.shapes.circleOf(o);
-      if (!c) continue;
+    const holes = objs.map((o) => FS.shapes.circleOf(o)).filter(Boolean);
+    for (const c of readingOrder(holes, (q) => ({ x0: q.x - q.d / 2, x1: q.x + q.d / 2, y0: q.y - q.d / 2, y1: q.y + q.d / 2 }))) {
       const helix = tool.type !== 'drill' && c.d > tool.d + 0.05;
       if (!helix) {
         if (c.d < tool.d - 0.05) warnings.push(`Bohrung ${FS.util.fmt(c.d)} mm ist kleiner als das Werkzeug (${FS.util.fmt(tool.d)} mm).`);
@@ -379,11 +442,14 @@
     const maxD = op.maxDepth > 0 ? Math.min(op.maxDepth, toolMax) : toolMax;
     const rCap = tip + maxD * tn;
     const step = Math.max(0.05, op.step || 0.2);
-    const shapes = poly.nest(FS.shapes.rings(objs));
+    const shapes = orderGroups(poly.nest(FS.shapes.rings(objs)));
     if (!shapes.length) return { chains, warnings: warnings.concat('Für V-Carving braucht es geschlossene Formen.') };
-    let capped = false;
-    const clearRegions = [];
+    const ct = op.clearToolId && tools.find((t) => t.id === op.clearToolId);
+    const ccut = ct ? FS.tools.cutParams(ct, cut.material, cut.machine) : null;
+    const clearChains = [];
+    let tipHint = false;
     for (const sh of shapes) {
+      let shCapped = false;
       const rings = [geo.orient(sh.outer, true), ...sh.holes.map((h) => geo.orient(h, false))].map((r) => resampleClosed(r, step));
       let nq = 0;
       for (const r of rings) nq += r.length;
@@ -406,7 +472,7 @@
         const n = P.length, pts = [];
         const pushC = (p, nx, ny) => {
           const r = inscribed(p.x, p.y, nx, ny);
-          if (r >= rCap - 1e-6) capped = true;
+          if (r >= rCap - 1e-6) shCapped = true;
           const z = -Math.min(maxD, Math.max(0, r - tip) / tn);
           pts.push({ x: p.x + nx * r, y: p.y + ny * r, z });
         };
@@ -463,27 +529,25 @@
         });
         if (out.length) chains.push({ pts: simplify3(out, 0.005), clearZ: 0 });
       }
-      if (capped && maxD < toolMax - 1e-6) clearRegions.push(...[sh.outer, ...sh.holes]);
-    }
-    // Flache Böden ausräumen
-    let clear = null;
-    if (capped && maxD < toolMax - 1e-6) {
-      const ct = op.clearToolId && tools.find((t) => t.id === op.clearToolId);
-      const inner = poly.offset(poly.clip(clearRegions, null, 'union'), -rCap);
-      if (inner.length) {
-        if (ct) {
-          const ccut = FS.tools.cutParams(ct, cut.material, cut.machine);
-          const res = pocketRegion(inner, ct, { strategy: 'offset', direction: 'climb', ramp: true, rampLen: 8, stepover: ct.stepover }, ccut, levels(0, maxD, ccut.stepdown), 0);
-          clear = { chains: res.chains, tool: ct, cut: ccut };
-          warnings.push(...res.warnings);
-        } else {
-          const fakeTool = { ...tool, d: Math.max(0.2, tip * 2 + 0.2) };
-          const res = pocketRegion(inner, fakeTool, { strategy: 'offset', direction: 'climb', ramp: false, stepover: Math.min(90, (Math.max(0.3, rCap * 0.6) / fakeTool.d) * 100) }, cut, [-maxD], 0);
-          chains.push(...res.chains);
-          warnings.push('Tipp: Für flache Böden ein Ausräumwerkzeug (Schaftfräser) wählen – das geht schneller und sauberer.');
+      // flache Böden dieses Buchstabens ausräumen – gleich nach ihm (mit Ausräumwerkzeug: im eigenen Abschnitt, aber Buchstabe für Buchstabe)
+      if (shCapped && maxD < toolMax - 1e-6) {
+        const inner = poly.offset(poly.clip([sh.outer, ...sh.holes], null, 'union'), -rCap);
+        if (inner.length) {
+          if (ct) {
+            const res = pocketRegion(inner, ct, { strategy: 'offset', direction: 'climb', ramp: true, rampLen: 8, stepover: ct.stepover }, ccut, levels(0, maxD, ccut.stepdown), 0);
+            clearChains.push(...res.chains);
+            warnings.push(...res.warnings.filter((w) => !warnings.includes(w)));
+          } else {
+            const fakeTool = { ...tool, d: Math.max(0.2, tip * 2 + 0.2) };
+            const res = pocketRegion(inner, fakeTool, { strategy: 'offset', direction: 'climb', ramp: false, stepover: Math.min(90, (Math.max(0.3, rCap * 0.6) / fakeTool.d) * 100) }, cut, [-maxD], 0);
+            chains.push(...res.chains);
+            tipHint = true;
+          }
         }
       }
     }
+    if (tipHint) warnings.push('Tipp: Für flache Böden ein Ausräumwerkzeug (Schaftfräser) wählen – das geht schneller und sauberer.');
+    const clear = ct && clearChains.length ? { chains: clearChains, tool: ct, cut: ccut } : null;
     return { chains, warnings, clear };
   }
 

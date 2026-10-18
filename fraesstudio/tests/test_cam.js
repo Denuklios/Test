@@ -194,6 +194,78 @@ const stl = new ArrayBuffer(84 + 50); const dv = new DataView(stl); dv.setUint32
 const ras = FS.importers.rasterSTL(FS.importers.parseSTL(stl), 50);
 ok(ras.nx > 40 && near(ras.zr, 5), 'STL: Dreieck gerastert');
 
+// Reihenfolge: Buchstabe für Buchstabe fertig (alle Tiefen), dann der nächste – in Leserichtung
+{
+  const mkText = (text, extra = {}) => { const o = S.make('text', { text, font: 'Archivo Black', size: 40, align: 'left', spacing: 0, lineHeight: 1.3, ...extra }); o.tf = FS.M.translate(10, 150); return o; };
+  const shapesOf = (o) => FS.poly.nest(S.rings([o]));
+  // zu welchem Buchstaben gehört ein Punkt? (nächster Umriss)
+  const letterOf = (shapes, q) => {
+    let best = -1, bd = Infinity;
+    shapes.forEach((sh, i) => { for (const r of [sh.outer, ...sh.holes]) for (let k = 0; k < r.length; k++) { const d = G.segDist(q, r[k], r[(k + 1) % r.length]); if (d < bd) { bd = d; best = i; } } });
+    return best;
+  };
+  const runs = (shapes, chains) => {
+    const seq = [];
+    for (const ch of chains) for (const q of ch.pts) { if (q.rapid) continue; const l = letterOf(shapes, q); if (seq[seq.length - 1] !== l) seq.push(l); }
+    return seq;
+  };
+  const cx = (sh) => G.bounds([sh.outer]).x0 + G.bounds([sh.outer]).w / 2;
+  const cy = (sh) => G.bounds([sh.outer]).y0 + G.bounds([sh.outer]).h / 2;
+  const t1 = mkText('Hallo');
+  const sh1 = shapesOf(t1);
+  const readOrder1 = sh1.map((_, i) => i).sort((a2, b2) => cx(sh1[a2]) - cx(sh1[b2]));
+  const ctx5 = { objects: [t1], tools, stock: { ...stock, w: 300, h: 200, t: 12 }, machine };
+  const check = (name, res, shapes, expected) => {
+    const seq = runs(shapes, res.chains);
+    ok(seq.length === shapes.length && seq.every((v, i) => v === expected[i]), `${name}: ${seq.length} Buchstaben nacheinander, jeder nur einmal, von links nach rechts (${seq.join(',')})`);
+  };
+  const levelsIn = (res) => new Set(res.chains.flatMap((c) => c.pts.map((q) => +q.z.toFixed(2)))).size;
+  let o5 = FS.cam.makeOp('pocket', [t1.id], 't1'); o5.depth = 6; o5.ramp = true;
+  let r5 = FS.cam.compute(o5, ctx5);
+  ok(r5.chains.flatMap((c) => c.pts).some((q) => near(q.z, -6, 1e-6)), 'Tasche Text: erreicht die volle Tiefe (6 mm)');
+  check('Tasche (Spirale)', r5, sh1, readOrder1);
+  o5.strategy = 'raster'; r5 = FS.cam.compute(o5, ctx5);
+  check('Tasche (Zeilen)', r5, sh1, readOrder1);
+  const o6 = FS.cam.makeOp('engrave', [t1.id], 't6'); o6.depth = 1;
+  check('Gravieren', FS.cam.compute(o6, ctx5), sh1, readOrder1);
+  // V-Carving mit Ausräumen (Ausräum-Abschnitt Buchstabe für Buchstabe)
+  const o7 = FS.cam.makeOp('vcarve', [t1.id], 't6'); o7.maxDepth = 2; o7.clearToolId = 't1';
+  const r7 = FS.cam.compute(o7, ctx5);
+  check('V-Carving', r7, sh1, readOrder1);
+  ok(r7.clear && r7.clear.chains.length > 0, 'V-Carving: Ausräumen vorhanden');
+  check('V-Carving Ausräumen', { chains: r7.clear.chains }, sh1.filter((sh) => G.bounds([sh.outer]).w > 12), readOrder1.filter((i) => G.bounds([sh1[i].outer]).w > 12).map((i, k, arr) => i).map((i) => sh1.filter((sh) => G.bounds([sh.outer]).w > 12).indexOf(sh1[i])));
+  // Kontur außen: Buchstaben auseinander ziehen, damit jeder seine eigene Bahn hat; Löcher vor der Außenkontur
+  const t2 = mkText('Hao', { size: 60, spacing: 12 });
+  const sh2 = shapesOf(t2);
+  const o8 = FS.cam.makeOp('profile', [t2.id], 't1'); o8.depth = 4; o8.ramp = false; o8.tabs = false;
+  const r8 = FS.cam.compute(o8, { ...ctx5, objects: [t2] });
+  const lettersOfChains = r8.chains.map((ch) => letterOf(sh2, ch.pts[ch.pts.length - 1]));
+  const nondecr = lettersOfChains.every((v, i) => i === 0 || v >= lettersOfChains[i - 1]);
+  const holesN = sh2.reduce((n, sh) => n + sh.holes.length, 0);
+  ok(nondecr && r8.chains.length >= sh2.length + 1, `Kontur: Teil für Teil in Leserichtung (Bahnen je Buchstabe ${lettersOfChains.join(',')}), ${holesN} Löcher`);
+  // Reihenfolge jedes Teils: Loch zuerst, Außenkontur zuletzt (Außenbahn ist die größte)
+  const sizeOf = (ch) => G.bounds([ch.pts]).w * G.bounds([ch.pts]).h;
+  let holeFirst = true;
+  sh2.forEach((sh, li) => { const ch = r8.chains.filter((c, i) => lettersOfChains[i] === li); if (ch.length > 1 && sizeOf(ch[ch.length - 1]) < sizeOf(ch[0])) holeFirst = false; });
+  ok(holeFirst, 'Kontur: bei Buchstaben mit Loch zuerst das Loch, zuletzt die Außenkontur');
+  // zwei Zeilen: erst die obere, dann die untere (Lesereihenfolge)
+  const t3 = mkText('Hi\nWo', { size: 35 });
+  const sh3 = shapesOf(t3);
+  const o9 = FS.cam.makeOp('pocket', [t3.id], 't1'); o9.depth = 3;
+  const r9 = FS.cam.compute(o9, { ...ctx5, objects: [t3] });
+  const seq3 = runs(sh3, r9.chains);
+  const midY = (Math.max(...sh3.map(cy)) + Math.min(...sh3.map(cy))) / 2;
+  const rows = seq3.map((i) => (cy(sh3[i]) > midY ? 0 : 1));
+  const sorted = rows.every((v, i) => i === 0 || v >= rows[i - 1]);
+  const inRow = [0, 1].every((rw) => { const xs = seq3.filter((i) => rows[seq3.indexOf(i)] === rw).map((i) => cx(sh3[i])); return xs.every((v, i) => i === 0 || v >= xs[i - 1]); });
+  ok(sorted && inRow && seq3.length === sh3.length, `Zwei Zeilen: obere Zeile zuerst, jede von links nach rechts (${seq3.length} Teile)`);
+  // Bohrungen in Leserichtung
+  const hs = [[80, 20], [20, 20], [50, 60], [20, 60], [80, 60]].map(([x, y]) => { const e2 = S.make('ellipse', { rx: 2, ry: 2 }); e2.tf = FS.M.translate(x, y); return e2; });
+  const rd = FS.cam.compute(FS.cam.makeOp('drill', hs.map((h) => h.id), 't10'), { ...ctx5, objects: hs });
+  const order = rd.chains.map((c) => `${Math.round(c.pts[0].x)},${Math.round(c.pts[0].y)}`).join(' ');
+  ok(order === '20,60 50,60 80,60 20,20 80,20', 'Bohren: obere Reihe zuerst, jede von links nach rechts (' + order + ')');
+}
+
 // Kamera: Entzerrung
 {
   const C = FS.camera;
