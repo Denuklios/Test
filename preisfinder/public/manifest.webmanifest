@@ -1,0 +1,9 @@
+{
+  "name": "Preisfinder",
+  "short_name": "Preisfinder",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f6f4ef",
+  "theme_color": "#2f7a55",
+  "icons": [{ "src": "/icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any maskable" }]
+}

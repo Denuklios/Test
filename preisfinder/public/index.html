@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#2f7a55">
+<title>Preisfinder</title>
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg">
+<link rel="apple-touch-icon" href="/icon.svg">
+<link rel="stylesheet" href="/style.css">
+</head>
+<body>
+<header>
+  <h1>🛒 Preisfinder</h1>
+  <nav>
+    <button data-tab="search" class="on">🔍 Suchen</button>
+    <button data-tab="watch">🔔 Preisalarm <span id="newBadge" class="badge" hidden></span></button>
+    <button data-tab="shop">📝 Einkaufsliste <span id="shopBadge" class="badge soft" hidden></span></button>
+    <button data-tab="settings">⚙️</button>
+  </nav>
+</header>
+
+<main>
+  <section id="tab-search">
+    <form id="searchForm" class="searchbar">
+      <input id="q" type="search" placeholder="z. B. Milch, Kaffee, Butter …" autocomplete="off" enterkeyhint="search">
+      <button>Suchen</button>
+    </form>
+    <div id="chips" class="chips"></div>
+    <div id="filters" class="filters" hidden>
+      <div class="seg" id="statusSeg">
+        <button data-v="all" class="on">Alle</button>
+        <button data-v="läuft">Jetzt im Angebot</button>
+        <button data-v="kommt">Kommt bald</button>
+      </div>
+      <label>Sortieren
+        <select id="sort">
+          <option value="unit">Grundpreis (€/kg, €/l)</option>
+          <option value="price">Preis</option>
+          <option value="save">Größte Ersparnis</option>
+          <option value="end">Endet bald</option>
+        </select>
+      </label>
+      <div id="storeChips" class="chips small"></div>
+    </div>
+    <div id="stats"></div>
+    <div id="results" class="grid"></div>
+  </section>
+
+  <section id="tab-watch" hidden>
+    <div class="card">
+      <h2>Preisalarm anlegen</h2>
+      <p class="muted">Der Preisfinder prüft deine Merkliste automatisch und meldet neue Angebote – auch solche, die erst nächste Woche in die Werbung kommen.</p>
+      <form id="watchForm" class="row">
+        <input name="q" placeholder="Produkt, z. B. Kaffee" required>
+        <input name="maxPrice" type="number" step="0.01" min="0" placeholder="max. Preis (optional)">
+        <input name="maxUnitPrice" type="number" step="0.01" min="0" placeholder="max. €/kg bzw. €/l (optional)">
+        <button>+ Hinzufügen</button>
+      </form>
+    </div>
+    <div class="toolbar"><button id="checkAll">🔄 Alle jetzt prüfen</button><span id="checkInfo" class="muted"></span></div>
+    <div id="news"></div>
+    <div id="watchList"></div>
+  </section>
+
+  <section id="tab-shop" hidden>
+    <form id="shopForm" class="searchbar">
+      <input name="text" placeholder="Etwas aufschreiben, z. B. Brot" autocomplete="off">
+      <button>+</button>
+    </form>
+    <div id="shopList"></div>
+    <div class="toolbar">
+      <button id="shareShop">📤 Teilen / kopieren</button>
+      <button id="clearDone">✔ Erledigte entfernen</button>
+      <button onclick="print()">🖨 Drucken</button>
+    </div>
+  </section>
+
+  <section id="tab-settings" hidden>
+    <form id="settingsForm" class="card settings">
+      <h2>Einstellungen</h2>
+      <label>Land
+        <select name="country"><option value="de">Deutschland (Prospekte über marktguru)</option><option value="dk">Dänemark (Tilbudsaviser über eTilbudsavis)</option></select>
+      </label>
+      <label>Postleitzahl <input name="zip" inputmode="numeric" maxlength="10"></label>
+      <label data-only="dk">Umkreis in km <input name="radius" type="number" min="1" max="50"></label>
+      <label>Meine Märkte (leer = alle; mit Komma trennen)
+        <input name="stores" placeholder="z. B. Aldi, Lidl, Rewe, Kaufland">
+      </label>
+      <label class="check"><input type="checkbox" name="hideLoyalty"> Angebote nur mit Kundenkarte/App ausblenden</label>
+      <h3>Push-Nachricht aufs Handy</h3>
+      <p class="muted">Kostenlose App <b>ntfy</b> installieren (Android/iPhone), dort ein Thema abonnieren – z. B. einen langen Fantasienamen wie <code id="topicIdea"></code> – und hier denselben Namen eintragen. Wer den Namen kennt, kann mitlesen, also nichts Erratbares nehmen.</p>
+      <label>ntfy-Thema <input name="ntfyTopic" placeholder="leer = keine Push-Nachrichten"></label>
+      <label>Merkliste prüfen alle … Stunden <input name="watchHours" type="number" min="1" max="48"></label>
+      <div class="toolbar"><button>Speichern</button><button type="button" id="testPush">Test-Nachricht senden</button><a href="/logout">Abmelden</a></div>
+      <p id="settingsMsg" class="muted"></p>
+    </form>
+    <div class="card muted small">
+      <h3>So funktioniert's</h3>
+      <ul>
+        <li><b>Jetzt im Angebot</b>: steht im aktuellen Prospekt und gilt heute.</li>
+        <li><b>Kommt bald</b>: steht schon im Prospekt der nächsten Woche (Märkte veröffentlichen ihn meist ein paar Tage vorher).</li>
+        <li><b>Grundpreis</b>: Preis pro kg, Liter oder Stück – damit vergleichst du verschiedene Packungsgrößen fair.</li>
+        <li><b>⭐ Top-Preis</b>: so günstig wie der beste Preis, den der Preisfinder in den letzten 90 Tagen gesehen hat (braucht mind. 7 Tage Verlauf).</li>
+        <li>Angaben ohne Gewähr – maßgeblich ist der Preis im Markt.</li>
+      </ul>
+      <p id="version"></p>
+    </div>
+  </section>
+</main>
+<div id="toast" hidden></div>
+<script src="/app.js"></script>
+</body>
+</html>

@@ -88,7 +88,10 @@ $DOMAIN {
     encode gzip
     reverse_proxy 127.0.0.1:8080
 }
+# weitere Programme auf diesem Server (z. B. Preisfinder)
+import /etc/caddy/conf.d/*.caddy
 CADDY
+mkdir -p /etc/caddy/conf.d
 
 # tägliche Sicherung der Datenbank (14 Tage aufheben)
 cat > /usr/local/bin/stickstudio-backup <<'BAK'
