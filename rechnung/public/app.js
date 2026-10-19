@@ -1106,9 +1106,10 @@ routes.einstellungen = () => {
       ${f('footer', 'Zusatzzeile in der Fußzeile', 'class="wide"')}
     </div></div>
     <div class="card"><b>Belegerkennung (Fotos automatisch auslesen)</b>
-      <p class="small muted">Fotografierte Belege werden von Claude (Anthropic) gelesen: Ausgabe oder Einnahme, Lieferant, Datum, Betrag, Moms, bezahlt oder offen. Dafür brauchst du einen eigenen API-Schlüssel von <a href="https://platform.claude.com" target="_blank" rel="noopener">platform.claude.com</a> (Konto anlegen → Guthaben aufladen → „API Keys“ → „Create Key“). Ein Beleg kostet grob 10–50 Øre. Das Foto wird dafür an Anthropic geschickt.</p>
+      <p class="small muted">Fotografierte Belege werden von Claude (Anthropic) gelesen: Ausgabe oder Einnahme, Lieferant, Datum, Betrag, Moms, bezahlt oder offen. Dafür brauchst du einen eigenen API-Schlüssel von <a href="https://platform.claude.com" target="_blank" rel="noopener">platform.claude.com</a> (Konto anlegen → Guthaben aufladen → „API Keys“ → „Create Key“). Kosten je nach Genauigkeit ca. 0,1 bis 6 Cent pro Beleg (Abrechnung in Dollar über dein Guthaben bei Anthropic, dort kannst du ein Monatslimit setzen). Das Foto wird dafür an Anthropic geschickt.</p>
       <div class="grid">
         <label>API-Schlüssel<input name="aiKey" type="password" autocomplete="off" placeholder="${S.ai.fromEnv ? 'über ANTHROPIC_API_KEY gesetzt' : S.ai.hasKey ? '•••••••• gespeichert' : 'sk-ant-…'}"></label>
+        <label>Genauigkeit<select name="aiMode">${opts({ auto: 'Automatisch – erst günstig, bei Unklarheit genau (empfohlen)', cheap: 'Günstig – ca. 0,1 Cent pro Beleg', precise: 'Genau – ca. 3–6 Cent pro Beleg' }, s.aiMode || 'auto')}</select></label>
         <label>Nach dem Erkennen<select name="autoBook">${opts({ yes: 'Eindeutige Belege sofort automatisch buchen', no: 'Jeden Beleg erst zur Prüfung vorlegen' }, s.autoBook)}</select></label>
       </div>
       <div class="small" style="margin-top:8px">${!S.ai.installed ? '<span style="color:var(--bad)">Das Erkennungs-Paket fehlt – bitte das Programm über das Startskript starten (es installiert alles automatisch).</span>' : S.ai.enabled ? '<span style="color:var(--ok)">✔ Erkennung ist eingeschaltet.</span>' : 'Erkennung ist aus.'}

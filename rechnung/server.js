@@ -20,7 +20,7 @@ const DATA_DIR = ENV.DATA_DIR || path.join(__dirname, 'data');
 const FILE = path.join(DATA_DIR, 'rechnung.json');
 const PUBLIC = path.join(__dirname, 'public');
 const RECEIPT_DIR = path.join(DATA_DIR, 'belege');
-const VERSION = '1.9';
+const VERSION = '1.10';
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = () => crypto.randomBytes(8).toString('hex');
 
@@ -31,7 +31,7 @@ const EMPTY = () => ({
     company: '', owner: '', street: '', zip: '', city: '', country: 'DK', cvr: '', email: '', phone: '', web: '',
     bankName: 'Lunar', regNo: '', accountNo: '', iban: '', bic: 'LUNADK2B', fikCreditor: '', logo: '',
     nextNumber: 1, nextCustomerNo: 1001, dueDays: 14, vatPeriod: 'quarter', defaultCurrency: 'DKK', footer: '', autoBook: 'yes', nextOrderNumber: 1001, publicUrl: '',
-    legalForm: 'aps', vehicle: 'none', homeOfficeShare: '0', phoneShare: '50', carShare: '0', taxRate: '22',
+    aiMode: 'auto', legalForm: 'aps', vehicle: 'none', homeOfficeShare: '0', phoneShare: '50', carShare: '0', taxRate: '22',
   },
   customers: [], products: [], invoices: [], orders: [], expenses: [], incomes: [], receipts: [], bank: [], trips: [], log: [],
   secrets: { anthropicKey: '', cvrUser: '', cvrPass: '' },
@@ -256,7 +256,7 @@ async function recognize(id) {
   const r = state.receipts.find((x) => x.id === id);
   if (!r || r.status !== 'processing') return;
   try {
-    const ex = await Receipts.extract({ buffer: fs.readFileSync(path.join(RECEIPT_DIR, r.file)), mime: r.mime, company: { name: state.settings.company, cvr: state.settings.cvr }, apiKey: apiKey() });
+    const ex = await Receipts.extract({ buffer: fs.readFileSync(path.join(RECEIPT_DIR, r.file)), mime: r.mime, company: { name: state.settings.company, cvr: state.settings.cvr }, apiKey: apiKey(), mode: state.settings.aiMode || 'auto' });
     r.extracted = ex;
     r.rate = 1;
     if (ex.currency && ex.currency.toUpperCase() !== 'DKK' && ex.docType !== 'other') {

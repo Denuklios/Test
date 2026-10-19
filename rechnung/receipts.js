@@ -4,7 +4,8 @@
 let Anthropic = null;
 try { Anthropic = require('@anthropic-ai/sdk').default; } catch { /* Paket nicht installiert → nur manuelle Erfassung */ }
 
-const MODEL = 'claude-opus-5-5';
+// Genau: großes Modell (ca. 3–6 Cent pro Beleg). Günstig: kleines Modell (ca. 0,1 Cent pro Beleg).
+const MODELS = { precise: 'claude-opus-5-5', cheap: 'claude-haiku-5-5' };
 const CATEGORIES = require('./public/fradrag').names;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
@@ -48,7 +49,9 @@ Das Foto kann schief, gedreht oder schlecht belichtet sein. Erfinde nichts: Unle
 
 function enabled(apiKey) { return !!(Anthropic && apiKey); }
 
-async function extract({ buffer, mime, company, apiKey }) {
+/* mode: 'auto' (erst günstig, bei unsicherem Ergebnis genau), 'cheap' oder 'precise'.
+   Das Ergebnis enthält model = welches Modell zuletzt gelesen hat. */
+async function extract({ buffer, mime, company, apiKey, mode = 'auto' }) {
   if (!Anthropic) throw new Error('Das Paket für die Belegerkennung fehlt. Bitte im Ordner rechnung einmal „npm install“ ausführen (das Startskript macht das automatisch).');
   if (!apiKey) throw new Error('Kein API-Schlüssel für die Belegerkennung eingetragen.');
   const data = buffer.toString('base64');
@@ -58,18 +61,29 @@ async function extract({ buffer, mime, company, apiKey }) {
   else throw new Error('Dateiformat wird nicht unterstützt (bitte JPG, PNG oder PDF).');
 
   const client = new Anthropic({ apiKey });
+  const content = [source, { type: 'text', text: prompt(company) }];
+  if (mode === 'precise') return { ...(await ask(client, 'precise', content)), model: MODELS.precise };
+  let first;
+  try { first = await ask(client, 'cheap', content); }
+  catch (err) { if (mode === 'cheap' || err.auth) throw err; } // bei „automatisch“ springt das genaue Modell ein
+  if (first && (mode === 'cheap' || first.confident)) return { ...first, model: MODELS.cheap };
+  return { ...(await ask(client, 'precise', content)), model: MODELS.precise, retried: true };
+}
+
+async function ask(client, kind, content) {
   let response;
   try {
+    // Das große Modell bekommt die automatische Ausweichlösung bei einer Ablehnung, das kleine unterstützt sie nicht
+    const extra = kind === 'precise' ? { betas: ['server-side-fallback-2026-07-01'], fallbacks: 'default' } : {};
     response = await client.beta.messages.create({
-      model: MODEL,
+      model: MODELS[kind],
       max_tokens: 16000,
-      betas: ['server-side-fallback-2026-07-01'],
-      fallbacks: 'default',
-      output_config: { effort: 'medium', format: { type: 'json_schema', schema: SCHEMA } },
-      messages: [{ role: 'user', content: [source, { type: 'text', text: prompt(company) }] }],
+      ...extra,
+      output_config: { effort: kind === 'precise' ? 'medium' : 'low', format: { type: 'json_schema', schema: SCHEMA } },
+      messages: [{ role: 'user', content }],
     });
   } catch (err) {
-    if (err instanceof Anthropic.AuthenticationError) throw new Error('Der API-Schlüssel ist ungültig.');
+    if (err instanceof Anthropic.AuthenticationError) throw Object.assign(new Error('Der API-Schlüssel ist ungültig.'), { auth: true });
     if (err instanceof Anthropic.RateLimitError) throw new Error('Zu viele Anfragen – bitte gleich noch einmal versuchen.');
     if (err instanceof Anthropic.BadRequestError) throw new Error('Der Beleg konnte nicht gelesen werden: ' + err.message);
     if (err instanceof Anthropic.APIError) throw new Error(`Erkennungsdienst meldet Fehler ${err.status}.`);
@@ -81,4 +95,4 @@ async function extract({ buffer, mime, company, apiKey }) {
   try { return JSON.parse(text); } catch { throw new Error('Die Erkennung hat keine lesbare Antwort geliefert.'); }
 }
 
-module.exports = { extract, enabled, CATEGORIES, IMAGE_TYPES, SCHEMA, available: () => !!Anthropic };
+module.exports = { extract, enabled, CATEGORIES, IMAGE_TYPES, SCHEMA, MODELS, available: () => !!Anthropic };

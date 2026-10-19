@@ -44,7 +44,7 @@ Deine Daten liegen in `rechnung/data/rechnung.json`. Jeden Tag wird automatisch 
 
 ## Belege mit dem Handy fotografieren
 
-1. **Erkennung einschalten:** Unter Einstellungen → Belegerkennung einen API-Schlüssel von [platform.claude.com](https://platform.claude.com) eintragen (Konto anlegen, Guthaben aufladen, „API Keys“ → „Create Key“). Ein Beleg kostet grob 10–50 Øre. Ohne Schlüssel werden die Fotos trotzdem gespeichert, und du tippst die Werte selbst ein.
+1. **Erkennung einschalten:** Unter Einstellungen → Belegerkennung einen API-Schlüssel von [platform.claude.com](https://platform.claude.com) eintragen (Konto anlegen, Guthaben aufladen, „API Keys“ → „Create Key“). Je nach eingestellter Genauigkeit kostet ein Beleg ca. 0,1 bis 6 Cent (Standard „Automatisch“: meist ca. 0,1 Cent, nur unklare Belege werden genau gelesen). Ohne Schlüssel werden die Fotos trotzdem gespeichert, und du tippst die Werte selbst ein.
 2. **Handy verbinden:** Das Startskript fragt „Handy-Zugang einschalten?“ → `j` und ein Passwort vergeben. Unter Einstellungen erscheint ein QR-Code. Mit dem Handy (im selben WLAN) scannen, Passwort eingeben (Benutzername egal), dann im Browser „Zum Startbildschirm hinzufügen“. Jetzt hast du die Belege-Kamera wie eine App.
 3. **Fotografieren:** „📷 Beleg fotografieren“ → Foto → fertig. Der Rest passiert im Programm.
 
