@@ -46,6 +46,8 @@ function load() {
   }
 }
 let state = load();
+// Öffentliche Adresse für Kunden-Links vom Einrichtungsskript übernehmen, solange in den Einstellungen nichts steht
+if (ENV.PUBLIC_URL && !state.settings.publicUrl) state.settings.publicUrl = ENV.PUBLIC_URL;
 
 function save() {
   fs.mkdirSync(DATA_DIR, { recursive: true });

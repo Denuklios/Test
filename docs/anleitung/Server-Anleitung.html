@@ -1,0 +1,411 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Anleitung: StickStudio, FräsStudio und RechnungsStudio auf dem eigenen Server</title>
+<style>
+  @page { size: A4; margin: 18mm 16mm 18mm 16mm; }
+  body { font: 10.5pt/1.5 "Segoe UI", system-ui, -apple-system, Roboto, Arial, sans-serif; color: #1d2433; margin: 0; }
+  h1 { font-size: 22pt; margin: 0 0 4mm; color: #16213e; }
+  h2 { font-size: 15pt; margin: 9mm 0 3mm; padding-bottom: 1.5mm; border-bottom: 2px solid #2456d6; color: #16213e; page-break-after: avoid; }
+  h3 { font-size: 11.5pt; margin: 5mm 0 2mm; color: #16213e; page-break-after: avoid; }
+  p { margin: 0 0 2.5mm; }
+  ol, ul { margin: 0 0 3mm; padding-left: 6mm; }
+  li { margin-bottom: 1.6mm; }
+  code { font-family: "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace; font-size: 9.2pt; background: #eef1f6; padding: 0 1.2mm; border-radius: 2px; }
+  pre { font-family: "Cascadia Mono", Consolas, "DejaVu Sans Mono", monospace; font-size: 9pt; background: #16213e; color: #e8edf7; padding: 3mm 4mm; border-radius: 4px; white-space: pre-wrap; margin: 1.5mm 0 3mm; page-break-inside: avoid; }
+  .box { border: 1px solid #c9d3e6; background: #f3f6fc; border-radius: 5px; padding: 3mm 4mm; margin: 3mm 0; page-break-inside: avoid; }
+  .warn { border-color: #f0c38e; background: #fdf4e8; }
+  .ok { border-color: #a9d9b8; background: #edf8f1; }
+  .cover { text-align: left; padding-top: 4mm; page-break-after: always; }
+  .cover .toc li { margin-bottom: 0.3mm; }
+  .cover .sub { font-size: 13pt; color: #4a5468; margin-bottom: 12mm; }
+  table { border-collapse: collapse; width: 100%; margin: 2mm 0 4mm; font-size: 9.6pt; page-break-inside: avoid; }
+  th, td { border: 1px solid #d5dbe7; padding: 1.6mm 2.2mm; text-align: left; vertical-align: top; }
+  th { background: #e8eefc; }
+  .page { page-break-before: always; }
+  .small { font-size: 9pt; color: #4a5468; }
+  .diagram { width: 100%; margin: 3mm 0 5mm; }
+  .check li { list-style: none; margin-left: -5mm; }
+  .check li::before { content: "☐  "; }
+  .toc li { margin-bottom: 0.8mm; }
+</style>
+</head>
+<body>
+
+<div class="cover">
+  <h1>StickStudio, FräsStudio und RechnungsStudio<br>auf dem eigenen Server</h1>
+  <div class="sub">Schritt-für-Schritt-Anleitung: vom Mieten des Servers über die Domain bis zum Freischalten von Kunden</div>
+  <div class="box">
+    <b>So benutzt du diese Anleitung</b>
+    <ul>
+      <li>Arbeite die Teile <b>der Reihe nach</b> ab. Jeder Schritt baut auf dem vorherigen auf.</li>
+      <li>Alles in <code>dieser Schrift</code> tippst (oder kopierst) du genau so ein. Danach immer <b>Enter</b> drücken.</li>
+      <li>Ersetze die Beispiele durch deine echten Daten:
+        <table>
+          <tr><th>In der Anleitung steht</th><th>Du schreibst stattdessen</th></tr>
+          <tr><td><code>deinefirma.dk</code></td><td>deine eigene Domain</td></tr>
+          <tr><td><code>1.2.3.4</code></td><td>die IP-Adresse deines Servers (bekommst du in Teil 2)</td></tr>
+          <tr><td><code>du@deinefirma.dk</code></td><td>deine E-Mail-Adresse</td></tr>
+        </table>
+      </li>
+      <li>Zeitbedarf beim ersten Mal: etwa <b>1,5 bis 2 Stunden</b>, davon viel Warten.</li>
+      <li>Kosten: Server etwa <b>5 € im Monat</b>. Die Domain hast du schon. HTTPS-Zertifikate sind kostenlos.</li>
+    </ul>
+  </div>
+  <h3>Inhalt</h3>
+  <ol class="toc">
+    <li>Überblick: Was läuft wo?</li>
+    <li>Server mieten (Hetzner)</li>
+    <li>Subdomains bei deinem Domain-Anbieter anlegen</li>
+    <li>Das erste Mal mit dem Server verbinden</li>
+    <li>Das Programmpaket auf den Server kopieren</li>
+    <li>StickStudio und FräsStudio einrichten</li>
+    <li>RechnungsStudio einrichten</li>
+    <li>Die Programme zum ersten Mal benutzen</li>
+    <li>E-Mail-Versand einrichten (für StickStudio)</li>
+    <li>Später für Kunden: Freischalten, Bezahlung, Rechtstexte</li>
+    <li>Updates einspielen</li>
+    <li>Datensicherung</li>
+    <li>Wenn etwas nicht klappt</li>
+    <li>Ohne Server benutzen (nur auf deinem Computer)</li>
+    <li>Checkliste</li>
+  </ol>
+</div>
+
+<h2>1. Überblick: Was läuft wo?</h2>
+<p>Alle drei Programme laufen auf <b>einem</b> gemieteten Server im Internet. Deine Domain zeigt mit zwei <b>Subdomains</b> auf diesen Server. Deine normale Webseite (z. B. <code>www.deinefirma.dk</code>) bleibt, wo sie ist, und wird nicht verändert.</p>
+
+<svg class="diagram" viewBox="0 0 680 250" xmlns="http://www.w3.org/2000/svg" font-family="Segoe UI, Arial, sans-serif" font-size="12">
+  <rect x="10" y="20" width="150" height="70" rx="8" fill="#e8eefc" stroke="#2456d6"/>
+  <text x="85" y="45" text-anchor="middle" font-weight="bold">Du, deine Kunden</text>
+  <text x="85" y="63" text-anchor="middle">Browser am PC</text>
+  <text x="85" y="79" text-anchor="middle">oder Handy</text>
+  <rect x="10" y="140" width="150" height="70" rx="8" fill="#fdf4e8" stroke="#d08a2f"/>
+  <text x="85" y="165" text-anchor="middle" font-weight="bold">Domain-Anbieter</text>
+  <text x="85" y="183" text-anchor="middle">stick.deinefirma.dk</text>
+  <text x="85" y="199" text-anchor="middle">rechnung.deinefirma.dk</text>
+  <path d="M85 90 V140" stroke="#888" stroke-dasharray="4 3" fill="none"/>
+  <text x="92" y="120" fill="#666">„wo wohnt die Adresse?“</text>
+  <path d="M160 55 H235" stroke="#2456d6" stroke-width="2" marker-end="url(#a)"/>
+  <text x="168" y="48" fill="#2456d6">HTTPS</text>
+  <rect x="240" y="10" width="430" height="230" rx="10" fill="#f7f8fb" stroke="#16213e" stroke-width="1.5"/>
+  <text x="455" y="32" text-anchor="middle" font-weight="bold" font-size="13">Dein Server (Hetzner, Ubuntu 24.04), IP 1.2.3.4</text>
+  <rect x="260" y="45" width="390" height="40" rx="6" fill="#e8eefc" stroke="#2456d6"/>
+  <text x="455" y="63" text-anchor="middle" font-weight="bold">Caddy (Webserver)</text>
+  <text x="455" y="78" text-anchor="middle">holt die HTTPS-Zertifikate automatisch, verteilt nach Adresse</text>
+  <path d="M355 85 V115" stroke="#2456d6" stroke-width="2" marker-end="url(#a)"/>
+  <path d="M555 85 V115" stroke="#2456d6" stroke-width="2" marker-end="url(#a)"/>
+  <rect x="260" y="118" width="190" height="105" rx="6" fill="#fff" stroke="#16213e"/>
+  <text x="355" y="138" text-anchor="middle" font-weight="bold">stick.deinefirma.dk</text>
+  <text x="355" y="158" text-anchor="middle">StickStudio</text>
+  <text x="355" y="176" text-anchor="middle">/fraesstudio/ → FräsStudio</text>
+  <text x="355" y="194" text-anchor="middle">/admin → Verwaltung</text>
+  <text x="355" y="212" text-anchor="middle" fill="#666">Konten, Abos, Testversion</text>
+  <rect x="460" y="118" width="190" height="105" rx="6" fill="#fff" stroke="#16213e"/>
+  <text x="555" y="138" text-anchor="middle" font-weight="bold">rechnung.deinefirma.dk</text>
+  <text x="555" y="158" text-anchor="middle">RechnungsStudio</text>
+  <text x="555" y="176" text-anchor="middle">nur für dich (Passwort)</text>
+  <text x="555" y="194" text-anchor="middle">Kunden sehen nur</text>
+  <text x="555" y="212" text-anchor="middle">ihre Unterschrifts-Links</text>
+  <defs><marker id="a" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="7" markerHeight="7" orient="auto"><path d="M0 0 L10 5 L0 10z" fill="#2456d6"/></marker></defs>
+</svg>
+
+<table>
+  <tr><th>Programm</th><th>Adresse</th><th>Wer benutzt es?</th></tr>
+  <tr><td><b>StickStudio</b> (Sticksoftware)</td><td><code>https://stick.deinefirma.dk</code></td><td>Du als Admin. Später Kunden mit eigenem Konto (Testversion, dann Abo).</td></tr>
+  <tr><td><b>FräsStudio</b> (CNC-Software)</td><td><code>https://stick.deinefirma.dk/fraesstudio/</code></td><td>Du. Später nur Kunden, die du in der Verwaltung freischaltest.</td></tr>
+  <tr><td><b>RechnungsStudio</b></td><td><code>https://rechnung.deinefirma.dk</code></td><td>Nur du (mit Passwort). Kunden öffnen nur die Links zum Unterschreiben von Aufträgen.</td></tr>
+</table>
+<div class="box"><b>Fachwörter kurz erklärt</b>
+  <ul>
+    <li><b>Server:</b> ein Computer in einem Rechenzentrum, der Tag und Nacht läuft. Du mietest ihn.</li>
+    <li><b>IP-Adresse:</b> die Nummer des Servers im Internet, z. B. <code>1.2.3.4</code>.</li>
+    <li><b>Subdomain:</b> eine Unteradresse deiner Domain, z. B. <code>stick.deinefirma.dk</code>.</li>
+    <li><b>DNS / A-Eintrag:</b> der Eintrag beim Domain-Anbieter, der sagt „diese Adresse wohnt auf jener IP“.</li>
+    <li><b>SSH:</b> die Verbindung, mit der du vom eigenen Computer aus Befehle auf dem Server eingibst.</li>
+    <li><b>Terminal / PowerShell:</b> das Fenster, in das du Befehle tippst.</li>
+  </ul>
+</div>
+
+<h2 class="page">2. Server mieten (Hetzner)</h2>
+<p>Ich empfehle <b>Hetzner Cloud</b>: günstig, Rechenzentren in Deutschland und Finnland (EU, wichtig für den Datenschutz), deutschsprachig. Andere Anbieter (netcup, IONOS, DigitalOcean …) gehen genauso. Du brauchst immer <b>Ubuntu 24.04</b>.</p>
+<ol>
+  <li>Auf <b>hetzner.com</b> → „Cloud“ → <b>Registrieren</b>. Konto anlegen, E-Mail bestätigen, Zahlungsmittel hinterlegen. Hetzner prüft neue Konten manchmal kurz (Ausweis/Foto), das kann einige Stunden dauern.</li>
+  <li>In der <b>Cloud Console</b> (console.hetzner.cloud) ein <b>neues Projekt</b> anlegen, Name z. B. <code>Firma</code>.</li>
+  <li>Im Projekt <b>„Server hinzufügen“</b> (bzw. „Ressource hinzufügen → Server“) und so einstellen:
+    <table>
+      <tr><th>Einstellung</th><th>Wählen</th></tr>
+      <tr><td>Standort</td><td>Falkenstein oder Nürnberg (Deutschland) bzw. Helsinki</td></tr>
+      <tr><td>Image</td><td><b>Ubuntu 24.04</b></td></tr>
+      <tr><td>Typ</td><td>„Shared vCPU“, <b>x86</b>, das kleinste Modell mit <b>4 GB RAM</b> (z. B. CX22 bzw. Nachfolger, ca. 4–5 € im Monat)</td></tr>
+      <tr><td>Netzwerk</td><td>Öffentliche <b>IPv4</b> und IPv6 eingeschaltet lassen</td></tr>
+      <tr><td>SSH-Key</td><td>leer lassen (dann bekommst du ein Passwort per E-Mail; einfacher für den Anfang)</td></tr>
+      <tr><td>Backups</td><td><b>einschalten</b> (kostet ca. 20 % mehr, sichert den ganzen Server täglich)</td></tr>
+      <tr><td>Name</td><td>z. B. <code>firma-server</code></td></tr>
+    </table>
+  </li>
+  <li><b>„Kostenpflichtig erstellen“</b>. Nach etwa einer Minute läuft der Server.</li>
+  <li>Notiere dir die <b>IPv4-Adresse</b> des Servers (steht in der Übersicht, z. B. <code>1.2.3.4</code>).</li>
+  <li>Hetzner schickt dir eine E-Mail mit dem <b>root-Passwort</b>. Gut aufheben.</li>
+</ol>
+<div class="box warn"><b>Wichtig:</b> Der Benutzer <code>root</code> darf auf dem Server alles. Gib das Passwort niemandem und speichere es in einem Passwort-Manager.</div>
+
+<h2>3. Subdomains bei deinem Domain-Anbieter anlegen</h2>
+<p>Das machst du dort, wo deine Domain registriert ist (z. B. Simply.com, one.com, IONOS, Strato, GoDaddy …). Der Menüpunkt heißt meist <b>„DNS“</b>, „DNS-Einstellungen“, „DNS-Records“ oder „Domain verwalten“.</p>
+<ol>
+  <li>Beim Domain-Anbieter einloggen und die DNS-Einstellungen deiner Domain öffnen.</li>
+  <li><b>Neuen Eintrag anlegen</b> („Record hinzufügen“):
+    <table>
+      <tr><th>Typ</th><th>Name / Host</th><th>Wert / Ziel / Zeigt auf</th><th>TTL</th></tr>
+      <tr><td><b>A</b></td><td><code>stick</code></td><td><code>1.2.3.4</code> (IP deines Servers)</td><td>Standard bzw. 1 Stunde</td></tr>
+      <tr><td><b>A</b></td><td><code>rechnung</code></td><td><code>1.2.3.4</code> (dieselbe IP)</td><td>Standard bzw. 1 Stunde</td></tr>
+    </table>
+    Manche Anbieter wollen beim Namen die ganze Adresse (<code>stick.deinefirma.dk</code>), andere nur <code>stick</code>. Das steht meist als Beispiel daneben.
+  </li>
+  <li>Speichern. Die vorhandenen Einträge (für deine Webseite und E-Mail) <b>nicht</b> ändern oder löschen.</li>
+  <li><b>Warten</b>, meist 5–30 Minuten, selten bis zu einigen Stunden.</li>
+  <li>Prüfen: Auf dem eigenen Computer ein Terminal öffnen (siehe Teil 4) und eingeben:
+<pre>ping stick.deinefirma.dk</pre>
+    Erscheint dort deine Server-IP (<code>1.2.3.4</code>), ist alles richtig. Mit <b>Strg + C</b> beenden. Das Gleiche für <code>rechnung.deinefirma.dk</code>.</li>
+</ol>
+<div class="box">Die Namen <code>stick</code> und <code>rechnung</code> sind Vorschläge. Du kannst auch z. B. <code>studio</code> oder <code>faktura</code> nehmen. Dann überall in der Anleitung entsprechend ersetzen.</div>
+
+<h2 class="page">4. Das erste Mal mit dem Server verbinden</h2>
+<h3>Terminal öffnen</h3>
+<table>
+  <tr><th>Windows 10/11</th><th>Mac</th></tr>
+  <tr><td>Startmenü → <b>„PowerShell“</b> eintippen → öffnen. Die Befehle <code>ssh</code> und <code>scp</code> sind schon eingebaut.</td>
+      <td>Programme → Dienstprogramme → <b>„Terminal“</b>.</td></tr>
+</table>
+<h3>Verbinden</h3>
+<ol>
+  <li>Eingeben:
+<pre>ssh root@1.2.3.4</pre></li>
+  <li>Beim ersten Mal fragt er: <i>„Are you sure you want to continue connecting?“</i> → <code>yes</code> eintippen, Enter.</li>
+  <li>Passwort aus der Hetzner-E-Mail eingeben. <b>Beim Tippen erscheinen keine Zeichen</b>, das ist normal. Enter.</li>
+  <li>Eventuell musst du das Passwort sofort ändern: altes Passwort eingeben, dann zweimal ein neues, langes Passwort.</li>
+  <li>Du siehst jetzt etwas wie <code>root@firma-server:~#</code>. Ab hier landet alles, was du tippst, auf dem Server.</li>
+</ol>
+<h3>Server auf den neuesten Stand bringen</h3>
+<pre>apt-get update &amp;&amp; apt-get upgrade -y &amp;&amp; apt-get install -y unzip unattended-upgrades</pre>
+<p>Das dauert ein paar Minuten. Erscheint ein blaues Fenster mit einer Frage, einfach <b>Enter</b> drücken (Vorauswahl übernehmen). <code>unattended-upgrades</code> spielt ab jetzt Sicherheitsupdates automatisch ein.</p>
+<p>Danach einmal neu starten und nach einer Minute wieder verbinden:</p>
+<pre>reboot</pre>
+<pre>ssh root@1.2.3.4</pre>
+<p class="small">Die Verbindung beendest du später jederzeit mit <code>exit</code>.</p>
+
+<h2>5. Das Programmpaket auf den Server kopieren</h2>
+<p>Du hast von mir die Datei <b>Komplettpaket.zip</b> bekommen. Sie enthält alle drei Programme. Speichere sie in deinem <b>Downloads</b>-Ordner.</p>
+<ol>
+  <li>Ein <b>zweites</b> Terminal-Fenster auf deinem Computer öffnen (das erste bleibt mit dem Server verbunden).</li>
+  <li>Im zweiten Fenster die Datei hochladen:
+    <table>
+      <tr><th>Windows (PowerShell)</th></tr>
+      <tr><td><code>scp "$HOME\Downloads\Komplettpaket.zip" root@1.2.3.4:/root/</code></td></tr>
+      <tr><th>Mac (Terminal)</th></tr>
+      <tr><td><code>scp ~/Downloads/Komplettpaket.zip root@1.2.3.4:/root/</code></td></tr>
+    </table>
+    Server-Passwort eingeben. Es erscheint ein Fortschrittsbalken bis 100 %.</li>
+  <li>Zurück im <b>ersten</b> Fenster (auf dem Server) entpacken:
+<pre>cd /root
+unzip -o Komplettpaket.zip
+cd Komplettpaket</pre></li>
+</ol>
+<div class="box"><b>Lieber mit der Maus?</b> Unter Windows geht das Hochladen auch mit dem kostenlosen Programm <b>WinSCP</b> (Mac: <b>Cyberduck</b>): Protokoll SFTP, Server <code>1.2.3.4</code>, Benutzer <code>root</code>, dein Passwort. Dann die ZIP-Datei nach <code>/root</code> ziehen.</div>
+
+<h2 class="page">6. StickStudio und FräsStudio einrichten</h2>
+<p>StickStudio und FräsStudio laufen zusammen unter <code>stick.deinefirma.dk</code>. Das Einrichtungsskript erledigt alles: Node.js, Programm, HTTPS-Zertifikat, automatischer Start, Firewall und tägliche Sicherung.</p>
+<ol>
+  <li>Im Server-Fenster, im Ordner <code>/root/Komplettpaket</code>:
+<pre>bash deploy/install.sh</pre></li>
+  <li>Das Skript stellt nacheinander diese Fragen:
+    <table>
+      <tr><th>Frage</th><th>Deine Antwort</th></tr>
+      <tr><td>Auswahl [1/2] (Eigener Webserver oder neben vorhandenem)</td><td><code>1</code></td></tr>
+      <tr><td>Adresse (Subdomain …)</td><td><code>stick.deinefirma.dk</code></td></tr>
+      <tr><td>Deine E-Mail (Admin-Login)</td><td><code>du@deinefirma.dk</code></td></tr>
+      <tr><td>Dein Passwort (mindestens 10 Zeichen)</td><td>ein neues, langes Passwort (unsichtbar beim Tippen)</td></tr>
+      <tr><td>Firewall einschalten? [j/N]</td><td><code>j</code></td></tr>
+    </table>
+  </li>
+  <li>Jetzt arbeitet das Skript 3–10 Minuten (Pakete laden, Programm bauen, KI-Modell für FräsStudio laden). Am Ende steht:
+<pre>Fertig! Öffne: https://stick.deinefirma.dk
+Verwaltung:   https://stick.deinefirma.dk/admin
+FräsStudio:   https://stick.deinefirma.dk/fraesstudio/</pre></li>
+  <li>Im Browser <code>https://stick.deinefirma.dk</code> öffnen und mit E-Mail und Passwort anmelden. Das Schloss in der Adresszeile zeigt, dass HTTPS funktioniert.</li>
+  <li><b>Passwort-Sicherheit:</b> Unter „Mein Konto“ das Passwort einmal ändern. Danach im Server-Fenster die Zeile mit dem Startpasswort löschen:
+<pre>nano /etc/stickstudio.env</pre>
+    Mit den Pfeiltasten zur Zeile <code>ADMIN_PASSWORD=…</code>, mit <b>Strg + K</b> die Zeile löschen, mit <b>Strg + O</b> und Enter speichern, mit <b>Strg + X</b> schließen. Dann:
+<pre>systemctl restart stickstudio</pre></li>
+  <li><b>FräsStudio</b> öffnen: <code>https://stick.deinefirma.dk/fraesstudio/</code>. Als Admin hast du immer Zugang.</li>
+</ol>
+<div class="box warn"><b>Fräse steuern:</b> Die Fräse wird über <b>USB</b> an deinem Computer gesteuert. Das geht nur in <b>Google Chrome</b> oder <b>Microsoft Edge</b>. Die „WLAN-Brücke“ zur Fräse funktioniert nur, wenn der Server bei dir zu Hause im selben Netz steht (Homeserver), nicht bei einem gemieteten Server.</div>
+
+<h2>7. RechnungsStudio einrichten</h2>
+<ol>
+  <li>Im Server-Fenster, weiterhin im Ordner <code>/root/Komplettpaket</code>:
+<pre>bash rechnung/deploy/install.sh</pre></li>
+  <li>Die Fragen:
+    <table>
+      <tr><th>Frage</th><th>Deine Antwort</th></tr>
+      <tr><td>Name dieser Kopie (Enter = rechnung …)</td><td>einfach <b>Enter</b></td></tr>
+      <tr><td>Adresse (Subdomain …)</td><td><code>rechnung.deinefirma.dk</code></td></tr>
+      <tr><td>Passwort für RechnungsStudio (mindestens 10 Zeichen)</td><td>ein eigenes, langes Passwort (<b>nicht</b> dasselbe wie für StickStudio)</td></tr>
+    </table>
+  </li>
+  <li>Nach 1–3 Minuten steht da: <code>Fertig! Öffne: https://rechnung.deinefirma.dk</code></li>
+  <li>Im Browser öffnen. Es erscheint ein Anmeldefenster: <b>Benutzername beliebig</b> (z. B. dein Name), <b>Passwort</b> wie eben eingegeben. Der Browser kann es sich merken.</li>
+</ol>
+<div class="box ok"><b>Gut zu wissen:</b> Die Adresse für Kunden-Links (Aufträge zum Unterschreiben) ist automatisch eingetragen. Die Unterschriftsseite für Kunden braucht kein Passwort, alles andere ist geschützt.</div>
+
+<h2 class="page">8. Die Programme zum ersten Mal benutzen</h2>
+<h3>RechnungsStudio</h3>
+<ol>
+  <li><b>Einstellungen:</b> Firmenname, CVR-Nr., Adresse, E-Mail, Logo, Bankverbindung (Lunar: Reg.-Nr., Konto, IBAN) und Momsperiode eintragen → <b>Speichern</b>.</li>
+  <li><b>Belegerkennung</b> (optional): unter Einstellungen den API-Schlüssel von platform.claude.com eintragen.</li>
+  <li><b>Kunden</b> anlegen (Sprache Deutsch/Dänisch/Englisch wählen), <b>Produkte</b> mit Bild anlegen.</li>
+  <li><b>Handy:</b> <code>https://rechnung.deinefirma.dk/#/belege</code> im Handy-Browser öffnen, anmelden, dann „Zum Startbildschirm hinzufügen“ (iPhone: Teilen-Knopf; Android: Menü ⋮). Jetzt hast du die Belege-Kamera wie eine App, auch unterwegs.</li>
+  <li><b>Daten vom Computer übernehmen:</b> Hast du RechnungsStudio vorher auf deinem Computer benutzt, dort unter Einstellungen → „Sicherung herunterladen“ und auf dem Server unter Einstellungen → „Sicherung einspielen“. Belegfotos werden dabei nicht mitgenommen (siehe Teil 12).</li>
+</ol>
+<h3>StickStudio</h3>
+<ol>
+  <li>Unter <code>/admin</code> → <b>Einstellungen &amp; Firmendaten</b>: Firmendaten eintragen. Daraus werden Impressum, AGB und Datenschutz gefüllt.</li>
+  <li>Designs anlegen, Stickdateien (DST usw.) exportieren wie gewohnt.</li>
+</ol>
+<h3>FräsStudio</h3>
+<ol>
+  <li><code>https://stick.deinefirma.dk/fraesstudio/</code> in Chrome oder Edge öffnen.</li>
+  <li>Fräse per USB anschließen → Schritt 4 „Fräsen“ → Verbinden. Alles Weitere steht in der Hilfe von FräsStudio.</li>
+</ol>
+
+<h2>9. E-Mail-Versand einrichten (für StickStudio)</h2>
+<p>StickStudio schickt E-Mails (Registrierung, „Passwort vergessen“, Kündigungsbestätigung). Ohne E-Mail-Einstellungen landen diese nur im Protokoll. Für Kunden ist das <b>Pflicht</b>.</p>
+<ol>
+  <li>Bei deinem E-Mail-Anbieter ein Postfach anlegen, z. B. <code>noreply@deinefirma.dk</code>, und die <b>SMTP-Daten</b> heraussuchen (Server, Port, Benutzer, Passwort). Die stehen in der Hilfe deines Anbieters unter „SMTP“ oder „E-Mail-Programm einrichten“.</li>
+  <li>Im Server-Fenster:
+<pre>nano /etc/stickstudio.env</pre>
+    Bei diesen Zeilen das <code>#</code> am Anfang löschen und deine Daten eintragen:
+<pre>SMTP_HOST=smtp.dein-anbieter.dk
+SMTP_PORT=465
+SMTP_USER=noreply@deinefirma.dk
+SMTP_PASS=dein-postfach-passwort
+MAIL_FROM=noreply@deinefirma.dk</pre>
+    Speichern (Strg + O, Enter), schließen (Strg + X).</li>
+  <li>Neu starten: <code>systemctl restart stickstudio</code></li>
+  <li>Testen: auf der Anmeldeseite „Passwort vergessen“ mit deiner E-Mail ausprobieren.</li>
+</ol>
+
+<h2 class="page">10. Später für Kunden</h2>
+<h3>10.1 StickStudio an Kunden verkaufen</h3>
+<ol>
+  <li><b>Registrierung:</b> Kunden registrieren sich selbst auf <code>https://stick.deinefirma.dk</code> und bekommen sofort eine <b>Testversion</b> (Standard 14 Tage, in der Verwaltung einstellbar). Danach können sie nur noch ansehen, bis sie ein Abo haben.</li>
+  <li><b>Bezahlung mit Lemon Squeezy</b> (kümmert sich um Rechnungen und Moms/MwSt. in der EU):
+    <ol>
+      <li>Konto bei lemonsqueezy.com anlegen, Shop einrichten, ein <b>Abo-Produkt</b> (Subscription, monatlich oder jährlich) anlegen.</li>
+      <li>Den <b>Checkout-Link</b> des Produkts in der StickStudio-Verwaltung als <b>Abo-Link</b> eintragen.</li>
+      <li>Bei Lemon Squeezy unter <i>Settings → Webhooks</i> einen Webhook anlegen: URL <code>https://stick.deinefirma.dk/api/webhook/lemonsqueezy</code>, ein selbst gewähltes <b>Signing secret</b>, alle Abo-Ereignisse (subscription_…) anhaken.</li>
+      <li>Unter <i>Settings → API</i> einen API-Schlüssel erzeugen.</li>
+      <li>Beides in <code>/etc/stickstudio.env</code> eintragen (Raute entfernen) und neu starten:
+<pre>LEMONSQUEEZY_SECRET=dein-signing-secret
+LEMONSQUEEZY_API_KEY=dein-api-schluessel</pre>
+<pre>systemctl restart stickstudio</pre></li>
+    </ol>
+    Ab dann folgt die Lizenz automatisch dem Abo: aktiv, gekündigt oder beendet.</li>
+  <li><b>Rechtstexte:</b> Impressum, AGB, Widerruf und Datenschutz sind als Entwürfe dabei und werden aus deinen Firmendaten gefüllt. Sie sind nach <b>deutschem</b> Recht geschrieben. Als dänische Firma solltest du sie von einem Anwalt bzw. deinem revisor an <b>dänisches Recht</b> anpassen lassen (z. B. Forbrugeraftaleloven, Datatilsynet als Aufsichtsbehörde), bevor du verkaufst.</li>
+  <li><b>Nur für dich nutzen?</b> Dann neue Registrierungen sperren: in <code>/etc/stickstudio.env</code> bei <code>#REGISTRATION=closed</code> die Raute entfernen, <code>systemctl restart stickstudio</code>.</li>
+</ol>
+<h3>10.2 FräsStudio für Kunden freischalten</h3>
+<ol>
+  <li>Der Kunde registriert sich ganz normal in StickStudio (oder du legst ihm ein Konto an).</li>
+  <li>In der <b>Verwaltung → Benutzer → Bearbeiten</b> das Häkchen <b>„Zugang zu FräsStudio“</b> setzen.</li>
+  <li>Der Kunde öffnet <code>https://stick.deinefirma.dk/fraesstudio/</code>. Ohne Häkchen sieht er „nicht freigeschaltet“.</li>
+</ol>
+<div class="box warn">Wer FräsStudio-Zugang hat, kann eine angeschlossene Fräse steuern. Nur vertrauenswürdigen Kunden freischalten.</div>
+<h3>10.3 RechnungsStudio</h3>
+<ul>
+  <li><b>Deine Kunden</b> brauchen nichts zu tun. Sie bekommen von dir Rechnungen (PDF) und Links zum Unterschreiben von Aufträgen.</li>
+  <li><b>RechnungsStudio an andere Firmen vermieten:</b> Jede Firma bekommt eine <b>eigene, getrennte Kopie</b> mit eigener Adresse, eigenen Daten und eigenem Passwort:
+    <ol>
+      <li>Beim Domain-Anbieter einen weiteren A-Eintrag anlegen, z. B. <code>mueller</code> → <code>1.2.3.4</code>.</li>
+      <li>Auf dem Server im Ordner <code>/root/Komplettpaket</code>: <code>bash rechnung/deploy/install.sh</code></li>
+      <li>Name der Kopie: z. B. <code>rechnung-mueller</code>; Adresse: <code>mueller.deinefirma.dk</code>; ein Passwort für den Kunden.</li>
+    </ol>
+    Rechtlich bist du dann <b>Datenverarbeiter</b> für diese Firma: Du brauchst einen Vertrag über die Datenverarbeitung (Databehandleraftale) und eigene AGB. Außerdem musst du für Sicherungen und Updates sorgen.</li>
+</ul>
+
+<h2 class="page">11. Updates einspielen</h2>
+<p>Wenn du von mir ein neues <b>Komplettpaket.zip</b> bekommst:</p>
+<ol>
+  <li>Hochladen wie in Teil 5 (zweites Fenster, <code>scp …</code>).</li>
+  <li>Im Server-Fenster:
+<pre>cd /root
+rm -rf Komplettpaket
+unzip -o Komplettpaket.zip
+cd Komplettpaket
+bash deploy/install.sh
+bash rechnung/deploy/install.sh</pre></li>
+  <li>Die Skripte erkennen die bisherige Einrichtung und fragen nur wenig nach (bei RechnungsStudio nur den Namen der Kopie: Enter). <b>Alle Daten bleiben erhalten</b>, sie liegen getrennt vom Programm.</li>
+  <li>Für weitere RechnungsStudio-Kopien (Kunden): <code>bash rechnung/deploy/install.sh</code> noch einmal und den jeweiligen Namen eingeben, z. B. <code>rechnung-mueller</code>.</li>
+</ol>
+
+<h2>12. Datensicherung</h2>
+<table>
+  <tr><th>Was</th><th>Wo auf dem Server</th><th>Wie oft</th></tr>
+  <tr><td>StickStudio + FräsStudio (Konten, Designs)</td><td><code>/var/backups/stickstudio</code></td><td>täglich, 14 Tage</td></tr>
+  <tr><td>RechnungsStudio (Rechnungen, Belegfotos, alles)</td><td><code>/var/backups/rs-rechnung</code></td><td>täglich, 60 Tage</td></tr>
+  <tr><td>Ganzer Server</td><td>Hetzner-Backups (in der Cloud Console)</td><td>täglich, 7 Stück</td></tr>
+</table>
+<p><b>Zusätzlich</b> (sehr wichtig, Belege musst du 5 Jahre aufbewahren): etwa einmal im Monat die Sicherungen auf deinen Computer oder eine externe Festplatte holen. Im zweiten Terminal-Fenster:</p>
+<table>
+  <tr><th>Windows (PowerShell)</th></tr>
+  <tr><td><code>scp -r root@1.2.3.4:/var/backups "$HOME\Documents\Server-Sicherung"</code></td></tr>
+  <tr><th>Mac (Terminal)</th></tr>
+  <tr><td><code>scp -r root@1.2.3.4:/var/backups ~/Documents/Server-Sicherung</code></td></tr>
+</table>
+<p class="small">Oder mit WinSCP/Cyberduck den Ordner <code>/var/backups</code> herunterziehen.</p>
+
+<h2 class="page">13. Wenn etwas nicht klappt</h2>
+<table>
+  <tr><th>Problem</th><th>Lösung</th></tr>
+  <tr><td>Die Adresse öffnet sich nicht / „Seite nicht erreichbar“</td><td>DNS-Eintrag prüfen: <code>ping stick.deinefirma.dk</code> muss die Server-IP zeigen. Sonst Eintrag beim Domain-Anbieter kontrollieren und warten.</td></tr>
+  <tr><td>Browser warnt „nicht sicher“ / Zertifikatsfehler</td><td>Das Zertifikat wird erst geholt, wenn der DNS-Eintrag stimmt. DNS prüfen, dann <code>systemctl restart caddy</code>. Meldungen: <code>journalctl -u caddy -n 50 --no-pager</code></td></tr>
+  <tr><td>StickStudio antwortet nicht</td><td><code>systemctl status stickstudio</code> und <code>journalctl -u stickstudio -n 50 --no-pager</code></td></tr>
+  <tr><td>RechnungsStudio antwortet nicht</td><td><code>systemctl status rs-rechnung</code> und <code>journalctl -u rs-rechnung -n 50 --no-pager</code></td></tr>
+  <tr><td>RechnungsStudio-Passwort vergessen</td><td><code>nano /etc/rs-rechnung.env</code> → Zeile <code>PASSWORD=</code> ändern → <code>systemctl restart rs-rechnung</code></td></tr>
+  <tr><td>StickStudio-Admin-Passwort vergessen</td><td>Mit E-Mail-Versand: „Passwort vergessen“ auf der Anmeldeseite. Ohne: im Server-Fenster
+<pre>cd /opt/stickstudio
+sudo -u stickstudio DATA_DIR=/var/lib/stickstudio node --no-warnings server/reset-password.js du@deinefirma.dk 'neues-langes-passwort'</pre>
+Das geht auch für Kundenkonten.</td></tr>
+  <tr><td>„Permission denied“ beim ssh</td><td>Passwort falsch (Groß/Klein beachten) oder Benutzer nicht <code>root</code>. In der Hetzner Console kann man das root-Passwort zurücksetzen.</td></tr>
+  <tr><td>Server-Fenster hängt / alles weg</td><td>Fenster schließen, neu mit <code>ssh root@1.2.3.4</code> verbinden. Die Programme laufen unabhängig davon weiter.</td></tr>
+</table>
+<div class="box">Wenn du nicht weiterkommst: die letzten Zeilen der Meldungen (Befehl <code>journalctl …</code>) kopieren und mir schicken.</div>
+
+<h2>14. Ohne Server benutzen (nur auf deinem Computer)</h2>
+<table>
+  <tr><th>Programm</th><th>So startest du es</th></tr>
+  <tr><td>StickStudio (nur ausprobieren)</td><td><code>index.html</code> im Komplettpaket doppelklicken. Mit Anmeldung/Verwaltung: <code>start-lokal.bat</code> (Windows) bzw. <code>start-lokal.command</code> (Mac).</td></tr>
+  <tr><td>FräsStudio</td><td><code>fraesstudio/index.html</code> in Chrome oder Edge öffnen. Funktioniert auch ohne Internet.</td></tr>
+  <tr><td>RechnungsStudio</td><td><code>rechnung/start-rechnung.bat</code> (Windows) bzw. <code>start-rechnung.command</code> (Mac). Dafür einmalig Node.js (LTS) von nodejs.org installieren.</td></tr>
+</table>
+<p class="small">Lokal sind Kunden-Links zum Unterschreiben und die Handy-Belege unterwegs nicht möglich. Dafür ist der Server da.</p>
+
+<h2>15. Checkliste</h2>
+<ul class="check">
+  <li>Hetzner-Konto angelegt, Server mit Ubuntu 24.04 erstellt, Backups an</li>
+  <li>IP-Adresse und root-Passwort notiert</li>
+  <li>A-Einträge <code>stick</code> und <code>rechnung</code> angelegt, <code>ping</code> zeigt die Server-IP</li>
+  <li>Mit <code>ssh</code> verbunden, Updates eingespielt</li>
+  <li>Komplettpaket.zip hochgeladen und entpackt</li>
+  <li><code>bash deploy/install.sh</code> fertig, StickStudio-Login klappt, Admin-Passwort geändert</li>
+  <li>FräsStudio unter <code>/fraesstudio/</code> öffnet sich</li>
+  <li><code>bash rechnung/deploy/install.sh</code> fertig, RechnungsStudio-Login klappt</li>
+  <li>RechnungsStudio: Firmendaten, Bank, Momsperiode eingetragen; Handy-Verknüpfung angelegt</li>
+  <li>E-Mail-Versand für StickStudio eingerichtet</li>
+  <li>Erste Sicherung auf den eigenen Computer geholt</li>
+  <li>(Später) Lemon Squeezy, Rechtstexte nach dänischem Recht, Kunden freischalten</li>
+</ul>
+
+</body>
+</html>

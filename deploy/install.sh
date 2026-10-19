@@ -107,7 +107,7 @@ fi
 echo "--- Programm installieren und verschleiern (auf dem Raspberry Pi dauert das ein paar Minuten)"
 id stickstudio >/dev/null 2>&1 || useradd --system --home "$APP" --shell /usr/sbin/nologin stickstudio
 mkdir -p "$APP" "$DATA" /var/backups/stickstudio
-rsync -a --delete --exclude node_modules --exclude data --exclude .git --exclude dist "$SRC/" "$APP/"
+rsync -a --delete --exclude node_modules --exclude data --exclude .git --exclude dist --exclude rechnung "$SRC/" "$APP/"
 cd "$APP"
 npm ci --no-audit --no-fund
 npm run build
@@ -184,6 +184,9 @@ WantedBy=multi-user.target
 UNIT
 
 if [ "$MODE" = caddy ]; then
+  # weitere Programme (z. B. RechnungsStudio) legen ihre Adresse in /etc/caddy/sites/ ab – bleibt bei Updates erhalten
+  mkdir -p /etc/caddy/sites
+  [ -n "$(ls -A /etc/caddy/sites 2>/dev/null)" ] || echo "# Hier legen weitere Programme ihre Adressen ab." > /etc/caddy/sites/00-info.caddy
   cat > /etc/caddy/Caddyfile <<CADDY
 $CADDY_MARK
 $DOMAIN {
@@ -192,6 +195,7 @@ $DOMAIN {
         flush_interval -1
     }
 }
+import /etc/caddy/sites/*.caddy
 CADDY
 fi
 

@@ -1,5 +1,8 @@
 # StickStudio – Stickprogramm (Digitalisier-Software)
 
+> **Komplettpaket:** Dieser Ordner enthält StickStudio, FräsStudio (`fraesstudio/`) und RechnungsStudio (`rechnung/`).
+> Die Schritt-für-Schritt-Anleitung für den eigenen Server steht in **[docs/Server-Anleitung.pdf](docs/Server-Anleitung.pdf)**.
+
 Ein Stickprogramm (Digitalisier-Software), das im Browser läuft – ohne Installation, auch offline.
 Es erzeugt **DST-Dateien (Tajima)** für die **Texi 1501** und alle anderen Tajima-kompatiblen Maschinen.
 

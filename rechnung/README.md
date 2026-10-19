@@ -67,6 +67,10 @@ Eine automatische Verbindung ohne CSV ginge über einen zugelassenen Vermittler 
 
 Seit 2025/2026 müssen Firmen in Dänemark ab einer bestimmten Umsatzgrenze ein **digitales Buchführungssystem** nutzen. Ein selbst gebautes System ist erlaubt, muss aber die Anforderungen der Bekendtgørelse erfüllen: Belege speichern, Sicherung bei einem Anbieter in der EU, 5 Jahre Aufbewahrung und Abgleich mit der Bank. RechnungsStudio ist ein **Rechnungs- und Moms-Programm**, aber keine komplette doppelte Buchführung (kein Hauptbuch, keine Bilanz, kein SAF-T-Export). Bitte mit deinem Steuerberater (revisor) abklären, ob das für deine Firma reicht oder ob es zusätzlich zu einem registrierten System wie Billy genutzt werden soll.
 
+## Auf dem eigenen Server
+
+Schritt für Schritt in **docs/Server-Anleitung.pdf** (im Komplettpaket). Kurz: Im entpackten Komplettpaket auf dem Server `bash rechnung/deploy/install.sh` ausführen. Das Skript fragt nach Name, Adresse (Subdomain) und Passwort und richtet Programm, HTTPS (über Caddy, zusammen mit StickStudio), automatischen Start und tägliche Sicherung ein. Mehrfach ausführbar für weitere, getrennte Kopien (z. B. für Kunden).
+
 ## Schutz mit Passwort / auf einem Server
 
 Standardmäßig ist das Programm nur auf dem eigenen Computer erreichbar (`127.0.0.1`). Für den Betrieb auf einem Server:
