@@ -164,10 +164,18 @@ eq(p.rows[0].amount, 125000, 'CSV-Eingang');
     throw new Error('unerwartet: ' + url);
   };
   const L = (q) => RS.api('GET', ['lookup', 'cvr'], {}, new URL('http://x/?q=' + encodeURIComponent(q)));
-  const c1 = await L('12345678');
+  const c1 = await L('46733428');
   eq(c1.name, 'NORDSTICK APS', 'Firma über VIES trotz CVR-Limit');
   eq(c1.zip + ' ' + c1.city, '6400 Sønderborg', 'Adresse aus VIES zerlegt');
   try { await L('Nordstick'); ok(false, 'Namenssuche bei Limit'); } catch (e) { ok(/aufgebraucht/.test(e.message), 'verständliche Meldung bei Limit: ' + e.message.slice(0, 60)); }
+  // nicht momsregistriert + Limit → genaue Erklärung
+  global.fetch = async (url) => {
+    const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json' } });
+    if (String(url).includes('cvrapi.dk')) return json({ error: 'QUOTA_EXCEEDED', message: 'Your quota has been exceeded.' }, 402);
+    return json({ valid: false, name: '---', address: '---' });
+  };
+  try { await L('46733428'); ok(false, 'neue Firma'); } catch (e) { ok(/momsregistriert/.test(e.message) && /aufgebraucht/.test(e.message), 'Erklärung: ' + e.message.slice(0, 70)); }
+  try { await L('46733429'); ok(false, 'Prüfziffer'); } catch (e) { ok(/Prüfziffer/.test(e.message), 'falsche Prüfziffer erkannt'); }
   global.fetch = realFetch;
 
   // Texte in allen Sprachen vollständig

@@ -18,7 +18,7 @@ const DATA_DIR = ENV.DATA_DIR || path.join(__dirname, 'data');
 const FILE = path.join(DATA_DIR, 'rechnung.json');
 const PUBLIC = path.join(__dirname, 'public');
 const RECEIPT_DIR = path.join(DATA_DIR, 'belege');
-const VERSION = '1.3';
+const VERSION = '1.4';
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = () => crypto.randomBytes(8).toString('hex');
 
@@ -146,36 +146,51 @@ async function cvrVirk(q) {
 }
 
 async function cvrApi(q) {
-  const r = await fetchJson(`https://cvrapi.dk/api?search=${encodeURIComponent(q)}&country=dk`);
+  const contact = state.settings.email || state.settings.cvr || 'unbekannt';
+  const r = await fetchJson(`https://cvrapi.dk/api?search=${encodeURIComponent(q)}&country=dk`, { headers: { 'User-Agent': `RechnungsStudio - Rechnungsprogramm - ${contact}` } });
   if (r.data && !r.data.error && r.data.name) {
     const d = r.data;
     return { name: d.name, cvr: String(d.vat || ''), street: d.address, zip: d.zipcode, city: d.city, email: d.email || '', phone: d.phone || '', country: 'DK' };
   }
   if (/quota/i.test(String(r.data?.message || r.data?.error || r.text))) throw new Error('quota');
+  if (r.status >= 500 || (!r.ok && r.status !== 404)) throw new Error('cvrapi.dk antwortet nicht');
   return null;
 }
 
 async function cvrVies(q) {
   const nr = cvrDigits(q);
   if (!nr) return null;
-  const v = await viesCheck('DK' + nr);
-  if (!v.valid || !v.name) return null;
+  let v;
+  try { v = await viesCheck('DK' + nr); } catch { throw new Error('vies-down'); }
+  if (!v.valid) throw new Error('vies-invalid');
+  if (!v.name) return null;
   // VIES liefert die Adresse als Text, z. B. "Storegade 1\n6400 Sønderborg"
   const lines = v.address.split('\n').map((x) => x.trim()).filter(Boolean);
   const zc = (lines.at(-1) || '').match(/^(\d{4})\s+(.+)$/);
   return { name: v.name, cvr: nr, street: zc ? lines.slice(0, -1).join(', ') : lines.join(', '), zip: zc?.[1] || '', city: zc?.[2] || '', email: '', phone: '', country: 'DK' };
 }
 
+// Prüfziffer der CVR-Nummer (Modulus 11)
+const cvrValid = (nr) => [2, 7, 6, 5, 4, 3, 2, 1].reduce((s, w, i) => s + w * Number(nr[i]), 0) % 11 === 0;
+
 async function cvrLookup(q) {
   q = String(q || '').trim();
   if (!q) fail('Bitte CVR-Nr. oder Firmennamen eingeben.');
-  let quota = false;
+  const nr = cvrDigits(q);
+  if (nr && !cvrValid(nr)) fail('Diese CVR-Nummer kann nicht stimmen (Prüfziffer falsch). Bitte die Ziffern prüfen.');
+  const why = new Set();
   for (const src of [cvrVirk, cvrVies, cvrApi]) {
     try { const r = await src(q); if (r) return r; }
-    catch (err) { if (err.message === 'quota') quota = true; else if (src === cvrVirk) fail(err.message, 502); }
+    catch (err) { if (src === cvrVirk) fail(err.message, 502); why.add(err.message); }
   }
-  if (quota && !cvrDigits(q)) fail('Die kostenlose CVR-Suche ist für heute aufgebraucht. Mit der 8-stelligen CVR-Nummer klappt es trotzdem (über die EU-Datenbank), oder trage unter Einstellungen einen kostenlosen Zugang zum CVR-Register ein.', 429);
-  fail(cvrDigits(q) ? 'Zu dieser CVR-Nummer wurde keine Firma gefunden.' : 'Keine Firma gefunden. Tipp: Mit der 8-stelligen CVR-Nummer suchen.', 404);
+  // Verständlich erklären, warum nichts gefunden wurde
+  const parts = [];
+  if (why.has('vies-invalid')) parts.push('In der EU-Datenbank (VIES) ist die Nummer nicht als momsregistriert eingetragen – bei neu angemeldeten Firmen dauert das oft einige Wochen.');
+  if (why.has('vies-down')) parts.push('Die EU-Datenbank (VIES) ist gerade nicht erreichbar.');
+  if (why.has('quota')) parts.push('Die kostenlose Abfrage bei cvrapi.dk ist für heute aufgebraucht.');
+  if (why.has('cvrapi.dk antwortet nicht')) parts.push('cvrapi.dk antwortet gerade nicht.');
+  if (!parts.length) parts.push(nr ? 'Zu dieser CVR-Nummer wurde keine Firma gefunden.' : 'Keine Firma gefunden. Tipp: mit der 8-stelligen CVR-Nummer suchen.');
+  fail(parts.join(' ') + ' Du kannst die Daten einfach von Hand eintragen.', 404);
 }
 
 // EU-USt-IdNr. prüfen (VIES der EU-Kommission)
