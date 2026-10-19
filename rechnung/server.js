@@ -19,7 +19,7 @@ const DATA_DIR = ENV.DATA_DIR || path.join(__dirname, 'data');
 const FILE = path.join(DATA_DIR, 'rechnung.json');
 const PUBLIC = path.join(__dirname, 'public');
 const RECEIPT_DIR = path.join(DATA_DIR, 'belege');
-const VERSION = '1.5';
+const VERSION = '1.6';
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = () => crypto.randomBytes(8).toString('hex');
 

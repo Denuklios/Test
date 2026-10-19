@@ -53,7 +53,7 @@ Unterwegs ohne WLAN geht das nur, wenn das Programm auf einem Server im Internet
 
 ## Anbindung an SKAT
 
-Das Programm berechnet alle Werte der Momsangivelse. Du überträgst sie in **TastSelv Erhverv** (MitID Erhverv → Moms → Indberet moms) mit den Kopieren-Knöpfen.
+Das Programm berechnet alle Werte der Momsangivelse. Du überträgst sie in **TastSelv Erhverv** ([skat.dk/indberetmoms](https://skat.dk/indberetmoms), Login mit MitID bzw. MitID Erhverv → Moms → Momsindberetning → Indberet moms) mit den Kopieren-Knöpfen.
 
 Eine **direkte Übertragung** per Schnittstelle (Skattestyrelsens „API-løsning til momsindberetning“ / NemVirksomhed) ist nur für Software-Anbieter möglich, die bei Skattestyrelsen registriert sind. Billy, Dinero, e-conomic usw. sind solche Anbieter. Für ein eigenes Programm müsstest du dich dort als Anbieter registrieren.
 

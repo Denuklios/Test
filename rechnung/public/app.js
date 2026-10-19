@@ -906,8 +906,8 @@ routes.moms = () => {
       <table style="margin-top:8px"><thead><tr><th>Land</th><th>USt-IdNr.</th><th>Kunde</th><th class="r">Waren</th><th class="r">Dienstleistungen</th></tr></thead><tbody>
       ${r.euSales.map((e) => `<tr><td>${esc(e.country)}</td><td>${esc(e.vatId)}</td><td>${esc(e.name)}</td><td class="r">${Math.round(e.goods / 100).toLocaleString('da-DK')}</td><td class="r">${Math.round(e.services / 100).toLocaleString('da-DK')}</td></tr>`).join('')}
       </tbody></table></div>` : ''}
-    <div class="row"><button id="csv">Als CSV für den Steuerberater</button><a class="btn" href="https://skat.dk/erhverv/tastselv-erhverv" target="_blank" rel="noopener">TastSelv Erhverv öffnen ↗</a></div>
-    <div class="note" style="margin-top:16px"><b>So reichst du ein:</b> In TastSelv Erhverv mit MitID Erhverv anmelden → Moms → Indberet moms → Periode wählen → die Werte von oben eintragen (Kopieren-Knopf) → Godkend. Danach den Momstilsvar bis zur Frist auf das Skattekonto zahlen.
+    <div class="row"><button id="csv">Als CSV für den Steuerberater</button><a class="btn" href="https://skat.dk/indberetmoms" target="_blank" rel="noopener">Moms bei SKAT indberetten ↗</a></div>
+    <div class="note" style="margin-top:16px"><b>So reichst du ein:</b> Auf skat.dk/indberetmoms bei TastSelv Erhverv mit MitID bzw. MitID Erhverv anmelden (nicht mit TastSelv-Kode, damit geht die Indberetning nicht) → Moms → Momsindberetning → Indberet moms → Periode wählen → die Werte von oben eintragen (Kopieren-Knopf) → Godkend. Gab es keine Umsätze, gibt es dort „Nulindberet“. Danach den Momstilsvar bis zur Frist auf das Skattekonto zahlen.
       <br><br>Die direkte Übertragung an SKAT per Schnittstelle (NemVirksomhed-API) ist nur für bei Skattestyrelsen registrierte Software-Anbieter freigegeben – deshalb hier zum Übernehmen mit einem Klick.</div>`;
   $('#per').onchange = (e) => { vatSel = e.target.value; routes.moms(); };
   $$('[data-copy]').forEach((b) => (b.onclick = () => { navigator.clipboard?.writeText(b.dataset.copy); toast('Kopiert: ' + b.dataset.copy); }));
