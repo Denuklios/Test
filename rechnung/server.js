@@ -30,7 +30,7 @@ const EMPTY = () => ({
     nextNumber: 1, nextCustomerNo: 1001, dueDays: 14, vatPeriod: 'quarter', defaultCurrency: 'DKK', footer: '', autoBook: 'yes',
   },
   customers: [], products: [], invoices: [], expenses: [], incomes: [], receipts: [], bank: [], log: [],
-  secrets: { anthropicKey: '' },
+  secrets: { anthropicKey: '', cvrUser: '', cvrPass: '' },
 });
 
 function load() {
@@ -117,12 +117,64 @@ async function fetchJson(url, opts = {}) {
   return { ok: r.ok, status: r.status, data, text };
 }
 
-// CVR-Register (Dänemark) über cvrapi.dk – kostenlose, begrenzte Abfrage
-async function cvrLookup(q) {
+// CVR-Register (Dänemark). Reihenfolge: offizielles CVR-Register (wenn Zugang eingetragen) → cvrapi.dk (begrenzt) → EU-Datenbank VIES (nur mit Nummer)
+const cvrDigits = (q) => { const d = String(q).replace(/^DK/i, '').replace(/[\s.\-]/g, ''); return /^\d{8}$/.test(d) ? d : ''; };
+
+async function cvrVirk(q) {
+  const { cvrUser, cvrPass } = state.secrets;
+  if (!cvrUser || !cvrPass) return null;
+  const nr = cvrDigits(q);
+  const query = nr ? { term: { 'Vrvirksomhed.cvrNummer': Number(nr) } } : { match_phrase: { 'Vrvirksomhed.virksomhedMetadata.nyesteNavn.navn': q } };
+  const r = await fetchJson('http://distribution.virk.dk/cvr-permanent/virksomhed/_search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', Authorization: 'Basic ' + Buffer.from(`${cvrUser}:${cvrPass}`).toString('base64') },
+    body: JSON.stringify({ size: 1, query }),
+  });
+  if (r.status === 401 || r.status === 403) throw new Error('Der Zugang zum CVR-Register (Benutzer/Passwort) wurde abgelehnt.');
+  const v = r.data?.hits?.hits?.[0]?._source?.Vrvirksomhed;
+  if (!v) return null;
+  const m = v.virksomhedMetadata || {};
+  const a = m.nyesteBeliggenhedsadresse || {};
+  const contacts = m.nyesteKontaktoplysninger || [];
+  return {
+    name: m.nyesteNavn?.navn || '', cvr: String(v.cvrNummer || nr),
+    street: [a.vejnavn, [a.husnummerFra, a.bogstavFra].filter(Boolean).join(''), a.etage ? `${a.etage}.` : '', a.sidedoer || ''].filter(Boolean).join(' '),
+    zip: a.postnummer ? String(a.postnummer) : '', city: a.postdistrikt || '',
+    email: contacts.find((c) => String(c).includes('@')) || '', phone: contacts.find((c) => /^\+?[\d ]{8,}$/.test(String(c))) || '', country: 'DK',
+  };
+}
+
+async function cvrApi(q) {
   const r = await fetchJson(`https://cvrapi.dk/api?search=${encodeURIComponent(q)}&country=dk`);
-  if (!r.ok || !r.data || r.data.error) fail(r.data?.message || r.data?.error || 'Keine Firma gefunden.', 404);
-  const d = r.data;
-  return { name: d.name, cvr: String(d.vat || ''), street: d.address, zip: d.zipcode, city: d.city, email: d.email || '', phone: d.phone || '', country: 'DK' };
+  if (r.data && !r.data.error && r.data.name) {
+    const d = r.data;
+    return { name: d.name, cvr: String(d.vat || ''), street: d.address, zip: d.zipcode, city: d.city, email: d.email || '', phone: d.phone || '', country: 'DK' };
+  }
+  if (/quota/i.test(String(r.data?.message || r.data?.error || r.text))) throw new Error('quota');
+  return null;
+}
+
+async function cvrVies(q) {
+  const nr = cvrDigits(q);
+  if (!nr) return null;
+  const v = await viesCheck('DK' + nr);
+  if (!v.valid || !v.name) return null;
+  // VIES liefert die Adresse als Text, z. B. "Storegade 1\n6400 Sønderborg"
+  const lines = v.address.split('\n').map((x) => x.trim()).filter(Boolean);
+  const zc = (lines.at(-1) || '').match(/^(\d{4})\s+(.+)$/);
+  return { name: v.name, cvr: nr, street: zc ? lines.slice(0, -1).join(', ') : lines.join(', '), zip: zc?.[1] || '', city: zc?.[2] || '', email: '', phone: '', country: 'DK' };
+}
+
+async function cvrLookup(q) {
+  q = String(q || '').trim();
+  if (!q) fail('Bitte CVR-Nr. oder Firmennamen eingeben.');
+  let quota = false;
+  for (const src of [cvrVirk, cvrApi, cvrVies]) {
+    try { const r = await src(q); if (r) return r; }
+    catch (err) { if (err.message === 'quota') quota = true; else if (src === cvrVirk) fail(err.message, 502); }
+  }
+  if (quota && !cvrDigits(q)) fail('Die kostenlose CVR-Suche ist für heute aufgebraucht. Mit der 8-stelligen CVR-Nummer klappt es trotzdem (über die EU-Datenbank), oder trage unter Einstellungen einen kostenlosen Zugang zum CVR-Register ein.', 429);
+  fail(cvrDigits(q) ? 'Zu dieser CVR-Nummer wurde keine Firma gefunden.' : 'Keine Firma gefunden. Tipp: Mit der 8-stelligen CVR-Nummer suchen.', 404);
 }
 
 // EU-USt-IdNr. prüfen (VIES der EU-Kommission)
@@ -265,7 +317,7 @@ async function api(method, parts, body, url) {
   const S = state.settings;
 
   if (res === 'state' && method === 'GET') {
-    return { ...state, secrets: undefined, ai: { installed: Receipts.available(), enabled: Receipts.enabled(apiKey()), fromEnv: !!ENV.ANTHROPIC_API_KEY, hasKey: !!state.secrets.anthropicKey } };
+    return { ...state, secrets: undefined, ai: { installed: Receipts.available(), enabled: Receipts.enabled(apiKey()), fromEnv: !!ENV.ANTHROPIC_API_KEY, hasKey: !!state.secrets.anthropicKey }, cvr: { user: state.secrets.cvrUser || '', hasPass: !!state.secrets.cvrPass } };
   }
 
   // Adressen im Heimnetz, damit das Handy das Programm findet
@@ -278,6 +330,8 @@ async function api(method, parts, body, url) {
     for (const k of Object.keys(EMPTY().settings)) if (k in body) S[k] = k === 'logo' ? str(body[k], 400000) : typeof S[k] === 'number' ? Number(body[k]) || S[k] : str(body[k]);
     if (typeof body.aiKey === 'string' && body.aiKey.trim()) state.secrets.anthropicKey = body.aiKey.trim().slice(0, 300);
     if (body.aiKeyDelete) state.secrets.anthropicKey = '';
+    if (typeof body.cvrUser === 'string') state.secrets.cvrUser = body.cvrUser.trim().slice(0, 200);
+    if (typeof body.cvrPass === 'string' && body.cvrPass) state.secrets.cvrPass = body.cvrPass.slice(0, 200);
     log('Einstellungen geändert');
     return S;
   }

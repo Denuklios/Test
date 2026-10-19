@@ -895,6 +895,10 @@ routes.einstellungen = () => {
       </div>
       <div class="small" style="margin-top:8px">${!S.ai.installed ? '<span style="color:var(--bad)">Das Erkennungs-Paket fehlt – bitte das Programm über das Startskript starten (es installiert alles automatisch).</span>' : S.ai.enabled ? '<span style="color:var(--ok)">✔ Erkennung ist eingeschaltet.</span>' : 'Erkennung ist aus.'}
         ${S.ai.hasKey ? ' <button type="button" class="small" id="delkey">Schlüssel löschen</button>' : ''}</div></div>
+    <div class="card"><b>CVR-Register (Firmendaten automatisch holen)</b>
+      <p class="small muted">„Aus CVR holen“ nutzt zuerst den kostenlosen Dienst cvrapi.dk (nur wenige Abfragen pro Tag) und mit der 8-stelligen CVR-Nummer die EU-Datenbank VIES. Unbegrenzt und offiziell geht es mit einem kostenlosen Zugang zum CVR-Register der Erhvervsstyrelsen: per E-Mail an <b>cvrselvbetjening@erst.dk</b> „System-til-system adgang til CVR-data“ beantragen und die Zugangsdaten hier eintragen.</p>
+      <div class="grid"><label>Benutzername<input name="cvrUser" autocomplete="off" value="${esc(S.cvr?.user || '')}"></label>
+        <label>Passwort<input name="cvrPass" type="password" autocomplete="off" placeholder="${S.cvr?.hasPass ? '•••••••• gespeichert' : ''}"></label></div></div>
     <div class="card"><b>Mit dem Handy fotografieren</b><div id="lan" class="small" style="margin-top:8px">…</div></div>
     <div class="row"><button class="primary" id="save">Speichern</button></div>
     <div class="card" style="margin-top:18px"><b>Datensicherung</b><p class="muted small">Das Programm legt jeden Tag automatisch eine Sicherung im Ordner <code>rechnung/data/sicherung</code> an. Nach dem dänischen Buchführungsgesetz müssen Rechnungen und Belege 5 Jahre aufbewahrt werden. Die Belegfotos liegen als Dateien in <code>rechnung/data/belege</code> – sichere deshalb regelmäßig den <b>ganzen Ordner <code>rechnung/data</code></b> extern (USB-Stick, Cloud in der EU). Der Knopf unten sichert nur die Buchungsdaten ohne Fotos.</p>

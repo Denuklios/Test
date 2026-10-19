@@ -155,6 +155,21 @@ eq(p.rows[0].amount, 125000, 'CSV-Eingang');
     ok(!JSON.stringify(await A('GET', 'state')).includes(process.env.ANTHROPIC_API_KEY), 'Schlüssel wird nicht an den Browser geschickt');
   } else console.log('(Belegerkennung übersprungen: rechnung/node_modules fehlt – npm install im Ordner rechnung)');
 
+  // CVR-Abfrage: cvrapi.dk-Limit erreicht → Ausweg über die EU-Datenbank VIES
+  const realFetch = global.fetch;
+  global.fetch = async (url) => {
+    const json = (o, status = 200) => new Response(JSON.stringify(o), { status, headers: { 'Content-Type': 'application/json' } });
+    if (String(url).includes('cvrapi.dk')) return json({ error: 'QUOTA_EXCEEDED', message: 'Your quota has been exceeded.' }, 402);
+    if (String(url).includes('vies')) return json({ valid: true, name: 'NORDSTICK APS', address: 'Storegade 1\n6400 Sønderborg' });
+    throw new Error('unerwartet: ' + url);
+  };
+  const L = (q) => RS.api('GET', ['lookup', 'cvr'], {}, new URL('http://x/?q=' + encodeURIComponent(q)));
+  const c1 = await L('12345678');
+  eq(c1.name, 'NORDSTICK APS', 'Firma über VIES trotz CVR-Limit');
+  eq(c1.zip + ' ' + c1.city, '6400 Sønderborg', 'Adresse aus VIES zerlegt');
+  try { await L('Nordstick'); ok(false, 'Namenssuche bei Limit'); } catch (e) { ok(/aufgebraucht/.test(e.message), 'verständliche Meldung bei Limit: ' + e.message.slice(0, 60)); }
+  global.fetch = realFetch;
+
   // Texte in allen Sprachen vollständig
   const keys = Object.keys(DocLang.T.de);
   for (const l of ['da', 'en']) ok(keys.every((k) => k in DocLang.T[l]), `Texte ${l} vollständig`);
