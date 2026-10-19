@@ -7,6 +7,7 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 const Calc = require('./public/calc');
+const DocLang = require('./public/doclang');
 const Bank = require('./bank');
 const Receipts = require('./receipts');
 const os = require('os');
@@ -18,7 +19,7 @@ const DATA_DIR = ENV.DATA_DIR || path.join(__dirname, 'data');
 const FILE = path.join(DATA_DIR, 'rechnung.json');
 const PUBLIC = path.join(__dirname, 'public');
 const RECEIPT_DIR = path.join(DATA_DIR, 'belege');
-const VERSION = '1.4';
+const VERSION = '1.5';
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = () => crypto.randomBytes(8).toString('hex');
 
@@ -28,9 +29,9 @@ const EMPTY = () => ({
   settings: {
     company: '', owner: '', street: '', zip: '', city: '', country: 'DK', cvr: '', email: '', phone: '', web: '',
     bankName: 'Lunar', regNo: '', accountNo: '', iban: '', bic: 'LUNADK2B', fikCreditor: '', logo: '',
-    nextNumber: 1, nextCustomerNo: 1001, dueDays: 14, vatPeriod: 'quarter', defaultCurrency: 'DKK', footer: '', autoBook: 'yes',
+    nextNumber: 1, nextCustomerNo: 1001, dueDays: 14, vatPeriod: 'quarter', defaultCurrency: 'DKK', footer: '', autoBook: 'yes', nextOrderNumber: 1001, publicUrl: '',
   },
-  customers: [], products: [], invoices: [], expenses: [], incomes: [], receipts: [], bank: [], log: [],
+  customers: [], products: [], invoices: [], orders: [], expenses: [], incomes: [], receipts: [], bank: [], log: [],
   secrets: { anthropicKey: '', cvrUser: '', cvrPass: '' },
 });
 
@@ -71,15 +72,19 @@ const str = (v, n = 500) => String(v ?? '').slice(0, n);
 const byId = (list, id) => list.find((x) => x.id === id) || fail('Nicht gefunden.', 404);
 
 const CUSTOMER_KEYS = ['name', 'isBusiness', 'contact', 'street', 'zip', 'city', 'country', 'vatId', 'cvr', 'email', 'phone', 'language', 'currency', 'dueDays', 'note', 'ean', 'vatChecked'];
-const PRODUCT_KEYS = ['name', 'name_de', 'name_da', 'name_en', 'unit', 'price', 'kind', 'vatFree', 'currency'];
+const PRODUCT_KEYS = ['name', 'name_de', 'name_da', 'name_en', 'unit', 'price', 'kind', 'vatFree', 'currency', 'image'];
 const EXPENSE_KEYS = ['date', 'supplier', 'text', 'category', 'amount', 'vat', 'euPurchase', 'deductible', 'paid', 'paidDate', 'dueDate', 'invoiceNumber', 'currency', 'receiptId'];
 const INCOME_KEYS = ['date', 'name', 'text', 'category', 'amount', 'vat', 'paid', 'paidDate', 'documentNumber', 'receiptId'];
-const INVOICE_KEYS = ['date', 'dueDays', 'customerId', 'currency', 'exchangeRate', 'lines', 'note', 'language', 'vatScheme'];
+const INVOICE_KEYS = ['date', 'dueDays', 'customerId', 'currency', 'exchangeRate', 'lines', 'note', 'language', 'vatScheme', 'deliveryDate', 'validUntil'];
+
+// Bilder (Produktfotos, Unterschrift) nur als kleine eingebettete Bilddatei annehmen
+const cleanImg = (v, max = 600000) => { const t = String(v || ''); return /^data:image\/(png|jpeg|webp);base64,[A-Za-z0-9+/=]+$/.test(t) && t.length <= max ? t : ''; };
 
 function cleanLines(lines) {
   return (Array.isArray(lines) ? lines : []).slice(0, 200).map((l) => ({
     productId: str(l.productId, 40), text: str(l.text, 2000), qty: str(l.qty, 20) || '1', unit: str(l.unit, 20),
     price: str(l.price, 20) || '0', discount: str(l.discount, 10) || '0', kind: l.kind === 'goods' ? 'goods' : 'services', vatFree: !!l.vatFree,
+    ...(l.image ? { image: cleanImg(l.image) } : {}),
   }));
 }
 
@@ -358,7 +363,9 @@ async function api(method, parts, body, url) {
     const list = state[res];
     if (method === 'POST' && !id) {
       const item = { id: uid(), createdAt: new Date().toISOString(), ...pick(body, simple[res]) };
+      if (res === 'products') item.name = item.name || item.name_de || item.name_da || item.name_en;
       if (res === 'customers') { item.customerNo = S.nextCustomerNo++; item.country = str(item.country || 'DK', 2).toUpperCase(); }
+      if (res === 'products') item.image = cleanImg(item.image);
       if (!str(item.name || item.supplier || item.text).trim()) fail('Bitte einen Namen eingeben.');
       list.push(item);
       log(`${res} angelegt`, item.name || item.supplier);
@@ -368,6 +375,7 @@ async function api(method, parts, body, url) {
     if (method === 'PUT') {
       Object.assign(item, pick(body, simple[res]));
       if (res === 'customers') item.country = str(item.country || 'DK', 2).toUpperCase();
+      if (res === 'products') item.image = cleanImg(item.image);
       return item;
     }
     if (method === 'DELETE') {
@@ -460,6 +468,65 @@ async function api(method, parts, body, url) {
     if (method === 'POST' && action === 'sent') {
       inv.sentAt = new Date().toISOString();
       return inv;
+    }
+  }
+
+  // Auftragsbestätigungen: Kunde unterschreibt über einen Link, danach wird daraus die Rechnung
+  if (res === 'orders') {
+    const extras = (o, b) => {
+      o.deliveryDate = isDate(b.deliveryDate) ? b.deliveryDate : '';
+      o.validUntil = isDate(b.validUntil) ? b.validUntil : '';
+    };
+    if (method === 'POST' && !id) {
+      const o = { id: uid(), type: 'order', status: 'draft', number: null, createdAt: new Date().toISOString(), token: null };
+      applyInvoice(o, { dueDays: S.dueDays, ...body });
+      extras(o, body);
+      state.orders.push(o);
+      return o;
+    }
+    const o = byId(state.orders, id);
+    if (method === 'PUT' && !action) {
+      if (o.signedAt) fail('Der Auftrag ist schon unterschrieben und kann nicht mehr geändert werden.');
+      applyInvoice(o, body);
+      extras(o, body);
+      return o;
+    }
+    if (method === 'DELETE') {
+      if (o.signedAt) fail('Unterschriebene Aufträge werden aufbewahrt und können nicht gelöscht werden.');
+      state.orders.splice(state.orders.indexOf(o), 1);
+      return { ok: true };
+    }
+    if (method === 'POST' && action === 'send') {
+      if (o.signedAt) fail('Der Auftrag ist schon unterschrieben.');
+      if (!o.customerId || !state.customers.some((c) => c.id === o.customerId)) fail('Bitte einen Kunden wählen.');
+      if (!o.lines.some((l) => l.text.trim())) fail('Der Auftrag hat keine Zeilen.');
+      if (!S.company) fail('Bitte zuerst in den Einstellungen deinen Firmennamen eintragen.');
+      customerSnapshot(o);
+      if (!o.number) o.number = S.nextOrderNumber++;
+      if (!o.token) o.token = crypto.randomBytes(18).toString('hex');
+      o.seller = pick(S, ['company', 'owner', 'street', 'zip', 'city', 'country', 'cvr', 'email', 'phone', 'web', 'footer']);
+      o.status = 'sent';
+      o.sentAt = new Date().toISOString();
+      log(`Auftrag ${o.number} zum Unterschreiben freigegeben`, o.customerName);
+      return o;
+    }
+    if (method === 'POST' && action === 'invoice') {
+      if (o.invoiceId && state.invoices.some((i) => i.id === o.invoiceId)) fail('Für diesen Auftrag gibt es schon eine Rechnung.');
+      const inv = { id: uid(), type: 'invoice', status: 'draft', number: null, createdAt: new Date().toISOString(), paidAmount: 0, payments: [], orderId: o.id };
+      const ref = o.number ? `${DocLang.get(o.language).orderNumber} ${o.number}` : '';
+      applyInvoice(inv, { ...pick(o, INVOICE_KEYS), date: today(), exchangeRate: '', lines: o.lines.map(({ image, ...l }) => l), note: [ref, o.note].filter(Boolean).join('\n') });
+      state.invoices.push(inv);
+      o.invoiceId = inv.id;
+      o.status = 'invoiced';
+      log(`Rechnung aus Auftrag ${o.number || ''} erstellt`, o.customerName);
+      return inv;
+    }
+    if (method === 'POST' && action === 'copy') {
+      const cp = { id: uid(), type: 'order', status: 'draft', number: null, createdAt: new Date().toISOString(), token: null };
+      applyInvoice(cp, { ...pick(o, INVOICE_KEYS), date: today() });
+      extras(cp, {});
+      state.orders.push(cp);
+      return cp;
     }
   }
 
@@ -565,6 +632,34 @@ async function api(method, parts, body, url) {
   fail('Unbekannte Anfrage.', 404);
 }
 
+/* ---------- Öffentliche Seite zum Unterschreiben (ohne Passwort, nur mit geheimem Link) ---------- */
+const PUBLIC_ORDER_KEYS = ['type', 'number', 'date', 'deliveryDate', 'validUntil', 'dueDays', 'lines', 'vatScheme', 'currency', 'exchangeRate', 'language',
+  'customerName', 'customerAddress', 'customerCountry', 'customerVatId', 'customerNo', 'note', 'seller', 'signedAt', 'signerName', 'signature', 'customerComment'];
+const orderHash = (o) => crypto.createHash('sha256').update(JSON.stringify([o.number, o.customerName, o.currency, o.lines.map(({ image, ...l }) => l), Calc.totals(o)])).digest('hex');
+
+function publicApi(method, parts, body, req) {
+  const [kind, token, action] = parts;
+  const o = kind === 'order' && /^[a-f0-9]{36}$/.test(token || '') && state.orders.find((x) => x.token === token && x.status !== 'draft');
+  if (!o) fail('notFound', 404);
+  const L = DocLang.get(o.language);
+  if (method === 'GET' && !action) return { order: pick(o, PUBLIC_ORDER_KEYS), logo: state.settings.logo || '' };
+  if (method === 'POST' && action === 'sign') {
+    if (o.signedAt) fail(L.signAlready, 409);
+    if (o.validUntil && o.validUntil < today()) fail(L.signExpired, 410);
+    const name = str(body.name, 120).trim();
+    const signature = cleanImg(body.signature, 400000);
+    if (!name || !signature || body.accept !== true) fail(L.signMissing);
+    Object.assign(o, {
+      signedAt: new Date().toISOString(), signerName: name, signature, customerComment: str(body.comment, 1000).trim(),
+      signerIp: String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim(), signerAgent: str(req.headers['user-agent'], 300),
+      docHash: orderHash(o), status: o.status === 'invoiced' ? 'invoiced' : 'signed',
+    });
+    log(`Auftrag ${o.number} vom Kunden unterschrieben`, `${o.customerName} – ${name}`);
+    return { order: pick(o, PUBLIC_ORDER_KEYS), logo: state.settings.logo || '' };
+  }
+  fail('notFound', 404);
+}
+
 /* ---------- HTTP ---------- */
 const MIME = { '.webmanifest': 'application/manifest+json', '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.svg': 'image/svg+xml', '.png': 'image/png', '.ico': 'image/x-icon' };
 
@@ -583,7 +678,9 @@ const server = http.createServer(async (req, res) => {
     res.writeHead(code, { 'Content-Type': type, 'Cache-Control': 'no-store', 'X-Content-Type-Options': 'nosniff' });
     res.end(type.startsWith('application/json') ? JSON.stringify(data) : data);
   };
-  if (!authorized(req)) {
+  // Unterschriftsseite und Programmdateien brauchen kein Passwort, alle Daten schon
+  const open = url.pathname.startsWith('/a/') || url.pathname.startsWith('/api/public/') || /^\/[\w./-]+\.(js|css|svg|webmanifest)$/.test(url.pathname);
+  if (!open && !authorized(req)) {
     res.writeHead(401, { 'WWW-Authenticate': 'Basic realm="RechnungsStudio", charset="UTF-8"' });
     return res.end('Anmeldung erforderlich');
   }
@@ -600,10 +697,11 @@ const server = http.createServer(async (req, res) => {
         if (req.headers['x-rs'] !== '1') fail('Ungültige Anfrage.', 403);
       }
       const parts = url.pathname.slice(5).split('/').filter(Boolean).map(decodeURIComponent);
-      const out = await api(req.method, parts, body, url);
+      const out = parts[0] === 'public' ? publicApi(req.method, parts.slice(1), body, req) : await api(req.method, parts, body, url);
       if (req.method !== 'GET') save();
       return send(200, out);
     }
+    if (/^\/a\/[a-f0-9]{36}$/.test(url.pathname)) return send(200, fs.readFileSync(path.join(PUBLIC, 'sign.html')), MIME['.html']);
     // Belegfoto/PDF anzeigen
     const bm = url.pathname.match(/^\/beleg\/([a-f0-9]{16})$/);
     if (bm) {
@@ -633,4 +731,4 @@ if (require.main === module) {
   });
   server.listen(PORT, HOST, () => console.log(`RechnungsStudio ${VERSION} läuft: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}  (Daten: ${FILE})`));
 }
-module.exports = { server, api, reset: () => { state = EMPTY(); }, getState: () => state, draftFromReceipt, bookReceipt, idle: () => queue };
+module.exports = { server, api, publicApi, reset: () => { state = EMPTY(); }, getState: () => state, draftFromReceipt, bookReceipt, idle: () => queue };

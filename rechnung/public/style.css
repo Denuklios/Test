@@ -110,7 +110,7 @@ textarea { resize: vertical; min-height: 34px; }
   #nav { width: auto; height: auto; position: static; display: flex; flex-wrap: wrap; gap: 2px; }
   #nav .brand { width: 100%; padding-bottom: 8px; }
   main { padding: 16px; }
-  .doc-wrap { padding: 0; overflow-x: auto; }
+  .doc-wrap { padding: 0; overflow-x: hidden; }
 }
 @media print {
   @page { size: A4; margin: 0; }
@@ -118,7 +118,7 @@ textarea { resize: vertical; min-height: 34px; }
   .no-print, #nav, .doc-actions { display: none !important; }
   main { padding: 0; max-width: none; }
   .doc-wrap { background: none; padding: 0; }
-  .doc { box-shadow: none; margin: 0; width: 210mm; }
+  .doc { box-shadow: none; margin: 0; width: 210mm; zoom: 1 !important; }
 }
 
 /* ---------- Belege ---------- */
@@ -142,3 +142,17 @@ textarea { resize: vertical; min-height: 34px; }
   .review .pic { max-height: 40vh; }
   .capture .btn.big { width: 100%; justify-content: center; }
 }
+
+/* ---------- Auftragsbestätigung / Unterschrift ---------- */
+.doc .item-img { display: block; max-width: 38mm; max-height: 30mm; margin-bottom: 2mm; border-radius: 2px; }
+.doc .sig { margin-top: 10mm; width: 85mm; font-size: 9pt; }
+.doc .sig img { max-width: 70mm; max-height: 25mm; display: block; }
+.doc .sig .sig-line { border-bottom: 1px solid #111; height: 16mm; margin-bottom: 2mm; }
+body.public main { max-width: 900px; }
+.sign-box { max-width: 210mm; margin: 16px auto 40px; }
+.sign-box canvas { width: 100%; height: 170px; border: 1.5px dashed #9aa6bd; border-radius: 8px; background: #fff; touch-action: none; display: block; }
+.thumb-sm { width: 44px; height: 44px; object-fit: cover; border-radius: 6px; border: 1px solid var(--line); background: #f3f5f9; display: block; }
+.img-cell { width: 54px; text-align: center; }
+.img-cell label { cursor: pointer; display: inline-block; }
+.img-cell .ph { width: 44px; height: 44px; border: 1px dashed #b9c3d6; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 18px; }
+@media print { .sign-box { display: none !important; } }

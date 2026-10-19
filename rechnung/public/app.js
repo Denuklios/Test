@@ -72,12 +72,15 @@ const invTitle = (inv) => (inv.type === 'credit' ? 'Gutschrift' : 'Rechnung') + 
 const routes = {};
 async function route() {
   const [r, id] = location.hash.replace(/^#\/?/, '').split('/');
-  $$('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.r === (r === 'rechnung' || r === 'druck' ? 'rechnungen' : r || '')));
-  try { if (!S) await reload(); } catch (e) { $('#main').innerHTML = `<div class="card">Server nicht erreichbar: ${esc(e.message)}</div>`; return; }
-  (routes[r || ''] || routes[''])(id);
+  $$('#nav a').forEach((a) => a.classList.toggle('active', a.dataset.r === ({ rechnung: 'rechnungen', druck: 'rechnungen', auftrag: 'auftraege', auftragansicht: 'auftraege' }[r] || r || '')));
+  try { await reload(); } catch (e) { $('#main').innerHTML = `<div class="card">Server nicht erreichbar: ${esc(e.message)}</div>`; return; }
+  await (routes[r || ''] || routes[''])(id);
+  DocRender.fit();
   window.scrollTo(0, 0);
 }
 window.addEventListener('hashchange', route);
+// zurück ins Fenster → neuen Stand holen (z. B. Unterschrift vom Kunden), außer beim Bearbeiten
+window.addEventListener('focus', () => { if ($('#modal').classList.contains('hidden') && !/^#\/(rechnung|auftrag)\//.test(location.hash)) route(); });
 const go = (h) => { if (location.hash === h) route(); else location.hash = h; };
 
 /* ---------- Übersicht ---------- */
@@ -106,6 +109,7 @@ routes[''] = () => {
       <div class="card stat"><div class="k">Umsatz ${y} (netto)</div><div class="v">${kr(yearNet)}</div><div class="s">ohne Moms</div></div>
       <div class="card stat"><div class="k">Moms ${esc(cur.label)}</div><div class="v">${kr(vr.momstilsvar)}</div><div class="s">bisher · Frist ${dmy(cur.deadline)}</div></div>
     </div>
+    ${S.orders.filter((o) => o.status === 'signed').map((o) => `<div class="note">✍️ Auftrag <b>${o.number}</b> von <b>${esc(o.customerName)}</b> wurde am ${dmy(o.signedAt.slice(0, 10))} unterschrieben. <a href="#/auftragansicht/${o.id}">Ansehen &amp; Rechnung erstellen →</a></div>`).join('')}
     ${S.receipts.some((r) => r.status === 'review' || r.status === 'error') ? `<div class="note warn">📷 ${S.receipts.filter((r) => r.status === 'review' || r.status === 'error').length} Beleg(e) warten auf deine Prüfung. <a href="#/belege">Zu den Belegen →</a></div>` : ''}
     ${S.expenses.some((e) => e.paid === false) ? `<div class="note">Offene Lieferantenrechnungen: <b>${kr(S.expenses.filter((e) => e.paid === false).reduce((s, e) => s + Calc.toCents(e.amount), 0))}</b>${S.expenses.some((e) => e.paid === false && e.dueDate && e.dueDate < today()) ? ' – <span style="color:var(--bad)">davon welche überfällig</span>' : ''}. <a href="#/ausgaben">Ansehen →</a></div>` : ''}
     ${prev ? `<div class="note warn">Die Momsangivelse für <b>${esc(prev.label)}</b> muss bis <b>${dmy(prev.deadline)}</b> bei SKAT eingereicht werden. <a href="#/moms">Zur Momsabrechnung →</a></div>` : ''}
@@ -155,36 +159,45 @@ async function newInvoice(customerId) {
   go(`#/rechnung/${inv.id}`);
 }
 
-/* ---------- Rechnung bearbeiten (Entwurf) ---------- */
-routes.rechnung = (id) => {
-  const inv = S.invoices.find((i) => i.id === id);
-  if (!inv) return go('#/rechnungen');
-  if (inv.status !== 'draft') return go(`#/druck/${id}`);
+/* ---------- Rechnung bzw. Auftragsbestätigung bearbeiten ---------- */
+routes.rechnung = (id) => docEditor(id, 'invoice');
+routes.auftrag = (id) => docEditor(id, 'order');
+function docEditor(id, kind) {
+  const isOrder = kind === 'order';
+  const base = isOrder ? 'orders' : 'invoices';
+  const view = isOrder ? `#/auftragansicht/${id}` : `#/druck/${id}`;
+  const inv = (isOrder ? S.orders : S.invoices).find((i) => i.id === id);
+  if (!inv) return go(isOrder ? '#/auftraege' : '#/rechnungen');
+  if (isOrder ? inv.signedAt : inv.status !== 'draft') return go(view);
   const d = JSON.parse(JSON.stringify(inv));
   const custOpts = `<option value="">– Kunde wählen –</option>` + S.customers.slice().sort((a, b) => a.name.localeCompare(b.name))
     .map((c) => `<option value="${c.id}" ${c.id === d.customerId ? 'selected' : ''}>${esc(c.name)} (${c.country}, ${LANGS[c.language] || ''})</option>`).join('');
   const prodOpts = `<option value="">Produkt…</option>` + S.products.map((p) => `<option value="${p.id}">${esc(p.name)}</option>`).join('');
   $('#main').innerHTML = `
-    <h1>${d.type === 'credit' ? `Gutschrift zu Rechnung ${d.refNumber}` : 'Rechnung'} <span class="badge b-draft">Entwurf</span><span class="spacer"></span>
-      <button id="del" class="danger">Entwurf löschen</button><button id="preview">Vorschau</button><button id="save">Speichern</button><button class="primary" id="approve">Genehmigen &amp; Nummer vergeben</button></h1>
+    <h1>${isOrder ? `Auftragsbestätigung${d.number ? ' ' + d.number : ''}` : d.type === 'credit' ? `Gutschrift zu Rechnung ${d.refNumber}` : 'Rechnung'} ${isOrder ? orderBadge(d) : '<span class="badge b-draft">Entwurf</span>'}<span class="spacer"></span>
+      <button id="del" class="danger">${isOrder ? 'Löschen' : 'Entwurf löschen'}</button><button id="preview">Vorschau</button><button id="save">Speichern</button><button class="primary" id="approve">${isOrder ? 'Zum Unterschreiben freigeben' : 'Genehmigen &amp; Nummer vergeben'}</button></h1>
+    ${isOrder && d.status === 'sent' ? '<div class="note warn">Der Kunde hat den Link schon. Änderungen sieht er sofort, sobald du speicherst.</div>' : ''}
     <div class="card"><div class="grid">
       <label class="wide">Kunde<div class="inline"><select name="customerId">${custOpts}</select><button id="new-cust" type="button">+ Neuer Kunde</button></div></label>
-      <label>Rechnungsdatum<input type="date" name="date" value="${d.date}"></label>
-      <label>Zahlungsziel (Tage)<input type="number" min="0" name="dueDays" value="${d.dueDays}"></label>
-      <label>Sprache der Rechnung<select name="language">${opts(LANGS, d.language)}</select></label>
+      <label>${isOrder ? 'Datum' : 'Rechnungsdatum'}<input type="date" name="date" value="${d.date}"></label>
+      ${isOrder ? `<label>Liefertermin (optional)<input type="date" name="deliveryDate" value="${esc(d.deliveryDate || '')}"></label>
+      <label>Gültig bis (optional)<input type="date" name="validUntil" value="${esc(d.validUntil || '')}"></label>` : ''}
+      <label>Zahlungsziel (Tage${isOrder ? ', für die spätere Rechnung' : ''})<input type="number" min="0" name="dueDays" value="${d.dueDays}"></label>
+      <label>Sprache ${isOrder ? 'für den Kunden' : 'der Rechnung'}<select name="language">${opts(LANGS, d.language)}</select></label>
       <label>Währung<select name="currency">${CURRENCIES.map((c) => `<option ${c === d.currency ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
       <label class="rate">Kurs (DKK je 1 ${esc(d.currency)})<div class="inline"><input name="exchangeRate" value="${d.currency === 'DKK' ? '1' : num(d.exchangeRate || '')}"><button id="get-rate" type="button" title="Kurs von Nationalbanken/EZB holen">Holen</button></div></label>
       <label>Momsart<select name="vatScheme">${opts(SCHEMES, d.vatScheme)}</select></label>
     </div><div id="scheme-note" class="small muted" style="margin-top:8px"></div></div>
-    <div class="table-wrap"><table class="lines"><thead><tr><th style="width:150px">Produkt</th><th>Beschreibung</th><th class="r">Menge</th><th>Einheit</th><th class="r">Preis</th><th class="r">Rabatt %</th><th>Art</th><th title="Zeile ohne Moms">0 %</th><th class="r">Betrag</th><th></th></tr></thead>
+    <div class="table-wrap"><table class="lines"><thead><tr>${isOrder ? '<th>Bild</th>' : ''}<th style="width:150px">Produkt</th><th>Beschreibung</th><th class="r">Menge</th><th>Einheit</th><th class="r">Preis</th><th class="r">Rabatt %</th><th>Art</th><th title="Zeile ohne Moms">0 %</th><th class="r">Betrag</th><th></th></tr></thead>
       <tbody id="lines"></tbody></table>
       <div style="padding:10px"><button id="add-line">+ Zeile</button></div></div>
     <div class="row" style="align-items:flex-start;margin-top:14px">
-      <label style="flex:1;min-width:260px">Notiz auf der Rechnung (optional)<textarea name="note" rows="3">${esc(d.note || '')}</textarea></label>
+      <label style="flex:1;min-width:260px">Notiz auf ${isOrder ? 'der Auftragsbestätigung' : 'der Rechnung'} (optional)<textarea name="note" rows="3">${esc(d.note || '')}</textarea></label>
       <div class="totals card" id="totals"></div>
     </div>`;
   const tb = $('#lines');
   const lineRow = (l, i) => `<tr data-i="${i}">
+      ${isOrder ? `<td class="img-cell"><label title="Bild wählen">${l.image ? `<img class="thumb-sm" src="${DocRender.safeImg(l.image)}" alt="">` : '<span class="ph">📷</span>'}<input type="file" accept="image/*" hidden data-img></label>${l.image ? '<div><button class="small" data-noimg title="Bild entfernen">✕</button></div>' : ''}</td>` : ''}
       <td><select data-k="productId">${prodOpts}</select></td>
       <td><textarea data-k="text" rows="1">${esc(l.text)}</textarea></td>
       <td><input class="num" data-k="qty" value="${esc(num(l.qty))}"></td>
@@ -225,6 +238,9 @@ routes.rechnung = (id) => {
       const l = d.lines[tr.dataset.i];
       $$('input,textarea,select', tr).forEach((el) => (el.oninput = calc));
       $('[data-del]', tr).onclick = () => { read(); d.lines.splice(tr.dataset.i, 1); drawLines(); };
+      const imgIn = $('[data-img]', tr);
+      if (imgIn) imgIn.onchange = async () => { read(); try { l.image = await imageToDataUrl(imgIn.files[0]); } catch (e) { toast(e.message, true); } drawLines(); };
+      $('[data-noimg]', tr) && ($('[data-noimg]', tr).onclick = () => { read(); delete l.image; drawLines(); });
       $('[data-k=productId]', tr).onchange = (e) => {
         read();
         const p = S.products.find((x) => x.id === e.target.value);
@@ -237,6 +253,7 @@ routes.rechnung = (id) => {
           else if (pc !== 'DKK') toast('Produktpreis ist in ' + pc + ' – bitte Preis prüfen.', true);
         }
         Object.assign(l, { productId: p.id, text: p['name_' + d.language] || p.name, unit: p.unit || 'stk', price: (price / 100).toFixed(2), kind: p.kind || 'services', vatFree: !!p.vatFree });
+        if (isOrder && p.image) l.image = p.image;
         drawLines();
       };
       const ta = $('textarea', tr);
@@ -244,7 +261,7 @@ routes.rechnung = (id) => {
       ta.addEventListener('input', fit); fit();
     });
   }
-  const save = () => { read(); return act(() => api('invoices/' + id, 'PUT', d)); };
+  const save = () => { read(); return act(() => api(`${base}/${id}`, 'PUT', d)); };
   $$('#main .card [name], [name=note]').forEach((el) => (el.oninput = calc));
   $('[name=customerId]').onchange = (e) => {
     const c = S.customers.find((x) => x.id === e.target.value);
@@ -273,70 +290,35 @@ routes.rechnung = (id) => {
   $('#get-rate').onclick = getRate;
   $('#add-line').onclick = () => { read(); d.lines.push({ text: '', qty: '1', unit: 'stk', price: '0', discount: '0', kind: d.lines.at(-1)?.kind || 'services' }); drawLines(); };
   $('#save').onclick = async () => { await save(); toast('Gespeichert'); };
-  $('#preview').onclick = async () => { await save(); go(`#/druck/${id}`); };
-  $('#del').onclick = async () => { if (confirm('Entwurf wirklich löschen?')) { await act(() => api('invoices/' + id, 'DELETE')); go('#/rechnungen'); } };
+  $('#preview').onclick = async () => { await save(); go(view); };
+  $('#del').onclick = async () => { if (confirm(isOrder ? 'Auftrag wirklich löschen?' : 'Entwurf wirklich löschen?')) { await act(() => api(`${base}/${id}`, 'DELETE')); go(isOrder ? '#/auftraege' : '#/rechnungen'); } };
   $('#approve').onclick = async () => {
     await save();
+    if (isOrder) { await act(() => api(`orders/${id}/send`, 'POST', {}), 'Freigegeben – jetzt den Link an den Kunden schicken'); return go(view); }
     if (!confirm('Rechnung genehmigen? Sie bekommt dann die nächste fortlaufende Nummer und kann nicht mehr geändert werden (nur noch per Gutschrift).')) return;
     await act(() => api(`invoices/${id}/approve`, 'POST', {}), 'Rechnung genehmigt');
     go(`#/druck/${id}`);
   };
-  $('#new-cust').onclick = () => customerForm(null, async (c) => { await save(); await act(() => api('invoices/' + id, 'PUT', { ...d, customerId: c.id, language: c.language, currency: c.currency || 'DKK', vatScheme: Calc.vatScheme(c) })); routes.rechnung(id); });
+  $('#new-cust').onclick = () => customerForm(null, async (c) => { await save(); await act(() => api(`${base}/${id}`, 'PUT', { ...d, customerId: c.id, language: c.language, currency: c.currency || 'DKK', vatScheme: Calc.vatScheme(c) })); docEditor(id, kind); });
   drawLines();
-};
-
-/* ---------- Rechnungsdokument (Druck/PDF) in Kundensprache ---------- */
-function renderDoc(inv, reminder) {
-  const L = DocLang.get(inv.language), lang = inv.language;
-  const s = inv.seller || S.settings;
-  const t = Calc.totals(inv);
-  const m = (c) => DocLang.money(c, inv.currency, lang);
-  const F = (k, v) => DocLang.fill(L[k], v);
-  const credit = inv.type === 'credit';
-  const docName = reminder ? L.reminder : credit ? L.credit : L.invoice;
-  const numStr = inv.number ?? '—';
-  const legal = [];
-  if (inv.vatScheme === 'eu_rc') { if (t.services) legal.push(L.rcServices); if (t.goods) legal.push(L.rcGoods); }
-  if (inv.vatScheme === 'export') legal.push(L.export);
-  const hasDisc = inv.lines.some((l) => Number(l.discount));
-  const foreign = inv.currency !== 'DKK';
-  const fik = !credit && s.fikCreditor && inv.number ? Calc.fikLine(inv.number, s.fikCreditor) : '';
-  const sellerLines = [s.company, s.owner && s.owner !== s.company ? s.owner : '', s.street, [s.zip, s.city].filter(Boolean).join(' '), s.country && s.country !== inv.customerCountry ? DocLang.country(s.country, lang) : ''].filter(Boolean);
-  const vals = { total: m(Calc.sign(inv) * t.gross), due: DocLang.date(inv.dueDate, lang), number: numStr, company: s.company, doc: docName };
-  return `<div class="doc">
-    <div class="top"><div>${S.settings.logo ? `<img class="logo" src="${S.settings.logo}" alt="">` : `<div style="font-size:16pt;font-weight:700">${esc(s.company)}</div>`}</div>
-      <div class="seller">${sellerLines.map(esc).join('<br>')}<br>${esc(L.ourVat)} ${esc(s.cvr)}${s.email ? '<br>' + esc(s.email) : ''}${s.phone ? '<br>' + esc(s.phone) : ''}${s.web ? '<br>' + esc(s.web) : ''}</div></div>
-    <div class="addr"><div class="sender">${esc([s.company, s.street, [s.zip, s.city].join(' ')].filter(Boolean).join(' · '))}</div><br>
-      <b>${esc(inv.customerName)}</b><br>${esc(inv.customerAddress || '').replace(/\n/g, '<br>')}${inv.customerCountry !== s.country ? '<br>' + esc(DocLang.country(inv.customerCountry, lang)) : ''}
-      ${inv.customerVatId ? `<br><span style="font-size:9pt">${esc(L.yourVat)}: ${esc(inv.customerVatId)}</span>` : ''}</div>
-    <div class="meta"><h1>${esc(docName)}</h1><table>
-      <tr><td>${esc(credit ? L.creditNumber : L.number)}</td><td><b>${esc(numStr)}</b></td></tr>
-      <tr><td>${esc(L.date)}</td><td>${DocLang.date(reminder ? today() : inv.date, lang)}</td></tr>
-      ${!credit ? `<tr><td>${esc(L.due)}</td><td>${DocLang.date(inv.dueDate, lang)}</td></tr>` : ''}
-      ${inv.customerNo ? `<tr><td>${esc(L.customerNo)}</td><td>${esc(inv.customerNo)}</td></tr>` : ''}</table></div>
-    ${credit && inv.refNumber ? `<p>${esc(F('refersTo', { number: inv.refNumber }))}</p>` : ''}
-    ${reminder ? `<p style="margin-top:8mm">${esc(F('reminderText', vals))}</p>` : ''}
-    <table class="items"><thead><tr><th>${esc(L.desc)}</th><th class="r">${esc(L.qty)}</th><th>${esc(L.unit)}</th><th class="r">${esc(L.price)}</th>${hasDisc ? `<th class="r">${esc(L.discount)}</th>` : ''}<th class="r">${esc(L.amount)}</th></tr></thead><tbody>
-      ${inv.lines.filter((l) => l.text || Number(l.price)).map((l) => `<tr><td>${esc(l.text)}${l.vatFree && inv.vatScheme !== 'eu_rc' && inv.vatScheme !== 'export' ? ` <span style="font-size:8pt;color:#666">(${esc(L.vatFree)})</span>` : ''}</td>
-        <td class="r">${new Intl.NumberFormat(L.locale).format(Number(l.qty) || 0)}</td><td>${esc(L.units[l.unit] ?? l.unit)}</td>
-        <td class="r">${m(Calc.toCents(l.price))}</td>${hasDisc ? `<td class="r">${Number(l.discount) ? esc(num(l.discount)) + ' %' : ''}</td>` : ''}
-        <td class="r">${m(Calc.sign(inv) * Calc.lineNet(l))}</td></tr>`).join('')}
-    </tbody></table>
-    <div class="sum"><div><span>${esc(L.net)}</span><span>${m(Calc.sign(inv) * t.net)}</span></div>
-      ${t.vatLines.length ? t.vatLines.map((v) => `<div><span>${esc(L.vat)} ${v.rate} %</span><span>${m(Calc.sign(inv) * v.vat)}</span></div>`).join('') : `<div><span>${esc(L.vat)} 0 %</span><span>${m(0)}</span></div>`}
-      <div class="grand"><span>${esc(L.total)} ${esc(inv.currency)}</span><span>${m(Calc.sign(inv) * t.gross)}</span></div>
-      ${foreign && t.vat ? `<div style="font-size:8.5pt;color:#444"><span>${esc(F('vatInDKK', { rate: new Intl.NumberFormat(L.locale, { maximumFractionDigits: 4 }).format(inv.exchangeRate) }))}</span><span>${DocLang.money(Calc.sign(inv) * Calc.toDKK(t.vat, inv), 'DKK', lang)}</span></div>` : ''}</div>
-    ${legal.length ? `<div class="legal">${legal.map((x) => `<div>${esc(x)}</div>`).join('')}</div>` : ''}
-    ${inv.note ? `<div class="legal" style="white-space:pre-line">${esc(inv.note)}</div>` : ''}
-    <div class="pay"><b>${esc(L.payment)}</b><br>${esc(credit ? L.creditText : F('payText', vals))}
-      ${!credit ? `<table style="margin-top:2mm">${s.bankName ? `<tr><td>${esc(L.bank)}</td><td>${esc(s.bankName)}</td></tr>` : ''}
-        ${s.regNo && (inv.customerCountry === 'DK' || !s.iban) ? `<tr><td>${esc(L.regKonto)}</td><td>${esc(s.regNo)} ${esc(s.accountNo)}</td></tr>` : ''}
-        ${s.iban ? `<tr><td>${esc(L.iban)}</td><td>${esc(s.iban)}</td></tr>` : ''}${s.bic && s.iban ? `<tr><td>${esc(L.bic)}</td><td>${esc(s.bic)}</td></tr>` : ''}</table>
-        ${fik && inv.currency === 'DKK' && inv.customerCountry === 'DK' ? `<div class="fik">${esc(L.fik)}: ${esc(fik)}</div>` : ''}` : ''}</div>
-    ${!credit && !reminder ? `<p style="margin-top:6mm">${esc(L.thanks)}</p>` : ''}
-    <div class="foot">${esc([s.company, [s.street, [s.zip, s.city].join(' ')].filter(Boolean).join(', '), `${L.ourVat} ${s.cvr}`, s.iban ? `IBAN ${s.iban}` : ''].filter(Boolean).join(' · '))}${s.footer ? '<br>' + esc(s.footer) : ''}</div>
-  </div>`;
 }
+
+// Bild verkleinern (Produktfotos, Bilder im Auftrag) und als eingebettete JPG-Datei zurückgeben
+async function imageToDataUrl(file, max = 900) {
+  if (!file) throw new Error('Kein Bild gewählt.');
+  let bmp;
+  try { bmp = await createImageBitmap(file, { imageOrientation: 'from-image' }); } catch { throw new Error('Dieses Bild kann nicht gelesen werden (bitte JPG oder PNG).'); }
+  const k = Math.min(1, max / Math.max(bmp.width, bmp.height));
+  const c = document.createElement('canvas');
+  c.width = Math.round(bmp.width * k); c.height = Math.round(bmp.height * k);
+  const ctx = c.getContext('2d');
+  ctx.fillStyle = '#fff'; ctx.fillRect(0, 0, c.width, c.height);
+  ctx.drawImage(bmp, 0, 0, c.width, c.height);
+  return c.toDataURL('image/jpeg', 0.82);
+}
+
+/* ---------- Rechnungsdokument (Druck/PDF) in Kundensprache – Darstellung in docrender.js ---------- */
+const renderDoc = (inv, reminder) => DocRender.render(inv, { logo: S.settings.logo, reminder, seller: inv.seller || S.settings });
 
 routes.druck = (id) => {
   const inv = S.invoices.find((i) => i.id === id);
@@ -382,6 +364,84 @@ routes.druck = (id) => {
   $('#copy') && ($('#copy').onclick = async () => { const c = await act(() => api(`invoices/${id}/copy`, 'POST', {})); go(`#/rechnung/${c.id}`); });
 };
 
+/* ---------- Aufträge (Auftragsbestätigung zum Unterschreiben) ---------- */
+const ORDER_STATUS = { draft: ['Entwurf', 'b-draft'], sent: ['Wartet auf Unterschrift', 'b-open'], signed: ['Unterschrieben ✔', 'b-paid'], invoiced: ['Rechnung erstellt', 'b-credit'] };
+const orderBadge = (o) => { const [t, c] = ORDER_STATUS[o.status] || ['', '']; return `<span class="badge ${c}">${t}</span>`; };
+const orderLink = (o) => `${(S.settings.publicUrl || location.origin).replace(/\/$/, '')}/a/${o.token}`;
+let orderFilter = 'alle';
+routes.auftraege = () => {
+  const F = { alle: () => true, offen: (o) => o.status === 'draft' || o.status === 'sent', unterschrieben: (o) => o.status === 'signed', abgerechnet: (o) => o.status === 'invoiced' };
+  const L = { alle: 'Alle', offen: 'Offen', unterschrieben: 'Unterschrieben', abgerechnet: 'Abgerechnet' };
+  const list = S.orders.filter(F[orderFilter]).sort((a, b) => (b.createdAt || '').localeCompare(a.createdAt || ''));
+  $('#main').innerHTML = `<h1>Aufträge <span class="spacer"></span><button class="primary" id="new-order">+ Neue Auftragsbestätigung</button></h1>
+    <div class="note">Auftragsbestätigung mit Bildern erstellen → freigeben → der Kunde bekommt einen Link (in seiner Sprache), prüft alles und unterschreibt mit Finger oder Maus. Die Unterschrift kommt automatisch hierher zurück. Danach mit einem Klick die Rechnung erstellen.</div>
+    <div class="tabs">${Object.entries(L).map(([k, v]) => `<button data-of="${k}" class="${k === orderFilter ? 'on' : ''}">${v} (${S.orders.filter(F[k]).length})</button>`).join('')}</div>
+    ${list.length ? `<div class="table-wrap"><table><thead><tr><th>Nr.</th><th>Datum</th><th>Kunde</th><th>Liefertermin</th><th class="r">Betrag</th><th>Status</th></tr></thead><tbody>
+    ${list.map((o) => `<tr class="click" data-o="${o.id}"><td>${o.number || '–'}</td><td>${dmy(o.date)}</td><td>${esc(o.customerName || '–')} <span class="muted small">${(o.language || '').toUpperCase()}</span></td>
+      <td>${dmy(o.deliveryDate)}</td><td class="r">${kr(Calc.totals(o).gross, o.currency)}</td><td>${orderBadge(o)}${o.signedAt ? `<div class="muted small">${esc(o.signerName)}, ${dmy(o.signedAt.slice(0, 10))}</div>` : ''}</td></tr>`).join('')}
+    </tbody></table></div>` : '<div class="card empty">Noch keine Aufträge.</div>'}`;
+  $$('[data-of]').forEach((b) => (b.onclick = () => { orderFilter = b.dataset.of; routes.auftraege(); }));
+  $('#new-order').onclick = () => newOrder();
+  $$('[data-o]').forEach((tr) => (tr.onclick = () => { const o = S.orders.find((x) => x.id === tr.dataset.o); go(o.status === 'draft' ? `#/auftrag/${o.id}` : `#/auftragansicht/${o.id}`); }));
+};
+async function newOrder(customerId) {
+  const c = S.customers.find((x) => x.id === customerId);
+  const o = await act(() => api('orders', 'POST', {
+    customerId: c?.id || '', currency: c?.currency || S.settings.defaultCurrency || 'DKK', language: c?.language || 'da', dueDays: c?.dueDays || S.settings.dueDays,
+    lines: [{ text: '', qty: '1', unit: 'stk', price: '0', discount: '0', kind: 'goods' }],
+  }));
+  go(`#/auftrag/${o.id}`);
+}
+routes.auftragansicht = (id) => {
+  const o = S.orders.find((x) => x.id === id);
+  if (!o) return go('#/auftraege');
+  const L = DocLang.get(o.language);
+  const inv = o.invoiceId && S.invoices.find((i) => i.id === o.invoiceId);
+  const link = o.token ? orderLink(o) : '';
+  const local = !S.settings.publicUrl && /^(localhost|127\.|192\.168\.|10\.)/.test(location.hostname);
+  $('#main').innerHTML = `
+    <h1 class="no-print"><a class="btn" href="#/auftraege">← Zurück</a> Auftragsbestätigung ${o.number || ''} ${orderBadge(o)} <span class="muted small">für den Kunden auf ${LANGS[o.language]}</span></h1>
+    ${o.status === 'draft' ? '<div class="note warn no-print">Vorschau – noch nicht freigegeben.</div>' : ''}
+    ${o.status === 'sent' ? `<div class="card no-print"><b>Link für den Kunden</b>
+      <div class="inline" style="margin-top:6px"><input id="link" readonly value="${esc(link)}"><button id="copylink">Kopieren</button></div>
+      ${local ? '<div class="note warn small">Achtung: Das Programm läuft nur auf deinem Computer bzw. in deinem WLAN – Kunden können diesen Link von außen nicht öffnen. Dafür muss RechnungsStudio auf einem Server im Internet laufen und die Adresse unter Einstellungen → „Öffentliche Adresse“ eingetragen sein. Solange kannst du die Bestätigung als PDF drucken und unterschreiben lassen.</div>' : ''}
+      <div class="small muted" style="margin-top:6px">Sobald der Kunde unterschreibt, ändert sich hier der Status auf „Unterschrieben“.</div></div>` : ''}
+    ${o.signedAt ? `<div class="note no-print">✔ Unterschrieben von <b>${esc(o.signerName)}</b> am ${dmy(o.signedAt.slice(0, 10))} um ${o.signedAt.slice(11, 16)} UTC${o.signerIp ? ` · IP ${esc(o.signerIp)}` : ''}${o.customerComment ? `<br>Anmerkung des Kunden: <b>${esc(o.customerComment)}</b>` : ''}</div>` : ''}
+    <div class="doc-actions no-print">
+      ${!o.signedAt ? `<a class="btn" href="#/auftrag/${id}">Bearbeiten</a>` : ''}
+      ${o.status === 'draft' ? '<button class="primary" id="send">Zum Unterschreiben freigeben</button>' : ''}
+      ${o.status === 'sent' ? '<button class="primary" id="mail">Link per E-Mail senden</button>' : ''}
+      <button id="print">Drucken / Als PDF speichern</button>
+      ${inv ? `<a class="btn" href="#/${inv.status === 'draft' ? 'rechnung' : 'druck'}/${inv.id}">Zur Rechnung${inv.number ? ' ' + inv.number : ''}</a>` : o.status !== 'draft' ? `<button id="toinv" class="${o.signedAt ? 'primary' : ''}">Rechnung erstellen</button>` : ''}
+      <button id="copy">Kopieren</button>
+    </div>
+    <div class="doc-wrap">${renderDoc(o)}</div>`;
+  $('#print').onclick = () => { const t = document.title; document.title = `${L.order}-${o.number || 'Entwurf'}`; window.print(); document.title = t; };
+  // auf die Unterschrift warten
+  if (o.status === 'sent') {
+    clearTimeout(routes.auftragansicht.t);
+    routes.auftragansicht.t = setTimeout(async function check() {
+      if (location.hash !== `#/auftragansicht/${id}`) return;
+      await reload().catch(() => {});
+      if (S.orders.find((x) => x.id === id)?.signedAt) { toast('✍️ Der Kunde hat unterschrieben!'); route(); }
+      else routes.auftragansicht.t = setTimeout(check, 8000);
+    }, 8000);
+  }
+  $('#send') && ($('#send').onclick = async () => { await act(() => api(`orders/${id}/send`, 'POST', {}), 'Freigegeben'); route(); });
+  $('#copylink') && ($('#copylink').onclick = () => { navigator.clipboard?.writeText(link); $('#link').select(); toast('Link kopiert'); });
+  $('#mail') && ($('#mail').onclick = () => {
+    const c = S.customers.find((x) => x.id === o.customerId);
+    const vals = { number: o.number, total: DocLang.money(Calc.totals(o).gross, o.currency, o.language), company: S.settings.company, link };
+    location.href = `mailto:${encodeURIComponent(c?.email || '')}?subject=${encodeURIComponent(DocLang.fill(L.orderMailSubject, vals))}&body=${encodeURIComponent(DocLang.fill(L.orderMailBody, vals))}`;
+  });
+  $('#toinv') && ($('#toinv').onclick = async () => {
+    if (!o.signedAt && !confirm('Der Kunde hat noch nicht unterschrieben. Trotzdem eine Rechnung erstellen?')) return;
+    const r = await act(() => api(`orders/${id}/invoice`, 'POST', {}), 'Rechnungsentwurf erstellt');
+    go(`#/rechnung/${r.id}`);
+  });
+  $('#copy').onclick = async () => { const c = await act(() => api(`orders/${id}/copy`, 'POST', {})); go(`#/auftrag/${c.id}`); };
+};
+
 /* ---------- Kunden ---------- */
 routes.kunden = () => {
   const list = S.customers.slice().sort((a, b) => a.name.localeCompare(b.name));
@@ -391,11 +451,12 @@ routes.kunden = () => {
       const open = S.invoices.filter((i) => i.customerId === c.id && isOpen(i)).reduce((s, i) => s + grossDKK(i) - (i.paidAmount || 0), 0);
       return `<tr class="click" data-c="${c.id}" data-q="${esc((c.name + ' ' + (c.email || '') + ' ' + (c.cvr || '') + ' ' + (c.vatId || '')).toLowerCase())}"><td>${c.customerNo}</td><td><b>${esc(c.name)}</b><div class="muted small">${esc([c.city, c.email].filter(Boolean).join(' · '))}</div></td>
       <td>${esc(countryName(c.country))}</td><td>${LANGS[c.language] || ''}</td><td>${esc(c.vatId || c.cvr || '')}${c.vatChecked ? ' <span title="per VIES geprüft">✔</span>' : ''}</td><td class="small">${SCHEMES[Calc.vatScheme(c)]}</td>
-      <td class="r">${open ? kr(open) : ''}</td><td><button class="small" data-inv-for="${c.id}">+ Rechnung</button></td></tr>`;
+      <td class="r">${open ? kr(open) : ''}</td><td><button class="small" data-ord-for="${c.id}">+ Auftrag</button> <button class="small" data-inv-for="${c.id}">+ Rechnung</button></td></tr>`;
     }).join('')}</tbody></table></div>` : '<div class="card empty">Noch keine Kunden. Lege den ersten Kunden an – die Sprache, die du wählst, wird für seine Rechnungen verwendet.</div>'}`;
   $('#add').onclick = () => customerForm(null, () => routes.kunden());
   $('#q').oninput = (e) => $$('[data-q]').forEach((tr) => (tr.style.display = tr.dataset.q.includes(e.target.value.toLowerCase()) ? '' : 'none'));
-  $$('[data-c]').forEach((tr) => (tr.onclick = (e) => { if (!e.target.dataset.invFor) customerForm(S.customers.find((c) => c.id === tr.dataset.c), () => routes.kunden()); }));
+  $$('[data-ord-for]').forEach((b) => (b.onclick = (e) => { e.stopPropagation(); newOrder(b.dataset.ordFor); }));
+  $$('[data-c]').forEach((tr) => (tr.onclick = (e) => { if (!e.target.dataset.invFor && !e.target.dataset.ordFor) customerForm(S.customers.find((c) => c.id === tr.dataset.c), () => routes.kunden()); }));
   $$('[data-inv-for]').forEach((b) => (b.onclick = () => newInvoice(b.dataset.invFor)));
 };
 
@@ -473,8 +534,8 @@ function customerForm(c, done) {
 /* ---------- Produkte ---------- */
 routes.produkte = () => {
   $('#main').innerHTML = `<h1>Produkte &amp; Leistungen <span class="spacer"></span><button class="primary" id="add">+ Neues Produkt</button></h1>
-    ${S.products.length ? `<div class="table-wrap"><table><thead><tr><th>Name</th><th>Dänisch</th><th>Englisch</th><th>Einheit</th><th>Art</th><th class="r">Preis netto</th></tr></thead><tbody>
-    ${S.products.map((p) => `<tr class="click" data-p="${p.id}"><td><b>${esc(p.name_de || p.name)}</b></td><td>${esc(p.name_da || '')}</td><td>${esc(p.name_en || '')}</td><td>${UNITS[p.unit] || ''}</td>
+    ${S.products.length ? `<div class="table-wrap"><table><thead><tr><th></th><th>Name</th><th>Dänisch</th><th>Englisch</th><th>Einheit</th><th>Art</th><th class="r">Preis netto</th></tr></thead><tbody>
+    ${S.products.map((p) => `<tr class="click" data-p="${p.id}"><td style="width:54px">${p.image ? `<img class="thumb-sm" src="${DocRender.safeImg(p.image)}" alt="">` : ''}</td><td><b>${esc(p.name_de || p.name)}</b></td><td>${esc(p.name_da || '')}</td><td>${esc(p.name_en || '')}</td><td>${UNITS[p.unit] || ''}</td>
       <td>${p.kind === 'goods' ? 'Ware' : 'Leistung'}${p.vatFree ? ' · momsfrei' : ''}</td><td class="r">${kr(Calc.toCents(p.price), p.currency || 'DKK')}</td></tr>`).join('')}</tbody></table></div>`
     : '<div class="card empty">Noch keine Produkte. Trage den Namen in allen drei Sprachen ein – auf der Rechnung erscheint automatisch die Sprache des Kunden.</div>'}`;
   const form = (p) => {
@@ -487,10 +548,19 @@ routes.produkte = () => {
       <label>Währung<select name="currency">${CURRENCIES.map((x) => `<option ${x === (d.currency || 'DKK') ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
       <label>Einheit<select name="unit">${opts(UNITS, d.unit)}</select></label>
       <label>Art<select name="kind"><option value="services">Dienstleistung</option><option value="goods" ${d.kind === 'goods' ? 'selected' : ''}>Ware</option></select></label>
-      <label class="wide"><input type="checkbox" name="vatFree" ${d.vatFree ? 'checked' : ''}> Momsfrei (z. B. nach ML § 13 – nur wenn du sicher bist)</label></div>
+      <label class="wide"><input type="checkbox" name="vatFree" ${d.vatFree ? 'checked' : ''}> Momsfrei (z. B. nach ML § 13 – nur wenn du sicher bist)</label>
+      <div class="wide"><label>Produktbild (erscheint auf Auftragsbestätigungen)</label>
+        <div class="row" style="margin-top:4px"><span id="pimg">${d.image ? `<img class="thumb-sm" style="width:80px;height:80px" src="${DocRender.safeImg(d.image)}" alt="">` : ''}</span>
+        <label class="btn">📷 Bild wählen<input type="file" accept="image/*" hidden id="pimgin"></label>${d.image ? '<button type="button" id="pimgdel">Bild entfernen</button>' : ''}</div></div></div>
       <div class="modal-actions">${p ? '<button class="danger" id="del" style="margin-right:auto">Löschen</button>' : ''}<button onclick="closeModal()">Abbrechen</button><button class="primary" id="ok">Speichern</button></div>`, (el) => {
+      let image = d.image || '';
+      $('#pimgin', el).onchange = async (e) => {
+        try { image = await imageToDataUrl(e.target.files[0], 1000); $('#pimg', el).innerHTML = `<img class="thumb-sm" style="width:80px;height:80px" src="${image}" alt="">`; } catch (err) { toast(err.message, true); }
+      };
+      $('#pimgdel', el) && ($('#pimgdel', el).onclick = () => { image = ''; $('#pimg', el).innerHTML = ''; });
       $('#ok', el).onclick = async () => {
         const f = formData(el);
+        f.image = image;
         f.name = f.name_de || f.name_da || f.name_en;
         f.price = f.price.replace(/\./g, '').replace(',', '.');
         await act(() => (p ? api('products/' + p.id, 'PUT', f) : api('products', 'POST', f)), 'Gespeichert');
@@ -882,6 +952,8 @@ routes.einstellungen = () => {
       <div class="muted small" style="margin-top:6px">Lunar Business: Reg.-Nr., Kontonummer und IBAN findest du in der Lunar-App unter Konto → Kontodetails.</div></div>
     <div class="card"><b>Rechnungen &amp; Moms</b><div class="grid" style="margin-top:10px">
       <label>Nächste Rechnungsnummer<input type="number" name="nextNumber" value="${s.nextNumber}"></label>
+      <label>Nächste Auftragsnummer<input type="number" name="nextOrderNumber" value="${s.nextOrderNumber}"></label>
+      <label class="wide">Öffentliche Adresse für Kunden-Links (nur wenn das Programm auf einem Server im Internet läuft, z. B. https://rechnung.meinefirma.dk)<input name="publicUrl" value="${esc(s.publicUrl || '')}" placeholder="leer = Adresse dieses Computers"></label>
       <label>Standard-Zahlungsziel (Tage)<input type="number" name="dueDays" value="${s.dueDays}"></label>
       <label>Standardwährung<select name="defaultCurrency">${CURRENCIES.map((c) => `<option ${c === s.defaultCurrency ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
       <label>Momsperiode bei SKAT<select name="vatPeriod">${opts({ halfyear: 'Halbjährlich (Umsatz unter 5 Mio. DKK)', quarter: 'Vierteljährlich', month: 'Monatlich (über 50 Mio. DKK)' }, s.vatPeriod)}</select></label>

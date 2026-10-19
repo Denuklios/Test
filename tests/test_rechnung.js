@@ -178,6 +178,60 @@ eq(p.rows[0].amount, 125000, 'CSV-Eingang');
   try { await L('46733429'); ok(false, 'Prüfziffer'); } catch (e) { ok(/Prüfziffer/.test(e.message), 'falsche Prüfziffer erkannt'); }
   global.fetch = realFetch;
 
+  // Auftragsbestätigung mit Bild → Link → Kunde unterschreibt → Rechnung
+  const png = 'data:image/png;base64,' + Buffer.alloc(300, 7).toString('base64');
+  const prod = await A('POST', 'products', { name_de: 'Bestickte Kappe', name_da: 'Broderet kasket', price: '120', unit: 'stk', kind: 'goods', image: png });
+  eq(prod.image, png, 'Produktbild gespeichert');
+  const bad = await A('POST', 'products', { name_de: 'X', image: 'javascript:alert(1)' });
+  eq(bad.image, '', 'ungültiges Bild verworfen');
+  const ord = await A('POST', 'orders', { customerId: dk.id, deliveryDate: '2026-11-15', lines: [{ text: 'Broderet kasket', qty: '20', price: '120', kind: 'goods', image: png }] });
+  eq(ord.language, 'da', 'Auftrag in Kundensprache');
+  eq(ord.lines[0].image, png, 'Bild in der Auftragszeile');
+  await A('POST', `orders/${ord.id}/send`);
+  eq(ord.number, 1001, 'Auftragsnummer');
+  ok(/^[a-f0-9]{36}$/.test(ord.token), 'geheimer Link erzeugt');
+  const P = async (m, path, body) => RS.publicApi(m, path.split('/'), body || {}, req);
+  const req = { headers: { 'user-agent': 'Test' }, socket: { remoteAddress: '203.0.113.5' } };
+  // öffentliche Schnittstelle direkt über das HTTP-Modul
+  const http = require('http');
+  process.env.PASSWORD = 'geheim';
+  await new Promise((r) => RS.server.listen(0, '127.0.0.1', r));
+  const port = RS.server.address().port;
+  const H = (method, path, body, auth) => new Promise((res, rej) => {
+    const data = body ? JSON.stringify(body) : null;
+    const rq = http.request({ host: '127.0.0.1', port, path, method, headers: { 'X-RS': '1', 'Content-Type': 'application/json', ...(auth ? { Authorization: 'Basic ' + Buffer.from('x:geheim').toString('base64') } : {}) } }, (r) => {
+      let t = ''; r.on('data', (c) => (t += c)); r.on('end', () => res({ status: r.statusCode, body: t }));
+    });
+    rq.on('error', rej); if (data) rq.write(data); rq.end();
+  });
+  eq((await H('GET', '/api/state')).status, 401, 'Programmdaten brauchen Passwort');
+  eq((await H('GET', `/a/${ord.token}`)).status, 200, 'Unterschriftsseite ohne Passwort');
+  const pub = await H('GET', `/api/public/order/${ord.token}`);
+  eq(pub.status, 200, 'Auftrag für Kunden abrufbar');
+  const pj = JSON.parse(pub.body);
+  ok(!('customerId' in pj.order) && !('token' in pj.order) && !pub.body.includes('signerIp'), 'keine internen Daten im Kunden-Link');
+  eq((await H('GET', '/api/public/order/' + 'a'.repeat(36))).status, 404, 'falscher Link → nicht gefunden');
+  const s1 = await H('POST', `/api/public/order/${ord.token}/sign`, { name: 'Jens Hansen', signature: png, accept: false });
+  eq(s1.status, 400, 'ohne Bestätigung keine Unterschrift');
+  ok(/Udfyld/.test(s1.body), 'Fehlermeldung auf Dänisch');
+  const s2 = await H('POST', `/api/public/order/${ord.token}/sign`, { name: 'Jens Hansen', signature: png, accept: true, comment: 'Levering om formiddagen' });
+  eq(s2.status, 200, 'Kunde unterschreibt');
+  eq(ord.status, 'signed', 'Status unterschrieben');
+  eq(ord.signerIp, '127.0.0.1', 'IP gespeichert');
+  ok(/^[a-f0-9]{64}$/.test(ord.docHash), 'Prüfsumme des Dokuments gespeichert');
+  eq((await H('POST', `/api/public/order/${ord.token}/sign`, { name: 'X', signature: png, accept: true })).status, 409, 'zweites Unterschreiben abgelehnt');
+  RS.server.close(); delete process.env.PASSWORD;
+  try { await A('PUT', `orders/${ord.id}`, {}); ok(false, 'unterschriebener Auftrag gesperrt'); } catch { ok(true, 'unterschriebener Auftrag gesperrt'); }
+  const fromOrd = await A('POST', `orders/${ord.id}/invoice`);
+  eq(fromOrd.status, 'draft', 'Rechnungsentwurf aus Auftrag');
+  eq(fromOrd.lines[0].image, undefined, 'Rechnung ohne Bilder');
+  ok(fromOrd.note.includes('Ordrenr. 1001'), 'Auftragsnummer auf der Rechnung: ' + fromOrd.note);
+  eq(ord.status, 'invoiced', 'Auftrag abgerechnet');
+  // abgelaufenes Angebot
+  const old = await A('POST', 'orders', { customerId: dk.id, validUntil: '2020-01-01', lines: [{ text: 'X', qty: '1', price: '1' }] });
+  await A('POST', `orders/${old.id}/send`);
+  try { await P('POST', `order/${old.token}/sign`, { name: 'A', signature: png, accept: true }); ok(false, 'abgelaufen'); } catch (e) { ok(/udløbet/.test(e.message), 'abgelaufenes Angebot: ' + e.message); }
+
   // Texte in allen Sprachen vollständig
   const keys = Object.keys(DocLang.T.de);
   for (const l of ['da', 'en']) ok(keys.every((k) => k in DocLang.T[l]), `Texte ${l} vollständig`);

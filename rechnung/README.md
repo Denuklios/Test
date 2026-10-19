@@ -21,6 +21,7 @@ Deine Daten liegen in `rechnung/data/rechnung.json`. Jeden Tag wird automatisch 
 | **Kunden** | Land, Sprache (DE/DA/EN), Währung, CVR-Nr. bzw. USt-IdNr. Dänische Firmen: Daten per Klick aus dem **CVR-Register** holen. EU-Firmen: USt-IdNr. per Klick bei der EU (**VIES**) prüfen. |
 | **Momsart automatisch** | Dänemark → 25 % Moms · EU-Firma mit USt-IdNr. → 0 %, Reverse Charge · EU-Privatkunde → 25 % · außerhalb der EU → 0 % (Export) |
 | **Produkte** | Name in drei Sprachen. Auf der Rechnung erscheint automatisch der Name in der Kundensprache. |
+| **Aufträge ✍️** | Auftragsbestätigung mit Produktbildern in der Kundensprache, Kunde unterschreibt online per Link, Unterschrift kommt automatisch zurück, danach mit einem Klick die Rechnung. |
 | **Rechnungen** | Entwurf → genehmigen (fortlaufende Nummer, danach gesperrt) → bezahlt. Gutschriften (Kreditnota), Kopieren, Zahlungserinnerung, Rabatt, momsfreie Zeilen, Fremdwährung mit Kurs von Nationalbanken/EZB. Drucken bzw. **als PDF speichern**, E-Mail-Text in der Kundensprache. |
 | **Pflichtangaben** | Alle Angaben nach dänischem Recht: CVR-Nr., fortlaufende Nummer, Datum, Moms je Satz, bei Fremdwährung die Moms in DKK, Reverse-Charge-Hinweis mit USt-IdNr. des Kunden, Bankverbindung (Reg./Konto, IBAN/BIC), optional FI-Zahlungslinie (+71). |
 | **Belege 📷** | Beleg mit dem Handy fotografieren (oder Foto/PDF hochladen). Die Erkennung liest Ausgabe oder Einnahme, Lieferant, Datum, Betrag, Moms, bezahlt oder offen, Fälligkeit, EU-Einkauf und Fremdwährung (mit Kurs in DKK umgerechnet). Eindeutige Belege werden sofort gebucht, unklare kommen zur Prüfung. Der Beleg wird automatisch mit der passenden Lunar-Abbuchung verknüpft. Gibt es die Ausgabe schon (z. B. aus dem Kontoauszug), wird der Beleg angehängt statt doppelt gebucht. |
@@ -28,6 +29,17 @@ Deine Daten liegen in `rechnung/data/rechnung.json`. Jeden Tag wird automatisch 
 | **Bank (Lunar)** | Kontoauszug aus Lunar als CSV importieren. Zahlungseingänge werden automatisch passenden Rechnungen vorgeschlagen (Betrag, Rechnungsnummer im Text). Abbuchungen mit einem Klick als Ausgabe buchen. |
 | **Moms / SKAT** | Fertige **Momsangivelse** genau mit den Feldern aus TastSelv Erhverv (Salgsmoms, Købsmoms, Rubrik A, B, C, Momstilsvar), Frist je Periode (Halbjahr/Quartal/Monat), Liste für **EU-salg uden moms**, CSV für den Steuerberater. |
 | **Übersicht** | Offene und überfällige Rechnungen, Umsatz je Monat, Moms der laufenden Periode, Erinnerung an die nächste Frist. |
+
+## Aufträge mit Unterschrift des Kunden
+
+1. **Produkte mit Bild:** Unter „Produkte“ kannst du jedem Produkt ein Foto geben. Das erscheint automatisch auf der Auftragsbestätigung. In jeder Auftragszeile kannst du auch ein eigenes Bild wählen (z. B. das Logo-Muster des Kunden).
+2. **Auftrag anlegen:** Unter „Aufträge“ oder in der Kundenliste auf „+ Auftrag“. Dazu kannst du Liefertermin und „gültig bis“ eintragen. Die Auftragsbestätigung erscheint in der Sprache des Kunden (Ordrebekræftelse / Auftragsbestätigung / Order confirmation).
+3. **Freigeben:** „Zum Unterschreiben freigeben“ erzeugt einen geheimen Link. Mit „Link per E-Mail senden“ öffnet sich eine fertige E-Mail in der Kundensprache.
+4. **Der Kunde** öffnet den Link (Handy oder PC, ohne Passwort), prüft alles, gibt seinen Namen ein, unterschreibt mit Finger oder Maus und bestätigt. Er kann die unterschriebene Bestätigung als PDF speichern.
+5. **Automatisch zurück:** Der Status springt auf „Unterschrieben ✔“, auf der Übersicht steht ein Hinweis. Gespeichert werden Unterschrift, Name, Zeitpunkt, IP-Adresse und eine Prüfsumme des Dokuments als Nachweis.
+6. **Rechnung erstellen:** Ein Klick macht aus dem Auftrag einen Rechnungsentwurf (ohne Bilder, mit Auftragsnummer).
+
+**Wichtig:** Damit Kunden den Link öffnen können, muss RechnungsStudio **im Internet erreichbar** sein (eigener Server mit HTTPS, Passwort mit `PASSWORD=` setzen). Dann unter Einstellungen die „Öffentliche Adresse“ eintragen. Die Unterschriftsseite braucht kein Passwort, alles andere bleibt geschützt. Läuft das Programm nur auf deinem Computer, kannst du die Auftragsbestätigung als PDF drucken und unterschreiben lassen.
 
 ## Belege mit dem Handy fotografieren
 
