@@ -232,6 +232,31 @@ eq(p.rows[0].amount, 125000, 'CSV-Eingang');
   await A('POST', `orders/${old.id}/send`);
   try { await P('POST', `order/${old.token}/sign`, { name: 'A', signature: png, accept: true }); ok(false, 'abgelaufen'); } catch (e) { ok(/udløbet/.test(e.message), 'abgelaufenes Angebot: ' + e.message); }
 
+  // Abzüge: Anteile je Kategorie, Kilometergeld, Moms-Abrechnung
+  const F = require('../rechnung/public/fradrag.js');
+  eq(JSON.stringify(F.shares('Bewirtung (25 % abziehbar)', {})), '{"vat":25,"tax":25}', 'Bewirtung 25 % Moms / 25 % Steuer');
+  eq(JSON.stringify(F.shares('Tanken/Laden Pkw', { carShare: '60' })), '{"vat":0,"tax":60}', 'Pkw: keine Moms, Steuer nach Fahrtenbuch');
+  eq(F.shares('Fahrzeug/Benzin', {}).vat, 0, 'alter Kategoriename wird verstanden');
+  eq(F.mileage(25000, 2026), (20000 * 3.94 + 5000 * 2.28) * 100, 'Kilometergeld 2026 über 20.000 km');
+  eq(F.mileage(100, 2025), 381 * 100, 'Kilometergeld 2025');
+  eq(F.rates(2026).smallAsset, 36000, 'Grenze Sofortabschreibung 2026');
+  const bw = await A('POST', 'expenses', { date: '2027-02-10', supplier: 'Restaurant', category: 'Bewirtung (25 % abziehbar)', amount: '500.00', vat: '100.00' });
+  eq(bw.vatShare, 25, 'Bewirtung bekommt automatisch 25 %');
+  const alt = { date: '2027-02-11', supplier: 'Alt', category: 'Diverse', amount: '125.00', vat: '25.00' }; // ältere Buchung ohne Anteil
+  const vr = Calc.vatReport([], [...RS.getState().expenses.filter((e) => e.date.startsWith('2027')), alt], '2027-01-01', '2027-03-31');
+  eq(vr.koebsmoms, 2500 + 2500, 'Købsmoms: 25 % von 100 kr. + alte Buchung voll');
+  await A('PUT', 'settings', { legalForm: 'aps', carShare: '0', phoneShare: '50' });
+  const t1 = await A('POST', 'trips', { date: '2027-03-01', from: 'Werkstatt', to: 'Kunde A', purpose: 'Lieferung', km: '19000' });
+  eq(t1.km, 19000, 'Fahrt eingetragen');
+  const k1 = await A('POST', 'trips/book', { year: 2027 });
+  eq(k1.amount, (19000 * 3.94).toFixed(2), 'Kilometergeld gebucht');
+  eq(k1.vatShare, 0, 'Kilometergeld ohne Moms');
+  await A('POST', 'trips', { date: '2027-04-01', from: 'Werkstatt', to: 'Kunde B', purpose: 'Montage', km: '2000' });
+  const k2 = await A('POST', 'trips/book', { year: 2027 });
+  eq(k2.amount, (1000 * 3.94 + 1000 * 2.28).toFixed(2), 'zweite Abrechnung über die 20.000-km-Grenze');
+  try { await A('DELETE', `trips/${t1.id}`); ok(false, 'abgerechnete Fahrt gesperrt'); } catch { ok(true, 'abgerechnete Fahrt gesperrt'); }
+  try { await A('POST', 'trips/book', { year: 2027 }); ok(false, 'nichts mehr offen'); } catch { ok(true, 'keine offenen Fahrten mehr'); }
+
   // Texte in allen Sprachen vollständig
   const keys = Object.keys(DocLang.T.de);
   for (const l of ['da', 'en']) ok(keys.every((k) => k in DocLang.T[l]), `Texte ${l} vollständig`);

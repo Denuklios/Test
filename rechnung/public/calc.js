@@ -66,6 +66,9 @@
 
   /* Momsangivelse für TastSelv Erhverv. Fakturierungsprinzip: es zählt das Rechnungsdatum.
      Ausgaben: amount = Brutto, vat = enthaltene (abziehbare) Moms, euPurchase = 'goods'|'services'|'' */
+  // abziehbarer Moms-Anteil einer Ausgabe in Prozent (ältere Einträge ohne Angabe: 100 %)
+  const share = (ex) => (ex.vatShare === undefined || ex.vatShare === null || ex.vatShare === '' ? 100 : Math.max(0, Math.min(100, Number(ex.vatShare) || 0)));
+
   function vatReport(invoices, expenses, from, to, incomes) {
     const r = {
       salgsmoms: 0, momsVarekoebUdland: 0, momsYdelseskoebUdland: 0, koebsmoms: 0,
@@ -101,9 +104,9 @@
         const self = round((net * DK_RATE) / 100);
         if (ex.euPurchase === 'goods') { r.rubrikAVarer += net; r.momsVarekoebUdland += self; }
         else { r.rubrikAYdelser += net; r.momsYdelseskoebUdland += self; }
-        if (ex.deductible !== false) r.koebsmoms += self;
+        if (ex.deductible !== false) r.koebsmoms += round((self * share(ex)) / 100);
       } else if (ex.deductible !== false) {
-        r.koebsmoms += vat;
+        r.koebsmoms += round((vat * share(ex)) / 100);
       }
     }
     // Sonstige Einnahmen (z. B. aus fotografierten Belegen): enthaltene Moms ist Salgsmoms
@@ -160,5 +163,5 @@
     return d.toISOString().slice(0, 10);
   }
 
-  return { EU, DK_RATE, round, toCents, vatScheme, schemeRate, lineNet, lineRate, totals, toDKK, sign, vatReport, periods, fikLine, fikCheckDigit, dueDate };
+  return { vatShare: share, EU, DK_RATE, round, toCents, vatScheme, schemeRate, lineNet, lineRate, totals, toDKK, sign, vatReport, periods, fikLine, fikCheckDigit, dueDate };
 });

@@ -574,7 +574,26 @@ routes.produkte = () => {
 };
 
 /* ---------- Ausgaben (Købsmoms) und sonstige Einnahmen ---------- */
-const CATS = ['Material/Waren', 'Werkzeug/Maschinen', 'Büro', 'Software/Abos', 'Telefon/Internet', 'Fahrzeug/Benzin', 'Miete', 'Strom/Wasser/Heizung', 'Werbung', 'Versand', 'Bankgebühren', 'Versicherung', 'Bewirtung (25 % abziehbar)', 'Diverse'];
+const CATS = Fradrag.names;
+const catOpts = (sel) => { const cur = Fradrag.byName(sel || 'Diverse').name; return CATS.map((c) => `<option ${c === cur ? 'selected' : ''}>${esc(c)}</option>`).join(''); };
+// Abziehbarer Anteil (Moms/Steuer) – wird beim Wechsel der Kategorie vorgeschlagen und kann angepasst werden
+const sharesHtml = (d) => `<label>Moms abziehbar (%)<input name="vatShare" type="number" min="0" max="100" value="${esc(d.vatShare ?? '')}"></label>
+    <label>Steuerlich absetzbar (%)<input name="taxShare" type="number" min="0" max="100" value="${esc(d.taxShare ?? '')}"></label>
+    <div class="wide small muted cat-info"></div>`;
+function bindShares(el, fresh) {
+  const cat = $('[name=category]', el);
+  const info = () => {
+    const c = Fradrag.byName(cat.value);
+    const net = numIn($('[name=amount]', el)?.value || 0) - numIn($('[name=vat]', el)?.value || 0);
+    const limit = Fradrag.rates(Number(($('[name=date]', el)?.value || today()).slice(0, 4))).smallAsset;
+    $('.cat-info', el).innerHTML = (c.info ? '💡 ' + esc(c.info) : '')
+      + (/Werkzeug|Computer/.test(c.name) && net > limit ? `<div style="color:var(--warn)">Über ${kr(limit * 100)} netto: nicht sofort absetzbar, sondern über Abschreibung (der revisor trägt es ins Anlageverzeichnis ein).</div>` : '');
+  };
+  const fill = () => { const sh = Fradrag.shares(cat.value, S.settings); $('[name=vatShare]', el).value = sh.vat; $('[name=taxShare]', el).value = sh.tax; info(); };
+  cat.addEventListener('change', fill);
+  $('[name=amount]', el)?.addEventListener('input', info);
+  if (fresh || $('[name=vatShare]', el).value === '') fill(); else info();
+}
 const INCOME_CATS = ['Verkauf/Leistung', 'Barverkauf', 'Plattform-Auszahlung', 'Sonstige Einnahme'];
 const isPaid = (x) => x.paid !== false; // ältere Einträge ohne Angabe gelten als bezahlt
 const clip = (x) => (x.receiptId ? ` <a href="/beleg/${x.receiptId}" target="_blank" title="Beleg ansehen" onclick="event.stopPropagation()">📎</a>` : '');
@@ -591,7 +610,7 @@ routes.ausgaben = () => {
       ${unpaid.length ? `<br><b>Offene Lieferantenrechnungen: ${kr(unpaid.reduce((s, e) => s + Calc.toCents(e.amount), 0))}</b> (${unpaid.length})` : ''}</div>
     ${exp.length ? `<div class="table-wrap"><table><thead><tr><th>Datum</th><th>Lieferant</th><th>Text</th><th>Kategorie</th><th class="r">Betrag</th><th class="r">Moms</th></tr></thead><tbody>
     ${exp.map((e) => `<tr class="click" data-e="${e.id}"><td>${dmy(e.date)}</td><td>${esc(e.supplier)}${clip(e)}</td><td>${esc(e.text)}${openBadge(e)}</td><td>${esc(e.category)}${e.euPurchase ? ' <span class="badge b-open">EU-Einkauf</span>' : ''}</td>
-      <td class="r">${kr(Calc.toCents(e.amount))}</td><td class="r">${e.euPurchase ? '<span class="muted">Rubrik A</span>' : kr(Calc.toCents(e.vat))}</td></tr>`).join('')}</tbody></table></div>` : '<div class="card empty">Noch keine Ausgaben. Am einfachsten: Beleg fotografieren.</div>'}`
+      <td class="r">${kr(Calc.toCents(e.amount))}</td><td class="r">${e.euPurchase ? '<span class="muted">Rubrik A</span>' : kr(Calc.toCents(e.vat))}${Calc.vatShare(e) < 100 && !e.euPurchase ? `<div class="muted small">davon ${Calc.vatShare(e)} % abziehbar</div>` : ''}</td></tr>`).join('')}</tbody></table></div>` : '<div class="card empty">Noch keine Ausgaben. Am einfachsten: Beleg fotografieren.</div>'}`
     : `<div class="note">Einnahmen ohne eigene Rechnung, z. B. Barverkäufe oder Auszahlungen von Plattformen. Die enthaltene Moms zählt als Salgsmoms. Für Kunden schreibst du besser eine richtige Rechnung.</div>
     ${inc.length ? `<div class="table-wrap"><table><thead><tr><th>Datum</th><th>Von</th><th>Text</th><th>Kategorie</th><th class="r">Betrag</th><th class="r">Moms</th></tr></thead><tbody>
     ${inc.map((e) => `<tr class="click" data-i="${e.id}"><td>${dmy(e.date)}</td><td>${esc(e.name)}${clip(e)}</td><td>${esc(e.text)}${openBadge(e)}</td><td>${esc(e.category)}</td>
@@ -624,14 +643,14 @@ function expenseForm(e) {
     <label>Datum<input type="date" name="date" value="${d.date}"></label>
     <label>Lieferant<input name="supplier" value="${esc(d.supplier || '')}"></label>
     <label class="wide">Text<input name="text" value="${esc(d.text || '')}"></label>
-    <label>Kategorie<select name="category">${CATS.map((c) => `<option ${c === d.category ? 'selected' : ''}>${c}</option>`).join('')}</select></label>
+    <label>Kategorie<select name="category">${catOpts(d.category)}</select></label>
     <label>Art<select name="euPurchase"><option value="">Normal (Dänemark, mit Moms)</option><option value="goods" ${d.euPurchase === 'goods' ? 'selected' : ''}>EU-Einkauf Waren ohne Moms</option><option value="services" ${d.euPurchase === 'services' ? 'selected' : ''}>EU-/Ausland-Einkauf Dienstleistung ohne Moms</option></select></label>
     <label><span id="amt-l">Betrag inkl. Moms (DKK)</span><input name="amount" inputmode="decimal" value="${esc(num(d.amount || ''))}"></label>
     <label class="vat-l">Darin enthaltene Moms (DKK)<div class="inline"><input name="vat" inputmode="decimal" value="${esc(num(d.vat || ''))}"><button type="button" id="v25" title="20 % vom Bruttobetrag = 25 % Moms">25 %</button></div></label>
     <label>Rechnungs-/Belegnummer<input name="invoiceNumber" value="${esc(d.invoiceNumber || '')}"></label>
     <label><input type="checkbox" name="paid" ${isPaid(d) ? 'checked' : ''}> Bezahlt</label>
     <label class="due-l">Fällig am<input type="date" name="dueDate" value="${esc(d.dueDate || '')}"></label>
-    <label class="wide"><input type="checkbox" name="deductible" ${d.deductible !== false ? 'checked' : ''}> Moms ist abziehbar (Købsmoms)</label>
+    ${sharesHtml(d)}
     ${receiptRow(e, 'expense')}</div>
     <div class="modal-actions">${e ? '<button class="danger" id="del" style="margin-right:auto">Löschen</button>' : ''}<button onclick="closeModal()">Abbrechen</button><button class="primary" id="ok">Speichern</button></div>`, (el) => {
     const upd = () => {
@@ -644,8 +663,10 @@ function expenseForm(e) {
     $('#v25', el).onclick = () => ($('[name=vat]', el).value = num((Math.round(numIn($('[name=amount]', el).value) * 20) / 100).toFixed(2)));
     $('[name=amount]', el).addEventListener('change', () => { if (!$('[name=vat]', el).value) $('#v25', el).click(); });
     bindAttach(el, e, () => routes.ausgaben());
+    bindShares(el, !e);
     $('#ok', el).onclick = async () => {
       const f = formData(el);
+      f.deductible = true;
       f.amount = numIn(f.amount).toFixed(2); f.vat = f.euPurchase ? '0.00' : numIn(f.vat).toFixed(2);
       if (f.paid && !isPaid(d)) f.paidDate = today();
       if (f.paid) f.dueDate = '';
@@ -679,6 +700,129 @@ function incomeForm(e) {
     e && ($('#del', el).onclick = async () => { if (confirm('Einnahme löschen?')) { await act(() => api('incomes/' + e.id, 'DELETE')); closeModal(); route(); } });
   });
 }
+
+/* ---------- Abzüge (Fradrag): was die Firma absetzen kann ---------- */
+let fradragYear = new Date().getFullYear();
+// steuerlich absetzbarer Betrag einer Ausgabe in Øre: Netto × Steueranteil + nicht abziehbare Moms (wird zu Kosten) × Steueranteil
+function expenseDeduction(e) {
+  const gross = Calc.toCents(e.amount), vat = e.euPurchase ? 0 : Calc.toCents(e.vat);
+  const net = gross - vat;
+  const vatShare = Calc.vatShare(e), taxShare = e.taxShare === undefined || e.taxShare === '' ? 100 : Number(e.taxShare);
+  const vatBack = Math.round((vat * vatShare) / 100);
+  let tax = Math.round(((net + vat - vatBack) * taxShare) / 100);
+  // Maschinen/IT über der Grenze für Sofortabschreibung: im ersten Jahr höchstens 25 % (Saldo-Abschreibung)
+  const big = /Werkzeug|Computer/.test(Fradrag.byName(e.category).name) && net > Fradrag.rates(Number(String(e.date).slice(0, 4))).smallAsset * 100;
+  if (big) tax = Math.round(tax * 0.25);
+  return { net, vatBack, tax, big };
+}
+routes.abzuege = () => {
+  const y = fradragYear, s = S.settings, R = Fradrag.rates(y);
+  const exp = S.expenses.filter((e) => String(e.date).startsWith(y));
+  const trips = S.trips.filter((t) => String(t.date).startsWith(y)).sort((a, b) => b.date.localeCompare(a.date));
+  const km = trips.reduce((a, t) => a + (Number(t.km) || 0), 0);
+  const kmOpen = trips.filter((t) => !t.expenseId).reduce((a, t) => a + (Number(t.km) || 0), 0);
+  const mileage = Fradrag.mileage(km, y);
+  // je Kategorie
+  const per = {};
+  let tNet = 0, tVat = 0, tTax = 0;
+  for (const e of exp) {
+    const c = Fradrag.byName(e.category).name, d = expenseDeduction(e);
+    const p = per[c] || (per[c] = { n: 0, net: 0, vat: 0, tax: 0, big: 0 });
+    p.n++; p.net += d.net; p.vat += d.vatBack; p.tax += d.tax; if (d.big) p.big++;
+    tNet += d.net; tVat += d.vatBack; tTax += d.tax;
+  }
+  // Kilometergeld der noch nicht abgerechneten Fahrten (abgerechnete stecken schon in den Ausgaben)
+  const extra = Fradrag.mileage(km, y) - Fradrag.mileage(km - kmOpen, y);
+  const rate = Number(s.taxRate) || 0;
+  const form = s.legalForm || 'aps';
+  const years = [new Date().getFullYear(), new Date().getFullYear() - 1, new Date().getFullYear() - 2];
+  const catalog = Fradrag.CATALOG.filter((c) => !c.forms || c.forms.includes(form));
+  const groups = [...new Set(catalog.map((c) => c.group))];
+  const status = (c) => {
+    if (c.id === 'mileage') return trips.length ? `<span class="badge b-paid">✔ ${trips.length} Fahrten, ${km.toLocaleString('de-DE')} km</span>` : '<span class="badge b-draft">noch keine Fahrten</span>';
+    if (c.private) return '<span class="badge b-credit">privat · Steuererklärung</span>';
+    const n = exp.filter((e) => c.cats.includes(Fradrag.byName(e.category).name));
+    return n.length ? `<span class="badge b-paid">✔ ${n.length} Buchung(en), ${kr(n.reduce((a, e) => a + expenseDeduction(e).tax, 0))} absetzbar</span>` : '<span class="badge b-draft">noch nichts gebucht – prüfen</span>';
+  };
+  $('#main').innerHTML = `<h1>Abzüge ${y} <span class="spacer"></span><select id="fy" style="width:auto">${years.map((x) => `<option ${x === y ? 'selected' : ''}>${x}</option>`).join('')}</select></h1>
+    <div class="note">Hier siehst du, was deine Firma ${y} absetzen kann – bei der <b>Moms</b> (Købsmoms, sofort bei jeder Moms-Abrechnung) und bei der <b>Steuer</b> (Jahresabschluss). Jede Ausgabe bekommt automatisch den richtigen Anteil nach ihrer Kategorie; du kannst ihn bei jeder Ausgabe ändern.
+      <br><span class="small">Stand der Recherche: Oktober 2026, Sätze für ${y}. Keine Steuerberatung – bitte einmal im Jahr mit deinem revisor abgleichen.</span></div>
+    <div class="cards">
+      <div class="card stat"><div class="k">Ausgaben ${y} (netto)</div><div class="v">${kr(tNet)}</div><div class="s">${exp.length} Buchungen</div></div>
+      <div class="card stat"><div class="k">Moms zurück (Købsmoms)</div><div class="v">${kr(tVat)}</div><div class="s">schon in der Moms-Abrechnung</div></div>
+      <div class="card stat"><div class="k">Steuerlich absetzbar</div><div class="v">${kr(tTax + (extra || 0))}</div><div class="s">inkl. ${kr(extra || 0)} offenes Kilometergeld</div></div>
+      <div class="card stat"><div class="k">Geschätzte Steuerersparnis</div><div class="v">${kr(Math.round(((tTax + (extra || 0)) * rate) / 100))}</div><div class="s">bei ${rate} % Steuersatz (Angabe unten)</div></div>
+    </div>
+
+    <h2>Nach Kategorie</h2>
+    ${Object.keys(per).length ? `<div class="table-wrap"><table><thead><tr><th>Kategorie</th><th class="r">Buchungen</th><th class="r">Netto</th><th class="r">Moms zurück</th><th class="r">Steuerlich absetzbar</th></tr></thead><tbody>
+      ${Object.entries(per).sort((a, b) => b[1].tax - a[1].tax).map(([c, p]) => `<tr><td>${esc(c)}</td><td class="r">${p.n}</td><td class="r">${kr(p.net)}</td><td class="r">${kr(p.vat)}</td><td class="r"><b>${kr(p.tax)}</b>${p.big ? `<div class="muted small">davon ${p.big}× Abschreibung 25 % (über ${kr(R.smallAsset * 100)})</div>` : ''}</td></tr>`).join('')}
+      <tr><td><b>Summe</b></td><td class="r">${exp.length}</td><td class="r"><b>${kr(tNet)}</b></td><td class="r"><b>${kr(tVat)}</b></td><td class="r"><b>${kr(tTax)}</b></td></tr>
+    </tbody></table></div>` : '<div class="card empty">Für dieses Jahr noch keine Ausgaben gebucht.</div>'}
+
+    <h2>Fahrtenbuch (Kilometergeld)</h2>
+    <div class="card">
+      <div class="small muted" style="margin-bottom:8px">Firmenfahrten mit dem <b>privaten Auto</b>: ${y} gibt es ${String(R.kmLow).replace('.', ',')} kr./km für die ersten ${R.kmLimit.toLocaleString('de-DE')} km, danach ${String(R.kmHigh).replace('.', ',')} kr./km. Pflicht im Fahrtenbuch: Datum, Ziel mit Adresse, Zweck, km. ${form === 'aps' ? 'Bei der ApS zahlt dir die Firma das Kilometergeld steuerfrei aus – mit „Als Ausgabe buchen“ entsteht die Buchung, dann den Betrag von Lunar an dich überweisen.' : 'Im Einzelunternehmen ist das Kilometergeld eine Betriebsausgabe – mit „Als Ausgabe buchen“ entsteht die Buchung.'} Tankbelege vom Privatauto dann nicht zusätzlich buchen.</div>
+      <div class="grid" id="tripform">
+        <label>Datum<input type="date" name="date" value="${today()}"></label>
+        <label>Von<input name="from" value="${esc([s.street, s.city].filter(Boolean).join(', '))}"></label>
+        <label>Nach (Adresse)<input name="to" placeholder="z. B. Kunde, Straße, Ort"></label>
+        <label>Zweck<input name="purpose" placeholder="z. B. Lieferung Auftrag 1004"></label>
+        <label>Kilometer<input name="km" inputmode="decimal"></label>
+        <label style="align-self:end"><input type="checkbox" name="round" checked> Hin und zurück (km × 2)</label>
+        <div style="align-self:end"><button class="primary" id="addtrip">Fahrt eintragen</button></div>
+      </div>
+      ${trips.length ? `<div class="table-wrap" style="margin-top:12px"><table><thead><tr><th>Datum</th><th>Von → Nach</th><th>Zweck</th><th class="r">km</th><th></th></tr></thead><tbody>
+        ${trips.map((t) => `<tr><td>${dmy(t.date)}</td><td>${esc(t.from)} → ${esc(t.to)}</td><td>${esc(t.purpose)}</td><td class="r">${Number(t.km).toLocaleString('de-DE')}</td>
+          <td>${t.expenseId ? '<span class="badge b-paid">abgerechnet</span>' : `<button class="small danger" data-deltrip="${t.id}">✕</button>`}</td></tr>`).join('')}
+        <tr><td colspan="3"><b>Summe ${y}</b> · Kilometergeld ${kr(mileage)}</td><td class="r"><b>${km.toLocaleString('de-DE')}</b></td><td></td></tr></tbody></table></div>` : ''}
+      <div class="row" style="margin-top:10px">${kmOpen ? `<button id="booktrips" class="primary">Kilometergeld für ${kmOpen.toLocaleString('de-DE')} km als Ausgabe buchen</button>` : ''}${trips.length ? '<button id="tripcsv">Fahrtenbuch als CSV (für den revisor)</button>' : ''}</div>
+    </div>
+
+    <h2>Deine Angaben</h2>
+    <div class="card" id="fsettings"><div class="grid">
+      <label>Rechtsform<select name="legalForm">${opts(Fradrag.LEGAL_FORMS, form)}</select></label>
+      <label>Fahrzeug der Firma<select name="vehicle">${opts({ none: 'Kein Firmenfahrzeug (Privatauto → Kilometergeld)', van: 'Transporter mit gelben Kennzeichen', car: 'Pkw mit weißen Kennzeichen' }, s.vehicle || 'none')}</select></label>
+      <label>Firmenanteil Pkw laut Fahrtenbuch (%)<input type="number" min="0" max="100" name="carShare" value="${esc(s.carShare ?? 0)}"></label>
+      <label>Firmenanteil Telefon/Internet (privat mitgenutzt, %)<input type="number" min="0" max="100" name="phoneShare" value="${esc(s.phoneShare ?? 50)}"></label>
+      <label>Anteil Arbeitszimmer an der Wohnung (%)<input type="number" min="0" max="100" name="homeOfficeShare" value="${esc(s.homeOfficeShare ?? 0)}"></label>
+      <label>Steuersatz für die Schätzung (%)<input type="number" min="0" max="70" name="taxRate" value="${esc(s.taxRate ?? 22)}"></label>
+    </div>
+    <div class="small muted" style="margin-top:6px">ApS: 22 % Selskabsskat. Einzelunternehmen: dein persönlicher Grenzsteuersatz (oft 37–52 %). Arbeitszimmer nur, wenn der Raum ausschließlich für die Firma genutzt wird (siehe unten). Die Anteile gelten für neue Buchungen; bestehende Ausgaben behalten ihren Wert.</div>
+    <div class="row" style="margin-top:10px"><button class="primary" id="savefs">Angaben speichern</button></div></div>
+
+    <h2>Was du absetzen kannst – Checkliste</h2>
+    <div class="small muted" style="margin-bottom:8px">„noch nichts gebucht“ heißt: Prüfe, ob du hier Ausgaben hast, die noch fehlen. Grüne Punkte sind schon erfasst.</div>
+    ${groups.map((g) => `<h3 style="margin:18px 0 8px">${esc(g)}</h3>
+      ${catalog.filter((c) => c.group === g).map((c) => `<div class="card fr-card">
+        <div class="row" style="justify-content:space-between;align-items:flex-start"><div><b>${esc(c.title)}</b> <span class="muted small">(dänisch: ${esc(c.dk)})</span></div>${status(c)}</div>
+        <div class="fr-badges"><span>Steuer: <b>${esc(c.tax)}</b></span><span>Moms: <b>${esc(c.vat)}</b></span></div>
+        <div>${esc(c.how)}</div>
+        ${c.warn ? `<div class="note warn small" style="margin:8px 0 0">${esc(c.warn)}</div>` : ''}
+        ${c.sources?.length ? `<div class="small" style="margin-top:6px">Quellen: ${c.sources.map((q) => `<a href="${esc(q.url)}" target="_blank" rel="noopener">${esc(q.label)}</a>`).join(' · ')}</div>` : ''}
+      </div>`).join('')}`).join('')}
+    <div class="note small">Alle Angaben beruhen auf einer Recherche im Oktober 2026 (u. a. skat.dk, Skattestyrelsens Juridisk vejledning, Skatteministeriet) und sind keine Steuerberatung. Regeln und Sätze ändern sich jedes Jahr – im Zweifel den revisor fragen.</div>`;
+
+  $('#fy').onchange = (e) => { fradragYear = Number(e.target.value); routes.abzuege(); };
+  $('#savefs').onclick = async () => { await act(() => api('settings', 'PUT', formData($('#fsettings'))), 'Angaben gespeichert'); routes.abzuege(); };
+  $('#addtrip').onclick = async () => {
+    const f = formData($('#tripform'));
+    const k = numIn(f.km);
+    if (!f.to.trim() || !(k > 0)) return toast('Bitte Ziel und Kilometer eintragen.', true);
+    await act(() => api('trips', 'POST', { date: f.date, from: f.from, to: f.to, purpose: f.purpose, km: f.round ? k * 2 : k }), 'Fahrt eingetragen');
+    routes.abzuege();
+  };
+  $$('[data-deltrip]').forEach((b) => (b.onclick = async () => { if (confirm('Fahrt löschen?')) { await act(() => api('trips/' + b.dataset.deltrip, 'DELETE')); routes.abzuege(); } }));
+  $('#booktrips') && ($('#booktrips').onclick = async () => {
+    const ex = await act(() => api('trips/book', 'POST', { year: y }), 'Kilometergeld als Ausgabe gebucht');
+    toast(`Gebucht: ${kr(Calc.toCents(ex.amount))} – unter „Ausgaben“ als offen markiert, bis du es dir überwiesen hast.`);
+    routes.abzuege();
+  });
+  $('#tripcsv') && ($('#tripcsv').onclick = () => {
+    const rows = [['Datum', 'Von', 'Nach', 'Zweck', 'km'], ...trips.slice().reverse().map((t) => [t.date, t.from, t.to, t.purpose, String(t.km).replace('.', ',')])];
+    download(`fahrtenbuch-${y}.csv`, '﻿' + rows.map((r) => r.map((v) => `"${String(v ?? '').replace(/"/g, '""')}"`).join(';')).join('\r\n'), 'text/csv');
+  });
+};
 
 /* ---------- Belege fotografieren ---------- */
 const b64 = (blob) => new Promise((res, rej) => { const fr = new FileReader(); fr.onload = () => res(String(fr.result).split(',')[1]); fr.onerror = rej; fr.readAsDataURL(blob); });
@@ -758,7 +902,6 @@ function receiptReview(r) {
   const d = { ...(r.draft || {}) };
   const ex = r.extracted;
   const booked = r.booked && (r.booked.kind === 'income' ? S.incomes : S.expenses).find((x) => x.id === r.booked.id);
-  const cats = (k) => (k === 'income' ? INCOME_CATS : CATS);
   modal(`<h2>Beleg ${r.status === 'booked' ? '<span class="badge b-paid">gebucht</span>' : 'prüfen'}</h2>
     <div class="review">
       <div class="pic">${r.mime.startsWith('image/') ? `<a href="/beleg/${r.id}" target="_blank"><img src="/beleg/${r.id}" alt="Beleg"></a>` : `<p style="padding:30px"><a class="btn" href="/beleg/${r.id}" target="_blank">PDF öffnen</a></p>`}</div>
@@ -780,6 +923,7 @@ function receiptReview(r) {
           <label>Beleg-/Rechnungsnr.<input name="documentNumber" value="${esc(d.documentNumber || '')}"></label>
           <label><input type="checkbox" name="paid" ${d.paid ? 'checked' : ''}> Bezahlt</label>
           <label class="due-l">Fällig am<input type="date" name="dueDate" value="${esc(d.dueDate || '')}"></label>
+          <div class="wide grid sh-wrap" style="padding:0">${sharesHtml(d)}</div>
         </div>
         <div class="modal-actions"><button class="danger" id="del" style="margin-right:auto">Löschen</button>${S.ai.enabled ? '<button id="retry">Neu erkennen</button>' : ''}<button onclick="closeModal()">Später</button><button class="primary" id="book">Buchen</button></div>`}
       </div></div>`, (el) => {
@@ -796,7 +940,8 @@ function receiptReview(r) {
     const upd = () => {
       const k = $('[name=kind]', el).value, eu = k === 'expense' && $('[name=euPurchase]', el).value;
       const cat = $('[name=category]', el), cur = cat.value || d.category;
-      cat.innerHTML = cats(k).map((c) => `<option ${c === cur ? 'selected' : ''}>${c}</option>`).join('');
+      cat.innerHTML = k === 'income' ? INCOME_CATS.map((c) => `<option ${c === cur ? 'selected' : ''}>${c}</option>`).join('') : catOpts(cur);
+      $('.sh-wrap', el).style.display = k === 'income' ? 'none' : '';
       $('.nm-l', el).textContent = k === 'income' ? 'Von (Kunde / Plattform)' : 'Lieferant / Geschäft';
       $('.eu-l', el).style.display = k === 'income' ? 'none' : '';
       $('.amt-l', el).textContent = eu ? 'Betrag ohne Moms (DKK)' : 'Betrag inkl. Moms (DKK)';
@@ -804,6 +949,7 @@ function receiptReview(r) {
       $('.due-l', el).style.display = $('[name=paid]', el).checked ? 'none' : '';
     };
     $$('select,[name=paid]', el).forEach((x) => x.addEventListener('change', upd)); upd();
+    bindShares(el, false);
     $('#v25', el).onclick = () => ($('[name=vat]', el).value = num((Math.round(numIn($('[name=amount]', el).value) * 20) / 100).toFixed(2)));
     $('#book', el).onclick = async () => {
       const f = formData(el);
@@ -863,7 +1009,7 @@ routes.bank = async () => {
     const t = tx(b.dataset.exp);
     modal(`<h2>Abbuchung als Ausgabe buchen</h2><p>${dmy(t.date)} · ${esc(t.text)} · <b>${kr(t.amount)}</b></p><div class="grid">
       <label>Lieferant<input name="supplier" value="${esc(t.text)}"></label>
-      <label>Kategorie<select name="category">${CATS.map((c) => `<option>${c}</option>`).join('')}</select></label>
+      <label>Kategorie<select name="category">${catOpts('Diverse')}</select></label>
       <label class="wide"><input type="checkbox" name="withVat" checked> Betrag enthält 25 % dänische Moms (Købsmoms abziehen)</label></div>
       <div class="note small">Für EU-Einkäufe ohne Moms die Ausgabe danach unter „Ausgaben“ öffnen und als EU-Einkauf markieren.</div>
       <div class="modal-actions"><button onclick="closeModal()">Abbrechen</button><button class="primary" id="ok">Buchen</button></div>`, (el) => {

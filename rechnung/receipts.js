@@ -5,7 +5,7 @@ let Anthropic = null;
 try { Anthropic = require('@anthropic-ai/sdk').default; } catch { /* Paket nicht installiert → nur manuelle Erfassung */ }
 
 const MODEL = 'claude-opus-5-5';
-const CATEGORIES = ['Material/Waren', 'Werkzeug/Maschinen', 'Büro', 'Software/Abos', 'Telefon/Internet', 'Fahrzeug/Benzin', 'Miete', 'Strom/Wasser/Heizung', 'Werbung', 'Versand', 'Bankgebühren', 'Versicherung', 'Bewirtung (25 % abziehbar)', 'Diverse'];
+const CATEGORIES = require('./public/fradrag').names;
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/gif', 'image/webp'];
 
 const SCHEMA = {
@@ -42,7 +42,7 @@ Bestimme:
 - Beträge exakt vom Beleg (Gesamtbetrag inkl. Moms und die enthaltene Moms). Dänische Belege: "Moms udgør", "heraf moms", "Moms 25%". Deutsche: "MwSt", "USt". Steht nur der Nettobetrag + 25 % dabei, rechne die Moms aus. Dänisches Zahlenformat 1.234,50 = 1234.50.
 - isPaid: Kassenbons, Kvitteringer, "Betalt", "Dankort", "Visa", "MobilePay", "Kontant" → bezahlt. Eine Faktura/Rechnung mit Zahlungsfrist, "Forfaldsdato", "Betalingsbetingelser", "bitte überweisen" → nicht bezahlt (paymentMethod unpaid, dueDate setzen).
 - euPurchase nur, wenn eine Firma aus einem anderen EU-Land ohne Moms berechnet (Reverse Charge, "Steuerschuldnerschaft des Leistungsempfängers", "omvendt betalingspligt").
-- Restaurant/Bewirtung → Kategorie "Bewirtung (25 % abziehbar)". Tankstelle → "Fahrzeug/Benzin".
+- Kategorie so genau wie möglich wählen: Restaurant/Café mit Gästen → "Bewirtung (25 % abziehbar)"; Tankstelle/Laden-Strom → "Tanken/Laden Pkw"; Hotel → "Hotel (Geschäftsreise)"; Zug/Flug/Bus → "Reise (Zug, Bus, Flug)"; Parkhaus, Storebælt, Fähre → "Parken/Brücke/Fähre"; Handy-/Internetrechnung → "Telefon/Internet (auch privat)"; PC/Bildschirm/Drucker → "Computer/IT"; Garn, Stoffe, Holz, Rohlinge → "Material/Waren"; Werkzeug, Fräser, Maschinen → "Werkzeug/Maschinen"; Versicherung → "Versicherung (Firma)"; Pakete/Porto → "Versand".
 Das Foto kann schief, gedreht oder schlecht belichtet sein. Erfinde nichts: Unleserliches leer lassen, confident=false und in notes erklären.`;
 }
 

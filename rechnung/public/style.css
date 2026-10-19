@@ -160,3 +160,8 @@ body.public main { max-width: 900px; }
 /* Erklärhilfe für dänische Begriffe */
 abbr.dk { text-decoration: underline dotted #8a96b0; text-underline-offset: 3px; cursor: help; }
 @media print { abbr.dk { text-decoration: none; } }
+
+/* Abzüge */
+.fr-card { margin-bottom: 10px; }
+.fr-badges { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; margin: 6px 0; color: var(--muted); }
+.fr-badges b { color: var(--text); }

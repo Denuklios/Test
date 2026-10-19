@@ -8,6 +8,7 @@ const path = require('path');
 const crypto = require('crypto');
 const Calc = require('./public/calc');
 const DocLang = require('./public/doclang');
+const Fradrag = require('./public/fradrag');
 const Bank = require('./bank');
 const Receipts = require('./receipts');
 const os = require('os');
@@ -19,7 +20,7 @@ const DATA_DIR = ENV.DATA_DIR || path.join(__dirname, 'data');
 const FILE = path.join(DATA_DIR, 'rechnung.json');
 const PUBLIC = path.join(__dirname, 'public');
 const RECEIPT_DIR = path.join(DATA_DIR, 'belege');
-const VERSION = '1.7';
+const VERSION = '1.9';
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = () => crypto.randomBytes(8).toString('hex');
 
@@ -30,8 +31,9 @@ const EMPTY = () => ({
     company: '', owner: '', street: '', zip: '', city: '', country: 'DK', cvr: '', email: '', phone: '', web: '',
     bankName: 'Lunar', regNo: '', accountNo: '', iban: '', bic: 'LUNADK2B', fikCreditor: '', logo: '',
     nextNumber: 1, nextCustomerNo: 1001, dueDays: 14, vatPeriod: 'quarter', defaultCurrency: 'DKK', footer: '', autoBook: 'yes', nextOrderNumber: 1001, publicUrl: '',
+    legalForm: 'aps', vehicle: 'none', homeOfficeShare: '0', phoneShare: '50', carShare: '0', taxRate: '22',
   },
-  customers: [], products: [], invoices: [], orders: [], expenses: [], incomes: [], receipts: [], bank: [], log: [],
+  customers: [], products: [], invoices: [], orders: [], expenses: [], incomes: [], receipts: [], bank: [], trips: [], log: [],
   secrets: { anthropicKey: '', cvrUser: '', cvrPass: '' },
 });
 
@@ -75,7 +77,17 @@ const byId = (list, id) => list.find((x) => x.id === id) || fail('Nicht gefunden
 
 const CUSTOMER_KEYS = ['name', 'isBusiness', 'contact', 'street', 'zip', 'city', 'country', 'vatId', 'cvr', 'email', 'phone', 'language', 'currency', 'dueDays', 'note', 'ean', 'vatChecked'];
 const PRODUCT_KEYS = ['name', 'name_de', 'name_da', 'name_en', 'unit', 'price', 'kind', 'vatFree', 'currency', 'image'];
-const EXPENSE_KEYS = ['date', 'supplier', 'text', 'category', 'amount', 'vat', 'euPurchase', 'deductible', 'paid', 'paidDate', 'dueDate', 'invoiceNumber', 'currency', 'receiptId'];
+const EXPENSE_KEYS = ['date', 'supplier', 'text', 'category', 'amount', 'vat', 'euPurchase', 'deductible', 'paid', 'paidDate', 'dueDate', 'invoiceNumber', 'currency', 'receiptId', 'vatShare', 'taxShare'];
+const TRIP_KEYS = ['date', 'from', 'to', 'purpose', 'km', 'customerId'];
+// abziehbare Anteile (Moms/Steuer) aus der Kategorie, wenn nicht ausdrücklich angegeben
+function fillShares(ex) {
+  const d = Fradrag.shares(ex.category, state.settings);
+  if (ex.vatShare === undefined || ex.vatShare === '' || ex.vatShare === null) ex.vatShare = d.vat;
+  if (ex.taxShare === undefined || ex.taxShare === '' || ex.taxShare === null) ex.taxShare = d.tax;
+  ex.vatShare = Math.max(0, Math.min(100, Number(ex.vatShare) || 0));
+  ex.taxShare = Math.max(0, Math.min(100, Number(ex.taxShare) || 0));
+  return ex;
+}
 const INCOME_KEYS = ['date', 'name', 'text', 'category', 'amount', 'vat', 'paid', 'paidDate', 'documentNumber', 'receiptId'];
 const INVOICE_KEYS = ['date', 'dueDays', 'customerId', 'currency', 'exchangeRate', 'lines', 'note', 'language', 'vatScheme', 'deliveryDate', 'validUntil'];
 
@@ -250,7 +262,7 @@ async function recognize(id) {
     if (ex.currency && ex.currency.toUpperCase() !== 'DKK' && ex.docType !== 'other') {
       try { r.rate = (await exchangeRate(ex.currency, isDate(ex.date) ? ex.date : '')).rate; } catch { r.rate = 0; }
     }
-    r.draft = draftFromReceipt(r);
+    r.draft = fillShares(draftFromReceipt(r));
     r.status = 'review';
     r.error = '';
     const sure = ex.confident && ex.docType !== 'other' && r.rate > 0 && isDate(ex.date) && n2(ex.total) > 0;
@@ -263,7 +275,15 @@ async function recognize(id) {
   save();
 }
 
-const emptyDraft = () => ({ kind: 'expense', date: today(), name: '', text: '', category: 'Diverse', amount: '', vat: '', euPurchase: '', paid: true, dueDate: '', documentNumber: '' });
+const emptyDraft = () => ({ kind: 'expense', date: today(), name: '', text: '', category: 'Diverse', amount: '', vat: '', euPurchase: '', paid: true, dueDate: '', documentNumber: '', vatShare: 100, taxShare: 100 });
+
+// Tanken/Fahrzeug passend zum eigenen Fahrzeug (Transporter mit gelben oder Pkw mit weißen Kennzeichen)
+function vehicleCategory(cat) {
+  const van = state.settings.vehicle === 'van';
+  if (/^Tanken/.test(cat)) return van ? 'Tanken/Laden Transporter' : 'Tanken/Laden Pkw';
+  if (/^Fahrzeug/.test(cat)) return van ? 'Fahrzeug Transporter (gelbe Kennzeichen)' : 'Fahrzeug Pkw (weiße Kennzeichen)';
+  return cat;
+}
 
 // Erkannte Werte → Buchungsvorschlag in DKK
 function draftFromReceipt(r) {
@@ -275,7 +295,7 @@ function draftFromReceipt(r) {
   return {
     kind: ex.docType === 'income' ? 'income' : 'expense',
     date: isDate(ex.date) ? ex.date : today(), name: ex.counterparty || '', text: (ex.description || '') + foreign,
-    category: ex.category || 'Diverse', euPurchase: ex.euPurchase || '',
+    category: vehicleCategory(ex.category || 'Diverse'), euPurchase: ex.euPurchase || '',
     amount: ex.euPurchase ? dkk(n2(ex.total) - n2(ex.vat)) : dkk(ex.total), vat: ex.euPurchase ? '0.00' : dkk(ex.vat), original: rate !== 1 ? `${ex.total} ${String(ex.currency).toUpperCase()}` : '',
     paid: !!ex.isPaid, dueDate: ex.isPaid ? '' : (isDate(ex.dueDate) ? ex.dueDate : ''), documentNumber: ex.documentNumber || '',
   };
@@ -311,14 +331,17 @@ function bookReceipt(r, d, auto = false) {
     const dup = state.expenses.find((e) => !e.receiptId && Math.abs(n2(e.amount) - amount) <= 1 && Math.abs(Date.parse(e.date) - d0) <= 21 * 864e5);
     if (dup) {
       Object.assign(dup, { supplier: str(d.name || dup.supplier, 200), text: str(d.text || dup.text), category: base.category, vat: d.euPurchase ? '0.00' : n2(d.vat).toFixed(2),
-        euPurchase: ['goods', 'services'].includes(d.euPurchase) ? d.euPurchase : '', invoiceNumber: str(d.documentNumber, 60), receiptId: r.id });
+        euPurchase: ['goods', 'services'].includes(d.euPurchase) ? d.euPurchase : '', invoiceNumber: str(d.documentNumber, 60), receiptId: r.id,
+        vatShare: d.vatShare ?? '', taxShare: d.taxShare ?? '' });
+      fillShares(dup);
       r.booked = { kind, id: dup.id, auto, merged: true };
       r.status = 'booked';
       log('Beleg an vorhandene Ausgabe angehängt', `${dup.supplier} ${dup.amount} DKK`);
       return dup;
     }
-    item = { ...base, supplier: str(d.name || 'Unbekannt', 200), vat: d.euPurchase ? '0.00' : n2(d.vat).toFixed(2), euPurchase: ['goods', 'services'].includes(d.euPurchase) ? d.euPurchase : '',
+    item = { ...base, vatShare: d.vatShare, taxShare: d.taxShare, supplier: str(d.name || 'Unbekannt', 200), vat: d.euPurchase ? '0.00' : n2(d.vat).toFixed(2), euPurchase: ['goods', 'services'].includes(d.euPurchase) ? d.euPurchase : '',
       deductible: d.deductible !== false, dueDate: paid ? '' : (isDate(d.dueDate) ? d.dueDate : ''), invoiceNumber: str(d.documentNumber, 60), currency: 'DKK' };
+    fillShares(item);
     state.expenses.push(item);
   }
   matchBank(kind, item);
@@ -359,16 +382,36 @@ async function api(method, parts, body, url) {
     return S;
   }
 
+  // Fahrtenbuch: Kilometergeld der noch nicht abgerechneten Fahrten eines Jahres als Ausgabe buchen
+  if (res === 'trips' && id === 'book' && method === 'POST') {
+    const year = String(Number(body.year) || new Date().getFullYear());
+    const inYear = state.trips.filter((t) => String(t.date || '').startsWith(year));
+    const open = inYear.filter((t) => !t.expenseId);
+    if (!open.length) fail('Keine offenen Fahrten in diesem Jahr.');
+    const kmBefore = inYear.filter((t) => t.expenseId).reduce((a, t) => a + (Number(t.km) || 0), 0);
+    const kmNew = open.reduce((a, t) => a + (Number(t.km) || 0), 0);
+    const cents = Fradrag.mileage(kmBefore + kmNew, Number(year)) - Fradrag.mileage(kmBefore, Number(year));
+    const last = open.map((t) => t.date).sort().at(-1);
+    const ex = fillShares({ id: uid(), createdAt: new Date().toISOString(), date: last, supplier: S.owner || S.company || 'Inhaber', text: `Kilometergeld ${open.length} Fahrt(en), ${kmNew.toLocaleString('de-DE')} km (Fahrtenbuch ${year})`,
+      category: 'Kilometergeld/Reisepauschalen', amount: (cents / 100).toFixed(2), vat: '0.00', euPurchase: '', deductible: true, paid: false, currency: 'DKK' });
+    state.expenses.push(ex);
+    for (const t of open) t.expenseId = ex.id;
+    log('Kilometergeld gebucht', ex.text);
+    return ex;
+  }
+
   // Kunden, Produkte, Ausgaben: einfache Listen
-  const simple = { customers: CUSTOMER_KEYS, products: PRODUCT_KEYS, expenses: EXPENSE_KEYS, incomes: INCOME_KEYS };
+  const simple = { customers: CUSTOMER_KEYS, products: PRODUCT_KEYS, expenses: EXPENSE_KEYS, incomes: INCOME_KEYS, trips: TRIP_KEYS };
   if (simple[res]) {
     const list = state[res];
     if (method === 'POST' && !id) {
       const item = { id: uid(), createdAt: new Date().toISOString(), ...pick(body, simple[res]) };
       if (res === 'products') item.name = item.name || item.name_de || item.name_da || item.name_en;
+      if (res === 'expenses') fillShares(item);
+      if (res === 'trips') { item.km = Math.max(0, Number(String(item.km || 0).replace(',', '.')) || 0); item.name = item.to; }
       if (res === 'customers') { item.customerNo = S.nextCustomerNo++; item.country = str(item.country || 'DK', 2).toUpperCase(); }
       if (res === 'products') item.image = cleanImg(item.image);
-      if (!str(item.name || item.supplier || item.text).trim()) fail('Bitte einen Namen eingeben.');
+      if (!str(item.name || item.supplier || item.text).trim()) fail(res === 'trips' ? 'Bitte das Ziel der Fahrt eingeben.' : 'Bitte einen Namen eingeben.');
       list.push(item);
       log(`${res} angelegt`, item.name || item.supplier);
       return item;
@@ -378,11 +421,15 @@ async function api(method, parts, body, url) {
       Object.assign(item, pick(body, simple[res]));
       if (res === 'customers') item.country = str(item.country || 'DK', 2).toUpperCase();
       if (res === 'products') item.image = cleanImg(item.image);
+      if (res === 'expenses') fillShares(item);
+      if (res === 'trips') item.km = Math.max(0, Number(String(item.km || 0).replace(',', '.')) || 0);
       return item;
     }
     if (method === 'DELETE') {
       if (res === 'customers' && state.invoices.some((i) => i.customerId === id && i.number)) fail('Für diesen Kunden gibt es bereits Rechnungen. Er kann nicht gelöscht werden.');
       if (res === 'expenses' || res === 'incomes') unlinkReceipt(item);
+      if (res === 'expenses') for (const t of state.trips) if (t.expenseId === item.id) t.expenseId = null;
+      if (res === 'trips' && item.expenseId) fail('Diese Fahrt ist schon abgerechnet. Bitte zuerst die Kilometergeld-Ausgabe löschen.');
       list.splice(list.indexOf(item), 1);
       log(`${res} gelöscht`, item.name || item.supplier);
       return { ok: true };
@@ -603,6 +650,7 @@ async function api(method, parts, body, url) {
         category: str(body.category || 'Diverse'), amount: (gross / 100).toFixed(2), vat: withVat ? (Calc.round(gross * 0.2) / 100).toFixed(2) : '0.00',
         euPurchase: '', deductible: true, paid: true, currency: 'DKK', bankId: tx.id,
       };
+      fillShares(ex);
       state.expenses.push(ex);
       tx.status = 'matched'; tx.expenseId = ex.id;
       log('Ausgabe aus Bankbuchung', ex.supplier);
