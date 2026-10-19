@@ -868,7 +868,7 @@ function download(name, content, type) {
 routes.einstellungen = () => {
   const s = S.settings;
   const f = (k, label, extra = '') => `<label ${extra}>${label}<input name="${k}" value="${esc(s[k] ?? '')}"></label>`;
-  $('#main').innerHTML = `<h1>Einstellungen</h1>
+  $('#main').innerHTML = `<h1>Einstellungen <span class="muted small" style="font-weight:400">Version ${esc(S.version || '?')}</span></h1>
     <div class="card"><b>Deine Firma</b><div class="grid" style="margin-top:10px">
       <label>CVR-Nr.<div class="inline"><input name="cvr" value="${esc(s.cvr)}"><button type="button" id="cvr-look">Aus CVR holen</button></div></label>
       ${f('company', 'Firmenname')}${f('owner', 'Inhaber')}${f('street', 'Straße')}${f('zip', 'PLZ')}${f('city', 'Ort')}
@@ -896,7 +896,7 @@ routes.einstellungen = () => {
       <div class="small" style="margin-top:8px">${!S.ai.installed ? '<span style="color:var(--bad)">Das Erkennungs-Paket fehlt – bitte das Programm über das Startskript starten (es installiert alles automatisch).</span>' : S.ai.enabled ? '<span style="color:var(--ok)">✔ Erkennung ist eingeschaltet.</span>' : 'Erkennung ist aus.'}
         ${S.ai.hasKey ? ' <button type="button" class="small" id="delkey">Schlüssel löschen</button>' : ''}</div></div>
     <div class="card"><b>CVR-Register (Firmendaten automatisch holen)</b>
-      <p class="small muted">„Aus CVR holen“ nutzt zuerst den kostenlosen Dienst cvrapi.dk (nur wenige Abfragen pro Tag) und mit der 8-stelligen CVR-Nummer die EU-Datenbank VIES. Unbegrenzt und offiziell geht es mit einem kostenlosen Zugang zum CVR-Register der Erhvervsstyrelsen: per E-Mail an <b>cvrselvbetjening@erst.dk</b> „System-til-system adgang til CVR-data“ beantragen und die Zugangsdaten hier eintragen.</p>
+      <p class="small muted">„Aus CVR holen“ fragt mit der 8-stelligen CVR-Nummer die EU-Datenbank VIES (ohne Tageslimit, liefert Name und Adresse). Die Suche nach einem Firmennamen geht über den kostenlosen Dienst cvrapi.dk (nur wenige Abfragen pro Tag). Unbegrenzt und offiziell geht es mit einem kostenlosen Zugang zum CVR-Register der Erhvervsstyrelsen: per E-Mail an <b>cvrselvbetjening@erst.dk</b> „System-til-system adgang til CVR-data“ beantragen und die Zugangsdaten hier eintragen.</p>
       <div class="grid"><label>Benutzername<input name="cvrUser" autocomplete="off" value="${esc(S.cvr?.user || '')}"></label>
         <label>Passwort<input name="cvrPass" type="password" autocomplete="off" placeholder="${S.cvr?.hasPass ? '•••••••• gespeichert' : ''}"></label></div></div>
     <div class="card"><b>Mit dem Handy fotografieren</b><div id="lan" class="small" style="margin-top:8px">…</div></div>

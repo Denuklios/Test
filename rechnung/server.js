@@ -18,6 +18,7 @@ const DATA_DIR = ENV.DATA_DIR || path.join(__dirname, 'data');
 const FILE = path.join(DATA_DIR, 'rechnung.json');
 const PUBLIC = path.join(__dirname, 'public');
 const RECEIPT_DIR = path.join(DATA_DIR, 'belege');
+const VERSION = '1.3';
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = () => crypto.randomBytes(8).toString('hex');
 
@@ -117,7 +118,7 @@ async function fetchJson(url, opts = {}) {
   return { ok: r.ok, status: r.status, data, text };
 }
 
-// CVR-Register (Dänemark). Reihenfolge: offizielles CVR-Register (wenn Zugang eingetragen) → cvrapi.dk (begrenzt) → EU-Datenbank VIES (nur mit Nummer)
+// CVR-Register (Dänemark). Reihenfolge: offizielles CVR-Register (wenn Zugang eingetragen) → mit Nummer die EU-Datenbank VIES (ohne Tageslimit) → cvrapi.dk (begrenzt, auch Namenssuche)
 const cvrDigits = (q) => { const d = String(q).replace(/^DK/i, '').replace(/[\s.\-]/g, ''); return /^\d{8}$/.test(d) ? d : ''; };
 
 async function cvrVirk(q) {
@@ -169,7 +170,7 @@ async function cvrLookup(q) {
   q = String(q || '').trim();
   if (!q) fail('Bitte CVR-Nr. oder Firmennamen eingeben.');
   let quota = false;
-  for (const src of [cvrVirk, cvrApi, cvrVies]) {
+  for (const src of [cvrVirk, cvrVies, cvrApi]) {
     try { const r = await src(q); if (r) return r; }
     catch (err) { if (err.message === 'quota') quota = true; else if (src === cvrVirk) fail(err.message, 502); }
   }
@@ -317,7 +318,7 @@ async function api(method, parts, body, url) {
   const S = state.settings;
 
   if (res === 'state' && method === 'GET') {
-    return { ...state, secrets: undefined, ai: { installed: Receipts.available(), enabled: Receipts.enabled(apiKey()), fromEnv: !!ENV.ANTHROPIC_API_KEY, hasKey: !!state.secrets.anthropicKey }, cvr: { user: state.secrets.cvrUser || '', hasPass: !!state.secrets.cvrPass } };
+    return { ...state, secrets: undefined, version: VERSION, ai: { installed: Receipts.available(), enabled: Receipts.enabled(apiKey()), fromEnv: !!ENV.ANTHROPIC_API_KEY, hasKey: !!state.secrets.anthropicKey }, cvr: { user: state.secrets.cvrUser || '', hasPass: !!state.secrets.cvrPass } };
   }
 
   // Adressen im Heimnetz, damit das Handy das Programm findet
@@ -608,6 +609,13 @@ const server = http.createServer(async (req, res) => {
 if (require.main === module) {
   // nach einem Neustart unterbrochene Erkennungen fortsetzen
   for (const r of state.receipts) if (r.status === 'processing') enqueue(r.id);
-  server.listen(PORT, HOST, () => console.log(`RechnungsStudio läuft: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}  (Daten: ${FILE})`));
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.error(`\n*** RechnungsStudio läuft schon (Port ${PORT} ist belegt). ***\nBitte das alte Programmfenster schließen und dann neu starten.\n`);
+      process.exit(1);
+    }
+    throw err;
+  });
+  server.listen(PORT, HOST, () => console.log(`RechnungsStudio ${VERSION} läuft: http://${HOST === '0.0.0.0' ? 'localhost' : HOST}:${PORT}  (Daten: ${FILE})`));
 }
 module.exports = { server, api, reset: () => { state = EMPTY(); }, getState: () => state, draftFromReceipt, bookReceipt, idle: () => queue };
