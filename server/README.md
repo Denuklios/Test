@@ -14,7 +14,18 @@ Die Stickdateien (DST/PES/JEF/EXP) erzeugt nur der Server. Der Formatcode wird n
 - **Rechtstexte:** Impressum, AGB, Widerruf, Datenschutz und Lizenzen auf Deutsch und Englisch, ausgeliefert unter `/legal/…`. Die Platzhalter werden aus den Firmendaten gefüllt (siehe `legal/README.md`).
 - **Sprache:** Deutsch und Englisch, umschaltbar oben rechts. Die Wahl wird am Konto gespeichert.
 
-## Voraussetzungen
+## FräsStudio (geschützt)
+
+Das Fräsprogramm aus dem Ordner `fraesstudio/` läuft auf demselben Server unter **`https://deine-subdomain/fraesstudio/`**.
+Es ist **nur nach Anmeldung** erreichbar und nur für Konten, die in der Verwaltung freigeschaltet sind:
+
+- **Admin** (du) hat immer Zugang.
+- Für andere Konten in **Verwaltung → Benutzer → Bearbeiten** das Häkchen **„Zugang zu FräsStudio“** setzen. Ein normales StickStudio-Konto oder eine Testversion reicht nicht.
+- Ohne Anmeldung leitet der Server zur Anmeldeseite und danach zurück zu FräsStudio. Ohne Freischaltung erscheint „nicht freigeschaltet“, auch für die einzelnen Programmdateien.
+- Nur auf diesen Seiten erlaubt der Server Kamera (Bild von oben) und USB (Steuerung der Fräse).
+- Willst du die Registrierung ganz schließen, `REGISTRATION=closed` setzen (siehe unten).
+
+
 
 - **Node.js 22.13 oder neuer.** Zusatzpakete sind nicht nötig, die Datenbank ist das eingebaute SQLite.
 - **Ein Server mit Domain und HTTPS**, z. B. Hetzner, IONOS oder netcup, Standort in der EU.
@@ -22,7 +33,7 @@ Die Stickdateien (DST/PES/JEF/EXP) erzeugt nur der Server. Der Formatcode wird n
 
 ## Einrichten auf einem eigenen Server (ca. 15 Minuten)
 
-Voraussetzung: ein gemieteter Server (z. B. Hetzner Cloud, kleinstes Modell, Ubuntu 24.04) und deine Domain. Dein bisheriger Webspace bleibt wie er ist, nur eine **Subdomain** zeigt auf den neuen Server.
+Voraussetzung: ein gemieteter Server (z. B. Hetzner Cloud, kleinstes Modell, Ubuntu 24.04) und deine Domain. Für einen **Homeserver** siehe den Abschnitt unten. Dein bisheriger Webspace bleibt wie er ist, nur eine **Subdomain** zeigt auf den neuen Server.
 
 1. **Server mieten** und die **IP-Adresse** notieren.
 2. **Subdomain anlegen:** Beim Domain-Anbieter (DNS-Einstellungen) einen **A-Eintrag** anlegen: Name `stick` (oder wie du sie nennen willst), Ziel = IP-Adresse des Servers. Es dauert einige Minuten, bis das gilt.
@@ -39,6 +50,35 @@ Voraussetzung: ein gemieteter Server (z. B. Hetzner Cloud, kleinstes Modell, Ubu
 **Aktualisieren** (neue ZIP): hochladen, entpacken und `bash deploy/install.sh` noch einmal ausführen. Die Kundendaten bleiben erhalten (liegen in `/var/lib/stickstudio`).
 
 **Hilfe:** `systemctl status stickstudio`, Meldungen mit `journalctl -u stickstudio -n 50`. Einstellungen (E-Mail, Bezahlung) stehen in `/etc/stickstudio.env`; nach Änderungen `systemctl restart stickstudio`.
+
+## Auf dem eigenen Homeserver (Raspberry Pi / Linux, neben Nextcloud oder Immich)
+
+Ein gemieteter Server ist nicht nötig. Läuft zu Hause schon ein Rechner, der z. B. Nextcloud oder Immich über deine Domain erreichbar macht, kommt StickStudio/FräsStudio einfach **daneben**:
+
+1. **Subdomain anlegen:** Beim Domain-Anbieter einen Eintrag `cnc` (oder ähnlich) anlegen. Am einfachsten als **CNAME** auf die Adresse, unter der deine Fotos schon erreichbar sind (z. B. `fotos.deine-domain.de` oder deine DynDNS-Adresse). Im Router ist **nichts** Neues nötig: Die Portfreigabe für 443 gibt es schon.
+2. **ZIP auf den Homeserver kopieren**, entpacken und `sudo bash deploy/install.sh` ausführen.
+3. Das Skript **erkennt den vorhandenen Webserver** (Port 80/443 belegt) und rührt ihn nicht an:
+   - Es installiert keinen eigenen Webserver und schaltet keine Firewall ein, damit Fotos, Samba usw. weiterlaufen.
+   - StickStudio lauscht auf einem freien Port (ab 8090; 8080 ist oft von Nextcloud AIO belegt), nur lokal.
+   - Es fragt, welcher Reverse Proxy läuft (**Nginx Proxy Manager, Nginx, Caddy, Apache**), und zeigt dir die passenden Zeilen zum Eintragen. Sie stehen danach auch in `/root/stickstudio-proxy.txt`.
+4. Die Zeilen im Proxy eintragen und das HTTPS-Zertifikat für die neue Subdomain holen (Nginx Proxy Manager: Häkchen „Request a new SSL Certificate“; Caddy macht es selbst; Nginx/Apache: `certbot`).
+5. Öffnen: `https://cnc.deine-domain.de/fraesstudio/`.
+
+Hinweise für den Raspberry Pi: am besten **64-Bit Raspberry Pi OS** (32 Bit geht auch, das Skript installiert Node.js dann direkt von nodejs.org). Der erste Durchlauf dauert einige Minuten.
+Willst du nur selbst zugreifen, `REGISTRATION=closed` in `/etc/stickstudio.env` aktivieren (`#` entfernen) und `systemctl restart stickstudio`.
+**Sicherungen** (`/var/backups/stickstudio`) am besten mit in die Nextcloud/NAS-Sicherung aufnehmen.
+
+## WLAN-Brücke zur Fräse (FräsStudio)
+
+FräsStudio kann die Fräse (z. B. TTC450 mit MKS-DLC32-Platine) **über den Server per Telnet (Port 23)** steuern. Voraussetzung: Server und Maschine sind im selben Heimnetz, in der Maschine ist WLAN und Telnet aktiv (siehe `fraesstudio/README.md`).
+
+- Nur für **angemeldete Konten mit FräsStudio-Zugang**. Ziele nur im eigenen Netz (192.168.x.x, 10.x.x.x, 172.16–31.x.x), nur Port 23.
+- `CNC_HOST=192.168.1.50`: erlaubt **nur diese Maschine** (empfohlen) und trägt sie im Dialog vor.
+- `CNC_PORTS=2323,…`: zusätzliche erlaubte Telnet-Ports.
+- `CNC_BRIDGE=off`: Brücke abgeschaltet.
+- **Not-Aus:** Bricht die Verbindung des Browsers ab, sendet der Server nach 3 Sekunden einen Soft-Reset (0x18) an die Maschine (Spindel aus, Bewegung gestoppt).
+- Der Reverse Proxy darf den Datenstrom nicht puffern (`proxy_buffering off` bzw. `flush_interval -1`); `deploy/install.sh` setzt das in seinen Vorlagen.
+- **Achtung Fernsteuerung:** Wer Zugang hat, kann aus der Ferne fräsen. Nur vertrauenswürdigen Konten den FräsStudio-Zugang geben.
 
 ## Starten
 
@@ -66,6 +106,8 @@ Das Admin-Konto läuft nie ab. Das Passwort danach unter „Mein Konto“ änder
 | Variable | Bedeutung | Standard |
 |---|---|---|
 | `PORT` | Port des Servers | `8080` |
+| `CNC_HOST`, `CNC_PORTS`, `CNC_BRIDGE` | WLAN-Brücke zur Fräse (siehe Abschnitt oben) | alle Adressen im Heimnetz, Port 23 |
+| `HOST` | Adresse, auf der der Server lauscht, z. B. `127.0.0.1` = nur für einen Reverse Proxy auf demselben Rechner | alle |
 | `BASE_URL` | öffentliche Adresse, z. B. `https://stick.deine-firma.de`, für Links in E-Mails | `http://localhost:PORT` |
 | `DATA_DIR` | Ordner für die Datenbank `stickstudio.db` | `./data` |
 | `ADMIN_EMAIL`, `ADMIN_PASSWORD` | Admin-Konto beim ersten Start | – |

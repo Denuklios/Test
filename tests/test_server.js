@@ -204,6 +204,114 @@ const ok = (c, m) => { if (!c) { fail++; console.log('FEHLER:', m); } else conso
   r = await api('admin', '/api/admin/stats');
   ok((await r.json()).openRequests === 2, 'Übersicht zählt offene Anfragen');
 
+  // FräsStudio: nur angemeldet und vom Admin freigeschaltet
+  r = await req('anon2', '/fraesstudio/');
+  const nextC = (r.headers.getSetCookie ? r.headers.getSetCookie() : []).find((c) => c.startsWith('next='));
+  ok(r.status === 303 && r.headers.get('location').startsWith('/login') && nextC && nextC.includes('/fraesstudio/'), 'FräsStudio ohne Anmeldung → Login (merkt sich das Ziel)');
+  r = await req('anon2', '/fraesstudio/js/cam.js');
+  ok(r.status === 303, 'FräsStudio-Code ohne Anmeldung gesperrt');
+  r = await req('kunde2', '/fraesstudio/');
+  ok(r.status === 403, 'FräsStudio für Kunden ohne Freischaltung gesperrt');
+  r = await req('kunde2', '/fraesstudio/js/cam.js');
+  ok(r.status === 403, 'FräsStudio-Code für Kunden ohne Freischaltung gesperrt');
+  r = await req('admin', '/fraesstudio');
+  ok(r.status === 303 && r.headers.get('location') === '/fraesstudio/', '/fraesstudio → /fraesstudio/');
+  r = await req('admin', '/fraesstudio/');
+  const fhtml = await r.text();
+  ok(r.status === 200 && fhtml.includes('FräsStudio') && /camera=\(self\)/.test(r.headers.get('permissions-policy')) && /serial=\(self\)/.test(r.headers.get('permissions-policy')), 'Admin öffnet FräsStudio (Kamera und USB erlaubt)');
+  r = await req('admin', '/fraesstudio/js/core.js');
+  ok(r.status === 200 && (r.headers.get('content-type') || '').startsWith('text/javascript'), 'FräsStudio-Dateien für Admin');
+  r = await req('admin', '/fraesstudio/%2e%2e/server/db.js');
+  ok(r.status === 404, 'kein Zugriff außerhalb des FräsStudio-Ordners');
+  r = await req('admin', '/fraesstudio/tests/test_cam.js');
+  ok(r.status === 404, 'FräsStudio-Tests werden nicht ausgeliefert');
+  const fid = db.prepare('SELECT id FROM users WHERE email = ?').get('kunde@example.com').id;
+  r = await api('admin', '/api/admin/users/' + fid, 'POST', { fraes: true });
+  ok(r.status === 200, 'Admin schaltet FräsStudio für Kunden frei');
+  r = await req('kunde2', '/fraesstudio/');
+  ok(r.status === 200, 'freigeschalteter Kunde öffnet FräsStudio');
+  r = await api('kunde2', '/api/me');
+  ok((await r.json()).user.fraes === true, 'Konto zeigt FräsStudio-Zugang');
+  r = await api('admin', '/api/admin/users/' + fid, 'POST', { fraes: false });
+  r = await req('kunde2', '/fraesstudio/');
+  ok(r.status === 403, 'Zugang wieder entzogen');
+  // Anmeldung über die FräsStudio-Adresse führt dorthin zurück
+  await req('anon3', '/fraesstudio/');
+  jar.anon3 = (jar.anon3 ? jar.anon3 + '; ' : '') + 'next=/fraesstudio/';
+  r = await req('anon3', '/login', form({ email: 'chef@example.com', password: 'admin-passwort-123' }));
+  ok(r.status === 303 && r.headers.get('location') === '/fraesstudio/', 'nach Anmeldung zurück zu FräsStudio');
+
+  // WLAN-Brücke zur Fräse (Telnet), mit simulierter Maschine
+  {
+    const net = require('net');
+    const got = [];
+    const fake = net.createServer((c) => {
+      c.write("\r\nGrbl 1.1f ['$' for help]\r\n");
+      c.on('data', (d) => { for (const b of d) { got.push(b); if (b === 0x3f) c.write('<Idle|MPos:1.000,2.000,3.000|FS:0,0>\r\n'); else if (b === 10) c.write('ok\r\n'); } });
+    });
+    await new Promise((r) => fake.listen(0, '127.0.0.1', r));
+    process.env.CNC_PORTS = String(fake.address().port);
+    const P = fake.address().port;
+    const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+    r = await api('anon', '/api/cnc/open', 'POST', { host: '127.0.0.1', port: P });
+    ok(r.status === 401, 'Brücke: ohne Anmeldung gesperrt');
+    r = await api('kunde2', '/api/cnc/open', 'POST', { host: '127.0.0.1', port: P });
+    ok(r.status === 403, 'Brücke: Konto ohne FräsStudio-Zugang gesperrt');
+    r = await api('admin', '/api/cnc/open', 'POST', { host: '8.8.8.8', port: 23 });
+    ok(r.status === 400 && /eigenen Netz/.test((await r.json()).error), 'Brücke: öffentliche Adresse abgelehnt (kein Weg ins Internet)');
+    r = await api('admin', '/api/cnc/open', 'POST', { host: '192.168.1.5', port: 22 });
+    ok(r.status === 400, 'Brücke: nur erlaubte Ports (SSH 22 abgelehnt)');
+    r = await api('admin', '/api/cnc/open', 'POST', { host: 'x;rm -rf', port: 23 });
+    ok(r.status === 400, 'Brücke: ungültige Adresse abgelehnt');
+    r = await api('admin', '/api/cnc/open', 'POST', { host: '127.0.0.1', port: 1 });
+    ok(r.status === 400 || r.status === 502, 'Brücke: nicht erlaubter Port 1 abgelehnt');
+
+    r = await api('admin', '/api/cnc/open', 'POST', { host: '127.0.0.1', port: P });
+    const sid = (await r.json()).id;
+    ok(r.status === 200 && /^[0-9a-f]{24}$/.test(sid), 'Brücke: Verbindung zur Maschine geöffnet');
+    const ctl = new AbortController();
+    const sr = await fetch(base + '/api/cnc/stream?id=' + sid, { headers: { Cookie: jar.admin }, signal: ctl.signal });
+    ok(sr.status === 200 && /text\/event-stream/.test(sr.headers.get('content-type')) && sr.headers.get('x-accel-buffering') === 'no', 'Brücke: Datenstrom (SSE) ohne Proxy-Pufferung');
+    let text = '';
+    const reader = sr.body.getReader(), dec = new TextDecoder();
+    const pump = (async () => { for (;;) { const { value, done } = await reader.read().catch(() => ({ done: true })); if (done) break; text += dec.decode(value, { stream: true }); } })();
+    const raw = (bytes) => fetch(base + '/api/cnc/send?id=' + sid, { method: 'POST', headers: { Cookie: jar.admin, 'X-Requested-With': 'StickStudio', 'Content-Type': 'application/octet-stream' }, body: Buffer.from(bytes) });
+    await wait(300);
+    ok(text.includes('"o":1') && text.includes('Grbl 1.1f'), 'Brücke: Startmeldung der Maschine kommt im Browser an');
+    r = await raw([0x3f]);
+    await wait(300);
+    ok(r.status === 204 && text.includes('Idle|MPos'), 'Brücke: Statusabfrage „?“ wird beantwortet');
+    r = await raw([0x85, 0x90, 0x18]);
+    await wait(200);
+    const tail = got.slice(-3);
+    ok(tail[0] === 0x85 && tail[1] === 0x90 && tail[2] === 0x18, 'Brücke: Echtzeit-Bytes 0x85 0x90 0x18 kommen als EINZELNE Bytes an (kein UTF-8)');
+    await raw(Buffer.from('G0 X1\nG0 X2\n'));
+    await wait(300);
+    ok((text.match(/ok/g) || []).length >= 2, 'Brücke: G-Code-Zeilen werden gesendet und mit „ok“ bestätigt');
+    r = await api('admin', '/api/cnc/send?id=' + 'ff'.repeat(12), 'POST', {});
+    ok(r.status === 404, 'Brücke: fremde/unbekannte Sitzung nicht erreichbar');
+    r = await api('admin', '/api/cnc/close?id=' + sid, 'POST', {});
+    await wait(300);
+    ok(r.status === 200 && text.includes('"c":1'), 'Brücke: Trennen beendet den Datenstrom');
+    ctl.abort(); await pump.catch(() => {});
+
+    // Browser weg ohne Trennen: Not-Aus (Soft-Reset 0x18) nach kurzer Gnadenfrist
+    got.length = 0;
+    r = await api('admin', '/api/cnc/open', 'POST', { host: '127.0.0.1', port: P });
+    const sid2 = (await r.json()).id;
+    const ctl2 = new AbortController();
+    const sr2 = await fetch(base + '/api/cnc/stream?id=' + sid2, { headers: { Cookie: jar.admin }, signal: ctl2.signal });
+    await wait(200);
+    ctl2.abort(); sr2.body.cancel().catch(() => {});
+    await wait(4000);
+    ok(got.includes(0x18), 'Brücke: Verbindungsverlust des Browsers löst Not-Aus (Soft-Reset) an der Maschine aus');
+    process.env.CNC_BRIDGE = 'off';
+    r = await api('admin', '/api/cnc/open', 'POST', { host: '127.0.0.1', port: P });
+    ok(r.status === 403, 'Brücke: mit CNC_BRIDGE=off abgeschaltet');
+    delete process.env.CNC_BRIDGE;
+    fake.close();
+  }
+
   // Konto löschen (DSGVO)
   r = await api('kunde2', '/api/account', 'DELETE', { password: 'neues-passwort-99' });
   ok(r.status === 200 && !db.prepare('SELECT * FROM users WHERE email = ?').get('kunde@example.com'), 'Konto gelöscht');
