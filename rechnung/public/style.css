@@ -156,3 +156,7 @@ body.public main { max-width: 900px; }
 .img-cell label { cursor: pointer; display: inline-block; }
 .img-cell .ph { width: 44px; height: 44px; border: 1px dashed #b9c3d6; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: var(--muted); font-size: 18px; }
 @media print { .sign-box { display: none !important; } }
+
+/* Erklärhilfe für dänische Begriffe */
+abbr.dk { text-decoration: underline dotted #8a96b0; text-underline-offset: 3px; cursor: help; }
+@media print { abbr.dk { text-decoration: none; } }
