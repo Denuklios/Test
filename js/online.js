@@ -64,8 +64,8 @@
     },
     licenseDialog() {
       const L = lic();
-      const de = !HW.i18n || HW.i18n.lang === 'de';
-      const fmtD = (ms) => (ms ? new Date(ms).toLocaleDateString(de ? 'de-DE' : 'en-GB') : '');
+      const loc = HW.i18n && HW.i18n.locale ? HW.i18n.locale() : 'de-DE';
+      const fmtD = (ms) => (ms ? new Date(ms).toLocaleDateString(loc) : '');
       const until = fmtD(L.until);
       const sub = user.sub;
       const link = sub && sub.portal && !L.viewOnly ? sub.portal : HW.online.buyUrl;

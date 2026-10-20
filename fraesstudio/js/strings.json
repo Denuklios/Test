@@ -1,0 +1,4766 @@
+[
+ {
+  "f": "app.js",
+  "l": 3,
+  "k": "s",
+  "s": "use strict"
+ },
+ {
+  "f": "app.js",
+  "l": 19,
+  "k": "s",
+  "s": "Unbenannt"
+ },
+ {
+  "f": "app.js",
+  "l": 109,
+  "k": "s",
+  "s": "Nichts mehr rückgängig zu machen."
+ },
+ {
+  "f": "app.js",
+  "l": 109,
+  "k": "s",
+  "s": "Rückgängig"
+ },
+ {
+  "f": "app.js",
+  "l": 110,
+  "k": "s",
+  "s": "Nichts zum Wiederholen."
+ },
+ {
+  "f": "app.js",
+  "l": 110,
+  "k": "s",
+  "s": "Wiederholt"
+ },
+ {
+  "f": "app.js",
+  "l": 113,
+  "k": "t",
+  "s": "Rückgängig (Strg+Z)${0}"
+ },
+ {
+  "f": "app.js",
+  "l": 113,
+  "k": "s",
+  "s": " Schritt(e)"
+ },
+ {
+  "f": "app.js",
+  "l": 114,
+  "k": "t",
+  "s": "Wiederholen (Strg+Y)${0}"
+ },
+ {
+  "f": "app.js",
+  "l": 114,
+  "k": "s",
+  "s": " Schritt(e)"
+ },
+ {
+  "f": "app.js",
+  "l": 123,
+  "k": "t",
+  "s": "<span class=\"warn\">${0}</span>"
+ },
+ {
+  "f": "app.js",
+  "l": 133,
+  "k": "s",
+  "s": "#modal .box"
+ },
+ {
+  "f": "app.js",
+  "l": 146,
+  "k": "s",
+  "s": "Escape"
+ },
+ {
+  "f": "app.js",
+  "l": 147,
+  "k": "s",
+  "s": "Enter"
+ },
+ {
+  "f": "app.js",
+  "l": 152,
+  "k": "s",
+  "s": "#modalBody input:not([type=checkbox]):not([type=range]), #modalBody textarea"
+ },
+ {
+  "f": "app.js",
+  "l": 156,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 183,
+  "k": "s",
+  "s": "Bild konnte nicht geladen werden"
+ },
+ {
+  "f": "app.js",
+  "l": 194,
+  "k": "t",
+  "s": "<div class=\"field\"><label>${0}</label>${1}</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 194,
+  "k": "t",
+  "s": "<div class=\"unit\" data-u=\"${0}\">${1}</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 195,
+  "k": "t",
+  "s": "<input id=\"${0}\" type=\"number\" step=\"${1}\" value=\"${2}\" ${3}>"
+ },
+ {
+  "f": "app.js",
+  "l": 287,
+  "k": "s",
+  "s": "11px system-ui"
+ },
+ {
+  "f": "app.js",
+  "l": 289,
+  "k": "t",
+  "s": "Arbeitsbereich ${0} ${1} × ${2} mm"
+ },
+ {
+  "f": "app.js",
+  "l": 323,
+  "k": "s",
+  "s": "10px system-ui"
+ },
+ {
+  "f": "app.js",
+  "l": 334,
+  "k": "s",
+  "s": "bold 10px system-ui"
+ },
+ {
+  "f": "app.js",
+  "l": 377,
+  "k": "s",
+  "s": "11px system-ui"
+ },
+ {
+  "f": "app.js",
+  "l": 378,
+  "k": "t",
+  "s": "${0} × ${1} mm"
+ },
+ {
+  "f": "app.js",
+  "l": 461,
+  "k": "s",
+  "s": "11px system-ui"
+ },
+ {
+  "f": "app.js",
+  "l": 462,
+  "k": "t",
+  "s": "r = ${0} mm"
+ },
+ {
+  "f": "app.js",
+  "l": 462,
+  "k": "t",
+  "s": "${0} × ${1} mm"
+ },
+ {
+  "f": "app.js",
+  "l": 469,
+  "k": "s",
+  "s": "bold 12px system-ui"
+ },
+ {
+  "f": "app.js",
+  "l": 470,
+  "k": "t",
+  "s": "${0} mm  (ΔX ${1}, ΔY ${2}, ${3}°)"
+ },
+ {
+  "f": "app.js",
+  "l": 512,
+  "k": "s",
+  "s": "3D-Reliefs lassen sich nicht drehen – bitte Bild vorher drehen."
+ },
+ {
+  "f": "app.js",
+  "l": 568,
+  "k": "s",
+  "s": "Klicken = auswählen, Umschalt = mehrere, ziehen = verschieben. Griffe: Größe, oben: drehen. Ansicht verschieben: Leertaste halten oder zwei Finger."
+ },
+ {
+  "f": "app.js",
+  "l": 569,
+  "k": "s",
+  "s": "Punkt ziehen = verschieben · Doppelklick auf die Linie = Punkt einfügen · Leertaste = Ecke/Kurve · Entf = Punkt löschen"
+ },
+ {
+  "f": "app.js",
+  "l": 570,
+  "k": "s",
+  "s": "<b>Linksklick</b> = Eckpunkt · <b>Rechtsklick</b> = Kurvenpunkt · Klick auf den ersten Punkt schließt · <b>Enter</b> = fertig · Rücktaste = letzter Punkt weg"
+ },
+ {
+  "f": "app.js",
+  "l": 571,
+  "k": "s",
+  "s": "Rechteck aufziehen · Umschalt = Quadrat · Alt = von der Mitte aus"
+ },
+ {
+  "f": "app.js",
+  "l": 572,
+  "k": "s",
+  "s": "Ellipse aufziehen · Umschalt = Kreis · Alt = von der Mitte aus"
+ },
+ {
+  "f": "app.js",
+  "l": 573,
+  "k": "s",
+  "s": "Von der Mitte aus aufziehen · Umschalt = gerade ausrichten"
+ },
+ {
+  "f": "app.js",
+  "l": 574,
+  "k": "s",
+  "s": "Von der Mitte aus aufziehen · Umschalt = gerade ausrichten"
+ },
+ {
+  "f": "app.js",
+  "l": 575,
+  "k": "s",
+  "s": "Klicken, wo der Text beginnen soll"
+ },
+ {
+  "f": "app.js",
+  "l": 576,
+  "k": "s",
+  "s": "Ziehen, um Abstand und Winkel zu messen"
+ },
+ {
+  "f": "app.js",
+  "l": 583,
+  "k": "s",
+  "s": "#toolbox [data-tool]"
+ },
+ {
+  "f": "app.js",
+  "l": 705,
+  "k": "s",
+  "s": "Punkte bearbeiten geht bei Linienzügen. Für Formen: Anordnen → In Kurve umwandeln."
+ },
+ {
+  "f": "app.js",
+  "l": 727,
+  "k": "t",
+  "s": "X ${0}  Y ${1} mm"
+ },
+ {
+  "f": "app.js",
+  "l": 770,
+  "k": "t",
+  "s": "Drehen: ${0}°  (Umschalt = 15°-Schritte)"
+ },
+ {
+  "f": "app.js",
+  "l": 879,
+  "k": "s",
+  "s": "Text"
+ },
+ {
+  "f": "app.js",
+  "l": 880,
+  "k": "t",
+  "s": "\n      ${0}\n      ${1}\n      ${2}\n      ${3}\n      ${4}\n      ${5}\n      <canvas id=\"tPrev\" width=\"540\" height=\"110\"></canvas>\n      <p class=\"muted small\">Die Schriftgröße ist die Höhe des Schriftrahmens (Großbuchstaben sind etwa 70 % davon). Mehrere Zeilen mit Enter.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 881,
+  "k": "s",
+  "s": "Text"
+ },
+ {
+  "f": "app.js",
+  "l": 881,
+  "k": "t",
+  "s": "<textarea id=\"tText\" rows=\"3\">${0}</textarea>"
+ },
+ {
+  "f": "app.js",
+  "l": 882,
+  "k": "s",
+  "s": "Schrift"
+ },
+ {
+  "f": "app.js",
+  "l": 882,
+  "k": "t",
+  "s": "<select id=\"tFont\">${0}</select>"
+ },
+ {
+  "f": "app.js",
+  "l": 882,
+  "k": "t",
+  "s": "<option ${0}>${1}</option>"
+ },
+ {
+  "f": "app.js",
+  "l": 883,
+  "k": "s",
+  "s": "Schriftgröße"
+ },
+ {
+  "f": "app.js",
+  "l": 884,
+  "k": "s",
+  "s": "Zeichenabstand"
+ },
+ {
+  "f": "app.js",
+  "l": 885,
+  "k": "s",
+  "s": "Zeilenabstand"
+ },
+ {
+  "f": "app.js",
+  "l": 886,
+  "k": "s",
+  "s": "Ausrichtung"
+ },
+ {
+  "f": "app.js",
+  "l": 886,
+  "k": "s",
+  "s": "<select id=\"tAlign\"><option value=\"left\">links</option><option value=\"center\">mittig</option><option value=\"right\">rechts</option></select>"
+ },
+ {
+  "f": "app.js",
+  "l": 905,
+  "k": "s",
+  "s": "Text bearbeiten"
+ },
+ {
+  "f": "app.js",
+  "l": 905,
+  "k": "s",
+  "s": "Text einfügen"
+ },
+ {
+  "f": "app.js",
+  "l": 905,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 905,
+  "k": "s",
+  "s": "Übernehmen"
+ },
+ {
+  "f": "app.js",
+  "l": 905,
+  "k": "s",
+  "s": "Einfügen"
+ },
+ {
+  "f": "app.js",
+  "l": 913,
+  "k": "s",
+  "s": "Text: "
+ },
+ {
+  "f": "app.js",
+  "l": 926,
+  "k": "t",
+  "s": "▣ ${0} × ${1} × ${2} mm · ${3}"
+ },
+ {
+  "f": "app.js",
+  "l": 930,
+  "k": "t",
+  "s": "<div class=\"sw\" style=\"background:${0}\"></div>\n      <div class=\"t\"><b>${1} × ${2} mm</b>, Stärke ${3} mm<br><span class=\"muted\">${4}</span></div>\n      <button data-cmd=\"stock\">Ändern</button>"
+ },
+ {
+  "f": "app.js",
+  "l": 937,
+  "k": "s",
+  "s": "<div class=\"empty\">Noch nichts gezeichnet.<br>Links ein Werkzeug wählen oder eine Datei importieren.</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 941,
+  "k": "t",
+  "s": "<div class=\"obj ${0}\" data-id=\"${1}\"><span class=\"k\">${2}</span><span class=\"n\">${3}</span><span class=\"c\">${4}</span><button class=\"eye\" data-eye=\"${5}\" title=\"Ein-/Ausblenden\">${6}</button></div>"
+ },
+ {
+  "f": "app.js",
+  "l": 956,
+  "k": "s",
+  "s": "Name:"
+ },
+ {
+  "f": "app.js",
+  "l": 963,
+  "k": "t",
+  "s": "${0} ausgewählt"
+ },
+ {
+  "f": "app.js",
+  "l": 964,
+  "k": "s",
+  "s": "<div class=\"muted small\">Nichts ausgewählt. Klicke ein Objekt an, um Größe und Lage einzugeben.</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 967,
+  "k": "t",
+  "s": "<div class=\"grid2\">\n      ${0}${1}\n      ${2}${3}\n    </div>\n    <label class=\"check\"><input type=\"checkbox\" id=\"pLock\" ${4}> Seitenverhältnis beibehalten</label>\n    <div class=\"row\">\n      <input id=\"pRot\" type=\"number\" step=\"1\" value=\"90\" style=\"width:62px\" title=\"Winkel in Grad\"><button data-cmd=\"rotBy\">° drehen</button>\n      <button data-cmd=\"mirrorH\" title=\"Waagrecht spiegeln\">⇋</button><button data-cmd=\"mirrorV\" title=\"Senkrecht spiegeln\">⇵</button>\n      <button data-cmd=\"centerStock\" title=\"Auf Werkstück zentrieren\">⊕</button>\n    </div>"
+ },
+ {
+  "f": "app.js",
+  "l": 979,
+  "k": "s",
+  "s": "Eckenradius"
+ },
+ {
+  "f": "app.js",
+  "l": 980,
+  "k": "s",
+  "s": "Ecken"
+ },
+ {
+  "f": "app.js",
+  "l": 980,
+  "k": "s",
+  "s": "min=\"3\" max=\"64\""
+ },
+ {
+  "f": "app.js",
+  "l": 981,
+  "k": "s",
+  "s": "Innenradius"
+ },
+ {
+  "f": "app.js",
+  "l": 981,
+  "k": "s",
+  "s": "min=\"5\" max=\"95\""
+ },
+ {
+  "f": "app.js",
+  "l": 982,
+  "k": "t",
+  "s": "<label class=\"check\"><input type=\"checkbox\" id=\"kClosed\" ${0}> geschlossen</label>"
+ },
+ {
+  "f": "app.js",
+  "l": 983,
+  "k": "s",
+  "s": "<div class=\"row\"><button data-cmd=\"editText\" class=\"wide\">Text bearbeiten…</button></div>"
+ },
+ {
+  "f": "app.js",
+  "l": 985,
+  "k": "s",
+  "s": "Relieftiefe"
+ },
+ {
+  "f": "app.js",
+  "l": 986,
+  "k": "t",
+  "s": "<label class=\"check\"><input type=\"checkbox\" id=\"kInv\" ${0}> umkehren (dunkel = hoch)</label>"
+ },
+ {
+  "f": "app.js",
+  "l": 989,
+  "k": "t",
+  "s": "<div class=\"row\"><button data-cmd=\"duplicate\">Duplizieren</button><button data-cmd=\"delete\">Löschen</button>${0}</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 989,
+  "k": "s",
+  "s": "<button data-mode-go=\"cam\" class=\"wide\">Fräsbahn ▶</button>"
+ },
+ {
+  "f": "app.js",
+  "l": 1030,
+  "k": "t",
+  "s": "${0} Objekt(e) kopiert"
+ },
+ {
+  "f": "app.js",
+  "l": 1088,
+  "k": "s",
+  "s": "Mausrad = Zoom. Verschieben: Leertaste halten, Umschalt + Rad oder mittlere Maustaste."
+ },
+ {
+  "f": "app.js",
+  "l": 1088,
+  "k": "s",
+  "s": "Mausrad / zwei Finger = verschieben, Strg + Rad bzw. Spreizen = Zoom."
+ },
+ {
+  "f": "app.js",
+  "l": 1101,
+  "k": "s",
+  "s": "Raster fangen: an (G)"
+ },
+ {
+  "f": "app.js",
+  "l": 1101,
+  "k": "s",
+  "s": "Raster fangen: aus (G)"
+ },
+ {
+  "f": "app.js",
+  "l": 1130,
+  "k": "s",
+  "s": "Bitte mindestens zwei geschlossene Formen auswählen."
+ },
+ {
+  "f": "app.js",
+  "l": 1139,
+  "k": "s",
+  "s": "Ergebnis ist leer."
+ },
+ {
+  "f": "app.js",
+  "l": 1140,
+  "k": "s",
+  "s": "Vereinigung"
+ },
+ {
+  "f": "app.js",
+  "l": 1140,
+  "k": "s",
+  "s": "Differenz"
+ },
+ {
+  "f": "app.js",
+  "l": 1140,
+  "k": "s",
+  "s": "Schnittmenge"
+ },
+ {
+  "f": "app.js",
+  "l": 1168,
+  "k": "s",
+  "s": "Diese Objekte lassen sich nicht in Kurven umwandeln (Text: zuerst „In Linien umwandeln“)."
+ },
+ {
+  "f": "app.js",
+  "l": 1186,
+  "k": "s",
+  "s": "Auseinandernehmen geht bei importierten Linien und Text."
+ },
+ {
+  "f": "app.js",
+  "l": 1194,
+  "k": "t",
+  "s": "${0} Linie ${1}"
+ },
+ {
+  "f": "app.js",
+  "l": 1201,
+  "k": "t",
+  "s": "${0} Teile"
+ },
+ {
+  "f": "app.js",
+  "l": 1207,
+  "k": "s",
+  "s": "Bitte Formen auswählen."
+ },
+ {
+  "f": "app.js",
+  "l": 1208,
+  "k": "s",
+  "s": "Versatz"
+ },
+ {
+  "f": "app.js",
+  "l": 1208,
+  "k": "t",
+  "s": "${0}\n      ${1}\n      <p class=\"muted small\">Erzeugt eine neue Umrisslinie mit festem Abstand, z. B. für einen Rand um Text oder eine Einlegearbeit.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 1208,
+  "k": "s",
+  "s": "Abstand (+ außen, − innen)"
+ },
+ {
+  "f": "app.js",
+  "l": 1209,
+  "k": "s",
+  "s": "Ecken"
+ },
+ {
+  "f": "app.js",
+  "l": 1209,
+  "k": "s",
+  "s": "<select id=\"oJ\"><option value=\"round\">rund</option><option value=\"miter\">spitz</option><option value=\"square\">abgeschrägt</option></select>"
+ },
+ {
+  "f": "app.js",
+  "l": 1211,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 1211,
+  "k": "s",
+  "s": "Erzeugen"
+ },
+ {
+  "f": "app.js",
+  "l": 1215,
+  "k": "s",
+  "s": "Ergebnis ist leer – Abstand zu groß?"
+ },
+ {
+  "f": "app.js",
+  "l": 1216,
+  "k": "t",
+  "s": "Versatz ${0} mm"
+ },
+ {
+  "f": "app.js",
+  "l": 1221,
+  "k": "s",
+  "s": "Bitte etwas auswählen."
+ },
+ {
+  "f": "app.js",
+  "l": 1223,
+  "k": "s",
+  "s": "Mehrfach anordnen"
+ },
+ {
+  "f": "app.js",
+  "l": 1223,
+  "k": "t",
+  "s": "<div class=\"grid2\">${0}${1}</div>\n      ${2}\n      ${3}"
+ },
+ {
+  "f": "app.js",
+  "l": 1223,
+  "k": "s",
+  "s": "Spalten"
+ },
+ {
+  "f": "app.js",
+  "l": 1223,
+  "k": "s",
+  "s": "Zeilen"
+ },
+ {
+  "f": "app.js",
+  "l": 1224,
+  "k": "s",
+  "s": "Abstand waagrecht (Mitte zu Mitte)"
+ },
+ {
+  "f": "app.js",
+  "l": 1225,
+  "k": "s",
+  "s": "Abstand senkrecht (Mitte zu Mitte)"
+ },
+ {
+  "f": "app.js",
+  "l": 1226,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 1226,
+  "k": "s",
+  "s": "Anordnen"
+ },
+ {
+  "f": "app.js",
+  "l": 1239,
+  "k": "t",
+  "s": "${0} Kopien erzeugt"
+ },
+ {
+  "f": "app.js",
+  "l": 1247,
+  "k": "t",
+  "s": "\n      ${0}\n      <div class=\"grid2\">${1}${2}</div>\n      ${3}\n      ${4}\n      ${5}\n      <div class=\"field\"><label>Nullpunkt X/Y<br><span class=\"muted small\">Dort stellst du die Maschine auf X0 Y0</span></label>\n        <div class=\"zeropick\">${6}</div></div>\n      ${7}\n      <div class=\"info\">Arbeitsbereich der ${8}: ${9} × ${10} × ${11} mm</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1248,
+  "k": "s",
+  "s": "Projektname"
+ },
+ {
+  "f": "app.js",
+  "l": 1248,
+  "k": "s",
+  "s": "<input id=\"sName\" value=\"Unbenannt\">"
+ },
+ {
+  "f": "app.js",
+  "l": 1249,
+  "k": "s",
+  "s": "Breite X"
+ },
+ {
+  "f": "app.js",
+  "l": 1249,
+  "k": "s",
+  "s": "Höhe Y"
+ },
+ {
+  "f": "app.js",
+  "l": 1250,
+  "k": "s",
+  "s": "Materialstärke Z"
+ },
+ {
+  "f": "app.js",
+  "l": 1251,
+  "k": "s",
+  "s": "Material"
+ },
+ {
+  "f": "app.js",
+  "l": 1251,
+  "k": "t",
+  "s": "<select id=\"sM\">${0}</select>"
+ },
+ {
+  "f": "app.js",
+  "l": 1251,
+  "k": "t",
+  "s": "<option value=\"${0}\" ${1}>${2}</option>"
+ },
+ {
+  "f": "app.js",
+  "l": 1252,
+  "k": "s",
+  "s": "Sicherheitshöhe"
+ },
+ {
+  "f": "app.js",
+  "l": 1254,
+  "k": "t",
+  "s": "<button data-z=\"${0}\" class=\"${1}\" title=\"${2}\"></button>"
+ },
+ {
+  "f": "app.js",
+  "l": 1255,
+  "k": "s",
+  "s": "Nullpunkt Z"
+ },
+ {
+  "f": "app.js",
+  "l": 1255,
+  "k": "t",
+  "s": "<select id=\"sZ\"><option value=\"top\" ${0}>Materialoberfläche (empfohlen)</option><option value=\"bottom\" ${1}>Maschinentisch / Opferplatte</option></select>"
+ },
+ {
+  "f": "app.js",
+  "l": 1258,
+  "k": "s",
+  "s": "Neues Projekt"
+ },
+ {
+  "f": "app.js",
+  "l": 1258,
+  "k": "s",
+  "s": "Werkstück einrichten"
+ },
+ {
+  "f": "app.js",
+  "l": 1258,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 1258,
+  "k": "s",
+  "s": "Anlegen"
+ },
+ {
+  "f": "app.js",
+  "l": 1258,
+  "k": "s",
+  "s": "Übernehmen"
+ },
+ {
+  "f": "app.js",
+  "l": 1264,
+  "k": "s",
+  "s": ".zeropick button"
+ },
+ {
+  "f": "app.js",
+  "l": 1269,
+  "k": "t",
+  "s": "Achtung: Werkstück ist größer als der Arbeitsbereich (${0} × ${1} mm)."
+ },
+ {
+  "f": "app.js",
+  "l": 1273,
+  "k": "s",
+  "s": "Unbenannt"
+ },
+ {
+  "f": "app.js",
+  "l": 1273,
+  "k": "s",
+  "s": "Unbenannt"
+ },
+ {
+  "f": "app.js",
+  "l": 1283,
+  "k": "t",
+  "s": "<tr class=\"toolrow ${0}\" data-t=\"${1}\"><td>${2}</td><td>${3}</td><td>Ø ${4}${5}</td></tr>"
+ },
+ {
+  "f": "app.js",
+  "l": 1283,
+  "k": "s",
+  "s": ", Spitze Ø "
+ },
+ {
+  "f": "app.js",
+  "l": 1284,
+  "k": "t",
+  "s": "\n      ${0}\n      ${1}\n      <div class=\"grid2\">\n        ${2}\n        ${3}\n        ${4}\n        ${5}\n        ${6}\n        ${7}\n        ${8}\n        ${9}\n        ${10}\n      </div>\n      <p class=\"muted small\">Werte gelten für Weichholz und die 80-W-Spindel; Material und Spindelleistung (Maschine: ${11}) passen Vorschub, Zustellung und Drehzahl automatisch an. Höchstvorschub: ${12} mm/min.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 1285,
+  "k": "s",
+  "s": "Name"
+ },
+ {
+  "f": "app.js",
+  "l": 1285,
+  "k": "t",
+  "s": "<input id=\"wN\" value=\"${0}\">"
+ },
+ {
+  "f": "app.js",
+  "l": 1286,
+  "k": "t",
+  "s": "<select id=\"wT\">${0}</select>"
+ },
+ {
+  "f": "app.js",
+  "l": 1286,
+  "k": "t",
+  "s": "<option value=\"${0}\" ${1}>${2}</option>"
+ },
+ {
+  "f": "app.js",
+  "l": 1289,
+  "k": "s",
+  "s": "Schneiden"
+ },
+ {
+  "f": "app.js",
+  "l": 1290,
+  "k": "s",
+  "s": "Kegel gesamt"
+ },
+ {
+  "f": "app.js",
+  "l": 1290,
+  "k": "s",
+  "s": "Winkel"
+ },
+ {
+  "f": "app.js",
+  "l": 1290,
+  "k": "s",
+  "s": "min=\"1\" max=\"170\""
+ },
+ {
+  "f": "app.js",
+  "l": 1290,
+  "k": "s",
+  "s": "Kugel-Ø Spitze"
+ },
+ {
+  "f": "app.js",
+  "l": 1290,
+  "k": "s",
+  "s": "Spitze"
+ },
+ {
+  "f": "app.js",
+  "l": 1291,
+  "k": "s",
+  "s": "Schn.-länge"
+ },
+ {
+  "f": "app.js",
+  "l": 1292,
+  "k": "s",
+  "s": "Drehzahl"
+ },
+ {
+  "f": "app.js",
+  "l": 1293,
+  "k": "s",
+  "s": "Vorschub"
+ },
+ {
+  "f": "app.js",
+  "l": 1294,
+  "k": "s",
+  "s": "Eintauchen"
+ },
+ {
+  "f": "app.js",
+  "l": 1295,
+  "k": "s",
+  "s": "Zustellung"
+ },
+ {
+  "f": "app.js",
+  "l": 1296,
+  "k": "s",
+  "s": "Überlappung"
+ },
+ {
+  "f": "app.js",
+  "l": 1311,
+  "k": "s",
+  "s": "<div style=\"display:grid;grid-template-columns:1.1fr 1fr;gap:14px\">\n      <div><table><tbody id=\"tlList\"></tbody></table>\n        <div class=\"row\"><button id=\"tlAdd\">+ Neu</button><button id=\"tlDup\">Kopieren</button><button id=\"tlDel\">Löschen</button><button id=\"tlReset\">Standard</button></div></div>\n      <div id=\"tlForm\"></div></div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1315,
+  "k": "s",
+  "s": "Werkzeugbibliothek"
+ },
+ {
+  "f": "app.js",
+  "l": 1315,
+  "k": "s",
+  "s": "Schließen"
+ },
+ {
+  "f": "app.js",
+  "l": 1322,
+  "k": "s",
+  "s": "Neues Werkzeug"
+ },
+ {
+  "f": "app.js",
+  "l": 1323,
+  "k": "s",
+  "s": " (Kopie)"
+ },
+ {
+  "f": "app.js",
+  "l": 1325,
+  "k": "s",
+  "s": "Werkzeug wird in einer Fräsbahn verwendet."
+ },
+ {
+  "f": "app.js",
+  "l": 1345,
+  "k": "t",
+  "s": "${0}\n      <div class=\"grid2\">\n        ${1}${2}${3}\n        ${4}\n        ${5}\n        ${6}\n        ${7}\n        ${8}\n        ${9}\n        ${10}\n        ${11}\n      </div>\n      ${12}\n      ${13}\n      <p class=\"muted small\">Die Leistung bestimmt, wie stark FräsStudio Zustellung und Vorschub gegenüber der 80-W-Spindel erhöht (Vorschub bleibt auf den Höchstwert der Achsen begrenzt).\n      Beim 800-W-Fräsmotor stellst du die Drehzahl am Drehregler ein – FräsStudio sagt dir für jedes Werkzeug die passende Stufe und schaltet den Motor nur ein und aus.\n      Die TTC450 steuert die Spindel über S0 bis S1000 ($30=1000); mit „$$“ in der Konsole liest du die Einstellungen aus.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 1345,
+  "k": "s",
+  "s": "Maschine"
+ },
+ {
+  "f": "app.js",
+  "l": 1345,
+  "k": "t",
+  "s": "<select id=\"mmId\">${0}</select>"
+ },
+ {
+  "f": "app.js",
+  "l": 1345,
+  "k": "t",
+  "s": "<option value=\"${0}\" ${1}>${2}</option>"
+ },
+ {
+  "f": "app.js",
+  "l": 1348,
+  "k": "s",
+  "s": "Leistung"
+ },
+ {
+  "f": "app.js",
+  "l": 1349,
+  "k": "s",
+  "s": "Min U/min"
+ },
+ {
+  "f": "app.js",
+  "l": 1350,
+  "k": "s",
+  "s": "Max U/min"
+ },
+ {
+  "f": "app.js",
+  "l": 1351,
+  "k": "s",
+  "s": "S max ($30)"
+ },
+ {
+  "f": "app.js",
+  "l": 1352,
+  "k": "s",
+  "s": "Max Vorschub"
+ },
+ {
+  "f": "app.js",
+  "l": 1353,
+  "k": "s",
+  "s": "Max Z"
+ },
+ {
+  "f": "app.js",
+  "l": 1354,
+  "k": "s",
+  "s": "Eilgang"
+ },
+ {
+  "f": "app.js",
+  "l": 1355,
+  "k": "s",
+  "s": "Baudrate"
+ },
+ {
+  "f": "app.js",
+  "l": 1357,
+  "k": "s",
+  "s": "Drehzahl einstellen"
+ },
+ {
+  "f": "app.js",
+  "l": 1357,
+  "k": "t",
+  "s": "<select id=\"mmSp\"><option value=\"pwm\" ${0}>vom Programm (S-Wert)</option><option value=\"manual\" ${1}>von Hand am Drehregler</option></select>"
+ },
+ {
+  "f": "app.js",
+  "l": 1358,
+  "k": "s",
+  "s": "Stufen am Drehregler"
+ },
+ {
+  "f": "app.js",
+  "l": 1358,
+  "k": "s",
+  "s": "min=\"2\" max=\"12\""
+ },
+ {
+  "f": "app.js",
+  "l": 1362,
+  "k": "s",
+  "s": "Maschine"
+ },
+ {
+  "f": "app.js",
+  "l": 1362,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 1362,
+  "k": "s",
+  "s": "Übernehmen"
+ },
+ {
+  "f": "app.js",
+  "l": 1380,
+  "k": "s",
+  "s": "Projekt"
+ },
+ {
+  "f": "app.js",
+  "l": 1382,
+  "k": "s",
+  "s": "Projekt gespeichert: "
+ },
+ {
+  "f": "app.js",
+  "l": 1399,
+  "k": "s",
+  "s": "Bild verwenden als …"
+ },
+ {
+  "f": "app.js",
+  "l": 1399,
+  "k": "t",
+  "s": "<p>Was soll aus <b>${0}</b> werden?</p>\n        <p class=\"small\"><b>3D-Relief:</b> schwarz wird tief, grau dazwischen, weiß bleibt flach.<br><b>Umriss:</b> die dunklen Flächen werden zu Linien (für Kontur, Tasche, V-Carving).</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 1401,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 1401,
+  "k": "s",
+  "s": "Umriss nachzeichnen"
+ },
+ {
+  "f": "app.js",
+  "l": 1410,
+  "k": "s",
+  "s": "Dieser Dateityp wird nicht unterstützt: ."
+ },
+ {
+  "f": "app.js",
+  "l": 1416,
+  "k": "s",
+  "s": "Keine FräsStudio-Datei"
+ },
+ {
+  "f": "app.js",
+  "l": 1421,
+  "k": "s",
+  "s": "Geöffnet: "
+ },
+ {
+  "f": "app.js",
+  "l": 1422,
+  "k": "s",
+  "s": "Fehler"
+ },
+ {
+  "f": "app.js",
+  "l": 1422,
+  "k": "t",
+  "s": "<p>Die Datei konnte nicht geöffnet werden: ${0}</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 1432,
+  "k": "s",
+  "s": "Keine Linien gefunden"
+ },
+ {
+  "f": "app.js",
+  "l": 1439,
+  "k": "t",
+  "s": "Importiert: ${0} Linienzüge (${1} × ${2} mm)${3}. Zum Zerlegen: Anordnen → Auseinandernehmen."
+ },
+ {
+  "f": "app.js",
+  "l": 1439,
+  "k": "t",
+  "s": ", davon ${0} offen"
+ },
+ {
+  "f": "app.js",
+  "l": 1441,
+  "k": "s",
+  "s": "Import fehlgeschlagen"
+ },
+ {
+  "f": "app.js",
+  "l": 1447,
+  "k": "s",
+  "s": "Fehler"
+ },
+ {
+  "f": "app.js",
+  "l": 1450,
+  "k": "t",
+  "s": "<canvas id=\"trPrev\" width=\"560\" height=\"320\"></canvas>\n      ${0}\n      <label class=\"check\"><input type=\"checkbox\" id=\"trInv\"> umkehren (helle Bereiche werden zur Form)</label>\n      ${1}\n      ${2}\n      <p id=\"trInfo\" class=\"muted small\"></p>"
+ },
+ {
+  "f": "app.js",
+  "l": 1451,
+  "k": "s",
+  "s": "Schwelle"
+ },
+ {
+  "f": "app.js",
+  "l": 1451,
+  "k": "s",
+  "s": "<input id=\"trTh\" type=\"range\" min=\"1\" max=\"254\" value=\"128\">"
+ },
+ {
+  "f": "app.js",
+  "l": 1453,
+  "k": "s",
+  "s": "Breite"
+ },
+ {
+  "f": "app.js",
+  "l": 1454,
+  "k": "s",
+  "s": "Glätten"
+ },
+ {
+  "f": "app.js",
+  "l": 1454,
+  "k": "s",
+  "s": "<input id=\"trSm\" type=\"range\" min=\"0\" max=\"3\" step=\"0.1\" value=\"0.7\">"
+ },
+ {
+  "f": "app.js",
+  "l": 1468,
+  "k": "t",
+  "s": "${0} Umrisse, ${1} × ${2} mm"
+ },
+ {
+  "f": "app.js",
+  "l": 1470,
+  "k": "s",
+  "s": "Bild nachzeichnen"
+ },
+ {
+  "f": "app.js",
+  "l": 1470,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 1470,
+  "k": "s",
+  "s": "Übernehmen"
+ },
+ {
+  "f": "app.js",
+  "l": 1485,
+  "k": "s",
+  "s": "Fehler"
+ },
+ {
+  "f": "app.js",
+  "l": 1485,
+  "k": "s",
+  "s": "<p>Das Bild konnte nicht gelesen werden.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 1490,
+  "k": "t",
+  "s": "${0}\n      <div id=\"rlAi\" class=\"hidden\">\n        <div class=\"info\" id=\"rlAiInfo\">Die KI erkennt aus Licht und Schatten, was vorne und hinten ist, und macht daraus eine Höhenkarte.</div>\n        <div class=\"row\"><button id=\"rlAiRun\" class=\"primary\">KI-Tiefe berechnen</button><button id=\"rlAiFile\" title=\"Falls kein Internet: Modelldatei (depth-anything-v2-small, .onnx) von Hand wählen\">Modelldatei wählen…</button></div>\n        ${1}\n      </div>\n      <div class=\"relgrid\"><div>\n        <canvas id=\"rlPrev\" width=\"320\" height=\"${2}\"></canvas>\n        <div class=\"graybar\"></div><div class=\"graylbl\" id=\"rlLbl\"><span>schwarz = tief</span><span>grau = dazwischen</span><span>weiß = flach</span></div>\n      </div><div id=\"rl3d\"></div></div>\n      <div class=\"grid2\">${3}${4}</div>\n      <div class=\"grid2\">${5}\n        ${6}</div>\n      ${7}\n      ${8}\n      <label class=\"check\"><input type=\"checkbox\" id=\"rlI\"> umkehren (weiß = tief, schwarz = flach)</label>\n      <label class=\"check\"><input type=\"checkbox\" id=\"rlOps\" checked> Fräsbahnen gleich anlegen (schruppen + schlichten)</label>\n      <p id=\"rlInfo\" class=\"muted small\"></p>"
+ },
+ {
+  "f": "app.js",
+  "l": 1490,
+  "k": "s",
+  "s": "Bildart"
+ },
+ {
+  "f": "app.js",
+  "l": 1490,
+  "k": "s",
+  "s": "<select id=\"rlMode\"><option value=\"gray\">Höhenbild / Graustufen (hell = hoch, dunkel = tief)</option><option value=\"ai\">Foto oder Render – KI schätzt die Tiefe</option></select>"
+ },
+ {
+  "f": "app.js",
+  "l": 1494,
+  "k": "s",
+  "s": "Feine Details aus dem Bild"
+ },
+ {
+  "f": "app.js",
+  "l": 1494,
+  "k": "s",
+  "s": "<input id=\"rlDet\" type=\"range\" min=\"0\" max=\"1\" step=\"0.05\" value=\"0.3\">"
+ },
+ {
+  "f": "app.js",
+  "l": 1500,
+  "k": "s",
+  "s": "Breite"
+ },
+ {
+  "f": "app.js",
+  "l": 1500,
+  "k": "s",
+  "s": "Höhe"
+ },
+ {
+  "f": "app.js",
+  "l": 1501,
+  "k": "s",
+  "s": "Tiefe (tiefste Stelle)"
+ },
+ {
+  "f": "app.js",
+  "l": 1502,
+  "k": "s",
+  "s": "Auflösung"
+ },
+ {
+  "f": "app.js",
+  "l": 1502,
+  "k": "s",
+  "s": "<select id=\"rlR\"><option value=\"300\">normal</option><option value=\"500\" selected>fein</option><option value=\"800\">sehr fein</option></select>"
+ },
+ {
+  "f": "app.js",
+  "l": 1503,
+  "k": "s",
+  "s": "Grautöne <span class=\"muted small\">(links höher, rechts tiefer)</span>"
+ },
+ {
+  "f": "app.js",
+  "l": 1503,
+  "k": "s",
+  "s": "<input id=\"rlG\" type=\"range\" min=\"0.3\" max=\"3\" step=\"0.05\" value=\"1\">"
+ },
+ {
+  "f": "app.js",
+  "l": 1504,
+  "k": "s",
+  "s": "Glätten"
+ },
+ {
+  "f": "app.js",
+  "l": 1504,
+  "k": "s",
+  "s": "<input id=\"rlS\" type=\"range\" min=\"0\" max=\"6\" value=\"1\">"
+ },
+ {
+  "f": "app.js",
+  "l": 1537,
+  "k": "s",
+  "s": "<span>hinten = tief</span><span>KI-Höhenkarte</span><span>vorne = hoch</span>"
+ },
+ {
+  "f": "app.js",
+  "l": 1537,
+  "k": "s",
+  "s": "<span>schwarz = tief</span><span>grau = dazwischen</span><span>weiß = flach</span>"
+ },
+ {
+  "f": "app.js",
+  "l": 1549,
+  "k": "t",
+  "s": "Relief ${0} × ${1} mm, ${2} mm tief${3}"
+ },
+ {
+  "f": "app.js",
+  "l": 1549,
+  "k": "s",
+  "s": " – tiefer als das Material!"
+ },
+ {
+  "f": "app.js",
+  "l": 1551,
+  "k": "s",
+  "s": "3D-Relief aus Bild"
+ },
+ {
+  "f": "app.js",
+  "l": 1551,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 1551,
+  "k": "s",
+  "s": "Erstellen"
+ },
+ {
+  "f": "app.js",
+  "l": 1556,
+  "k": "s",
+  "s": "<p class=\"muted small\">3D-Vorschau nicht verfügbar (WebGL2).</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 1565,
+  "k": "s",
+  "s": "Fertig. Die KI-Höhenkarte ist links zu sehen, rechts das 3D-Ergebnis. Mit „Feine Details“ kommen Strukturen (Haare, Fell) aus dem Bild dazu."
+ },
+ {
+  "f": "app.js",
+  "l": 1568,
+  "k": "t",
+  "s": "Die KI konnte nicht geladen werden: ${0}<br>Ohne Internet: die Datei <b>model_quantized.onnx</b> von <a href=\"${1}\" target=\"_blank\" rel=\"noopener\">HuggingFace (Depth Anything V2 Small)</a> laden und mit „Modelldatei wählen…“ öffnen."
+ },
+ {
+  "f": "app.js",
+  "l": 1575,
+  "k": "s",
+  "s": "Beim ersten Mal wird das KI-Modell geladen (ca. 27 MB, einmalig – danach auch ohne Internet). Dann „KI-Tiefe berechnen“ drücken."
+ },
+ {
+  "f": "app.js",
+  "l": 1586,
+  "k": "t",
+  "s": "Modell „${0}“ gespeichert."
+ },
+ {
+  "f": "app.js",
+  "l": 1599,
+  "k": "s",
+  "s": "Hinweis: Die KI-Tiefe wurde nicht berechnet – das Relief nutzt die Helligkeit."
+ },
+ {
+  "f": "app.js",
+  "l": 1610,
+  "k": "s",
+  "s": " schruppen"
+ },
+ {
+  "f": "app.js",
+  "l": 1610,
+  "k": "s",
+  "s": " schlichten"
+ },
+ {
+  "f": "app.js",
+  "l": 1616,
+  "k": "s",
+  "s": "Achtung: Relief ist tiefer als das Material."
+ },
+ {
+  "f": "app.js",
+  "l": 1616,
+  "k": "s",
+  "s": "Relief erstellt. Taste 3 zeigt das Ergebnis in der 3D-Vorschau."
+ },
+ {
+  "f": "app.js",
+  "l": 1623,
+  "k": "s",
+  "s": "Fehler"
+ },
+ {
+  "f": "app.js",
+  "l": 1625,
+  "k": "t",
+  "s": "<p>Modell: ${0} × ${1} mm, Höhe ${2} mm. Gefräst wird die Ansicht von oben.</p>\n      <div class=\"grid2\">${3}${4}</div>\n      <label class=\"check\"><input type=\"checkbox\" id=\"slK\" checked> Tiefe im gleichen Maßstab wie die Breite</label>"
+ },
+ {
+  "f": "app.js",
+  "l": 1626,
+  "k": "s",
+  "s": "Breite"
+ },
+ {
+  "f": "app.js",
+  "l": 1626,
+  "k": "s",
+  "s": "Tiefe"
+ },
+ {
+  "f": "app.js",
+  "l": 1628,
+  "k": "s",
+  "s": "3D-Modell als Relief"
+ },
+ {
+  "f": "app.js",
+  "l": 1628,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 1628,
+  "k": "s",
+  "s": "Erstellen"
+ },
+ {
+  "f": "app.js",
+  "l": 1638,
+  "k": "s",
+  "s": "Achtung: Relief ist tiefer als das Material."
+ },
+ {
+  "f": "app.js",
+  "l": 1647,
+  "k": "t",
+  "s": "<path d=\"${0}\" fill=\"none\" stroke=\"#000\" stroke-width=\"0.2\"/>\n"
+ },
+ {
+  "f": "app.js",
+  "l": 1649,
+  "k": "s",
+  "s": "Zeichnung"
+ },
+ {
+  "f": "app.js",
+  "l": 1649,
+  "k": "t",
+  "s": "<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"${0}mm\" height=\"${1}mm\" viewBox=\"0 0 ${2} ${3}\">\n${4}</svg>\n"
+ },
+ {
+  "f": "app.js",
+  "l": 1704,
+  "k": "s",
+  "s": "Bitte zuerst in der Zeichnung auswählen, was gefräst werden soll."
+ },
+ {
+  "f": "app.js",
+  "l": 1705,
+  "k": "s",
+  "s": "Für 3D-Bearbeitungen ein Relief auswählen (Datei → 3D-Relief aus Bild / STL)."
+ },
+ {
+  "f": "app.js",
+  "l": 1727,
+  "k": "s",
+  "s": "<div class=\"empty\">Noch keine Fräsbahnen.<br><br>1. In der Zeichnung Objekte anklicken<br>2. Oben eine Bearbeitung wählen</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1739,
+  "k": "t",
+  "s": "<span class=\"w\" title=\"${0}\">⚠</span>"
+ },
+ {
+  "f": "app.js",
+  "l": 1740,
+  "k": "t",
+  "s": "<div class=\"op ${0} ${1}\" data-op=\"${2}\">\n        <input type=\"checkbox\" data-en=\"${3}\" ${4} title=\"Ein/Aus\">\n        <span class=\"dot\" style=\"background:${5}\"></span>\n        <span class=\"n\">${6}<br><span class=\"c\">${7}</span></span>${8}\n        <span class=\"c\">${9}</span>\n        <button class=\"x\" data-up=\"${10}\" title=\"Nach oben\">▲</button><button class=\"x\" data-del=\"${11}\" title=\"Löschen\">✕</button></div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1747,
+  "k": "t",
+  "s": "Gesamt ≈ ${0}"
+ },
+ {
+  "f": "app.js",
+  "l": 1761,
+  "k": "t",
+  "s": "<option value=\"${0}\" ${1}>${2}</option>"
+ },
+ {
+  "f": "app.js",
+  "l": 1771,
+  "k": "t",
+  "s": "<select data-k=\"${0}\">${1}</select>"
+ },
+ {
+  "f": "app.js",
+  "l": 1771,
+  "k": "t",
+  "s": "<option value=\"${0}\" ${1}>${2}</option>"
+ },
+ {
+  "f": "app.js",
+  "l": 1772,
+  "k": "t",
+  "s": "<input data-k=\"${0}\" type=\"number\" step=\"${1}\" value=\"${2}\" ${3}>"
+ },
+ {
+  "f": "app.js",
+  "l": 1773,
+  "k": "t",
+  "s": "<label class=\"check\"><input type=\"checkbox\" data-k=\"${0}\" ${1}> ${2}</label>"
+ },
+ {
+  "f": "app.js",
+  "l": 1774,
+  "k": "t",
+  "s": "<h3>${0} <small>${1}</small></h3>"
+ },
+ {
+  "f": "app.js",
+  "l": 1774,
+  "k": "s",
+  "s": " Objekt(e)"
+ },
+ {
+  "f": "app.js",
+  "l": 1774,
+  "k": "s",
+  "s": "ganzes Werkstück"
+ },
+ {
+  "f": "app.js",
+  "l": 1774,
+  "k": "s",
+  "s": "keine Objekte!"
+ },
+ {
+  "f": "app.js",
+  "l": 1775,
+  "k": "s",
+  "s": "Name"
+ },
+ {
+  "f": "app.js",
+  "l": 1775,
+  "k": "t",
+  "s": "<input data-k=\"name\" value=\"${0}\">"
+ },
+ {
+  "f": "app.js",
+  "l": 1776,
+  "k": "s",
+  "s": "Werkzeug"
+ },
+ {
+  "f": "app.js",
+  "l": 1776,
+  "k": "t",
+  "s": "<select data-k=\"toolId\">${0}</select>"
+ },
+ {
+  "f": "app.js",
+  "l": 1777,
+  "k": "s",
+  "s": "Tiefe"
+ },
+ {
+  "f": "app.js",
+  "l": 1781,
+  "k": "s",
+  "s": "Seite"
+ },
+ {
+  "f": "app.js",
+  "l": 1781,
+  "k": "s",
+  "s": "außen (Teil ausschneiden)"
+ },
+ {
+  "f": "app.js",
+  "l": 1781,
+  "k": "s",
+  "s": "innen (Loch ausschneiden)"
+ },
+ {
+  "f": "app.js",
+  "l": 1781,
+  "k": "s",
+  "s": "auf der Linie"
+ },
+ {
+  "f": "app.js",
+  "l": 1782,
+  "k": "s",
+  "s": "Fräsrichtung"
+ },
+ {
+  "f": "app.js",
+  "l": 1782,
+  "k": "s",
+  "s": "Gleichlauf (sauberer)"
+ },
+ {
+  "f": "app.js",
+  "l": 1782,
+  "k": "s",
+  "s": "Gegenlauf"
+ },
+ {
+  "f": "app.js",
+  "l": 1783,
+  "k": "s",
+  "s": "Haltestege (Teil fällt nicht heraus)"
+ },
+ {
+  "f": "app.js",
+  "l": 1784,
+  "k": "t",
+  "s": "<div class=\"grid2\">${0}${1}${2}</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1784,
+  "k": "s",
+  "s": "Anzahl"
+ },
+ {
+  "f": "app.js",
+  "l": 1784,
+  "k": "s",
+  "s": "Breite"
+ },
+ {
+  "f": "app.js",
+  "l": 1784,
+  "k": "s",
+  "s": "Höhe"
+ },
+ {
+  "f": "app.js",
+  "l": 1785,
+  "k": "s",
+  "s": "Schräg eintauchen (Rampe, schont Fräser)"
+ },
+ {
+  "f": "app.js",
+  "l": 1786,
+  "k": "t",
+  "s": "<div class=\"grid2\">${0}</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1786,
+  "k": "s",
+  "s": "Aufmaß"
+ },
+ {
+  "f": "app.js",
+  "l": 1787,
+  "k": "s",
+  "s": "Schlichtgang auf Endmaß"
+ },
+ {
+  "f": "app.js",
+  "l": 1791,
+  "k": "s",
+  "s": "Strategie"
+ },
+ {
+  "f": "app.js",
+  "l": 1791,
+  "k": "s",
+  "s": "konturparallel (Spirale)"
+ },
+ {
+  "f": "app.js",
+  "l": 1791,
+  "k": "s",
+  "s": "Zeilen (Zickzack)"
+ },
+ {
+  "f": "app.js",
+  "l": 1792,
+  "k": "s",
+  "s": "Zeilenwinkel"
+ },
+ {
+  "f": "app.js",
+  "l": 1793,
+  "k": "s",
+  "s": "Fräsrichtung"
+ },
+ {
+  "f": "app.js",
+  "l": 1793,
+  "k": "s",
+  "s": "Gleichlauf"
+ },
+ {
+  "f": "app.js",
+  "l": 1793,
+  "k": "s",
+  "s": "Gegenlauf"
+ },
+ {
+  "f": "app.js",
+  "l": 1794,
+  "k": "s",
+  "s": "Überlappung"
+ },
+ {
+  "f": "app.js",
+  "l": 1794,
+  "k": "s",
+  "s": "min=\"5\" max=\"95\""
+ },
+ {
+  "f": "app.js",
+  "l": 1795,
+  "k": "s",
+  "s": "Aufmaß Rand"
+ },
+ {
+  "f": "app.js",
+  "l": 1796,
+  "k": "s",
+  "s": "Schräg eintauchen (Rampe)"
+ },
+ {
+  "f": "app.js",
+  "l": 1799,
+  "k": "s",
+  "s": "Max. Tiefe (0 = ohne)"
+ },
+ {
+  "f": "app.js",
+  "l": 1800,
+  "k": "s",
+  "s": "Flache Böden ausräumen mit"
+ },
+ {
+  "f": "app.js",
+  "l": 1800,
+  "k": "t",
+  "s": "<select data-k=\"clearToolId\"><option value=\"\">dem V-Fräser</option>${0}</select>"
+ },
+ {
+  "f": "app.js",
+  "l": 1801,
+  "k": "s",
+  "s": "Genauigkeit"
+ },
+ {
+  "f": "app.js",
+  "l": 1801,
+  "k": "s",
+  "s": "grob (schnell)"
+ },
+ {
+  "f": "app.js",
+  "l": 1801,
+  "k": "s",
+  "s": "sehr fein"
+ },
+ {
+  "f": "app.js",
+  "l": 1802,
+  "k": "s",
+  "s": "<div class=\"warnbox\">Bitte einen V-Fräser wählen.</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1807,
+  "k": "s",
+  "s": "Entspänen alle"
+ },
+ {
+  "f": "app.js",
+  "l": 1808,
+  "k": "s",
+  "s": "<p class=\"muted small\">Mit Schaftfräser werden größere Löcher spiralförmig (Helix) gefräst.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 1811,
+  "k": "s",
+  "s": "Abtrag"
+ },
+ {
+  "f": "app.js",
+  "l": 1812,
+  "k": "s",
+  "s": "Überstand am Rand"
+ },
+ {
+  "f": "app.js",
+  "l": 1813,
+  "k": "s",
+  "s": "Überlappung"
+ },
+ {
+  "f": "app.js",
+  "l": 1813,
+  "k": "s",
+  "s": "min=\"5\" max=\"95\""
+ },
+ {
+  "f": "app.js",
+  "l": 1816,
+  "k": "s",
+  "s": "Aufmaß"
+ },
+ {
+  "f": "app.js",
+  "l": 1817,
+  "k": "s",
+  "s": "Überlappung"
+ },
+ {
+  "f": "app.js",
+  "l": 1817,
+  "k": "s",
+  "s": "min=\"5\" max=\"95\""
+ },
+ {
+  "f": "app.js",
+  "l": 1820,
+  "k": "s",
+  "s": "Vorheriges Werkzeug"
+ },
+ {
+  "f": "app.js",
+  "l": 1820,
+  "k": "t",
+  "s": "<select data-k=\"refToolId\">${0}</select>"
+ },
+ {
+  "f": "app.js",
+  "l": 1821,
+  "k": "s",
+  "s": "Richtung"
+ },
+ {
+  "f": "app.js",
+  "l": 1821,
+  "k": "s",
+  "s": "Zeilen in X"
+ },
+ {
+  "f": "app.js",
+  "l": 1821,
+  "k": "s",
+  "s": "Zeilen in Y"
+ },
+ {
+  "f": "app.js",
+  "l": 1822,
+  "k": "s",
+  "s": "Überlappung"
+ },
+ {
+  "f": "app.js",
+  "l": 1822,
+  "k": "s",
+  "s": "min=\"2\" max=\"60\""
+ },
+ {
+  "f": "app.js",
+  "l": 1823,
+  "k": "s",
+  "s": "Nur wo mehr Rest als"
+ },
+ {
+  "f": "app.js",
+  "l": 1824,
+  "k": "s",
+  "s": "<p class=\"muted small\">Der feine Fräser arbeitet nur dort, wo das vorherige Werkzeug nicht hinkam (enge Rillen, Haare, Augen). Erst schlichten, dann diese Bahn.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 1827,
+  "k": "s",
+  "s": "Richtung"
+ },
+ {
+  "f": "app.js",
+  "l": 1827,
+  "k": "s",
+  "s": "Zeilen in X"
+ },
+ {
+  "f": "app.js",
+  "l": 1827,
+  "k": "s",
+  "s": "Zeilen in Y"
+ },
+ {
+  "f": "app.js",
+  "l": 1827,
+  "k": "s",
+  "s": "X und Y (feiner)"
+ },
+ {
+  "f": "app.js",
+  "l": 1828,
+  "k": "s",
+  "s": "Überlappung"
+ },
+ {
+  "f": "app.js",
+  "l": 1828,
+  "k": "s",
+  "s": "min=\"2\" max=\"60\""
+ },
+ {
+  "f": "app.js",
+  "l": 1831,
+  "k": "t",
+  "s": "<details ${0}><summary class=\"muted\">Schnittwerte (leer = automatisch)</summary>\n      <div class=\"grid2\">\n        ${1}\n        ${2}\n        ${3}\n        ${4}\n        ${5}\n      </div></details>"
+ },
+ {
+  "f": "app.js",
+  "l": 1833,
+  "k": "s",
+  "s": "Zustellung"
+ },
+ {
+  "f": "app.js",
+  "l": 1833,
+  "k": "t",
+  "s": "<input data-k=\"stepdown\" type=\"number\" step=\"0.05\" placeholder=\"${0}\" value=\"${1}\">"
+ },
+ {
+  "f": "app.js",
+  "l": 1834,
+  "k": "s",
+  "s": "Vorschub"
+ },
+ {
+  "f": "app.js",
+  "l": 1834,
+  "k": "t",
+  "s": "<input data-k=\"feed\" type=\"number\" step=\"10\" placeholder=\"${0}\" value=\"${1}\">"
+ },
+ {
+  "f": "app.js",
+  "l": 1835,
+  "k": "s",
+  "s": "Eintauchen"
+ },
+ {
+  "f": "app.js",
+  "l": 1835,
+  "k": "t",
+  "s": "<input data-k=\"plunge\" type=\"number\" step=\"10\" placeholder=\"${0}\" value=\"${1}\">"
+ },
+ {
+  "f": "app.js",
+  "l": 1836,
+  "k": "s",
+  "s": "Drehzahl"
+ },
+ {
+  "f": "app.js",
+  "l": 1836,
+  "k": "t",
+  "s": "<input data-k=\"rpm\" type=\"number\" step=\"100\" placeholder=\"${0}\" value=\"${1}\">"
+ },
+ {
+  "f": "app.js",
+  "l": 1837,
+  "k": "s",
+  "s": "Starttiefe"
+ },
+ {
+  "f": "app.js",
+  "l": 1837,
+  "k": "t",
+  "s": "<input data-k=\"startDepth\" type=\"number\" step=\"0.1\" value=\"${0}\">"
+ },
+ {
+  "f": "app.js",
+  "l": 1839,
+  "k": "t",
+  "s": "<div class=\"row\"><button data-act=\"assign\" class=\"wide\" title=\"Aktuelle Auswahl für diese Fräsbahn verwenden\">Auswahl übernehmen (${0})</button><button data-act=\"tools\">Werkzeuge…</button></div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1840,
+  "k": "s",
+  "s": "<div class=\"row\"><button data-act=\"tools\">Werkzeuge…</button></div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1842,
+  "k": "t",
+  "s": "<div class=\"warnbox\">${0}</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1843,
+  "k": "t",
+  "s": "<p class=\"muted small\">Dauer ≈ ${0} · Vorschub ${1} mm/min · Zustellung ${2} mm · ${3}</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 1868,
+  "k": "s",
+  "s": "Erst in der Zeichnung Objekte auswählen."
+ },
+ {
+  "f": "app.js",
+  "l": 1884,
+  "k": "s",
+  "s": "Keine (aktiven) Fräsbahnen vorhanden."
+ },
+ {
+  "f": "app.js",
+  "l": 1889,
+  "k": "t",
+  "s": "<p>Laufzeit ≈ <b>${0}</b> · ${1} Zeilen · ${2} Werkzeug(e)</p>\n      <div class=\"info\">Nullpunkt: X/Y ${3}, Z auf der ${4}.</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1890,
+  "k": "s",
+  "s": "Tischoberfläche"
+ },
+ {
+  "f": "app.js",
+  "l": 1890,
+  "k": "s",
+  "s": "Materialoberfläche"
+ },
+ {
+  "f": "app.js",
+  "l": 1891,
+  "k": "t",
+  "s": "<div class=\"warnbox\">${0}</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1892,
+  "k": "s",
+  "s": "<label class=\"check\"><input type=\"radio\" name=\"gsplit\" value=\"one\" checked> Eine Datei – das Programm hält beim Werkzeugwechsel an (M0)</label>\n      <label class=\"check\"><input type=\"radio\" name=\"gsplit\" value=\"split\"> Je Werkzeug eine eigene Datei (empfohlen für SD-Karte / Candle)</label>"
+ },
+ {
+  "f": "app.js",
+  "l": 1894,
+  "k": "s",
+  "s": "Dateiendung"
+ },
+ {
+  "f": "app.js",
+  "l": 1894,
+  "k": "s",
+  "s": "<select id=\"gExt\"><option value=\"nc\">.nc</option><option value=\"gcode\">.gcode</option><option value=\"tap\">.tap</option></select>"
+ },
+ {
+  "f": "app.js",
+  "l": 1895,
+  "k": "s",
+  "s": "G-Code speichern"
+ },
+ {
+  "f": "app.js",
+  "l": 1895,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 1895,
+  "k": "s",
+  "s": "Speichern"
+ },
+ {
+  "f": "app.js",
+  "l": 1898,
+  "k": "s",
+  "s": "Projekt"
+ },
+ {
+  "f": "app.js",
+  "l": 1908,
+  "k": "s",
+  "s": " Ausräumen"
+ },
+ {
+  "f": "app.js",
+  "l": 1915,
+  "k": "s",
+  "s": "G-Code gespeichert."
+ },
+ {
+  "f": "app.js",
+  "l": 1919,
+  "k": "t",
+  "s": "Drehregler Stufe ${0} (≈ ${1} U/min)"
+ },
+ {
+  "f": "app.js",
+  "l": 1919,
+  "k": "t",
+  "s": "${0} U/min"
+ },
+ {
+  "f": "app.js",
+  "l": 1921,
+  "k": "s",
+  "s": "links unten"
+ },
+ {
+  "f": "app.js",
+  "l": 1921,
+  "k": "s",
+  "s": "unten Mitte"
+ },
+ {
+  "f": "app.js",
+  "l": 1921,
+  "k": "s",
+  "s": "rechts unten"
+ },
+ {
+  "f": "app.js",
+  "l": 1921,
+  "k": "s",
+  "s": "links Mitte"
+ },
+ {
+  "f": "app.js",
+  "l": 1921,
+  "k": "s",
+  "s": "Mitte"
+ },
+ {
+  "f": "app.js",
+  "l": 1921,
+  "k": "s",
+  "s": "rechts Mitte"
+ },
+ {
+  "f": "app.js",
+  "l": 1921,
+  "k": "s",
+  "s": "links oben"
+ },
+ {
+  "f": "app.js",
+  "l": 1921,
+  "k": "s",
+  "s": "oben Mitte"
+ },
+ {
+  "f": "app.js",
+  "l": 1921,
+  "k": "s",
+  "s": "rechts oben"
+ },
+ {
+  "f": "app.js",
+  "l": 1927,
+  "k": "s",
+  "s": "3D-Vorschau nicht möglich"
+ },
+ {
+  "f": "app.js",
+  "l": 1927,
+  "k": "t",
+  "s": "<p>${0}</p><p>Bitte einen aktuellen Chrome, Edge oder Firefox verwenden.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 1940,
+  "k": "s",
+  "s": "▶ Abspielen"
+ },
+ {
+  "f": "app.js",
+  "l": 1944,
+  "k": "t",
+  "s": "<div class=\"op\"><span class=\"dot\" style=\"background:${0}\"></span><span class=\"n\">${1}. ${2}<br><span class=\"c\">${3}</span></span><span class=\"c\">${4}</span></div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1945,
+  "k": "s",
+  "s": "<div class=\"empty\">Keine Fräsbahnen – zuerst im Schritt 2 anlegen.</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1946,
+  "k": "t",
+  "s": "<div class=\"info\">${0} Werkzeugwechsel – das Programm hält dort an.</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1953,
+  "k": "t",
+  "s": "<div class=\"errbox\">${0}</div>"
+ },
+ {
+  "f": "app.js",
+  "l": 1954,
+  "k": "t",
+  "s": "Laufzeit ≈ ${0} · ${1} Bewegungen${2}"
+ },
+ {
+  "f": "app.js",
+  "l": 1969,
+  "k": "s",
+  "s": "▶ Abspielen"
+ },
+ {
+  "f": "app.js",
+  "l": 1969,
+  "k": "s",
+  "s": "Simulation fertig."
+ },
+ {
+  "f": "app.js",
+  "l": 1976,
+  "k": "s",
+  "s": "⏸ Pause"
+ },
+ {
+  "f": "app.js",
+  "l": 1976,
+  "k": "s",
+  "s": "▶ Abspielen"
+ },
+ {
+  "f": "app.js",
+  "l": 1982,
+  "k": "s",
+  "s": "▶ Abspielen"
+ },
+ {
+  "f": "app.js",
+  "l": 1984,
+  "k": "s",
+  "s": "#busy span"
+ },
+ {
+  "f": "app.js",
+  "l": 1984,
+  "k": "s",
+  "s": "Simuliere …"
+ },
+ {
+  "f": "app.js",
+  "l": 1993,
+  "k": "s",
+  "s": "#busy span"
+ },
+ {
+  "f": "app.js",
+  "l": 1993,
+  "k": "s",
+  "s": "Fräsbahnen werden berechnet …"
+ },
+ {
+  "f": "app.js",
+  "l": 1997,
+  "k": "s",
+  "s": "▶ Abspielen"
+ },
+ {
+  "f": "app.js",
+  "l": 2008,
+  "k": "s",
+  "s": "Trennen"
+ },
+ {
+  "f": "app.js",
+  "l": 2009,
+  "k": "t",
+  "s": "Verbunden (${0})."
+ },
+ {
+  "f": "app.js",
+  "l": 2009,
+  "k": "s",
+  "s": " Baud"
+ },
+ {
+  "f": "app.js",
+  "l": 2009,
+  "k": "s",
+  "s": "WLAN über den Server"
+ },
+ {
+  "f": "app.js",
+  "l": 2009,
+  "k": "s",
+  "s": "WLAN direkt"
+ },
+ {
+  "f": "app.js",
+  "l": 2013,
+  "k": "s",
+  "s": "Verbinden …"
+ },
+ {
+  "f": "app.js",
+  "l": 2014,
+  "k": "s",
+  "s": "Verbindung verloren."
+ },
+ {
+  "f": "app.js",
+  "l": 2014,
+  "k": "s",
+  "s": "Getrennt."
+ },
+ {
+  "f": "app.js",
+  "l": 2015,
+  "k": "s",
+  "s": "Verbindung zur Maschine verloren."
+ },
+ {
+  "f": "app.js",
+  "l": 2019,
+  "k": "s",
+  "s": "Bereit"
+ },
+ {
+  "f": "app.js",
+  "l": 2019,
+  "k": "s",
+  "s": "Läuft"
+ },
+ {
+  "f": "app.js",
+  "l": 2019,
+  "k": "s",
+  "s": "Angehalten"
+ },
+ {
+  "f": "app.js",
+  "l": 2019,
+  "k": "s",
+  "s": "Verfährt"
+ },
+ {
+  "f": "app.js",
+  "l": 2019,
+  "k": "s",
+  "s": "ALARM – entsperren"
+ },
+ {
+  "f": "app.js",
+  "l": 2019,
+  "k": "s",
+  "s": "Tür offen"
+ },
+ {
+  "f": "app.js",
+  "l": 2019,
+  "k": "s",
+  "s": "Prüfmodus"
+ },
+ {
+  "f": "app.js",
+  "l": 2019,
+  "k": "s",
+  "s": "Referenzfahrt"
+ },
+ {
+  "f": "app.js",
+  "l": 2019,
+  "k": "s",
+  "s": "Ruhezustand"
+ },
+ {
+  "f": "app.js",
+  "l": 2019,
+  "k": "s",
+  "s": "Getrennt"
+ },
+ {
+  "f": "app.js",
+  "l": 2021,
+  "k": "s",
+  "s": "state "
+ },
+ {
+  "f": "app.js",
+  "l": 2025,
+  "k": "s",
+  "s": "Alarm"
+ },
+ {
+  "f": "app.js",
+  "l": 2025,
+  "k": "s",
+  "s": "Die Maschine steht im Alarm (nach dem Einschalten normal): „Entsperren“ ($X) oder „Referenzfahrt“ ($H) drücken."
+ },
+ {
+  "f": "app.js",
+  "l": 2029,
+  "k": "s",
+  "s": "Alarm "
+ },
+ {
+  "f": "app.js",
+  "l": 2029,
+  "k": "t",
+  "s": "<p>${0}</p><p>Mit <b>Entsperren</b> ($X) oder <b>Referenzfahrt</b> geht es weiter. Prüfe vorher, ob alles frei ist.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 2029,
+  "k": "s",
+  "s": "Die Maschine meldet einen Alarm."
+ },
+ {
+  "f": "app.js",
+  "l": 2033,
+  "k": "s",
+  "s": "Verbindung während des Auftrags verloren"
+ },
+ {
+  "f": "app.js",
+  "l": 2033,
+  "k": "t",
+  "s": "<p>Die Verbindung zur Maschine ist abgebrochen, während „${0}“ lief (Zeile ${1} von ${2}).</p><p><b>Bitte an der Maschine prüfen:</b> Die Spindel läuft evtl. noch. Im Zweifel den Not-Aus bzw. den Spindelschalter benutzen. Danach neu verbinden, Nullpunkt prüfen und ggf. neu starten.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 2034,
+  "k": "s",
+  "s": "Fertig"
+ },
+ {
+  "f": "app.js",
+  "l": 2034,
+  "k": "t",
+  "s": "<p>Auftrag „${0}“ abgeschlossen in ${1}.${2}</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 2034,
+  "k": "t",
+  "s": " <b>${0} Fehlermeldung(en)</b> – siehe Konsole."
+ },
+ {
+  "f": "app.js",
+  "l": 2040,
+  "k": "s",
+  "s": "Getrennt"
+ },
+ {
+  "f": "app.js",
+  "l": 2042,
+  "k": "s",
+  "s": "Alarm"
+ },
+ {
+  "f": "app.js",
+  "l": 2042,
+  "k": "s",
+  "s": "Hold"
+ },
+ {
+  "f": "app.js",
+  "l": 2043,
+  "k": "s",
+  "s": "Maschine: "
+ },
+ {
+  "f": "app.js",
+  "l": 2043,
+  "k": "s",
+  "s": "Maschine nicht verbunden"
+ },
+ {
+  "f": "app.js",
+  "l": 2055,
+  "k": "s",
+  "s": "Bitte zuerst die Maschine verbinden."
+ },
+ {
+  "f": "app.js",
+  "l": 2060,
+  "k": "s",
+  "s": "Trennen?"
+ },
+ {
+  "f": "app.js",
+  "l": 2060,
+  "k": "s",
+  "s": "Ein Auftrag läuft. Wirklich trennen?"
+ },
+ {
+  "f": "app.js",
+  "l": 2060,
+  "k": "s",
+  "s": "Trennen"
+ },
+ {
+  "f": "app.js",
+  "l": 2070,
+  "k": "s",
+  "s": "StickStudio"
+ },
+ {
+  "f": "app.js",
+  "l": 2077,
+  "k": "s",
+  "s": "Geht nicht auf unverschlüsselten (http://) Seiten – FräsStudio per Doppelklick oder über https öffnen."
+ },
+ {
+  "f": "app.js",
+  "l": 2077,
+  "k": "s",
+  "s": "Nur in Chrome oder Edge am Computer."
+ },
+ {
+  "f": "app.js",
+  "l": 2078,
+  "k": "s",
+  "s": "Nur wenn FräsStudio über den StickStudio-Server geöffnet ist (https://…/fraesstudio/)."
+ },
+ {
+  "f": "app.js",
+  "l": 2078,
+  "k": "s",
+  "s": "Am Server abgeschaltet."
+ },
+ {
+  "f": "app.js",
+  "l": 2079,
+  "k": "s",
+  "s": "Geht nicht von einer https-Seite aus. Nutze „WLAN über den Server“."
+ },
+ {
+  "f": "app.js",
+  "l": 2083,
+  "k": "t",
+  "s": "<label class=\"connopt ${0}\"><input type=\"radio\" name=\"ck\" value=\"${1}\" ${2} ${3}><span><b>${4}</b><br><span class=\"muted small\">${5}</span></span></label>"
+ },
+ {
+  "f": "app.js",
+  "l": 2084,
+  "k": "t",
+  "s": "\n      ${0}\n      ${1}\n      ${2}\n      <div id=\"cnWifi\" class=\"${3}\">\n        ${4}\n        ${5}\n      </div>\n      <div id=\"cnUsb\" class=\"${6}\">\n        ${7}\n      </div>\n      <details class=\"small\"><summary class=\"muted\">Wie kommt die TTC450 ins WLAN?</summary>\n        <ol><li>Maschine per <b>USB</b> verbinden und unten auf <b>„WLAN“</b> drücken: Name und Passwort deines WLANs eintragen, „Einrichten“.</li>\n        <li>Die Maschine startet neu und meldet sich im Router an. Die <b>IP-Adresse</b> zeigt „WLAN“ → „IP anzeigen“ (nach erneutem Verbinden per USB) oder die Geräteliste deines Routers.</li>\n        <li>Hier die IP eintragen. Tipp: im Router für die Maschine eine <b>feste IP</b> vergeben.</li>\n        <li>Ohne Einrichtung öffnet die Maschine ein eigenes WLAN <b>MKS_DLC</b> (Adresse 192.168.4.1) – dann mit dem Computer in dieses WLAN gehen und „WLAN direkt“ nutzen.</li></ol>\n        <p>Firmware-Befehle können je nach Version abweichen; im Zweifel am Touch-Display oder im Webbrowser (<code>http://IP-der-Maschine</code>) einrichten.</p></details>"
+ },
+ {
+  "f": "app.js",
+  "l": 2085,
+  "k": "s",
+  "s": "Am sichersten. Fräse per USB am Computer, Maschine eingeschaltet. Es erscheint eine Liste der Anschlüsse – den der Fräse wählen (meist „USB-SERIAL CH340“)."
+ },
+ {
+  "f": "app.js",
+  "l": 2086,
+  "k": "s",
+  "s": "WLAN über den Server"
+ },
+ {
+  "f": "app.js",
+  "l": 2086,
+  "k": "s",
+  "s": "Empfohlen für WLAN. Der Server im Heimnetz verbindet sich per Telnet (Port 23) mit der Maschine. Sicher: Not-Aus bei Verbindungsabbruch."
+ },
+ {
+  "f": "app.js",
+  "l": 2087,
+  "k": "s",
+  "s": "WLAN direkt (experimentell)"
+ },
+ {
+  "f": "app.js",
+  "l": 2087,
+  "k": "s",
+  "s": "Ohne Server, direkt aus dem Browser (WebSocket). Etwas träge, gut für Verfahren und kurze Aufträge."
+ },
+ {
+  "f": "app.js",
+  "l": 2089,
+  "k": "s",
+  "s": "IP-Adresse der Maschine"
+ },
+ {
+  "f": "app.js",
+  "l": 2089,
+  "k": "t",
+  "s": "<input id=\"cnHost\" value=\"${0}\" placeholder=\"z. B. 192.168.1.50  (oder IP:Port)\" autocomplete=\"off\">"
+ },
+ {
+  "f": "app.js",
+  "l": 2090,
+  "k": "t",
+  "s": "<p class=\"muted small\">Am Server ist die Maschine ${0} eingestellt.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 2093,
+  "k": "s",
+  "s": "Baudrate"
+ },
+ {
+  "f": "app.js",
+  "l": 2093,
+  "k": "t",
+  "s": "<select id=\"cnBaud\">${0}</select>"
+ },
+ {
+  "f": "app.js",
+  "l": 2093,
+  "k": "t",
+  "s": "<option value=\"${0}\" ${1}>${2}</option>"
+ },
+ {
+  "f": "app.js",
+  "l": 2093,
+  "k": "s",
+  "s": "automatisch erkennen"
+ },
+ {
+  "f": "app.js",
+  "l": 2102,
+  "k": "s",
+  "s": "Mit der Maschine verbinden"
+ },
+ {
+  "f": "app.js",
+  "l": 2103,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 2104,
+  "k": "s",
+  "s": "Verbinden"
+ },
+ {
+  "f": "app.js",
+  "l": 2108,
+  "k": "s",
+  "s": "Bitte die IP-Adresse der Maschine eintragen."
+ },
+ {
+  "f": "app.js",
+  "l": 2117,
+  "k": "s",
+  "s": "#busy span"
+ },
+ {
+  "f": "app.js",
+  "l": 2119,
+  "k": "s",
+  "s": "Anschluss wählen, dann Verbinden …"
+ },
+ {
+  "f": "app.js",
+  "l": 2119,
+  "k": "s",
+  "s": "Verbinde mit der Maschine …"
+ },
+ {
+  "f": "app.js",
+  "l": 2126,
+  "k": "s",
+  "s": "Verbindung fehlgeschlagen"
+ },
+ {
+  "f": "app.js",
+  "l": 2126,
+  "k": "t",
+  "s": "<p><b>${0}</b></p>${1}<p class=\"muted small\">Die Konsole unten zeigt weitere Meldungen.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 2126,
+  "k": "s",
+  "s": "Hilfe: WLAN"
+ },
+ {
+  "f": "app.js",
+  "l": 2126,
+  "k": "s",
+  "s": "Nochmal versuchen"
+ },
+ {
+  "f": "app.js",
+  "l": 2126,
+  "k": "s",
+  "s": "Schließen"
+ },
+ {
+  "f": "app.js",
+  "l": 2127,
+  "k": "s",
+  "s": "Verbindung fehlgeschlagen: "
+ },
+ {
+  "f": "app.js",
+  "l": 2129,
+  "k": "s",
+  "s": "Fräsbahnen werden berechnet …"
+ },
+ {
+  "f": "app.js",
+  "l": 2135,
+  "k": "s",
+  "s": "WLAN der Maschine einrichten"
+ },
+ {
+  "f": "app.js",
+  "l": 2135,
+  "k": "s",
+  "s": "<p>Dazu die Maschine bitte zuerst per <b>USB</b> verbinden („Verbinden …“ → USB-Kabel).</p>\n        <p class=\"muted small\">Alternativ am Touch-Display einrichten oder im Webbrowser unter <code>http://192.168.4.1</code>, wenn du mit dem WLAN <b>MKS_DLC</b> der Maschine verbunden bist.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 2139,
+  "k": "t",
+  "s": "${0}\n      ${1}\n      <label class=\"check\"><input type=\"checkbox\" id=\"wfT\" checked> Telnet einschalten (Port 23, für „WLAN über den Server“)</label>\n      <label class=\"check\"><input type=\"checkbox\" id=\"wfR\" checked> Danach neu starten (nötig, damit das WLAN aktiv wird; die USB-Verbindung bricht kurz ab)</label>\n      <p class=\"muted small\">Gesendet werden die üblichen GRBL-ESP32-Einstellungen: <code>$Radio/Mode=STA</code>, <code>$Sta/SSID=…</code>, <code>$Sta/Password=…</code>, <code>$Telnet/Enable=ON</code>, <code>$System/Control=RESTART</code>. Erkennt deine Firmware sie nicht, meldet die Konsole „$-Befehl unbekannt“ – dann am Touch-Display einrichten.</p>\n      <div class=\"row\"><button id=\"wfIp\">IP-Adresse der Maschine anzeigen</button></div><div id=\"wfOut\" class=\"muted\"></div>"
+ },
+ {
+  "f": "app.js",
+  "l": 2139,
+  "k": "s",
+  "s": "Name des WLANs (SSID)"
+ },
+ {
+  "f": "app.js",
+  "l": 2139,
+  "k": "s",
+  "s": "<input id=\"wfS\" autocomplete=\"off\">"
+ },
+ {
+  "f": "app.js",
+  "l": 2140,
+  "k": "s",
+  "s": "Passwort"
+ },
+ {
+  "f": "app.js",
+  "l": 2140,
+  "k": "s",
+  "s": "<input id=\"wfP\" type=\"password\" autocomplete=\"off\">"
+ },
+ {
+  "f": "app.js",
+  "l": 2146,
+  "k": "s",
+  "s": "WLAN der Maschine einrichten"
+ },
+ {
+  "f": "app.js",
+  "l": 2146,
+  "k": "s",
+  "s": "Schließen"
+ },
+ {
+  "f": "app.js",
+  "l": 2146,
+  "k": "s",
+  "s": "Einrichten"
+ },
+ {
+  "f": "app.js",
+  "l": 2148,
+  "k": "s",
+  "s": "Bitte den WLAN-Namen eintragen."
+ },
+ {
+  "f": "app.js",
+  "l": 2149,
+  "k": "s",
+  "s": "Name und Passwort dürfen keine Zeilenumbrüche enthalten."
+ },
+ {
+  "f": "app.js",
+  "l": 2154,
+  "k": "s",
+  "s": "Frage die Maschine …"
+ },
+ {
+  "f": "app.js",
+  "l": 2157,
+  "k": "t",
+  "s": "IP-Adresse: <b>${0}</b>${1}"
+ },
+ {
+  "f": "app.js",
+  "l": 2157,
+  "k": "s",
+  "s": " (eigenes WLAN der Maschine, noch nicht im Heim-WLAN)"
+ },
+ {
+  "f": "app.js",
+  "l": 2157,
+  "k": "s",
+  "s": "Keine Antwort – evtl. noch nicht im WLAN angemeldet oder die Firmware kennt [ESP111] nicht. Schau in der Geräteliste deines Routers."
+ },
+ {
+  "f": "app.js",
+  "l": 2167,
+  "k": "s",
+  "s": "WLAN einrichten fehlgeschlagen"
+ },
+ {
+  "f": "app.js",
+  "l": 2167,
+  "k": "t",
+  "s": "<p>Bei <code>${0}</code> kam: <b>${1}</b></p><p>Diese Firmware kennt den Befehl evtl. nicht. WLAN dann am <b>Touch-Display</b> einrichten oder im Webbrowser unter <code>http://192.168.4.1</code> (nach Verbinden mit dem WLAN „MKS_DLC“).</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 2169,
+  "k": "s",
+  "s": "Starte die Maschine neu …"
+ },
+ {
+  "f": "app.js",
+  "l": 2171,
+  "k": "s",
+  "s": "WLAN eingerichtet"
+ },
+ {
+  "f": "app.js",
+  "l": 2171,
+  "k": "t",
+  "s": "<p>Die Maschine startet neu und meldet sich im WLAN <b>${0}</b> an (ca. 30 Sekunden). Die USB-Verbindung bricht dabei ab.</p>\n        <p>Danach: Per USB neu verbinden → „WLAN“ → <b>IP-Adresse anzeigen</b>, oder in der Geräteliste deines Routers nachsehen. Diese IP dann bei „Verbinden“ → WLAN eintragen.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 2173,
+  "k": "s",
+  "s": "WLAN-Einstellungen gesendet. Maschine neu starten, damit sie wirken."
+ },
+ {
+  "f": "app.js",
+  "l": 2179,
+  "k": "s",
+  "s": "Nullpunkt gesetzt: "
+ },
+ {
+  "f": "app.js",
+  "l": 2197,
+  "k": "s",
+  "s": "#jogSteps button"
+ },
+ {
+  "f": "app.js",
+  "l": 2208,
+  "k": "s",
+  "s": "Drehzahl am Drehregler des Fräsmotors einstellen."
+ },
+ {
+  "f": "app.js",
+  "l": 2209,
+  "k": "s",
+  "s": "Spindel aus"
+ },
+ {
+  "f": "app.js",
+  "l": 2209,
+  "k": "s",
+  "s": "Spindel an"
+ },
+ {
+  "f": "app.js",
+  "l": 2215,
+  "k": "s",
+  "s": "Z antasten"
+ },
+ {
+  "f": "app.js",
+  "l": 2215,
+  "k": "t",
+  "s": "<ol class=\"small\"><li>Fräser über die Messplatte fahren (ca. 5–10 mm darüber).</li><li>Krokodilklemme am Fräser anbringen.</li><li>„Antasten“ drücken – die Spindel fährt langsam nach unten.</li></ol>\n      ${0}\n      ${1}\n      ${2}\n      <p class=\"muted small\">Liegt die Platte auf dem Werkstück, wird Z=0 auf die Werkstückoberfläche gesetzt.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 2216,
+  "k": "s",
+  "s": "Dicke der Messplatte"
+ },
+ {
+  "f": "app.js",
+  "l": 2217,
+  "k": "s",
+  "s": "Max. Weg nach unten"
+ },
+ {
+  "f": "app.js",
+  "l": 2218,
+  "k": "s",
+  "s": "Geschwindigkeit"
+ },
+ {
+  "f": "app.js",
+  "l": 2220,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 2220,
+  "k": "s",
+  "s": "Antasten"
+ },
+ {
+  "f": "app.js",
+  "l": 2224,
+  "k": "s",
+  "s": "Z-Nullpunkt gesetzt. Klemme entfernen!"
+ },
+ {
+  "f": "app.js",
+  "l": 2224,
+  "k": "s",
+  "s": "Antasten erfolgreich."
+ },
+ {
+  "f": "app.js",
+  "l": 2225,
+  "k": "s",
+  "s": "Antasten fehlgeschlagen"
+ },
+ {
+  "f": "app.js",
+  "l": 2229,
+  "k": "s",
+  "s": "Werkzeugwechsel"
+ },
+ {
+  "f": "app.js",
+  "l": 2229,
+  "k": "t",
+  "s": "<p><b>${0}</b></p><ol><li>Spindel ist aus. Warten, bis sie stillsteht.</li><li>Werkzeug wechseln.</li><li>Z neu nullen (Antasten oder von Hand mit den Pfeilen und „Z0“).</li><li>„Weiter fräsen“ drücken.</li></ol>"
+ },
+ {
+  "f": "app.js",
+  "l": 2230,
+  "k": "s",
+  "s": "Z antasten…"
+ },
+ {
+  "f": "app.js",
+  "l": 2230,
+  "k": "s",
+  "s": "Auftrag abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 2230,
+  "k": "s",
+  "s": "Weiter fräsen"
+ },
+ {
+  "f": "app.js",
+  "l": 2241,
+  "k": "t",
+  "s": "${0} Zeilen"
+ },
+ {
+  "f": "app.js",
+  "l": 2250,
+  "k": "s",
+  "s": "Das Projekt hat keine aktiven Fräsbahnen."
+ },
+ {
+  "f": "app.js",
+  "l": 2252,
+  "k": "s",
+  "s": "Projekt"
+ },
+ {
+  "f": "app.js",
+  "l": 2255,
+  "k": "t",
+  "s": "${0} Zeilen · Laufzeit ≈ ${1}${2}"
+ },
+ {
+  "f": "app.js",
+  "l": 2255,
+  "k": "t",
+  "s": " · ${0} Werkzeugwechsel"
+ },
+ {
+  "f": "app.js",
+  "l": 2259,
+  "k": "s",
+  "s": "Zuerst einen Auftrag laden (Projekt oder Datei)."
+ },
+ {
+  "f": "app.js",
+  "l": 2261,
+  "k": "s",
+  "s": "Alarm"
+ },
+ {
+  "f": "app.js",
+  "l": 2261,
+  "k": "s",
+  "s": "Maschine ist im Alarm – zuerst entsperren."
+ },
+ {
+  "f": "app.js",
+  "l": 2264,
+  "k": "s",
+  "s": "Vor dem Start prüfen"
+ },
+ {
+  "f": "app.js",
+  "l": 2264,
+  "k": "t",
+  "s": "<ul>\n      <li>Werkstück fest eingespannt, Spannmittel außerhalb der Fräsbahnen?</li>\n      <li>Richtiges Werkzeug eingesetzt${0}?</li>\n      ${1}\n      <li>X/Y-Nullpunkt am richtigen Punkt (${2}) und Z genullt?</li>\n      <li>Schutzbrille, Absaugung, Hände weg von der Spindel.</li></ul>"
+ },
+ {
+  "f": "app.js",
+  "l": 2267,
+  "k": "t",
+  "s": "<li>Drehregler am Fräsmotor auf <b>${0}</b> gestellt und Motorschalter auf „Ein“ bzw. Steuerbox verbunden?</li>"
+ },
+ {
+  "f": "app.js",
+  "l": 2270,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 2270,
+  "k": "s",
+  "s": "▶ Jetzt fräsen"
+ },
+ {
+  "f": "app.js",
+  "l": 2280,
+  "k": "s",
+  "s": "Auftrag abbrechen?"
+ },
+ {
+  "f": "app.js",
+  "l": 2280,
+  "k": "s",
+  "s": "Die Maschine hält sofort an und wird zurückgesetzt. Danach Nullpunkt prüfen."
+ },
+ {
+  "f": "app.js",
+  "l": 2280,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 2289,
+  "k": "s",
+  "s": "⏸ Pause"
+ },
+ {
+  "f": "app.js",
+  "l": 2294,
+  "k": "t",
+  "s": "${0} % · Zeile ${1}/${2} · ${3} vergangen${4}${5}"
+ },
+ {
+  "f": "app.js",
+  "l": 2294,
+  "k": "s",
+  "s": " · noch ≈ "
+ },
+ {
+  "f": "app.js",
+  "l": 2294,
+  "k": "s",
+  "s": " · wartet"
+ },
+ {
+  "f": "app.js",
+  "l": 2295,
+  "k": "s",
+  "s": "▶ Weiter"
+ },
+ {
+  "f": "app.js",
+  "l": 2295,
+  "k": "s",
+  "s": "⏸ Pause"
+ },
+ {
+  "f": "app.js",
+  "l": 2341,
+  "k": "s",
+  "s": "Dieser Browser erlaubt keinen Kamerazugriff. Bitte Chrome oder Edge verwenden."
+ },
+ {
+  "f": "app.js",
+  "l": 2390,
+  "k": "s",
+  "s": "Kamera nicht verfügbar"
+ },
+ {
+  "f": "app.js",
+  "l": 2403,
+  "k": "s",
+  "s": "Kamera nicht verfügbar"
+ },
+ {
+  "f": "app.js",
+  "l": 2403,
+  "k": "t",
+  "s": "<p>${0}</p><p>Tipps: USB-Webcam anschließen, im Browser den Kamerazugriff erlauben (Schloss-Symbol links neben der Adresse) und andere Programme schließen, die die Kamera benutzen.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 2409,
+  "k": "s",
+  "s": "links unten"
+ },
+ {
+  "f": "app.js",
+  "l": 2409,
+  "k": "s",
+  "s": "rechts unten"
+ },
+ {
+  "f": "app.js",
+  "l": 2409,
+  "k": "s",
+  "s": "rechts oben"
+ },
+ {
+  "f": "app.js",
+  "l": 2409,
+  "k": "s",
+  "s": "links oben"
+ },
+ {
+  "f": "app.js",
+  "l": 2412,
+  "k": "t",
+  "s": "${0}\n      <div class=\"camstep\" id=\"cmStep\"></div>\n      <div class=\"camwrap\" id=\"cmWrap\"><canvas id=\"cmOver\"></canvas></div>\n      <div class=\"grid2\">${1}${2}</div>\n      <div class=\"row\"><button id=\"cmReset\">Ecken neu anklicken</button></div>\n      <p class=\"muted small\">Webcam fest über der Fräse montieren. Werkstück einspannen und im Bild seine 4 Ecken in der angezeigten Reihenfolge anklicken (Punkte lassen sich nachträglich ziehen).\n      Das Raster (alle 50 mm) muss auf dem Werkstück liegen – sind die Kanten gebogen, die Linsenkorrektur verstellen. Maße aus „Werkstück einrichten“: ${3} × ${4} mm.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 2412,
+  "k": "s",
+  "s": "Kamera"
+ },
+ {
+  "f": "app.js",
+  "l": 2412,
+  "k": "t",
+  "s": "<select id=\"cmDev\">${0}</select>"
+ },
+ {
+  "f": "app.js",
+  "l": 2412,
+  "k": "t",
+  "s": "<option value=\"${0}\" ${1}>${2}</option>"
+ },
+ {
+  "f": "app.js",
+  "l": 2412,
+  "k": "s",
+  "s": "Kamera "
+ },
+ {
+  "f": "app.js",
+  "l": 2415,
+  "k": "s",
+  "s": "Linsenkorrektur"
+ },
+ {
+  "f": "app.js",
+  "l": 2415,
+  "k": "t",
+  "s": "<input id=\"cmK\" type=\"range\" min=\"-0.4\" max=\"0.4\" step=\"0.01\" value=\"${0}\">"
+ },
+ {
+  "f": "app.js",
+  "l": 2415,
+  "k": "s",
+  "s": "Deckkraft"
+ },
+ {
+  "f": "app.js",
+  "l": 2415,
+  "k": "t",
+  "s": "<input id=\"cmO\" type=\"range\" min=\"10\" max=\"100\" value=\"${0}\">"
+ },
+ {
+  "f": "app.js",
+  "l": 2441,
+  "k": "t",
+  "s": "bold ${0}px system-ui"
+ },
+ {
+  "f": "app.js",
+  "l": 2443,
+  "k": "t",
+  "s": "Klicke die Ecke ${0} von 4 an: ${1} (vom Werkstück aus gesehen, X nach rechts, Y nach hinten)"
+ },
+ {
+  "f": "app.js",
+  "l": 2443,
+  "k": "s",
+  "s": "Fertig ausgerichtet – Punkte bei Bedarf verschieben."
+ },
+ {
+  "f": "app.js",
+  "l": 2446,
+  "k": "s",
+  "s": "Kamera von oben"
+ },
+ {
+  "f": "app.js",
+  "l": 2446,
+  "k": "s",
+  "s": "Abbrechen"
+ },
+ {
+  "f": "app.js",
+  "l": 2446,
+  "k": "s",
+  "s": "Übernehmen und einblenden"
+ },
+ {
+  "f": "app.js",
+  "l": 2468,
+  "k": "s",
+  "s": "Bitte alle 4 Ecken anklicken."
+ },
+ {
+  "f": "app.js",
+  "l": 2481,
+  "k": "s",
+  "s": "Files"
+ },
+ {
+  "f": "app.js",
+  "l": 2501,
+  "k": "s",
+  "s": "#modes button"
+ },
+ {
+  "f": "app.js",
+  "l": 2510,
+  "k": "s",
+  "s": "Objekte anklicken (Umschalt = mehrere) und rechts eine Bearbeitung wählen."
+ },
+ {
+  "f": "app.js",
+  "l": 2520,
+  "k": "s",
+  "s": "#modes button"
+ },
+ {
+  "f": "app.js",
+  "l": 2528,
+  "k": "s",
+  "s": ".menu > button"
+ },
+ {
+  "f": "app.js",
+  "l": 2532,
+  "k": "s",
+  "s": ".menu > button"
+ },
+ {
+  "f": "app.js",
+  "l": 2582,
+  "k": "s",
+  "s": "Escape"
+ },
+ {
+  "f": "app.js",
+  "l": 2587,
+  "k": "s",
+  "s": "Enter"
+ },
+ {
+  "f": "app.js",
+  "l": 2588,
+  "k": "s",
+  "s": "Backspace"
+ },
+ {
+  "f": "app.js",
+  "l": 2589,
+  "k": "s",
+  "s": "Delete"
+ },
+ {
+  "f": "app.js",
+  "l": 2589,
+  "k": "s",
+  "s": "Backspace"
+ },
+ {
+  "f": "app.js",
+  "l": 2595,
+  "k": "s",
+  "s": "Arrow"
+ },
+ {
+  "f": "app.js",
+  "l": 2613,
+  "k": "s",
+  "s": "Kurzanleitung"
+ },
+ {
+  "f": "app.js",
+  "l": 2613,
+  "k": "s",
+  "s": "\n      <div class=\"welcome\">\n        <div><i>1</i><b>Entwerfen</b>Werkstück einrichten, zeichnen oder SVG/DXF/Bild importieren.</div>\n        <div><i>2</i><b>Fräsbahnen</b>Objekte wählen → Kontur, Tasche, V-Carving, Bohren, 3D …</div>\n        <div><i>3</i><b>3D-Vorschau</b>Abtrag simulieren, Laufzeit prüfen.</div>\n        <div><i>4</i><b>Fräsen</b>Per USB verbinden, Nullpunkt setzen, starten – oder G-Code auf SD-Karte.</div>\n      </div>\n      <table class=\"help\">\n        <tr><td>Linksklick / Rechtsklick</td><td>Linienwerkzeug: Eckpunkt / Kurvenpunkt</td></tr>\n        <tr><td>Enter · Rücktaste · Esc</td><td>Linie fertig · letzten Punkt entfernen · abbrechen</td></tr>\n        <tr><td>V R L Q K P S T M</td><td>Auswahl, Umformen, Linie, Rechteck, Kreis, Vieleck, Stern, Text, Messen</td></tr>\n        <tr><td>Umschalt beim Aufziehen</td><td>Quadrat / Kreis · beim Drehen 15°-Schritte · bei Eckgriffen freies Skalieren</td></tr>\n        <tr><td>Pfeiltasten</td><td>Verschieben 1 mm (Umschalt 10 mm, Alt 0,1 mm) · im Fräsen-Schritt: Maschine verfahren</td></tr>\n        <tr><td>Leertaste halten</td><td>Ansicht verschieben – Maus bewegen oder ziehen</td></tr>\n        <tr><td>Zwei Finger / Mausrad</td><td>Ansicht verschieben (Umschalt = waagrecht) · auch mittlere oder rechte Maustaste ziehen</td></tr>\n        <tr><td>Finger spreizen / Strg + Rad</td><td>Zoomen (Ansicht → „Mausrad: Zoom/Verschieben“ stellt das Rad auf Zoom um)</td></tr>\n        <tr><td>F · G · C</td><td>Alles zeigen · Raster fangen ein/aus · Kamerabild ein/aus</td></tr>\n        <tr><td>Datei aufs Fenster ziehen</td><td>Bild (→ 3D-Relief oder Umriss), SVG, DXF, STL, G-Code, Projekt</td></tr>\n        <tr><td>1 2 3 4</td><td>Arbeitsschritt wechseln</td></tr>\n        <tr><td>↶ ↷ oben</td><td>Rückgängig / Wiederholen (auch Strg+Z / Strg+Y)</td></tr>\n        <tr><td>3D-Vorschau</td><td>Links ziehen = drehen · Leertaste, zwei Finger, rechte Maustaste, Pfeiltasten oder Knöpfe unten rechts = verschieben</td></tr>\n        <tr><td>Strg+Z/Y/C/V/D/A</td><td>Rückgängig, Wiederholen, Kopieren, Einfügen, Duplizieren, Alles</td></tr>\n        <tr><td>Strg+S/O/E/I</td><td>Speichern, Öffnen, G-Code speichern, Importieren</td></tr>\n      </table>"
+ },
+ {
+  "f": "app.js",
+  "l": 2636,
+  "k": "s",
+  "s": "Tipps für die TTC450"
+ },
+ {
+  "f": "app.js",
+  "l": 2636,
+  "k": "s",
+  "s": "Schließen"
+ },
+ {
+  "f": "app.js",
+  "l": 2639,
+  "k": "s",
+  "s": "Tipps für die Twotrees TTC450"
+ },
+ {
+  "f": "app.js",
+  "l": 2639,
+  "k": "s",
+  "s": "<ul>\n      <li><b>800-W-Fräsmotor:</b> Twotrees bietet einen 800-W-Satz (10.000–30.000 U/min, Drehregler, Steuerbox) für TTC450 und TTC450 Pro an. Unter <i>Bearbeiten → Maschine…</i> das Profil „800-W-Fräsmotor“ wählen: Zustellungen werden größer, die passende Reglerstufe steht bei jeder Fräsbahn und beim Werkzeugwechsel. Gehörschutz tragen – der Motor ist deutlich lauter.</li>\n      <li><b>Spindel:</b> Die 80-W-Spindel mag kleine Zustellungen. Lieber mehrere flache Durchgänge (Voreinstellung 1 mm in Weichholz) als einen tiefen. Mit der 500-W-Spindel in „Maschine…“ das passende Profil wählen.</li>\n      <li><b>Vorschub:</b> Bis etwa 800–1000 mm/min. In Hartholz und Acryl langsamer; das Material im Werkstück-Dialog passt die Werte an.</li>\n      <li><b>Nullpunkt:</b> Fräse über die gewählte Ecke fahren (Pfeile), „X0“ und „Y0“ drücken. Z mit der Messplatte antasten oder mit einem Blatt Papier: Fräser absenken, bis das Papier gerade klemmt, dann „Z0“.</li>\n      <li><b>Ausschneiden:</b> Kontur außen, Tiefe = Materialstärke + 0,3 mm, Haltestege an. Opferplatte unterlegen!</li>\n      <li><b>Schrift:</b> V-Carving mit 60°- oder 90°-V-Fräser ergibt scharfe Ecken. Für feine Gravur der 30°-Stichel.</li>\n      <li><b>3D-Relief:</b> Erst mit dem 3,175-mm-Schaftfräser schruppen (Aufmaß 0,5 mm), dann mit dem Kugelfräser schlichten (Überlappung 10–15 %). Für feine Details (Haare, Augen) danach „3D Rest“ mit einem konischen Kugelfräser (z. B. R0,25) – der arbeitet nur dort, wo der dicke Fräser nicht hinkam.</li>\n      <li><b>Foto als Relief:</b> „Bild → 3D“, Bildart „Foto oder Render“: Die KI schätzt die Tiefe aus Licht und Schatten. Für Höhenbilder (Depth Maps) die Bildart „Höhenbild“ nehmen.</li>\n      <li><b>Offline fräsen:</b> G-Code je Werkzeug speichern, auf die SD-Karte kopieren und am Display starten.</li>\n      <li><b>Verbindung:</b> Chrome oder Edge verwenden. Falls die Maschine nicht erscheint: CH340-USB-Treiber installieren und Candle schließen.</li>\n    </ul>"
+ },
+ {
+  "f": "app.js",
+  "l": 2650,
+  "k": "s",
+  "s": "Schließen"
+ },
+ {
+  "f": "app.js",
+  "l": 2653,
+  "k": "s",
+  "s": "Über FräsStudio"
+ },
+ {
+  "f": "app.js",
+  "l": 2653,
+  "k": "s",
+  "s": "<p><b>FräsStudio</b> – CAD und CAM in einem Programm, im Browser, ohne Installation. Für GRBL-Fräsen wie die Twotrees TTC450.</p>\n      <p class=\"small muted\">Polygonberechnung: Clipper von Angus Johnson (Boost Software License). Schriften: SIL Open Font License (siehe js/lib/LIZENZEN.txt).</p>\n      <p class=\"small warnbox\">Fräsen ist gefährlich. Prüfe jede Fräsbahn in der 3D-Vorschau und bleibe während des Fräsens an der Maschine.</p>"
+ },
+ {
+  "f": "app.js",
+  "l": 2658,
+  "k": "s",
+  "s": "Willkommen bei FräsStudio"
+ },
+ {
+  "f": "app.js",
+  "l": 2658,
+  "k": "s",
+  "s": "<p>Zeichnen, Fräsbahnen berechnen und direkt fräsen – alles in einem Programm.</p>\n      <div class=\"welcome\">\n        <div><i>1</i><b>Entwerfen</b>Formen, Text, Import von SVG, DXF und Bildern</div>\n        <div><i>2</i><b>Fräsbahnen</b>Kontur, Tasche, V-Carving, Bohren, 3D-Relief</div>\n        <div><i>3</i><b>3D-Vorschau</b>Sehen, was herauskommt – bevor Holz fliegt</div>\n        <div><i>4</i><b>Fräsen</b>TTC450 per USB steuern oder G-Code speichern</div>\n      </div>"
+ },
+ {
+  "f": "app.js",
+  "l": 2664,
+  "k": "s",
+  "s": "Projekt öffnen…"
+ },
+ {
+  "f": "app.js",
+  "l": 2664,
+  "k": "s",
+  "s": "Beispiel ansehen"
+ },
+ {
+  "f": "app.js",
+  "l": 2664,
+  "k": "s",
+  "s": "Neues Projekt"
+ },
+ {
+  "f": "app.js",
+  "l": 2675,
+  "k": "s",
+  "s": "Beispiel Holzschild"
+ },
+ {
+  "f": "app.js",
+  "l": 2676,
+  "k": "s",
+  "s": "Schild"
+ },
+ {
+  "f": "app.js",
+  "l": 2678,
+  "k": "s",
+  "s": "Text: Werkstatt"
+ },
+ {
+  "f": "app.js",
+  "l": 2678,
+  "k": "s",
+  "s": "Werkstatt"
+ },
+ {
+  "f": "app.js",
+  "l": 2678,
+  "k": "s",
+  "s": "Alfa Slab One"
+ },
+ {
+  "f": "app.js",
+  "l": 2681,
+  "k": "s",
+  "s": "Zierrahmen"
+ },
+ {
+  "f": "app.js",
+  "l": 2683,
+  "k": "s",
+  "s": "Bohrung links"
+ },
+ {
+  "f": "app.js",
+  "l": 2684,
+  "k": "s",
+  "s": "Bohrung rechts"
+ },
+ {
+  "f": "app.js",
+  "l": 2689,
+  "k": "s",
+  "s": "Bohrungen Ø 5"
+ },
+ {
+  "f": "app.js",
+  "l": 2690,
+  "k": "s",
+  "s": "Ausschneiden"
+ },
+ {
+  "f": "app.js",
+  "l": 2695,
+  "k": "s",
+  "s": "Beispiel geladen. Schau dir die Fräsbahnen an und dann die 3D-Vorschau (Taste 3)."
+ },
+ {
+  "f": "app.js",
+  "l": 2703,
+  "k": "s",
+  "s": "<a class=\"tb\" href=\"/account\" title=\"Mein Konto\">Konto</a><form method=\"post\" action=\"/logout\"><button class=\"tb\" title=\"Abmelden\">Abmelden</button></form>"
+ },
+ {
+  "f": "app.js",
+  "l": 2719,
+  "k": "s",
+  "s": "(prefers-color-scheme: dark)"
+ },
+ {
+  "f": "cam.js",
+  "l": 9,
+  "k": "s",
+  "s": "Kontur"
+ },
+ {
+  "f": "cam.js",
+  "l": 10,
+  "k": "s",
+  "s": "Tasche"
+ },
+ {
+  "f": "cam.js",
+  "l": 11,
+  "k": "s",
+  "s": "Bohren"
+ },
+ {
+  "f": "cam.js",
+  "l": 13,
+  "k": "s",
+  "s": "Gravieren (auf Linie)"
+ },
+ {
+  "f": "cam.js",
+  "l": 14,
+  "k": "s",
+  "s": "3D-Relief schruppen"
+ },
+ {
+  "f": "cam.js",
+  "l": 15,
+  "k": "s",
+  "s": "3D-Relief schlichten"
+ },
+ {
+  "f": "cam.js",
+  "l": 17,
+  "k": "s",
+  "s": "Planfräsen"
+ },
+ {
+  "f": "cam.js",
+  "l": 186,
+  "k": "s",
+  "s": "Keine Linien ausgewählt."
+ },
+ {
+  "f": "cam.js",
+  "l": 196,
+  "k": "s",
+  "s": "Form ist zu klein für dieses Werkzeug."
+ },
+ {
+  "f": "cam.js",
+  "l": 264,
+  "k": "s",
+  "s": "Keine Linien ausgewählt."
+ },
+ {
+  "f": "cam.js",
+  "l": 274,
+  "k": "s",
+  "s": "Tasche ist zu klein für dieses Werkzeug."
+ },
+ {
+  "f": "cam.js",
+  "l": 358,
+  "k": "s",
+  "s": "Für eine Tasche braucht es geschlossene Formen."
+ },
+ {
+  "f": "cam.js",
+  "l": 369,
+  "k": "s",
+  "s": "Tasche ist zu klein für dieses Werkzeug."
+ },
+ {
+  "f": "cam.js",
+  "l": 369,
+  "k": "t",
+  "s": "${0} kleine Teil(e) sind zu klein für dieses Werkzeug und werden nicht ausgeräumt."
+ },
+ {
+  "f": "cam.js",
+  "l": 392,
+  "k": "t",
+  "s": "Bohrung ${0} mm ist kleiner als das Werkzeug (${1} mm)."
+ },
+ {
+  "f": "cam.js",
+  "l": 421,
+  "k": "s",
+  "s": "Keine Bohrungen ausgewählt (Kreise wählen)."
+ },
+ {
+  "f": "cam.js",
+  "l": 438,
+  "k": "s",
+  "s": "V-Carving braucht einen V-Fräser."
+ },
+ {
+  "f": "cam.js",
+  "l": 446,
+  "k": "s",
+  "s": "Für V-Carving braucht es geschlossene Formen."
+ },
+ {
+  "f": "cam.js",
+  "l": 549,
+  "k": "s",
+  "s": "Tipp: Für flache Böden ein Ausräumwerkzeug (Schaftfräser) wählen – das geht schneller und sauberer."
+ },
+ {
+  "f": "cam.js",
+  "l": 639,
+  "k": "s",
+  "s": "Zum Schlichten eignet sich ein Kugelfräser besser."
+ },
+ {
+  "f": "cam.js",
+  "l": 641,
+  "k": "s",
+  "s": "Bitte ein 3D-Relief auswählen."
+ },
+ {
+  "f": "cam.js",
+  "l": 671,
+  "k": "s",
+  "s": "Bitte ein 3D-Relief auswählen."
+ },
+ {
+  "f": "cam.js",
+  "l": 760,
+  "k": "s",
+  "s": "Bitte ein 3D-Relief auswählen."
+ },
+ {
+  "f": "cam.js",
+  "l": 762,
+  "k": "s",
+  "s": "Bitte das vorherige Werkzeug angeben (das, mit dem geschlichtet wurde)."
+ },
+ {
+  "f": "cam.js",
+  "l": 763,
+  "k": "s",
+  "s": "Das Werkzeug für das Restmaterial sollte feiner sein als das vorherige."
+ },
+ {
+  "f": "cam.js",
+  "l": 822,
+  "k": "s",
+  "s": "Kein Restmaterial gefunden – das vorherige Werkzeug erreicht schon alles."
+ },
+ {
+  "f": "cam.js",
+  "l": 851,
+  "k": "s",
+  "s": "Unbekannte Bearbeitung"
+ },
+ {
+  "f": "cam.js",
+  "l": 854,
+  "k": "s",
+  "s": "Fehler bei der Berechnung: "
+ },
+ {
+  "f": "cam.js",
+  "l": 860,
+  "k": "t",
+  "s": "Tiefe ${0} mm ist mehr als die Materialstärke (${1} mm) – Opferplatte verwenden!"
+ },
+ {
+  "f": "cam.js",
+  "l": 861,
+  "k": "t",
+  "s": "Tiefe ist größer als die Schneidenlänge des Werkzeugs (${0} mm)."
+ },
+ {
+  "f": "depthai.js",
+  "l": 18,
+  "k": "s",
+  "s": "Datei fehlt: "
+ },
+ {
+  "f": "depthai.js",
+  "l": 88,
+  "k": "s",
+  "s": "Download fehlgeschlagen ("
+ },
+ {
+  "f": "depthai.js",
+  "l": 135,
+  "k": "s",
+  "s": "KI wird geladen …"
+ },
+ {
+  "f": "depthai.js",
+  "l": 137,
+  "k": "t",
+  "s": "KI-Modell wird heruntergeladen … ${0} %"
+ },
+ {
+  "f": "depthai.js",
+  "l": 138,
+  "k": "s",
+  "s": "KI wird vorbereitet …"
+ },
+ {
+  "f": "depthai.js",
+  "l": 161,
+  "k": "s",
+  "s": "KI berechnet die Tiefe …"
+ },
+ {
+  "f": "gcode.js",
+  "l": 25,
+  "k": "s",
+  "s": " Grad"
+ },
+ {
+  "f": "gcode.js",
+  "l": 39,
+  "k": "t",
+  "s": "(FraesStudio - ${0})"
+ },
+ {
+  "f": "gcode.js",
+  "l": 39,
+  "k": "s",
+  "s": "Projekt"
+ },
+ {
+  "f": "gcode.js",
+  "l": 40,
+  "k": "t",
+  "s": "(Erstellt ${0} - Maschine: ${1})"
+ },
+ {
+  "f": "gcode.js",
+  "l": 41,
+  "k": "t",
+  "s": "(Werkstueck ${0} x ${1} x ${2} mm - Nullpunkt ${3} / ${4})"
+ },
+ {
+  "f": "gcode.js",
+  "l": 41,
+  "k": "s",
+  "s": "Tisch"
+ },
+ {
+  "f": "gcode.js",
+  "l": 41,
+  "k": "s",
+  "s": "Oberflaeche"
+ },
+ {
+  "f": "gcode.js",
+  "l": 67,
+  "k": "s",
+  "s": " – Ausräumen"
+ },
+ {
+  "f": "gcode.js",
+  "l": 82,
+  "k": "t",
+  "s": " - DREHREGLER Stufe ${0} = ca. ${1} U/min"
+ },
+ {
+  "f": "gcode.js",
+  "l": 86,
+  "k": "t",
+  "s": "(WERKZEUGWECHSEL: ${0} einsetzen${1} - Z neu nullen und fortsetzen)"
+ },
+ {
+  "f": "gcode.js",
+  "l": 93,
+  "k": "t",
+  "s": "(DREHREGLER Stufe ${0} = ca. ${1} U/min)"
+ },
+ {
+  "f": "gcode.js",
+  "l": 177,
+  "k": "t",
+  "s": "${0} h ${1} min"
+ },
+ {
+  "f": "gcode.js",
+  "l": 177,
+  "k": "t",
+  "s": "${0} min ${1} s"
+ },
+ {
+  "f": "importers.js",
+  "l": 81,
+  "k": "s",
+  "s": "Keine Dreiecke in der STL-Datei gefunden"
+ },
+ {
+  "f": "importers.js",
+  "l": 271,
+  "k": "s",
+  "s": "Keine gültige SVG-Datei"
+ },
+ {
+  "f": "machine.js",
+  "l": 10,
+  "k": "s",
+  "s": "Befehl ohne Buchstaben"
+ },
+ {
+  "f": "machine.js",
+  "l": 10,
+  "k": "s",
+  "s": "Zahl fehlt oder ungültig"
+ },
+ {
+  "f": "machine.js",
+  "l": 10,
+  "k": "s",
+  "s": "$-Befehl unbekannt"
+ },
+ {
+  "f": "machine.js",
+  "l": 10,
+  "k": "s",
+  "s": "Referenzfahrt nicht aktiviert"
+ },
+ {
+  "f": "machine.js",
+  "l": 11,
+  "k": "s",
+  "s": "Nur im Leerlauf erlaubt"
+ },
+ {
+  "f": "machine.js",
+  "l": 11,
+  "k": "s",
+  "s": "Gesperrt (Alarm oder Jog)"
+ },
+ {
+  "f": "machine.js",
+  "l": 11,
+  "k": "s",
+  "s": "Verfahrweg überschreitet Maschinengrenzen"
+ },
+ {
+  "f": "machine.js",
+  "l": 12,
+  "k": "s",
+  "s": "Nicht unterstützter G-Code-Befehl"
+ },
+ {
+  "f": "machine.js",
+  "l": 12,
+  "k": "s",
+  "s": "Vorschub fehlt"
+ },
+ {
+  "f": "machine.js",
+  "l": 12,
+  "k": "s",
+  "s": "Zwei Befehle derselben Gruppe"
+ },
+ {
+  "f": "machine.js",
+  "l": 12,
+  "k": "s",
+  "s": "Bogen ungültig"
+ },
+ {
+  "f": "machine.js",
+  "l": 13,
+  "k": "s",
+  "s": "Befehl abgelehnt (läuft gerade ein Auftrag von der SD-Karte?)"
+ },
+ {
+  "f": "machine.js",
+  "l": 16,
+  "k": "s",
+  "s": "Endschalter ausgelöst – Position verloren. Entsperren und Referenzfahrt ausführen."
+ },
+ {
+  "f": "machine.js",
+  "l": 17,
+  "k": "s",
+  "s": "Ziel liegt außerhalb des Arbeitsbereichs."
+ },
+ {
+  "f": "machine.js",
+  "l": 17,
+  "k": "s",
+  "s": "Zurückgesetzt während der Bewegung – Position evtl. verloren."
+ },
+ {
+  "f": "machine.js",
+  "l": 18,
+  "k": "s",
+  "s": "Messtaster war schon ausgelöst."
+ },
+ {
+  "f": "machine.js",
+  "l": 18,
+  "k": "s",
+  "s": "Messtaster nicht berührt – Messplatte und Klemme prüfen."
+ },
+ {
+  "f": "machine.js",
+  "l": 19,
+  "k": "s",
+  "s": "Referenzfahrt abgebrochen."
+ },
+ {
+  "f": "machine.js",
+  "l": 19,
+  "k": "s",
+  "s": "Referenzfahrt: Endschalter nicht freigefahren."
+ },
+ {
+  "f": "machine.js",
+  "l": 19,
+  "k": "s",
+  "s": "Referenzfahrt: Endschalter nicht gefunden."
+ },
+ {
+  "f": "machine.js",
+  "l": 21,
+  "k": "s",
+  "s": "CH340 (typisch für DLC32/MKS)"
+ },
+ {
+  "f": "machine.js",
+  "l": 21,
+  "k": "s",
+  "s": "FTDI FT232"
+ },
+ {
+  "f": "machine.js",
+  "l": 21,
+  "k": "s",
+  "s": "ESP32 (USB direkt)"
+ },
+ {
+  "f": "machine.js",
+  "l": 21,
+  "k": "s",
+  "s": "Arduino Uno"
+ },
+ {
+  "f": "machine.js",
+  "l": 70,
+  "k": "s",
+  "s": "StickStudio"
+ },
+ {
+  "f": "machine.js",
+  "l": 70,
+  "k": "s",
+  "s": "Content-Type"
+ },
+ {
+  "f": "machine.js",
+  "l": 74,
+  "k": "s",
+  "s": "Der Server ist nicht erreichbar."
+ },
+ {
+  "f": "machine.js",
+  "l": 74,
+  "k": "s",
+  "s": "Die WLAN-Brücke braucht FräsStudio über den Server (Adresse mit https://…/fraesstudio/). Per Doppelklick geöffnet gibt es sie nicht."
+ },
+ {
+  "f": "machine.js",
+  "l": 76,
+  "k": "s",
+  "s": "Keine Berechtigung für die WLAN-Brücke."
+ },
+ {
+  "f": "machine.js",
+  "l": 76,
+  "k": "s",
+  "s": "Die WLAN-Brücke gibt es nur über den StickStudio-Server."
+ },
+ {
+  "f": "machine.js",
+  "l": 77,
+  "k": "s",
+  "s": "Die Brücke konnte keine Verbindung herstellen ("
+ },
+ {
+  "f": "machine.js",
+  "l": 86,
+  "k": "s",
+  "s": "Verbindung beendet"
+ },
+ {
+  "f": "machine.js",
+  "l": 88,
+  "k": "s",
+  "s": "Der Datenstrom vom Server kam nicht zustande."
+ },
+ {
+  "f": "machine.js",
+  "l": 88,
+  "k": "s",
+  "s": "Verbindung zum Server unterbrochen"
+ },
+ {
+  "f": "machine.js",
+  "l": 93,
+  "k": "s",
+  "s": "Senden fehlgeschlagen ("
+ },
+ {
+  "f": "machine.js",
+  "l": 129,
+  "k": "s",
+  "s": "Direktes WLAN geht nicht von einer https-Seite aus."
+ },
+ {
+  "f": "machine.js",
+  "l": 129,
+  "k": "s",
+  "s": "Browser sperren unverschlüsselte Verbindungen (ws://) von https-Seiten. Nutze „WLAN über den Server“ oder öffne FräsStudio per Doppelklick auf index.html."
+ },
+ {
+  "f": "machine.js",
+  "l": 132,
+  "k": "s",
+  "s": "Adresse ungültig."
+ },
+ {
+  "f": "machine.js",
+  "l": 135,
+  "k": "s",
+  "s": "Die Maschine antwortet nicht (Zeitüberschreitung)."
+ },
+ {
+  "f": "machine.js",
+  "l": 135,
+  "k": "s",
+  "s": "Stimmt die IP-Adresse? Maschine und Computer müssen im selben WLAN sein."
+ },
+ {
+  "f": "machine.js",
+  "l": 137,
+  "k": "s",
+  "s": "WebSocket-Verbindung fehlgeschlagen."
+ },
+ {
+  "f": "machine.js",
+  "l": 137,
+  "k": "s",
+  "s": "IP-Adresse prüfen. Maschine und Computer müssen im selben WLAN sein."
+ },
+ {
+  "f": "machine.js",
+  "l": 169,
+  "k": "s",
+  "s": "Getrennt"
+ },
+ {
+  "f": "machine.js",
+  "l": 185,
+  "k": "s",
+  "s": "Schon verbunden."
+ },
+ {
+  "f": "machine.js",
+  "l": 231,
+  "k": "s",
+  "s": "USB ist in diesem Browser nicht möglich."
+ },
+ {
+  "f": "machine.js",
+  "l": 232,
+  "k": "s",
+  "s": "Die Seite wird unverschlüsselt (http://) geöffnet – dann sperrt der Browser den USB-Zugriff. Öffne FräsStudio per Doppelklick auf <b>index.html</b> oder über <b>https://</b>, oder nimm WLAN."
+ },
+ {
+  "f": "machine.js",
+  "l": 233,
+  "k": "s",
+  "s": "Dieser Browser kann nicht direkt mit der Fräse sprechen (Web Serial fehlt). Bitte <b>Google Chrome</b> oder <b>Microsoft Edge</b> am Computer verwenden (nicht Firefox/Safari, nicht am Handy)."
+ },
+ {
+  "f": "machine.js",
+  "l": 238,
+  "k": "s",
+  "s": "Kein Anschluss gewählt."
+ },
+ {
+  "f": "machine.js",
+  "l": 238,
+  "k": "s",
+  "s": "Wenn die Liste leer war oder die Maschine nicht dabei stand:<ul><li>USB-Kabel einstecken (ein <b>Datenkabel</b>, nicht nur Ladekabel) und die Maschine einschalten (24 V).</li><li>Windows: Geräte-Manager → „Anschlüsse (COM &amp; LPT)“ muss einen Eintrag wie <b>USB-SERIAL CH340</b> zeigen. Fehlt er: <b>CH340-Treiber</b> installieren.</li><li>Andere Programme schließen, die die Fräse benutzen (Candle, UGS, LaserGRBL).</li></ul>"
+ },
+ {
+  "f": "machine.js",
+  "l": 251,
+  "k": "t",
+  "s": "Baudrate ${0} erkannt."
+ },
+ {
+  "f": "machine.js",
+  "l": 264,
+  "k": "s",
+  "s": "InvalidStateError"
+ },
+ {
+  "f": "machine.js",
+  "l": 264,
+  "k": "s",
+  "s": "Der Anschluss ist schon geöffnet."
+ },
+ {
+  "f": "machine.js",
+  "l": 264,
+  "k": "s",
+  "s": "Seite neu laden (F5) und noch einmal versuchen."
+ },
+ {
+  "f": "machine.js",
+  "l": 265,
+  "k": "s",
+  "s": "NetworkError"
+ },
+ {
+  "f": "machine.js",
+  "l": 265,
+  "k": "s",
+  "s": "Der Anschluss lässt sich nicht öffnen."
+ },
+ {
+  "f": "machine.js",
+  "l": 265,
+  "k": "s",
+  "s": "<b>Meist belegt:</b> ein anderes Programm (Candle, UGS, LaserGRBL, Arduino-Monitor) oder ein anderer Browser-Tab nutzt die Fräse. Alles schließen, USB-Kabel kurz abziehen und wieder einstecken.<br>Unter Linux: Benutzer muss in der Gruppe <code>dialout</code> sein."
+ },
+ {
+  "f": "machine.js",
+  "l": 266,
+  "k": "s",
+  "s": "Anschluss konnte nicht geöffnet werden: "
+ },
+ {
+  "f": "machine.js",
+  "l": 271,
+  "k": "s",
+  "s": "nichts empfangen"
+ },
+ {
+  "f": "machine.js",
+  "l": 273,
+  "k": "s",
+  "s": "Der Anschluss ist offen, aber die Maschine antwortet nicht."
+ },
+ {
+  "f": "machine.js",
+  "l": 274,
+  "k": "t",
+  "s": "<p>Gerät: <b>${0}</b> (USB ${1}). Geprüft wurden mehrere Baudraten:</p><table><tr><th>Baudrate</th><th>Empfangen</th></tr>${2}</table>\n        <p><b>Mögliche Ursachen:</b></p><ul>\n        ${3}\n        ${4}\n        <li>Maschine ausgeschaltet oder nicht mit 24 V versorgt (USB allein reicht oft nicht).</li>\n        <li>Die Platine hängt nach dem Öffnen im Neustart: Maschine <b>aus- und wieder einschalten</b>, 5 Sekunden warten, erneut verbinden.</li>\n        <li>Das Touch-Display steht im SD-Karten- oder Auftragsmodus: dort zuerst beenden.</li>\n        <li>Alternative: <b>WLAN</b> verwenden (Verbinden → WLAN).</li></ul>"
+ },
+ {
+  "f": "machine.js",
+  "l": 276,
+  "k": "s",
+  "s": "<li><b>Falscher Anschluss gewählt?</b> Bei mehreren COM-Ports den der Fräse wählen (Windows: Geräte-Manager → CH340).</li>"
+ },
+ {
+  "f": "machine.js",
+  "l": 277,
+  "k": "s",
+  "s": "<li>Es kommen Zeichen an, aber unlesbare: <b>falsche Baudrate</b> an der Maschine ($ in der Konsole prüfen).</li>"
+ },
+ {
+  "f": "machine.js",
+  "l": 290,
+  "k": "s",
+  "s": "Verbunden, aber die Maschine antwortet nicht wie GRBL."
+ },
+ {
+  "f": "machine.js",
+  "l": 290,
+  "k": "t",
+  "s": "<p>${0}</p>\n        <ul><li>Ist an der Maschine <b>Telnet</b> aktiv? (Konsole per USB: <code>$Telnet/Enable</code> → ON)</li><li>Läuft gerade ein Auftrag von der SD-Karte oder steuert das Touch-Display?</li><li>Maschine aus- und einschalten, 10 Sekunden warten.</li></ul>"
+ },
+ {
+  "f": "machine.js",
+  "l": 290,
+  "k": "s",
+  "s": "Empfangen: <code>"
+ },
+ {
+  "f": "machine.js",
+  "l": 290,
+  "k": "s",
+  "s": "Es kam nichts zurück."
+ },
+ {
+  "f": "machine.js",
+  "l": 300,
+  "k": "s",
+  "s": "Verbindung verloren"
+ },
+ {
+  "f": "machine.js",
+  "l": 301,
+  "k": "s",
+  "s": "Getrennt"
+ },
+ {
+  "f": "machine.js",
+  "l": 302,
+  "k": "s",
+  "s": "Verbindung verloren"
+ },
+ {
+  "f": "machine.js",
+  "l": 312,
+  "k": "s",
+  "s": "Verbindung getrennt"
+ },
+ {
+  "f": "machine.js",
+  "l": 314,
+  "k": "s",
+  "s": "Getrennt"
+ },
+ {
+  "f": "machine.js",
+  "l": 334,
+  "k": "t",
+  "s": "Fehler ${0}: ${1}"
+ },
+ {
+  "f": "machine.js",
+  "l": 334,
+  "k": "s",
+  "s": "siehe GRBL-Dokumentation"
+ },
+ {
+  "f": "machine.js",
+  "l": 335,
+  "k": "s",
+  "s": " – bei: "
+ },
+ {
+  "f": "machine.js",
+  "l": 345,
+  "k": "t",
+  "s": "ALARM ${0}: ${1}"
+ },
+ {
+  "f": "machine.js",
+  "l": 348,
+  "k": "s",
+  "s": "Alarm"
+ },
+ {
+  "f": "machine.js",
+  "l": 351,
+  "k": "s",
+  "s": "Grbl"
+ },
+ {
+  "f": "machine.js",
+  "l": 352,
+  "k": "s",
+  "s": "Zurückgesetzt"
+ },
+ {
+  "f": "machine.js",
+  "l": 385,
+  "k": "s",
+  "s": "Idle"
+ },
+ {
+  "f": "machine.js",
+  "l": 387,
+  "k": "s",
+  "s": "Werkzeug wechseln"
+ },
+ {
+  "f": "machine.js",
+  "l": 389,
+  "k": "s",
+  "s": "Idle"
+ },
+ {
+  "f": "machine.js",
+  "l": 406,
+  "k": "s",
+  "s": "Nicht verbunden"
+ },
+ {
+  "f": "machine.js",
+  "l": 448,
+  "k": "s",
+  "s": "Es läuft bereits ein Auftrag"
+ },
+ {
+  "f": "machine.js",
+  "l": 469,
+  "k": "s",
+  "s": "Abgebrochen"
+ },
+ {
+  "f": "machine.js",
+  "l": 470,
+  "k": "s",
+  "s": "Auftrag abgebrochen"
+ },
+ {
+  "f": "machine.js",
+  "l": 491,
+  "k": "s",
+  "s": "Messplatte nicht berührt"
+ },
+ {
+  "f": "shapes.js",
+  "l": 8,
+  "k": "s",
+  "s": "Linienzug"
+ },
+ {
+  "f": "shapes.js",
+  "l": 8,
+  "k": "s",
+  "s": "Rechteck"
+ },
+ {
+  "f": "shapes.js",
+  "l": 8,
+  "k": "s",
+  "s": "Ellipse"
+ },
+ {
+  "f": "shapes.js",
+  "l": 8,
+  "k": "s",
+  "s": "Vieleck"
+ },
+ {
+  "f": "shapes.js",
+  "l": 8,
+  "k": "s",
+  "s": "Stern"
+ },
+ {
+  "f": "shapes.js",
+  "l": 9,
+  "k": "s",
+  "s": "Text"
+ },
+ {
+  "f": "shapes.js",
+  "l": 9,
+  "k": "s",
+  "s": "Import"
+ },
+ {
+  "f": "sim.js",
+  "l": 58,
+  "k": "s",
+  "s": "Eilgang (G0) durch Material – Sicherheitshöhe prüfen!"
+ },
+ {
+  "f": "tools.js",
+  "l": 6,
+  "k": "s",
+  "s": "Schaftfräser"
+ },
+ {
+  "f": "tools.js",
+  "l": 6,
+  "k": "s",
+  "s": "Kugelfräser"
+ },
+ {
+  "f": "tools.js",
+  "l": 6,
+  "k": "s",
+  "s": "Konischer Kugelfräser"
+ },
+ {
+  "f": "tools.js",
+  "l": 6,
+  "k": "s",
+  "s": "V-Fräser / Gravierstichel"
+ },
+ {
+  "f": "tools.js",
+  "l": 6,
+  "k": "s",
+  "s": "Bohrer"
+ },
+ {
+  "f": "tools.js",
+  "l": 10,
+  "k": "s",
+  "s": "Schaftfräser 3,175 mm, 2 Schneiden"
+ },
+ {
+  "f": "tools.js",
+  "l": 11,
+  "k": "s",
+  "s": "Schaftfräser 2 mm, 2 Schneiden"
+ },
+ {
+  "f": "tools.js",
+  "l": 12,
+  "k": "s",
+  "s": "Schaftfräser 1 mm, 2 Schneiden"
+ },
+ {
+  "f": "tools.js",
+  "l": 13,
+  "k": "s",
+  "s": "Schaftfräser 6 mm, 2 Schneiden (500-W-Spindel)"
+ },
+ {
+  "f": "tools.js",
+  "l": 14,
+  "k": "s",
+  "s": "Gravierstichel 30°, Spitze 0,1 mm"
+ },
+ {
+  "f": "tools.js",
+  "l": 15,
+  "k": "s",
+  "s": "V-Fräser 60°, 6,35 mm"
+ },
+ {
+  "f": "tools.js",
+  "l": 16,
+  "k": "s",
+  "s": "V-Fräser 90°, 12,7 mm"
+ },
+ {
+  "f": "tools.js",
+  "l": 17,
+  "k": "s",
+  "s": "Kugelfräser 3,175 mm (R 1,59)"
+ },
+ {
+  "f": "tools.js",
+  "l": 18,
+  "k": "s",
+  "s": "Kugelfräser 1,5 mm (R 0,75)"
+ },
+ {
+  "f": "tools.js",
+  "l": 19,
+  "k": "s",
+  "s": "Bohrer 3 mm"
+ },
+ {
+  "f": "tools.js",
+  "l": 21,
+  "k": "s",
+  "s": "Konischer Kugelfräser R0,25 (Spitze Ø 0,5 mm, 30°)"
+ },
+ {
+  "f": "tools.js",
+  "l": 22,
+  "k": "s",
+  "s": "Konischer Kugelfräser R0,5 (Spitze Ø 1 mm, 30°)"
+ },
+ {
+  "f": "tools.js",
+  "l": 23,
+  "k": "s",
+  "s": "Konischer Kugelfräser R0,75 (Spitze Ø 1,5 mm, 20°)"
+ },
+ {
+  "f": "tools.js",
+  "l": 28,
+  "k": "s",
+  "s": "Weichholz (Kiefer, Fichte, Linde)"
+ },
+ {
+  "f": "tools.js",
+  "l": 29,
+  "k": "s",
+  "s": "Hartholz (Buche, Eiche, Ahorn)"
+ },
+ {
+  "f": "tools.js",
+  "l": 31,
+  "k": "s",
+  "s": "Sperrholz / Multiplex"
+ },
+ {
+  "f": "tools.js",
+  "l": 32,
+  "k": "s",
+  "s": "Acryl (PMMA, gegossen)"
+ },
+ {
+  "f": "tools.js",
+  "l": 33,
+  "k": "s",
+  "s": "PVC-Hartschaum / Forex"
+ },
+ {
+  "f": "tools.js",
+  "l": 34,
+  "k": "s",
+  "s": "HDPE / POM"
+ },
+ {
+  "f": "tools.js",
+  "l": 35,
+  "k": "s",
+  "s": "Leiterplatte (FR4)"
+ },
+ {
+  "f": "tools.js",
+  "l": 36,
+  "k": "s",
+  "s": "Aluminium (nur 500-W-Spindel, sehr vorsichtig)"
+ },
+ {
+  "f": "tools.js",
+  "l": 37,
+  "k": "s",
+  "s": "Messing (nur 500-W-Spindel, sehr vorsichtig)"
+ },
+ {
+  "f": "tools.js",
+  "l": 42,
+  "k": "s",
+  "s": "Twotrees TTC450 (80-W-Spindel)"
+ },
+ {
+  "f": "tools.js",
+  "l": 43,
+  "k": "s",
+  "s": "Twotrees TTC450 (500-W-Spindel)"
+ },
+ {
+  "f": "tools.js",
+  "l": 44,
+  "k": "s",
+  "s": "Twotrees TTC450 (800-W-Fräsmotor, Drehregler)"
+ },
+ {
+  "f": "tools.js",
+  "l": 45,
+  "k": "s",
+  "s": "Eigene GRBL-Maschine"
+ },
+ {
+  "f": "view3d.js",
+  "l": 31,
+  "k": "s",
+  "s": "#version 300 es\n  precision highp float;\n  in vec2 aUV;\n  uniform sampler2D uH; uniform vec2 uSize; uniform mat4 uMVP;\n  out vec2 vUV; out float vH;\n  void main() {\n    ivec2 ts = textureSize(uH, 0);\n    ivec2 t = ivec2(aUV * vec2(ts - 1) + 0.5);\n    float h = texelFetch(uH, t, 0).r;\n    vUV = aUV; vH = h;\n    gl_Position = uMVP * vec4(aUV * uSize, h, 1.0);\n  }"
+ },
+ {
+  "f": "view3d.js",
+  "l": 43,
+  "k": "s",
+  "s": "#version 300 es\n  precision highp float;\n  in vec2 vUV; in float vH;\n  uniform sampler2D uH; uniform vec2 uSize; uniform float uT; uniform vec3 uCol; uniform vec3 uLight;\n  out vec4 o;\n  float H(ivec2 p) { ivec2 ts = textureSize(uH, 0); return texelFetch(uH, clamp(p, ivec2(0), ts - 1), 0).r; }\n  void main() {\n    ivec2 ts = textureSize(uH, 0);\n    vec2 cell = uSize / vec2(ts - 1);\n    ivec2 p = ivec2(vUV * vec2(ts - 1) + 0.5);\n    float h = H(p);\n    if (h <= -uT + 0.01) discard;\n    float dx = (H(p + ivec2(1, 0)) - H(p - ivec2(1, 0))) / (2.0 * cell.x);\n    float dy = (H(p + ivec2(0, 1)) - H(p - ivec2(0, 1))) / (2.0 * cell.y);\n    vec3 n = normalize(vec3(-dx, -dy, 1.0));\n    float dif = max(dot(n, normalize(uLight)), 0.0);\n    float cutF = smoothstep(-0.02, -0.4, h);\n    vec3 base = mix(uCol, uCol * 0.78, cutF);\n    vec3 c = base * (0.38 + 0.72 * dif);\n    o = vec4(c, 1.0);\n  }"
+ },
+ {
+  "f": "view3d.js",
+  "l": 64,
+  "k": "s",
+  "s": "#version 300 es\n  precision highp float;\n  in vec3 aP; // x,y in mm, z: 1 = oben (Höhe aus Textur), 0 = unten\n  in vec3 aN;\n  uniform sampler2D uH; uniform vec2 uSize; uniform mat4 uMVP; uniform float uT;\n  out vec3 vN;\n  void main() {\n    ivec2 ts = textureSize(uH, 0);\n    ivec2 t = ivec2(clamp(aP.xy / uSize, 0.0, 1.0) * vec2(ts - 1) + 0.5);\n    float h = aP.z > 0.5 ? texelFetch(uH, t, 0).r : -uT;\n    vN = aN;\n    gl_Position = uMVP * vec4(aP.xy, h, 1.0);\n  }"
+ },
+ {
+  "f": "view3d.js",
+  "l": 77,
+  "k": "s",
+  "s": "#version 300 es\n  precision highp float;\n  in vec3 vN; uniform vec3 uCol; uniform vec3 uLight; out vec4 o;\n  void main() { float d = max(dot(normalize(vN), normalize(uLight)), 0.0); o = vec4(uCol * (0.45 + 0.6 * d), 1.0); }"
+ },
+ {
+  "f": "view3d.js",
+  "l": 81,
+  "k": "s",
+  "s": "#version 300 es\n  precision highp float;\n  in vec3 aP; in vec3 aC; in float aI;\n  uniform mat4 uMVP; uniform float uProg; uniform float uLift;\n  out vec4 vC;\n  void main() {\n    vC = vec4(aC, aI <= uProg ? 1.0 : 0.28);\n    gl_Position = uMVP * vec4(aP.xy, aP.z + uLift, 1.0);\n  }"
+ },
+ {
+  "f": "view3d.js",
+  "l": 90,
+  "k": "s",
+  "s": "#version 300 es\n  precision highp float; in vec4 vC; out vec4 o; void main() { o = vC; }"
+ },
+ {
+  "f": "view3d.js",
+  "l": 92,
+  "k": "s",
+  "s": "#version 300 es\n  precision highp float;\n  in vec3 aP; in vec3 aN; uniform mat4 uMVP; uniform vec3 uOff; out vec3 vN;\n  void main() { vN = aN; gl_Position = uMVP * vec4(aP + uOff, 1.0); }"
+ },
+ {
+  "f": "view3d.js",
+  "l": 120,
+  "k": "s",
+  "s": "WebGL2 wird von diesem Browser nicht unterstützt"
+ },
+ {
+  "f": "view3d.js",
+  "l": 374,
+  "k": "s",
+  "s": "(prefers-color-scheme: dark)"
+ },
+ {
+  "f": "fonts.js",
+  "l": 5,
+  "k": "s",
+  "s": "Anton"
+ },
+ {
+  "f": "fonts.js",
+  "l": 5,
+  "k": "s",
+  "s": "Block schmal"
+ },
+ {
+  "f": "fonts.js",
+  "l": 6,
+  "k": "s",
+  "s": "Bebas Neue"
+ },
+ {
+  "f": "fonts.js",
+  "l": 6,
+  "k": "s",
+  "s": "Block schmal"
+ },
+ {
+  "f": "fonts.js",
+  "l": 7,
+  "k": "s",
+  "s": "Archivo Black"
+ },
+ {
+  "f": "fonts.js",
+  "l": 7,
+  "k": "s",
+  "s": "Block fett"
+ },
+ {
+  "f": "fonts.js",
+  "l": 8,
+  "k": "s",
+  "s": "Passion One"
+ },
+ {
+  "f": "fonts.js",
+  "l": 8,
+  "k": "s",
+  "s": "Block rund"
+ },
+ {
+  "f": "fonts.js",
+  "l": 9,
+  "k": "s",
+  "s": "Righteous"
+ },
+ {
+  "f": "fonts.js",
+  "l": 9,
+  "k": "s",
+  "s": "Modern"
+ },
+ {
+  "f": "fonts.js",
+  "l": 10,
+  "k": "s",
+  "s": "Alfa Slab One"
+ },
+ {
+  "f": "fonts.js",
+  "l": 10,
+  "k": "s",
+  "s": "Serifen (Slab)"
+ },
+ {
+  "f": "fonts.js",
+  "l": 11,
+  "k": "s",
+  "s": "Graduate"
+ },
+ {
+  "f": "fonts.js",
+  "l": 11,
+  "k": "s",
+  "s": "College"
+ },
+ {
+  "f": "fonts.js",
+  "l": 12,
+  "k": "s",
+  "s": "Pacifico"
+ },
+ {
+  "f": "fonts.js",
+  "l": 12,
+  "k": "s",
+  "s": "Schreibschrift"
+ },
+ {
+  "f": "fonts.js",
+  "l": 13,
+  "k": "s",
+  "s": "Great Vibes"
+ },
+ {
+  "f": "fonts.js",
+  "l": 13,
+  "k": "s",
+  "s": "Schreibschrift fein"
+ },
+ {
+  "f": "ttf.js",
+  "l": 26,
+  "k": "s",
+  "s": "Nur TrueType-Schriften (glyf) werden unterstützt"
+ },
+ {
+  "f": "ttf.js",
+  "l": 182,
+  "k": "s",
+  "s": "Keine Schrift vorhanden"
+ }
+]

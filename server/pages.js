@@ -1,4 +1,4 @@
-/* Seiten außerhalb des Programms: Anmeldung, Registrierung, Passwort, Konto, Admin, Rechtstexte (Deutsch / Englisch). */
+/* Seiten außerhalb des Programms: Anmeldung, Registrierung, Passwort, Konto, Admin, Rechtstexte (Deutsch / Englisch / Dänisch). */
 'use strict';
 const fs = require('fs');
 const path = require('path');
@@ -33,6 +33,7 @@ const T = {
     withdrawDone: 'Dein Widerruf ist am {{at}} bei uns eingegangen.',
     mailSent: 'Eine Bestätigung haben wir an {{email}} geschickt.', mailOff: 'Bitte speichere oder drucke diese Seite als Bestätigung.',
     summary: 'Zusammenfassung', required: 'Bitte Name und E-Mail-Adresse angeben.',
+    reasonLabel: 'Grund', nameLabel: 'Name', receivedOn: 'Eingegangen am',
   },
   en: {
     login: 'Sign in', register: 'Create account', email: 'Email', password: 'Password', password2: 'Repeat password',
@@ -63,20 +64,55 @@ const T = {
     withdrawDone: 'We received your withdrawal on {{at}}.',
     mailSent: 'We have sent a confirmation to {{email}}.', mailOff: 'Please save or print this page as confirmation.',
     summary: 'Summary', required: 'Please enter your name and email address.',
+    reasonLabel: 'Reason', nameLabel: 'Name', receivedOn: 'Received on',
+  },
+  da: {
+    login: 'Log ind', register: 'Opret konto', email: 'E-mail', password: 'Adgangskode', password2: 'Gentag adgangskode',
+    name: 'Navn / firma (valgfrit)', forgot: 'Glemt adgangskode?', noAccount: 'Har du ikke en konto endnu?', haveAccount: 'Allerede registreret?',
+    trialInfo: 'Prøv gratis: alle funktioner i {{days}} dage, uden betalingsoplysninger.',
+    accept: 'Jeg har læst og accepterer <a href="/legal/agb" target="_blank">handelsbetingelserne</a>. Jeg har gjort mig bekendt med <a href="/legal/datenschutz" target="_blank">privatlivspolitikken</a>.',
+    createAccount: 'Opret konto og start prøveperioden', forgotTitle: 'Glemt adgangskode', send: 'Send link',
+    forgotInfo: 'Indtast din e-mailadresse. Hvis der findes en konto, modtager du et link til at nulstille adgangskoden (gyldigt i 1 time).',
+    resetTitle: 'Ny adgangskode', save: 'Gem', back: 'Tilbage til log ind',
+    imprint: 'Virksomhedsoplysninger', terms: 'Handelsbetingelser', withdrawal: 'Fortrydelsesret', privacy: 'Privatliv', licenses: 'Licenser',
+    account: 'Min konto', admin: 'Administration', logout: 'Log ud', toApp: 'Åbn programmet',
+    verifyTitle: 'Bekræft din e-mail', verifySent: 'Vi har sendt dig en e-mail med et bekræftelseslink. Bekræft venligst din adresse – derefter kan du logge ind.',
+    verified: 'Tak! Din e-mailadresse er bekræftet. Du kan logge ind nu.', badLink: 'Linket er ugyldigt eller udløbet.',
+    resetDone: 'Din adgangskode er ændret. Du kan logge ind nu.', notFound: 'Siden blev ikke fundet',
+    pwRules: 'Mindst 10 tegn.',
+    cancelLink: 'Opsig aftaler her', withdrawLink: 'Fortryd aftale',
+    cancelTitle: 'Opsig abonnement',
+    cancelInfo: 'Her kan du opsige dit StickStudio-abonnement. Du får straks en bekræftelse på e-mail. Din adgang gælder til udløbet af den betalte periode.',
+    kind: 'Type af opsigelse', ordinary: 'Almindelig opsigelse', extraordinary: 'Ekstraordinær opsigelse (af væsentlig grund)', reason: 'Begrundelse (kun ved ekstraordinær opsigelse)',
+    when: 'Tidspunkt', nextPossible: 'Til det tidligst mulige tidspunkt', atDate: 'Pr. dato', contract: 'Aftale', contractName: 'StickStudio-abonnement',
+    fullName: 'Navn (for- og efternavn eller firma)', accountEmail: 'E-mailadressen på din konto', ref: 'Kunde- eller ordrenummer (valgfrit)',
+    cancelNow: 'Opsig nu', cancelDoneTitle: 'Opsigelse modtaget',
+    cancelDone: 'Vi har modtaget din opsigelse den {{at}}.',
+    withdrawTitle: 'Fortryd aftale',
+    withdrawInfo: 'Som forbruger kan du fortryde din aftale inden for 14 dage efter aftalens indgåelse uden at angive en grund (se <a href="/legal/widerruf">fortrydelsesvejledningen</a>). Du får straks en kvittering for modtagelsen på e-mail.',
+    statement: 'Erklæring', withdrawStatement: 'Jeg fortryder hermed den aftale, jeg har indgået om StickStudio-abonnementet.',
+    orderedOn: 'Bestilt den (valgfrit)', withdrawNow: 'Bekræft fortrydelse', withdrawDoneTitle: 'Fortrydelse modtaget',
+    withdrawDone: 'Vi har modtaget din fortrydelse den {{at}}.',
+    mailSent: 'Vi har sendt en bekræftelse til {{email}}.', mailOff: 'Gem eller udskriv venligst denne side som bekræftelse.',
+    summary: 'Oversigt', required: 'Angiv venligst navn og e-mailadresse.',
+    reasonLabel: 'Begrundelse', nameLabel: 'Navn', receivedOn: 'Modtaget den',
   },
 };
+
+const LANGS = ['de', 'en', 'da'];
+const LOCALE = { de: 'de-DE', en: 'en-GB', da: 'da-DK' };
 
 const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
 
 function layout(lang, title, body, opts = {}) {
-  const t = T[lang];
-  const other = lang === 'de' ? 'en' : 'de';
+  const t = T[lang] || T.de;
   const u = opts.user;
+  const switcher = LANGS.map((l) => (l === lang ? `<a class="lang" href="?lang=${l}" aria-current="true" style="font-weight:700">${l.toUpperCase()}</a>` : `<a class="lang" href="?lang=${l}" style="opacity:.75">${l.toUpperCase()}</a>`)).join('');
   return `<!doctype html><html lang="${lang}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
 <title>${esc(title)} – StickStudio</title><link rel="stylesheet" href="/site/site.css">${opts.head || ''}</head>
 <body class="${opts.wide ? 'wide' : ''}"><header class="top"><a class="logo" href="/">StickStudio</a><nav>
 ${u ? `<a href="/">${t.toApp}</a><a href="/account">${t.account}</a>${u.role === 'admin' ? `<a href="/admin">${t.admin}</a>` : ''}<form method="post" action="/logout" class="inline"><button>${t.logout}</button></form>` : ''}
-<a class="lang" href="?lang=${other}">${other.toUpperCase()}</a></nav></header>
+${switcher}</nav></header>
 <main>${body}</main>
 <footer><a href="/legal/impressum">${t.imprint}</a><a href="/legal/agb">${t.terms}</a><a href="/legal/widerruf">${t.withdrawal}</a><a href="/legal/datenschutz">${t.privacy}</a><a href="/legal/lizenzen">${t.licenses}</a><a href="/kuendigen">${t.cancelLink}</a><a href="/widerrufen">${t.withdrawLink}</a></footer>
 ${opts.scripts || ''}</body></html>`;
@@ -176,15 +212,17 @@ function receipt(lang, title, text, lines, mailInfo, user) {
 const LEGAL = ['impressum', 'agb', 'widerruf', 'datenschutz', 'lizenzen', 'kaufbedingungen', 'widerruf-kauf'];
 function legal(root, lang, page, settings, user) {
   if (!LEGAL.includes(page)) return null;
-  const file = path.join(root, 'legal', `${page}.${lang}.html`);
-  const alt = path.join(root, 'legal', `${page}.de.html`);
+  // gewünschte Sprache, sonst Englisch, sonst Deutsch (z. B. dänische Fassung noch nicht vorhanden)
+  const order = [lang, 'en', 'de'].filter((l, i, a) => a.indexOf(l) === i);
+  const fileLang = order.find((l) => fs.existsSync(path.join(root, 'legal', `${page}.${l}.html`)));
+  if (!fileLang) return null;
   let html;
-  try { html = fs.readFileSync(fs.existsSync(file) ? file : alt, 'utf8'); } catch (e) { return null; }
-  // Platzhalter aus den Admin-Einstellungen; leere optionale Abschnitte entfallen
+  try { html = fs.readFileSync(path.join(root, 'legal', `${page}.${fileLang}.html`), 'utf8'); } catch (e) { return null; }
+  // Platzhalter aus den Admin-Einstellungen (in der Sprache des Textes); leere optionale Abschnitte entfallen
   const val = (k) => {
     if (k === 'date') return settings.legal_date || new Date().toISOString().slice(0, 10);
-    if (k === 'license_term') return (lang === 'de' ? settings.license_term_de : settings.license_term_en) || (lang === 'de' ? '12 Monate' : '12 months');
-    if (k === 'price_text') return (lang === 'de' ? settings.price_text_de : settings.price_text_en) || '';
+    if (k === 'license_term') return termFor(settings, fileLang);
+    if (k === 'price_text') return settingFor(settings, 'price_text', fileLang);
     return settings[k] ?? '';
   };
   html = html.replace(/<(\w+)([^>]*?)\sdata-optional="(\w+)"([^>]*)>([\s\S]*?)<\/\1>/g, (m, tag, a, key, b, inner) => (String(val(key)).trim() ? `<${tag}${a}${b}>${inner}</${tag}>` : ''));
@@ -193,7 +231,22 @@ function legal(root, lang, page, settings, user) {
   html = html.replace(/\{\{(\w+)\}\}/g, (m, k) => esc(val(k)) || `<span class="todo">[${k}]</span>`);
   const h1 = /<h1[^>]*>([\s\S]*?)<\/h1>/.exec(html);
   const title = h1 ? h1[1].replace(/<[^>]+>/g, '').trim() : page;
-  return layout(lang, title, `<article class="legal">${html}</article>`, { user });
+  return layout(lang, title, `<article class="legal" lang="${fileLang}">${html}</article>`, { user });
+}
+/** Laufzeit: eigene Angabe der Sprache; für Dänisch sonst aus der englischen abgeleitet („12 months“ → „12 måneder“) */
+function termFor(settings, lang) {
+  const own = settings['license_term_' + lang];
+  if (own && String(own).trim()) return own;
+  if (lang === 'da') {
+    const m = /^\s*(\d+)\s*(month|months|year|years)\s*$/i.exec(settings.license_term_en || '12 months');
+    if (m) return `${m[1]} ${/^month/i.test(m[2]) ? (+m[1] === 1 ? 'måned' : 'måneder') : 'år'}`;
+  }
+  return settingFor(settings, 'license_term', lang) || { de: '12 Monate', da: '12 måneder' }[lang] || '12 months';
+}
+/** Sprachabhängige Einstellung (z. B. price_text_da), sonst Englisch, sonst Deutsch */
+function settingFor(settings, base, lang) {
+  for (const l of [lang, 'en', 'de']) { const v = settings[`${base}_${l}`]; if (v && String(v).trim()) return v; }
+  return '';
 }
 
-module.exports = { T, layout, login, register, forgot, reset, info, account, admin, legal, LEGAL, esc, cancelForm, withdrawForm, receipt };
+module.exports = { T, LANGS, LOCALE, settingFor, termFor, layout, login, register, forgot, reset, info, account, admin, legal, LEGAL, esc, cancelForm, withdrawForm, receipt };
