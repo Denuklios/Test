@@ -15,7 +15,9 @@ const LINKS = {
   const prices = document.querySelector('[data-section="prices"]');
   const fallback = prices && prices.id ? '#' + prices.id : '#';
   document.querySelectorAll('[data-buy],[data-download]').forEach((a) => {
-    const url = a.dataset.buy ? LINKS.buy[a.dataset.buy] : LINKS.download[a.dataset.download];
+    let url = a.dataset.buy ? LINKS.buy[a.dataset.buy] : LINKS.download[a.dataset.download];
+    // Sprache an den Lemon-Squeezy-Kauf übergeben: Lizenz-E-Mail kommt dann in dieser Sprache
+    if (url && a.dataset.buy && /lemonsqueezy\.com/.test(url)) url += (url.includes('?') ? '&' : '?') + 'checkout[custom][lang]=' + (document.documentElement.lang || 'de').slice(0, 2);
     if (url) { a.href = url; a.target = '_blank'; a.rel = 'noopener'; }
     else a.href = fallback;
   });
