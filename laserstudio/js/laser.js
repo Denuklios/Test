@@ -584,7 +584,7 @@
   // ------------------------------------------------------------ Materialtest
   /**
    * Raster aus Feldern mit unterschiedlicher Leistung (Spalten) und Geschwindigkeit (Zeilen), beschriftet.
-   * Liefert {objects, layers}. o: {cols, rows, pMin, pMax, vMin, vMax, cell, gap, mode, interval, x, y, labels}
+   * Liefert {objects, layers}. o: {cols, rows, pMin, pMax, vMin, vMax, cell, gap, mode, interval, x, y, labels, powerText (Achsenbeschriftung)}
    */
   function materialTest(o) {
     const cols = Math.max(1, o.cols | 0), rows = Math.max(1, o.rows | 0);
@@ -614,7 +614,7 @@
         t.tf = M.translate(X0 - gap, Y0 + H - r * (cell + gap) - cell / 2 - sz * 0.28);
         objs.push(t);
       }
-      const t1 = SH().make('text', { name: 'Achse Leistung', text: 'Leistung %', font: o.font, size: sz * 0.8, align: 'left', spacing: 0, lineHeight: 1.2, layer: text.id });
+      const t1 = SH().make('text', { name: 'Achse Leistung', text: o.powerText || 'Leistung %', font: o.font, size: sz * 0.8, align: 'left', spacing: 0, lineHeight: 1.2, layer: text.id });
       t1.tf = M.translate(X0, Y0 + H + gap + sz * 1.45);
       const t2 = SH().make('text', { name: 'Achse Geschwindigkeit', text: 'mm/min', font: o.font, size: sz * 0.7, align: 'right', spacing: 0, lineHeight: 1.2, layer: text.id });
       t2.tf = M.translate(X0 - gap, Y0 - sz * 1.1);

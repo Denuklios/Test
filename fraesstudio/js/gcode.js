@@ -177,5 +177,5 @@
     return h ? `${h} h ${m} min` : m ? `${m} min ${s} s` : `${s} s`;
   }
 
-  FS.gcode = { build, parse, origin, ZERO_POS, fmtTime, lineCount, num };
+  FS.gcode = { build, parse, origin, ZERO_POS, fmtTime, lineCount, num, clean };
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -5,6 +5,10 @@
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const fmt = util.fmt;
+  // Übersetzen (Deutsch → gewählte Sprache) für Texte, die nicht über das DOM laufen (Canvas, prompt, Dateinamen)
+  const t = (s) => (window.HW && HW.i18n ? HW.i18n.t(s) : s);
+  const locale = () => (window.HW && HW.i18n ? HW.i18n.locale() : 'de-DE');
+  const fileSafe = (s) => String(s).replace(/[^\wäöüÄÖÜßæøåÆØÅ\- ]+/g, '_');
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -88,7 +92,7 @@
     for (const c of LZ.COLORS) { const b = rgb(c), d = (a[0] - b[0]) ** 2 + (a[1] - b[1]) ** 2 + (a[2] - b[2]) ** 2; if (d < bd) { bd = d; best = c; } }
     return best;
   }
-  const layerLabel = (l) => l.name || `Ebene ${LZ.COLORS.indexOf(l.color) + 1}`;
+  const layerLabel = (l) => t(l.name || `Ebene ${LZ.COLORS.indexOf(l.color) + 1}`);
   const layerSummary = (l) => (l.mode === 'line' ? `${l.speed} mm/min · ${l.power} %${l.passes > 1 ? ' · ' + l.passes + '×' : ''}` : `${l.speed} · ${l.power} % · ${fmt(l.interval, 2)} mm`);
 
   // ---------------------------------------------------------------- Rückgängig / Speichern
@@ -197,7 +201,7 @@
     return { w, h, data: x.getImageData(0, 0, w, h).data };
   }
   const num = (v, d = 0) => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
-  const field = (label, html, unit) => `<div class="field"><label>${label}</label>${unit ? `<div class="unit" data-u="${unit}">${html}</div>` : html}</div>`;
+  const field = (label, html, unit) => `<div class="field"><label>${label}</label>${unit ? `<div class="unit" data-u="${esc(t(unit))}">${html}</div>` : html}</div>`;
   const inputN = (id, v, step = 0.1, extra = '') => `<input id="${id}" type="number" step="${step}" value="${+(+v).toFixed(4)}" ${extra}>`;
   const val = (id) => num($('#' + id).value);
   const anchorPicker = (cur) => ['ul', 'uc', 'ur', 'cl', 'c', 'cr', 'll', 'lc', 'lr'].map((k) => `<button data-a="${k}" class="${k === cur ? 'active' : ''}" title="${anchorText(k)}"></button>`).join('');
@@ -347,7 +351,7 @@
     x.font = '10px system-ui';
     for (let gx = Math.ceil(Math.max(0, tl.x) / major) * major; gx <= Math.min(m.w, br.x); gx += major) { const p = w2s({ x: gx, y: 0 }); x.fillText(fmt(gx, 1), p.x + 2, Math.min(H - 4, a.y + 12)); }
     for (let gy = Math.ceil(Math.max(0, br.y) / major) * major; gy <= Math.min(m.h, tl.y); gy += major) { const p = w2s({ x: 0, y: gy }); x.fillText(fmt(gy, 1), Math.max(2, a.x - 26), p.y + 3); }
-    x.fillText(`${m.name.split(' (')[0]} · ${m.w} × ${m.h} mm`, a.x + 4, b.y - 6);
+    x.fillText(`${t(m.name).split(' (')[0]} · ${m.w} × ${m.h} mm`, a.x + 4, b.y - 6);
     // Maschinen-Nullpunkt
     const oc = { ll: { x: 0, y: 0 }, ul: { x: 0, y: m.h }, ur: { x: m.w, y: m.h }, lr: { x: m.w, y: 0 } }[m.origin || 'll'];
     const op = w2s(oc);
@@ -924,7 +928,7 @@
   // ---------------------------------------------------------------- Seitenleiste: Entwerfen
   function renderSide() {
     renderPalette();
-    $('#machBtn').textContent = `▣ ${S.machine.name.split(' (')[0]}`;
+    $('#machBtn').textContent = `▣ ${t(S.machine.name).split(' (')[0]}`;
     if (S.mode === 'design') { renderLayers(); renderLayerEdit(); renderProps(); renderObjList(); }
     if (S.mode === 'preview') renderPreviewSide();
     if (S.mode === 'laser') renderLaserSide();
@@ -1043,7 +1047,7 @@
     const row = e.target.closest('.obj');
     if (!row) return;
     const o = objById(row.dataset.id);
-    const n = prompt('Name:', o.name);
+    const n = prompt(t('Name:'), o.name);
     if (n) { snapshot(); o.name = n; changed(); }
   });
 
@@ -1394,7 +1398,7 @@
           const tr = e.target.closest('[data-m]');
           if (tr) { cur = tr.dataset.m; $('#mlRows').innerHTML = rows(); const m = list().find((q) => q.id === cur); $('#mlNote').textContent = m && m.note ? m.note : ''; }
           if (e.target.id === 'mlSave') {
-            const name = prompt('Name des Materials (z. B. „Birke 4 mm“):', '');
+            const name = prompt(t('Name des Materials (z. B. „Birke 4 mm“):'), '');
             if (!name) return;
             const mine = myMaterials();
             mine.unshift({ id: 'my' + util.uid(), mat: name, job: LZ.MODES[l.mode], mode: l.mode, speed: l.speed, power: l.power, passes: l.passes, interval: l.interval, air: l.air, minPower: l.minPower });
@@ -1433,8 +1437,8 @@
     const read = () => ({ cols: Math.round(val('mtC')), rows: Math.round(val('mtR')), pMin: val('mtP0'), pMax: val('mtP1'), vMin: val('mtV0'), vMax: val('mtV1'), cell: Math.max(2, val('mtS')), gap: Math.max(0, val('mtG')), mode: $('#mtM').value, interval: Math.max(0.02, val('mtI')), labels: $('#mtL').checked });
     const info = () => {
       const o = read();
-      const t = LZ.materialTest({ ...o, font: FS.ttf.names()[0] });
-      const pl = LZ.plan({ objects: t.objects, layers: t.layers }, { machine: S.machine });
+      const mt = LZ.materialTest({ ...o, font: FS.ttf.names()[0], powerText: t('Leistung %') });
+      const pl = LZ.plan({ objects: mt.objects, layers: mt.layers }, { machine: S.machine });
       $('#mtInfo').textContent = `${o.cols * o.rows} Felder · Größe ca. ${fmt(pl.bounds ? pl.bounds.w : 0, 0)} × ${fmt(pl.bounds ? pl.bounds.h : 0, 0)} mm · Laufzeit ≈ ${LZ.fmtTime(pl.time.sec)}`;
     };
     let tmr = 0;
@@ -1444,20 +1448,20 @@
       if (r !== 'ok') return;
       const o = read();
       store.set('ls.mtest', o);
-      const t = LZ.materialTest({ ...o, font: FS.ttf.names()[0], x: 10, y: 10 });
+      const mt = LZ.materialTest({ ...o, font: FS.ttf.names()[0], x: 10, y: 10, powerText: t('Leistung %') });
       snapshot();
       // eigene Farben suchen, damit vorhandene Ebenen unberührt bleiben
       const free = LZ.COLORS.filter((c) => !S.doc.layers.some((l) => l.color === c && S.doc.objects.some((q) => q.layer === l.id)));
-      t.layers.forEach((l, i) => {
+      mt.layers.forEach((l, i) => {
         const old = S.doc.layers.find((q) => q.color === (free[free.length - 1 - i] || l.color));
         l.color = free[free.length - 1 - i] || l.color;
         if (old) S.doc.layers = S.doc.layers.filter((q) => q !== old);
         S.doc.layers.unshift(l);
       });
-      const b = boxOf(t.objects);
-      t.objects.forEach((q) => translateObj(q, S.machine.w / 2 - (b.x0 + b.x1) / 2, S.machine.h / 2 - (b.y0 + b.y1) / 2));
-      S.doc.objects.push(...t.objects);
-      S.sel = t.objects.map((q) => q.id);
+      const b = boxOf(mt.objects);
+      mt.objects.forEach((q) => translateObj(q, S.machine.w / 2 - (b.x0 + b.x1) / 2, S.machine.h / 2 - (b.y0 + b.y1) / 2));
+      S.doc.objects.push(...mt.objects);
+      S.sel = mt.objects.map((q) => q.id);
       changed();
       status('Materialtest erzeugt. Mit dem Rahmen prüfen, ob er aufs Material passt, dann lasern.');
     });
@@ -1465,7 +1469,7 @@
 
   // ---------------------------------------------------------------- Dateien
   function saveProject() {
-    const name = (S.doc.name || 'Projekt').replace(/[^\wäöüÄÖÜß\- ]+/g, '_');
+    const name = fileSafe(t(S.doc.name || 'Projekt'));
     download(name + '.lsp', serial(S.doc, true), 'application/json');
     status('Projekt gespeichert: ' + name + '.lsp');
   }
@@ -1705,7 +1709,7 @@
       const d = geom(o).map((l) => l.pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(3)} ${(m.h - p.y).toFixed(3)}`).join('') + (l.closed ? 'Z' : '')).join('');
       body += `<path d="${d}" fill="none" stroke="${col}" stroke-width="0.2"/>\n`;
     }
-    download((S.doc.name || 'Zeichnung') + '.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="${m.w}mm" height="${m.h}mm" viewBox="0 0 ${m.w} ${m.h}">\n${body}</svg>\n`, 'image/svg+xml');
+    download(fileSafe(t(S.doc.name || 'Zeichnung')) + '.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="${m.w}mm" height="${m.h}mm" viewBox="0 0 ${m.w} ${m.h}">\n${body}</svg>\n`, 'image/svg+xml');
   }
 
   // ---------------------------------------------------------------- Auftrag berechnen
@@ -1741,7 +1745,7 @@
     if (!r) return;
     const w = checkPlan(r.pl);
     if (w.length && !(await confirmBox('Hinweise', w.map(esc).join('<br>'), 'Trotzdem speichern'))) return;
-    download((S.doc.name || 'Laser').replace(/[^\wäöüÄÖÜß\- ]+/g, '_') + '.gcode', r.text);
+    download(fileSafe(t(S.doc.name || 'Laser')) + '.gcode', r.text);
     status(`G-Code gespeichert · Laufzeit ≈ ${LZ.fmtTime(r.pl.time.sec)}`);
   }
 
@@ -1907,7 +1911,7 @@
       else if (!j.aborted) { modal('Fertig', `<p>Auftrag „${esc(j.name)}“ abgeschlossen in ${LZ.fmtTime((Date.now() - j.start) / 1000)}.${j.errors ? ` <b>${j.errors} Fehlermeldung(en)</b> – siehe Konsole.` : ''}</p><p class="muted small">Material erst herausnehmen, wenn kein Rauch mehr aufsteigt.</p>`); }
     });
   }
-  const fmt3 = (v) => (Math.round(v * 1000) / 1000).toLocaleString('de-DE', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  const fmt3 = (v) => (Math.round(v * 1000) / 1000).toLocaleString(locale(), { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   function updConn() {
     const st = S.grbl ? S.grbl.status.state : 'Getrennt';
     const d = $('#connDot');
@@ -2491,6 +2495,7 @@
   }
 
   // ---------------------------------------------------------------- Modi
+  const LASER_HINT = 'Alt + Klick in die Zeichnung fährt den Laser dorthin (bei „Start: Arbeitsbereich“).';
   function setMode(m) {
     if (S.mode === m) { renderSide(); return; }
     if (S.draw && S.draw.kind === 'line' && S.draw.nodes.length > 1) finishLine(false);
@@ -2503,7 +2508,7 @@
     pv.playing = false; $('#pvPlay').textContent = '▶ Abspielen';
     if (m === 'design') hint(TOOL_HINTS[S.tool]);
     if (m === 'preview') { hint(''); enterPreview(); }
-    if (m === 'laser') { hint('Alt + Klick in die Zeichnung fährt den Laser dorthin (bei „Start: Arbeitsbereich“).'); machineInit(); }
+    if (m === 'laser') { hint(LASER_HINT); machineInit(); }
     renderSide();
     requestAnimationFrame(() => redraw());
   }
@@ -2660,7 +2665,7 @@
     const disk = SH.make('ellipse', { name: 'Untersetzer', rx: 45, ry: 45, layer: cut.id }); disk.tf = M.translate(cx, cy);
     const ring = SH.make('ellipse', { name: 'Zierring', rx: 41, ry: 41, layer: score.id }); ring.tf = M.translate(cx, cy);
     const star = SH.make('star', { name: 'Stern', n: 5, r: 14, inner: 0.45, layer: fill.id }); star.tf = M.translate(cx, cy - 4);
-    const txt = SH.make('text', { name: 'Text: Werkstatt', text: 'WERKSTATT', font: 'Bebas Neue', size: 11, align: 'center', spacing: 0.6, lineHeight: 1.2, arc: 30, layer: fill.id });
+    const txt = SH.make('text', { name: 'Text: Werkstatt', text: t('WERKSTATT'), font: 'Bebas Neue', size: 11, align: 'center', spacing: 0.6, lineHeight: 1.2, arc: 30, layer: fill.id });
     const tb = geo.bounds(SH.lines(txt).map((l) => l.pts));
     txt.tf = M.translate(cx - (tb.x0 + tb.x1) / 2, cy + 16 - tb.y0);
     d.objects.push(disk, ring, star, txt);
@@ -2684,6 +2689,52 @@
   setTool('select');
   renderSide();
   renderLaserSide();
+  // ---------------------------------------------------------------- Sprache (Deutsch / Englisch / Dänisch)
+  // Absätze mit Hervorhebungen (<b>, <code> …) werden als Ganzes übersetzt, damit die Satzstellung stimmt;
+  // alles Übrige übersetzt js/i18n.js Textknoten für Textknoten.
+  const INLINE = new Set(['B', 'I', 'EM', 'STRONG', 'CODE', 'SMALL', 'BR', 'KBD', 'SPAN', 'U']);
+  const inlineOnly = (el) => el.children.length > 0 && [...el.children].every((c) => INLINE.has(c.tagName) && !c.querySelector('input, select, button, textarea, canvas'));
+  function trBlock(el) {
+    if (!inlineOnly(el) || el.closest('[data-noi18n], #console')) return;
+    const k = el.innerHTML, v = t(k);
+    if (v !== k) el.innerHTML = v;
+  }
+  function trBlocks(root) {
+    if (!window.HW || !HW.i18n || HW.i18n.lang === 'de' || !root || root.nodeType !== 1) return;
+    trBlock(root);
+    root.querySelectorAll('*').forEach(trBlock);
+  }
+  if (window.HW && HW.i18n) {
+    // vor HW.i18n.start() anlegen: läuft dann vor der Übersetzung einzelner Textknoten
+    new MutationObserver((list) => {
+      if (HW.i18n.lang === 'de') return;
+      for (const m of list) {
+        if (m.target.nodeType === 1 && m.target.isConnected) trBlock(m.target);
+        m.addedNodes.forEach((n) => { if (n.isConnected) trBlocks(n); });
+      }
+    }).observe(document.body, { subtree: true, childList: true });
+    const relabel = () => {
+      const st = $('#jogSteps [data-step="0.1"]');
+      if (st) st.textContent = HW.i18n.num(0.1, 1);
+      if (!S.grbl || !S.grbl.connected) { $('#droX').textContent = fmt3(0); $('#droY').textContent = fmt3(0); }
+    };
+    relabel();
+    trBlocks(document.body);
+    HW.i18n.start();
+    $$('[data-lang-btn]').forEach((b) => b.addEventListener('click', () => {
+      b.blur();
+      HW.i18n.setLang(b.dataset.langBtn);
+      relabel();
+      updateSnapInfo(); updUndo(); updConn();
+      if (S.mode === 'design') hint(TOOL_HINTS[S.tool]);
+      if (S.mode === 'laser') hint(LASER_HINT);
+      if (S.mode === 'preview' && !S.plan) $('#pvInfo').textContent = '';
+      renderSide(); renderLaserSide();
+      if (S.mode === 'preview') renderPreviewSide();
+      if (S.grbl && S.grbl.connected) S.grbl.emit('status', S.grbl.status);
+      redraw();
+    }));
+  }
   requestAnimationFrame(() => { fit(); if (!store.get('ls.welcomed', false)) welcomeDialog(); });
   window.addEventListener('beforeunload', (e) => { if (S.grbl && S.grbl.job) { e.preventDefault(); e.returnValue = ''; } });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); redraw(); });

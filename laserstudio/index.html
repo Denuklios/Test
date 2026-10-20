@@ -111,6 +111,7 @@
     <button data-mode="laser"><b>3</b> Lasern</button>
   </nav>
   <span class="spacer"></span>
+  <span class="langsw" data-noi18n><button data-lang-btn="de" title="Deutsch">DE</button><button data-lang-btn="en" title="English">EN</button><button data-lang-btn="da" title="Dansk">DA</button></span>
   <button class="tb" id="machBtn" data-cmd="machineSettings" title="Maschine einstellen"></button>
   <span id="connDot" title="Laser nicht verbunden"></span>
 </header>
@@ -294,6 +295,10 @@
 <div id="modal" class="hidden"><div class="box"><h2 id="modalTitle"></h2><div id="modalBody"></div><div class="row end" id="modalBtns"></div></div></div>
 <input type="file" id="fileIn" class="hidden">
 
+<script>window.I18N_KEY = 'laserstudio.lang';</script>
+<script src="js/i18n.js"></script>
+<script src="js/i18n/en.js"></script>
+<script src="js/i18n/da.js"></script>
 <script src="js/lib/clipper.js"></script>
 <script src="js/fonts.js"></script>
 <script src="js/core.js"></script>

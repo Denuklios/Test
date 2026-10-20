@@ -45,6 +45,10 @@ kbd { font: 11px system-ui; color: var(--muted); margin-left: auto; padding-left
 #modes button.active { background: var(--accent); color: #fff; }
 #modes button.active b { background: rgba(255,255,255,.25); }
 #stockBtn { font-size: 12px; opacity: .9; }
+.langsw { display: flex; gap: 2px; margin-right: 6px; background: rgba(255,255,255,.07); border-radius: 7px; padding: 3px; }
+.langsw button { background: none; border: 0; color: #cfd6de; padding: 3px 7px; border-radius: 5px; font-size: 11px; font-weight: 600; letter-spacing: .3px; }
+.langsw button:hover { background: rgba(255,255,255,.08); color: #fff; }
+.langsw button.on { background: var(--accent); color: #fff; }
 #connDot { width: 10px; height: 10px; border-radius: 50%; background: #69737e; margin: 0 6px 0 4px; }
 #connDot.on { background: #47c25a; box-shadow: 0 0 6px #47c25a; }
 #connDot.alarm { background: #e53935; box-shadow: 0 0 6px #e53935; }

@@ -5,6 +5,9 @@
   const $ = (s, r = document) => r.querySelector(s);
   const $$ = (s, r = document) => [...r.querySelectorAll(s)];
   const fmt = util.fmt;
+  // Übersetzung (Deutsch → gewählte Sprache) für Texte, die nicht im DOM landen (Canvas, Eingabewerte, Dateinamen …)
+  const tr = (s) => (window.HW && HW.i18n ? HW.i18n.t(s) : s);
+  const loc = () => util.locale();
   const esc = (s) => String(s).replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
   const store = {
     get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
@@ -16,7 +19,7 @@
   // ---------------------------------------------------------------- Zustand
   function newDoc(stock) {
     return {
-      v: 1, name: 'Unbenannt',
+      v: 1, name: tr('Unbenannt'),
       stock: Object.assign({ w: 300, h: 200, t: 18, material: 'weichholz', zeroXY: 'll', zeroZ: 'top', safeZ: 5 }, stock || {}),
       objects: [], ops: [],
       tools: util.deep(store.get('fs.tools', TL.DEFAULT_TOOLS)),
@@ -191,7 +194,7 @@
     return { w, h, data: x.getImageData(0, 0, w, h).data };
   }
   const num = (v, d = 0) => { const n = parseFloat(String(v).replace(',', '.')); return isFinite(n) ? n : d; };
-  const field = (label, html, unit) => `<div class="field"><label>${label}</label>${unit ? `<div class="unit" data-u="${unit}">${html}</div>` : html}</div>`;
+  const field = (label, html, unit) => `<div class="field"><label>${label}</label>${unit ? `<div class="unit" data-u="${esc(tr(unit))}">${html}</div>` : html}</div>`;
   const inputN = (id, v, step = 0.1, extra = '') => `<input id="${id}" type="number" step="${step}" value="${+(+v).toFixed(4)}" ${extra}>`;
   const val = (id) => num($('#' + id).value);
   const material = () => TL.MATERIALS.find((m) => m.id === S.doc.stock.material) || TL.MATERIALS[0];
@@ -286,7 +289,7 @@
     x.fillStyle = colors.muted;
     x.font = '11px system-ui';
     x.globalAlpha = 0.7;
-    x.fillText(`Arbeitsbereich ${S.machine.name.split(' (')[0]} ${S.machine.w} × ${S.machine.h} mm`, bed0.x + 4, bed1.y - 6);
+    x.fillText(`${tr('Arbeitsbereich')} ${tr(S.machine.name).split(' (')[0]} ${S.machine.w} × ${S.machine.h} mm`, bed0.x + 4, bed1.y - 6);
     x.globalAlpha = 1;
     // Werkstück
     const a = w2s({ x: 0, y: 0 }), b = w2s({ x: st.w, y: st.h });
@@ -923,7 +926,7 @@
     renderStockInfo();
     if (S.mode === 'design') { renderProps(); renderObjList(); }
     if (S.mode === 'cam') renderCam();
-    $('#stockBtn').textContent = `▣ ${fmt(S.doc.stock.w, 1)} × ${fmt(S.doc.stock.h, 1)} × ${fmt(S.doc.stock.t, 1)} mm · ${material().name.split(' (')[0]}`;
+    $('#stockBtn').textContent = `▣ ${fmt(S.doc.stock.w, 1)} × ${fmt(S.doc.stock.h, 1)} × ${fmt(S.doc.stock.t, 1)} mm · ${tr(material().name).split(' (')[0]}`;
   }
   function renderStockInfo() {
     const st = S.doc.stock;
@@ -953,7 +956,7 @@
     const row = e.target.closest('.obj');
     if (!row) return;
     const o = objById(row.dataset.id);
-    const n = prompt('Name:', o.name);
+    const n = prompt(tr('Name:'), o.name);
     if (n) { snapshot(); o.name = n; changed(); }
   });
 
@@ -1245,7 +1248,7 @@
     const st = isNew ? newDoc().stock : S.doc.stock;
     const zero = st.zeroXY || 'll';
     const html = `
-      ${isNew ? field('Projektname', `<input id="sName" value="Unbenannt">`) : ''}
+      ${isNew ? field('Projektname', `<input id="sName" value="${esc(tr('Unbenannt'))}">`) : ''}
       <div class="grid2">${field('Breite X', inputN('sW', st.w, 1, 'min="1"'), 'mm')}${field('Höhe Y', inputN('sH', st.h, 1, 'min="1"'), 'mm')}</div>
       ${field('Materialstärke Z', inputN('sT', st.t, 0.1, 'min="0.1"'), 'mm')}
       ${field('Material', `<select id="sM">${TL.MATERIALS.map((m) => `<option value="${m.id}" ${m.id === st.material ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>`)}
@@ -1270,7 +1273,7 @@
       snapshot();
       if (isNew) {
         const d = newDoc(ns);
-        d.name = $('#sName') ? $('#sName').value || 'Unbenannt' : 'Unbenannt';
+        d.name = ($('#sName') && $('#sName').value) || tr('Unbenannt');
         S.doc = d; S.sel = []; S.results.clear(); S.undo = []; S.redo = [];
         changed(); fit();
         setMode('design');
@@ -1282,7 +1285,7 @@
     let cur = selectId || (S.doc.tools[0] && S.doc.tools[0].id);
     const list = () => S.doc.tools.map((t) => `<tr class="toolrow ${t.id === cur ? 'sel' : ''}" data-t="${t.id}"><td>${esc(t.name)}</td><td>${TL.TYPES[t.type]}</td><td>Ø ${fmt(t.d)}${t.type === 'vbit' ? ', ' + t.angle + '°' : t.type === 'taperball' ? ', Spitze Ø ' + fmt(t.tip) : ''}</td></tr>`).join('');
     const form = (t) => !t ? '' : `
-      ${field('Name', `<input id="wN" value="${esc(t.name)}">`)}
+      ${field('Name', `<input id="wN" value="${esc(tr(t.name))}">`)}
       ${field('Art', `<select id="wT">${Object.entries(TL.TYPES).map(([k, v]) => `<option value="${k}" ${k === t.type ? 'selected' : ''}>${v}</option>`).join('')}</select>`)}
       <div class="grid2">
         ${field('Ø', inputN('wD', t.d, 0.01, 'min="0.05"'), 'mm')}
@@ -1303,7 +1306,9 @@
     const readForm = () => {
       const t = S.doc.tools.find((x) => x.id === cur);
       if (!t || !$('#wN')) return;
-      Object.assign(t, { name: $('#wN').value, type: $('#wT').value, d: Math.max(0.05, val('wD')), flutes: Math.max(1, val('wF')), len: val('wL'), rpm: val('wR'), feed: val('wFe'), plunge: val('wP'), stepdown: Math.max(0.01, val('wS')), stepover: util.clamp(val('wO'), 1, 100) });
+      // Standardnamen bleiben deutsch gespeichert (Anzeige übersetzt) – nur echte Änderungen übernehmen
+      const nm = $('#wN').value;
+      Object.assign(t, { name: nm === tr(t.name) ? t.name : nm, type: $('#wT').value, d: Math.max(0.05, val('wD')), flutes: Math.max(1, val('wF')), len: val('wL'), rpm: val('wR'), feed: val('wFe'), plunge: val('wP'), stepdown: Math.max(0.01, val('wS')), stepover: util.clamp(val('wO'), 1, 100) });
       if ($('#wA')) { t.angle = util.clamp(val('wA'), 5, 170); t.tip = Math.max(0, val('wTip')); }
       if (t.type === 'vbit' && !t.angle) t.angle = 60;
       if (t.type === 'taperball') { t.angle = t.angle || 30; t.tip = Math.max(0.05, Math.min(t.d, t.tip || 0.5)); }
@@ -1319,8 +1324,8 @@
         b.addEventListener('click', (e) => {
           const row = e.target.closest('[data-t]');
           if (row) { readForm(); cur = row.dataset.t; render(); }
-          if (e.target.id === 'tlAdd') { readForm(); const t = { ...util.deep(TL.DEFAULT_TOOLS[0]), id: 't' + util.uid(), name: 'Neues Werkzeug' }; S.doc.tools.push(t); cur = t.id; render(); }
-          if (e.target.id === 'tlDup') { readForm(); const s = S.doc.tools.find((t) => t.id === cur); if (s) { const t = { ...util.deep(s), id: 't' + util.uid(), name: s.name + ' (Kopie)' }; S.doc.tools.push(t); cur = t.id; render(); } }
+          if (e.target.id === 'tlAdd') { readForm(); const t = { ...util.deep(TL.DEFAULT_TOOLS[0]), id: 't' + util.uid(), name: tr('Neues Werkzeug') }; S.doc.tools.push(t); cur = t.id; render(); }
+          if (e.target.id === 'tlDup') { readForm(); const s = S.doc.tools.find((t) => t.id === cur); if (s) { const t = { ...util.deep(s), id: 't' + util.uid(), name: tr(s.name) + tr(' (Kopie)') }; S.doc.tools.push(t); cur = t.id; render(); } }
           if (e.target.id === 'tlDel' && S.doc.tools.length > 1) {
             if (S.doc.ops.some((o) => o.toolId === cur)) { status('Werkzeug wird in einer Fräsbahn verwendet.', true); return; }
             S.doc.tools = S.doc.tools.filter((t) => t.id !== cur); cur = S.doc.tools[0].id; render();
@@ -1377,7 +1382,7 @@
 
   // ---------------------------------------------------------------- Dateien
   function saveProject() {
-    const name = (S.doc.name || 'Projekt').replace(/[^\wäöüÄÖÜß\- ]+/g, '_');
+    const name = (S.doc.name || tr('Projekt')).replace(/[^\wäöüÄÖÜßæøåÆØÅ\- ]+/g, '_');
     download(name + '.fsp', serial(S.doc, true), 'application/json');
     status('Projekt gespeichert: ' + name + '.fsp');
   }
@@ -1646,7 +1651,7 @@
       const d = geom(o).map((l) => l.pts.map((p, i) => `${i ? 'L' : 'M'}${p.x.toFixed(3)} ${(st.h - p.y).toFixed(3)}`).join('') + (l.closed ? 'Z' : '')).join('');
       body += `<path d="${d}" fill="none" stroke="#000" stroke-width="0.2"/>\n`;
     }
-    download((S.doc.name || 'Zeichnung') + '.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="${st.w}mm" height="${st.h}mm" viewBox="0 0 ${st.w} ${st.h}">\n${body}</svg>\n`, 'image/svg+xml');
+    download((S.doc.name || tr('Zeichnung')) + '.svg', `<svg xmlns="http://www.w3.org/2000/svg" width="${st.w}mm" height="${st.h}mm" viewBox="0 0 ${st.w} ${st.h}">\n${body}</svg>\n`, 'image/svg+xml');
   }
 
   // ---------------------------------------------------------------- Fräsbahnen
@@ -1736,7 +1741,7 @@
       const t = S.doc.tools.find((x) => x.id === op.toolId);
       const fresh = r && r.key === opKey(op);
       if (op.enabled && fresh) total += r.time;
-      const warn = fresh && r.res.warnings.length ? `<span class="w" title="${esc(r.res.warnings.join('\n'))}">⚠</span>` : '';
+      const warn = fresh && r.res.warnings.length ? `<span class="w" title="${esc(r.res.warnings.map(tr).join('\n'))}">⚠</span>` : '';
       return `<div class="op ${op.id === S.selOp ? 'sel' : ''} ${op.enabled ? '' : 'off'}" data-op="${op.id}">
         <input type="checkbox" data-en="${op.id}" ${op.enabled ? 'checked' : ''} title="Ein/Aus">
         <span class="dot" style="background:${OP_COLORS[i % OP_COLORS.length]}"></span>
@@ -1772,7 +1777,7 @@
     const nIn = (k, v, step = 0.1, extra = '') => `<input data-k="${k}" type="number" step="${step}" value="${+(+v).toFixed(4)}" ${extra}>`;
     const chk = (k, v, label) => `<label class="check"><input type="checkbox" data-k="${k}" ${v ? 'checked' : ''}> ${label}</label>`;
     let h = `<h3>${esc(CAM.OP_TYPES[op.type])} <small>${op.objIds.length ? op.objIds.length + ' Objekt(e)' : op.type === 'face' ? 'ganzes Werkstück' : 'keine Objekte!'}</small></h3>`;
-    h += field('Name', `<input data-k="name" value="${esc(op.name)}">`);
+    h += field('Name', `<input data-k="name" value="${esc(tr(op.name))}">`);
     h += field('Werkzeug', `<select data-k="toolId">${toolOptions(op.toolId)}</select>`);
     const depthF = (label = 'Tiefe') => field(label, nIn('depth', op.depth, 0.1, 'min="0"'), 'mm');
     switch (op.type) {
@@ -1840,7 +1845,7 @@
     else h += `<div class="row"><button data-act="tools">Werkzeuge…</button></div>`;
     if (r && r.key === opKey(op)) {
       for (const w of r.res.warnings) h += `<div class="warnbox">${esc(w)}</div>`;
-      h += `<p class="muted small">Dauer ≈ ${FS.gcode.fmtTime(r.time)} · Vorschub ${r.res.cut.feed} mm/min · Zustellung ${fmt(r.res.cut.stepdown)} mm · ${rpmText(r.res.cut.rpm)}</p>`;
+      h += `<p class="muted small">${tr('Dauer')} ≈ ${FS.gcode.fmtTime(r.time)} · ${tr('Vorschub')} ${r.res.cut.feed} mm/min · ${tr('Zustellung')} ${fmt(r.res.cut.stepdown)} mm · ${rpmText(r.res.cut.rpm)}</p>`;
     }
     $('#opedit').innerHTML = h;
   }
@@ -1885,7 +1890,7 @@
     await computeAll();
     const toolIds = [...new Set(ops.flatMap((op) => { const r = resultFor(op).res; return [r.tool.id].concat(r.clear && r.clear.chains.length ? [r.clear.tool.id] : []); }))];
     const gc = await buildAll();
-    const warns = ops.flatMap((op) => resultFor(op).res.warnings.map((w) => `${op.name}: ${w}`));
+    const warns = ops.flatMap((op) => resultFor(op).res.warnings.map((w) => `${tr(op.name)}: ${tr(w)}`));
     let html = `<p>Laufzeit ≈ <b>${FS.gcode.fmtTime(gc.time)}</b> · ${FS.gcode.lineCount(gc.text)} Zeilen · ${toolIds.length} Werkzeug(e)</p>
       <div class="info">Nullpunkt: X/Y ${esc(zeroText(S.doc.stock.zeroXY))}, Z auf der ${S.doc.stock.zeroZ === 'bottom' ? 'Tischoberfläche' : 'Materialoberfläche'}.</div>`;
     if (warns.length) html += warns.map((w) => `<div class="warnbox">${esc(w)}</div>`).join('');
@@ -1895,7 +1900,7 @@
     const r = await modal('G-Code speichern', html, [{ label: 'Abbrechen', value: null }, { label: 'Speichern', primary: true, value: 'ok' }], { noFocus: true });
     if (r !== 'ok') return;
     const ext = $('#gExt').value;
-    const base = (S.doc.name || 'Projekt').replace(/[^\w\-]+/g, '_');
+    const base = (S.doc.name || tr('Projekt')).replace(/[^\w\-]+/g, '_');
     const split = $('input[name=gsplit]:checked') && $('input[name=gsplit]:checked').value === 'split';
     if (!split) download(`${base}.${ext}`, gc.text);
     else {
@@ -1916,7 +1921,7 @@
   }
   const rpmText = (rpm) => {
     const d = S.machine.spindle === 'manual' ? TL.dialFor(rpm, S.machine) : null;
-    return d ? `Drehregler Stufe ${d.step} (≈ ${d.rpm.toLocaleString('de-DE')} U/min)` : `${rpm.toLocaleString('de-DE')} U/min`;
+    return d ? `${tr('Drehregler Stufe')} ${d.step} (≈ ${d.rpm.toLocaleString(loc())} ${tr('U/min')})` : `${rpm.toLocaleString(loc())} ${tr('U/min')}`;
   };
   const zeroText = (z) => ({ ll: 'links unten', lc: 'unten Mitte', lr: 'rechts unten', cl: 'links Mitte', c: 'Mitte', cr: 'rechts Mitte', ul: 'links oben', uc: 'oben Mitte', ur: 'rechts oben' }[z || 'll']);
 
@@ -2035,7 +2040,7 @@
     });
     g.on('toolchange', (msg) => toolChangeDialog(msg));
   }
-  const fmt3 = (v) => (Math.round(v * 1000) / 1000).toLocaleString('de-DE', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
+  const fmt3 = (v) => (Math.round(v * 1000) / 1000).toLocaleString(loc(), { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   function updConn() {
     const st = S.grbl ? S.grbl.status.state : 'Getrennt';
     const d = $('#connDot');
@@ -2225,8 +2230,16 @@
       catch (e) { modal('Antasten fehlgeschlagen', `<p>${esc(e.message)}</p>`); }
     });
   }
+  // Werkzeugname aus dem G-Code-Kommentar (ASCII) wieder dem Werkzeug im Projekt zuordnen, damit er übersetzt angezeigt wird
+  const gcTool = (n) => { const t = S.doc.tools.find((x) => FS.gcode.clean(x.name) === n.trim()); return t ? tr(t.name) : n; };
+  const gcDial = (s) => { const m = /Stufe (\d+) = ca\. (\d+)/.exec(s || ''); return m ? `${tr('Stufe')} ${m[1]} (≈ ${(+m[2]).toLocaleString(loc())} ${tr('U/min')})` : s; };
+  function toolChangeText(msg) {
+    const m = /^(.*?) einsetzen(?: - (DREHREGLER Stufe \d+ = ca\. \d+ U\/min))? - Z neu nullen und fortsetzen$/.exec(msg);
+    if (!m) return tr(msg);
+    return `${tr('Werkzeug einsetzen:')} ${gcTool(m[1])}${m[2] ? ' – ' + tr('Drehregler') + ' ' + gcDial(m[2]) : ''} – ${tr('Z neu nullen und fortsetzen')}`;
+  }
   function toolChangeDialog(msg) {
-    modal('Werkzeugwechsel', `<p><b>${esc(msg)}</b></p><ol><li>Spindel ist aus. Warten, bis sie stillsteht.</li><li>Werkzeug wechseln.</li><li>Z neu nullen (Antasten oder von Hand mit den Pfeilen und „Z0“).</li><li>„Weiter fräsen“ drücken.</li></ol>`,
+    modal('Werkzeugwechsel', `<p><b>${esc(toolChangeText(msg))}</b></p><ol><li>Spindel ist aus. Warten, bis sie stillsteht.</li><li>Werkzeug wechseln.</li><li>Z neu nullen (Antasten oder von Hand mit den Pfeilen und „Z0“).</li><li>„Weiter fräsen“ drücken.</li></ol>`,
       [{ label: 'Z antasten…', value: 'probe' }, { label: 'Auftrag abbrechen', value: 'stop', danger: true }, { label: 'Weiter fräsen', primary: true, value: 'go' }], { noEnter: true }).then(async (r) => {
       if (r === 'probe') { await probeDialog(); toolChangeDialog(msg); return; }
       if (r === 'stop') { S.grbl.stopJob(); return; }
@@ -2249,7 +2262,7 @@
   $('#jobFromProject').onclick = async () => {
     if (!S.doc.ops.some((o) => o.enabled)) { status('Das Projekt hat keine aktiven Fräsbahnen.', true); return; }
     const gc = await buildAll();
-    setJob(gc.text, S.doc.name || 'Projekt');
+    setJob(gc.text, S.doc.name || tr('Projekt'));
     S.job.time = gc.time;
     S.jobOrigin = gc.origin;
     $('#jobInfo').textContent = `${FS.gcode.lineCount(gc.text)} Zeilen · Laufzeit ≈ ${FS.gcode.fmtTime(gc.time)}${gc.toolChanges ? ` · ${gc.toolChanges} Werkzeugwechsel` : ''}`;
@@ -2263,8 +2276,8 @@
     const firstDial = (S.job.text.match(/\(DREHREGLER (Stufe \d+ = ca\. \d+ U\/min)\)/) || [])[1];
     const ok = await modal('Vor dem Start prüfen', `<ul>
       <li>Werkstück fest eingespannt, Spannmittel außerhalb der Fräsbahnen?</li>
-      <li>Richtiges Werkzeug eingesetzt${firstTool ? `: <b>${esc(firstTool)}</b>` : ''}?</li>
-      ${firstDial ? `<li>Drehregler am Fräsmotor auf <b>${esc(firstDial)}</b> gestellt und Motorschalter auf „Ein“ bzw. Steuerbox verbunden?</li>` : ''}
+      <li>Richtiges Werkzeug eingesetzt${firstTool ? `: <b>${esc(gcTool(firstTool))}</b>` : ''}?</li>
+      ${firstDial ? `<li>Drehregler am Fräsmotor auf <b>${esc(gcDial(firstDial))}</b> gestellt und Motorschalter auf „Ein“ bzw. Steuerbox verbunden?</li>` : ''}
       <li>X/Y-Nullpunkt am richtigen Punkt (${esc(zeroText(S.doc.stock.zeroXY))}) und Z genullt?</li>
       <li>Schutzbrille, Absaugung, Hände weg von der Spindel.</li></ul>`,
     [{ label: 'Abbrechen', value: false }, { label: '▶ Jetzt fräsen', primary: true, value: true }]);

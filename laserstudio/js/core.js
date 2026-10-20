@@ -231,7 +231,8 @@
   // ---------- kleine Helfer ----------
   const uid = () => Math.random().toString(36).slice(2, 10);
   const clamp = (v, a, b) => Math.max(a, Math.min(b, v));
-  const fmt = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toLocaleString('de-DE', { maximumFractionDigits: d });
+  // Zahlen im Format der gewählten Sprache (de/da: 1.234,5 · en: 1,234.5)
+  const fmt = (v, d = 2) => (Math.round(v * 10 ** d) / 10 ** d).toLocaleString(g.HW && g.HW.i18n ? g.HW.i18n.locale() : 'de-DE', { maximumFractionDigits: d });
   const deep = (o) => JSON.parse(JSON.stringify(o));
 
   FS.geo = { dist, lerp, signedArea, polyLength, pointInPoly, bounds, segDist, simplify, buildPath, flattenCubic, flattenQuad, ellipsePts, orient };

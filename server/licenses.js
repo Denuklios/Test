@@ -21,6 +21,26 @@ const CHECK_DAYS = 7; // so oft fragt das Programm nach
 const OFFLINE_DAYS = 30; // so lange gilt eine Freigabe ohne Internet
 const UPDATE_DAYS = 365; // Updates inklusive ab Kauf bzw. je Verlängerung
 const ALPHA = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'; // Crockford Base32: ohne I, L, O, U
+const LANGS = ['de', 'en', 'da'];
+// Meldungen an die Desktop-Programme (die schicken ihre Sprache mit: b.lang)
+const MSG = {
+  de: {
+    key: 'Der Lizenzschlüssel ist ungültig (Tippfehler?).', machine: 'Gerätekennung fehlt.', unknown: 'Diesen Lizenzschlüssel gibt es nicht.',
+    product: (n) => `Dieser Schlüssel gilt für ${n}.`, revoked: 'Diese Lizenz wurde gesperrt. Bitte wende dich an den Verkäufer.',
+    devices: (n, max) => `Die Lizenz ist schon auf ${n} Gerät(en) aktiviert (erlaubt: ${max}). Auf einem alten Gerät unter „Lizenz“ → „Dieses Gerät freigeben“ abmelden oder den Verkäufer fragen.`,
+  },
+  en: {
+    key: 'The license key is invalid (typo?).', machine: 'Device ID missing.', unknown: 'This license key does not exist.',
+    product: (n) => `This key is for ${n}.`, revoked: 'This license has been revoked. Please contact the seller.',
+    devices: (n, max) => `The license is already activated on ${n} device(s) (allowed: ${max}). Sign out an old device under “License” → “Release this device” or ask the seller.`,
+  },
+  da: {
+    key: 'Licensnøglen er ugyldig (tastefejl?).', machine: 'Enheds-id mangler.', unknown: 'Denne licensnøgle findes ikke.',
+    product: (n) => `Denne nøgle gælder for ${n}.`, revoked: 'Denne licens er blevet spærret. Kontakt venligst sælgeren.',
+    devices: (n, max) => `Licensen er allerede aktiveret på ${n} enhed(er) (tilladt: ${max}). Log en gammel enhed af under „Licens“ → „Frigiv denne enhed“, eller spørg sælgeren.`,
+  },
+};
+const msgs = (lang) => MSG[lang] || MSG.de;
 
 function checksum(body) {
   let s = 0;
@@ -113,6 +133,8 @@ function init({ db, dataDir, env = process.env, now = Date.now, log = () => {} }
     db.prepare('UPDATE licenses SET updates_until = created + ?').run(UPDATE_DAYS * DAY);
   }
   if (!cols.has('upd_reminded')) db.exec('ALTER TABLE licenses ADD COLUMN upd_reminded INTEGER NOT NULL DEFAULT 0');
+  // Sprache des Käufers für E-Mails (de | en | da; leer = Deutsch)
+  if (!cols.has('lang')) db.exec("ALTER TABLE licenses ADD COLUMN lang TEXT NOT NULL DEFAULT ''");
   const priv = loadSigningKey(dataDir, env);
   const pub = crypto.createPublicKey(priv);
   const publicPem = pub.export({ type: 'spki', format: 'pem' });
@@ -129,21 +151,20 @@ function init({ db, dataDir, env = process.env, now = Date.now, log = () => {} }
     });
   }
 
-  /** Aktivieren oder regelmäßig prüfen. b: {key, machine, product, label, version} */
+  /** Aktivieren oder regelmäßig prüfen. b: {key, machine, product, label, version, lang} */
   function activate(b, ip = '') {
+    const M = msgs(b.lang);
     const key = normKey(b.key);
-    if (!key) return fail(400, 'key', 'Der Lizenzschlüssel ist ungültig (Tippfehler?).');
+    if (!key) return fail(400, 'key', M.key);
     const machine = String(b.machine || '').slice(0, 128);
-    if (!/^[0-9a-f]{32,64}$/.test(machine)) return fail(400, 'machine', 'Gerätekennung fehlt.');
+    if (!/^[0-9a-f]{32,64}$/.test(machine)) return fail(400, 'machine', M.machine);
     const lic = byKey(key);
-    if (!lic) return fail(404, 'unknown', 'Diesen Lizenzschlüssel gibt es nicht.');
-    if (b.product && lic.product !== b.product) return fail(400, 'product', `Dieser Schlüssel gilt für ${PRODUCTS[lic.product] ? PRODUCTS[lic.product].name : lic.product}.`);
-    if (lic.revoked) return fail(403, 'revoked', 'Diese Lizenz wurde gesperrt. Bitte wende dich an den Verkäufer.');
+    if (!lic) return fail(404, 'unknown', M.unknown);
+    if (b.product && lic.product !== b.product) return fail(400, 'product', M.product(PRODUCTS[lic.product] ? PRODUCTS[lic.product].name : lic.product));
+    if (lic.revoked) return fail(403, 'revoked', M.revoked);
     const have = devices(lic.id);
     const mine = have.find((a) => a.machine === machine);
-    if (!mine && have.length >= lic.max_devices) {
-      return fail(409, 'devices', `Die Lizenz ist schon auf ${have.length} Gerät(en) aktiviert (erlaubt: ${lic.max_devices}). Auf einem alten Gerät unter „Lizenz“ → „Dieses Gerät freigeben“ abmelden oder den Verkäufer fragen.`);
-    }
+    if (!mine && have.length >= lic.max_devices) return fail(409, 'devices', M.devices(have.length, lic.max_devices));
     const t = now(), label = String(b.label || '').slice(0, 100), version = String(b.version || '').slice(0, 30);
     if (mine) db.prepare('UPDATE activations SET last = ?, label = ?, version = ?, ip = ? WHERE id = ?').run(t, label || mine.label, version, ip, mine.id);
     else { db.prepare('INSERT INTO activations(license_id, machine, label, version, ip, first, last) VALUES(?, ?, ?, ?, ?, ?, ?)').run(lic.id, machine, label, version, ip, t, t); log('lizenz-aktiviert', `${key} · ${label}`); }
@@ -153,19 +174,19 @@ function init({ db, dataDir, env = process.env, now = Date.now, log = () => {} }
   function deactivate(b) {
     const key = normKey(b.key);
     const lic = key && byKey(key);
-    if (!lic) return fail(404, 'unknown', 'Diesen Lizenzschlüssel gibt es nicht.');
+    if (!lic) return fail(404, 'unknown', msgs(b.lang).unknown);
     const r = db.prepare('DELETE FROM activations WHERE license_id = ? AND machine = ?').run(lic.id, String(b.machine || ''));
     if (r.changes) log('lizenz-freigegeben', key);
     return { ok: true };
   }
 
-  function create({ product, name = '', email = '', max = 2, note = '', order = '', updateDays = UPDATE_DAYS }) {
+  function create({ product, name = '', email = '', max = 2, note = '', order = '', updateDays = UPDATE_DAYS, lang = '' }) {
     if (!PRODUCTS[product]) throw Object.assign(new Error('Unbekanntes Programm'), { code: 400 });
     let key;
     do key = makeKey(product); while (byKey(key));
     const t = now();
-    db.prepare('INSERT INTO licenses(key, product, name, email, max_devices, note, order_id, created, updates_until) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(key, product, String(name).slice(0, 200), String(email).slice(0, 200).toLowerCase(), Math.max(1, Math.min(50, max | 0 || 2)), String(note).slice(0, 2000), String(order).slice(0, 100), t, t + Math.max(0, updateDays | 0) * DAY);
+    db.prepare('INSERT INTO licenses(key, product, name, email, max_devices, note, order_id, created, updates_until, lang) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(key, product, String(name).slice(0, 200), String(email).slice(0, 200).toLowerCase(), Math.max(1, Math.min(50, max | 0 || 2)), String(note).slice(0, 2000), String(order).slice(0, 100), t, t + Math.max(0, updateDays | 0) * DAY, LANGS.includes(lang) ? lang : '');
     log('lizenz-neu', `${key} · ${email || name}`);
     return byKey(key);
   }
@@ -187,9 +208,10 @@ function init({ db, dataDir, env = process.env, now = Date.now, log = () => {} }
       note: b.note !== undefined ? String(b.note).slice(0, 2000) : lic.note,
       revoked: b.revoked !== undefined ? (b.revoked ? lic.revoked || now() : 0) : lic.revoked,
       upd: b.updatesUntil !== undefined && +b.updatesUntil > 0 ? +b.updatesUntil : lic.updates_until,
+      lang: b.lang !== undefined && (LANGS.includes(b.lang) || b.lang === '') ? b.lang : lic.lang,
     };
     if (b.addYear) v.upd = Math.max(now(), v.upd) + UPDATE_DAYS * DAY;
-    db.prepare('UPDATE licenses SET name = ?, email = ?, max_devices = ?, note = ?, revoked = ?, updates_until = ?, upd_reminded = CASE WHEN ? <> updates_until THEN 0 ELSE upd_reminded END WHERE id = ?').run(v.name, v.email, v.max, v.note, v.revoked, v.upd, v.upd, id);
+    db.prepare('UPDATE licenses SET name = ?, email = ?, max_devices = ?, note = ?, revoked = ?, updates_until = ?, lang = ?, upd_reminded = CASE WHEN ? <> updates_until THEN 0 ELSE upd_reminded END WHERE id = ?').run(v.name, v.email, v.max, v.note, v.revoked, v.upd, v.lang, v.upd, id);
     if (v.upd !== lic.updates_until) log('lizenz-updates', `${lic.key} bis ${new Date(v.upd).toISOString().slice(0, 10)}`);
     if (b.revoked !== undefined && !!b.revoked !== !!lic.revoked) log(b.revoked ? 'lizenz-gesperrt' : 'lizenz-entsperrt', lic.key);
     if (b.resetDevices) db.prepare('DELETE FROM activations WHERE license_id = ?').run(id);
@@ -247,15 +269,16 @@ function init({ db, dataDir, env = process.env, now = Date.now, log = () => {} }
   }
   const markReminded = (id) => db.prepare('UPDATE licenses SET upd_reminded = ? WHERE id = ?').run(now(), id);
 
-  /** Lemon Squeezy: Einmalkauf (order_created) → Lizenz(en) anlegen. LICENSE_VARIANTS = "123:laser,456:fraes,789:stick" */
-  function fromOrder(attrs, orderId) {
+  /** Lemon Squeezy: Einmalkauf (order_created) → Lizenz(en) anlegen. LICENSE_VARIANTS = "123:laser,456:fraes,789:stick"
+      lang: Sprache des Käufers für die E-Mails (de | en | da) */
+  function fromOrder(attrs, orderId, lang = '') {
     const item = attrs.first_order_item || {};
     const product = productOf(variantMap('LICENSE_VARIANTS'), item);
     if (!product) return [];
     if (db.prepare('SELECT 1 FROM licenses WHERE order_id = ?').get(String(orderId))) return []; // schon angelegt (Webhook doppelt)
     const qty = Math.max(1, Math.min(20, item.quantity | 0 || 1));
     const out = [];
-    for (let i = 0; i < qty; i++) out.push(create({ product, name: attrs.user_name || '', email: attrs.user_email || '', order: String(orderId), note: 'Lemon Squeezy' }));
+    for (let i = 0; i < qty; i++) out.push(create({ product, name: attrs.user_name || '', email: attrs.user_email || '', order: String(orderId), note: 'Lemon Squeezy', lang }));
     return out;
   }
   const revokeOrder = (orderId) => db.prepare('UPDATE licenses SET revoked = ? WHERE order_id = ? AND revoked = 0').run(now(), String(orderId)).changes;
@@ -263,4 +286,4 @@ function init({ db, dataDir, env = process.env, now = Date.now, log = () => {} }
   return { PRODUCTS, publicPem, activate, deactivate, create, list, update, devices, offlineGrant, fromOrder, renewFromOrder, dueReminders, markReminded, revokeOrder, byKey };
 }
 
-module.exports = { init, makeKey, normKey, productOfKey, signToken, verifyToken, PRODUCTS, CHECK_DAYS, OFFLINE_DAYS, UPDATE_DAYS };
+module.exports = { init, LANGS, makeKey, normKey, productOfKey, signToken, verifyToken, PRODUCTS, CHECK_DAYS, OFFLINE_DAYS, UPDATE_DAYS };
