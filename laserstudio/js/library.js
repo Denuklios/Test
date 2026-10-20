@@ -4,6 +4,8 @@
 
   // origin: Ecke des Maschinen-Nullpunkts (ll = links unten, ul = links oben …)
   const MACHINES = {
+    // Mecpow X5 Pro: 33 W (optisch), 600 × 600 mm, Steuerung MKS DLC32 (GRBL-ESP32, auch WLAN), Hersteller nennt bis 28.000 mm/min
+    mecpowx5pro: { id: 'mecpowx5pro', name: 'Mecpow X5 Pro 33 W (600 × 600 mm)', type: 'diode', w: 600, h: 600, sMax: 1000, rapid: 20000, maxSpeed: 28000, accel: 2500, origin: 'll', baud: 115200, watt: 33 },
     diode400: { id: 'diode400', name: 'Diodenlaser 400 × 400 mm (GRBL)', type: 'diode', w: 400, h: 400, sMax: 1000, rapid: 6000, maxSpeed: 6000, accel: 1500, origin: 'll', baud: 115200, watt: 10 },
     diode300: { id: 'diode300', name: 'Diodenlaser 300 × 300 mm (GRBL)', type: 'diode', w: 300, h: 300, sMax: 1000, rapid: 5000, maxSpeed: 5000, accel: 1200, origin: 'll', baud: 115200, watt: 5 },
     diode800: { id: 'diode800', name: 'Diodenlaser groß 800 × 400 mm (GRBL)', type: 'diode', w: 800, h: 400, sMax: 1000, rapid: 6000, maxSpeed: 6000, accel: 1500, origin: 'll', baud: 115200, watt: 20 },
@@ -40,8 +42,17 @@
     const v = { ...m };
     if (mach.type === 'co2') { v.speed = Math.round(m.speed * (m.mode === 'line' ? 6 : 4)); v.passes = 1; v.power = Math.min(100, Math.round(m.power * 0.7)); }
     else {
-      v.speed = Math.round(Math.min(mach.maxSpeed || 6000, m.speed * k));
-      if (m.mode === 'line' && k > 1.5 && m.passes > 1) v.passes = Math.max(1, Math.round(m.passes / k));
+      if (m.mode === 'line') {
+        // Schneiden: Energie je mm = Leistung × Durchgänge / Geschwindigkeit; mehr Leistung = weniger Durchgänge, dann schneller
+        const tot = (m.passes || 1) / k;
+        v.passes = Math.max(1, Math.round(tot));
+        v.speed = Math.round(Math.min(mach.maxSpeed || 6000, (m.speed * v.passes) / tot) / 10) * 10;
+      } else {
+        // Gravieren: bis 3× schneller, darüber die Leistung senken (sonst brennt es zu dunkel)
+        const ks = Math.min(k, 3);
+        v.speed = Math.round(Math.min(mach.maxSpeed || 6000, m.speed * ks) / 10) * 10;
+        if (k > ks) v.power = Math.max(5, Math.round((m.power * ks) / k));
+      }
     }
     return v;
   }
