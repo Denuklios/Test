@@ -1,7 +1,7 @@
 /* Englische Übersetzungen (Teil A: index.html, app.js Zeilen 1–1700) */
 (function (g) {
   const HW = (g.HW = g.HW || {});
-  HW.I18N = HW.I18N || { en: { exact: {}, rx: [] } };
+  HW.I18N = HW.I18N || {}; HW.I18N.en = HW.I18N.en || { exact: {}, rx: [] };
   const E = HW.I18N.en;
   const esc = (s) => s.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 

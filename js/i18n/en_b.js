@@ -3,7 +3,7 @@
    Teile (Produktnamen, Objektnamen, Schriftkategorien) einzusetzen. */
 (function (g) {
   const HW = (g.HW = g.HW || {});
-  HW.I18N = HW.I18N || { en: { exact: {}, rx: [] } };
+  HW.I18N = HW.I18N || {}; HW.I18N.en = HW.I18N.en || { exact: {}, rx: [] };
   const E = HW.I18N.en;
   /* ---------- Teamnamen ---------- */
   Object.assign(E.exact, {

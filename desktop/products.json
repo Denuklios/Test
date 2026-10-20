@@ -34,7 +34,8 @@
     ],
     "data": [
       "js/fonts.js",
-      "js/lib/"
+      "js/lib/",
+      "js/i18n/"
     ]
   },
   "laser": {
@@ -50,7 +51,8 @@
     ],
     "data": [
       "js/fonts.js",
-      "js/lib/"
+      "js/lib/",
+      "js/i18n/"
     ]
   }
 }
