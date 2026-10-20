@@ -1,0 +1,310 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LaserStudio</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="menubar">
+  <span class="brand">LaserStudio</span>
+  <div class="menu"><button>Datei</button>
+    <div class="dd">
+      <button data-cmd="new">Neues Projekt <kbd>Strg+N</kbd></button>
+      <button data-cmd="open">Öffnen (Projekt, SVG, DXF, Bild, G-Code)… <kbd>Strg+O</kbd></button>
+      <button data-cmd="save">Projekt speichern <kbd>Strg+S</kbd></button>
+      <button data-cmd="example">Beispielprojekt laden</button>
+      <hr>
+      <button data-cmd="importVector">Zeichnung importieren (SVG, DXF – Farben werden Ebenen)… <kbd>Strg+I</kbd></button>
+      <button data-cmd="importImage">Bild zum Gravieren (Foto, Logo)…</button>
+      <button data-cmd="importTrace">Bild nachzeichnen (PNG, JPG → Linien)…</button>
+      <button data-cmd="importFsp">Zeichnung aus FräsStudio-Projekt (.fsp)…</button>
+      <hr>
+      <button data-cmd="exportGcode">G-Code speichern… <kbd>Strg+E</kbd></button>
+      <button data-cmd="exportSvg">Zeichnung als SVG speichern (mit Ebenenfarben)</button>
+      <button data-cmd="openGcode">G-Code-Datei zum Lasern öffnen…</button>
+    </div>
+  </div>
+  <div class="menu"><button>Bearbeiten</button>
+    <div class="dd">
+      <button data-cmd="undo">Rückgängig <kbd>Strg+Z</kbd></button>
+      <button data-cmd="redo">Wiederholen <kbd>Strg+Y</kbd></button>
+      <hr>
+      <button data-cmd="copy">Kopieren <kbd>Strg+C</kbd></button>
+      <button data-cmd="paste">Einfügen <kbd>Strg+V</kbd></button>
+      <button data-cmd="duplicate">Duplizieren <kbd>Strg+D</kbd></button>
+      <button data-cmd="delete">Löschen <kbd>Entf</kbd></button>
+      <button data-cmd="selectAll">Alles auswählen <kbd>Strg+A</kbd></button>
+      <button data-cmd="selectLayer">Alles in der aktuellen Ebene auswählen</button>
+      <hr>
+      <button data-cmd="materialLib">Materialbibliothek…</button>
+      <button data-cmd="machineSettings">Maschine…</button>
+    </div>
+  </div>
+  <div class="menu"><button>Anordnen</button>
+    <div class="dd">
+      <button data-cmd="alignLeft">Links ausrichten</button>
+      <button data-cmd="alignCenterH">Waagrecht mittig</button>
+      <button data-cmd="alignRight">Rechts ausrichten</button>
+      <button data-cmd="alignTop">Oben ausrichten</button>
+      <button data-cmd="alignCenterV">Senkrecht mittig</button>
+      <button data-cmd="alignBottom">Unten ausrichten</button>
+      <button data-cmd="centerArea">In die Mitte des Arbeitsbereichs</button>
+      <hr>
+      <button data-cmd="mirrorH">Waagrecht spiegeln</button>
+      <button data-cmd="mirrorV">Senkrecht spiegeln</button>
+      <button data-cmd="rot90">90° drehen</button>
+      <hr>
+      <button data-cmd="union">Vereinen</button>
+      <button data-cmd="subtract">Abziehen (Obere von der Ersten)</button>
+      <button data-cmd="intersect">Schnittmenge</button>
+      <button data-cmd="offset">Versatz (Umriss vergrößern/verkleinern)…</button>
+      <button data-cmd="array">Mehrfach anordnen (Reihe/Gitter, Seriennummern)…</button>
+      <hr>
+      <button data-cmd="toPath">In Kurve umwandeln (Punkte bearbeiten)</button>
+      <button data-cmd="toLines">In Linien umwandeln</button>
+      <button data-cmd="breakApart">Auseinandernehmen</button>
+    </div>
+  </div>
+  <div class="menu"><button>Werkzeuge</button>
+    <div class="dd">
+      <button data-cmd="materialTest">Materialtest (Leistung × Geschwindigkeit)…</button>
+      <button data-cmd="materialLib">Materialbibliothek…</button>
+      <hr>
+      <button data-cmd="camera">Kamera einrichten und ausrichten…</button>
+      <button data-cmd="toggleCam">Kamerabild ein/aus <kbd>C</kbd></button>
+      <button data-cmd="camTrace">Umriss aus dem Kamerabild erkennen…</button>
+      <button data-cmd="camSnapshot">Kamerabild als Bild übernehmen</button>
+      <hr>
+      <button data-cmd="imageSettings">Bild einstellen (Rastermodus, Helligkeit)…</button>
+      <button data-cmd="traceSelected">Ausgewähltes Bild nachzeichnen…</button>
+    </div>
+  </div>
+  <div class="menu"><button>Ansicht</button>
+    <div class="dd">
+      <button data-cmd="fit">Alles zeigen <kbd>F</kbd></button>
+      <button data-cmd="zoomIn">Vergrößern <kbd>+</kbd></button>
+      <button data-cmd="zoomOut">Verkleinern <kbd>−</kbd></button>
+      <hr>
+      <button data-cmd="toggleWheel">Mausrad: Zoom / Verschieben umschalten</button>
+      <button data-cmd="toggleSnap">Am Raster fangen ein/aus <kbd>G</kbd></button>
+      <button data-cmd="toggleTheme">Hell / Dunkel umschalten</button>
+    </div>
+  </div>
+  <div class="menu"><button>Hilfe</button>
+    <div class="dd">
+      <button data-cmd="help">Kurzanleitung <kbd>F1</kbd></button>
+      <button data-cmd="welcome">Startbildschirm</button>
+      <button data-cmd="tips">Tipps zum Lasern</button>
+      <button data-cmd="about">Über LaserStudio</button>
+    </div>
+  </div>
+
+  <span class="undoBtns">
+    <button class="tb" id="undoBtn" data-cmd="undo" title="Rückgängig (Strg+Z)" disabled>↶</button>
+    <button class="tb" id="redoBtn" data-cmd="redo" title="Wiederholen (Strg+Y)" disabled>↷</button>
+  </span>
+  <nav id="modes">
+    <button data-mode="design" class="active"><b>1</b> Entwerfen</button>
+    <button data-mode="preview"><b>2</b> Vorschau</button>
+    <button data-mode="laser"><b>3</b> Lasern</button>
+  </nav>
+  <span class="spacer"></span>
+  <button class="tb" id="machBtn" data-cmd="machineSettings" title="Maschine einstellen"></button>
+  <span id="connDot" title="Laser nicht verbunden"></span>
+</header>
+
+<main>
+  <aside id="toolbox">
+    <div class="group">Auswahl</div>
+    <button data-tool="select" class="active" title="Auswählen und verschieben (V)"><b>⬉</b><span>Auswahl</span></button>
+    <button data-tool="node" title="Punkte bearbeiten (R)"><b>◇</b><span>Umformen</span></button>
+    <div class="group">Zeichnen</div>
+    <button data-tool="line" title="Linie / Kurve (L): Linksklick Ecke, Rechtsklick Kurve, Enter fertig"><b>✎</b><span>Linie</span></button>
+    <button data-tool="rect" title="Rechteck (Q), Umschalt = Quadrat"><b>▭</b><span>Rechteck</span></button>
+    <button data-tool="ellipse" title="Kreis / Ellipse (K), Umschalt = Kreis"><b>◯</b><span>Kreis</span></button>
+    <button data-tool="polygon" title="Vieleck (P)"><b>⬡</b><span>Vieleck</span></button>
+    <button data-tool="star" title="Stern (S)"><b>☆</b><span>Stern</span></button>
+    <button data-tool="text" title="Text (T), auch im Bogen"><b>A</b><span>Text</span></button>
+    <div class="group">Hilfen</div>
+    <button data-tool="measure" title="Messen (M)"><b>⟷</b><span>Messen</span></button>
+    <button data-cmd="importVector" title="SVG oder DXF importieren"><b>⇪</b><span>Import</span></button>
+    <button data-cmd="importImage" title="Foto oder Logo zum Gravieren"><b>▦</b><span>Bild</span></button>
+    <button data-cmd="materialTest" title="Materialtest: Raster aus Leistung × Geschwindigkeit"><b>▤</b><span>Test</span></button>
+    <button data-cmd="camera" title="Kamera über dem Laser einrichten"><b>◉</b><span>Kamera</span></button>
+  </aside>
+
+  <section id="stage">
+    <canvas id="cv"></canvas>
+    <div id="hint"></div>
+    <div id="palette" title="Farbe = Ebene. Mit Auswahl: Objekte in diese Ebene legen. Ohne Auswahl: neue Objekte kommen in diese Ebene."></div>
+    <div id="viewBtns">
+      <button data-cmd="panLeft" title="Ansicht nach links">←</button>
+      <button data-cmd="panUp" title="Ansicht nach oben">↑</button>
+      <button data-cmd="panDown" title="Ansicht nach unten">↓</button>
+      <button data-cmd="panRight" title="Ansicht nach rechts">→</button>
+      <span class="sep"></span>
+      <button data-cmd="zoomOut" title="Verkleinern (−)">−</button>
+      <button data-cmd="fit" title="Alles zeigen (F)">⤢</button>
+      <button data-cmd="zoomIn" title="Vergrößern (+)">+</button>
+    </div>
+    <div id="camBar" class="hidden"><span>Kamera</span><input id="camOpacity" type="range" min="10" max="100" value="80" title="Deckkraft"><label><input type="checkbox" id="camLive" checked> live</label><button id="camShot" title="Standbild jetzt aktualisieren">⟳</button><button data-cmd="camera">Einrichten</button><button data-cmd="toggleCam" title="Ausblenden">✕</button></div>
+    <div id="dropHint" class="hidden">Datei hier loslassen<br><small>Bild, SVG, DXF, G-Code oder Projekt</small></div>
+    <div id="busy" class="hidden"><div class="spin"></div><span>Wird berechnet …</span></div>
+  </section>
+
+  <aside id="side">
+    <!-- Entwerfen -->
+    <div class="pane" data-pane="design">
+      <div class="panel">
+        <h3>Ebenen <small>Farbe = Einstellung</small></h3>
+        <div id="layerlist"></div>
+      </div>
+      <div class="panel" id="layerEditPanel">
+        <div id="layeredit"></div>
+      </div>
+      <div class="panel" id="propsPanel">
+        <h3>Objekt <small id="propsTitle"></small></h3>
+        <div id="props"></div>
+      </div>
+      <div class="panel grow">
+        <h3>Objekte <small id="objCount"></small></h3>
+        <div id="objlist"></div>
+      </div>
+    </div>
+    <!-- Vorschau -->
+    <div class="pane hidden" data-pane="preview">
+      <div class="panel">
+        <h3>Vorschau</h3>
+        <div class="row">
+          <button id="pvPlay" class="primary">▶ Abspielen</button>
+          <button id="pvEnd">⏭ Ergebnis</button>
+          <button id="pvReset">⟲ Neu</button>
+        </div>
+        <div class="field"><label>Geschwindigkeit</label><input id="pvSpeed" type="range" min="1" max="100" value="45"></div>
+        <div class="progress"><div id="pvBar"></div></div>
+        <div id="pvInfo" class="muted"></div>
+        <label class="check"><input type="checkbox" id="pvRapid" checked> Leerfahrten zeigen</label>
+        <label class="check"><input type="checkbox" id="pvMat" checked> Material hinterlegen</label>
+      </div>
+      <div class="panel grow">
+        <h3>Ablauf</h3>
+        <div id="pvLayers"></div>
+        <div id="pvWarn"></div>
+      </div>
+      <div class="panel">
+        <div class="row">
+          <button class="primary wide" data-cmd="exportGcode">G-Code speichern</button>
+          <button class="wide" data-mode-go="laser">Lasern ▶</button>
+        </div>
+      </div>
+    </div>
+    <!-- Lasern -->
+    <div class="pane hidden" data-pane="laser">
+      <div class="panel">
+        <h3>Laser <small id="machName"></small></h3>
+        <div class="row">
+          <button id="mConnect" class="primary wide">Verbinden …</button>
+          <button id="mWifi" title="WLAN der Maschine einrichten und IP-Adresse anzeigen">WLAN</button>
+          <button id="mCheck" title="Einstellungen ($$) prüfen: Lasermodus, S-Max">Prüfen</button>
+        </div>
+        <div id="mState" class="state">Getrennt</div>
+        <div class="dro">
+          <div><span>X</span><b id="droX">0,000</b><button data-zero="X" title="X hier auf 0 setzen">X0</button></div>
+          <div><span>Y</span><b id="droY">0,000</b><button data-zero="Y" title="Y hier auf 0 setzen">Y0</button></div>
+        </div>
+        <div class="row">
+          <button data-zero="XY" class="wide" title="Nullpunkt (G54) hier setzen – für „Start: Nullpunkt“">Nullpunkt hier</button>
+          <button id="mGoZero" class="wide">Zum Nullpunkt</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Verfahren</h3>
+        <div class="jog">
+          <div class="jogxy">
+            <button data-jog="-1,1">↖</button><button data-jog="0,1">Y+</button><button data-jog="1,1">↗</button>
+            <button data-jog="-1,0">X−</button><button id="jogStop" title="Stopp">■</button><button data-jog="1,0">X+</button>
+            <button data-jog="-1,-1">↙</button><button data-jog="0,-1">Y−</button><button data-jog="1,-1">↘</button>
+          </div>
+          <div class="jogz">
+            <button id="mHome" title="Referenzfahrt ($H)">⌂ Home</button>
+            <button id="mUnlock" title="Alarm entsperren ($X)">Entsperren</button>
+          </div>
+        </div>
+        <div class="steps" id="jogSteps">
+          <button data-step="0.1">0,1</button><button data-step="1">1</button><button data-step="10" class="active">10</button><button data-step="50">50 mm</button>
+        </div>
+        <div class="field"><label>Verfahrgeschwindigkeit</label><input id="jogFeed" type="number" value="3000" min="10" step="100"></div>
+        <div class="row">
+          <button id="mPointer" class="wide" title="Laser sehr schwach einschalten, um die Position zu sehen">Zielpunkt</button>
+          <button id="mPulse" class="wide" title="Kurzer Testpuls an der aktuellen Stelle">Testpuls</button>
+          <input id="mPulsePow" type="number" value="10" min="1" max="100" title="Leistung Testpuls in %" style="width:58px">
+        </div>
+        <p class="muted small">Tastatur: Pfeiltasten verfahren (nur in „Lasern“).</p>
+      </div>
+      <div class="panel">
+        <h3>Auftrag <small id="jobName"></small></h3>
+        <div class="field wide"><select id="jobStart" title="Wo der Auftrag beginnt">
+          <option value="absolute">Start: Arbeitsbereich (absolut, wie gezeichnet)</option>
+          <option value="current">Start: ab aktueller Laserposition</option>
+          <option value="origin">Start: ab Nullpunkt (G54)</option>
+        </select></div>
+        <div class="field" id="anchorRow"><label>Bezugspunkt<br><span class="muted small">liegt am Laser bzw. Nullpunkt</span></label>
+          <div class="zeropick" id="anchorPick"></div></div>
+        <div class="row">
+          <button id="frameRect" class="wide" title="Rechteck um den Auftrag abfahren (Laser aus oder schwach)">▭ Rahmen</button>
+          <button id="frameHull" class="wide" title="Engen Umriss um den Auftrag abfahren">⬠ Umriss</button>
+        </div>
+        <label class="check"><input type="checkbox" id="frameLaser"> beim Rahmen schwach lasern (<input id="framePow" type="number" value="1" min="0" max="10" step="0.5" style="width:46px"> %)</label>
+        <div class="row">
+          <button id="jobFromProject" class="wide">Projekt senden</button>
+          <button id="jobFromFile">Datei…</button>
+        </div>
+        <div id="jobInfo" class="muted"></div>
+        <div class="progress"><div id="jobBar"></div></div>
+        <div class="row">
+          <button id="jobGo" class="primary wide">▶ Start</button>
+          <button id="jobPause" class="wide">⏸ Pause</button>
+          <button id="jobStop" class="danger wide">■ Stopp</button>
+        </div>
+        <div class="ovr">
+          <span>Geschwindigkeit <b id="ovF">100 %</b></span><button data-ov="f-">−10</button><button data-ov="f0">100</button><button data-ov="f+">+10</button>
+        </div>
+        <div class="ovr">
+          <span>Leistung <b id="ovS">100 %</b></span><button data-ov="s-">−10</button><button data-ov="s0">100</button><button data-ov="s+">+10</button>
+        </div>
+      </div>
+      <div class="panel grow">
+        <h3>Konsole</h3>
+        <div id="console"></div>
+        <form id="consoleForm"><input id="consoleIn" placeholder="Befehl, z. B. $$ oder G0 X10" autocomplete="off"><button>Senden</button></form>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<footer id="statusbar">
+  <span id="status"></span>
+  <span class="spacer"></span>
+  <span id="snapInfo"></span>
+  <span id="coords"></span>
+</footer>
+
+<div id="modal" class="hidden"><div class="box"><h2 id="modalTitle"></h2><div id="modalBody"></div><div class="row end" id="modalBtns"></div></div></div>
+<input type="file" id="fileIn" class="hidden">
+
+<script src="js/lib/clipper.js"></script>
+<script src="js/fonts.js"></script>
+<script src="js/core.js"></script>
+<script src="js/ttf.js"></script>
+<script src="js/shapes.js"></script>
+<script src="js/importers.js"></script>
+<script src="js/dither.js"></script>
+<script src="js/laser.js"></script>
+<script src="js/library.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/machine.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
