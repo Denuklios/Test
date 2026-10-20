@@ -16,6 +16,9 @@ COPY legal ./legal
 COPY css ./css
 COPY fonts ./fonts
 COPY index.html ./
+# FräsStudio (geschützt unter /fraesstudio/, ohne Tests)
+COPY fraesstudio ./fraesstudio
+RUN rm -rf ./fraesstudio/tests
 # nur was der Server braucht: Formatcode (Export), Daten (Schriften), pdf.js; Programm-Quelltexte bleiben im Build
 COPY js/geometry.js js/dst.js js/dst_io.js js/formats.js js/fonts.js js/garment_assets.js ./js/
 COPY js/stickfonts ./js/stickfonts

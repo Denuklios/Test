@@ -49,7 +49,7 @@
       ${!l.admin && sub && sub.portal ? `<p><a class="btn" style="display:inline-block;width:auto;text-decoration:none" href="${esc(sub.portal)}" target="_blank" rel="noopener">${L.manage}</a></p>`
         : buyUrl && !l.admin && (!sub || !live) ? `<p><a class="btn primary" style="display:inline-block;width:auto;text-decoration:none" href="${esc(buyUrl)}" target="_blank" rel="noopener">${L.buy}</a></p>` : ''}
       ${!l.admin ? `<p class="muted"><a href="/kuendigen">${L.cancel}</a> · <a href="/widerrufen">${L.withdraw}</a></p>` : ''}
-      <p><a href="/">${L.toApp} →</a></p>
+      <p><a href="/">${L.toApp} →</a>${user.fraes ? ` · <a href="/fraesstudio/">FräsStudio →</a>` : ''}</p>
       <h2>${L.name}</h2><div class="row"><input id="nm" value="${esc(user.name)}" style="flex:1"><button id="nmSave">${L.saveName}</button></div><div id="nmMsg"></div>
       <h2>${L.pwTitle}</h2>
       <label>${L.oldPw}<input type="password" id="pw0" autocomplete="current-password"></label>

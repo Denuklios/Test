@@ -115,7 +115,8 @@ function license(u) {
   };
 }
 const subInfo = (u) => (u.sub_id ? { status: u.sub_status, renews: u.sub_renews || null, ends: u.sub_ends || null, portal: u.sub_portal || '' } : null);
-const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, lang: u.lang, verified: !!u.verified, created: u.created, license: license(u), sub: subInfo(u) });
+const fraesAccess = (u) => !!u && (u.role === 'admin' || !!u.fraes);
+const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, lang: u.lang, verified: !!u.verified, created: u.created, license: license(u), sub: subInfo(u), fraes: fraesAccess(u) });
 
 /* ---------- Schutz vor zu vielen Versuchen ---------- */
 const hits = new Map();
@@ -178,7 +179,7 @@ function langOf(req, u) {
 const langCookie = (l) => `lang=${l}; Path=/; SameSite=Lax; Max-Age=31536000${SECURE_COOKIE ? '; Secure' : ''}`;
 
 /* ---------- Statische Dateien (nur angemeldet; Formatcode bleibt auf dem Server) ---------- */
-const MIME = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
+const MIME = { '.onnx': 'application/octet-stream', '.mjs': 'text/javascript; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
 const SERVER_ONLY = new Set(['js/dst_io.js', 'js/formats.js']);
 const APP_DIRS = ['js/', 'css/', 'fonts/'];
 function staticFile(res, rel, cacheable) {
@@ -191,6 +192,35 @@ function staticFile(res, rel, cacheable) {
   if (!st.isFile()) return false;
   const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
   res.writeHead(200, { 'Content-Type': type, 'Cache-Control': cacheable ? 'private, max-age=3600' : 'no-cache', ...SEC_HEADERS });
+  fs.createReadStream(file).pipe(res);
+  return true;
+}
+
+/* ---------- FräsStudio (Ordner fraesstudio/, nur angemeldet und freigeschaltet) ---------- */
+const FRAES_PATH = '/fraesstudio/';
+const FRAES_ROOT = path.join(ROOT, 'fraesstudio');
+const nextCookie = (v, maxAge) => `next=${v}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${SECURE_COOKIE ? '; Secure' : ''}`;
+// FräsStudio braucht Kamera (Bild von oben) und USB (Web Serial zur Fräse) – nur für diese Seiten erlaubt
+// KI-Tiefenschätzung: WebAssembly ausführen und (falls das Modell nicht auf dem Server liegt) von HuggingFace laden
+const FRAES_HEADERS = {
+  ...SEC_HEADERS,
+  'Permissions-Policy': 'camera=(self), serial=(self), microphone=(), geolocation=()',
+  'Content-Security-Policy': SEC_HEADERS['Content-Security-Policy']
+    .replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'")
+    .replace("connect-src 'self'", "connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co"),
+};
+function fraesFile(res, rel) {
+  let dec;
+  try { dec = decodeURIComponent(rel); } catch (e) { return false; }
+  const norm = path.posix.normalize(dec).replace(/^\/+/, '');
+  if (norm.includes('..') || norm.startsWith('tests/') || norm.endsWith('.md')) return false;
+  const file = path.join(FRAES_ROOT, norm);
+  if (!file.startsWith(FRAES_ROOT + path.sep)) return false;
+  let st;
+  try { st = fs.statSync(file); } catch (e) { return false; }
+  if (!st.isFile()) return false;
+  const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
+  res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'private, no-cache', ...FRAES_HEADERS });
   fs.createReadStream(file).pipe(res);
   return true;
 }
@@ -333,6 +363,70 @@ function extendLicense(userId, days, reason) {
   return true;
 }
 
+/* ---------- Brücke zur Fräse per WLAN (Telnet, Port 23) ----------
+   Der Browser kann kein TCP sprechen. Der Server (im selben Heimnetz wie die Fräse) verbindet sich per Telnet
+   und reicht die Daten über HTTP (Server-Sent Events + POST) an FräsStudio weiter – funktioniert hinter HTTPS und Reverse Proxy.
+   Nur für Konten mit FräsStudio-Zugang. Ziel nur im eigenen Netz (oder CNC_HOST). Bei Verbindungsverlust: Not-Aus (Soft-Reset). */
+const net = require('net');
+const dns = require('dns').promises;
+const cnc = new Map(); // id -> Sitzung
+const CNC_MAX = 4;
+function privateIp(ip) {
+  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(ip);
+  if (!m) return false;
+  const [a, b] = [+m[1], +m[2]];
+  return a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
+}
+async function cncTarget(host, port) {
+  host = String(host || '').trim();
+  port = +port || 23;
+  const ports = new Set([23, ...String(ENV.CNC_PORTS || '').split(',').map((x) => +x).filter(Boolean)]);
+  if (!ports.has(port)) throw Object.assign(new Error('Port nicht erlaubt (nur Telnet 23).'), { code: 400 });
+  if (!/^[A-Za-z0-9.-]{1,100}$/.test(host)) throw Object.assign(new Error('Adresse ungültig.'), { code: 400 });
+  if (ENV.CNC_HOST && host.toLowerCase() !== String(ENV.CNC_HOST).toLowerCase()) throw Object.assign(new Error('Nur die am Server eingestellte Maschine ist erlaubt.'), { code: 400 });
+  let ip = host;
+  if (!/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    try { ip = (await dns.lookup(host, { family: 4 })).address; } catch (e) { throw Object.assign(new Error('Name „' + host + '“ wurde nicht gefunden.'), { code: 400 }); }
+  }
+  if (!ENV.CNC_HOST && !privateIp(ip)) throw Object.assign(new Error('Nur Adressen im eigenen Netz sind erlaubt (192.168.x.x, 10.x.x.x, 172.16–31.x.x).'), { code: 400 });
+  return { ip, port };
+}
+function cncClose(sess, reason, estop) {
+  if (!sess || sess.closed) return;
+  sess.closed = true;
+  clearTimeout(sess.grace); clearInterval(sess.beat);
+  try { if (estop && sess.sock.writable) sess.sock.write(Buffer.from([0x18])); } catch (e) { /* weg */ }
+  for (const r of sess.clients) { try { r.write(`data: ${JSON.stringify({ c: 1, m: reason || '' })}\n\n`); r.end(); } catch (e) { /* weg */ } }
+  setTimeout(() => { try { sess.sock.destroy(); } catch (e) { /* weg */ } }, estop ? 150 : 0);
+  cnc.delete(sess.id);
+  logEvent(sess.userId, 'cnc-close', (reason || '') + (estop ? ' (Not-Aus)' : ''));
+}
+function cncOpen(userId, host, port) {
+  return new Promise((resolve, reject) => {
+    for (const sess of cnc.values()) if (sess.userId === userId) cncClose(sess, 'neue Verbindung');
+    if (cnc.size >= CNC_MAX) return reject(Object.assign(new Error('Zu viele Verbindungen.'), { code: 429 }));
+    const sock = net.connect({ host, port });
+    sock.setNoDelay(true);
+    sock.setKeepAlive(true, 10000);
+    const sess = { id: crypto.randomBytes(12).toString('hex'), userId, sock, clients: new Set(), pending: [], closed: false, lastSend: 0, host: `${host}:${port}` };
+    const timer = setTimeout(() => { sock.destroy(); reject(Object.assign(new Error('Die Maschine antwortet nicht (Zeitüberschreitung). Ist sie an, im WLAN und Telnet aktiv?'), { code: 502 })); }, 6000);
+    sock.once('connect', () => {
+      clearTimeout(timer);
+      cnc.set(sess.id, sess);
+      sess.beat = setInterval(() => { for (const r of sess.clients) r.write(': ping\n\n'); }, 15000);
+      sess.grace = setTimeout(() => { if (!sess.clients.size) cncClose(sess, 'kein Browser verbunden'); }, 15000);
+      logEvent(userId, 'cnc-open', sess.host);
+      resolve(sess);
+    });
+    sock.on('data', (buf) => {
+      const msg = `data: ${JSON.stringify({ d: buf.toString('latin1') })}\n\n`;
+      if (sess.clients.size) for (const r of sess.clients) r.write(msg); else if (sess.pending.length < 200) sess.pending.push(msg);
+    });
+    sock.on('error', (e) => { clearTimeout(timer); if (!sess.closed && cnc.has(sess.id)) cncClose(sess, 'Fehler: ' + e.code); else reject(Object.assign(new Error({ ECONNREFUSED: 'Verbindung abgelehnt – ist Telnet an der Maschine aktiv (Port 23)?', EHOSTUNREACH: 'Maschine nicht erreichbar.', ENETUNREACH: 'Netz nicht erreichbar.', ETIMEDOUT: 'Zeitüberschreitung.' }[e.code] || 'Verbindungsfehler: ' + e.code), { code: 502 })); });
+    sock.on('close', () => cncClose(sess, 'Maschine hat die Verbindung beendet'));
+  });
+}
+
 /* ---------- Routen ---------- */
 async function route(req, res) {
   const url = new URL(req.url, 'http://x');
@@ -370,7 +464,8 @@ async function route(req, res) {
     { const ip = ipOf(req), cc = countryOf(ip);
       db.prepare('UPDATE users SET last_login = ?, last_seen = ?, last_ip = ?, last_country = ? WHERE id = ?').run(now(), now(), ip, cc, u.id);
       logEvent(u.id, 'login', `${ip}${cc ? ' · ' + cc : ''}`); }
-    return redirect(res, '/', { 'Set-Cookie': [sidCookie(newSession(u.id), SESSION_DAYS * 86400), langCookie(u.lang || lang)] });
+    const back = cookies(req).next === FRAES_PATH ? FRAES_PATH : '/';
+    return redirect(res, back, { 'Set-Cookie': [sidCookie(newSession(u.id), SESSION_DAYS * 86400), langCookie(u.lang || lang), nextCookie('', 0)] });
   }
   if (p === '/register' && m === 'GET') return user ? redirect(res, '/') : page(pages.register(lang, null, {}, +s.trial_days || 0));
   if (p === '/register' && m === 'POST') {
@@ -501,12 +596,65 @@ async function route(req, res) {
   /* --- ab hier nur angemeldet --- */
   if (!user) {
     if (p.startsWith('/api/')) return json(res, 401, { error: 'login' });
-    return redirect(res, '/login' + (url.searchParams.get('lang') ? '?lang=' + lang : ''));
+    // nach der Anmeldung zurück zu FräsStudio
+    const extra = p === '/fraesstudio' || p.startsWith(FRAES_PATH) ? { 'Set-Cookie': nextCookie(FRAES_PATH, 1800) } : {};
+    return redirect(res, '/login' + (url.searchParams.get('lang') ? '?lang=' + lang : ''), extra);
   }
   const lic = license(user);
   if (now() - (user.last_seen || 0) > 5 * 60e3) {
     const ip = ipOf(req), cc = countryOf(ip);
     db.prepare('UPDATE users SET last_seen = ?, last_ip = ?, last_country = ? WHERE id = ?').run(now(), ip, cc || user.last_country, user.id);
+  }
+
+  /* --- FräsStudio: nur für freigeschaltete Konten --- */
+  if (p === '/fraesstudio') return redirect(res, FRAES_PATH);
+  if (p.startsWith(FRAES_PATH)) {
+    if (!fraesAccess(user)) {
+      logEvent(user.id, 'fraes-verweigert', p.slice(0, 100));
+      return page(pages.info(lang, 'FräsStudio', lang === 'de' ? 'Für dieses Konto ist FräsStudio nicht freigeschaltet. Bitte wende dich an den Betreiber.' : 'FräsStudio is not enabled for this account. Please contact the operator.', false), 403);
+    }
+    if (m !== 'GET' && m !== 'HEAD') return send(res, 405, 'Method not allowed', 'text/plain');
+    return fraesFile(res, p.slice(FRAES_PATH.length) || 'index.html') || send(res, 404, 'Not found', 'text/plain');
+  }
+
+  /* --- Brücke zur Fräse (nur mit FräsStudio-Zugang) --- */
+  if (p.startsWith('/api/cnc/')) {
+    if (!fraesAccess(user)) return json(res, 403, { error: 'FräsStudio ist für dieses Konto nicht freigeschaltet.' });
+    if (p === '/api/cnc/config' && m === 'GET') return json(res, 200, { enabled: ENV.CNC_BRIDGE !== 'off', host: ENV.CNC_HOST || '', port: 23 });
+    if (ENV.CNC_BRIDGE === 'off') return json(res, 403, { error: 'Die WLAN-Brücke ist am Server abgeschaltet (CNC_BRIDGE=off).' });
+    if (p === '/api/cnc/open' && m === 'POST') {
+      const b = await readJson(req, 4096);
+      if (limited('cnc:' + user.id, 20, 60e3)) return json(res, 429, { error: 'Zu viele Versuche.' });
+      try {
+        const t = await cncTarget(b.host, b.port);
+        const sess = await cncOpen(user.id, t.ip, t.port);
+        return json(res, 200, { id: sess.id });
+      } catch (e) { return json(res, e.code >= 400 && e.code < 600 ? e.code : 502, { error: e.message }); }
+    }
+    const sess = cnc.get(String(url.searchParams.get('id') || ''));
+    if (!sess || sess.userId !== user.id) return json(res, 404, { error: 'Keine Verbindung (mehr).' });
+    if (p === '/api/cnc/stream' && m === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no', ...SEC_HEADERS });
+      res.write(`data: ${JSON.stringify({ o: 1 })}\n\n`);
+      for (const msg of sess.pending.splice(0)) res.write(msg);
+      sess.clients.add(res);
+      clearTimeout(sess.grace);
+      res.on('close', () => {
+        sess.clients.delete(res);
+        // Browser weg (Tab zu, Absturz, Netz weg): nach kurzer Gnadenfrist Not-Aus, damit die Fräse nicht weiterläuft
+        if (!sess.clients.size && !sess.closed) sess.grace = setTimeout(() => { if (!sess.clients.size) cncClose(sess, 'Browser getrennt', true); }, 3000);
+      });
+      return;
+    }
+    if (p === '/api/cnc/send' && m === 'POST') {
+      const body = await readBody(req, 8192);
+      if (sess.closed || !sess.sock.writable) return json(res, 410, { error: 'Verbindung beendet.' });
+      sess.sock.write(body);
+      sess.lastSend = now();
+      return send(res, 204, '');
+    }
+    if (p === '/api/cnc/close' && m === 'POST') { cncClose(sess, 'Trennen'); return json(res, 200, { ok: true }); }
+    return json(res, 404, { error: 'not found' });
   }
 
   if (p === '/' || p === '/index.html') return page(appHtml());
@@ -622,14 +770,14 @@ async function route(req, res) {
     if (user.role !== 'admin') return json(res, 403, { error: 'forbidden' });
     if (p === '/api/admin/users' && m === 'GET') {
       const q = '%' + (url.searchParams.get('q') || '') + '%';
-      const rows = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen,
+      const rows = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen, u.fraes,
         (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS projects FROM users u WHERE u.email LIKE ? OR u.name LIKE ? ORDER BY u.created DESC LIMIT 500`).all(q, q);
       let list = rows;
       // Suche nach der Kennung aus einer weitergegebenen Programmdatei
       const qq = (url.searchParams.get('q') || '').trim().toLowerCase();
       if (!list.length && /^[0-9a-f]{16}$/.test(qq)) {
         const hit = db.prepare('SELECT id FROM users').all().find((r) => mark(r) === qq);
-        if (hit) list = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen,
+        if (hit) list = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen, u.fraes,
           (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS projects FROM users u WHERE u.id = ?`).all(hit.id);
       }
       return json(res, 200, list.map((r) => ({ ...r, license: license(r), mark: mark(r) })));
@@ -661,8 +809,9 @@ async function route(req, res) {
           verified: b.verified !== undefined ? (b.verified ? 1 : 0) : u.verified,
           note: b.note !== undefined ? String(b.note).slice(0, 2000) : u.note,
           name: b.name !== undefined ? String(b.name).slice(0, 120) : u.name,
+          fraes: b.fraes !== undefined ? (b.fraes ? 1 : 0) : u.fraes,
         };
-        db.prepare('UPDATE users SET license_until=?, trial_until=?, blocked=?, role=?, verified=?, note=?, name=? WHERE id=?').run(upd.license_until, upd.trial_until, upd.blocked, upd.role, upd.verified, upd.note, upd.name, id);
+        db.prepare('UPDATE users SET license_until=?, trial_until=?, blocked=?, role=?, verified=?, note=?, name=?, fraes=? WHERE id=?').run(upd.license_until, upd.trial_until, upd.blocked, upd.role, upd.verified, upd.note, upd.name, upd.fraes, id);
         if (upd.blocked) db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
         logEvent(id, 'admin-edit', `${user.email}: ${JSON.stringify(b).slice(0, 300)}`);
         return json(res, 200, { ok: true });
@@ -778,7 +927,8 @@ const server = http.createServer((req, res) => {
 
 if (require.main === module) {
   ensureAdmin();
-  server.listen(PORT, () => console.log(`StickStudio läuft auf ${BASE_URL} (Port ${PORT}, Daten in ${DATA_DIR})`));
+  // HOST=127.0.0.1: nur über den Reverse Proxy auf demselben Rechner erreichbar (z. B. neben Nextcloud/Immich)
+  server.listen(PORT, ENV.HOST || undefined, () => console.log(`StickStudio läuft auf ${BASE_URL} (Port ${PORT}${ENV.HOST ? ', nur ' + ENV.HOST : ''}, Daten in ${DATA_DIR})`));
   // Protokoll aufräumen (Datenschutz) und Länderdaten aktuell halten
   const housekeeping = () => {
     try { db.prepare('DELETE FROM events WHERE at < ?').run(now() - EVENT_DAYS * DAY); db.prepare('DELETE FROM sessions WHERE expires < ?').run(now()); db.prepare('DELETE FROM tokens WHERE expires < ?').run(now()); } catch (e) { console.error(e); }

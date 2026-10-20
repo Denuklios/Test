@@ -5,7 +5,8 @@
   "scripts": {
     "build": "node tools/build.js",
     "start": "node --no-warnings server/server.js",
-    "test": "for t in tests/*.js; do node --no-warnings $t || exit 1; done"
+    "test": "for t in tests/*.js; do node --no-warnings $t || exit 1; done",
+    "test:fraesstudio": "node fraesstudio/tests/test_cam.js && node fraesstudio/tests/test_machine.js"
   },
   "engines": { "node": ">=22.13" },
   "devDependencies": {
