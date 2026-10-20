@@ -14,6 +14,64 @@ const { execFileSync } = require('child_process');
 
 const DAY = 864e5;
 
+/** Meldungen in Deutsch, Englisch und Dänisch (Standard: Deutsch) */
+const LOCALE = { de: 'de-DE', en: 'en-GB', da: 'da-DK' };
+const MSG = {
+  de: {
+    revoked: 'Diese Lizenz wurde gesperrt.',
+    invalid: 'Die Freischaltung passt nicht zu diesem Gerät. Bitte neu freischalten.',
+    rollback: 'Die Uhr des Computers wurde zurückgestellt. Bitte einmal mit dem Internet verbinden.',
+    offline: 'Die Lizenz muss wieder geprüft werden. Bitte den Computer mit dem Internet verbinden.',
+    updates: (v, rel, upd) => `Diese Version (${v} vom ${rel}) ist neuer als deine Updates (inklusive bis ${upd}). Verlängere die Updates oder nutze deine bisherige Version weiter – die läuft für immer.`,
+    expired: 'Die Testzeit ist abgelaufen. Bitte gib deinen Lizenzschlüssel ein.',
+    noServer: 'Kein Lizenzserver eingestellt.',
+    unreachable: 'Der Lizenzserver ist nicht erreichbar. Bitte Internetverbindung prüfen.',
+    error: (n) => 'Fehler ' + n,
+    badKey: 'Der Schlüssel ist nicht vollständig oder enthält einen Tippfehler.',
+    wrongProduct: (name, code) => `Das ist kein Schlüssel für ${name} (er muss mit ${code}- beginnen).`,
+    badAnswer: 'Die Antwort des Lizenzservers ist ungültig.',
+    needInternet: 'Zum Freigeben wird das Internet gebraucht.',
+    keyFirst: 'Bitte zuerst den Lizenzschlüssel eintragen.',
+    codeMismatch: 'Der Freischaltcode passt nicht zu diesem Gerät.',
+  },
+  en: {
+    revoked: 'This license has been revoked.',
+    invalid: 'The activation does not match this device. Please activate again.',
+    rollback: 'The computer clock was set back. Please connect to the internet once.',
+    offline: 'The license needs to be checked again. Please connect the computer to the internet.',
+    updates: (v, rel, upd) => `This version (${v} from ${rel}) is newer than your updates (included until ${upd}). Extend your updates or keep using your previous version – it runs forever.`,
+    expired: 'The trial period has ended. Please enter your license key.',
+    noServer: 'No license server configured.',
+    unreachable: 'The license server cannot be reached. Please check your internet connection.',
+    error: (n) => 'Error ' + n,
+    badKey: 'The key is incomplete or contains a typo.',
+    wrongProduct: (name, code) => `This is not a key for ${name} (it must start with ${code}-).`,
+    badAnswer: 'The response from the license server is invalid.',
+    needInternet: 'Releasing this device requires an internet connection.',
+    keyFirst: 'Please enter the license key first.',
+    codeMismatch: 'The activation code does not match this device.',
+  },
+  da: {
+    revoked: 'Denne licens er blevet spærret.',
+    invalid: 'Aktiveringen passer ikke til denne enhed. Aktivér venligst igen.',
+    rollback: 'Computerens ur er blevet stillet tilbage. Forbind venligst til internettet én gang.',
+    offline: 'Licensen skal kontrolleres igen. Forbind venligst computeren til internettet.',
+    updates: (v, rel, upd) => `Denne version (${v} fra ${rel}) er nyere end dine opdateringer (inkluderet til og med ${upd}). Forlæng opdateringerne, eller brug fortsat din tidligere version – den kører for altid.`,
+    expired: 'Prøveperioden er udløbet. Indtast venligst din licensnøgle.',
+    noServer: 'Der er ikke angivet nogen licensserver.',
+    unreachable: 'Licensserveren kan ikke nås. Kontrollér venligst internetforbindelsen.',
+    error: (n) => 'Fejl ' + n,
+    badKey: 'Nøglen er ufuldstændig eller indeholder en tastefejl.',
+    wrongProduct: (name, code) => `Dette er ikke en nøgle til ${name} (den skal begynde med ${code}-).`,
+    badAnswer: 'Svaret fra licensserveren er ugyldigt.',
+    needInternet: 'Det kræver internet at frigive enheden.',
+    keyFirst: 'Indtast venligst licensnøglen først.',
+    codeMismatch: 'Aktiveringskoden passer ikke til denne enhed.',
+  },
+};
+/** Systemsprache (z. B. app.getLocale()) → de | en | da */
+const mapLocale = (loc) => { const n = String(loc || '').toLowerCase(); return n.startsWith('de') ? 'de' : /^(da|nb|nn|no)\b/.test(n) ? 'da' : 'en'; };
+
 /** Gerätekennung: stabile ID des Betriebssystems (nicht die Netzwerkkarte, die wechselt bei VPN/WLAN) */
 function machineId(appSalt) {
   let raw = '';
@@ -62,10 +120,13 @@ function verifyToken(publicKey, token) {
 /**
  * cfg: {product, code, name, server, trialDays, version, publicKey}
  * dir: Ordner für die Lizenzdatei (app.getPath('userData'))
- * opts.fetch / opts.now für Tests
+ * opts.fetch / opts.now für Tests, opts.lang: 'de' | 'en' | 'da' (Standard 'de'; später mit setLang änderbar)
  */
 function create(cfg, dir, opts = {}) {
   const now = opts.now || (() => Date.now());
+  let lang = MSG[opts.lang] ? opts.lang : 'de';
+  const M = () => MSG[lang];
+  const fmt = (ms) => new Date(ms).toLocaleDateString(LOCALE[lang]);
   const doFetch = opts.fetch || ((...a) => fetch(...a));
   const pub = crypto.createPublicKey(cfg.publicKey);
   const machine = opts.machine || machineId(cfg.product);
@@ -92,33 +153,34 @@ function create(cfg, dir, opts = {}) {
     // Uhr zurückgestellt? Dann gilt der Testzeitraum als abgelaufen und die Freigabe muss online erneuert werden
     const rollback = data.lastSeen && t < data.lastSeen - DAY;
     if (!rollback && (!data.lastSeen || t > data.lastSeen)) { data.lastSeen = t; write(data); }
-    if (data.revoked) return { status: 'revoked', key: data.key, message: data.message || 'Diese Lizenz wurde gesperrt.' };
+    if (data.revoked) return { status: 'revoked', key: data.key, message: data.message || M().revoked };
     if (data.key && data.token) {
       const tok = verifyToken(pub, data.token);
-      if (!tok || tok.m !== machine || tok.p !== cfg.product) return { status: 'invalid', key: data.key, message: 'Die Freischaltung passt nicht zu diesem Gerät. Bitte neu freischalten.' };
-      if (rollback) return { status: 'offline', key: data.key, name: tok.n, message: 'Die Uhr des Computers wurde zurückgestellt. Bitte einmal mit dem Internet verbinden.' };
-      if (t > tok.exp) return { status: 'offline', key: data.key, name: tok.n, message: 'Die Lizenz muss wieder geprüft werden. Bitte den Computer mit dem Internet verbinden.' };
+      if (!tok || tok.m !== machine || tok.p !== cfg.product) return { status: 'invalid', key: data.key, message: M().invalid };
+      if (rollback) return { status: 'offline', key: data.key, name: tok.n, message: M().rollback };
+      if (t > tok.exp) return { status: 'offline', key: data.key, name: tok.n, message: M().offline };
       const updatesUntil = tok.u || 0;
       if (updatesUntil && cfg.released && cfg.released > updatesUntil) {
         return { status: 'updates', key: data.key, name: tok.n, updatesUntil, released: cfg.released, checkDue: t > tok.chk,
-          message: `Diese Version (${cfg.version} vom ${new Date(cfg.released).toLocaleDateString('de-DE')}) ist neuer als deine Updates (inklusive bis ${new Date(updatesUntil).toLocaleDateString('de-DE')}). Verlängere die Updates oder nutze deine bisherige Version weiter – die läuft für immer.` };
+          message: M().updates(cfg.version, fmt(cfg.released), fmt(updatesUntil)) };
       }
       return { status: 'licensed', key: data.key, name: tok.n, updatesUntil, checkDue: t > tok.chk, until: tok.exp, daysOffline: Math.max(0, Math.ceil((tok.exp - t) / DAY)), lastCheck: data.lastCheck || tok.iat };
     }
     const first = firstRun();
     const left = Math.ceil((first + (cfg.trialDays || 14) * DAY - t) / DAY);
     if (left > 0 && !rollback) return { status: 'trial', daysLeft: left };
-    return { status: 'expired', message: 'Die Testzeit ist abgelaufen. Bitte gib deinen Lizenzschlüssel ein.' };
+    return { status: 'expired', message: M().expired };
   }
 
   async function call(pathname, body) {
-    if (!cfg.server) throw Object.assign(new Error('Kein Lizenzserver eingestellt.'), { offline: true });
+    if (!cfg.server) throw Object.assign(new Error(M().noServer), { offline: true });
+    body = { ...body, lang };
     let r;
     try {
       r = await doFetch(cfg.server.replace(/\/$/, '') + pathname, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body), signal: AbortSignal.timeout(15000) });
-    } catch (e) { throw Object.assign(new Error('Der Lizenzserver ist nicht erreichbar. Bitte Internetverbindung prüfen.'), { offline: true }); }
+    } catch (e) { throw Object.assign(new Error(M().unreachable), { offline: true }); }
     const d = await r.json().catch(() => ({}));
-    if (!r.ok || !d.ok) throw Object.assign(new Error(d.message || 'Fehler ' + r.status), { status: r.status, error: d.error });
+    if (!r.ok || !d.ok) throw Object.assign(new Error(d.message || M().error(r.status)), { status: r.status, error: d.error });
     return d;
   }
   const label = () => `${os.hostname()} (${{ win32: 'Windows', darwin: 'Mac', linux: 'Linux' }[process.platform] || process.platform})`;
@@ -126,11 +188,11 @@ function create(cfg, dir, opts = {}) {
   /** Mit Schlüssel freischalten */
   async function activate(input) {
     const key = normKey(input);
-    if (!key) throw new Error('Der Schlüssel ist nicht vollständig oder enthält einen Tippfehler.');
-    if (!key.startsWith(cfg.code + '-')) throw new Error(`Das ist kein Schlüssel für ${cfg.name} (er muss mit ${cfg.code}- beginnen).`);
+    if (!key) throw new Error(M().badKey);
+    if (!key.startsWith(cfg.code + '-')) throw new Error(M().wrongProduct(cfg.name, cfg.code));
     const d = await call('/api/license/activate', { key, machine, product: cfg.product, label: label(), version: cfg.version });
     const tok = verifyToken(pub, d.token);
-    if (!tok || tok.m !== machine) throw new Error('Die Antwort des Lizenzservers ist ungültig.');
+    if (!tok || tok.m !== machine) throw new Error(M().badAnswer);
     data = { ...data, key, token: d.token, revoked: false, message: '', lastCheck: now() };
     write(data);
     return state();
@@ -152,7 +214,7 @@ function create(cfg, dir, opts = {}) {
 
   /** Dieses Gerät abmelden (für den Umzug auf einen neuen Rechner) */
   async function deactivate() {
-    if (data.key) { try { await call('/api/license/deactivate', { key: data.key, machine }); } catch (e) { if (!e.offline) throw e; throw new Error('Zum Freigeben wird das Internet gebraucht.'); } }
+    if (data.key) { try { await call('/api/license/deactivate', { key: data.key, machine }); } catch (e) { if (!e.offline) throw e; throw new Error(M().needInternet); } }
     data = { first: data.first, lastSeen: data.lastSeen };
     write(data);
     return state();
@@ -162,14 +224,16 @@ function create(cfg, dir, opts = {}) {
   function offline(key, code) {
     const k = normKey(key);
     const tok = verifyToken(pub, code);
-    if (!k || !k.startsWith(cfg.code + '-')) throw new Error('Bitte zuerst den Lizenzschlüssel eintragen.');
-    if (!tok || tok.m !== machine || tok.p !== cfg.product) throw new Error('Der Freischaltcode passt nicht zu diesem Gerät.');
+    if (!k || !k.startsWith(cfg.code + '-')) throw new Error(M().keyFirst);
+    if (!tok || tok.m !== machine || tok.p !== cfg.product) throw new Error(M().codeMismatch);
     data = { ...data, key: k, token: String(code).trim(), revoked: false, message: '', lastCheck: now() };
     write(data);
     return state();
   }
 
-  return { state, activate, check, deactivate, offline, machine, normKey };
+  /** Sprache der Meldungen wechseln (de | en | da) */
+  const setLang = (l) => { if (MSG[l]) lang = l; return lang; };
+  return { state, activate, check, deactivate, offline, machine, normKey, setLang, get lang() { return lang; } };
 }
 
-module.exports = { create, machineId, normKey, verifyToken };
+module.exports = { create, machineId, normKey, verifyToken, mapLocale, MSG, LOCALE };

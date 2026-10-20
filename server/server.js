@@ -591,8 +591,8 @@ async function route(req, res) {
   // Desktop-Programme: Lizenz aktivieren, regelmäßig prüfen, Gerät freigeben
   if (p.startsWith('/api/license/') && m === 'POST') {
     const ip = ipOf(req);
-    if (limited('lic:' + ip, 60, 60 * 60e3)) return json(res, 429, { error: 'rate', message: 'Zu viele Versuche – bitte in einer Stunde erneut.' });
     const b = await readJson(req, 16 * 1024);
+    if (limited('lic:' + ip, 60, 60 * 60e3)) return json(res, 429, { error: 'rate', message: L3(normLang(b.lang) || 'de', 'Zu viele Versuche – bitte in einer Stunde erneut.', 'Too many attempts – please try again in an hour.', 'For mange forsøg – prøv igen om en time.') });
     if (p === '/api/license/activate' || p === '/api/license/check') {
       const r = LIC.activate(b, ip);
       return json(res, r.ok ? 200 : r.code, r);

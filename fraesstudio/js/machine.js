@@ -20,6 +20,8 @@
   };
   const USB_CHIPS = { '1a86:7523': 'CH340 (typisch für DLC32/MKS)', '1a86:55d3': 'CH343', '1a86:55d4': 'CH9102', '10c4:ea60': 'CP210x', '0403:6001': 'FTDI FT232', '303a:1001': 'ESP32 (USB direkt)', '2341:0043': 'Arduino Uno' };
 
+  // Meldungen in der gewählten Sprache (i18n.js); ohne Browser bleibt es Deutsch
+  const tx = (s) => (g.HW && g.HW.i18n ? g.HW.i18n.t(s) : s);
   const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
   const isRealtime = (b) => b === 0x3f || b === 0x21 || b === 0x7e || b === 0x18 || b >= 0x80;
   const toBytes = (s) => { const u = new Uint8Array(s.length); for (let i = 0; i < s.length; i++) u[i] = s.charCodeAt(i) & 255; return u; };
@@ -331,8 +333,8 @@
         const it = this.inflight.shift();
         if (line.startsWith('error')) {
           const code = +line.split(':')[1];
-          const msg = `Fehler ${code}: ${ERRORS[code] || 'siehe GRBL-Dokumentation'}`;
-          this.emit('log', msg + (it && it.line ? ' – bei: ' + it.line : ''), 'err');
+          const msg = `${tx('Fehler')} ${code}: ${tx(ERRORS[code] || 'siehe GRBL-Dokumentation')}`;
+          this.emit('log', msg + (it && it.line ? tx(' – bei: ') + it.line : ''), 'err');
           if (it && it.reject) it.reject(new Error(msg));
           if (this.job && it && it.job) this.job.errors++;
         } else if (it && it.resolve) it.resolve('ok');
@@ -342,7 +344,7 @@
       }
       if (line.startsWith('ALARM')) {
         const code = +line.split(':')[1];
-        this.emit('log', `ALARM ${code}: ${ALARMS[code] || ''}`, 'err');
+        this.emit('log', `ALARM ${code}: ${tx(ALARMS[code] || '')}`, 'err');
         this.emit('alarm', code, ALARMS[code] || '');
         if (this.job) this.stopJob(true);
         this.flushQueues('Alarm');

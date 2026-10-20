@@ -2272,7 +2272,7 @@
     if (!S.job) { status('Zuerst einen Auftrag laden (Projekt oder Datei).', true); return; }
     if (S.grbl.job) { S.grbl.resumeJob(); return; }
     if (S.grbl.status.state === 'Alarm') { status('Maschine ist im Alarm – zuerst entsperren.', true); return; }
-    const firstTool = (S.job.text.match(/\((.*?) - (.*?)\)/) || [])[2];
+    const firstTool = (S.job.text.match(/\n\((.*?) - (.*?)\)\r?\n(?:\(DREHREGLER[^\n]*\n)?M3/) || [])[2];
     const firstDial = (S.job.text.match(/\(DREHREGLER (Stufe \d+ = ca\. \d+ U\/min)\)/) || [])[1];
     const ok = await modal('Vor dem Start prüfen', `<ul>
       <li>Werkstück fest eingespannt, Spannmittel außerhalb der Fräsbahnen?</li>
@@ -2685,22 +2685,24 @@
   // Beispiel: Holzschild mit Schrift (V-Carving), Bohrungen und Ausschnitt mit Haltestegen
   function loadExample() {
     const d = newDoc({ w: 220, h: 120, t: 10, material: 'weichholz' });
-    d.name = 'Beispiel Holzschild';
-    const plate = SH.make('rect', { name: 'Schild', w: 200, h: 100, r: 12 });
+    // Beispiel in der gewählten Sprache anlegen (auch die gefräste Schrift)
+    d.name = tr('Beispiel Holzschild');
+    const plate = SH.make('rect', { name: tr('Schild'), w: 200, h: 100, r: 12 });
     plate.tf = M.translate(110, 60);
-    const txt = SH.make('text', { name: 'Text: Werkstatt', text: 'Werkstatt', font: 'Alfa Slab One', size: 30, align: 'center', spacing: 0, lineHeight: 1.2 });
+    const word = tr('Werkstatt');
+    const txt = SH.make('text', { name: tr('Text: ') + word, text: word, font: 'Alfa Slab One', size: 30, align: 'center', spacing: 0, lineHeight: 1.2 });
     const tb = geo.bounds(SH.lines(txt).map((l) => l.pts));
     txt.tf = M.translate(110 - (tb.x0 + tb.x1) / 2, 64 - (tb.y0 + tb.y1) / 2);
-    const frame = SH.make('rect', { name: 'Zierrahmen', w: 176, h: 76, r: 8 });
+    const frame = SH.make('rect', { name: tr('Zierrahmen'), w: 176, h: 76, r: 8 });
     frame.tf = M.translate(110, 60);
-    const h1 = SH.make('ellipse', { name: 'Bohrung links', rx: 2.5, ry: 2.5 }); h1.tf = M.translate(22, 60);
-    const h2 = SH.make('ellipse', { name: 'Bohrung rechts', rx: 2.5, ry: 2.5 }); h2.tf = M.translate(198, 60);
+    const h1 = SH.make('ellipse', { name: tr('Bohrung links'), rx: 2.5, ry: 2.5 }); h1.tf = M.translate(22, 60);
+    const h2 = SH.make('ellipse', { name: tr('Bohrung rechts'), rx: 2.5, ry: 2.5 }); h2.tf = M.translate(198, 60);
     d.objects.push(plate, frame, txt, h1, h2);
     const v = CAM.makeOp('vcarve', [txt.id], 't6');
     v.maxDepth = 2.5; v.clearToolId = 't1';
     const e = CAM.makeOp('engrave', [frame.id], 't6'); e.depth = 1;
-    const dr = CAM.makeOp('drill', [h1.id, h2.id], 't1'); dr.depth = 10.3; dr.name = 'Bohrungen Ø 5';
-    const p = CAM.makeOp('profile', [plate.id], 't1'); p.depth = 10.3; p.tabs = true; p.tabHeight = 2; p.name = 'Ausschneiden';
+    const dr = CAM.makeOp('drill', [h1.id, h2.id], 't1'); dr.depth = 10.3; dr.name = tr('Bohrungen Ø 5');
+    const p = CAM.makeOp('profile', [plate.id], 't1'); p.depth = 10.3; p.tabs = true; p.tabHeight = 2; p.name = tr('Ausschneiden');
     d.ops.push(e, v, dr, p); // gleiche Werkzeuge hintereinander: nur ein Wechsel
     S.doc = d; S.sel = []; S.results.clear(); S.undo = []; S.redo = []; S.selOp = v.id;
     changed(); fit();
@@ -2727,6 +2729,21 @@
   updateSnapInfo();
   setTool('select');
   renderSide();
+  // Sprache: DOM-Texte übersetzt i18n.js selbst; was aus JS-Zustand entsteht, wird hier neu gezeichnet
+  function langChanged() {
+    $('#droX').textContent = fmt3(S.grbl ? S.grbl.status.wpos.x : 0);
+    $('#droY').textContent = fmt3(S.grbl ? S.grbl.status.wpos.y : 0);
+    $('#droZ').textContent = fmt3(S.grbl ? S.grbl.status.wpos.z : 0);
+    $('[data-step="0.1"]').textContent = fmt(0.1, 1);
+    renderSide(); updUndo(); updConn(); redraw();
+    if (S.mode === 'sim' && S.gc) simInfo();
+  }
+  if (window.HW && HW.i18n) {
+    HW.i18n.listeners.push(langChanged);
+    $$('[data-lang-btn]').forEach((b) => b.addEventListener('click', () => { b.blur(); HW.i18n.setLang(b.dataset.langBtn); }));
+    HW.i18n.start();
+    langChanged();
+  }
   requestAnimationFrame(() => { fit(); if (!store.get('fs.welcomed', false)) welcomeDialog(); });
   window.addEventListener('beforeunload', (e) => { if (S.grbl && S.grbl.job) { e.preventDefault(); e.returnValue = ''; } });
   matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => { readColors(); redraw(); });
