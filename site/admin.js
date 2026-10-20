@@ -171,6 +171,7 @@
       <label>${T('Programm', 'Program')}<select id="kP">${Object.entries(P).map(([k, v]) => `<option value="${k}">${esc(v.name)}</option>`).join('')}</select></label>
       <label>${T('Name / Firma', 'Name / company')}<input id="kN"></label><label>${T('E-Mail', 'Email')}<input type="email" id="kE"></label>
       <div class="grid2"><label>${T('Geräte je Lizenz', 'Devices per license')}<input type="number" id="kM" value="2" min="1" max="50"></label><label>${T('Anzahl Schlüssel', 'Number of keys')}<input type="number" id="kC" value="1" min="1" max="50"></label></div>
+      <label>${T('Sprache der E-Mail', 'Email language')}<select id="kL"><option value="de">Deutsch</option><option value="en">English</option><option value="da">Dansk</option></select></label>
       <label>${T('Notiz (z. B. Rechnungsnummer)', 'Note (e.g. invoice number)')}<input id="kNo"></label>
       <label class="check"><input type="checkbox" id="kMail" checked> <span>${T('Schlüssel per E-Mail an den Kunden schicken', 'Email the key to the customer')}</span></label>
       <div id="kMsg"></div>
@@ -180,7 +181,7 @@
     $('kClose').onclick = () => { dlg.close(); keys(); };
     $('kSave').onclick = async () => {
       try {
-        const r = await api('/api/admin/licenses', { method: 'POST', body: { product: $('kP').value, name: $('kN').value, email: $('kE').value, max: +$('kM').value, count: +$('kC').value, note: $('kNo').value, mail: $('kMail').checked } });
+        const r = await api('/api/admin/licenses', { method: 'POST', body: { product: $('kP').value, name: $('kN').value, email: $('kE').value, max: +$('kM').value, count: +$('kC').value, note: $('kNo').value, mail: $('kMail').checked, lang: $('kL').value } });
         $('kMsg').innerHTML = `<div class="msg ok">${T('Angelegt:', 'Created:')}<br>${r.list.map((l) => `<input readonly value="${esc(l.key)}">`).join('')}</div>`;
         $('kSave').disabled = true;
       } catch (e) { $('kMsg').innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }

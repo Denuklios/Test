@@ -2,6 +2,7 @@
 
 HTML-Fragmente (ohne `<html>/<head>`) für Impressum, AGB, Widerrufsbelehrung,
 Datenschutzerklärung und Lizenzen – jeweils Deutsch (`*.de.html`) und Englisch (`*.en.html`, Übersetzung).
+Dänisch: `*.da.html`, abrufbar unter `/legal/<seite>?lang=da` (fehlt die dänische Datei, wird die englische, sonst die deutsche angezeigt; Platzhalter dann in deren Sprache, `license_term_da`/`price_text_da` fallen auf Englisch zurück).
 **Alle Texte sind Entwürfe und keine Rechtsberatung. Vor der Veröffentlichung anwaltlich prüfen lassen.**
 
 | Datei | Inhalt |

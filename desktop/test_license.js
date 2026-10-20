@@ -122,6 +122,25 @@ const DAY = 864e5;
     ok(st.status === 'licensed', 'Nach Verlängerung: „Jetzt prüfen“ schaltet die neue Version frei');
   }
 
+  // Sprache der Meldungen: Standard Deutsch, sonst Englisch/Dänisch (auch die Meldungen vom Server)
+  {
+    const dir9 = path.join(tmp, 'u9');
+    const da = DL.create(cfg, dir9, { now, fetch: fakeFetch, machine: '8'.repeat(32), trailFile: path.join(dir9, 's'), lang: 'da' });
+    da.state();
+    t += 20 * DAY;
+    ok(da.lang === 'da' && /Prøveperioden er udløbet/.test(da.state().message), 'Dänisch: Testzeit abgelaufen');
+    da.setLang('en');
+    ok(/trial period has ended/.test(da.state().message), 'Englisch nach setLang');
+    da.setLang('xx');
+    ok(da.lang === 'en', 'Unbekannte Sprache wird ignoriert');
+    da.setLang('da');
+    err = await da.activate('LSR-' + lic.key.slice(4)).catch((e) => e.message);
+    ok(/licens|nøgle/i.test(err), 'Dänische Meldung vom Server: ' + err);
+    err = await da.activate('FRS-' + lic.key.slice(4)).catch((e) => e.message);
+    ok(/ikke en nøgle til LaserStudio|tastefejl/.test(err), 'Dänisch: Schlüssel eines anderen Programms abgelehnt');
+    ok(DL.mapLocale('de-AT') === 'de' && DL.mapLocale('da') === 'da' && DL.mapLocale('nb-NO') === 'da' && DL.mapLocale('fr-FR') === 'en' && DL.mapLocale('') === 'en', 'Systemsprache → de/da/en');
+  }
+
   ok(/^[0-9a-f]{32}$/.test(DL.machineId('laser')), 'Gerätekennung dieses Rechners: ' + DL.machineId('laser'));
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log(fail ? `${fail} Fehler` : 'Alle Desktop-Lizenz-Tests bestanden.');

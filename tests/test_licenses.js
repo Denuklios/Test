@@ -67,7 +67,7 @@ const ok = (c, m) => { if (!c) { fail++; console.log('FEHLER:', m); } else conso
   ok(r.status === 200 && r.data.ok && r.data.name === 'Max Muster', 'Aktivierung auf Gerät 1');
   const tok = L.verifyToken(pub, r.data.token);
   ok(tok && tok.m === m1 && tok.p === 'laser' && tok.exp > tok.chk && tok.chk > Date.now(), 'Freigabe ist signiert und an das Gerät gebunden');
-  ok(L.verifyToken(pub, r.data.token.replace(/.$/, (c) => (c === 'A' ? 'B' : 'A'))) === null, 'Veränderte Freigabe wird abgelehnt');
+  ok(L.verifyToken(pub, ((t) => { const i = t.length - 10; return t.slice(0, i) + (t[i] === 'A' ? 'B' : 'A') + t.slice(i + 1); })(r.data.token)) === null, 'Veränderte Freigabe wird abgelehnt');
   const fake = crypto.generateKeyPairSync('ed25519').privateKey;
   ok(L.verifyToken(pub, L.signToken(fake, { ...tok, exp: tok.exp * 2 })) === null, 'Selbst gebaute Freigabe (fremder Schlüssel) wird abgelehnt');
   r = await call('/api/license/activate', { key: lic.key, machine: m1, product: 'stick' });
@@ -136,6 +136,38 @@ const ok = (c, m) => { if (!c) { fail++; console.log('FEHLER:', m); } else conso
     ok(before >= 1 && LIC.dueReminders(14).length === 0, 'Erinnerung vor Ende der Updates (einmal)');
     r = await call('/api/admin/licenses/' + id2, { addYear: true }, { admin: true });
     ok(r.data.updates_until > Date.now() + 360 * 864e5, 'Verwaltung: +1 Jahr Updates');
+  }
+
+  // Sprache der Lizenz-E-Mails: aus dem Kauf (Kauf-Link, Land, Währung), gespeichert an der Lizenz für spätere Erinnerungen
+  {
+    const mail = require('../server/mail.js');
+    const S = require('../server/server.js');
+    const sent = [];
+    const orig = mail.send;
+    mail.send = async (to, subject, text) => { sent.push({ to, subject, text }); return true; };
+    try {
+      r = await hook({ meta: { event_name: 'order_created', custom_data: { lang: 'da' } }, data: { type: 'orders', id: '9101', attributes: { user_email: 'dansk@example.com', user_name: 'Mette', first_order_item: { variant_id: 111 } } } });
+      let l = LIC.list('dansk@example.com')[0];
+      let m = sent.find((x) => x.to === 'dansk@example.com');
+      ok(l && l.lang === 'da' && m && m.subject === 'Din licensnøgle' && /Hej Mette,/.test(m.text) && /mange tak for dit køb/.test(m.text), 'Kauf mit checkout[custom][lang]=da → dänische Lizenz-E-Mail, Sprache an der Lizenz');
+      r = await hook({ meta: { event_name: 'order_created' }, data: { type: 'orders', id: '9102', attributes: { user_email: 'wien@example.com', country: 'AT', first_order_item: { variant_id: 111 } } } });
+      ok(LIC.list('wien@example.com')[0].lang === 'de' && sent.find((x) => x.to === 'wien@example.com').subject === 'Dein Lizenzschlüssel', 'Land AT → deutsch');
+      r = await hook({ meta: { event_name: 'order_created' }, data: { type: 'orders', id: '9103', attributes: { user_email: 'paris@example.com', country: 'FR', first_order_item: { variant_id: 111 } } } });
+      ok(LIC.list('paris@example.com')[0].lang === 'en' && sent.find((x) => x.to === 'paris@example.com').subject === 'Your license key', 'Land FR → englisch');
+      ok(S.orderLang({ currency: 'DKK' }) === 'da' && S.orderLang({}) === 'de' && S.orderLang({ country: 'DK' }, { lang: 'en' }) === 'en', 'Kaufsprache: Kauf-Link vor Land vor Währung, sonst deutsch');
+      // Erinnerung vor Ende der Updates in der Sprache der Lizenz
+      l = LIC.list('dansk@example.com')[0];
+      LIC.update(l.id, { updatesUntil: Date.now() + 5 * 864e5 });
+      sent.length = 0;
+      await updateReminders();
+      m = sent.find((x) => x.to === 'dansk@example.com');
+      ok(m && /opdateringerne slutter den \d{1,2}\.\d{1,2}\.\d{4}/.test(m.subject) && /Hej Mette,/.test(m.text), 'Update-Erinnerung auf Dänisch (Datum da-DK)');
+      // Verlängerung: Bestätigung auf Dänisch
+      sent.length = 0;
+      await hook({ meta: { event_name: 'order_created', custom_data: { license_key: l.key } }, data: { type: 'orders', id: '7101', attributes: { user_email: 'dansk@example.com', first_order_item: { variant_id: 333 } } } });
+      m = sent.find((x) => x.to === 'dansk@example.com');
+      ok(m && /opdateringer forlænget/.test(m.subject), 'Verlängerungs-E-Mail auf Dänisch');
+    } finally { mail.send = orig; }
   }
 
   // Schlüssel bleibt nach Neustart gleich (Datei im Datenordner)

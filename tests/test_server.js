@@ -312,6 +312,59 @@ const ok = (c, m) => { if (!c) { fail++; console.log('FEHLER:', m); } else conso
     fake.close();
   }
 
+  // Dänisch: Sprache wählen, Browser-Sprache, Wörterbuch vollständig, Rechtstexte mit Ersatzsprache
+  {
+    const pages = require('../server/pages.js');
+    const S = require('../server/server.js');
+    const keys = (l) => Object.keys(pages.T[l]).sort().join(',');
+    ok(keys('da') === keys('de') && keys('en') === keys('de'), 'Wörterbücher de/en/da haben dieselben Schlüssel');
+    ok(Object.values(pages.T.da).every((v) => typeof v === 'string' && v.trim()), 'dänisches Wörterbuch ohne leere Texte');
+    const fake = (url, headers = {}) => ({ url, headers });
+    ok(S.langOf(fake('/login?lang=da')) === 'da', 'langOf: ?lang=da');
+    ok(S.langOf(fake('/login', { cookie: 'lang=da' })) === 'da', 'langOf: Cookie lang=da');
+    ok(S.langOf(fake('/login'), { lang: 'da' }) === 'da', 'langOf: Kontosprache da');
+    ok(S.langOf(fake('/login', { 'accept-language': 'da-DK,da;q=0.9,en;q=0.8' })) === 'da', 'langOf: Accept-Language da-DK');
+    ok(S.langOf(fake('/login', { 'accept-language': 'nb-NO,nb;q=0.9' })) === 'da', 'langOf: Norwegisch → da');
+    ok(S.langOf(fake('/login', { 'accept-language': 'de-AT,de;q=0.9' })) === 'de', 'langOf: de-AT → de');
+    ok(S.langOf(fake('/login', { 'accept-language': 'fr-FR,fr;q=0.9,de;q=0.5' })) === 'en', 'langOf: Französisch → en');
+    ok(S.langOf(fake('/login')) === 'de', 'langOf: ohne Angabe → de');
+    ok(S.langOfCountry('DK') === 'da' && S.langOfCountry('AT') === 'de' && S.langOfCountry('se') === 'en' && S.langOfCountry('') === null, 'Land → Sprache');
+    r = await req('anon', '/login', { headers: { 'Accept-Language': 'da-DK,da;q=0.9' } });
+    let h = await r.text();
+    ok(h.includes('lang="da"') && h.includes('Log ind') && h.includes('?lang=de') && h.includes('?lang=en') && h.includes('?lang=da'), 'Anmeldeseite auf Dänisch mit Umschalter DE | EN | DA');
+    r = await req('anon', '/register?lang=da');
+    h = await r.text();
+    ok(h.includes('Opret konto') && h.includes('value="da"') && (r.headers.getSetCookie ? r.headers.getSetCookie() : []).some((c) => c.startsWith('lang=da')), 'Registrierung auf Dänisch (Sprache wird gemerkt)');
+    r = await req('anon', '/kuendigen?lang=da');
+    ok((await r.text()).includes('Opsig abonnement'), 'Kündigungsseite auf Dänisch');
+    r = await req('anon', '/legal/agb?lang=da');
+    ok(r.status === 200 && (await r.text()).includes('lang="da"'), 'Rechtstexte mit ?lang=da');
+    // Ersatzsprache: fehlt die dänische Fassung, kommt die englische, sonst die deutsche
+    const root = fs.mkdtempSync(path.join(os.tmpdir(), 'legal-'));
+    fs.mkdirSync(path.join(root, 'legal'));
+    fs.writeFileSync(path.join(root, 'legal', 'agb.de.html'), '<h1>AGB</h1><p>Laufzeit {{license_term}}</p>');
+    fs.writeFileSync(path.join(root, 'legal', 'agb.en.html'), '<h1>Terms</h1><p>Term {{license_term}} {{price_text}}</p>');
+    fs.writeFileSync(path.join(root, 'legal', 'impressum.de.html'), '<h1>Impressum</h1>');
+    fs.writeFileSync(path.join(root, 'legal', 'widerruf.da.html'), '<h1>Fortrydelsesret</h1><p>{{license_term}}</p>');
+    const st = { license_term_de: '12 Monate', license_term_en: '1 month', price_text_en: '€9 per month' };
+    h = pages.legal(root, 'da', 'agb', st);
+    ok(h.includes('<h1>Terms</h1>') && h.includes('lang="en"') && h.includes('1 month') && h.includes('€9 per month') && h.includes('Handelsbetingelser'), 'Dänisch fehlt → englische Fassung (Platzhalter englisch, Rahmen dänisch)');
+    h = pages.legal(root, 'da', 'impressum', st);
+    ok(h.includes('<h1>Impressum</h1>') && h.includes('lang="de"'), 'Dänisch und Englisch fehlen → deutsche Fassung');
+    h = pages.legal(root, 'da', 'widerruf', st);
+    ok(h.includes('Fortrydelsesret') && h.includes('1 måned'), 'dänische Fassung: Laufzeit aus der englischen abgeleitet');
+    ok(pages.legal(root, 'da', 'widerruf', { ...st, license_term_da: '3 måneder' }).includes('3 måneder'), 'dänische Laufzeit aus den Einstellungen');
+    ok(pages.legal(root, 'da', 'datenschutz', st) === null, 'fehlender Rechtstext → null');
+    fs.rmSync(root, { recursive: true, force: true });
+    // Sprache im Konto auf Dänisch
+    r = await api('kunde2', '/api/account/lang', 'POST', { lang: 'da' });
+    ok(r.status === 200 && db.prepare('SELECT lang FROM users WHERE email = ?').get('kunde@example.com').lang === 'da', 'Kontosprache Dänisch speicherbar');
+    r = await req('kunde2', '/account');
+    ok((await r.text()).includes('data-lang="da"'), 'Kontoseite auf Dänisch');
+    r = await api('kunde2', '/api/account/lang', 'POST', { lang: 'xx' });
+    ok(db.prepare('SELECT lang FROM users WHERE email = ?').get('kunde@example.com').lang === 'de', 'unbekannte Sprache → de');
+  }
+
   // Konto löschen (DSGVO)
   r = await api('kunde2', '/api/account', 'DELETE', { password: 'neues-passwort-99' });
   ok(r.status === 200 && !db.prepare('SELECT * FROM users WHERE email = ?').get('kunde@example.com'), 'Konto gelöscht');
