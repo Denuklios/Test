@@ -63,7 +63,7 @@ function shouldNagTrial() {
 async function periodicCheck() {
   let st = lic.state();
   if (st.status === 'licensed' && st.checkDue) st = await lic.check();
-  if (st.status === 'offline' && st.key) st = await lic.check();
+  if ((st.status === 'offline' || st.status === 'updates') && st.key) st = await lic.check();
   if (!win) return;
   if (current === 'app' && !usable(st)) {
     dialog.showMessageBox(win, { type: 'warning', title: cfg.name, message: st.message || 'Die Lizenz ist nicht mehr gültig.', detail: 'Ungespeicherte Arbeit bitte jetzt sichern. Das Lizenzfenster öffnet sich danach.', buttons: ['OK'] }).then(() => showLicense(st.status));
@@ -75,7 +75,7 @@ async function periodicCheck() {
 }
 
 // ---- Lizenzfenster ↔ Hauptprozess
-ipcMain.handle('license:info', () => ({ ...lic.state(), product: cfg.product, name: cfg.name, code: cfg.code, machine: lic.machine, buyUrl: cfg.buyUrl || '', server: !!cfg.server, version: cfg.version, trialDays: cfg.trialDays }));
+ipcMain.handle('license:info', () => ({ ...lic.state(), product: cfg.product, name: cfg.name, code: cfg.code, machine: lic.machine, buyUrl: cfg.buyUrl || '', renewUrl: cfg.renewUrl || '', server: !!cfg.server, version: cfg.version, released: cfg.released, trialDays: cfg.trialDays }));
 ipcMain.handle('license:activate', async (e, key) => { try { return { ok: true, state: await lic.activate(key) }; } catch (x) { return { ok: false, message: x.message }; } });
 ipcMain.handle('license:offline', (e, key, code) => { try { return { ok: true, state: lic.offline(key, code) }; } catch (x) { return { ok: false, message: x.message }; } });
 ipcMain.handle('license:check', async () => ({ ok: true, state: await lic.check() }));
@@ -87,6 +87,11 @@ ipcMain.handle('license:deactivate', async () => {
 ipcMain.handle('license:continue', () => { const st = lic.state(); if (usable(st)) showApp(st); return st; });
 ipcMain.handle('license:open', () => showLicense());
 ipcMain.on('license:buy', () => { if (cfg.buyUrl) shell.openExternal(cfg.buyUrl); });
+// Update-Verlängerung kaufen: Schlüssel geht mit, damit der Server die richtige Lizenz verlängert
+ipcMain.on('license:renew', () => {
+  if (!cfg.renewUrl) return;
+  try { const u = new URL(cfg.renewUrl); const st = lic.state(); if (st.key) u.searchParams.set('checkout[custom][license_key]', st.key); shell.openExternal(u.toString()); } catch (e) { shell.openExternal(cfg.renewUrl); }
+});
 
 // ---- USB-Anschluss wählen (Web Serial): Liste geht an das Programmfenster, die Auswahl kommt zurück
 ipcMain.on('serial:chosen', (e, id) => { if (serialPick) { serialPick(id || ''); serialPick = null; } });

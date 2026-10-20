@@ -10,10 +10,12 @@ process.env.ADMIN_PASSWORD = 'admin-passwort-123';
 process.env.GEOIP = 'off';
 process.env.LEMONSQUEEZY_SECRET = 'ls-geheim';
 process.env.LICENSE_VARIANTS = '111:laser, 222:fraes';
+process.env.LICENSE_RENEW_VARIANTS = '333:laser';
+process.env.LICENSE_RENEW_URLS = 'laser=https://shop.example/renew-laser';
 delete process.env.SMTP_HOST;
 delete process.env.LICENSE_PRIVATE_KEY;
 const L = require('../server/licenses.js');
-const { server, ensureAdmin } = require('../server/server.js');
+const { server, ensureAdmin, LIC, updateReminders } = require('../server/server.js');
 
 let fail = 0;
 const ok = (c, m) => { if (!c) { fail++; console.log('FEHLER:', m); } else console.log('ok', m); };
@@ -110,6 +112,31 @@ const ok = (c, m) => { if (!c) { fail++; console.log('FEHLER:', m); } else conso
   r = await hook({ meta: { event_name: 'order_refunded' }, data: { type: 'orders', id: '9001', attributes: {} } });
   r = await call('/api/license/activate', { key: bought.key, machine: m1, product: 'fraes' });
   ok(r.status === 403, 'Nach Erstattung gesperrt');
+
+  // Updates: 1 Jahr inklusive, Verlängerung per Kauf, Erinnerung
+  {
+    const l2 = LIC.create({ product: 'laser', name: 'Upd', email: 'upd@example.com' });
+    const d1 = l2.updates_until - Date.now();
+    ok(Math.abs(d1 - 365 * 864e5) < 6e4, 'Neue Lizenz: Updates 1 Jahr inklusive');
+    r = await call('/api/license/activate', { key: l2.key, machine: m2, product: 'laser' });
+    ok(L.verifyToken(pub, r.data.token).u === l2.updates_until, 'Freigabe enthält „Updates bis“');
+    r = await hook({ meta: { event_name: 'order_created', custom_data: { license_key: l2.key } }, data: { type: 'orders', id: '7001', attributes: { user_email: 'irgendwer@example.com', first_order_item: { variant_id: 333, quantity: 1 } } } });
+    const l2b = LIC.byKey(l2.key);
+    ok(Math.abs(l2b.updates_until - l2.updates_until - 365 * 864e5) < 6e4, 'Verlängerung (Schlüssel aus dem Kauf-Link) verschiebt um 1 Jahr');
+    await hook({ meta: { event_name: 'order_created', custom_data: { license_key: l2.key } }, data: { type: 'orders', id: '7001', attributes: { first_order_item: { variant_id: 333 } } } });
+    ok(LIC.byKey(l2.key).updates_until === l2b.updates_until, 'Doppelter Webhook verlängert nicht zweimal');
+    await hook({ meta: { event_name: 'order_created' }, data: { type: 'orders', id: '7002', attributes: { user_email: 'upd@example.com', first_order_item: { variant_id: 333 } } } });
+    ok(LIC.byKey(l2.key).updates_until > l2b.updates_until, 'Verlängerung ohne Schlüssel: über die E-Mail gefunden');
+    r = await call('/api/license/check', { key: l2.key, machine: m2, product: 'laser' });
+    ok(L.verifyToken(pub, r.data.token).u === LIC.byKey(l2.key).updates_until, 'Nächste Prüfung liefert das neue Datum');
+    const id2 = LIC.byKey(l2.key).id;
+    await call('/api/admin/licenses/' + id2, { updatesUntil: Date.now() + 5 * 864e5 }, { admin: true });
+    const before = (LIC.dueReminders(14) || []).length;
+    await updateReminders();
+    ok(before >= 1 && LIC.dueReminders(14).length === 0, 'Erinnerung vor Ende der Updates (einmal)');
+    r = await call('/api/admin/licenses/' + id2, { addYear: true }, { admin: true });
+    ok(r.data.updates_until > Date.now() + 360 * 864e5, 'Verwaltung: +1 Jahr Updates');
+  }
 
   // Schlüssel bleibt nach Neustart gleich (Datei im Datenordner)
   ok(fs.existsSync(path.join(tmp, 'license-signing.pem')), 'Signaturschlüssel im Datenordner gespeichert');

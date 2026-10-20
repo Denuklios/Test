@@ -151,13 +151,14 @@
     const d = await api('/api/admin/licenses?q=' + encodeURIComponent(q));
     const P = d.products;
     tab.innerHTML = `<div class="row"><input id="kq" placeholder="${T('Suchen: Schlüssel, E-Mail, Name, Bestellung', 'Search: key, email, name, order')}" value="${esc(q)}" style="flex:1"><button id="knew">+ ${T('Lizenz anlegen', 'Create license')}</button></div>
-      ${d.list.length ? `<table class="list"><tr><th>${T('Schlüssel', 'Key')}</th><th>${T('Programm', 'Program')}</th><th>${T('Kunde', 'Customer')}</th><th>${T('Geräte', 'Devices')}</th><th>${T('Zuletzt geprüft', 'Last check')}</th><th>Status</th><th></th></tr>
+      ${d.list.length ? `<table class="list"><tr><th>${T('Schlüssel', 'Key')}</th><th>${T('Programm', 'Program')}</th><th>${T('Kunde', 'Customer')}</th><th>${T('Geräte', 'Devices')}</th><th>${T('Updates bis', 'Updates until')}</th><th>${T('Zuletzt geprüft', 'Last check')}</th><th>Status</th><th></th></tr>
       ${d.list.map((l) => `<tr><td><code>${esc(l.key)}</code>${l.order_id ? `<br><span class="muted">${T('Bestellung', 'Order')} ${esc(l.order_id)}</span>` : ''}</td><td>${esc((P[l.product] || {}).name || l.product)}</td>
-        <td>${esc(l.name)}<br><span class="muted">${esc(l.email)}</span></td><td>${l.used} / ${l.max_devices}</td><td>${l.seen ? ago(l.seen) : T('noch nie', 'never')}</td>
+        <td>${esc(l.name)}<br><span class="muted">${esc(l.email)}</span></td><td>${l.used} / ${l.max_devices}</td><td>${l.updates_until < Date.now() ? `<span class="muted">${date(l.updates_until)}</span>` : date(l.updates_until)}</td><td>${l.seen ? ago(l.seen) : T('noch nie', 'never')}</td>
         <td>${l.revoked ? `<span class="pill bad">${T('gesperrt', 'revoked')}</span>` : `<span class="pill ok">${T('gültig', 'valid')}</span>`}</td><td><button data-kedit="${l.id}">${T('Details', 'Details')}</button></td></tr>`).join('')}</table>`
         : `<p class="muted">${T('Noch keine Kauf-Lizenzen.', 'No purchase licenses yet.')}</p>`}
       <h2>${T('So kommen Kunden zu ihrem Schlüssel', 'How customers get their key')}</h2>
       <p>${d.variants ? T('Automatisch: Kauf über Lemon Squeezy (Einmalkauf) → Schlüssel per E-Mail. Zuordnung über <code>LICENSE_VARIANTS</code> ist eingerichtet.', 'Automatic: purchase via Lemon Squeezy → key by email. <code>LICENSE_VARIANTS</code> is set.')
+        + T(' Update-Verlängerungen: <code>LICENSE_RENEW_VARIANTS</code> (Varianten der Verlängerung) und <code>LICENSE_RENEW_URLS</code> (Kauf-Links für die Erinnerungs-Mail).', ' Renewals: LICENSE_RENEW_VARIANTS and LICENSE_RENEW_URLS.')
         : T('Für den automatischen Versand nach dem Kauf in <code>/etc/stickstudio.env</code> eintragen: <code>LICENSE_VARIANTS=Varianten-ID:laser,Varianten-ID:fraes,Varianten-ID:stick</code> (IDs aus Lemon Squeezy, Produkt als Einmalkauf). Bis dahin hier von Hand anlegen.', 'For automatic delivery set <code>LICENSE_VARIANTS=variantId:laser,…</code>. Until then create keys here.')}</p>
       <details><summary>${T('Öffentlicher Schlüssel für die Desktop-Programme', 'Public key for the desktop programs')}</summary><p class="muted">${T('Muss in den Programmen hinterlegt sein (Datei <code>desktop/license-public.pem</code>), sonst erkennen sie die Freigaben dieses Servers nicht.', 'Must be built into the programs (desktop/license-public.pem).')}</p><textarea readonly rows="4" style="width:100%;font-family:monospace">${esc(d.publicKey)}</textarea></details>`;
     const qi = document.getElementById('kq');
@@ -189,7 +190,9 @@
     const l = await api('/api/admin/licenses/' + id);
     dlg.innerHTML = `<h2><code>${esc(l.key)}</code></h2>
       <div class="grid2"><label>${T('Name / Firma', 'Name / company')}<input id="dN" value="${esc(l.name)}"></label><label>${T('E-Mail', 'Email')}<input id="dE" value="${esc(l.email)}"></label></div>
-      <label>${T('Geräte je Lizenz', 'Devices per license')}<input type="number" id="dM" value="${l.max_devices}" min="1" max="50"></label>
+      <div class="grid2"><label>${T('Geräte je Lizenz', 'Devices per license')}<input type="number" id="dM" value="${l.max_devices}" min="1" max="50"></label>
+      <label>${T('Updates inklusive bis', 'Updates included until')}<input type="date" id="dU" value="${dIn(l.updates_until)}"></label></div>
+      <div class="row"><button id="dYear">+1 ${T('Jahr Updates', 'year of updates')}</button><span class="muted">${T('Gekauft am', 'Bought on')} ${date(l.created)}. ${T('Das Programm läuft immer weiter; neue Versionen nur bis zu diesem Datum.', 'The program keeps working; new versions only until this date.')}</span></div>
       <label>${T('Notiz', 'Note')}<textarea id="dNo">${esc(l.note)}</textarea></label>
       <label class="check"><input type="checkbox" id="dR" ${l.revoked ? 'checked' : ''}> <span>${T('Gesperrt (z. B. nach Erstattung oder Weitergabe) – das Programm sperrt sich bei der nächsten Prüfung', 'Revoked – the program locks at its next check')}</span></label>
       <h3>${T('Aktivierte Geräte', 'Activated devices')}</h3>
@@ -204,9 +207,10 @@
     const $ = (x) => document.getElementById(x);
     $('dClose').onclick = () => { dlg.close(); done(); };
     $('dSave').onclick = async () => {
-      try { await api('/api/admin/licenses/' + id, { method: 'POST', body: { name: $('dN').value, email: $('dE').value, max: +$('dM').value, note: $('dNo').value, revoked: $('dR').checked } }); dlg.close(); done(); }
+      try { await api('/api/admin/licenses/' + id, { method: 'POST', body: { name: $('dN').value, email: $('dE').value, max: +$('dM').value, note: $('dNo').value, revoked: $('dR').checked, updatesUntil: $('dU').value ? Date.parse($('dU').value + 'T23:59:59') : undefined } }); dlg.close(); done(); }
       catch (e) { $('dMsg').innerHTML = `<div class="msg err">${esc(e.message)}</div>`; }
     };
+    $('dYear').onclick = async () => { await api('/api/admin/licenses/' + id, { method: 'POST', body: { addYear: true } }); keyDetails(id, done); };
     dlg.querySelectorAll('[data-rm]').forEach((b) => (b.onclick = async () => { await api('/api/admin/licenses/' + id, { method: 'POST', body: { removeDevice: +b.dataset.rm } }); keyDetails(id, done); }));
     $('oGo').onclick = async () => {
       try { const r = await api(`/api/admin/licenses/${id}/offline`, { method: 'POST', body: { machine: $('oM').value, days: +$('oD').value } }); $('oOut').innerHTML = `<textarea readonly rows="4" style="width:100%;font-family:monospace">${esc(r.token)}</textarea>`; }
@@ -275,7 +279,7 @@
   let lkind = '', lq = '';
   async function log() {
     const { rows, kinds, keepDays } = await api('/api/admin/events?kind=' + encodeURIComponent(lkind) + '&q=' + encodeURIComponent(lq));
-    const KIND = { login: T('Anmeldung', 'Sign-in'), register: T('Registrierung', 'Sign-up'), 'password-change': T('Passwort geändert', 'Password changed'), 'password-reset': T('Passwort zurückgesetzt', 'Password reset'), abo: 'Abo', license: T('Lizenz', 'License'), kuendigung: T('Kündigung', 'Cancellation'), widerruf: T('Widerruf', 'Withdrawal'), zahlung: T('Zahlung', 'Payment'), refund: T('Erstattung', 'Refund'), 'admin-edit': T('Admin-Änderung', 'Admin change'), 'admin-export': 'Export', geoip: T('Länderdaten', 'Country data'), 'lizenz-neu': T('Kauf-Lizenz angelegt', 'License created'), 'lizenz-aktiviert': T('Lizenz aktiviert', 'License activated'), 'lizenz-freigegeben': T('Gerät freigegeben', 'Device released'), 'lizenz-gesperrt': T('Lizenz gesperrt', 'License revoked'), 'lizenz-entsperrt': T('Lizenz entsperrt', 'License restored'), 'lizenz-offline': T('Offline-Freischaltung', 'Offline activation') };
+    const KIND = { login: T('Anmeldung', 'Sign-in'), register: T('Registrierung', 'Sign-up'), 'password-change': T('Passwort geändert', 'Password changed'), 'password-reset': T('Passwort zurückgesetzt', 'Password reset'), abo: 'Abo', license: T('Lizenz', 'License'), kuendigung: T('Kündigung', 'Cancellation'), widerruf: T('Widerruf', 'Withdrawal'), zahlung: T('Zahlung', 'Payment'), refund: T('Erstattung', 'Refund'), 'admin-edit': T('Admin-Änderung', 'Admin change'), 'admin-export': 'Export', geoip: T('Länderdaten', 'Country data'), 'lizenz-neu': T('Kauf-Lizenz angelegt', 'License created'), 'lizenz-aktiviert': T('Lizenz aktiviert', 'License activated'), 'lizenz-freigegeben': T('Gerät freigegeben', 'Device released'), 'lizenz-gesperrt': T('Lizenz gesperrt', 'License revoked'), 'lizenz-entsperrt': T('Lizenz entsperrt', 'License restored'), 'lizenz-offline': T('Offline-Freischaltung', 'Offline activation'), 'lizenz-updates': T('Updates verlängert', 'Updates extended') };
     tab.innerHTML = `<div class="row" style="margin-bottom:8px;flex-wrap:wrap"><select id="lk"><option value="">${T('Alle Ereignisse', 'All events')}</option>${kinds.map((k) => `<option value="${esc(k.kind)}" ${lkind === k.kind ? 'selected' : ''}>${esc(KIND[k.kind] || k.kind)} (${k.n})</option>`).join('')}</select>
       <input id="lq" placeholder="${T('Suchen: E-Mail oder IP', 'Search: email or IP')}" value="${esc(lq)}" style="flex:1"></div>
       <table class="list"><tr><th>${T('Zeit', 'Time')}</th><th>${T('Konto', 'Account')}</th><th>${T('Ereignis', 'Event')}</th><th>Info</th></tr>

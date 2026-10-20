@@ -600,6 +600,13 @@ async function route(req, res) {
         await sendLicenseMail(made, email, attrs.user_name || '').catch((e) => logEvent(null, 'mail-fehler', e.message));
         return json(res, 200, { ok: true, licenses: made.length });
       }
+      // Update-Verlängerung einer Kauf-Lizenz
+      const ren = LIC.renewFromOrder(attrs, data.id, custom);
+      if (ren && ren.key) {
+        await sendRenewMail(ren).catch((e) => logEvent(null, 'mail-fehler', e.message));
+        return json(res, 200, { ok: true, renewed: ren.key });
+      }
+      if (ren) return json(res, 200, { ok: true, renewed: false });
     }
     if (name === 'order_refunded' && data.type === 'orders' && LIC.revokeOrder(data.id)) logEvent(null, 'lizenz-gesperrt', `Erstattung Bestellung ${data.id}`);
     let u = custom.user_id ? db.prepare('SELECT * FROM users WHERE id = ?').get(+custom.user_id) : null;
@@ -945,6 +952,36 @@ async function route(req, res) {
   return p.startsWith('/api/') ? json(res, 404, { error: 'not found' }) : page(pages.info(lang, pages.T[lang].notFound, pages.T[lang].notFound, false), 404);
 }
 
+// Kauf-Link für die Update-Verlängerung je Programm: LICENSE_RENEW_URLS="laser=https://… fraes=https://… stick=https://…"
+function renewUrl(product, key) {
+  const m = {};
+  for (const part of String(ENV.LICENSE_RENEW_URLS || '').split(/\s+/)) { const i = part.indexOf('='); if (i > 0) m[part.slice(0, i)] = part.slice(i + 1); }
+  if (!m[product]) return '';
+  try { const u = new URL(m[product]); u.searchParams.set('checkout[custom][license_key]', key); return u.toString(); } catch (e) { return m[product]; }
+}
+const dDE = (ms) => new Date(ms).toLocaleDateString('de-DE');
+async function sendRenewMail(lic) {
+  if (!lic.email) return false;
+  const name = (licenses.PRODUCTS[lic.product] || {}).name || lic.product;
+  return mail.send(lic.email, `${name}: Updates verlängert`, `Hallo${lic.name ? ' ' + lic.name : ''},
+
+vielen Dank! Die Updates für ${name} (${lic.key}) sind jetzt bis zum ${dDE(lic.updates_until)} freigeschaltet.
+Das Programm übernimmt das bei der nächsten Prüfung automatisch (oder sofort über „Programm → Lizenz jetzt prüfen“).
+${settings().company ? '\n' + settings().company : ''}`);
+}
+// Erinnerung etwa 2 Wochen bevor die inklusiven Updates enden
+async function updateReminders() {
+  for (const lic of LIC.dueReminders(14)) {
+    const name = (licenses.PRODUCTS[lic.product] || {}).name || lic.product, url = renewUrl(lic.product, lic.key);
+    await mail.send(lic.email, `${name}: Updates enden am ${dDE(lic.updates_until)}`, `Hallo${lic.name ? ' ' + lic.name : ''},
+
+die Updates für ${name} (${lic.key}) sind noch bis zum ${dDE(lic.updates_until)} inklusive.
+Dein Programm läuft danach ganz normal weiter – du bekommst nur keine neuen Versionen mehr.
+${url ? `\nWenn du weiter neue Funktionen und Verbesserungen bekommen möchtest, kannst du die Updates hier um ein Jahr verlängern:\n${url}\n` : ''}${settings().company ? '\n' + settings().company : ''}`).catch((e) => logEvent(null, 'mail-fehler', e.message));
+    LIC.markReminded(lic.id);
+  }
+}
+
 // Lizenzschlüssel per E-Mail an den Käufer
 async function sendLicenseMail(list, to, name) {
   if (!to) return false;
@@ -960,6 +997,9 @@ So geht es:
 1. Programm installieren und starten.
 2. Den Schlüssel im Fenster „Lizenz“ eingeben und auf „Freischalten“ klicken (einmal Internet nötig).
 3. Das Programm prüft die Lizenz danach gelegentlich im Hintergrund. Ohne Internet läuft es bis zu ${licenses.OFFLINE_DAYS} Tage weiter.
+
+Die Lizenz ist ein Kauf und gilt dauerhaft. Updates (neue Versionen) sind bis zum ${dDE(list[0].updates_until)} inklusive.
+Danach läuft dein Programm einfach weiter. Neue Versionen gibt es dann mit einer Update-Verlängerung.
 
 Eine Lizenz gilt für ${list[0].max_devices} Geräte. Beim Wechsel auf einen neuen Rechner im alten Programm unter „Lizenz“ → „Dieses Gerät freigeben“ abmelden.
 
@@ -1007,5 +1047,8 @@ if (require.main === module) {
   // stündlich: Verlängerungshinweise per E-Mail
   setInterval(() => renewalReminders().catch((e) => console.error(e)), 60 * 60e3).unref();
   setTimeout(() => renewalReminders().catch((e) => console.error(e)), 30e3).unref();
+  // Kauf-Lizenzen: Erinnerung vor dem Ende der inklusiven Updates
+  setInterval(() => updateReminders().catch((e) => console.error(e)), 6 * 60 * 60e3).unref();
+  setTimeout(() => updateReminders().catch((e) => console.error(e)), 60e3).unref();
 }
-module.exports = { server, db, ensureAdmin, createUser, license, renewalReminders, geo, LIC };
+module.exports = { server, db, ensureAdmin, createUser, license, renewalReminders, updateReminders, geo, LIC };

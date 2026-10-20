@@ -3,7 +3,24 @@
 StickStudio, FräsStudio und LaserStudio gibt es zusätzlich zur Browser-Version als **installierbare Programme**: Windows (`.exe`-Installer), Mac (`.dmg`) und Linux (`.AppImage`).
 Jedes Programm hat seinen eigenen Installer und seine eigene Lizenz.
 
-## So funktioniert die Lizenz (Kauf statt Abo)
+## Preise und Lizenzmodell
+
+**Kauf statt Abo:** einmal bezahlen, das Programm läuft dauerhaft. **Updates (neue Versionen) sind 1 Jahr inklusive.**
+- Danach läuft die vorhandene Version einfach weiter.
+- Wer neue Versionen möchte, kauft eine **Update-Verlängerung** um ein weiteres Jahr.
+- Die Programme werden **nur einzeln** verkauft, es gibt kein Paket.
+
+Preisvorschlag (Endpreis für Privatkunden, inkl. Moms):
+
+| Programm | Kauf inkl. 1 Jahr Updates | Update-Verlängerung je Jahr |
+|---|---|---|
+| LaserStudio | 79 € (Einführungspreis 59 €) | 29 € |
+| FräsStudio | 129 € | 39 € |
+| StickStudio | 199 € | 49 € |
+
+Die Preise legst du bei Lemon Squeezy fest. Im Programm steht kein Preis, nur die Kauf-Links.
+
+## So funktioniert die Lizenz
 
 1. **Testzeit:** Nach der Installation läuft das Programm 14 Tage ohne Schlüssel. In dieser Zeit fragt es beim Start einmal am Tag nach dem Lizenzschlüssel (Knopf „Weiter testen“). Eine Neuinstallation startet die Testzeit nicht neu.
 2. **Kauf:** Der Kunde bekommt einen Schlüssel wie `LSR-7K2QX-M9D4T-HB3WN-R8P6C`. Das Kürzel zeigt das Programm an: `STK` = StickStudio, `FRS` = FräsStudio, `LSR` = LaserStudio. Das letzte Zeichen ist ein Prüfzeichen und erkennt Tippfehler.
@@ -13,6 +30,12 @@ Jedes Programm hat seinen eigenen Installer und seine eigene Lizenz.
    - **Gesperrte Lizenz** (z. B. nach Erstattung oder Weitergabe): Das Programm sperrt sich bei der nächsten Prüfung. Vorher kann der Kunde noch speichern.
 5. **Geräte:** Eine Lizenz gilt standardmäßig für **2 Geräte**, je Lizenz in der Verwaltung änderbar. Beim Rechnerwechsel meldet der Kunde das alte Gerät unter *Programm → Lizenz … → Dieses Gerät freigeben* ab. Du kannst Geräte auch in der Verwaltung freigeben.
 6. **Ohne Internet:** Der Kunde schickt dir den **Gerätecode** aus dem Lizenzfenster. Du erzeugst in der Verwaltung einen Freischaltcode, Standard 365 Tage.
+7. **Updates:** Jede Lizenz hat ein Datum „Updates inklusive bis“, beim Kauf 1 Jahr. Jede Programmversion trägt ihr Erscheinungsdatum.
+   - Erscheint eine Version **nach** diesem Datum, öffnet sie sich nicht. Stattdessen sieht der Kunde: „Diese Version ist neuer als deine Updates – verlängern oder die bisherige Version weiter nutzen“, mit dem Knopf **„Updates verlängern“**.
+   - Nach dem Kauf der Verlängerung genügt „Jetzt prüfen“.
+   - Etwa **2 Wochen vor Ablauf** bekommt der Kunde eine E-Mail mit dem Verlängerungs-Link.
+   - In der Verwaltung siehst und änderst du das Datum je Lizenz. Mit „+1 Jahr Updates“ verlängerst du von Hand, z. B. als Kulanz.
+   - **Wichtig:** Ältere Installer aufheben und für Kunden mit abgelaufenen Updates bereithalten, z. B. als GitHub-Release je Version. Dafür in `settings.json` bei jeder neuen Version `version` erhöhen und `released` auf das Erscheinungsdatum setzen.
 
 **Schutz:**
 - **Freigaben fälschen:** Freigaben lassen sich nicht selbst bauen. Sie sind mit dem privaten Schlüssel signiert, und den hat nur dein Server.
@@ -27,11 +50,15 @@ Jedes Programm hat seinen eigenen Installer und seine eigene Lizenz.
 
 Das ist dein vorhandener StickStudio-Server (`server/`). Er hat dafür neue Teile bekommen:
 - **Verwaltung**, Reiter **„Kauf-Lizenzen (Desktop)“:** Schlüssel anlegen (einzeln oder mehrere, mit E-Mail an den Kunden), Geräte sehen und freigeben, sperren, Offline-Freischaltcodes erzeugen.
-- **Lemon Squeezy:** Einen Einmalkauf (kein Abo) je Programm anlegen und die Varianten-IDs in `/etc/stickstudio.env` eintragen:
+- **Lemon Squeezy:** Je Programm zwei Einmalkauf-Produkte anlegen (kein Abo): den **Kauf** und die **Update-Verlängerung (1 Jahr)**. Ihre Varianten-IDs und die Kauf-Links der Verlängerung in `/etc/stickstudio.env` eintragen:
   ```
   LICENSE_VARIANTS=123456:laser,234567:fraes,345678:stick
+  LICENSE_RENEW_VARIANTS=111111:laser,222222:fraes,333333:stick
+  LICENSE_RENEW_URLS="laser=https://wunsch-fabrik.lemonsqueezy.com/buy/… fraes=https://… stick=https://…"
   ```
-  Danach legt jeder Kauf automatisch einen Schlüssel an und schickt ihn per E-Mail. Eine Erstattung (`order_refunded`) sperrt ihn.
+  Was dann automatisch passiert:
+  - Jeder **Kauf** legt einen Schlüssel an und schickt ihn per E-Mail. Eine Erstattung (`order_refunded`) sperrt ihn.
+  - Eine **Verlängerung** verschiebt „Updates bis“ um ein Jahr. Die Lizenz wird dabei über den Schlüssel im Kauf-Link gefunden (den hängt das Programm selbst an), sonst über die E-Mail-Adresse.
 - **Signaturschlüssel:** Die Datei `license-signing.pem` bekommst du separat. **Geheim halten, nicht ins Git legen.** Vor `bash deploy/install.sh` nach `deploy/license-signing.pem` kopieren, das Skript übernimmt sie nach `/var/lib/stickstudio/`.
   - Der passende öffentliche Schlüssel liegt in `desktop/license-public.pem` und steckt in jedem Installer.
   - Geht die private Datei verloren: neues Schlüsselpaar erzeugen, `license-public.pem` ersetzen, Installer neu bauen. Kunden mit alten Installern müssen dann das Update installieren.
@@ -42,6 +69,8 @@ Das ist dein vorhandener StickStudio-Server (`server/`). Er hat dafür neue Teil
 |---|---|
 | `licenseServer` | Adresse deines Servers, z. B. `https://stick.deine-domain.de` (muss HTTPS sein) |
 | `buyUrl` | Kauf-Link je Programm, erscheint im Lizenzfenster als „Lizenz kaufen“ |
+| `renewUrl` | Kauf-Link der Update-Verlängerung je Programm, im Lizenzfenster als „Updates verlängern“ (der Schlüssel wird angehängt) |
+| `released` | Erscheinungsdatum dieser Version (`2026-11-01`). Leer = Tag des Bauens |
 | `trialDays` | Testzeit in Tagen (Standard 14) |
 | `version` | Versionsnummer der Installer |
 | `publisher` | Dein Firmenname (erscheint unter Windows als Herausgeber) |

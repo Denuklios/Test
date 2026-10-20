@@ -3,6 +3,8 @@
    - Aktivierung je Gerät (Standard: 2 Geräte je Lizenz), Prüfung „zwischendurch“: das Programm meldet sich
      regelmäßig und bekommt eine signierte Freigabe (Ed25519), die offline eine Weile gilt
    - Sperren (z. B. nach Erstattung), Geräte freigeben, Offline-Freischaltung für Rechner ohne Internet
+   - Kauf = dauerhaft nutzen, Updates 1 Jahr inklusive („Updates bis“). Neuere Programmversionen laufen nur,
+     wenn sie vor diesem Datum erschienen sind; ältere laufen für immer. Verlängern verschiebt das Datum um 1 Jahr.
    Der private Signaturschlüssel liegt nur auf dem Server (LICENSE_PRIVATE_KEY oder DATA_DIR/license-signing.pem). */
 'use strict';
 const fs = require('fs');
@@ -17,6 +19,7 @@ const PRODUCTS = {
 const DAY = 864e5;
 const CHECK_DAYS = 7; // so oft fragt das Programm nach
 const OFFLINE_DAYS = 30; // so lange gilt eine Freigabe ohne Internet
+const UPDATE_DAYS = 365; // Updates inklusive ab Kauf bzw. je Verlängerung
 const ALPHA = '0123456789ABCDEFGHJKMNPQRSTVWXYZ'; // Crockford Base32: ohne I, L, O, U
 
 function checksum(body) {
@@ -103,6 +106,13 @@ function init({ db, dataDir, env = process.env, now = Date.now, log = () => {} }
     );
     CREATE INDEX IF NOT EXISTS licenses_email ON licenses(email);
   `);
+  // Updates-Zeitraum bei bestehenden Datenbanken nachrüsten (bisherige Lizenzen: 1 Jahr ab Kauf)
+  const cols = new Set(db.prepare('PRAGMA table_info(licenses)').all().map((c) => c.name));
+  if (!cols.has('updates_until')) {
+    db.exec('ALTER TABLE licenses ADD COLUMN updates_until INTEGER NOT NULL DEFAULT 0');
+    db.prepare('UPDATE licenses SET updates_until = created + ?').run(UPDATE_DAYS * DAY);
+  }
+  if (!cols.has('upd_reminded')) db.exec('ALTER TABLE licenses ADD COLUMN upd_reminded INTEGER NOT NULL DEFAULT 0');
   const priv = loadSigningKey(dataDir, env);
   const pub = crypto.createPublicKey(priv);
   const publicPem = pub.export({ type: 'spki', format: 'pem' });
@@ -115,7 +125,7 @@ function init({ db, dataDir, env = process.env, now = Date.now, log = () => {} }
     const t = now();
     return signToken(priv, {
       v: 1, p: lic.product, k: crypto.createHash('sha256').update(lic.key).digest('hex').slice(0, 16), m: machine,
-      n: lic.name || lic.email || '', iat: t, chk: t + CHECK_DAYS * DAY, exp: t + (days || OFFLINE_DAYS) * DAY,
+      n: lic.name || lic.email || '', u: lic.updates_until || 0, iat: t, chk: t + CHECK_DAYS * DAY, exp: t + (days || OFFLINE_DAYS) * DAY,
     });
   }
 
@@ -137,7 +147,7 @@ function init({ db, dataDir, env = process.env, now = Date.now, log = () => {} }
     const t = now(), label = String(b.label || '').slice(0, 100), version = String(b.version || '').slice(0, 30);
     if (mine) db.prepare('UPDATE activations SET last = ?, label = ?, version = ?, ip = ? WHERE id = ?').run(t, label || mine.label, version, ip, mine.id);
     else { db.prepare('INSERT INTO activations(license_id, machine, label, version, ip, first, last) VALUES(?, ?, ?, ?, ?, ?, ?)').run(lic.id, machine, label, version, ip, t, t); log('lizenz-aktiviert', `${key} · ${label}`); }
-    return { ok: true, token: grant(lic, machine), name: lic.name || lic.email, product: lic.product, devices: have.length + (mine ? 0 : 1), max: lic.max_devices };
+    return { ok: true, token: grant(lic, machine), name: lic.name || lic.email, product: lic.product, devices: have.length + (mine ? 0 : 1), max: lic.max_devices, updatesUntil: lic.updates_until };
   }
 
   function deactivate(b) {
@@ -149,12 +159,13 @@ function init({ db, dataDir, env = process.env, now = Date.now, log = () => {} }
     return { ok: true };
   }
 
-  function create({ product, name = '', email = '', max = 2, note = '', order = '' }) {
+  function create({ product, name = '', email = '', max = 2, note = '', order = '', updateDays = UPDATE_DAYS }) {
     if (!PRODUCTS[product]) throw Object.assign(new Error('Unbekanntes Programm'), { code: 400 });
     let key;
     do key = makeKey(product); while (byKey(key));
-    db.prepare('INSERT INTO licenses(key, product, name, email, max_devices, note, order_id, created) VALUES(?, ?, ?, ?, ?, ?, ?, ?)')
-      .run(key, product, String(name).slice(0, 200), String(email).slice(0, 200).toLowerCase(), Math.max(1, Math.min(50, max | 0 || 2)), String(note).slice(0, 2000), String(order).slice(0, 100), now());
+    const t = now();
+    db.prepare('INSERT INTO licenses(key, product, name, email, max_devices, note, order_id, created, updates_until) VALUES(?, ?, ?, ?, ?, ?, ?, ?, ?)')
+      .run(key, product, String(name).slice(0, 200), String(email).slice(0, 200).toLowerCase(), Math.max(1, Math.min(50, max | 0 || 2)), String(note).slice(0, 2000), String(order).slice(0, 100), t, t + Math.max(0, updateDays | 0) * DAY);
     log('lizenz-neu', `${key} · ${email || name}`);
     return byKey(key);
   }
@@ -175,8 +186,11 @@ function init({ db, dataDir, env = process.env, now = Date.now, log = () => {} }
       max: b.max !== undefined ? Math.max(1, Math.min(50, b.max | 0)) : lic.max_devices,
       note: b.note !== undefined ? String(b.note).slice(0, 2000) : lic.note,
       revoked: b.revoked !== undefined ? (b.revoked ? lic.revoked || now() : 0) : lic.revoked,
+      upd: b.updatesUntil !== undefined && +b.updatesUntil > 0 ? +b.updatesUntil : lic.updates_until,
     };
-    db.prepare('UPDATE licenses SET name = ?, email = ?, max_devices = ?, note = ?, revoked = ? WHERE id = ?').run(v.name, v.email, v.max, v.note, v.revoked, id);
+    if (b.addYear) v.upd = Math.max(now(), v.upd) + UPDATE_DAYS * DAY;
+    db.prepare('UPDATE licenses SET name = ?, email = ?, max_devices = ?, note = ?, revoked = ?, updates_until = ?, upd_reminded = CASE WHEN ? <> updates_until THEN 0 ELSE upd_reminded END WHERE id = ?').run(v.name, v.email, v.max, v.note, v.revoked, v.upd, v.upd, id);
+    if (v.upd !== lic.updates_until) log('lizenz-updates', `${lic.key} bis ${new Date(v.upd).toISOString().slice(0, 10)}`);
     if (b.revoked !== undefined && !!b.revoked !== !!lic.revoked) log(b.revoked ? 'lizenz-gesperrt' : 'lizenz-entsperrt', lic.key);
     if (b.resetDevices) db.prepare('DELETE FROM activations WHERE license_id = ?').run(id);
     if (b.removeDevice) db.prepare('DELETE FROM activations WHERE license_id = ? AND id = ?').run(id, b.removeDevice | 0);
@@ -197,12 +211,46 @@ function init({ db, dataDir, env = process.env, now = Date.now, log = () => {} }
     return grant(lic, machine, Math.max(1, Math.min(3650, days | 0)));
   }
 
+  const variantMap = (name) => {
+    const map = {};
+    for (const part of String(env[name] || '').split(',')) { const [v, p] = part.split(':').map((x) => x && x.trim()); if (v && PRODUCTS[p]) map[v] = p; }
+    return map;
+  };
+  const productOf = (map, item) => map[String(item.variant_id || '')] || map[String(item.product_id || '')];
+
+  /**
+   * Update-Verlängerung gekauft (LICENSE_RENEW_VARIANTS = "321:laser,…"): Schlüssel aus dem Kauf-Link
+   * (checkout[custom][license_key]) oder die neueste Lizenz dieses Programms zur E-Mail. Liefert die Lizenz oder null.
+   */
+  function renewFromOrder(attrs, orderId, custom = {}) {
+    const item = attrs.first_order_item || {};
+    const product = productOf(variantMap('LICENSE_RENEW_VARIANTS'), item);
+    if (!product) return null;
+    const tag = 'Verlängerung ' + orderId;
+    if (db.prepare('SELECT 1 FROM licenses WHERE note LIKE ?').get('%' + tag + '%')) return { duplicate: true };
+    const key = normKey(custom.license_key);
+    let lic = key ? byKey(key) : null;
+    const email = String(attrs.user_email || '').toLowerCase();
+    if (!lic && email) lic = db.prepare('SELECT * FROM licenses WHERE email = ? AND product = ? ORDER BY created DESC').get(email, product);
+    if (!lic || lic.product !== product) { log('lizenz-updates', `Verlängerung ${orderId} ohne passende Lizenz (${email || key || '–'})`); return { unmatched: true, product, email }; }
+    const years = Math.max(1, Math.min(10, item.quantity | 0 || 1));
+    const until = Math.max(now(), lic.updates_until) + years * UPDATE_DAYS * DAY;
+    db.prepare('UPDATE licenses SET updates_until = ?, upd_reminded = 0, note = ? WHERE id = ?').run(until, (lic.note ? lic.note + '\n' : '') + tag, lic.id);
+    log('lizenz-updates', `${lic.key} verlängert bis ${new Date(until).toISOString().slice(0, 10)}`);
+    return byKey(lic.key);
+  }
+
+  /** Lizenzen, deren Updates in den nächsten 'days' Tagen enden und die noch keine Erinnerung bekommen haben */
+  function dueReminders(days = 14) {
+    const t = now();
+    return db.prepare('SELECT * FROM licenses WHERE revoked = 0 AND email <> \'\' AND upd_reminded = 0 AND updates_until > ? AND updates_until < ?').all(t, t + days * DAY);
+  }
+  const markReminded = (id) => db.prepare('UPDATE licenses SET upd_reminded = ? WHERE id = ?').run(now(), id);
+
   /** Lemon Squeezy: Einmalkauf (order_created) → Lizenz(en) anlegen. LICENSE_VARIANTS = "123:laser,456:fraes,789:stick" */
   function fromOrder(attrs, orderId) {
-    const map = {};
-    for (const part of String(env.LICENSE_VARIANTS || '').split(',')) { const [v, p] = part.split(':').map((x) => x && x.trim()); if (v && PRODUCTS[p]) map[v] = p; }
     const item = attrs.first_order_item || {};
-    const product = map[String(item.variant_id || '')] || map[String(item.product_id || '')];
+    const product = productOf(variantMap('LICENSE_VARIANTS'), item);
     if (!product) return [];
     if (db.prepare('SELECT 1 FROM licenses WHERE order_id = ?').get(String(orderId))) return []; // schon angelegt (Webhook doppelt)
     const qty = Math.max(1, Math.min(20, item.quantity | 0 || 1));
@@ -212,7 +260,7 @@ function init({ db, dataDir, env = process.env, now = Date.now, log = () => {} }
   }
   const revokeOrder = (orderId) => db.prepare('UPDATE licenses SET revoked = ? WHERE order_id = ? AND revoked = 0').run(now(), String(orderId)).changes;
 
-  return { PRODUCTS, publicPem, activate, deactivate, create, list, update, devices, offlineGrant, fromOrder, revokeOrder, byKey };
+  return { PRODUCTS, publicPem, activate, deactivate, create, list, update, devices, offlineGrant, fromOrder, renewFromOrder, dueReminders, markReminded, revokeOrder, byKey };
 }
 
-module.exports = { init, makeKey, normKey, productOfKey, signToken, verifyToken, PRODUCTS, CHECK_DAYS, OFFLINE_DAYS };
+module.exports = { init, makeKey, normKey, productOfKey, signToken, verifyToken, PRODUCTS, CHECK_DAYS, OFFLINE_DAYS, UPDATE_DAYS };

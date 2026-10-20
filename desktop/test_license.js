@@ -104,6 +104,24 @@ const DAY = 864e5;
   err = (() => { try { mk('a'.repeat(32), path.join(tmp, 'u7')).offline(lic3.key, code); return ''; } catch (e) { return e.message; } })();
   ok(/passt nicht/.test(err), 'Freischaltcode eines anderen Geräts abgelehnt');
 
+  // Updates: neue Version nach Ablauf der Updates läuft nicht, alte schon; Verlängerung schaltet frei
+  {
+    const lic4 = server.create({ product: 'laser', name: 'Upd' });
+    const dir8 = path.join(tmp, 'u8');
+    const old = DL.create({ ...cfg, released: t }, dir8, { now, fetch: fakeFetch, machine: '9'.repeat(32), trailFile: path.join(dir8, 's') });
+    await old.activate(lic4.key);
+    ok(old.state().status === 'licensed' && old.state().updatesUntil > t, 'Version im Update-Zeitraum läuft');
+    t += 400 * DAY;
+    await old.check();
+    ok(old.state().status === 'licensed', 'Nach 13 Monaten: bisherige Version läuft weiter');
+    const neu = DL.create({ ...cfg, released: t - DAY }, dir8, { now, fetch: fakeFetch, machine: '9'.repeat(32), trailFile: path.join(dir8, 's') });
+    st = neu.state();
+    ok(st.status === 'updates' && /neuer als deine Updates/.test(st.message), 'Neue Version nach Ablauf der Updates: Hinweis statt Programm');
+    server.update(lic4.id, { addYear: true });
+    st = await neu.check();
+    ok(st.status === 'licensed', 'Nach Verlängerung: „Jetzt prüfen“ schaltet die neue Version frei');
+  }
+
   ok(/^[0-9a-f]{32}$/.test(DL.machineId('laser')), 'Gerätekennung dieses Rechners: ' + DL.machineId('laser'));
   fs.rmSync(tmp, { recursive: true, force: true });
   console.log(fail ? `${fail} Fehler` : 'Alle Desktop-Lizenz-Tests bestanden.');

@@ -2,7 +2,9 @@
    - Testzeitraum ab dem ersten Start
    - Freischalten mit Lizenzschlüssel (einmal online), danach regelmäßige Prüfung im Hintergrund
    - signierte Freigabe vom Server (Ed25519), an dieses Gerät gebunden, gilt offline bis zu 30 Tage
-   - Offline-Freischaltung per Code vom Verkäufer (für Rechner ohne Internet) */
+   - Offline-Freischaltung per Code vom Verkäufer (für Rechner ohne Internet)
+   - Updates: Die Freigabe enthält „Updates bis“. Ist diese Programmversion später erschienen (cfg.released),
+     läuft sie nicht – ältere Versionen laufen weiter. Nach einer Verlängerung reicht „Jetzt prüfen“. */
 'use strict';
 const fs = require('fs');
 const os = require('os');
@@ -84,7 +86,7 @@ function create(cfg, dir, opts = {}) {
     return t;
   }
 
-  /** Aktueller Zustand: licensed | trial | expired | offline (Prüfung überfällig) | revoked | invalid */
+  /** Aktueller Zustand: licensed | trial | expired | offline (Prüfung überfällig) | updates (Version neuer als die Updates) | revoked | invalid */
   function state() {
     const t = now();
     // Uhr zurückgestellt? Dann gilt der Testzeitraum als abgelaufen und die Freigabe muss online erneuert werden
@@ -96,7 +98,12 @@ function create(cfg, dir, opts = {}) {
       if (!tok || tok.m !== machine || tok.p !== cfg.product) return { status: 'invalid', key: data.key, message: 'Die Freischaltung passt nicht zu diesem Gerät. Bitte neu freischalten.' };
       if (rollback) return { status: 'offline', key: data.key, name: tok.n, message: 'Die Uhr des Computers wurde zurückgestellt. Bitte einmal mit dem Internet verbinden.' };
       if (t > tok.exp) return { status: 'offline', key: data.key, name: tok.n, message: 'Die Lizenz muss wieder geprüft werden. Bitte den Computer mit dem Internet verbinden.' };
-      return { status: 'licensed', key: data.key, name: tok.n, checkDue: t > tok.chk, until: tok.exp, daysOffline: Math.max(0, Math.ceil((tok.exp - t) / DAY)), lastCheck: data.lastCheck || tok.iat };
+      const updatesUntil = tok.u || 0;
+      if (updatesUntil && cfg.released && cfg.released > updatesUntil) {
+        return { status: 'updates', key: data.key, name: tok.n, updatesUntil, released: cfg.released, checkDue: t > tok.chk,
+          message: `Diese Version (${cfg.version} vom ${new Date(cfg.released).toLocaleDateString('de-DE')}) ist neuer als deine Updates (inklusive bis ${new Date(updatesUntil).toLocaleDateString('de-DE')}). Verlängere die Updates oder nutze deine bisherige Version weiter – die läuft für immer.` };
+      }
+      return { status: 'licensed', key: data.key, name: tok.n, updatesUntil, checkDue: t > tok.chk, until: tok.exp, daysOffline: Math.max(0, Math.ceil((tok.exp - t) / DAY)), lastCheck: data.lastCheck || tok.iat };
     }
     const first = firstRun();
     const left = Math.ceil((first + (cfg.trialDays || 14) * DAY - t) / DAY);
@@ -131,7 +138,7 @@ function create(cfg, dir, opts = {}) {
 
   /** Regelmäßige Prüfung (still im Hintergrund). Liefert den neuen Zustand. */
   async function check() {
-    if (!data.key) return state();
+    if (!data.key || !data.token) return state();
     try {
       const d = await call('/api/license/check', { key: data.key, machine, product: cfg.product, label: label(), version: cfg.version });
       if (verifyToken(pub, d.token)) { data.token = d.token; data.lastCheck = now(); data.lastSeen = now(); write(data); }

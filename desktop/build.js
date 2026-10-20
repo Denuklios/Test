@@ -84,7 +84,9 @@ async function main() {
   fs.copyFileSync(path.join(HERE, 'icons', product + '.png'), path.join(OUT, 'icon.png'));
   if (process.env.LICENSE_SERVER) settings.licenseServer = process.env.LICENSE_SERVER;
   if (!settings.licenseServer) console.warn('Hinweis: In settings.json ist kein „licenseServer“ eingetragen – Freischalten geht dann nur offline mit Freischaltcode.');
-  fs.writeFileSync(path.join(OUT, 'product.json'), JSON.stringify({ product, code: P.code, name: P.name, server: settings.licenseServer || '', buyUrl: (settings.buyUrl || {})[product] || '', trialDays: settings.trialDays || 14 }, null, 1));
+  fs.writeFileSync(path.join(OUT, 'product.json'), JSON.stringify({ product, code: P.code, name: P.name, server: settings.licenseServer || '', buyUrl: (settings.buyUrl || {})[product] || '', renewUrl: (settings.renewUrl || {})[product] || '', trialDays: settings.trialDays || 14,
+    // Erscheinungsdatum dieser Version: läuft nur mit Lizenzen, deren Updates bis mindestens dahin reichen
+    released: settings.released ? Date.parse(settings.released + 'T00:00:00Z') : Date.now() }, null, 1));
   const electronVersion = require('electron/package.json').version;
   const pkg = { name: product + 'studio', productName: P.name, version: settings.version, description: P.description, main: 'main.js', author: settings.publisher || P.name, homepage: settings.homepage || undefined, license: 'UNLICENSED' };
   fs.writeFileSync(path.join(OUT, 'package.json'), JSON.stringify(pkg, null, 1));

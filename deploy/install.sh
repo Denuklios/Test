@@ -168,6 +168,9 @@ MARK_SECRET=$MARK
 #LEMONSQUEEZY_API_KEY=
 # Kauf-Lizenzen der Desktop-Programme: Lemon-Squeezy-Varianten (Einmalkauf) den Programmen zuordnen
 #LICENSE_VARIANTS=123456:laser,234567:fraes,345678:stick
+# Update-Verlängerung (1 Jahr) je Programm und ihre Kauf-Links für die Erinnerungs-Mail
+#LICENSE_RENEW_VARIANTS=111111:laser,222222:fraes,333333:stick
+#LICENSE_RENEW_URLS="laser=https://… fraes=https://… stick=https://…"
 $KEEP
 ENV
 chmod 600 "$ENVF"

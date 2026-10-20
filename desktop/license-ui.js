@@ -19,14 +19,18 @@
       offline: [st.message || 'Die Lizenz muss online geprüft werden.', 'warn'],
       revoked: [st.message || 'Diese Lizenz wurde gesperrt.', 'bad'],
       invalid: [st.message || 'Die Freischaltung ist ungültig.', 'bad'],
+      updates: [st.message || 'Diese Version ist neuer als deine Updates.', 'warn'],
     }[st.status] || ['', ''];
     s.textContent = lines[0];
     if (st.status === 'licensed' && st.lastCheck) s.textContent += ` Zuletzt geprüft am ${date(st.lastCheck)}.`;
     s.className = 'state ' + lines[1];
     const has = st.status === 'licensed';
-    $('have').classList.toggle('hidden', !has && st.status !== 'offline');
+    $('have').classList.toggle('hidden', !has && st.status !== 'offline' && st.status !== 'updates');
+    $('renew').classList.toggle('hidden', !info.renewUrl || !st.updatesUntil || (st.status === 'licensed' && st.updatesUntil - Date.now() > 60 * 864e5));
+    if (st.status === 'updates') $('renew').classList.add('primary');
+    $('updInfo').textContent = st.updatesUntil ? `Updates inklusive bis ${date(st.updatesUntil)}${st.updatesUntil < Date.now() ? ' (abgelaufen – diese und ältere Versionen laufen weiter)' : ''}.` : '';
     $('open').classList.toggle('hidden', !has);
-    $('enter').classList.toggle('hidden', has);
+    $('enter').classList.toggle('hidden', has || st.status === 'updates');
     $('continue').classList.toggle('hidden', st.status !== 'trial');
     $('buy').classList.toggle('hidden', !info.buyUrl || has);
     if (st.key && !$('key').value) $('key').value = st.key;
@@ -48,7 +52,8 @@
   $('continue').onclick = () => L.continue();
   $('open').onclick = () => L.continue();
   $('buy').onclick = () => L.buy();
-  $('check').onclick = () => busy($('check'), async () => { const r = await L.check(); render(r.state); });
+  $('renew').onclick = () => L.renew();
+  $('check').onclick = () => busy($('check'), async () => { const r = await L.check(); render(r.state); if (r.state.status === 'licensed' && info.status !== 'licensed') setTimeout(() => L.continue(), 900); });
   $('release').onclick = () => busy($('release'), async () => { const r = await L.deactivate(); if (r.ok) { render(r.state); msg('Dieses Gerät ist abgemeldet.', true); } else if (!r.cancelled) msg(r.message); });
   $('copy').onclick = () => { navigator.clipboard.writeText($('machine').value).catch(() => {}); $('copy').textContent = 'Kopiert ✓'; };
   $('offline').onclick = async () => {

@@ -9,5 +9,11 @@
     "laser": ""
   },
   "homepage": "https://wunsch-fabrik.dk",
-  "copyright": "© Wunsch-Fabrik (CVR 46733428)"
+  "copyright": "© Wunsch-Fabrik (CVR 46733428)",
+  "renewUrl": {
+    "stick": "",
+    "fraes": "",
+    "laser": ""
+  },
+  "released": ""
 }

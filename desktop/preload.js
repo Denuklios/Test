@@ -12,6 +12,7 @@ contextBridge.exposeInMainWorld('desktop', {
     continue: () => ipcRenderer.invoke('license:continue'),
     open: () => ipcRenderer.invoke('license:open'),
     buy: () => ipcRenderer.send('license:buy'),
+    renew: () => ipcRenderer.send('license:renew'),
   },
 });
 
