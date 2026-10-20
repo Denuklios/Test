@@ -4,7 +4,9 @@
 
   // origin: Ecke des Maschinen-Nullpunkts (ll = links unten, ul = links oben …)
   const MACHINES = {
-    // Mecpow X5 Pro: 33 W (optisch), 600 × 600 mm, Steuerung MKS DLC32 (GRBL-ESP32, auch WLAN), Hersteller nennt bis 28.000 mm/min
+    // Mecpow X5: 22 W (optisch), 600 × 600 mm, Hersteller nennt bis 28.000 mm/min; GRBL-kompatibel (LightBurn, LaserGRBL, MKSLaser-App)
+    mecpowx5: { id: 'mecpowx5', name: 'Mecpow X5 22 W (600 × 600 mm)', type: 'diode', w: 600, h: 600, sMax: 1000, rapid: 20000, maxSpeed: 28000, accel: 2500, origin: 'll', baud: 115200, watt: 22 },
+    // Mecpow X5 Pro: 33 W (optisch), 600 × 600 mm
     mecpowx5pro: { id: 'mecpowx5pro', name: 'Mecpow X5 Pro 33 W (600 × 600 mm)', type: 'diode', w: 600, h: 600, sMax: 1000, rapid: 20000, maxSpeed: 28000, accel: 2500, origin: 'll', baud: 115200, watt: 33 },
     diode400: { id: 'diode400', name: 'Diodenlaser 400 × 400 mm (GRBL)', type: 'diode', w: 400, h: 400, sMax: 1000, rapid: 6000, maxSpeed: 6000, accel: 1500, origin: 'll', baud: 115200, watt: 10 },
     diode300: { id: 'diode300', name: 'Diodenlaser 300 × 300 mm (GRBL)', type: 'diode', w: 300, h: 300, sMax: 1000, rapid: 5000, maxSpeed: 5000, accel: 1200, origin: 'll', baud: 115200, watt: 5 },

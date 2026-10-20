@@ -28,8 +28,8 @@
   const cam = { stream: null, video: null, on: false, img: null, timer: null, fc: null,
     cal: Object.assign({ deviceId: '', world: null, img: null, k1: 0, opacity: 0.8, live: true, camH: 400 }, store.get('ls.cam', {})) };
   function loadMachine() {
-    const m = store.get('ls.machine', { id: 'mecpowx5pro' });
-    S.machine = Object.assign({}, LIB.MACHINES[m.id] || LIB.MACHINES.mecpowx5pro, m);
+    const m = store.get('ls.machine', { id: 'mecpowx5' });
+    S.machine = Object.assign({}, LIB.MACHINES[m.id] || LIB.MACHINES.mecpowx5, m);
   }
   loadMachine();
 
@@ -1417,7 +1417,7 @@
   }
 
   function materialTestDialog() {
-    const strong = (S.machine.watt || 10) > 20; // starke Laser (z. B. 33 W): schneller testen, kleinere Leistungen
+    const strong = (S.machine.watt || 10) >= 20; // starke Laser (z. B. 22 W, 33 W): schneller testen, kleinere Leistungen
     const p = store.get('ls.mtest', { cols: 6, rows: 5, pMin: strong ? 10 : 20, pMax: strong ? 80 : 100, vMin: strong ? 1500 : 600, vMax: strong ? 12000 : 4000, cell: 8, gap: 2, mode: 'fill', interval: 0.1, labels: true });
     const html = `<p class="small">Ein Raster aus Feldern: nach rechts steigt die <b>Leistung</b>, nach unten sinkt die <b>Geschwindigkeit</b>. Danach das schönste Feld aussuchen und die Werte in die Ebene eintragen.</p>
       <div class="grid2">

@@ -38,15 +38,15 @@ Für LaserStudio habe ich mir die bekannten Laserprogramme angesehen und ihre be
 - **Prüfen-Knopf:** Er liest `$$` und schaltet bei Bedarf den Lasermodus ein (`$32=1`). Außerdem übernimmt er S-Max, Arbeitsbereich und Höchstgeschwindigkeit aus der Steuerung.
 - Kostenlos, ohne Installation, ohne Konto.
 
-## Mecpow X5 Pro (33 W, 600 × 600 mm)
+## Mecpow X5 (22 W, 600 × 600 mm)
 
-LaserStudio ist auf den **Mecpow X5 Pro** voreingestellt (*Bearbeiten → Maschine*): 600 × 600 mm, 33 W, bis 28.000 mm/min laut Hersteller. Die Materialbibliothek rechnet die Startwerte auf 33 W um.
+LaserStudio ist auf den **Mecpow X5** voreingestellt (*Bearbeiten → Maschine*): 600 × 600 mm, 22 W, bis 28.000 mm/min laut Händlerangaben. Die Materialbibliothek rechnet die Startwerte auf 22 W um. Für den X5 Pro (33 W) gibt es ein eigenes Profil.
 Der Hersteller nennt LightBurn, LaserGRBL und die MKSLaser-App als passende Programme. Die Steuerung ist also GRBL-kompatibel, vermutlich eine MKS DLC32 mit ESP32.
 - **USB:** In Chrome/Edge „Verbinden …“ → USB → den Anschluss „USB-SERIAL CH340“ wählen. Danach einmal **„Prüfen“** drücken: LaserStudio liest `$$` aus, schaltet bei Bedarf den Lasermodus ein (`$32=1`) und übernimmt S-Max, Arbeitsbereich und Höchstgeschwindigkeit von der Steuerung.
 - **WLAN:** Bei MKS-Steuerungen über „WLAN“ das Heimnetz eintragen und dann „WLAN direkt“ mit der IP-Adresse nutzen. Für lange Fotogravuren ist USB zuverlässiger.
 - **Nullpunkt:** Liegt der Nullpunkt nach der Referenzfahrt nicht vorne links, die Ecke unter *Maschine* umstellen. Ob es stimmt, zeigt „Rahmen“.
-- **Kamera:** Der X5 Pro hat keine eingebaute Kamera. Eine USB-Webcam über dem Arbeitsbereich montieren. Bei 600 mm Kantenlänge reicht meist eine Höhe von etwa 500–700 mm, ein Weitwinkel hilft.
-- **Materialtest:** Für 33 W ist er auf 10–80 % und 1.500–12.000 mm/min voreingestellt.
+- **Kamera:** Der X5 hat keine eingebaute Kamera. Eine USB-Webcam über dem Arbeitsbereich montieren. Bei 600 mm Kantenlänge reicht meist eine Höhe von etwa 500–700 mm, ein Weitwinkel hilft.
+- **Materialtest:** Für 22 W ist er auf 10–80 % und 1.500–12.000 mm/min voreingestellt.
 
 ## Die drei Arbeitsschritte
 
