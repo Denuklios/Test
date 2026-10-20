@@ -1,7 +1,13 @@
 {
   "version": "1.0.0",
-  "publisher": "",
-  "licenseServer": "",
+  "publisher": "Wunsch-Fabrik",
+  "licenseServer": "https://studio.wunsch-fabrik.dk",
   "trialDays": 14,
-  "buyUrl": { "stick": "", "fraes": "", "laser": "" }
+  "buyUrl": {
+    "stick": "",
+    "fraes": "",
+    "laser": ""
+  },
+  "homepage": "https://wunsch-fabrik.dk",
+  "copyright": "© Wunsch-Fabrik (CVR 46733428)"
 }

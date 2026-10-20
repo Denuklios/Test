@@ -2,7 +2,7 @@
   "stick": {
     "name": "StickStudio",
     "code": "STK",
-    "appId": "de.studio.stickstudio",
+    "appId": "dk.wunschfabrik.stickstudio",
     "description": "Stickprogramm: digitalisieren, Schrift, DST/PES/JEF/EXP",
     "src": "..",
     "files": [
@@ -24,7 +24,7 @@
   "fraes": {
     "name": "FräsStudio",
     "code": "FRS",
-    "appId": "de.studio.fraesstudio",
+    "appId": "dk.wunschfabrik.fraesstudio",
     "description": "CAD/CAM und Maschinensteuerung für GRBL-Fräsen",
     "src": "../fraesstudio",
     "files": [
@@ -40,7 +40,7 @@
   "laser": {
     "name": "LaserStudio",
     "code": "LSR",
-    "appId": "de.studio.laserstudio",
+    "appId": "dk.wunschfabrik.laserstudio",
     "description": "Laserprogramm für GRBL-Laser mit Kamera",
     "src": "../laserstudio",
     "files": [

@@ -86,7 +86,7 @@ async function main() {
   if (!settings.licenseServer) console.warn('Hinweis: In settings.json ist kein „licenseServer“ eingetragen – Freischalten geht dann nur offline mit Freischaltcode.');
   fs.writeFileSync(path.join(OUT, 'product.json'), JSON.stringify({ product, code: P.code, name: P.name, server: settings.licenseServer || '', buyUrl: (settings.buyUrl || {})[product] || '', trialDays: settings.trialDays || 14 }, null, 1));
   const electronVersion = require('electron/package.json').version;
-  const pkg = { name: product + 'studio', productName: P.name, version: settings.version, description: P.description, main: 'main.js', author: settings.publisher || P.name, license: 'UNLICENSED' };
+  const pkg = { name: product + 'studio', productName: P.name, version: settings.version, description: P.description, main: 'main.js', author: settings.publisher || P.name, homepage: settings.homepage || undefined, license: 'UNLICENSED' };
   fs.writeFileSync(path.join(OUT, 'package.json'), JSON.stringify(pkg, null, 1));
   if (flag('dir') && !flag('pack')) { console.log('Programmordner: ' + OUT); return; }
 
@@ -99,7 +99,7 @@ async function main() {
   if (flag('linux')) plat.push(builder.Platform.LINUX);
   if (!plat.length) plat.push(builder.Platform.current());
   const config = {
-    appId: P.appId, productName: P.name, electronVersion, asar: true, compression: 'maximum',
+    appId: P.appId, productName: P.name, electronVersion, copyright: settings.copyright || undefined, asar: true, compression: 'maximum',
     directories: { output: path.join(HERE, 'dist'), app: OUT, buildResources: OUT },
     files: ['**/*'],
     artifactName: `${product}studio-\${version}-\${os}-\${arch}.\${ext}`,
