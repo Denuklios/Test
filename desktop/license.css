@@ -1,0 +1,33 @@
+:root { --bg: #eef0f2; --card: #fff; --text: #1b2129; --muted: #67707b; --line: #d6dadf; --accent: #2f6fb0; --ok: #2e7d32; --warn: #b26a00; --bad: #c62828; }
+@media (prefers-color-scheme: dark) {
+  :root { --bg: #16191d; --card: #1f2329; --text: #e6e9ed; --muted: #98a1ab; --line: #343a42; --accent: #4d8fd6; }
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text); font: 14px/1.45 system-ui, "Segoe UI", Roboto, sans-serif; }
+main { min-height: 100%; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px 16px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 24px 26px; width: min(560px, 100%); box-shadow: 0 10px 40px rgba(0,0,0,.12); }
+.head { display: flex; gap: 14px; align-items: center; margin-bottom: 14px; }
+.head img { width: 52px; height: 52px; border-radius: 12px; }
+h1 { margin: 0; font-size: 20px; }
+.muted { color: var(--muted); }
+.small { font-size: 12.5px; }
+.hidden { display: none !important; }
+.state { border-radius: 8px; padding: 10px 12px; margin: 6px 0 16px; background: var(--bg); }
+.state.ok { background: rgba(46,125,50,.12); color: var(--ok); }
+.state.warn { background: rgba(178,106,0,.13); color: var(--warn); }
+.state.bad { background: rgba(198,40,40,.12); color: var(--bad); }
+label { display: block; font-weight: 600; margin-bottom: 5px; }
+input, textarea { width: 100%; padding: 9px 10px; border: 1px solid var(--line); border-radius: 7px; background: var(--card); color: var(--text); font: 15px ui-monospace, "Cascadia Mono", Consolas, monospace; letter-spacing: .5px; }
+textarea { font-size: 12px; }
+.row { display: flex; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
+.row input { flex: 1; font-size: 12px; }
+button { padding: 8px 16px; border: 1px solid var(--line); border-radius: 7px; background: var(--bg); color: var(--text); font: inherit; cursor: pointer; }
+button:hover { border-color: var(--accent); }
+button.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+button:disabled { opacity: .5; cursor: default; }
+.msg { min-height: 20px; margin-top: 6px; font-size: 13px; }
+.msg.err { color: var(--bad); }
+.msg.ok { color: var(--ok); }
+details { margin-top: 14px; border-top: 1px solid var(--line); padding-top: 10px; }
+summary { cursor: pointer; color: var(--muted); }
+.foot { margin-top: 14px; }

@@ -119,6 +119,8 @@ Das Admin-Konto läuft nie ab. Das Passwort danach unter „Mein Konto“ änder
 | `TRUST_PROXY` | `1`, wenn der Server hinter einem Reverse-Proxy läuft (echte IP für die Anmeldesperre) | – |
 | `REGISTRATION` | `closed` = keine neuen Registrierungen, Konten nur über die Verwaltung | offen |
 | `EVENT_DAYS` | So viele Tage bleibt das Protokoll (Anmeldungen mit IP-Adresse usw.) erhalten, danach wird es automatisch gelöscht | `90` |
+| `LICENSE_VARIANTS` | Kauf-Lizenzen: Lemon-Squeezy-Varianten den Desktop-Programmen zuordnen, z. B. `123:laser,456:fraes,789:stick` | – |
+| `LICENSE_PRIVATE_KEY`, `LICENSE_KEY_FILE` | Signaturschlüssel der Kauf-Lizenzen (PEM) statt `DATA_DIR/license-signing.pem` | – |
 | `GEOIP` | `off` = keine Länderdaten laden. Sonst lädt der Server monatlich die kostenlose Länderdatei von DB-IP (CC BY 4.0) selbst herunter und speichert sie in `DATA_DIR/geoip-country.csv`. | an |
 | `GEOIP_FILE` | Eigener Pfad zur Länderdatei (CSV: Start,Ende,Land) | `DATA_DIR/geoip-country.csv` |
 | `MAX_PROJECTS` | maximale Zahl Designs pro Konto | `2000` |

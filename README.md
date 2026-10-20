@@ -4,6 +4,8 @@ Ein Stickprogramm (Digitalisier-Software), das im Browser läuft – ohne Instal
 Es erzeugt **DST-Dateien (Tajima)** für die **Texi 1501** und alle anderen Tajima-kompatiblen Maschinen.
 
 > **Neu:** Im Ordner [`fraesstudio/`](fraesstudio/README.md) liegt **FräsStudio** – CAD + CAM + Steuerung für CNC-Fräsen (Twotrees TTC450 und andere GRBL-Maschinen).
+> Im Ordner [`laserstudio/`](laserstudio/README.md) liegt **LaserStudio** – das Laserprogramm mit Kamera (GRBL-Laser, z. B. Mecpow X5).
+> Alle drei gibt es auch als **installierbare Programme mit Kauf-Lizenz** (Windows, Mac, Linux): siehe [`desktop/`](desktop/README.md).
 
 ## Starten
 

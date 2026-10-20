@@ -12,6 +12,7 @@ const pages = require('./pages');
 const mail = require('./mail');
 const fileio = require('./fileio');
 const geo = require('./geoip');
+const licenses = require('./licenses');
 
 const ROOT = path.join(__dirname, '..');
 const ENV = process.env;
@@ -28,6 +29,8 @@ geo.load(GEO_FILE);
 const EVENT_DAYS = +(ENV.EVENT_DAYS || 90); // so lange bleibt das Protokoll (mit IP-Adressen)
 const countryOf = (ip) => (geo.isLocal(ip) ? '' : geo.lookup(ip));
 const now = () => Date.now();
+// Kauf-Lizenzen der Desktop-Programme (Aktivierung, regelmäßige Prüfung, Verwaltung)
+const LIC = licenses.init({ db, dataDir: DATA_DIR, env: ENV, now, log: (kind, info) => logEvent(null, kind, info) });
 
 /* ---------- Einstellungen (in der Verwaltung änderbar) ---------- */
 const SETTING_DEFAULTS = {
@@ -439,7 +442,8 @@ async function route(req, res) {
   const s = settings();
 
   // API: nur gleiche Herkunft (Schutz vor fremden Seiten)
-  if (p.startsWith('/api/') && m !== 'GET' && p !== '/api/webhook/lemonsqueezy') {
+  // Ausnahmen: Zahlungsanbieter und die Desktop-Programme (die melden sich mit dem Lizenzschlüssel, nicht mit einer Sitzung)
+  if (p.startsWith('/api/') && m !== 'GET' && p !== '/api/webhook/lemonsqueezy' && !p.startsWith('/api/license/')) {
     const origin = req.headers.origin;
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     if ((origin && new URL(origin).host !== host) || req.headers['x-requested-with'] !== 'StickStudio') return json(res, 403, { error: 'forbidden' });
@@ -561,6 +565,19 @@ async function route(req, res) {
     return redirect(res, '/login', { 'Set-Cookie': sidCookie('', 0) });
   }
 
+  // Desktop-Programme: Lizenz aktivieren, regelmäßig prüfen, Gerät freigeben
+  if (p.startsWith('/api/license/') && m === 'POST') {
+    const ip = ipOf(req);
+    if (limited('lic:' + ip, 60, 60 * 60e3)) return json(res, 429, { error: 'rate', message: 'Zu viele Versuche – bitte in einer Stunde erneut.' });
+    const b = await readJson(req, 16 * 1024);
+    if (p === '/api/license/activate' || p === '/api/license/check') {
+      const r = LIC.activate(b, ip);
+      return json(res, r.ok ? 200 : r.code, r);
+    }
+    if (p === '/api/license/deactivate') return json(res, 200, LIC.deactivate(b));
+    return json(res, 404, { error: 'not found' });
+  }
+
   // Zahlungsanbieter meldet Kauf/Verlängerung (Lemon Squeezy, Signatur mit LEMONSQUEEZY_SECRET)
   if (p === '/api/webhook/lemonsqueezy' && m === 'POST') {
     const secret = ENV.LEMONSQUEEZY_SECRET;
@@ -576,6 +593,15 @@ async function route(req, res) {
     const attrs = data.attributes || {};
     const custom = (ev.meta && ev.meta.custom_data) || {};
     const email = String(attrs.user_email || attrs.customer_email || '').toLowerCase();
+    // Einmalkauf eines Desktop-Programms: Lizenzschlüssel anlegen und per E-Mail schicken (ohne Konto)
+    if (name === 'order_created' && data.type === 'orders') {
+      const made = LIC.fromOrder(attrs, data.id);
+      if (made.length) {
+        await sendLicenseMail(made, email, attrs.user_name || '').catch((e) => logEvent(null, 'mail-fehler', e.message));
+        return json(res, 200, { ok: true, licenses: made.length });
+      }
+    }
+    if (name === 'order_refunded' && data.type === 'orders' && LIC.revokeOrder(data.id)) logEvent(null, 'lizenz-gesperrt', `Erstattung Bestellung ${data.id}`);
     let u = custom.user_id ? db.prepare('SELECT * FROM users WHERE id = ?').get(+custom.user_id) : null;
     if (!u && data.type === 'subscriptions' && data.id) u = db.prepare('SELECT * FROM users WHERE sub_id = ?').get(String(data.id));
     if (!u && attrs.subscription_id) u = db.prepare('SELECT * FROM users WHERE sub_id = ?').get(String(attrs.subscription_id));
@@ -768,6 +794,24 @@ async function route(req, res) {
   /* --- Verwaltung --- */
   if (p.startsWith('/api/admin/')) {
     if (user.role !== 'admin') return json(res, 403, { error: 'forbidden' });
+    // Kauf-Lizenzen der Desktop-Programme
+    if (p === '/api/admin/licenses' && m === 'GET') return json(res, 200, { list: LIC.list(url.searchParams.get('q') || ''), publicKey: LIC.publicPem, products: LIC.PRODUCTS, variants: !!ENV.LICENSE_VARIANTS });
+    if (p === '/api/admin/licenses' && m === 'POST') {
+      const b = await readJson(req);
+      const n = Math.max(1, Math.min(50, b.count | 0 || 1));
+      const made = [];
+      for (let i = 0; i < n; i++) made.push(LIC.create({ product: b.product, name: b.name, email: b.email, max: b.max, note: b.note }));
+      if (b.mail && validEmail(String(b.email || ''))) await sendLicenseMail(made, b.email, b.name).catch((e) => logEvent(null, 'mail-fehler', e.message));
+      logEvent(user.id, 'lizenz-neu', `${made.length} × ${b.product} für ${b.email || b.name || '–'}`);
+      return json(res, 200, { list: made });
+    }
+    const lm = /^\/api\/admin\/licenses\/(\d+)(\/offline)?$/.exec(p);
+    if (lm) {
+      const id = +lm[1];
+      if (lm[2] && m === 'POST') { const b = await readJson(req); return json(res, 200, { token: LIC.offlineGrant(id, b.machine, b.days) }); }
+      if (m === 'GET') { const l = LIC.list().find((x) => x.id === id); return l ? json(res, 200, { ...l, devices: LIC.devices(id) }) : json(res, 404, { error: 'not found' }); }
+      if (m === 'POST') { const l = LIC.update(id, await readJson(req)); return l ? json(res, 200, l) : json(res, 404, { error: 'not found' }); }
+    }
     if (p === '/api/admin/users' && m === 'GET') {
       const q = '%' + (url.searchParams.get('q') || '') + '%';
       const rows = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen, u.fraes,
@@ -901,6 +945,29 @@ async function route(req, res) {
   return p.startsWith('/api/') ? json(res, 404, { error: 'not found' }) : page(pages.info(lang, pages.T[lang].notFound, pages.T[lang].notFound, false), 404);
 }
 
+// Lizenzschlüssel per E-Mail an den Käufer
+async function sendLicenseMail(list, to, name) {
+  if (!to) return false;
+  const s = settings();
+  const names = list.map((l) => `${(licenses.PRODUCTS[l.product] || {}).name || l.product}: ${l.key}`).join('\n');
+  const text = `Hallo${name ? ' ' + name : ''},
+
+vielen Dank für deinen Kauf! Hier ${list.length > 1 ? 'sind deine Lizenzschlüssel' : 'ist dein Lizenzschlüssel'}:
+
+${names}
+
+So geht es:
+1. Programm installieren und starten.
+2. Den Schlüssel im Fenster „Lizenz“ eingeben und auf „Freischalten“ klicken (einmal Internet nötig).
+3. Das Programm prüft die Lizenz danach gelegentlich im Hintergrund. Ohne Internet läuft es bis zu ${licenses.OFFLINE_DAYS} Tage weiter.
+
+Eine Lizenz gilt für ${list[0].max_devices} Geräte. Beim Wechsel auf einen neuen Rechner im alten Programm unter „Lizenz“ → „Dieses Gerät freigeben“ abmelden.
+
+Bitte bewahre diese E-Mail gut auf.
+${s.company ? '\n' + s.company : ''}${s.support_email ? '\nHilfe: ' + s.support_email : ''}`;
+  return mail.send(to, list.length > 1 ? 'Deine Lizenzschlüssel' : 'Dein Lizenzschlüssel', text);
+}
+
 // Kauf-Link mit Kundendaten (Lemon Squeezy: checkout[email] und checkout[custom][user_id])
 function buyUrl(s, u) {
   if (!s.buy_url) return '';
@@ -941,4 +1008,4 @@ if (require.main === module) {
   setInterval(() => renewalReminders().catch((e) => console.error(e)), 60 * 60e3).unref();
   setTimeout(() => renewalReminders().catch((e) => console.error(e)), 30e3).unref();
 }
-module.exports = { server, db, ensureAdmin, createUser, license, renewalReminders, geo };
+module.exports = { server, db, ensureAdmin, createUser, license, renewalReminders, geo, LIC };

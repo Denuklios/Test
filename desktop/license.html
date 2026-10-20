@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta http-equiv="Content-Security-Policy" content="default-src 'self'; style-src 'self' 'unsafe-inline'; script-src 'self'">
+<title>Lizenz</title>
+<link rel="stylesheet" href="license.css">
+</head>
+<body>
+<main>
+  <div class="card">
+    <div class="head"><img src="icon.png" alt=""><div><h1 id="name">…</h1><div id="ver" class="muted"></div></div></div>
+    <div id="state" class="state"></div>
+
+    <section id="enter">
+      <label for="key">Lizenzschlüssel</label>
+      <input id="key" autocomplete="off" spellcheck="false" placeholder="z. B. LSR-7K2QX-M9D4T-HB3WN-R8P6C">
+      <div id="msg" class="msg"></div>
+      <div class="row">
+        <button id="activate" class="primary">Freischalten</button>
+        <button id="buy" class="hidden">Lizenz kaufen</button>
+        <button id="continue" class="hidden">Weiter testen</button>
+      </div>
+      <p class="muted small">Zum Freischalten wird einmal das Internet gebraucht. Danach prüft das Programm die Lizenz gelegentlich im Hintergrund und läuft auch ohne Internet bis zu 30 Tage weiter.</p>
+      <details>
+        <summary>Ohne Internet freischalten</summary>
+        <p class="small">1. Schlüssel oben eintragen. 2. Diesen <b>Gerätecode</b> an den Verkäufer schicken:</p>
+        <div class="row"><input id="machine" readonly><button id="copy">Kopieren</button></div>
+        <p class="small">3. Den Freischaltcode, den du zurückbekommst, hier einfügen:</p>
+        <textarea id="code" rows="3" spellcheck="false"></textarea>
+        <div class="row"><button id="offline">Code übernehmen</button></div>
+      </details>
+    </section>
+
+    <section id="have" class="hidden">
+      <div class="row">
+        <button id="open" class="primary">Programm öffnen</button>
+        <button id="check">Jetzt prüfen</button>
+        <button id="release">Dieses Gerät freigeben</button>
+      </div>
+      <p class="muted small">„Dieses Gerät freigeben“ meldet diesen Computer ab, z. B. vor dem Umzug auf einen neuen Rechner.</p>
+    </section>
+  </div>
+  <p class="foot muted small">Eine Lizenz ist ein Kauf, kein Abo: einmal bezahlen, dauerhaft nutzen.</p>
+</main>
+<script src="license-ui.js"></script>
+</body>
+</html>

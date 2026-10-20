@@ -4,3 +4,6 @@ dist
 node_modules
 tests
 *.png
+desktop/node_modules
+desktop/out
+desktop/dist

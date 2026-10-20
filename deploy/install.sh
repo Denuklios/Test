@@ -107,7 +107,7 @@ fi
 echo "--- Programm installieren und verschleiern (auf dem Raspberry Pi dauert das ein paar Minuten)"
 id stickstudio >/dev/null 2>&1 || useradd --system --home "$APP" --shell /usr/sbin/nologin stickstudio
 mkdir -p "$APP" "$DATA" /var/backups/stickstudio
-rsync -a --delete --exclude node_modules --exclude data --exclude .git --exclude dist "$SRC/" "$APP/"
+rsync -a --delete --exclude node_modules --exclude data --exclude .git --exclude dist --exclude desktop --exclude .github "$SRC/" "$APP/"
 cd "$APP"
 npm ci --no-audit --no-fund
 npm run build
@@ -125,13 +125,20 @@ fi
 if [ -s "$MODEL_DIR/depth-anything-v2-small.onnx" ]; then
   mkdir -p fraesstudio/models && ln -sf "$MODEL_DIR/depth-anything-v2-small.onnx" fraesstudio/models/depth-anything-v2-small.onnx
 fi
+# Signaturschlüssel für die Kauf-Lizenzen der Desktop-Programme: liegt deploy/license-signing.pem bei, wird er übernommen
+# (passend zum öffentlichen Schlüssel in desktop/license-public.pem). Ohne Datei legt der Server beim ersten Start selbst einen an.
+if [ -f "$SRC/deploy/license-signing.pem" ] && [ ! -f "$DATA/license-signing.pem" ]; then
+  install -m 600 "$SRC/deploy/license-signing.pem" "$DATA/license-signing.pem"
+  echo "Lizenz-Signaturschlüssel übernommen."
+fi
+rm -f "$APP/deploy/license-signing.pem"
 chown -R stickstudio:stickstudio "$APP" "$DATA" /var/backups/stickstudio
 
 echo "--- Einstellungen"
 if [ -f "$ENVF" ]; then cp "$ENVF" "$ENVF.bak"; MARK=$(grep '^MARK_SECRET=' "$ENVF" | cut -d= -f2- || true); fi
 MARK=${MARK:-$(head -c 24 /dev/urandom | base64 | tr -dc 'A-Za-z0-9' | head -c 32)}
 KEEP=""
-[ -f "$ENVF.bak" ] && KEEP=$(grep -E '^(SMTP_|MAIL_FROM|LEMONSQUEEZY_|REGISTRATION|EVENT_DAYS|GEOIP|CNC_)' "$ENVF.bak" || true)
+[ -f "$ENVF.bak" ] && KEEP=$(grep -E '^(SMTP_|MAIL_FROM|LEMONSQUEEZY_|LICENSE_|REGISTRATION|EVENT_DAYS|GEOIP|CNC_)' "$ENVF.bak" || true)
 cat > "$ENVF" <<ENV
 #MODE=$MODE
 #PROXY=$PROXY_KIND
@@ -159,6 +166,8 @@ MARK_SECRET=$MARK
 # Bezahlung über Lemon Squeezy (später)
 #LEMONSQUEEZY_SECRET=
 #LEMONSQUEEZY_API_KEY=
+# Kauf-Lizenzen der Desktop-Programme: Lemon-Squeezy-Varianten (Einmalkauf) den Programmen zuordnen
+#LICENSE_VARIANTS=123456:laser,234567:fraes,345678:stick
 $KEEP
 ENV
 chmod 600 "$ENVF"
