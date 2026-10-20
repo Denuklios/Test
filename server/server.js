@@ -35,8 +35,8 @@ const LIC = licenses.init({ db, dataDir: DATA_DIR, env: ENV, now, log: (kind, in
 /* ---------- Einstellungen (in der Verwaltung änderbar) ---------- */
 const SETTING_DEFAULTS = {
   trial_days: '14', license_days: '365', buy_url: '', support_email: '',
-  company: '', owner: '', street: '', zip_city: '', country: 'Deutschland', email: '', phone: '', vat_id: '', register: '',
-  hosting_provider: '', payment_provider: '', supervisory_authority: '',
+  company: 'Wunsch-Fabrik', owner: '', street: '', zip_city: '', country: 'Danmark', email: '', phone: '', vat_id: '', register: 'CVR-nr. 46733428',
+  hosting_provider: '', payment_provider: 'Lemon Squeezy, LLC', supervisory_authority: 'Datatilsynet, Carl Jacobsens Vej 35, 2500 Valby, Danmark, www.datatilsynet.dk',
   price_text_de: '', price_text_en: '', license_term_de: '12 Monate', license_term_en: '12 months', legal_date: '',
 };
 function settings() {

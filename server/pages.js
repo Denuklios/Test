@@ -173,7 +173,7 @@ function receipt(lang, title, text, lines, mailInfo, user) {
 }
 
 /* ---------- Rechtstexte ---------- */
-const LEGAL = ['impressum', 'agb', 'widerruf', 'datenschutz', 'lizenzen'];
+const LEGAL = ['impressum', 'agb', 'widerruf', 'datenschutz', 'lizenzen', 'kaufbedingungen', 'widerruf-kauf'];
 function legal(root, lang, page, settings, user) {
   if (!LEGAL.includes(page)) return null;
   const file = path.join(root, 'legal', `${page}.${lang}.html`);

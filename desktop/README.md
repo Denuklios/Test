@@ -35,6 +35,7 @@ Die Preise legst du bei Lemon Squeezy fest. Im Programm steht kein Preis, nur di
    - Nach dem Kauf der Verlängerung genügt „Jetzt prüfen“.
    - Etwa **2 Wochen vor Ablauf** bekommt der Kunde eine E-Mail mit dem Verlängerungs-Link.
    - In der Verwaltung siehst und änderst du das Datum je Lizenz. Mit „+1 Jahr Updates“ verlängerst du von Hand, z. B. als Kulanz.
+   - **Fehlerbehebungen** (z. B. 1.0.1) müssen laut Kaufbedingungen § 5 Abs. 4 auch Kunden mit abgelaufenen Updates bekommen. Bei reinen Fehlerbehebungen daher `released` in `settings.json` **nicht** ändern, nur `version`. Ein neues Erscheinungsdatum nur bei neuen Funktionen (1.1, 1.2 …) setzen.
    - **Wichtig:** Ältere Installer aufheben und für Kunden mit abgelaufenen Updates bereithalten, z. B. als GitHub-Release je Version. Dafür in `settings.json` bei jeder neuen Version `version` erhöhen und `released` auf das Erscheinungsdatum setzen.
 
 **Schutz:**
@@ -94,7 +95,7 @@ Die Installer landen in `desktop/dist/`.
 - **Code-Signatur:** Ohne Signatur zeigt Windows beim ersten Start „Der Computer wurde durch Windows geschützt“ (→ „Weitere Informationen“ → „Trotzdem ausführen“). Der Mac verlangt Rechtsklick → „Öffnen“. Für eine Auslieferung ohne Warnung braucht es ein Code-Signing-Zertifikat (Windows) bzw. einen Apple-Entwickler-Account (99 €/Jahr). Beides lässt sich später in `build.js` ergänzen.
 - **USB und Kamera** funktionieren in den Desktop-Programmen ohne Chrome. Die Anschlussauswahl erscheint als eigenes Fenster.
 - **Updates:** Neue Version bauen und den Installer verteilen. Beim Installieren über die alte Version bleiben Lizenz und Einstellungen erhalten.
-- **Rechtstexte:** AGB und Widerrufsbelehrung beschreiben bisher das Abo der Online-Version. Für den Verkauf der Desktop-Programme braucht es passende Texte, z. B. eine Lizenzvereinbarung (EULA) und die Regeln zum Widerruf bei digitalen Inhalten. Das bitte rechtlich prüfen lassen.
+- **Rechtstexte:** Für die Desktop-Programme gibt es eigene Kauf- und Lizenzbedingungen (`/legal/kaufbedingungen`) und eine eigene Widerrufsbelehrung (`/legal/widerruf-kauf`), siehe `legal/README.md`. Bitte vor dem Verkauf rechtlich prüfen lassen.
 
 ## Dateien
 

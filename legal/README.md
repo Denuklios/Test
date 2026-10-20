@@ -11,6 +11,8 @@ Datenschutzerklärung und Lizenzen – jeweils Deutsch (`*.de.html`) und Englisc
 | `widerruf.*.html` | Widerrufsbelehrung inkl. Muster-Widerrufsformular und Checkout-Zustimmungstext |
 | `datenschutz.*.html` | Datenschutzerklärung / Privacy policy (DSGVO) |
 | `lizenzen.*.html` | Lizenzen der Stickschriften, TTF-Schriften, pdf.js, pyembroidery, Garnfarben |
+| `kaufbedingungen.de.html` | **Kauf- und Lizenzbedingungen der Desktop-Programme** (Einmalkauf, 1 Jahr Updates, Update-Verlängerung, 2 Geräte, Lizenzprüfung, dänisches Recht) – `/legal/kaufbedingungen` |
+| `widerruf-kauf.de.html` | **Widerrufsbelehrung für die Desktop-Programme** (digitale Inhalte, Erlöschen nach Zustimmung) inkl. Checkout-Text – `/legal/widerruf-kauf` |
 
 ## Platzhalter (werden aus den Admin-Einstellungen ersetzt)
 
@@ -33,6 +35,14 @@ Datenschutzerklärung und Lizenzen – jeweils Deutsch (`*.de.html`) und Englisc
 Elemente mit `data-optional="<name>"` soll der Server entfernen, wenn der Wert leer ist.
 HTML-Kommentare (`<!-- ALTERNATIVE … -->`, `<!-- VARIANTE A … -->`) enthalten Alternativformulierungen –
 bewusst auswählen und die nicht gewählte Variante löschen.
+
+## Stand Desktop-Programme (Wunsch-Fabrik, Dänemark)
+
+- **Vorbelegt** (in der Verwaltung änderbar): Firma „Wunsch-Fabrik“, Land „Danmark“, Register „CVR-nr. 46733428“, Zahlungsanbieter „Lemon Squeezy, LLC“, Aufsichtsbehörde Datatilsynet.
+- **Noch eintragen** (Verwaltung → Einstellungen & Firmendaten): Inhaber/in, Straße, PLZ/Ort, E-Mail, Telefon, ggf. Moms-Nummer, Hosting-/E-Mail-Anbieter.
+- **Recht:** Die neuen Texte (Kaufbedingungen, Widerruf Kauf, Impressum) gehen von **dänischem Recht** aus. Beschwerdestelle: Nævnenes Hus / Forbrugerklagenævnet. Die älteren Texte der Online-Version (AGB, Widerruf) verweisen noch auf deutsches Recht und müssen angepasst werden, falls die Online-Version verkauft wird.
+- **Lemon Squeezy:** Checkbox zur sofortigen Lieferung des Lizenzschlüssels (Text in `widerruf-kauf.de.html`) im Checkout einrichten.
+- **Englische Fassungen** der neuen Texte fehlen noch (es wird die deutsche Fassung angezeigt).
 
 ## Vor dem Livegang prüfen / entscheiden
 
