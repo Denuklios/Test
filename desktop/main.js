@@ -149,7 +149,7 @@ async function periodicCheck() {
 }
 
 // ---- Lizenzfenster ↔ Hauptprozess
-ipcMain.handle('license:info', () => ({ ...lic.state(), product: cfg.product, name: cfg.name, code: cfg.code, machine: lic.machine, buyUrl: cfg.buyUrl || '', renewUrl: cfg.renewUrl || '', server: !!cfg.server, version: cfg.version, released: cfg.released, trialDays: cfg.trialDays, lang }));
+ipcMain.handle('license:info', () => { const st = lic.state(); return { ...st, holder: st.name || '', product: cfg.product, name: cfg.name, code: cfg.code, machine: lic.machine, buyUrl: cfg.buyUrl || '', renewUrl: cfg.renewUrl || '', server: !!cfg.server, version: cfg.version, released: cfg.released, trialDays: cfg.trialDays, lang }; });
 ipcMain.handle('desktop:setLang', (e, l) => setLang(l, true));
 // Sprachwechsel im Programm (preload.js beobachtet <html lang>)
 ipcMain.on('desktop:pageLang', (e, l) => { if (current === 'app') setLang(l); });
