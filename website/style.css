@@ -37,10 +37,12 @@ header { position: sticky; top: 0; z-index: 10; background: color-mix(in srgb, v
 @media (max-width: 1000px) { .nav nav { display: none; } .nav .lang { margin-left: auto; } }
 @media (max-width: 760px) { .nav { gap: 12px; } .nav .btn { padding: 9px 14px; font-size: 14px; } }
 @media (max-width: 560px) {
-  .nav { gap: 8px; } .logo { font-size: 17px; gap: 8px; } .logo .dots i { width: 8px; height: 20px; }
-  .lang { font-size: 12.5px; } .lang a { padding: 4px 5px; }
-  .nav .btn { padding: 8px 11px; font-size: 13.5px; }
+  .wrap { padding: 0 16px; }
+  .nav { gap: 8px; } .logo { font-size: 16px; gap: 7px; } .logo .dots i { width: 7px; height: 19px; }
+  .nav .lang { font-size: 12.5px; } .nav .lang a { padding: 4px 5px; }
+  .nav .btn { padding: 8px 10px; font-size: 13px; }
 }
+@media (max-width: 374px) { .nav .logo .name { display: none; } }
 .btn .short { display: none; }
 @media (max-width: 480px) { .btn .long { display: none; } .btn .short { display: inline; } }
 .logo, .nav .btn { white-space: nowrap; }

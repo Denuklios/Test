@@ -27,7 +27,7 @@
     'Passmarken': 'Pasmærker',
     '(Kreuze) im Überlappungsbereich werden am Ende einer Einspannung und am Anfang der nächsten gestickt – so lässt sich der Stoff exakt ausrichten.': '(kryds) i overlapningsområdet broderes i slutningen af én opspænding og i begyndelsen af den næste – så kan stoffet justeres præcist.',
     'Rahmen je Einspannung': 'Ramme pr. opspænding',
-    'Überlappung (mm)': 'Overlap (mm)',
+    'Überlappung (mm)': 'Overlapning (mm)',
     'Passmarke': 'Pasmærke',
     'Rahmen quer einspannen': 'Spænd rammen op på tværs',
     '(90° gedreht).': '(drejet 90°).',
@@ -421,7 +421,7 @@
     'Breite (mm)': 'Bredde (mm)',
     'Deckkraft': 'Uigennemsigtighed',
     'X links (mm)': 'X venstre (mm)',
-    'Y oben (mm)': 'Y top (mm)',
+    'Y oben (mm)': 'Y øverst (mm)',
     'Zentrieren': 'Centrér',
   });
   E.rx.push(
@@ -560,7 +560,7 @@
     [/^Arbeitsblatt (.+)$/, 'Arbejdsark $1'],
     [/^· Farbwechsel: (\d+) · Schnitte: (\d+) · Größe: (.+?) × (.+?) mm · Rahmen: (.+)$/, (m, c, t, w, h, r) => `· Farveskift: ${c} · Klip: ${t} · Størrelse: ${w} × ${h} mm · Ramme: ${tt(r)}`],
     [/^Vlies: (.+)$/, (m, v) => `Stabilisator: ${tt(v)}`],
-    [/^Topper: (.+)$/, (m, v) => `Topping: ${tt(v)}`],
+    [/^Topper: (.+)$/, (m, v) => `Topfilm: ${tt(v)}`],
     [/^Nadel: (.+?) · max\. ([\d.,]+) Stiche\/min$/, 'Nål: $1 · maks. $2 sting/min'],
     [/^Schnitte: (\d+) →$/, 'Klip: $1 →'],
     [/^Versteckte Laufwege: (\d+) →$/, 'Skjulte forbindelsessting: $1 →'],

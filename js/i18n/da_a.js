@@ -210,7 +210,7 @@
   /* ---------- app.js: Stoff ---------- */
   Object.assign(E.exact, {
     'Vlies:': 'Stabilisator:',
-    'Topper:': 'Topping:',
+    'Topper:': 'Topfilm:',
     'Nadel:': 'Nål:',
     'max.': 'maks.',
     'Details & Tipps…': 'Detaljer & tips…',
