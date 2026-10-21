@@ -47,9 +47,16 @@ try {
     assert.equal((await call('customer_save', { body: { name: 'A', email: 'kaputt' } })).j.error, 'bad_email');
     const r = await call('customer_save', { body: { name: 'Sønderjysk Idrætsforening', company: 'SIF', email: 'a@b.dk', currency: 'DKK' } }); cid = r.j.id; assert.ok(cid);
   });
-  await ok('Auftrag anlegen: Nummer, Verfahren, Zahlung', async () => {
-    const r = await call('order_save', { body: { customer_id: cid, title: '40 Poloshirts', qty: 40, price: '1999,50', deposit: 500, currency: 'DKK', pay_status: 'deposit', due_date: new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10), processes: [{ process_id: 1, minutes: 240 }, { process_id: 3, minutes: 60 }] } });
+  const iso = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const dow = (d) => new Date(d + 'T00:00:00').getDay();
+  // erster Tag ab Offset n, dessen Wochentag in `days` liegt (0=So … 6=Sa)
+  const pick = (n, days) => { let d = iso(n); while (!days.includes(dow(d))) d = new Date(new Date(d + 'T00:00:00').getTime() + 864e5).toISOString().slice(0, 10); return d; };
+  const WEEKDAY = [1, 2, 3, 4, 5];
+  await ok('Auftrag anlegen: Nummer, Verfahren, Gesamtdauer, automatische Planung ohne Produktionstag', async () => {
+    const r = await call('order_save', { body: { customer_id: cid, title: '40 Poloshirts', qty: 40, price: '1999,50', deposit: 500, currency: 'DKK', pay_status: 'deposit', due_date: iso(3), processes: [{ process_id: 1, minutes: 240 }, { process_id: 3, minutes: 60 }] } });
     assert.equal(r.status, 200); oid = r.j.order.id; assert.match(r.j.order.nr, /^\d{4}-0001$/); assert.equal(r.j.order.price, 1999.5); assert.equal(r.j.order.processes.length, 2);
+    assert.equal(r.j.order.total_min, 300, 'Gesamtdauer = Summe der Verfahren'); assert.equal(r.j.order.worker_id, 1);
+    assert.equal(r.j.order.plan_date, iso(0), 'frühestmöglicher Tag'); assert.equal(r.j.order.days.length, 1); assert.equal(r.j.order.days[0].minutes, 300); assert.equal(r.j.order.finish_date, iso(0));
   });
   await ok('Validierung: Datum, Währung, Anzahlung, Kunde', async () => {
     const base = { customer_id: cid, title: 'x', qty: 1, price: 1, currency: 'DKK' };
@@ -85,91 +92,13 @@ try {
     assert.equal((await fetch(`${B}/file.php?id=${fid}`)).status, 401);
     const dl = await fetch(`${B}/file.php?id=${fid}`, { headers: { cookie } }); assert.equal(dl.status, 200); assert.equal(dl.headers.get('content-type'), 'image/png');
   });
-  await ok('Kalender: Kapazität wird gebucht', async () => {
-    await call('order_status', { body: { id: oid, status: 'production' } });
-    const from = new Date().toISOString().slice(0, 10), to = new Date(Date.now() + 10 * 864e5).toISOString().slice(0, 10);
-    const r = await call('calendar', { params: { from, to } });
-    const booked = r.j.days.reduce((s, d) => s + d.p.stick.booked, 0); assert.equal(booked, 240);
-    assert.equal(r.j.orders.length, 1);
-  });
-  const iso = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
-  const dow = (d) => new Date(d + 'T00:00:00').getDay();
-  await ok('Terminvorschlag: Wochenende zählt mit 5 h, volle Tage fehlen, eigener Auftrag zählt nicht doppelt', async () => {
-    const r = await call('suggest', { params: { p: '1:60' } });
-    assert.ok(r.j.dates.length >= 3);
-    const due = iso(3);
-    const big = await call('suggest', { params: { p: '1:300' } }); assert.equal(big.j.dates.includes(due), dow(due) % 6 === 0 && false);
-    const own = await call('suggest', { params: { p: '1:300', exclude: oid } }); assert.equal(own.j.dates.includes(due), true);
-    assert.equal((await call('suggest', { params: { p: '' } })).j.error, 'no_processes');
-    // Wochenende: 300 min passen (5 h), 301 min nicht
-    const all = (await call('available', { params: { p: '3:300' } })).j.dates;
-    assert.ok(all.some((d) => dow(d) === 6) && all.some((d) => dow(d) === 0), 'Samstag und Sonntag sind buchbar');
-    const over = (await call('available', { params: { p: '3:301' } })).j; assert.ok(over.dates.every((d) => ![0, 6].includes(dow(d))) && over.split === false);
-    const multi = (await call('available', { params: { p: '3:900' } })).j; assert.equal(multi.split, true); assert.ok(multi.dates.some((d) => dow(d) === 6));
-    // Kalender: Wochenende hat 300 min Kapazität
-    const cal = (await call('calendar', { params: { from: iso(0), to: iso(10) } })).j.days;
-    assert.ok(cal.filter((d) => d.weekend).every((d) => d.p.stick.cap === 300)); assert.ok(cal.filter((d) => !d.weekend).every((d) => d.p.stick.cap === 480));
-  });
-  await ok('Verfügbarkeit: keine vergangenen Tage, heute möglich', async () => {
-    const r = (await call('available', { params: { p: '3:60', from: '2020-01-01' } })).j.dates;
-    assert.ok(r.length > 0 && r.every((d) => d >= iso(0))); assert.equal(r[0], iso(0));
-  });
-  let blockId;
-  await ok('Sperrtage: anlegen, fallen aus Verfügbarkeit/Vorschlag/Kalender, Auftrag darauf abgelehnt', async () => {
-    const d1 = iso(5), d2 = iso(7);
-    assert.equal((await call('blocked_save', { body: { date_from: iso(-3), date_to: iso(-2), reason: 'alt' } })).j.error, 'date_past');
-    assert.equal((await call('blocked_save', { body: { date_from: d2, date_to: d1 } })).j.error, 'bad_date_to');
-    assert.equal((await call('blocked_save', { body: { date_from: d1, date_to: d2, reason: 'Urlaub' } })).status, 200);
-    const me = (await call('me')).j; assert.equal(me.blocked.length, 1); blockId = me.blocked[0].id;
-    for (const a of ['available', 'suggest']) {
-      const dates = (await call(a, { params: { p: '3:30' } })).j.dates; assert.ok(![iso(5), iso(6), iso(7)].some((d) => dates.includes(d)), a);
-    }
-    assert.equal((await call('available', { params: { mode: 'open' } })).j.dates.includes(iso(6)), false);
-    const day = (await call('calendar', { params: { from: iso(5), to: iso(5) } })).j.days[0]; assert.equal(day.blocked, 'Urlaub'); assert.equal(day.p.stick.cap, 0);
-    const base = { customer_id: cid, title: 'x', qty: 1, price: 1, currency: 'DKK' };
-    assert.equal((await call('order_save', { body: { ...base, due_date: iso(6) } })).j.error, 'date_blocked');
-    assert.equal((await call('order_save', { body: { ...base, due_date: iso(-1) } })).j.error, 'date_past');
-    assert.equal((await call('order_save', { body: { ...base, plan_date: iso(9), due_date: iso(8) } })).j.error, 'due_before_plan');
-  });
-  await ok('Sperrtag löschen gibt die Tage wieder frei; Änderungsnummer steigt', async () => {
-    const v1 = (await call('version')).j.version;
-    await call('blocked_delete', { body: { id: blockId } });
-    assert.ok((await call('version')).j.version > v1);
-    assert.ok((await call('available', { params: { p: '3:30' } })).j.dates.includes(iso(6)));
-  });
-  await ok('Teilsperre mit Uhrzeit: kürzt Kapazität nur im Tagesfenster, überlappende Zeiten nicht doppelt, Tag bleibt buchbar', async () => {
-    const d = iso(10);
-    assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '12:00' } })).j.error, 'bad_time');
-    assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '16:00', time_to: '12:00' } })).j.error, 'bad_time');
-    assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '25:00', time_to: '26:00' } })).j.error, 'bad_time');
-    const full = dow(d) % 6 === 0 ? 300 : 480;                    // Tagesfenster 08:00 bis 08:00 + Kapazität
-    const lostFor = (a, b) => Math.max(0, Math.min(b, 480 + full) - Math.max(a, 480));
-    assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '12:00', time_to: '16:00', reason: 'Arzt' } })).status, 200);
-    const cap = async () => (await call('calendar', { params: { from: d, to: d } })).j.days[0];
-    let day = await cap(); assert.equal(day.blocked, null); assert.deepEqual(day.partial.times, ['12:00-16:00']);
-    assert.equal(day.p.stick.cap, full - lostFor(720, 960)); assert.equal(day.partial.lost, lostFor(720, 960));
-    // überlappend 14-18: zusammen 12-18, nichts wird doppelt abgezogen
-    await call('blocked_save', { body: { date_from: d, time_from: '14:00', time_to: '18:00' } });
-    day = await cap(); assert.equal(day.p.stick.cap, full - lostFor(720, 1080));
-    const fitMin = full - lostFor(720, 1080);
-    if (fitMin >= 30) assert.ok((await call('available', { params: { p: `1:${fitMin}` } })).j.dates.includes(d));
-    assert.equal((await call('available', { params: { p: `1:${fitMin + 1}` } })).j.dates.includes(d), false);
-    // Auftrag auf Teilsperr-Tag darf gespeichert werden
-    const o = (await call('order', { params: { id: oid } })).j.order;
-    const moved = await call('order_save', { body: { ...o, processes: o.processes, due_date: d, plan_date: '' } });
-    assert.equal(moved.status, 200); assert.equal(moved.j.order.due_date, d);
-    for (const b of (await call('me')).j.blocked) await call('blocked_delete', { body: { id: b.id } });
-  });
-  await ok('Wochenend-Stunden einstellbar (0 = Wochenende zu)', async () => {
-    assert.equal((await call('settings_save', { body: { weekend_min: 5000 } })).j.error, 'bad_weekend_min');
-    await call('settings_save', { body: { weekend_min: 0 } });
-    assert.ok((await call('available', { params: { p: '3:30' } })).j.dates.every((d) => ![0, 6].includes(dow(d))));
-    await call('settings_save', { body: { weekend_min: 300 } });
-    assert.equal((await call('me')).j.settings.weekend_min, 300);
-  });
-  await ok('Bestehender Auftrag mit altem Datum bleibt bearbeitbar (Datum unverändert)', async () => {
-    const o = (await call('order', { params: { id: oid } })).j.order;
-    const r = await call('order_save', { body: { ...o, processes: o.processes, notes: 'geändert' } }); assert.equal(r.status, 200);
+  await ok('Kalender: gebuchte Zeit der Person, freie Zeitfenster, Einträge', async () => {
+    await call('order_status', { body: { id: oid, status: 'production' } });   // erledigte Aufträge zählen nicht als belegt
+    const r = (await call('calendar', { params: { from: iso(0), to: iso(10) } })).j;
+    assert.equal(r.days.length, 11); assert.equal(r.workers.length, 1);
+    assert.equal(r.days.reduce((s_, d) => s_ + d.w[1].booked, 0), 300); assert.equal(r.items.length, 1); assert.equal(r.items[0].worker_id, 1);
+    const today = r.days[0].w[1]; assert.equal(today.booked, 300); assert.equal(today.free, today.cap - 300);
+    assert.ok(r.days.filter((d) => d.weekend).every((d) => d.w[1].cap === 300)); assert.ok(r.days.filter((d) => !d.weekend).every((d) => d.w[1].cap === 480));
   });
   await ok('Kunde: Historie, Export, Anonymisierung', async () => {
     assert.equal((await call('customer', { params: { id: cid } })).j.customer.orders.length, 1);
@@ -201,42 +130,141 @@ try {
     await call('order_restore', { body: { id: oid } });
     assert.equal((await call('orders', { params: { show: 'all' } })).j.orders.length, 1);
   });
-  await ok('Uhrzeiten: freie Zeitfenster, Startzeit buchen, Überschneidung abgelehnt, eigene Buchung zählt nicht doppelt', async () => {
-    let w = iso(14); while ([0, 6].includes(dow(w))) w = new Date(new Date(w + 'T00:00:00').getTime() + 864e5).toISOString().slice(0, 10);
-    const sl = async (min, ex = 0) => (await call('slots', { params: { date: w, process_id: 1, minutes: min, exclude: ex } })).j;
-    let r = await sl(120); assert.equal(r.starts[0].start, '08:00'); assert.equal(r.starts[0].end, '10:00'); assert.equal(r.starts.at(-1).start, '14:00'); assert.equal(r.starts.length, 25);
-    assert.deepEqual(r.free, [['08:00', '16:00']]);
-    assert.equal((await sl(481)).starts.length, 0, 'länger als ein Werktag: kein Zeitfenster');
-    assert.equal((await call('slots', { params: { date: iso(-1), process_id: 1, minutes: 60 } })).j.starts.length, 0, 'Vergangenheit');
-    const cid2 = (await call('customer_save', { body: { name: 'Zeitplan-Kunde' } })).j.id;
-    const base = { customer_id: cid2, title: 'Zeitplan A', qty: 5, price: 10, currency: 'DKK', due_date: w, plan_date: w };
-    assert.equal((await call('order_save', { body: { ...base, processes: [{ process_id: 1, minutes: 120, start_time: '9:00' }] } })).j.error, 'bad_start_time');
-    assert.equal((await call('order_save', { body: { ...base, due_date: '', plan_date: '', processes: [{ process_id: 1, minutes: 120, start_time: '09:00' }] } })).j.error, 'slot_needs_day');
-    const a = await call('order_save', { body: { ...base, processes: [{ process_id: 1, minutes: 120, start_time: '09:00' }] } });
-    assert.equal(a.status, 200); assert.equal(a.j.order.processes[0].start_time, '09:00');
-    // 09:00-11:00 belegt: Lücken 08-09 und 11-16
-    r = await sl(120); assert.deepEqual(r.free, [['08:00', '09:00'], ['11:00', '16:00']]); assert.equal(r.starts[0].start, '11:00');
-    const clash = await call('order_save', { body: { ...base, title: 'Zeitplan B', processes: [{ process_id: 1, minutes: 60, start_time: '10:00' }] } }); assert.equal(clash.j.error, 'slot_taken');
-    const edge = await call('order_save', { body: { ...base, title: 'Zeitplan B', processes: [{ process_id: 1, minutes: 60, start_time: '08:00' }, { process_id: 3, minutes: 30, start_time: '09:00' }] } });
-    assert.equal(edge.status, 200, 'direkt vor der Buchung und anderes Verfahren frei');
-    // eigener Auftrag: gleiche Startzeit bleibt, Verschieben auf 10:00 geht (eigene Buchung wird ausgenommen)
-    const same = await call('order_save', { body: { ...a.j.order, processes: a.j.order.processes } }); assert.equal(same.status, 200);
-    const mv = await call('order_save', { body: { ...a.j.order, processes: [{ process_id: 1, minutes: 120, start_time: '10:00' }] } }); assert.equal(mv.status, 200);
-    // Teilsperre 12:00-14:00 nimmt das Zeitfenster heraus
-    await call('blocked_save', { body: { date_from: w, time_from: '12:00', time_to: '14:00', reason: 'Termin' } });
-    r = await sl(60, a.j.order.id); assert.ok(r.free.every(([x, y]) => !(x < '14:00' && y > '12:00')), JSON.stringify(r.free)); assert.ok(!r.starts.some((x) => x.start === '12:30'));
-    assert.equal((await call('order_save', { body: { ...a.j.order, processes: [{ process_id: 1, minutes: 120, start_time: '11:00' }] } })).j.error, 'slot_taken', 'ragt in die Sperre');
-    const cal = (await call('calendar', { params: { from: w, to: w } })).j;
-    assert.ok(cal.orders.some((o) => (o.starts || '').includes('1@10:00')));
-    assert.ok(cal.days[0].p.stick.iv.length >= 1);
+  const mkOrder = (extra) => call('order_save', { body: { customer_id: cid2, title: 'T', qty: 1, price: 10, currency: 'DKK', ...extra } });
+  const opts = async (total, extra = {}) => (await call('plan_options', { params: { worker_id: 1, total, ...extra } })).j;
+  const cal1 = async (d, wid = 1) => (await call('calendar', { params: { from: d, to: d } })).j.days[0].w[wid];
+  let cid2;
+  await ok('Eine Person: 5 h Sticken + 1 h DTF + 2 h Gravur teilen sich EINEN Tag von 8 h', async () => {
+    cid2 = (await call('customer_save', { body: { name: 'Plan-Kunde' } })).j.id;
+    const w = pick(20, WEEKDAY);
+    const A = await mkOrder({ title: 'A Sticken 5h', plan_date: w, processes: [{ process_id: 1, minutes: 300 }] });
+    assert.equal(A.status, 200); assert.equal(A.j.order.days[0].start, '08:00'); assert.equal(A.j.order.days[0].end, '13:00');
+    let x = await cal1(w); assert.equal(x.booked, 300); assert.equal(x.free, 180); assert.deepEqual(x.iv, [['13:00', '16:00']]);
+    // 4 h passen nicht mehr an diesen Tag (nur 3 h frei), 3 h schon
+    assert.ok((await opts(240, { from: w })).options[0].start_date > w, '4 h: nächster Tag');
+    const three = (await opts(180, { from: w })).options[0]; assert.equal(three.start_date, w); assert.equal(three.start, '13:00');
+    const B = await mkOrder({ title: 'B DTF 1h', plan_date: w, processes: [{ process_id: 3, minutes: 60 }] });
+    assert.equal(B.j.order.days[0].start, '13:00', 'direkt hinter A'); assert.equal(B.j.order.days[0].end, '14:00');
+    const C0 = await mkOrder({ title: 'C Gravur 3h', plan_date: w, processes: [{ process_id: 6, minutes: 180 }] });
+    assert.equal(C0.j.error, 'no_capacity', 'nur noch 2 h frei');
+    const C = await mkOrder({ title: 'C Gravur 2h', plan_date: w, processes: [{ process_id: 6, minutes: 120 }] });
+    assert.equal(C.status, 200); assert.equal(C.j.order.days[0].start, '14:00'); assert.equal(C.j.order.days[0].end, '16:00');
+    x = await cal1(w); assert.equal(x.booked, 480); assert.equal(x.free, 0); assert.deepEqual(x.iv, []);
+    assert.ok(!(await opts(30, { from: w })).options.some((o) => o.start_date === w), 'voller Tag wird nicht mehr angeboten');
+  });
+  await ok('Automatische Planung ohne Produktionstag: frühester freier Platz, keine vergangenen Tage', async () => {
+    const full = pick(20, WEEKDAY);
+    const r = await mkOrder({ title: 'Auto', processes: [{ process_id: 4, minutes: 120 }] }); assert.equal(r.status, 200);
+    assert.ok(r.j.order.plan_date >= iso(0)); assert.notEqual(r.j.order.plan_date, full, 'der volle Tag wird übersprungen');
+    const past = (await call('plan_options', { params: { worker_id: 1, total: 60, from: '2020-01-01' } })).j.options;
+    assert.ok(past.length > 0 && past.every((o) => o.start_date >= iso(0)));
+    assert.equal((await call('plan_options', { params: { worker_id: 1, total: 0 } })).j.error, 'no_duration');
+  });
+  await ok('Auftrag länger als ein Arbeitstag verteilt sich auf mehrere Tage; Abgabe nicht vor Produktionsende', async () => {
+    const mon = pick(40, [1]);                                               // Montag: 8 h + 4 h am Dienstag
+    const o = (await opts(720, { from: mon })).options[0];
+    assert.equal(o.start_date, mon); assert.equal(o.chunks.length, 2); assert.equal(o.chunks[0].minutes, 480); assert.equal(o.chunks[1].minutes, 240);
+    const tue = new Date(new Date(mon + 'T00:00:00').getTime() + 864e5).toISOString().slice(0, 10);
+    assert.equal(o.finish, tue); assert.equal(o.finish_time, '12:00');
+    assert.equal((await mkOrder({ plan_date: mon, due_date: mon, processes: [{ process_id: 1, minutes: 720 }] })).j.error, 'due_before_finish');
+    const ok1 = await mkOrder({ plan_date: mon, due_date: tue, processes: [{ process_id: 1, minutes: 720 }] });
+    assert.equal(ok1.status, 200); assert.equal(ok1.j.order.days.length, 2); assert.equal(ok1.j.order.finish_date, tue);
+    assert.equal((await cal1(mon)).free, 0); assert.equal((await cal1(tue)).booked, 240);
+    // über das Wochenende: Freitag 8 h, Samstag nur 5 h Wochenend-Kapazität
+    const fri = pick(60, [5]); const sat = new Date(new Date(fri + 'T00:00:00').getTime() + 864e5).toISOString().slice(0, 10);
+    const f = (await opts(720, { from: fri })).options[0]; assert.equal(f.chunks[1].date, sat); assert.equal(f.chunks[1].minutes, 240);
+  });
+  await ok('Plan bleibt stabil: unveränderter Auftrag behält seine Zeit, neue Dauer wird neu eingeplant', async () => {
+    const w = pick(80, WEEKDAY);
+    const A = (await mkOrder({ title: 'Stabil', plan_date: w, processes: [{ process_id: 1, minutes: 180 }] })).j.order;
+    await mkOrder({ title: 'Davor', plan_date: w, start_time: '08:00', processes: [{ process_id: 3, minutes: 60 }] });
+    const keep = await call('order_save', { body: { ...A, processes: A.processes, notes: 'x' } }); assert.equal(keep.status, 200); assert.deepEqual(keep.j.order.days, A.days);
+    const sh = await call('order_save', { body: { ...A, processes: [{ process_id: 1, minutes: 60 }] } }); assert.equal(sh.status, 200);
+    assert.equal(sh.j.order.total_min, 60); assert.equal(sh.j.order.days[0].minutes, 60);
+    assert.equal(sh.j.order.days[0].start, A.days[0].start, 'eigener alter Block zählt nicht doppelt');
+  });
+  await ok('Uhrzeit wählen: Zeitfenster, belegte Zeit abgelehnt, Vorschau', async () => {
+    const w = pick(100, WEEKDAY);
+    const F = await mkOrder({ title: 'Fix', plan_date: w, start_time: '09:00', processes: [{ process_id: 1, minutes: 120 }] });
+    assert.equal(F.status, 200); assert.equal(F.j.order.days[0].start, '09:00');
+    const sl = (await call('plan_slots', { params: { worker_id: 1, total: 60, date: w } })).j;
+    assert.deepEqual(sl.free, [['08:00', '09:00'], ['11:00', '16:00']]); assert.equal(sl.starts[0].start, '08:00'); assert.ok(!sl.starts.some((x) => x.start === '09:15'));
+    assert.equal((await call('plan_slots', { params: { worker_id: 1, total: 120, date: w } })).j.starts[0].start, '11:00');
+    assert.equal((await mkOrder({ plan_date: w, start_time: '10:00', processes: [{ process_id: 3, minutes: 60 }] })).j.error, 'slot_taken');
+    assert.equal((await mkOrder({ plan_date: w, start_time: '8:00', processes: [{ process_id: 3, minutes: 60 }] })).j.error, 'bad_start_time');
+    const pv = (await call('plan_preview', { params: { worker_id: 1, total: 60, date: w, start: '11:30' } })).j; assert.equal(pv.possible, true); assert.equal(pv.chunks[0].end, '12:30');
+    assert.equal((await call('plan_preview', { params: { worker_id: 1, total: 60, date: w, start: '10:00' } })).j.possible, false);
+    assert.equal((await call('plan_slots', { params: { worker_id: 1, total: 60, date: iso(-1) } })).j.starts.length, 0);
+  });
+  await ok('Mitarbeiter: erst aktiv mit Namen, eigener Tag, Farbe, nicht entfernbar solange Aufträge offen sind', async () => {
+    const me0 = (await call('me')).j; assert.equal(me0.workers.length, 4); assert.deepEqual(me0.workers.map((w) => w.active), [true, false, false, false]);
+    assert.equal((await mkOrder({ worker_id: 2, processes: [{ process_id: 1, minutes: 60 }] })).j.error, 'bad_worker', 'inaktiv');
+    assert.equal((await call('plan_options', { params: { worker_id: 2, total: 60 } })).j.error, 'bad_worker');
+    const ws = me0.workers.map((w) => ({ id: w.id, name: w.name, color: w.color, day_min: w.day_min }));
+    assert.equal((await call('workers_save', { body: { workers: [{ ...ws[0], name: '' }] } })).j.error, 'name_required');
+    assert.equal((await call('workers_save', { body: { workers: [{ ...ws[1], name: 'Anna', color: 'rot' }] } })).j.error, 'bad_worker');
+    assert.equal((await call('workers_save', { body: { workers: [{ ...ws[1], name: 'Anna', color: '#38BDF8', day_min: 360 }] } })).status, 200);
+    const me1 = (await call('me')).j; assert.equal(me1.workers[1].active, true); assert.equal(me1.workers[1].color, '#38bdf8');
+    const w = pick(20, WEEKDAY);                                           // Tag ist für den Inhaber voll, Anna ist frei (6 h)
+    assert.equal((await cal1(w, 1)).free, 0); assert.equal((await cal1(w, 2)).free, 360);
+    const E = await mkOrder({ worker_id: 2, title: 'Für Anna', plan_date: w, processes: [{ process_id: 5, minutes: 240 }] });
+    assert.equal(E.status, 200); assert.equal(E.j.order.worker_id, 2); assert.equal(E.j.order.days[0].start, '08:00');
+    assert.equal((await cal1(w, 2)).free, 120, 'Annas Tag: 6 h − 4 h'); assert.equal((await cal1(w, 1)).booked, 480, 'Inhaber unberührt');
+    assert.equal((await mkOrder({ worker_id: 2, plan_date: w, processes: [{ process_id: 5, minutes: 180 }] })).j.error, 'no_capacity', 'Annas Tag hat nur noch 2 h');
+    assert.equal((await call('workers_save', { body: { workers: [{ ...ws[1], name: '' }] } })).j.error, 'worker_in_use');
+    assert.equal((await call('orders', { params: { worker: 2, show: 'all' } })).j.orders.length, 1);
+    const cal = (await call('calendar', { params: { from: w, to: w } })).j; assert.equal(cal.workers.length, 2); assert.ok(cal.items.some((i) => i.worker_id === 2));
+    await call('order_status', { body: { id: E.j.order.id, status: 'delivered' } });
+    assert.equal((await call('workers_save', { body: { workers: [{ ...ws[1], name: '' }] } })).status, 200, 'ohne offene Aufträge entfernbar');
+    assert.equal((await call('me')).j.workers[1].active, false);
+  });
+  await ok('Sperrtage: ganze Tage fallen aus Vorschlag, Tageswahl, Kalender und werden abgelehnt', async () => {
+    const d1 = pick(120, WEEKDAY), d2 = new Date(new Date(d1 + 'T00:00:00').getTime() + 864e5).toISOString().slice(0, 10);
+    assert.equal((await call('blocked_save', { body: { date_from: iso(-3), date_to: iso(-2), reason: 'alt' } })).j.error, 'date_past');
+    assert.equal((await call('blocked_save', { body: { date_from: d2, date_to: d1 } })).j.error, 'bad_date_to');
+    assert.equal((await call('blocked_save', { body: { date_from: d1, date_to: d2, reason: 'Urlaub' } })).status, 200);
+    const me = (await call('me')).j; assert.equal(me.blocked.length, 1); const bid = me.blocked[0].id;
+    const dates = (await opts(60, { from: d1, limit: 40 })).options.map((o) => o.start_date); assert.ok(!dates.includes(d1) && !dates.includes(d2));
+    assert.ok(!(await call('due_days', { params: { from: d1 } })).j.dates.some((d) => d === d1 || d === d2));
+    const day = (await call('calendar', { params: { from: d1, to: d1 } })).j.days[0]; assert.equal(day.blocked, 'Urlaub'); assert.equal(day.w[1].cap, 0);
+    assert.equal((await mkOrder({ plan_date: d1, processes: [{ process_id: 1, minutes: 60 }] })).j.error, 'date_blocked');
+    assert.equal((await mkOrder({ due_date: d2, processes: [{ process_id: 1, minutes: 60 }] })).j.error, 'date_blocked');
+    assert.equal((await mkOrder({ due_date: iso(-1), processes: [{ process_id: 1, minutes: 60 }] })).j.error, 'date_past');
+    // Mehrtagesauftrag überspringt die gesperrten Tage
+    const long = (await opts(1200, { from: d1 })).options[0]; assert.ok(long.chunks.every((c) => c.date !== d1 && c.date !== d2));
+    const v1 = (await call('version')).j.version; await call('blocked_delete', { body: { id: bid } }); assert.ok((await call('version')).j.version > v1);
+    assert.ok((await opts(60, { from: d1, limit: 40 })).options.some((o) => o.start_date === d1), 'wieder frei');
+  });
+  await ok('Teilsperre mit Uhrzeit: nimmt nur ihr Zeitfenster heraus, überlappende Zeiten nicht doppelt', async () => {
+    const d = pick(140, WEEKDAY);
+    assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '12:00' } })).j.error, 'bad_time');
+    assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '16:00', time_to: '12:00' } })).j.error, 'bad_time');
+    assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '25:00', time_to: '26:00' } })).j.error, 'bad_time');
+    await call('blocked_save', { body: { date_from: d, time_from: '12:00', time_to: '16:00', reason: 'Arzt' } });
+    let day = (await call('calendar', { params: { from: d, to: d } })).j.days[0];
+    assert.equal(day.blocked, null); assert.deepEqual(day.partial.times, ['12:00-16:00']); assert.equal(day.w[1].cap, 240); assert.deepEqual(day.w[1].iv, [['08:00', '12:00']]);
+    await call('blocked_save', { body: { date_from: d, time_from: '14:00', time_to: '18:00' } });       // überlappt, außerhalb 16 Uhr zählt nichts
+    day = (await call('calendar', { params: { from: d, to: d } })).j.days[0]; assert.equal(day.w[1].cap, 240);
+    assert.equal((await opts(300, { from: d })).options[0].start_date > d || (await opts(300, { from: d })).options[0].start_date === d, true);
+    assert.notEqual((await opts(300, { from: d })).options[0].start_date, d, '5 h passen nicht in die 4 h vor der Sperre');
+    assert.equal((await opts(240, { from: d })).options[0].start_date, d);
+    assert.equal((await mkOrder({ plan_date: d, start_time: '12:00', processes: [{ process_id: 1, minutes: 60 }] })).j.error, 'slot_taken');
+    assert.equal((await mkOrder({ plan_date: d, start_time: '09:00', processes: [{ process_id: 1, minutes: 60 }] })).status, 200, 'Teilsperre-Tag bleibt buchbar');
     for (const b of (await call('me')).j.blocked) await call('blocked_delete', { body: { id: b.id } });
-    // Arbeitsbeginn
+  });
+  await ok('Wochenend-Stunden und Arbeitsbeginn einstellbar', async () => {
+    assert.equal((await call('settings_save', { body: { weekend_min: 5000 } })).j.error, 'bad_weekend_min');
     assert.equal((await call('settings_save', { body: { weekend_min: 300, day_start: '7:00' } })).j.error, 'bad_day_start');
+    await call('settings_save', { body: { weekend_min: 0 } });
+    assert.ok((await opts(30, { from: pick(160, [6]), limit: 20 })).options.every((o) => ![0, 6].includes(dow(o.start_date))), 'Wochenende zu');
     await call('settings_save', { body: { weekend_min: 300, day_start: '07:00' } });
     assert.equal((await call('me')).j.settings.day_start, '07:00');
-    assert.equal((await sl(60, a.j.order.id)).starts[0].start, '07:00');
+    assert.equal((await opts(60, { from: pick(170, WEEKDAY) })).options[0].start, '07:00');
+    const sat = pick(170, [6]); assert.ok((await opts(300, { from: sat, limit: 20 })).options.some((o) => o.start_date === sat), '5 h am Samstag');
+    assert.ok(!(await opts(301, { from: sat, limit: 20 })).options.some((o) => o.start_date === sat), '301 min passen nicht an einen Samstag');
     await call('settings_save', { body: { weekend_min: 300, day_start: '08:00' } });
   });
+
   await ok('Benutzer: 5 Plätze speichern, doppelte Admin-ID abgelehnt', async () => {
     const me = (await call('me')).j;
     const mk = (ids) => ({ users: me.users.map((u, i) => ({ ...u, wf_admin_id: ids[i] || '' })) });
@@ -248,17 +276,24 @@ try {
     const r = await fetch(`${B}/api.php?a=backup`, { headers: { cookie } }); const b = Buffer.from(await r.arrayBuffer());
     assert.equal(b.subarray(0, 15).toString(), 'SQLite format 3');
   });
-  await ok('Datenbank-Update v1 → v4 behält Daten, ergänzt Sperrtage, Uhrzeiten, Startzeiten und Wochenende', async () => {
+  await ok('Datenbank-Update v4 → v5 übernimmt bestehende Aufträge als Block des Inhabers', async () => {
     const { execFileSync } = await import('node:child_process');
-    const code = `<?php require '${root}/inc/schema.php';
+    const code = `require '${root}/inc/schema.php';
       $db = new PDO('sqlite::memory:'); $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
-      $db->exec('CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)'); wf_migrate_v1($db);
+      $db->exec('CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+      wf_migrate_v1($db); wf_migrate_v2($db); wf_migrate_v3($db); wf_migrate_v4($db);
       $db->exec("INSERT INTO customers (name) VALUES ('Alt')");
+      $db->exec("INSERT INTO orders (nr, customer_id, title, due_date) VALUES ('2026-0001', 1, 'Alt', '2030-05-06'), ('2026-0002', 1, 'Ohne Datum', NULL), ('2026-0003', 1, 'Zweiter', '2030-05-06')");
+      $db->exec("INSERT INTO order_processes (order_id, process_id, minutes) VALUES (1, 1, 120), (1, 3, 60), (2, 1, 60), (3, 4, 90)");
       echo $db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn(), ',';
       wf_migrate($db); wf_migrate($db);
-      echo $db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn(), ',', $db->query("SELECT value FROM meta WHERE key='weekend_min'")->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM customers')->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM blocked_days')->fetchColumn(), ',', $db->query("SELECT value FROM meta WHERE key='day_start'")->fetchColumn(), ',', $db->query("SELECT COUNT(*) FROM pragma_table_info('order_processes') WHERE name='start_time'")->fetchColumn();`;
-    assert.equal(execFileSync('php', ['-r', code.replace('<?php', '')]).toString(), '1,4,300,1,0,08:00,1');
+      echo $db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM workers')->fetchColumn(), ',';
+      foreach ($db->query('SELECT order_id, date, start_time, minutes FROM order_days ORDER BY id') as $r) echo $r['order_id'] . '@' . $r['date'] . ' ' . $r['start_time'] . '+' . $r['minutes'] . ';';
+      $o = $db->query('SELECT total_min, worker_id, plan_date FROM orders WHERE id = 1')->fetch(); echo ',', $o['total_min'], '/', $o['worker_id'], '/', $o['plan_date'];
+      echo ',', $db->query('SELECT COUNT(*) FROM order_days WHERE order_id = 2')->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM customers')->fetchColumn();`;
+    assert.equal(execFileSync('php', ['-r', code]).toString(), '4,5,4,1@2030-05-06 08:00+180;3@2030-05-06 11:00+90;,180/1/2030-05-06,0,1');
   });
+
 } finally {
   srv.kill(); rmSync(data, { recursive: true, force: true });
   console.log(`${passed} Tests bestanden`);

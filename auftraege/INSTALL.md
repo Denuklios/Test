@@ -23,14 +23,21 @@ Wichtig: Das Cookie der Hauptseite muss auch im Unterordner `/auftraege/` gelten
 `https://wunsch-fabrik.dk/auftraege/` im Browser öffnen (als Admin angemeldet). Die Datenbank wird beim ersten Aufruf automatisch angelegt, mit den 7 Veredelungsarten und 5 Benutzerplätzen.
 Unter **Einstellungen**:
 - **Benutzer:** Namen der 5 Personen eintragen und deren Admin-ID aus dem Login der Hauptseite (damit der Verlauf den Namen zeigt).
-- **Kapazität:** Minuten pro Werktag je Maschine/Verfahren. Samstag und Sonntag zählen mit der Stundenzahl darunter (Standard 5 h, 0 = Wochenende zu).
+- **Personen & Farben:** Du bist immer aktiv. Drei Mitarbeiterplätze werden aktiv, sobald du einen Namen einträgst (Namen leeren = wieder aus, solange die Person keine offenen Aufträge hat). Jede Person hat Farbe und Tagesstunden (Standard 8 h).
+- **Wochenende:** Samstag und Sonntag zählen je Person mit der Stundenzahl darunter (Standard 5 h, 0 = Wochenende zu).
 - **Arbeitsbeginn:** Das Tagesfenster eines Verfahrens beginnt dann (Standard 08:00) und dauert so lange wie seine Kapazität (8 h = 08:00–16:00). Darin werden Uhrzeiten vergeben. Teilsperren zählen nur innerhalb dieses Fensters.
 - **Gesperrte Tage:** Urlaub, Messe, Arzttermin usw. eintragen. Ohne Uhrzeit ist der ganze Tag gesperrt: Er fällt aus Kalender, Terminvorschlag und Tageswahl heraus und kann nicht als Termin gespeichert werden. Mit Uhrzeit (z. B. 13:00–17:00) wird nur dieser Zeitraum von der Tageskapazität abgezogen, der Rest bleibt buchbar.
 - **Werkstatt-Anzeige:** „Neuen Link erzeugen“, den Link kopieren und im Werkstatt-PC-Browser öffnen. Doppelklick oder Symbol unten rechts = Vollbild. Der Link wird nur einmal angezeigt; zum Widerrufen „Sperren“ klicken und einen neuen erzeugen.
 
 **Update einer bestehenden Installation:** neue Dateien einfach drüberkopieren. Die Datenbank wird beim nächsten Aufruf automatisch ergänzt, alle Daten bleiben erhalten (vorher trotzdem Backup ziehen).
 
-**Uhrzeiten:** Im Auftrag unter jedem gewählten Verfahren auf „🕘 Uhrzeit wählen“ tippen (zuerst Produktionstag oder Abgabetermin wählen). Angeboten werden nur freie Zeitfenster. Ohne Uhrzeit zählt der Auftrag nur mit seinen Minuten für den Tag.
+**So plant die App:**
+- Du gibst je Verfahren die ungefähre Dauer in **Stunden** ein. Die App rechnet die Gesamtdauer und den Anteil am Arbeitstag aus.
+- Eine Person arbeitet alles nacheinander: Was ein Auftrag an einem Tag belegt, ist für andere Aufträge derselben Person weg, egal welches Verfahren (5 h Sticken + 1 h DTF + 2 h Gravur = ein voller 8-Stunden-Tag).
+- Oben im Auftrag stehen die **nächsten freien Produktionstage** (der erste ist vorgewählt). Die Uhrzeit wird automatisch früh gesetzt und lässt sich über „ändern“ wählen. Dauert ein Auftrag länger als ein Arbeitstag, verteilt er sich auf die nächsten freien Tage.
+- Der **Abgabetermin** kann nicht vor dem Produktionsende liegen. Vergangene, gesperrte und volle Tage werden nicht angeboten.
+
+**Fotos vom Handy:** Im Auftrag unter „Vorlagen & Fotos“ auf „📷 Foto aufnehmen“ tippen (Skizze oder Logo abfotografieren) oder „Aus Galerie/Datei“ wählen. Die Fotos werden beim Speichern mit dem Auftrag hochgeladen und vorher automatisch auf höchstens 2000 Pixel verkleinert (Logos mit transparentem Hintergrund bleiben PNG). Die mitgelieferte `.user.ini` erlaubt größere Uploads; falls one.com sie ignoriert, die Grenzen in den PHP-Einstellungen anheben.
 
 ## 5. Als App auf dem Handy
 Seite im Handy-Browser öffnen → Menü → „Zur Startseite hinzufügen“ (Android/Chrome: „App installieren“).

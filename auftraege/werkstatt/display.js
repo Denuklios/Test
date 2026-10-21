@@ -51,6 +51,13 @@ async function tick() {
   }
 }
 
+const workerOf = (id) => (data && data.workers || []).find((w) => w.id === id);
+// Personen-Chip nur, wenn mehr als eine Person aktiv ist
+function wk(o) {
+  const w = workerOf(o.worker_id);
+  return data.workers.length > 1 && w ? h('span', { class: 'wchip', style: `--wc:${w.color}` }, h('i'), w.name) : null;
+}
+
 function dateLabel(d, today) {
   if (!d) return t().nodate;
   const diff = Math.round((new Date(d + 'T00:00:00') - new Date(today + 'T00:00:00')) / 864e5);
@@ -84,7 +91,7 @@ function draw() {
       shown++;
       rows.push(h('div', { class: 'ord' + (g.late ? ' late' : ''), style: `--sc:${SCOL[o.status]}` },
         h('div', { class: 'sc' }),
-        h('div', { style: 'min-width:0' }, h('div', { class: 't' }, o.title), h('div', { class: 'c' }, o.start ? h('span', { class: 'tm' }, '🕘 ' + o.start) : null, `${o.customer} · ${o.qty} ${t().pcs}`, h('span', { class: 'dots' }, o.processes.map((k) => h('i', { style: `--c:${pm[k] ? pm[k].color : '#A855F7'}`, title: pm[k] ? (lang === 'da' ? pm[k].name_da : pm[k].name_de) : k }))))),
+        h('div', { style: 'min-width:0' }, h('div', { class: 't' }, o.title), h('div', { class: 'c' }, o.start ? h('span', { class: 'tm' }, '🕘 ' + o.start) : null, wk(o), `${o.customer} · ${o.qty} ${t().pcs}`, h('span', { class: 'dots' }, o.processes.map((k) => h('i', { style: `--c:${pm[k] ? pm[k].color : '#A855F7'}`, title: pm[k] ? (lang === 'da' ? pm[k].name_da : pm[k].name_de) : k }))))),
         h('div', { class: 'r' }, h('span', { class: 'pill', style: `--c:${SCOL[o.status]}` }, t().st[o.status]), o.unpaid && h('span', { class: 'unpaid' }, t().unpaid))));
     }
     if (rows.length) main.push(h('div', { class: 'grp' + (g.late ? ' late' : '') }, g.label), ...rows);
@@ -101,10 +108,10 @@ function draw() {
     grid.append(h('div', { class: 'ch' + (d.date === data.today ? ' today' : '') + (d.weekend ? ' we' : '') },
       h('b', {}, dt.toLocaleDateString(loc(), { weekday: 'short' }).replace('.', '').slice(0, 2)), h('small', {}, dt.getDate())));
   }
-  for (const p of data.processes) {
-    grid.append(h('div', { class: 'cn' }, h('i', { class: 'cdot', style: `--c:${p.color}` }), lang === 'da' ? p.name_da : p.name_de));
+  for (const w of data.workers) {
+    grid.append(h('div', { class: 'cn' }, h('i', { class: 'cdot', style: `--c:${w.color}` }), w.name));
     for (const d of days) {
-      const x = d.p[p.key];
+      const x = d.w[w.id];
       if (d.blocked !== null) { grid.append(h('div', { class: 'cc blk', title: d.blocked || '' }, '🚫')); continue; }
       if (!x || x.cap === 0) { grid.append(h('div', { class: 'cc off' }, '–')); continue; }
       const fr = x.free / x.cap;

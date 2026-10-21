@@ -69,9 +69,12 @@ function order_row(PDO $db, int $id): array
     if (!$o) {
         wf_fail('not_found', 404);
     }
-    $p = $db->prepare('SELECT process_id, minutes, start_time FROM order_processes WHERE order_id = ?');
+    $p = $db->prepare('SELECT process_id, minutes FROM order_processes WHERE order_id = ?');
     $p->execute([$id]);
     $o['processes'] = $p->fetchAll();
+    $dd = $db->prepare('SELECT date, start_time, minutes FROM order_days WHERE order_id = ? ORDER BY date, start_time');
+    $dd->execute([$id]);
+    $o['days'] = array_map(fn($r) => ['date' => $r['date'], 'start' => $r['start_time'], 'end' => wf_min_to_hhmm(wf_hhmm_to_min($r['start_time']) + (int)$r['minutes']), 'minutes' => (int)$r['minutes']], $dd->fetchAll());
     $f = $db->prepare('SELECT id, original_name, mime, size, uploaded_at FROM order_files WHERE order_id = ? ORDER BY id');
     $f->execute([$id]);
     $o['files'] = $f->fetchAll();
@@ -93,6 +96,7 @@ try {
                 'pay' => WF_PAY,
                 'currencies' => wf_cfg('currencies'),
                 'processes' => $db->query('SELECT * FROM process_types ORDER BY sort')->fetchAll(),
+                'workers' => wf_workers(),
                 'users' => $db->query('SELECT id, name, wf_admin_id, active FROM users ORDER BY id')->fetchAll(),
                 'tokens' => $tokens,
                 'blocked' => $db->query("SELECT id, date_from, date_to, reason, time_from, time_to FROM blocked_days WHERE date_to >= date('now','localtime') ORDER BY date_from")->fetchAll(),
@@ -130,6 +134,10 @@ try {
                 $w[] = 'o.pay_status = ?';
                 $p[] = $_GET['pay'];
             }
+            if (!empty($_GET['worker'])) {
+                $w[] = 'o.worker_id = ?';
+                $p[] = (int)$_GET['worker'];
+            }
             if (!empty($_GET['customer_id'])) {
                 $w[] = 'o.customer_id = ?';
                 $p[] = (int)$_GET['customer_id'];
@@ -148,7 +156,7 @@ try {
             if (!empty($_GET['overdue'])) {
                 $w[] = "o.due_date < date('now','localtime') AND o.status NOT IN ('done','delivered')";
             }
-            $sql = 'SELECT o.id, o.nr, o.title, o.qty, o.price, o.deposit, o.currency, o.status, o.pay_status, o.due_date, o.plan_date,
+            $sql = 'SELECT o.id, o.nr, o.title, o.qty, o.price, o.deposit, o.currency, o.status, o.pay_status, o.due_date, o.plan_date, o.start_time, o.finish_date, o.total_min, o.worker_id,
                            c.name AS customer_name, c.company AS customer_company, o.customer_id,
                            (SELECT group_concat(process_id) FROM order_processes WHERE order_id = o.id) AS process_ids
                     FROM orders o JOIN customers c ON c.id = o.customer_id
@@ -195,9 +203,29 @@ try {
                 wf_fail('deposit_required');
             }
             $due = date_or_null($in, 'due_date');
-            $plan = date_or_null($in, 'plan_date');
+            $planIn = date_or_null($in, 'plan_date');
+            $startIn = trim((string)($in['start_time'] ?? ''));
+            if ($startIn !== '' && !preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $startIn)) {
+                wf_fail('bad_start_time');
+            }
+            $startIn = $startIn === '' ? null : $startIn;
             $oldRow = $id ? order_row($db, $id) : null;
-            foreach (['due_date' => $due, 'plan_date' => $plan] as $field => $val) {
+            // Verfahren mit geschaetzter Dauer; die Gesamtdauer ist ihre Summe (eine Person arbeitet alles nacheinander ab)
+            $procs = [];
+            foreach ((array)($in['processes'] ?? []) as $pr) {
+                $pid = (int)($pr['process_id'] ?? 0);
+                if ($pid > 0) {
+                    $procs[$pid] = max(0, min(100000, (int)($pr['minutes'] ?? 0)));
+                }
+            }
+            $total = array_sum($procs);
+            $wid = (int)($in['worker_id'] ?? 1) ?: 1;
+            $worker = wf_worker($wid);
+            if (!$worker || !$worker['active']) {
+                wf_fail('bad_worker');
+            }
+            // Vergangenheit und gesperrte Tage nur pruefen, wenn das Datum neu oder geaendert ist
+            foreach (['due_date' => $due, 'plan_date' => $planIn] as $field => $val) {
                 if ($val !== null && (!$oldRow || ($oldRow[$field] ?? null) !== $val)) {
                     if ($val < date('Y-m-d')) {
                         wf_fail('date_past', 400, ['field' => $field]);
@@ -207,45 +235,35 @@ try {
                     }
                 }
             }
-            if ($due !== null && $plan !== null && $due < $plan) {
-                wf_fail('due_before_plan');
+            // Einplanen: ohne Produktionstag wird der fruehestmoegliche gewaehlt. Unveraenderte Planung bleibt, wie sie ist.
+            $needPlan = $total > 0 && !in_array($status, ['done', 'delivered'], true);
+            $unchanged = $oldRow && (int)$oldRow['worker_id'] === $wid && (int)$oldRow['total_min'] === $total && $oldRow['finish_date'] !== null
+                && ($planIn === null || $planIn === $oldRow['plan_date']) && ($startIn === null || $startIn === $oldRow['start_time']);
+            $alloc = null;
+            if ($needPlan && !$unchanged) {
+                $from = $planIn ?? date('Y-m-d');
+                $plan = wf_plan_load($from, date('Y-m-d', strtotime($from . ' +150 days')), $id);
+                if ($planIn === null) {
+                    $opts = wf_plan_options($plan, $wid, $worker['day_min'], $total, $from, 1);
+                    if (!$opts) {
+                        wf_fail('no_capacity');
+                    }
+                    $planIn = $opts[0]['start_date'];
+                }
+                $alloc = wf_alloc($plan, $wid, $worker['day_min'], $total, $planIn, $startIn === null ? null : wf_hhmm_to_min($startIn));
+                if (!$alloc) {
+                    wf_fail($startIn !== null ? 'slot_taken' : 'no_capacity');
+                }
             }
-            $procs = [];
-            foreach ((array)($in['processes'] ?? []) as $pr) {
-                $pid = (int)($pr['process_id'] ?? 0);
-                $min = max(0, min(100000, (int)($pr['minutes'] ?? 0)));
-                $stime = trim((string)($pr['start_time'] ?? ''));
-                if ($stime !== '' && !preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $stime)) {
-                    wf_fail('bad_start_time');
-                }
-                if ($pid > 0) {
-                    $procs[$pid] = [$min, $stime === '' ? null : $stime];
-                }
-            }
-            // Startzeit: nur mit festem Tag, und das Zeitfenster muss an diesem Tag frei sein (eigene alte Buchung zaehlt nicht).
-            $day = $plan ?? $due;
-            $oldStart = [];
-            foreach ($oldRow['processes'] ?? [] as $op) {
-                $oldStart[(int)$op['process_id']] = $op['start_time'];
-            }
-            $oldDay = $oldRow ? ($oldRow['plan_date'] ?? $oldRow['due_date']) : null;
-            foreach ($procs as $pid => [$min, $stime]) {
-                if ($stime === null || ($oldRow && $oldDay === $day && ($oldStart[$pid] ?? null) === $stime)) {
-                    continue; // unveraendert
-                }
-                if ($day === null) {
-                    wf_fail('slot_needs_day');
-                }
-                $ok = array_filter(wf_slots($day, $pid, $min, $id)['starts'], fn($x) => $x['start'] === $stime);
-                if (!$ok) {
-                    wf_fail('slot_taken', 400, ['process_id' => $pid]);
-                }
+            $finish = $alloc ? $alloc['finish'] : ($unchanged ? $oldRow['finish_date'] : null);
+            if ($due !== null && $finish !== null && $due < $finish) {
+                wf_fail('due_before_finish', 400, ['finish' => $finish]);
             }
             $db->beginTransaction();
             if ($id) {
                 $old = order_row($db, $id);
-                $db->prepare('UPDATE orders SET customer_id=?, title=?, description=?, article=?, qty=?, price=?, deposit=?, currency=?, pay_status=?, status=?, due_date=?, plan_date=?, notes=?, updated_at=datetime(\'now\') WHERE id=?')
-                   ->execute([$cid, $title, s($in, 'description', 5000), s($in, 'article', 300), $qty, $price, $deposit, $cur, $pay, $status, $due, $plan, s($in, 'notes', 5000), $id]);
+                $db->prepare('UPDATE orders SET customer_id=?, title=?, description=?, article=?, qty=?, price=?, deposit=?, currency=?, pay_status=?, status=?, due_date=?, worker_id=?, notes=?, updated_at=datetime(\'now\') WHERE id=?')
+                   ->execute([$cid, $title, s($in, 'description', 5000), s($in, 'article', 300), $qty, $price, $deposit, $cur, $pay, $status, $due, $wid, s($in, 'notes', 5000), $id]);
                 if ($old['status'] !== $status) {
                     log_order($db, $id, $user, 'status:' . $status);
                 }
@@ -261,15 +279,23 @@ try {
                     $ex = $db->prepare('SELECT 1 FROM orders WHERE nr = ?');
                     $ex->execute([$nr]);
                 } while ($ex->fetchColumn());
-                $db->prepare('INSERT INTO orders (nr, customer_id, title, description, article, qty, price, deposit, currency, pay_status, status, due_date, plan_date, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-                   ->execute([$nr, $cid, $title, s($in, 'description', 5000), s($in, 'article', 300), $qty, $price, $deposit, $cur, $pay, $status, $due, $plan, s($in, 'notes', 5000), $user['id'] ?: null]);
+                $db->prepare('INSERT INTO orders (nr, customer_id, title, description, article, qty, price, deposit, currency, pay_status, status, due_date, worker_id, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                   ->execute([$nr, $cid, $title, s($in, 'description', 5000), s($in, 'article', 300), $qty, $price, $deposit, $cur, $pay, $status, $due, $wid, s($in, 'notes', 5000), $user['id'] ?: null]);
                 $id = (int)$db->lastInsertId();
                 log_order($db, $id, $user, 'created');
             }
             $db->prepare('DELETE FROM order_processes WHERE order_id = ?')->execute([$id]);
-            $ins = $db->prepare('INSERT INTO order_processes (order_id, process_id, minutes, start_time) SELECT ?, id, ?, ? FROM process_types WHERE id = ?');
-            foreach ($procs as $pid => [$min, $stime]) {
-                $ins->execute([$id, $min, $stime, $pid]);
+            $ins = $db->prepare('INSERT INTO order_processes (order_id, process_id, minutes) SELECT ?, id, ? FROM process_types WHERE id = ?');
+            foreach ($procs as $pid => $min) {
+                $ins->execute([$id, $min, $pid]);
+            }
+            if ($alloc) {
+                wf_plan_save($db, $id, $alloc, $total);
+            } elseif ($total === 0) {
+                wf_plan_clear($db, $id, 0);
+                $db->prepare('UPDATE orders SET plan_date = NULL WHERE id = ?')->execute([$id]);
+            } else {
+                $db->prepare('UPDATE orders SET total_min = ? WHERE id = ?')->execute([$total, $id]);
             }
             wf_touch();
             $db->commit();
@@ -447,7 +473,7 @@ try {
             wf_json(['ok' => true, 'order' => order_row($db, (int)$f['order_id'])]);
         }
 
-        // ---------- Kalender ----------
+        // ---------- Kalender und Planung ----------
         case 'calendar': {
             $from = (string)($_GET['from'] ?? date('Y-m-d'));
             $to = (string)($_GET['to'] ?? date('Y-m-d', strtotime('+27 days')));
@@ -459,51 +485,104 @@ try {
             if (strtotime($to) - strtotime($from) > 100 * 86400) {
                 wf_fail('range_too_large');
             }
-            $st = $db->prepare("SELECT o.id, o.nr, o.title, o.qty, o.status, o.due_date, COALESCE(o.plan_date, o.due_date) AS d, c.name AS customer_name,
-                                       (SELECT group_concat(process_id || '@' || start_time) FROM order_processes WHERE order_id = o.id AND start_time IS NOT NULL) AS starts
-                                FROM orders o JOIN customers c ON c.id = o.customer_id
-                                WHERE o.deleted_at IS NULL AND o.status <> 'delivered' AND COALESCE(o.plan_date, o.due_date) BETWEEN ? AND ?
-                                ORDER BY d, (SELECT MIN(start_time) FROM order_processes WHERE order_id = o.id) IS NULL, (SELECT MIN(start_time) FROM order_processes WHERE order_id = o.id), o.id");
+            $st = $db->prepare("SELECT d.date, d.start_time, d.minutes, o.id, o.nr, o.title, o.qty, o.status, o.worker_id, o.finish_date, o.due_date, c.name AS customer_name
+                                FROM order_days d JOIN orders o ON o.id = d.order_id JOIN customers c ON c.id = o.customer_id
+                                WHERE o.deleted_at IS NULL AND o.status NOT IN ('done','delivered') AND d.date BETWEEN ? AND ?
+                                ORDER BY d.date, d.start_time, o.id");
             $st->execute([$from, $to]);
-            wf_json(['ok' => true, 'days' => wf_capacity($from, $to), 'orders' => $st->fetchAll()]);
+            $items = array_map(function ($r) {
+                $r['end'] = wf_min_to_hhmm(wf_hhmm_to_min($r['start_time']) + (int)$r['minutes']);
+                return $r;
+            }, $st->fetchAll());
+            wf_json(['ok' => true, 'days' => wf_plan_public(wf_plan_load($from, $to)), 'items' => $items, 'workers' => wf_workers(true)]);
         }
 
-        // ---------- Terminvorschlag / Verfuegbarkeit ----------
-        case 'suggest':
-        case 'available': {
-            $need = [];
-            foreach (explode(',', (string)($_GET['p'] ?? '')) as $part) {
-                [$pid, $min] = array_pad(explode(':', $part), 2, '0');
-                if ((int)$pid > 0) {
-                    $need[(int)$pid] = max(0, min(100000, (int)$min));
-                }
+        // Naechste freie Produktionstage fuer eine Gesamtdauer (und Person). limit>6 fuer die Tageswahl.
+        case 'plan_options': {
+            $worker = wf_worker((int)($_GET['worker_id'] ?? 1) ?: 1);
+            if (!$worker || !$worker['active']) {
+                wf_fail('bad_worker');
             }
-            if ($a === 'suggest' && !$need) {
-                wf_fail('no_processes');
+            $total = max(0, min(100000, (int)($_GET['total'] ?? 0)));
+            if ($total <= 0) {
+                wf_fail('no_duration');
             }
             $from = (string)($_GET['from'] ?? '');
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || $from < date('Y-m-d')) {
                 $from = date('Y-m-d');
             }
-            // mode=open: nur nicht gesperrte Tage (Abgabetermin nach feststehendem Produktionstag), keine Kapazitaetspruefung
-            $open = ($_GET['mode'] ?? '') === 'open';
-            $to = date('Y-m-d', strtotime($from . ($a === 'suggest' ? ' +60 days' : ' +180 days')));
-            $split = false;
-            $dates = wf_free_days($open ? [] : $need, $from, $to, (int)($_GET['exclude'] ?? 0), $split);
-            if ($a === 'suggest') {
-                $dates = array_slice($dates, 0, 4);
-            }
-            wf_json(['ok' => true, 'dates' => $dates, 'split' => $split]);
+            $limit = max(1, min(200, (int)($_GET['limit'] ?? 6)));
+            $plan = wf_plan_load($from, date('Y-m-d', strtotime($from . ' +150 days')), (int)($_GET['exclude'] ?? 0));
+            wf_json(['ok' => true, 'options' => wf_plan_options($plan, $worker['id'], $worker['day_min'], $total, $from, $limit), 'day_min' => $worker['day_min']]);
         }
 
-        // Freie Startzeiten fuer ein Verfahren an einem Tag
-        case 'slots': {
+        // Freie Startzeiten an einem Tag
+        case 'plan_slots':
+        case 'plan_preview': {
+            $worker = wf_worker((int)($_GET['worker_id'] ?? 1) ?: 1);
             $date = (string)($_GET['date'] ?? '');
+            if (!$worker || !$worker['active']) {
+                wf_fail('bad_worker');
+            }
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
                 wf_fail('bad_date');
             }
-            $res = wf_slots($date, (int)($_GET['process_id'] ?? 0), (int)($_GET['minutes'] ?? 0), (int)($_GET['exclude'] ?? 0));
-            wf_json(['ok' => true] + $res + ['blocked' => wf_blocked_reason($date)]);
+            $total = max(0, min(100000, (int)($_GET['total'] ?? 0)));
+            if ($total <= 0) {
+                wf_fail('no_duration');
+            }
+            $plan = wf_plan_load($date, date('Y-m-d', strtotime($date . ' +150 days')), (int)($_GET['exclude'] ?? 0));
+            if ($a === 'plan_slots') {
+                wf_json(['ok' => true] + wf_plan_starts($plan, $worker['id'], $worker['day_min'], $total, $date) + ['blocked' => wf_blocked_reason($date)]);
+            }
+            $start = (string)($_GET['start'] ?? '');
+            $al = $date < date('Y-m-d') ? null : wf_alloc($plan, $worker['id'], $worker['day_min'], $total, $date, preg_match('/^\d\d:\d\d$/', $start) ? wf_hhmm_to_min($start) : null);
+            wf_json(['ok' => true, 'possible' => (bool)$al] + ($al ? wf_alloc_public($al) : []));
+        }
+
+        // Tage fuer den Abgabetermin: ab $from, nicht ganz gesperrt
+        case 'due_days': {
+            $from = (string)($_GET['from'] ?? '');
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || $from < date('Y-m-d')) {
+                $from = date('Y-m-d');
+            }
+            $to = date('Y-m-d', strtotime($from . ' +180 days'));
+            $blocked = wf_block_days($from, $to);
+            $dates = [];
+            for ($t = strtotime($from); $t <= strtotime($to); $t += 86400) {
+                $d = date('Y-m-d', $t);
+                if (!(isset($blocked[$d]) && $blocked[$d]['full'])) {
+                    $dates[] = $d;
+                }
+            }
+            wf_json(['ok' => true, 'dates' => $dates]);
+        }
+
+        case 'workers_save': {
+            need_post();
+            $rows = (array)($in['workers'] ?? []);
+            foreach ($rows as $w) {
+                $wid = (int)($w['id'] ?? 0);
+                $name = mb_substr(trim((string)($w['name'] ?? '')), 0, 40);
+                $color = (string)($w['color'] ?? '');
+                $min = (int)($w['day_min'] ?? 480);
+                if ($wid < 1 || $wid > 4 || !preg_match('/^#[0-9a-fA-F]{6}$/', $color) || $min < 0 || $min > 1440) {
+                    wf_fail('bad_worker');
+                }
+                if ($wid === 1 && $name === '') {
+                    wf_fail('name_required');
+                }
+                if ($wid > 1 && $name === '') {
+                    $n = $db->prepare("SELECT COUNT(*) FROM orders WHERE worker_id = ? AND deleted_at IS NULL AND status NOT IN ('done','delivered')");
+                    $n->execute([$wid]);
+                    if ((int)$n->fetchColumn() > 0) {
+                        wf_fail('worker_in_use');
+                    }
+                }
+                $db->prepare('UPDATE workers SET name = ?, color = ?, day_min = ? WHERE id = ?')->execute([$name, strtolower($color), $min, $wid]);
+            }
+            wf_touch();
+            wf_json(['ok' => true]);
         }
 
         case 'blocked_save': {
