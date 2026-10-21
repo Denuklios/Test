@@ -2,9 +2,9 @@
 html,body.display{height:100%;overflow:hidden;padding:0;margin:0}
 body.display{background:radial-gradient(1400px 600px at 90% -10%,rgba(139,43,226,.2),transparent 60%),#090909;font-size:clamp(16px,1.35vw,30px)}
 #app{height:100vh;display:grid;grid-template-columns:minmax(0,1fr) 30vw;grid-template-rows:auto minmax(0,1fr);gap:1.2vh 1.4vw;padding:1.6vh 1.6vw}
-header{grid-column:1/-1;display:flex;align-items:center;gap:2vw;border-bottom:1px solid var(--line);padding-bottom:1vh}
-.brand{font-family:var(--head);font-size:1.7em;letter-spacing:.3em;font-weight:600}.brand b{color:var(--p2);font-weight:600}
-#clock{margin-left:auto;font-size:2em;font-weight:300;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+header{grid-column:1/-1;display:flex;align-items:center;gap:1.2vw;border-bottom:1px solid var(--line);padding-bottom:1vh}
+.brand{font-family:var(--head);font-size:1.15em;letter-spacing:.28em;font-weight:600}.brand b{color:var(--p2);font-weight:600}
+#clock{margin-left:auto;font-size:1.5em;font-weight:300;letter-spacing:.06em;font-variant-numeric:tabular-nums}
 .conn{width:.9em;height:.9em;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok)}
 .conn.off{background:var(--bad);box-shadow:0 0 12px var(--bad);animation:blink 1.2s infinite}
 @keyframes blink{50%{opacity:.25}}
@@ -93,19 +93,14 @@ body.idle{cursor:none}body.idle #hint{opacity:0}
 #side .legend{font-size:.9em;gap:.2vh .6vw}
 
 .ord .t .tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto}
-/* breite Bildschirme: Auftraege in zwei Spalten, Tageskoepfe ueber beide */
-@media(min-width:1500px){
-  #main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:1vw;row-gap:.6vh;align-content:start;grid-auto-rows:min-content}
-  #main .grp,#main .more,#main .empty-big{grid-column:1/-1}
-  .ord .r{flex-direction:column;align-items:flex-end;gap:.4vh}
-  .ord .t{font-size:1.3em}
-  .ord .th{width:3.2em;height:3.2em}
-}
+.ord .t .tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto}
+/* zwei Spalten nur, wenn eine Spalte nicht reicht (Klasse .two wird per Skript gesetzt); einzelne Auftraege eines Tages bleiben volle Breite */
+#main.two{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:1vw;row-gap:.6vh;align-content:start;grid-auto-rows:min-content}
+#main.two .grp,#main.two .more,#main.two .empty-big,#main.two .ord.solo{grid-column:1/-1}
 .ord .t .who{flex-shrink:4}
-@media(min-width:1500px){
-  .ord .pill,.ord .unpaid{font-size:.62em;padding:.25em .8em}
-  .ord .r{gap:.3vh}
-  .ord .th{width:2.9em;height:2.9em}
-  .ord .main{gap:.7vw}
-  .ord .t{font-size:1.28em}
-}
+#main.two .ord:not(.solo) .pill,#main.two .ord:not(.solo) .unpaid{font-size:.62em;padding:.25em .8em}
+#main.two .ord:not(.solo) .r{flex-direction:column;align-items:flex-end;gap:.3vh}
+#main.two .ord:not(.solo) .th{width:2.9em;height:2.9em}
+#main.two .ord:not(.solo) .main{gap:.7vw}
+#main.two .ord:not(.solo) .t{font-size:1.28em}
+.logo{height:2.6em;width:auto;border-radius:8px;flex:none}

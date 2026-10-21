@@ -20,6 +20,7 @@ $v = (string)filemtime(__DIR__ . '/display.js');
 <body class="display">
 <div id="app">
   <header>
+    <img class="logo" src="../assets/logo.png" alt="">
     <div class="brand">WUNSCH-<b>FABRIK</b>.DK</div>
     <div id="clock"></div>
     <div id="conn" class="conn" title=""></div>

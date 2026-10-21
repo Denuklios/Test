@@ -69,7 +69,7 @@ function orderRow(o, g, pm) {
   const procChips = o.processes.map((k) => pm[k] ? h('span', { class: 'pc', style: `--c:${pm[k].color}` }, h('i'), lang === 'da' ? pm[k].name_da : pm[k].name_de) : null);
   const dur = o.total_min ? h('span', { class: 'dur' }, `⏱ ${Math.floor(o.total_min / 60)}:${String(o.total_min % 60).padStart(2, '0')} h`) : null;
   const line = [planTxt ? h('span', { class: 'tm' }, '🕘 ' + planTxt) : null, ...procChips, dur, wk(o)].filter(Boolean);
-  return h('div', { class: 'ord' + (g.late ? ' late' : ''), style: `--sc:${SCOL[o.status]}` },
+  return h('div', { class: 'ord' + (g.late ? ' late' : '') + (g.items.length === 1 ? ' solo' : ''), style: `--sc:${SCOL[o.status]}` },
     h('div', { class: 'sc' }),
     h('div', { class: 'main' },
       o.thumb ? h('img', { class: 'th', src: `../display_api.php?t=${TOKEN}&file=${o.thumb}`, alt: '' }) : null,
@@ -134,7 +134,11 @@ function draw() {
     }
     if (rows.length) main.push(h('div', { class: 'grp' + (g.late ? ' late' : '') }, g.label), ...rows);
   }
-  $('main').replaceChildren(...(main.length ? main : [h('div', { class: 'empty-big' }, t().none)]));
+  const mainEl = $('main');
+  mainEl.classList.remove('two');
+  mainEl.replaceChildren(...(main.length ? main : [h('div', { class: 'empty-big' }, t().none)]));
+  // erst eine Spalte in voller Breite; nur wenn es nicht reicht und der Bildschirm breit ist, zwei Spalten
+  if (innerWidth >= 1500 && mainEl.scrollHeight > mainEl.clientHeight + 1) mainEl.classList.add('two');
   fitRows();
 
   // Kapazitaet: EIN Raster fuer Kopfzeile und Zeilen, damit Tage und Stunden immer exakt untereinander stehen
