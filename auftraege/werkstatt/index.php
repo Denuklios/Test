@@ -18,6 +18,7 @@ $v = (string)filemtime(__DIR__ . '/display.js');
 <link rel="stylesheet" href="display.css?v=<?= htmlspecialchars($v) ?>">
 </head>
 <body class="display">
+<div id="bg" aria-hidden="true"><div class="coin"><img class="f" src="../assets/logo-bg.png" alt=""><img class="b" src="../assets/logo-bg.png" alt=""></div></div>
 <div id="app">
   <header>
     <img class="logo" src="../assets/logo.png" alt="">

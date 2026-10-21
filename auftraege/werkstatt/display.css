@@ -104,3 +104,11 @@ body.idle{cursor:none}body.idle #hint{opacity:0}
 #main.two .ord:not(.solo) .main{gap:.7vw}
 #main.two .ord:not(.solo) .t{font-size:1.28em}
 .logo{height:2.6em;width:auto;border-radius:8px;flex:none}
+
+/* Grosses Logo im Hintergrund, dreht sich langsam um die eigene Achse (Vorder- und Rueckseite zeigen es richtig herum) */
+#bg{position:fixed;inset:0;display:grid;place-items:center;pointer-events:none;z-index:0;perspective:1800px;overflow:hidden;opacity:.16}
+#bg .coin{position:relative;width:min(78vw,150vh);aspect-ratio:900/444;transform-style:preserve-3d;animation:wf-spin 60s linear infinite;will-change:transform}
+#bg img{position:absolute;inset:0;width:100%;height:100%;object-fit:contain;backface-visibility:hidden;-webkit-backface-visibility:hidden}
+#bg img.b{transform:rotateY(180deg)}
+@keyframes wf-spin{from{transform:rotateY(0deg)}to{transform:rotateY(360deg)}}
+#app{position:relative;z-index:1}
