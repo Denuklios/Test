@@ -222,3 +222,31 @@ input,select,textarea{font-size:16px}              /* verhindert das Hineinzoome
   table.t{font-size:.82rem}
 }
 @media(min-width:900px){.formbar{bottom:12px}}
+
+/* ---------- Kalender: Balken mit Text ---------- */
+.cbar{display:flex;align-items:center;gap:5px;margin-top:3px;padding:2px 5px 2px 6px;border-radius:7px;border-left:3px solid var(--wc);background:color-mix(in srgb,var(--wc) 15%,#100e14);color:var(--text);text-decoration:none;overflow:hidden;min-width:0}
+.cbar .tx{flex:1;min-width:0;display:flex;flex-direction:column;gap:1px}
+.cbar .l1,.cbar .l2{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.cbar .l1{font-size:.62rem;line-height:1.2}.cbar .l1 b{font-weight:600;font-variant-numeric:tabular-nums}
+.cbar .l2{font-size:.58rem;color:var(--muted);line-height:1.15}
+.cbar img{width:24px;height:24px;object-fit:cover;border-radius:5px;flex:none}
+.cbar.big{padding:7px 9px 7px 10px;border-radius:10px;margin-top:6px;gap:10px;border-left-width:4px}
+.cbar.big .l1{font-size:.86rem;white-space:normal}.cbar.big .l2{font-size:.74rem;white-space:normal}.cbar.big .l3{margin-top:3px}
+.cbar.big img{width:46px;height:46px;border-radius:8px}
+.cal .day{min-height:122px}
+.day .more{font-size:.62rem;color:var(--muted);margin-top:3px;text-align:center}
+.agenda{display:grid;gap:12px}
+.aday{background:var(--surface);border:1px solid var(--line);border-radius:14px;padding:10px 12px 12px}
+.aday.today{border-color:var(--p2);box-shadow:0 0 0 1px var(--p2)}
+.aday.past{opacity:.55}.aday.blocked{background:repeating-linear-gradient(135deg,#150f1d,#150f1d 6px,#1d1428 6px,#1d1428 12px);border-color:rgba(248,113,113,.4)}
+.aday .ahead{display:flex;justify-content:space-between;gap:10px;align-items:baseline;flex-wrap:wrap;cursor:pointer}
+.aday .ahead b{font-family:var(--head);font-size:1.15rem;font-weight:600}
+.aday .ahead .muted{font-size:.78rem}
+.o-top{align-items:flex-start;gap:10px}
+.o-thumb{width:52px;height:52px;object-fit:cover;border-radius:10px;flex:none;border:1px solid var(--line)}
+@media(max-width:700px){
+  .cal .day{min-height:74px;padding:4px}
+  .cal .cbar{padding:0;height:6px;margin-top:2px;border-left-width:0;border-radius:3px;background:var(--wc)}
+  .cal .cbar .tx,.cal .cbar img{display:none}
+  .cal .day .more{font-size:.55rem}
+}

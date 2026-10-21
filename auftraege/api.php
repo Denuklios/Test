@@ -157,6 +157,7 @@ try {
                 $w[] = "o.due_date < date('now','localtime') AND o.status NOT IN ('done','delivered')";
             }
             $sql = 'SELECT o.id, o.nr, o.title, o.qty, o.price, o.deposit, o.currency, o.status, o.pay_status, o.due_date, o.plan_date, o.start_time, o.finish_date, o.total_min, o.worker_id,
+                           (SELECT id FROM order_files WHERE order_id = o.id AND mime LIKE \'image/%\' ORDER BY id LIMIT 1) AS thumb,
                            c.name AS customer_name, c.company AS customer_company, o.customer_id,
                            (SELECT group_concat(process_id) FROM order_processes WHERE order_id = o.id) AS process_ids
                     FROM orders o JOIN customers c ON c.id = o.customer_id
@@ -256,7 +257,9 @@ try {
                 }
             }
             $finish = $alloc ? $alloc['finish'] : ($unchanged ? $oldRow['finish_date'] : null);
-            if ($due !== null && $finish !== null && $due < $finish) {
+            // Abgabe mindestens einen Tag nach dem Produktionsende. Bereits gespeicherte, unveraenderte Termine bleiben unangetastet.
+            $dueChanged = !$oldRow || ($oldRow['due_date'] ?? null) !== $due;
+            if ($due !== null && $finish !== null && $due <= $finish && ($dueChanged || $alloc)) {
                 wf_fail('due_before_finish', 400, ['finish' => $finish]);
             }
             $db->beginTransaction();
@@ -468,6 +471,7 @@ try {
                 wf_fail('not_found', 404);
             }
             @unlink(rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/' . $f['stored_name']);
+            array_map('unlink', glob(rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/thumbs/' . $f['stored_name'] . '.*') ?: []);
             $db->prepare('DELETE FROM order_files WHERE id = ?')->execute([$f['id']]);
             wf_touch();
             wf_json(['ok' => true, 'order' => order_row($db, (int)$f['order_id'])]);
@@ -485,7 +489,9 @@ try {
             if (strtotime($to) - strtotime($from) > 100 * 86400) {
                 wf_fail('range_too_large');
             }
-            $st = $db->prepare("SELECT d.date, d.start_time, d.minutes, o.id, o.nr, o.title, o.qty, o.status, o.worker_id, o.finish_date, o.due_date, c.name AS customer_name
+            $st = $db->prepare("SELECT d.date, d.start_time, d.minutes, o.id, o.nr, o.title, o.qty, o.status, o.worker_id, o.finish_date, o.due_date, o.total_min, c.name AS customer_name,
+                                       (SELECT group_concat(process_id) FROM order_processes WHERE order_id = o.id) AS process_ids,
+                                       (SELECT id FROM order_files WHERE order_id = o.id AND mime LIKE 'image/%' ORDER BY id LIMIT 1) AS thumb
                                 FROM order_days d JOIN orders o ON o.id = d.order_id JOIN customers c ON c.id = o.customer_id
                                 WHERE o.deleted_at IS NULL AND o.status NOT IN ('done','delivered') AND d.date BETWEEN ? AND ?
                                 ORDER BY d.date, d.start_time, o.id");
@@ -537,7 +543,14 @@ try {
             }
             $start = (string)($_GET['start'] ?? '');
             $al = $date < date('Y-m-d') ? null : wf_alloc($plan, $worker['id'], $worker['day_min'], $total, $date, preg_match('/^\d\d:\d\d$/', $start) ? wf_hhmm_to_min($start) : null);
-            wf_json(['ok' => true, 'possible' => (bool)$al] + ($al ? wf_alloc_public($al) : []));
+            $dueMin = null;
+            if ($al) {
+                $dueMin = date('Y-m-d', strtotime($al['finish'] . ' +1 day'));
+                for ($i = 0; $i < 60 && wf_blocked_reason($dueMin) !== null; $i++) {
+                    $dueMin = date('Y-m-d', strtotime($dueMin . ' +1 day'));
+                }
+            }
+            wf_json(['ok' => true, 'possible' => (bool)$al, 'due_min' => $dueMin] + ($al ? wf_alloc_public($al) : []));
         }
 
         // Tage fuer den Abgabetermin: ab $from, nicht ganz gesperrt
@@ -705,6 +718,7 @@ try {
             foreach ($st->fetchAll(PDO::FETCH_COLUMN) as $oid) {
                 foreach ($db->query('SELECT stored_name FROM order_files WHERE order_id = ' . (int)$oid) as $f) {
                     @unlink(rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/' . $f['stored_name']);
+                    array_map('unlink', glob(rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/thumbs/' . $f['stored_name'] . '.*') ?: []);
                 }
                 $db->prepare('DELETE FROM orders WHERE id = ?')->execute([$oid]);
                 $n++;

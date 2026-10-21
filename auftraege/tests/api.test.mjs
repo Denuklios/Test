@@ -91,12 +91,15 @@ try {
     assert.equal((await call('file_upload', { form: fd })).j.error, 'bad_type');
     assert.equal((await fetch(`${B}/file.php?id=${fid}`)).status, 401);
     const dl = await fetch(`${B}/file.php?id=${fid}`, { headers: { cookie } }); assert.equal(dl.status, 200); assert.equal(dl.headers.get('content-type'), 'image/png');
+    assert.equal((await fetch(`${B}/file.php?id=${fid}&thumb=1`)).status, 401, 'Vorschaubild nur mit Login');
+    const th = await fetch(`${B}/file.php?id=${fid}&thumb=1`, { headers: { cookie } }); assert.equal(th.status, 200); assert.equal(th.headers.get('content-type'), 'image/png'); assert.ok(Number(th.headers.get('content-length')) > 0);
   });
   await ok('Kalender: gebuchte Zeit der Person, freie Zeitfenster, Einträge', async () => {
     await call('order_status', { body: { id: oid, status: 'production' } });   // erledigte Aufträge zählen nicht als belegt
     const r = (await call('calendar', { params: { from: iso(0), to: iso(10) } })).j;
     assert.equal(r.days.length, 11); assert.equal(r.workers.length, 1);
     assert.equal(r.days.reduce((s_, d) => s_ + d.w[1].booked, 0), 300); assert.equal(r.items.length, 1); assert.equal(r.items[0].worker_id, 1);
+    assert.deepEqual(r.items[0].process_ids.split(',').sort(), ['1', '3']); assert.ok(r.items[0].thumb > 0, 'Vorschaubild-ID für Aufträge mit Foto'); assert.equal(r.items[0].total_min, 300);
     const today = r.days[0].w[1]; assert.equal(today.booked, 300); assert.equal(today.free, today.cap - 300);
     assert.ok(r.days.filter((d) => d.weekend).every((d) => d.w[1].cap === 300)); assert.ok(r.days.filter((d) => !d.weekend).every((d) => d.w[1].cap === 480));
   });
@@ -166,9 +169,14 @@ try {
     assert.equal(o.start_date, mon); assert.equal(o.chunks.length, 2); assert.equal(o.chunks[0].minutes, 480); assert.equal(o.chunks[1].minutes, 240);
     const tue = new Date(new Date(mon + 'T00:00:00').getTime() + 864e5).toISOString().slice(0, 10);
     assert.equal(o.finish, tue); assert.equal(o.finish_time, '12:00');
+    const wed = new Date(new Date(mon + 'T00:00:00').getTime() + 2 * 864e5).toISOString().slice(0, 10);
     assert.equal((await mkOrder({ plan_date: mon, due_date: mon, processes: [{ process_id: 1, minutes: 720 }] })).j.error, 'due_before_finish');
-    const ok1 = await mkOrder({ plan_date: mon, due_date: tue, processes: [{ process_id: 1, minutes: 720 }] });
+    assert.equal((await mkOrder({ plan_date: mon, due_date: tue, processes: [{ process_id: 1, minutes: 720 }] })).j.error, 'due_before_finish', 'am Produktionstag selbst nicht');
+    const pv = (await call('plan_preview', { params: { worker_id: 1, total: 720, date: mon } })).j; assert.equal(pv.due_min, wed, 'frühester Abgabetag = Tag nach Produktionsende');
+    const ok1 = await mkOrder({ plan_date: mon, due_date: wed, processes: [{ process_id: 1, minutes: 720 }] });
     assert.equal(ok1.status, 200); assert.equal(ok1.j.order.days.length, 2); assert.equal(ok1.j.order.finish_date, tue);
+    // unveränderter Abgabetermin bleibt beim Bearbeiten stehen
+    assert.equal((await call('order_save', { body: { ...ok1.j.order, processes: ok1.j.order.processes, notes: 'n' } })).status, 200);
     assert.equal((await cal1(mon)).free, 0); assert.equal((await cal1(tue)).booked, 240);
     // über das Wochenende: Freitag 8 h, Samstag nur 5 h Wochenend-Kapazität
     const fri = pick(60, [5]); const sat = new Date(new Date(fri + 'T00:00:00').getTime() + 864e5).toISOString().slice(0, 10);

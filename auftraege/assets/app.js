@@ -123,6 +123,11 @@ function photoButtons(onFiles) {
   const gal = h('input', { type: 'file', accept: 'image/*,application/pdf', multiple: true, class: 'hidden', onchange: (e) => { onFiles([...e.target.files]); e.target.value = ''; } });
   return h('div', { class: 'row' }, h('button', { type: 'button', class: 'btn primary', onclick: () => cam.click() }, '📷 ' + t('take_photo')), h('button', { type: 'button', class: 'btn', onclick: () => gal.click() }, '🖼 ' + t('pick_files')), cam, gal);
 }
+const thumbUrl = (id) => `${BASE}file.php?id=${id}&thumb=1`;
+const procNames = (ids, max = 2) => {
+  const n = (ids || '').split(',').filter(Boolean).map((i) => procById(i)).filter(Boolean).map(pname);
+  return n.length > max ? n.slice(0, max).join(', ') + ' +' + (n.length - max) : n.join(', ');
+};
 const procDots = (ids) => (ids || []).map((id) => { const p = procById(id); return p ? h('span', { class: 'chip', style: `--c:${p.color}` }, h('i', { class: 'dot', style: `--c:${p.color}` }), pname(p)) : null; });
 
 // ---------- Router ----------
@@ -179,7 +184,7 @@ function orderCard(o) {
   const nextS = me.statuses[idx + 1];
   const card = h('div', { class: 'card order' + (late ? ' overdue' : ''), style: `--sc:${SCOL[o.status]}` },
     h('a', { href: `#/order/${o.id}`, style: 'text-decoration:none;color:inherit;display:block' },
-      h('div', { class: 'o-top' }, h('div', {}, h('div', { class: 'o-nr' }, o.nr), h('div', { class: 'o-title' }, o.title), h('div', { class: 'o-cust' }, o.customer_name + (o.customer_company ? ' · ' + o.customer_company : ''))),
+      h('div', { class: 'o-top' }, o.thumb ? h('img', { class: 'o-thumb', src: thumbUrl(o.thumb), alt: '', loading: 'lazy' }) : null, h('div', { style: 'flex:1;min-width:0' }, h('div', { class: 'o-nr' }, o.nr), h('div', { class: 'o-title' }, o.title), h('div', { class: 'o-cust' }, o.customer_name + (o.customer_company ? ' · ' + o.customer_company : ''))),
         h('div', { style: 'text-align:right' }, statusPill(o.status), h('div', { style: 'margin-top:6px' }, payPill(o.pay_status)))),
       h('div', { class: 'o-meta' }, h('span', { class: 'due' + (late ? ' late' : '') }, (late ? '⚠ ' : '') + dfmt(o.due_date)), h('span', {}, `${o.qty} ${t('pcs')}`), h('span', { class: 'muted' }, money(o.price, o.currency)),
         o.total_min ? h('span', { class: 'muted' }, '⏱ ' + hm(o.total_min)) : null,
@@ -220,7 +225,7 @@ route(/^\/order\/(\d+)$/, async (id) => {
     h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:10px' }, t('files')),
       photoButtons(async (list) => { await uploadFiles(o.id, list); reload(); }),
       h('div', { class: 'files' }, o.files.map((f) => h('div', { class: 'file' },
-        h('a', { href: `${BASE}file.php?id=${f.id}`, target: '_blank', rel: 'noopener' }, f.mime.startsWith('image/') ? h('img', { src: `${BASE}file.php?id=${f.id}`, alt: f.original_name, loading: 'lazy' }) : h('div', { class: 'pdf' }, 'PDF')),
+        h('a', { href: `${BASE}file.php?id=${f.id}`, target: '_blank', rel: 'noopener' }, f.mime.startsWith('image/') ? h('img', { src: thumbUrl(f.id), alt: f.original_name, loading: 'lazy' }) : h('div', { class: 'pdf' }, 'PDF')),
         h('div', { class: 'n' }, h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, f.original_name), h('a', { href: '#', title: t('delete'), onclick: async (e) => { e.preventDefault(); if (confirm(t('confirm_delete_file'))) { await api('file_delete', { body: { id: f.id } }); reload(); } } }, '✕')))))),
     h('div', { class: 'card' }, h('h3', {}, t('history')), h('ul', { class: 'log' }, o.log.map((l) => h('li', {}, `${l.at.slice(0, 16)} · ${l.user_name} · ${logText(l.what)}`)))));
 });
@@ -385,7 +390,8 @@ async function orderForm(o, presetCustomer) {
     const r = await api('plan_options', { params: { worker_id: wid, total, limit: 200, exclude: D.id || 0 } });
     return { dates: r.options.map((x) => x.start_date) };
   });
-  const duePicker = dayPicker(D.due_date, () => api('due_days', { params: { from: finish || planPicker.value || today() } }));
+  let dueMin = '';
+  const duePicker = dayPicker(D.due_date, () => api('due_days', { params: { from: dueMin || (finish ? addDays(finish, 1) : today()) } }));
   duePicker.addEventListener('daychange', () => { if (!dueAuto) dueTouched = true; });
   const optsBox = h('div', { class: 'row', style: 'margin-bottom:8px' });
   const previewBox = h('div', { class: 'plan-preview hidden' });
@@ -422,16 +428,16 @@ async function orderForm(o, presetCustomer) {
       planPicker.value = ''; finish = ''; previewBox.classList.add('hidden'); timeBtn.classList.add('hidden');
       toast(t('plan_moved')); return refreshPlan(true);
     }
-    finish = r.finish;
-    previewBox.replaceChildren(...r.chunks.map((c) => h('div', {}, `${dfmt(c.date)} · ${c.start}–${c.end}`)), h('small', { class: 'muted' }, `${t('finish')}: ${dfmt(r.finish)} ${r.finish_time}`));
+    finish = r.finish; dueMin = r.due_min;
+    previewBox.replaceChildren(...r.chunks.map((c) => h('div', {}, `${dfmt(c.date)} · ${c.start}–${c.end}`)), h('small', { class: 'muted' }, `${t('finish')}: ${dfmt(r.finish)} ${r.finish_time} · ${t('due_earliest')}: ${dfmt(r.due_min)}`));
     previewBox.classList.remove('hidden');
     timeBtn.textContent = `🕘 ${r.start}${S.start ? '' : ' (' + t('automatic') + ')'} · ${t('change')}`;
     timeBtn.classList.remove('hidden'); timeBtn.classList.toggle('set', !!S.start);
-    // Abgabetermin nie vor dem Produktionsende
-    if (!duePicker.value ? !dueTouched : duePicker.value < r.finish) {
+    // Abgabetermin mindestens einen Tag nach dem Produktionsende
+    if (!duePicker.value ? !dueTouched : duePicker.value < r.due_min) {
       const moved = !!duePicker.value;
-      dueAuto = true; duePicker.value = r.finish; dueAuto = false;
-      if (moved) toast(t('due_moved', dfmt(r.finish)));
+      dueAuto = true; duePicker.value = r.due_min; dueAuto = false;
+      if (moved) toast(t('due_moved', dfmt(r.due_min)));
     }
   }
   planPicker.addEventListener('daychange', () => { S.start = ''; refreshPreview(); });
@@ -497,7 +503,7 @@ async function orderForm(o, presetCustomer) {
       previewBox, timeBtn,
       h('div', {}, h('label', {}, t('due')), duePicker)),
     sec(t('files'), photoButtons((list) => { pending.push(...list); drawThumbs(); }), thumbs,
-      isNew ? null : h('div', { class: 'files' }, (D.files || []).map((f) => h('div', { class: 'file' }, f.mime.startsWith('image/') ? h('img', { src: `${BASE}file.php?id=${f.id}`, alt: f.original_name, loading: 'lazy' }) : h('div', { class: 'pdf' }, 'PDF'), h('div', { class: 'n' }, h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, f.original_name)))))),
+      isNew ? null : h('div', { class: 'files' }, (D.files || []).map((f) => h('div', { class: 'file' }, f.mime.startsWith('image/') ? h('img', { src: thumbUrl(f.id), alt: f.original_name, loading: 'lazy' }) : h('div', { class: 'pdf' }, 'PDF'), h('div', { class: 'n' }, h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, f.original_name)))))),
     moreBtn, moreCard,
     err,
     h('div', { class: 'formbar' }, h('a', { class: 'btn', href: isNew ? '#/' : `#/order/${D.id}` }, t('cancel')), btn));
@@ -549,30 +555,63 @@ route(/^\/customer\/(new|\d+)$/, async (id) => {
 
 // ---------- Kalender ----------
 let calStart = null;
+let calView = null;
+try { calView = localStorage.getItem('wf_calview'); } catch (e) { /* Speicher gesperrt */ }
+// Ein Balken = ein eingeplanter Block: Uhrzeit, Verfahren, Auftrag, Kunde, Person und ein kleines Foto (wenn vorhanden)
+function calBar(i, big) {
+  const w = workerById(i.worker_id);
+  const more = i.finish_date && i.finish_date > i.date ? ' →' : '';
+  return h('a', { class: 'cbar' + (big ? ' big' : ''), href: `#/order/${i.id}`, style: `--wc:${w ? w.color : 'var(--p2)'}`, title: `${i.nr} · ${i.title} · ${i.customer_name}`, onclick: (e) => e.stopPropagation() },
+    h('span', { class: 'tx' },
+      h('span', { class: 'l1' }, h('b', {}, `${i.start_time}–${i.end}`), more, big ? ' ' + i.title : ''),
+      h('span', { class: 'l2' }, big ? `${i.customer_name} · ${procNames(i.process_ids, 3)}` : `${procNames(i.process_ids, 2)} · ${i.customer_name}`),
+      big && activeWorkers().length > 1 ? h('span', { class: 'l3' }, wchip(w)) : null),
+    i.thumb ? h('img', { src: thumbUrl(i.thumb), alt: '', loading: 'lazy' }) : null);
+}
 route(/^\/calendar$/, async () => {
   calStart = calStart || mondayOf(today());
+  const view_ = calView || (window.innerWidth < 700 ? 'agenda' : 'month');
   const to = addDays(calStart, 27);
   const { days, items, workers } = await api('calendar', { params: { from: calStart, to } });
   const byDay = {};
   items.forEach((i) => (byDay[i.date] ||= []).push(i));
   const dows = [...Array(7)].map((_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(lang === 'da' ? 'da-DK' : 'de-DE', { weekday: 'short' }));
-  const cells = days.map((d) => {
-    const n = new Set((byDay[d.date] || []).map((i) => i.id)).size;
-    const bars = workers.filter((w) => d.w[w.id] && d.w[w.id].cap > 0).map((w) => {
-      const x = d.w[w.id];
-      const pct = x.booked ? Math.min(100, Math.round(x.booked / x.cap * 100)) : 0;
-      return h('div', { class: 'bar' + (x.free === 0 ? ' full' : ''), style: `--c:${w.color};--w:${pct}%` }, h('i'));
-    });
-    return h('div', { class: 'day' + (d.weekend ? ' we' : '') + (d.blocked !== null ? ' blocked' : '') + (d.date === today() ? ' today' : '') + (d.date < today() ? ' past' : ''), onclick: () => dayModal(d, byDay[d.date] || [], workers) },
-      h('div', { class: 'dn' }, +d.date.slice(8)), n > 0 && h('div', { class: 'cnt' }, `${n}×`),
-      d.blocked !== null ? h('div', { class: 'blk' }, '🚫 ' + (d.blocked || t('blocked_day')))
-        : [d.partial && h('div', { class: 'blk part' }, '⏱ ' + d.partial.times.map((x) => x.replace('-', '–')).join(', ')), h('div', { class: 'bars' }, bars)]);
+  const loadBars = (d) => workers.filter((w) => d.w[w.id] && d.w[w.id].cap > 0).map((w) => {
+    const x = d.w[w.id];
+    const pct = x.booked ? Math.min(100, Math.round(x.booked / x.cap * 100)) : 0;
+    return h('div', { class: 'bar' + (x.free === 0 ? ' full' : ''), style: `--c:${w.color};--w:${pct}%` }, h('i'));
   });
+  const dayCls = (d) => (d.weekend ? ' we' : '') + (d.blocked !== null ? ' blocked' : '') + (d.date === today() ? ' today' : '') + (d.date < today() ? ' past' : '');
+  let body;
+  if (view_ === 'month') {
+    const cells = days.map((d) => {
+      const list = byDay[d.date] || [];
+      const MAXB = 4;
+      return h('div', { class: 'day' + dayCls(d), onclick: () => dayModal(d, list, workers) },
+        h('div', { class: 'dn' }, +d.date.slice(8)),
+        d.blocked !== null ? h('div', { class: 'blk' }, '🚫 ' + (d.blocked || t('blocked_day')))
+          : [d.partial && h('div', { class: 'blk part' }, '⏱ ' + d.partial.times.map((x) => x.replace('-', '–')).join(', ')), h('div', { class: 'bars' }, loadBars(d))],
+        list.slice(0, MAXB).map((i) => calBar(i, false)),
+        list.length > MAXB ? h('div', { class: 'more' }, `+ ${list.length - MAXB}`) : null);
+    });
+    body = h('div', { class: 'cal' }, dows.map((d) => h('div', { class: 'dow' }, d)), cells);
+  } else {
+    const shown = days.filter((d) => (byDay[d.date] || []).length || d.blocked !== null || d.partial || d.date === today());
+    body = h('div', { class: 'agenda' }, shown.length ? shown.map((d) => h('section', { class: 'aday' + dayCls(d) },
+      h('div', { class: 'ahead', onclick: () => dayModal(d, byDay[d.date] || [], workers) },
+        h('b', {}, dfmt(d.date)),
+        h('span', { class: 'muted' }, d.blocked !== null ? '🚫 ' + (d.blocked || t('blocked_day')) : workers.map((w) => `${workers.length > 1 ? w.name + ' ' : ''}${t('free_short')} ${hm(d.w[w.id].free)}`).join(' · '))),
+      d.partial ? h('div', { class: 'blk part', style: 'margin:0 0 4px' }, '⏱ ' + d.partial.times.map((x) => x.replace('-', '–')).join(', ') + (d.partial.reason ? ' · ' + d.partial.reason : '')) : null,
+      (byDay[d.date] || []).map((i) => calBar(i, true)),
+      !(byDay[d.date] || []).length && d.blocked === null ? h('div', { class: 'muted', style: 'font-size:.85rem' }, t('no_orders')) : null)) : h('div', { class: 'empty' }, t('no_orders')));
+  }
+  const tog = (v, label) => h('button', { class: 'btn small' + (view_ === v ? ' primary' : ''), onclick: () => { calView = v; try { localStorage.setItem('wf_calview', v); } catch (e) { /* egal */ } render(); } }, label);
   view().replaceChildren(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('capacity')), h('h1', {}, t('cal_h1_a'), ' ', h('em', {}, t('cal_h1_b')))),
       h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: () => { calStart = addDays(calStart, -28); render(); } }, '←'), h('button', { class: 'btn small', onclick: () => { calStart = mondayOf(today()); render(); } }, t('today')), h('button', { class: 'btn small', onclick: () => { calStart = addDays(calStart, 28); render(); } }, '→'))),
+    h('div', { class: 'row', style: 'margin-bottom:8px' }, tog('agenda', '☰ ' + t('view_list')), tog('month', '▦ ' + t('view_month'))),
     h('div', { class: 'legend' }, workers.map((w) => wchip(w)), h('span', {}, t('cal_hint'))),
-    h('div', { class: 'cal' }, dows.map((d) => h('div', { class: 'dow' }, d)), cells));
+    body);
 });
 function dayModal(d, items, workers) {
   const close = () => m.remove();
@@ -584,9 +623,7 @@ function dayModal(d, items, workers) {
       workers.map((w) => { const x = d.w[w.id]; return h('div', { class: 'free', style: 'flex-wrap:wrap' }, wchip(w), h('span', {}, x.cap ? `${hm(x.free)} / ${hm(x.cap)}` : '—'),
         x.iv && x.iv.length ? h('small', { class: 'muted', style: 'flex:1 0 100%' }, t('slot_free') + ' ' + x.iv.map((a) => a.join('–')).join(', ')) : null); }),
       h('h3', { style: 'margin:14px 0 6px' }, t('nav_orders')),
-      items.length ? items.map((i) => h('a', { class: 'free', href: `#/order/${i.id}`, onclick: close, style: 'text-decoration:none;color:inherit;flex-wrap:wrap' },
-        h('span', {}, `${i.start_time}–${i.end} · ${i.nr} · ${i.title}`), statusPill(i.status),
-        workers.length > 1 ? h('span', { style: 'flex:1 0 100%' }, wchip(workerById(i.worker_id)), i.finish_date && i.finish_date !== d.date ? h('small', { class: 'muted' }, ` → ${dfmt(i.finish_date)}`) : null) : null)) : h('p', { class: 'muted' }, t('no_orders'))));
+      items.length ? items.map((i) => { const bar = calBar(i, true); bar.addEventListener('click', close); return bar; }) : h('p', { class: 'muted' }, t('no_orders'))));
   document.body.append(m);
 }
 

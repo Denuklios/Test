@@ -35,7 +35,8 @@ Unter **Einstellungen**:
 - Du gibst je Verfahren die ungefähre Dauer in **Stunden** ein. Die App rechnet die Gesamtdauer und den Anteil am Arbeitstag aus.
 - Eine Person arbeitet alles nacheinander: Was ein Auftrag an einem Tag belegt, ist für andere Aufträge derselben Person weg, egal welches Verfahren (5 h Sticken + 1 h DTF + 2 h Gravur = ein voller 8-Stunden-Tag).
 - Oben im Auftrag stehen die **nächsten freien Produktionstage** (der erste ist vorgewählt). Die Uhrzeit wird automatisch früh gesetzt und lässt sich über „ändern“ wählen. Dauert ein Auftrag länger als ein Arbeitstag, verteilt er sich auf die nächsten freien Tage.
-- Der **Abgabetermin** kann nicht vor dem Produktionsende liegen. Vergangene, gesperrte und volle Tage werden nicht angeboten.
+- Der **Abgabetermin** liegt immer **mindestens einen Tag nach dem Produktionsende** (gesperrte Tage werden übersprungen) und wird so vorbelegt. Vergangene, gesperrte und volle Tage werden nicht angeboten.
+- **Kalender:** Am Handy als **Liste** (jeder Auftrag mit Uhrzeit, Verfahren, Kunde, Person und kleinem Foto), am PC als **Monat** mit kompakten Balken. Oben umschaltbar. Kleine Vorschaubilder erzeugt der Server beim ersten Aufruf selbst (benötigt die PHP-Erweiterung GD, sonst wird kein Bild gezeigt).
 
 **Fotos vom Handy:** Im Auftrag unter „Vorlagen & Fotos“ auf „📷 Foto aufnehmen“ tippen (Skizze oder Logo abfotografieren) oder „Aus Galerie/Datei“ wählen. Die Fotos werden beim Speichern mit dem Auftrag hochgeladen und vorher automatisch auf höchstens 2000 Pixel verkleinert (Logos mit transparentem Hintergrund bleiben PNG). Die mitgelieferte `.user.ini` erlaubt größere Uploads; falls one.com sie ignoriert, die Grenzen in den PHP-Einstellungen anheben.
 
