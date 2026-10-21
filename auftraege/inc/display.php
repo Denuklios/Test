@@ -39,17 +39,17 @@ function wf_display_payload(int $days = 10): array
 }
 
 /** Auslastung je Tag und Verfahren. Gebucht wird am Produktionstag, sonst am Abgabetermin. */
-function wf_capacity(string $from, string $to): array
+function wf_capacity(string $from, string $to, int $excludeOrder = 0): array
 {
     $db = wf_db();
     $procs = $db->query('SELECT id, key, capacity_min FROM process_types WHERE active = 1 ORDER BY sort')->fetchAll();
     $st = $db->prepare("
       SELECT COALESCE(o.plan_date, o.due_date) AS d, op.process_id, SUM(op.minutes) AS m
       FROM order_processes op JOIN orders o ON o.id = op.order_id
-      WHERE o.deleted_at IS NULL AND o.status NOT IN ('done','delivered')
+      WHERE o.deleted_at IS NULL AND o.status NOT IN ('done','delivered') AND o.id <> ?
         AND COALESCE(o.plan_date, o.due_date) BETWEEN ? AND ?
       GROUP BY d, op.process_id");
-    $st->execute([$from, $to]);
+    $st->execute([$excludeOrder, $from, $to]);
     $booked = [];
     foreach ($st as $r) {
         $booked[$r['d']][(int)$r['process_id']] = (int)$r['m'];

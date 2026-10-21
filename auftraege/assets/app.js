@@ -238,6 +238,24 @@ async function orderForm(o, presetCustomer) {
     return row;
   }));
 
+  // Terminvorschlag: naechste freie Tage je nach Verfahren, Minuten und Kapazitaet
+  const sugOut = h('div', { class: 'row', style: 'margin-top:8px' });
+  const sugBtn = h('button', { class: 'btn small', type: 'button', onclick: async () => {
+    const chosen = [...procBox.children].map((r) => r._get()).filter(Boolean);
+    sugOut.replaceChildren();
+    if (!chosen.length) { sugOut.append(h('span', { class: 'muted' }, t('suggest_pick'))); return; }
+    try {
+      const r = await api('suggest', { params: { p: chosen.map((c) => `${c.process_id}:${c.minutes}`).join(','), from: today(), exclude: D.id || 0 } });
+      if (!r.dates.length) { sugOut.append(h('span', { class: 'err' }, t('suggest_none'))); return; }
+      sugOut.append(...r.dates.map((d) => h('button', { class: 'chip', type: 'button', onclick: () => {
+        F.plan_date.value = d;
+        if (!F.due_date.value || F.due_date.value < d) F.due_date.value = d;
+        moreWrap.classList.remove('hidden');
+        toast(t('suggest_applied', dfmt(d)));
+      } }, dfmt(d))), r.split && h('span', { class: 'muted' }, t('suggest_split')));
+    } catch (e) { sugOut.append(h('span', { class: 'err' }, e.message)); }
+  } }, '📅 ' + t('suggest'));
+
   const more = h('div', { class: 'grid' });
   const payRow = h('div', { class: 'grid c3' },
     field('price', t('price'), inp('price', 'number', { step: '0.01', min: 0, inputmode: 'decimal' })),
@@ -273,7 +291,7 @@ async function orderForm(o, presetCustomer) {
       h('div', {}, h('label', {}, t('customer')), custBox),
       field('title', t('title'), inp('title', 'text', { placeholder: t('title_ph'), maxlength: 200 })),
       h('div', { class: 'grid c2' }, field('qty', t('qty'), inp('qty', 'number', { min: 1, inputmode: 'numeric' })), field('due_date', t('due'), inp('due_date', 'date'))),
-      h('div', {}, h('label', {}, t('processes')), procBox),
+      h('div', {}, h('label', {}, t('processes')), procBox, sugBtn, sugOut),
       isNew && h('button', { class: 'btn small', type: 'button', onclick: (e) => { moreWrap.classList.toggle('hidden'); e.currentTarget.textContent = moreWrap.classList.contains('hidden') ? t('more_details') : t('less_details'); } }, t('more_details')),
       moreWrap, err,
       h('div', { class: 'row end' }, h('a', { class: 'btn', href: isNew ? '#/' : `#/order/${D.id}` }, t('cancel')), btn)));

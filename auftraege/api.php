@@ -428,6 +428,62 @@ try {
             wf_json(['ok' => true, 'days' => wf_capacity($from, $to), 'orders' => $st->fetchAll()]);
         }
 
+        // ---------- Terminvorschlag ----------
+        // Fruehestes Datum, an dem alle gewaehlten Verfahren in ihre freie Tageskapazitaet passen.
+        case 'suggest': {
+            $need = [];
+            foreach (explode(',', (string)($_GET['p'] ?? '')) as $part) {
+                [$pid, $min] = array_pad(explode(':', $part), 2, '0');
+                if ((int)$pid > 0) {
+                    $need[(int)$pid] = max(0, min(100000, (int)$min));
+                }
+            }
+            if (!$need) {
+                wf_fail('no_processes');
+            }
+            $from = (string)($_GET['from'] ?? '');
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || $from < date('Y-m-d')) {
+                $from = date('Y-m-d');
+            }
+            $to = date('Y-m-d', strtotime($from . ' +60 days'));
+            $keys = [];
+            foreach ($db->query('SELECT id, key FROM process_types') as $r) {
+                $keys[(int)$r['id']] = $r['key'];
+            }
+            $days = wf_capacity($from, $to, (int)($_GET['exclude'] ?? 0));
+            $out = [];
+            $split = false;
+            foreach ($days as $d) {
+                if ($d['weekend']) {
+                    continue;
+                }
+                $fits = true;
+                foreach ($need as $pid => $min) {
+                    $x = $d['p'][$keys[$pid] ?? ''] ?? null;
+                    if (!$x || $x['cap'] <= 0) {
+                        $fits = false;
+                        break;
+                    }
+                    // Dauert laenger als ein Tag: nur ein komplett freier Tag kommt in Frage.
+                    $needMin = min($min, $x['cap']);
+                    if ($min > $x['cap']) {
+                        $split = true;
+                    }
+                    if ($x['free'] < $needMin) {
+                        $fits = false;
+                        break;
+                    }
+                }
+                if ($fits) {
+                    $out[] = $d['date'];
+                    if (count($out) >= 4) {
+                        break;
+                    }
+                }
+            }
+            wf_json(['ok' => true, 'dates' => $out, 'split' => $split]);
+        }
+
         // ---------- Einstellungen ----------
         case 'processes_save': {
             need_post();

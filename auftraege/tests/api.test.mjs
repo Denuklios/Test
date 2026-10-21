@@ -92,6 +92,17 @@ try {
     const booked = r.j.days.reduce((s, d) => s + d.p.stick.booked, 0); assert.equal(booked, 240);
     assert.equal(r.j.orders.length, 1);
   });
+  await ok('Terminvorschlag: Wochenenden übersprungen, volle Tage ausgelassen, eigener Auftrag zählt nicht doppelt', async () => {
+    const r = await call('suggest', { params: { p: '1:60' } });
+    assert.ok(r.j.dates.length >= 3); assert.ok(r.j.dates.every((d) => ![0, 6].includes(new Date(d + 'T00:00:00').getDay())));
+    // Sticken ist am Abgabetag mit 240 min belegt; 300 min passen dort nicht (480-240=240), also darf der Tag fehlen.
+    const due = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
+    const big = await call('suggest', { params: { p: '1:300' } }); assert.equal(big.j.dates.includes(due), false);
+    const own = await call('suggest', { params: { p: '1:300', exclude: oid } });
+    if (new Date(due + 'T00:00:00').getDay() % 6 !== 0) assert.equal(own.j.dates.includes(due), true);
+    assert.equal((await call('suggest', { params: { p: '' } })).j.error, 'no_processes');
+    const long = await call('suggest', { params: { p: '1:900' } }); assert.equal(long.j.split, true); assert.equal(long.j.dates.includes(due), false);
+  });
   await ok('Kunde: Historie, Export, Anonymisierung', async () => {
     assert.equal((await call('customer', { params: { id: cid } })).j.customer.orders.length, 1);
     assert.equal((await call('customer_export', { params: { id: cid } })).j.customer.email, 'a@b.dk');
