@@ -1,0 +1,25 @@
+<?php
+declare(strict_types=1);
+// Auslieferung hochgeladener Dateien nur fuer eingeloggte Benutzer.
+require __DIR__ . '/inc/bootstrap.php';
+wf_require_user(false);
+$st = wf_db()->prepare('SELECT * FROM order_files WHERE id = ?');
+$st->execute([(int)($_GET['id'] ?? 0)]);
+$f = $st->fetch();
+$path = $f ? rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/' . $f['stored_name'] : '';
+if (!$f || !is_file($path)) {
+    http_response_code(404);
+    exit('Nicht gefunden');
+}
+$mime = $f['mime'];
+if (!in_array($mime, ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'application/pdf'], true)) {
+    $mime = 'application/octet-stream';
+}
+header('Content-Type: ' . $mime);
+header('Content-Length: ' . filesize($path));
+header('X-Content-Type-Options: nosniff');
+header("Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox");
+header('Cache-Control: private, max-age=3600');
+$disp = isset($_GET['dl']) ? 'attachment' : 'inline';
+header('Content-Disposition: ' . $disp . '; filename*=UTF-8\'\'' . rawurlencode($f['original_name']));
+readfile($path);

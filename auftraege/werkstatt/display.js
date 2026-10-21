@@ -1,0 +1,126 @@
+/* Werkstatt-Anzeige: fragt alle paar Sekunden nur die Aenderungsnummer ab und laedt bei Aenderung neu. */
+(() => {
+'use strict';
+const qs = new URLSearchParams(location.search);
+const TOKEN = qs.get('t') || '';
+let lang = qs.get('l') === 'da' ? 'da' : 'de';
+const POLL_MS = 4000;
+const T = {
+  de: { overdue: 'Überfällig', today: 'Heute', tomorrow: 'Morgen', later: 'Später', nodate: 'Ohne Termin', unpaid: 'UNBEZAHLT', pcs: 'Stk.', cap: 'Freie Kapazität', status: 'Status', none: 'Keine offenen Aufträge', more: 'weitere Aufträge …', bad: 'Link ungültig oder gesperrt', free: 'frei',
+    st: { inquiry: 'Angefragt', approval: 'Freigabe', material: 'Material bestellt', production: 'In Produktion', done: 'Fertig', delivered: 'Abgeholt' } },
+  da: { overdue: 'Forfaldne', today: 'I dag', tomorrow: 'I morgen', later: 'Senere', nodate: 'Uden dato', unpaid: 'UBETALT', pcs: 'stk.', cap: 'Ledig kapacitet', status: 'Status', none: 'Ingen åbne ordrer', more: 'flere ordrer …', bad: 'Linket er ugyldigt eller spærret', free: 'ledig',
+    st: { inquiry: 'Forespurgt', approval: 'Godkendelse', material: 'Materiale bestilt', production: 'I produktion', done: 'Færdig', delivered: 'Afhentet' } }
+};
+const SCOL = { inquiry: '#9d94ad', approval: '#38bdf8', material: '#f59e0b', production: '#A855F7', done: '#34d399', delivered: '#6b6479' };
+const t = () => T[lang];
+const $ = (id) => document.getElementById(id);
+function h(tag, attrs, ...kids) {
+  const e = document.createElement(tag);
+  for (const [k, v] of Object.entries(attrs || {})) { if (v == null || v === false) continue; if (k === 'class') e.className = v; else if (k === 'style') e.style.cssText = v; else e.setAttribute(k, v); }
+  for (const c of kids.flat()) if (c != null && c !== false) e.append(c.nodeType ? c : document.createTextNode(String(c)));
+  return e;
+}
+const loc = () => lang === 'da' ? 'da-DK' : 'de-DE';
+
+let version = -1, lastJson = '', data = null;
+
+async function get(params) {
+  const r = await fetch('../display_api.php?' + new URLSearchParams({ t: TOKEN, ...params }), { cache: 'no-store' });
+  if (r.status === 403) throw Object.assign(new Error('invalid'), { invalid: true });
+  const j = await r.json();
+  if (!j.ok) throw new Error(j.error);
+  return j;
+}
+const conn = (ok, msg) => { $('conn').classList.toggle('off', !ok); $('conn').title = msg || ''; };
+
+async function tick() {
+  try {
+    const v = await get({});
+    conn(true);
+    if (v.version !== version) {
+      data = await get({ full: 1 });
+      version = data.version;
+      draw();
+    }
+  } catch (e) {
+    if (e.invalid) { $('main').replaceChildren(h('div', { class: 'empty-big' }, t().bad)); $('side').replaceChildren(); conn(false, 'invalid'); return; }
+    conn(false, e.message);
+  }
+}
+
+function dateLabel(d, today) {
+  if (!d) return t().nodate;
+  const diff = Math.round((new Date(d + 'T00:00:00') - new Date(today + 'T00:00:00')) / 864e5);
+  if (diff < 0) return t().overdue;
+  if (diff === 0) return t().today;
+  if (diff === 1) return t().tomorrow;
+  return new Date(d + 'T00:00:00').toLocaleDateString(loc(), { weekday: 'long', day: '2-digit', month: '2-digit' });
+}
+
+function draw() {
+  if (!data) return;
+  const json = JSON.stringify(data) + lang;
+  if (json === lastJson) return; // nichts geaendert: kein Neuzeichnen
+  lastJson = json;
+  const pm = Object.fromEntries(data.processes.map((p) => [p.key, p]));
+  const groups = [];
+  const LIMIT = 9;
+  let shown = 0, hidden = 0;
+  const main = [];
+  for (const o of data.orders) {
+    const late = o.overdue;
+    const key = late ? 'late' : (o.due_date || 'none');
+    let g = groups[groups.length - 1];
+    if (!g || g.key !== key) { g = { key, late, label: late ? t().overdue : dateLabel(o.due_date, data.today), items: [] }; groups.push(g); }
+    g.items.push(o);
+  }
+  for (const g of groups) {
+    const rows = [];
+    for (const o of g.items) {
+      if (shown >= LIMIT) { hidden++; continue; }
+      shown++;
+      rows.push(h('div', { class: 'ord' + (g.late ? ' late' : ''), style: `--sc:${SCOL[o.status]}` },
+        h('div', { class: 'sc' }),
+        h('div', { style: 'min-width:0' }, h('div', { class: 't' }, o.title), h('div', { class: 'c' }, `${o.customer} · ${o.qty} ${t().pcs}`, h('span', { class: 'dots' }, o.processes.map((k) => h('i', { style: `--c:${pm[k] ? pm[k].color : '#A855F7'}`, title: pm[k] ? (lang === 'da' ? pm[k].name_da : pm[k].name_de) : k }))))),
+        h('div', { class: 'r' }, h('span', { class: 'pill', style: `--c:${SCOL[o.status]}` }, t().st[o.status]), o.unpaid && h('span', { class: 'unpaid' }, t().unpaid))));
+    }
+    if (rows.length) main.push(h('div', { class: 'grp' + (g.late ? ' late' : '') }, g.label), ...rows);
+  }
+  if (hidden) main.push(h('div', { class: 'more' }, `+ ${hidden} ${t().more}`));
+  $('main').replaceChildren(...(main.length ? main : [h('div', { class: 'empty-big' }, t().none)]));
+
+  // Kapazitaet
+  const days = data.capacity;
+  const head = h('div', { class: 'cap-head' }, h('div'), h('div', {}, days.map((d) => h('span', {}, new Date(d.date + 'T00:00:00').toLocaleDateString(loc(), { weekday: 'short' }).slice(0, 2)))));
+  const rowsCap = data.processes.map((p) => h('div', { class: 'cap-row' }, h('div', { class: 'n' }, h('span', { style: `color:${p.color}` }, '● '), lang === 'da' ? p.name_da : p.name_de),
+    h('div', { class: 'cap-days' }, days.map((d) => {
+      const x = d.p[p.key];
+      if (!x || x.cap === 0) return h('div', { class: 'cap-d we' }, '–');
+      const fr = x.free / x.cap;
+      return h('div', { class: 'cap-d' + (x.free === 0 ? ' full' : ''), style: `--f:${fr}` }, x.free === 0 ? '0' : (x.free / 60).toFixed(x.free % 60 ? 1 : 0) + 'h');
+    }))));
+  const legend = h('div', { class: 'legend' }, Object.entries(SCOL).slice(0, 5).map(([k, c]) => h('span', { style: `--c:${c}` }, h('i'), t().st[k])));
+  $('side').replaceChildren(h('div', { class: 'panel' }, h('h3', {}, t().cap), head, ...rowsCap), h('div', { class: 'panel' }, h('h3', {}, t().status), legend));
+}
+
+function clock() {
+  $('clock').textContent = new Date().toLocaleTimeString(loc(), { hour: '2-digit', minute: '2-digit' });
+  // Datumswechsel: neu laden, damit "ueberfaellig" stimmt
+  if (data && new Date().toLocaleDateString('sv') !== data.today) { version = -1; }
+}
+
+// Vollbild per Klick; Mauszeiger nach Ruhe ausblenden
+function fs() { const d = document.documentElement; if (!document.fullscreenElement && d.requestFullscreen) d.requestFullscreen().catch(() => {}); }
+$('hint').addEventListener('click', fs);
+document.addEventListener('dblclick', fs);
+let idle;
+const wake = () => { document.body.classList.remove('idle'); clearTimeout(idle); idle = setTimeout(() => document.body.classList.add('idle'), 4000); };
+document.addEventListener('mousemove', wake); wake();
+
+// Bildschirm wach halten, wenn der Browser es kann
+try { if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(() => {}); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && navigator.wakeLock) navigator.wakeLock.request('screen').catch(() => {}); }); } catch (e) { /* optional */ }
+
+if (!/^[0-9a-f]{64}$/.test(TOKEN)) { $('main').replaceChildren(h('div', { class: 'empty-big' }, t().bad)); conn(false, 'invalid'); }
+else { tick(); setInterval(tick, POLL_MS); }
+clock(); setInterval(clock, 5000);
+})();

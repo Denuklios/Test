@@ -1,0 +1,40 @@
+/* Werkstatt-Anzeige: Querformat, aus mehreren Metern lesbar */
+html,body.display{height:100%;overflow:hidden;padding:0;margin:0}
+body.display{background:radial-gradient(1400px 600px at 90% -10%,rgba(139,43,226,.2),transparent 60%),#090909;font-size:clamp(16px,1.35vw,30px)}
+#app{height:100vh;display:grid;grid-template-columns:minmax(0,1fr) 26vw;grid-template-rows:auto minmax(0,1fr);gap:1.2vh 1.4vw;padding:1.6vh 1.6vw}
+header{grid-column:1/-1;display:flex;align-items:center;gap:2vw;border-bottom:1px solid var(--line);padding-bottom:1vh}
+.brand{font-family:var(--head);font-size:1.7em;letter-spacing:.3em;font-weight:600}.brand b{color:var(--p2);font-weight:600}
+#clock{margin-left:auto;font-size:2em;font-weight:300;letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.conn{width:.9em;height:.9em;border-radius:50%;background:var(--ok);box-shadow:0 0 10px var(--ok)}
+.conn.off{background:var(--bad);box-shadow:0 0 12px var(--bad);animation:blink 1.2s infinite}
+@keyframes blink{50%{opacity:.25}}
+#main{overflow:hidden;display:flex;flex-direction:column;gap:.7vh;min-height:0}
+.grp{font-family:var(--head);font-size:1.3em;letter-spacing:.2em;text-transform:uppercase;color:var(--p3);margin:.9vh 0 .2vh}
+.grp.late{color:var(--bad)}
+.ord{display:grid;grid-template-columns:.38em minmax(0,1fr) auto;gap:1vw;align-items:center;background:linear-gradient(180deg,var(--surface2),var(--surface));border:1px solid var(--line);border-radius:14px;padding:1vh 1.2vw 1vh 0;overflow:hidden}
+.ord .sc{align-self:stretch;background:var(--sc);border-radius:14px 0 0 14px}
+.ord.late{border-color:var(--bad);background:linear-gradient(90deg,rgba(248,113,113,.18),var(--surface))}
+.ord .t{font-family:var(--head);font-size:1.7em;font-weight:600;line-height:1.1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ord .c{color:var(--muted);font-size:1em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ord .r{text-align:right;display:flex;flex-direction:column;align-items:flex-end;gap:.4vh}
+.ord .pill{font-size:.8em}
+.ord .unpaid{font-weight:700;color:#fff;background:var(--bad);border-radius:8px;padding:.1em .55em;font-size:.8em;letter-spacing:.1em}
+.ord .dots{display:inline-flex;gap:.4em;vertical-align:middle;margin-left:.6em}
+.ord .dots i{width:.8em;height:.8em;border-radius:50%;background:var(--c)}
+.more{color:var(--muted);text-align:center;font-style:italic;font-family:var(--head);font-size:1.3em}
+#side{display:flex;flex-direction:column;gap:1.2vh;min-height:0;overflow:hidden}
+.panel{background:linear-gradient(180deg,var(--surface2),var(--surface));border:1px solid var(--line);border-radius:14px;padding:1.2vh 1vw}
+.panel h3{font-size:1.2em;letter-spacing:.2em;text-transform:uppercase;color:var(--p3);margin-bottom:.8vh}
+.cap-row{display:grid;grid-template-columns:7.5em 1fr;gap:.6vw;align-items:center;margin:.55vh 0}
+.cap-row .n{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.95em}
+.cap-days{display:grid;grid-template-columns:repeat(7,1fr);gap:.25vw}
+.cap-d{height:2.1em;border-radius:6px;display:grid;place-items:center;font-size:.75em;font-weight:600;background:color-mix(in srgb,var(--ok) calc(var(--f)*45%),#1b1626);color:#fff}
+.cap-d.full{background:color-mix(in srgb,var(--bad) 55%,#1b1626)}.cap-d.we{background:#15111d;color:var(--faint)}
+.cap-head{display:grid;grid-template-columns:7.5em 1fr;margin-bottom:.3vh;color:var(--muted);font-size:.8em}
+.cap-head div:last-child{display:grid;grid-template-columns:repeat(7,1fr);gap:.25vw;text-align:center}
+.legend{display:flex;flex-wrap:wrap;gap:.4vh .8vw;font-size:.8em;color:var(--muted)}
+.legend span{display:inline-flex;align-items:center;gap:.4em}.legend i{width:.8em;height:.8em;border-radius:3px;background:var(--c)}
+.empty-big{font-family:var(--head);font-style:italic;font-size:2.4em;color:var(--muted);margin:auto;text-align:center}
+#hint{position:fixed;right:1vw;bottom:1vh;opacity:.3;font-size:1.6em;cursor:pointer;transition:opacity .5s}
+body.idle{cursor:none}body.idle #hint{opacity:0}
+@media(max-aspect-ratio:1/1){#app{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr) auto}}
