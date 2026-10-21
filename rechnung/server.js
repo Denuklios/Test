@@ -21,7 +21,7 @@ const DATA_DIR = ENV.DATA_DIR || path.join(__dirname, 'data');
 const FILE = path.join(DATA_DIR, 'rechnung.json');
 const PUBLIC = path.join(__dirname, 'public');
 const RECEIPT_DIR = path.join(DATA_DIR, 'belege');
-const VERSION = '1.13';
+const VERSION = '1.14';
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = () => crypto.randomBytes(8).toString('hex');
 
@@ -77,7 +77,7 @@ const str = (v, n = 500) => String(v ?? '').slice(0, n);
 const byId = (list, id) => list.find((x) => x.id === id) || fail('Nicht gefunden.', 404);
 
 const CUSTOMER_KEYS = ['name', 'isBusiness', 'contact', 'street', 'zip', 'city', 'country', 'vatId', 'cvr', 'email', 'phone', 'language', 'currency', 'dueDays', 'note', 'ean', 'vatChecked'];
-const PRODUCT_KEYS = ['name', 'name_de', 'name_da', 'name_en', 'unit', 'price', 'kind', 'vatFree', 'currency', 'image', 'sku', 'brand', 'source'];
+const PRODUCT_KEYS = ['name', 'name_de', 'name_da', 'name_en', 'unit', 'price', 'kind', 'vatFree', 'currency', 'image', 'sku', 'brand', 'source', 'material', 'gsm', 'sizes', 'colors', 'desc_de', 'desc_da', 'desc_en', 'cost', 'costCurrency'];
 const EXPENSE_KEYS = ['date', 'supplier', 'text', 'category', 'amount', 'vat', 'euPurchase', 'deductible', 'paid', 'paidDate', 'dueDate', 'invoiceNumber', 'currency', 'receiptId', 'vatShare', 'taxShare'];
 const TRIP_KEYS = ['date', 'from', 'to', 'purpose', 'km', 'customerId'];
 // abziehbare Anteile (Moms/Steuer) aus der Kategorie, wenn nicht ausdrücklich angegeben
@@ -99,7 +99,7 @@ function cleanLines(lines) {
   return (Array.isArray(lines) ? lines : []).slice(0, 200).map((l) => ({
     productId: str(l.productId, 40), text: str(l.text, 2000), qty: str(l.qty, 20) || '1', unit: str(l.unit, 20),
     price: str(l.price, 20) || '0', discount: str(l.discount, 10) || '0', kind: l.kind === 'goods' ? 'goods' : 'services', vatFree: !!l.vatFree,
-    ...(l.image ? { image: cleanImg(l.image) } : {}),
+    ...(l.image ? { image: cleanImg(l.image) } : {}), color: str(l.color, 60), size: str(l.size, 40),
   }));
 }
 
@@ -418,7 +418,7 @@ async function api(method, parts, body, url) {
       raw = raw.slice(0, 200);
       let translateError = '';
       let items = await Products.translate(raw, apiKey()).catch((e) => { translateError = e.message; return raw.map((p) => ({ ...p, de: p.name, da: '', en: '', unit: 'stk', kind: 'goods', translated: false })); });
-      items = items.map((p) => ({ ...p, exists: state.products.some((x) => (p.sku && x.sku === p.sku) || (x.name_de || x.name || '').toLowerCase() === (p.de || '').toLowerCase()) }));
+      items = items.map(({ text, ...p }) => ({ ...p, exists: state.products.some((x) => (p.sku && x.sku === p.sku) || (x.name_de || x.name || '').toLowerCase() === (p.de || '').toLowerCase()) }));
       return { items, errors, translateError, translated: items.some((p) => p.translated), canTranslate: Receipts.enabled(apiKey()) };
     }
     if (action === 'save') {
@@ -430,7 +430,18 @@ async function api(method, parts, body, url) {
         if (state.products.some((x) => (it.sku && x.sku === it.sku) || (x.name_de || x.name || '').toLowerCase() === name.toLowerCase())) { skipped++; continue; }
         state.products.push({ id: uid(), createdAt: new Date().toISOString(), name, name_de: name, name_da: str(it.da, 200), name_en: str(it.en, 200),
           unit: ['stk', 'pakke', 'm', 'm2', 'kg', 'timer', ''].includes(it.unit) ? it.unit : 'stk', kind: it.kind === 'services' ? 'services' : 'goods', price: '', currency: 'DKK', vatFree: false,
-          image: cleanImg(it.image), sku: str(it.sku, 60), brand: str(it.brand, 80), source: str(it.url, 300) });
+          image: cleanImg(it.image), sku: str(it.sku, 60), brand: str(it.brand, 80), source: str(it.url, 300),
+          material: str(it.material, 200), gsm: str(it.gsm, 10), sizes: str(it.sizes, 100), colors: str(it.colors, 600),
+          desc_de: str(it.spec_de, 600), desc_da: str(it.spec_da, 600), desc_en: str(it.spec_en, 600),
+          cost: it.cost ? n2(it.cost).toFixed(2) : '', costCurrency: it.cost ? str(it.costCurrency || 'EUR', 3).toUpperCase() : '' });
+        // Verkaufspreis optional aus Einkaufspreis + Aufschlag (nur in DKK-Währung des Produkts sinnvoll, wenn Kurs bekannt)
+        const prod = state.products.at(-1);
+        const mk = n2(body.markup);
+        if (mk > 0 && prod.cost) {
+          let cost = n2(prod.cost);
+          if (prod.costCurrency && prod.costCurrency !== 'DKK') { try { cost *= (await exchangeRate(prod.costCurrency, '')).rate; } catch { cost = 0; } }
+          if (cost > 0) { prod.price = (Math.round(cost * (1 + mk / 100) * 100) / 100).toFixed(2); prod.currency = 'DKK'; }
+        }
         added++;
       }
       log('Produkte importiert', `${added} neu, ${skipped} schon vorhanden`);

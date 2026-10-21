@@ -1,5 +1,7 @@
-/* Produktimport: Produktseiten eines Shops abrufen (Name, Artikelnummer, Marke, Bild), Namen ins Dänische und
-   Englische übersetzen. Preise werden bewusst NICHT übernommen (Einkaufspreis ≠ Verkaufspreis). */
+/* Produktimport: Produktseiten eines Shops lesen (Name, Artikelnummer, Marke, Material, Gewicht, Größen, Farben, Bild,
+   Einkaufspreis), den Seitentext von der KI auswerten und ins Deutsche, Dänische und Englische übertragen.
+   Der Name des Shops wird überall entfernt, damit er nicht auf Kundendokumenten auftaucht.
+   Der Preis ist der EINKAUFSPREIS; der Verkaufspreis bleibt leer. */
 'use strict';
 let Anthropic = null;
 try { Anthropic = require('@anthropic-ai/sdk').default; } catch { /* ohne Paket keine Übersetzung */ }
@@ -36,7 +38,77 @@ const meta = (html, prop) => {
   return m ? decode(m[1]) : '';
 };
 
+/* Shop-Namen aus Texten entfernen (aus der Adresse abgeleitet, z. B. „l-shop-team“ → „L-SHOP-TEAM“, „L Shop Team“, „LShopTeam“) */
+function shopPattern(host) {
+  const parts = String(host || '').replace(/^(www|shop|store|webshop)\./i, '').split('.');
+  const sld = (parts.length > 1 ? parts.slice(0, -1).join('-') : parts[0]).replace(/[^a-z0-9-]/gi, '');
+  if (sld.length < 3) return null;
+  return new RegExp(sld.split('-').filter(Boolean).map((x) => x.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')).join('[-\\s_.]?'), 'ig');
+}
+function scrub(str, host) {
+  let t = String(str || '');
+  const re = shopPattern(host);
+  if (re) t = t.replace(re, ' ');
+  return t.replace(/\s+\|\s+(?:\|\s+)+/g, ' | ').replace(/\s{2,}/g, ' ').replace(/^[\s|–—-]+|[\s|–—-]+$/g, '').trim();
+}
+/* Seitentitel „BCWG002 Influence Hoodie | B&C BE INSPIRED | L-SHOP-TEAM | Deutschland“ → Name, Artikelnummer, Marke */
+function cleanTitle(title, host) {
+  const segs = scrub(title, host).split(/\s+[|–—]\s+|\s+-\s+/).map((x) => x.trim()).filter(Boolean);
+  const generic = /^(deutschland|germany|österreich|schweiz|online[- ]?shop|shop|startseite|home|kaufen|großhandel|wiederverkäufer)$/i;
+  let name = segs[0] || '', sku = '', brand = '';
+  const m = name.match(/^([A-Z]{1,6}[A-Z0-9-]*\d[A-Z0-9-]*)\s+(.+)$/);
+  if (m) { sku = m[1]; name = m[2]; }
+  brand = segs.slice(1).find((x) => !generic.test(x) && x.length < 40) || '';
+  return { name, sku, brand };
+}
+// sichtbarer Text einer Seite (ohne Skripte, Navigation und Fußzeile), für die KI
+function pageText(html, max = 20000) {
+  let h = html.replace(/<head[\s\S]*?<\/head>/i, ' ').replace(/<!--[\s\S]*?-->/g, ' ').replace(/<(script|style|svg|noscript|nav|footer|header|form|iframe)[\s\S]*?<\/\1>/gi, ' ');
+  h = h.replace(/<\/(p|div|li|tr|h[1-6]|br|section|article|table|dd|dt)>|<br\s*\/?>/gi, '\n').replace(/<[^>]+>/g, ' ');
+  const t = decode0(h).split('\n').map((l) => l.replace(/\s+/g, ' ').trim()).filter((l) => l.length > 1).join('\n');
+  return t.slice(0, max);
+}
+const decode0 = (s) => String(s).replace(/&(#x?[0-9a-f]+|amp|lt|gt|quot|apos|nbsp|auml|ouml|uuml|szlig|Auml|Ouml|Uuml|euro|sup2);/gi, (m, e) => {
+  const t = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', auml: 'ä', ouml: 'ö', uuml: 'ü', szlig: 'ß', Auml: 'Ä', Ouml: 'Ö', Uuml: 'Ü', euro: '€', sup2: '²' };
+  if (t[e]) return t[e];
+  const n = e[1] === 'x' || e[1] === 'X' ? parseInt(e.slice(2), 16) : parseInt(e.slice(1), 10);
+  return Number.isFinite(n) ? String.fromCodePoint(n) : m;
+});
+/* Einfache Erkennung ohne KI: Gewicht (g/m²), Material in Prozent, Größen */
+function heuristics(txt) {
+  const out = {};
+  const g = txt.match(/(\d{2,3})\s*(?:g\s*\/\s*m\s*[²2]|gsm|g\s*\/\s*qm)/i);
+  if (g) out.gsm = g[1];
+  const mat = txt.match(/\b\d{1,3}\s?%\s?[A-Za-zäöüÄÖÜ]{3,}(?:[ ,/&]+(?:und\s+)?\d{1,3}\s?%\s?[A-Za-zäöüÄÖÜ]{3,})*/);
+  if (mat) out.material = mat[0].replace(/\s+/g, ' ').trim();
+  const order = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL', 'XXL', 'XXXL'];
+  const found = order.filter((z) => new RegExp(`(?:^|[\\s,;/|·•])${z}(?=$|[\\s,;/|·•])`).test(txt));
+  if (found.length >= 3) out.sizes = `${found[0]}–${found[found.length - 1]}`;
+  return out;
+}
+
+// Produktbild suchen, wenn die Seite weder Suchmaschinen-Daten noch og:image hat:
+// bevorzugt Bilder, deren Adresse/Beschreibung zu Artikelnummer oder Name passt, sonst das erste „echte“ Bild
+function pickImage(html, sku, name) {
+  const body = html.replace(/<(script|style|noscript)[\s\S]*?<\/\1>/gi, '');
+  const found = [];
+  for (const m of body.matchAll(/<img\b[^>]*>/gi)) {
+    const tag = m[0];
+    const src = (tag.match(/\b(?:data-zoom-image|data-large|data-src|data-original|src)=["']([^"']+)["']/i) || [])[1];
+    if (!src || /^data:/.test(src) || !/\.(jpe?g|png|webp)(\?|$)/i.test(src)) continue;
+    if (/logo|icon|sprite|banner|flag|payment|badge|placeholder|loader|pixel|favicon|social/i.test(src + ' ' + (tag.match(/\balt=["']([^"']*)/i) || [])[1])) continue;
+    const w = parseInt((tag.match(/\bwidth=["']?(\d+)/i) || [])[1], 10);
+    if (w && w < 80) continue;
+    found.push({ src: decode(src), tag });
+  }
+  const words = [sku, ...String(name || '').split(/\s+/).filter((w) => w.length > 3)].filter(Boolean).map((w) => w.toLowerCase());
+  const hit = found.find((f) => words.some((w) => f.tag.toLowerCase().includes(w)));
+  return (hit || found[0] || {}).src || '';
+}
+
 function parsePage(html, url) {
+  let host = '';
+  try { host = new URL(url).host; } catch { /* ohne Adresse kein Shop-Name */ }
   const p = jsonLdProducts(html)[0];
   let name, sku, brand, image, description;
   if (p) {
@@ -44,14 +116,19 @@ function parsePage(html, url) {
     name = text(p.name || v.name); sku = text(p.productGroupID || p.sku || p.mpn || p.productID || v.sku || ''); brand = text(p.brand || v.brand); description = text(p.description || v.description);
     image = text([].concat(p.image || v.image || [])[0]);
   } else {
-    name = meta(html, 'og:title') || decode((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1]);
+    const raw = meta(html, 'og:title') || decode((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1]);
     description = meta(html, 'og:description') || meta(html, 'description');
     image = meta(html, 'og:image');
     sku = meta(html, 'product:retailer_item_id') || '';
+    const ct = host ? cleanTitle(raw, host) : { name: raw, sku: '', brand: '' };
+    name = BOT_RE.test(raw) ? raw : ct.name; sku = sku || ct.sku; brand = ct.brand;
   }
   if (!name) return null;
+  name = scrub(name, host); brand = scrub(brand, host); description = scrub(description, host);
+  if (!image) image = pickImage(html, sku, name);
   try { if (image) image = new URL(image, url).href; } catch { image = ''; }
-  return { name, sku, brand, description: description.slice(0, 400), image, url, structured: !!p };
+  const txt = pageText(html);
+  return { name, sku, brand, description: description.slice(0, 400), image, url, structured: !!p, host, text: txt, ...heuristics(txt) };
 }
 
 async function fetchText(url, opts = {}) {
@@ -60,9 +137,9 @@ async function fetchText(url, opts = {}) {
   return r;
 }
 
-async function fetchImage(url) {
+async function fetchImage(url, referer) {
   try {
-    const r = await fetchText(url);
+    const r = await fetchText(url, { headers: { Accept: 'image/avif,image/webp,image/png,image/jpeg,*/*', ...(referer ? { Referer: referer } : {}) } });
     const type = (r.headers.get('content-type') || '').split(';')[0];
     if (!/^image\/(jpeg|png|webp)$/.test(type)) return '';
     const buf = Buffer.from(await r.arrayBuffer());
@@ -82,7 +159,7 @@ async function fromUrl(url) {
     if (!prod) throw new Error('Keine Produktdaten gefunden – evtl. ist eine Anmeldung nötig');
   }
   if (/anmeld|login|einloggen/i.test(prod.name) && !prod.structured) throw new Error('Das ist die Anmeldeseite – der Shop zeigt Produkte nur nach Login. Bitte den CSV-Import nutzen.');
-  prod.image = prod.image ? await fetchImage(prod.image) : '';
+  prod.image = prod.image ? await fetchImage(prod.image, u.origin + '/') : '';
   return prod;
 }
 
@@ -92,7 +169,7 @@ async function fromHtml(html, fileName = '') {
   const prod = parsePage(html, canon || 'https://invalid.invalid/');
   if (!prod || (!prod.structured && BOT_RE.test(prod.name))) throw new Error(`${fileName ? fileName + ': ' : ''}${prod && BOT_RE.test(prod.name) ? 'Das ist die Prüfseite des Bot-Schutzes, nicht das Produkt – bitte die Seite erst fertig laden lassen und dann speichern.' : 'Keine Produktdaten in dieser Datei gefunden.'}`);
   prod.url = canon;
-  prod.image = prod.image && canon ? await fetchImage(prod.image) : '';
+  prod.image = prod.image && canon ? await fetchImage(prod.image, new URL(canon).origin + '/') : '';
   return prod;
 }
 
@@ -139,19 +216,79 @@ function friendly(err) {
   if (/credit|billing|balance/i.test(String(err.message))) return 'Das Guthaben bei Anthropic ist aufgebraucht – bitte unter platform.claude.com aufladen.';
   return 'Übersetzung nicht möglich: ' + String(err.message).slice(0, 120);
 }
+// Kundentext ohne KI aus den erkannten Angaben
+const fallbackSpec = (p) => [p.material && `Material: ${p.material}`, p.gsm && `Gewicht: ${p.gsm} g/m²`].filter(Boolean).join(' · ');
+const num = (v) => { const t = String(v ?? '').replace(/[^\d.,]/g, ''); if (!t) return ''; const n = Number(t.includes(',') ? t.replace(/\./g, '').replace(',', '.') : t); return Number.isFinite(n) && n > 0 ? n.toFixed(2) : ''; };
+
+const PAGE_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  required: ['de', 'da', 'en', 'brand', 'sku', 'material', 'gsm', 'sizes', 'colors', 'spec_de', 'spec_da', 'spec_en', 'price', 'currency', 'unit', 'kind'],
+  properties: {
+    de: { type: 'string' }, da: { type: 'string' }, en: { type: 'string' }, brand: { type: 'string' }, sku: { type: 'string' },
+    material: { type: 'string' }, gsm: { type: 'string' }, sizes: { type: 'string' }, colors: { type: 'string' },
+    spec_de: { type: 'string' }, spec_da: { type: 'string' }, spec_en: { type: 'string' },
+    price: { type: 'string' }, currency: { type: 'string' },
+    unit: { type: 'string', enum: ['stk', 'pakke', 'm', 'm2', 'kg', 'timer', ''] }, kind: { type: 'string', enum: ['goods', 'services'] },
+  },
+};
+async function readPage(client, p) {
+  const host = p.host || '';
+  const prompt = `Du liest die Produktseite eines Großhändlers für Textilien, Stickerei-Rohlinge und Zubehör. Ein Stickerei-/Textilveredler legt daraus ein Produkt für seine eigenen Rechnungen und Auftragsbestätigungen an.
+
+Gib zurück:
+- de: sauberer deutscher Produktname, z. B. „Influence Hoodie“. OHNE Artikelnummer, OHNE Händlername, OHNE Länder- oder Werbezusätze, Marke nicht im Namen wiederholen.
+- da, en: derselbe Name auf Dänisch und Englisch (Modellnamen und Marken nie übersetzen)
+- brand: Hersteller/Marke (z. B. „B&C“), niemals den Händler/Shop
+- sku: Artikelnummer des Herstellers, falls erkennbar
+- material: Zusammensetzung, z. B. „80 % Baumwolle, 20 % Polyester“
+- gsm: Flächengewicht als Zahl in g/m², z. B. „280“ (leer, wenn nicht angegeben)
+- sizes: verfügbare Größen, z. B. „S–3XL“ oder „XS, S, M“
+- colors: verfügbare Farben, kommagetrennt
+- spec_de / spec_da / spec_en: kurzer Kundentext für die Auftragsbestätigung (Stichpunkte durch „ · “ getrennt): Passform, Besonderheiten, Ausstattung. Material und Gewicht gehören mit hinein. KEINE Farben und Größen (stehen separat), KEINE Preise, KEIN Händlername, keine Artikelnummern, keine Werbefloskeln. Höchstens 200 Zeichen.
+- price: Einkaufspreis NETTO für die kleinste Abnahmemenge als Zahl mit Punkt (z. B. „12.50“). Nur wenn ein Preis auf der Seite steht, sonst leer. Staffelpreise: den für die kleinste Menge.
+- currency: Währung des Preises (EUR, DKK …)
+- unit: stk (Stück), pakke (Paket), m, m2, kg, timer oder leer; kind: goods
+Erfinde nichts. Fehlende Angaben leer lassen.
+
+Titel der Seite: ${p.name}${p.sku ? ` (Artikelnummer ${p.sku})` : ''}
+Seitentext:
+${scrub(p.text || '', host)}`;
+  const res = await client.beta.messages.create({
+    model: 'claude-haiku-5-5', max_tokens: 4000, output_config: { effort: 'low', format: { type: 'json_schema', schema: PAGE_SCHEMA } },
+    messages: [{ role: 'user', content: prompt }],
+  });
+  const t = res.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
+  return JSON.parse(t);
+}
+
 async function translate(products, apiKey) {
-  if (!Anthropic || !apiKey) return products.map((p) => ({ ...p, de: p.name, da: '', en: '', unit: 'stk', kind: 'goods', translated: false }));
+  const base = (p) => ({ ...p, de: p.name, da: '', en: '', unit: 'stk', kind: 'goods', translated: false, spec_de: fallbackSpec(p), spec_da: '', spec_en: '', cost: '', costCurrency: '' });
+  if (!Anthropic || !apiKey) return products.map(base);
   const client = new Anthropic({ apiKey });
-  const out = [];
-  for (let s = 0; s < products.length; s += 25) {
-    const part = products.slice(s, s + 25);
-    const list = part.map((p, i) => `${i}: ${p.name}${p.brand ? ` (Marke ${p.brand})` : ''}${p.description ? ` – ${p.description.slice(0, 120)}` : ''}`).join('\n');
+  const out = new Array(products.length);
+  // Produkte mit Seitentext: Seite von der KI auswerten (je Produkt ein Aufruf)
+  for (let i = 0; i < products.length; i++) {
+    const p = products[i];
+    if (!p.text) continue;
+    try {
+      const r = await readPage(client, p);
+      const clean = (v) => scrub(v, p.host);
+      out[i] = { ...p, de: clean(r.de) || p.name, da: clean(r.da), en: clean(r.en), brand: clean(r.brand) || p.brand, sku: r.sku || p.sku, material: r.material || p.material || '', gsm: r.gsm || p.gsm || '',
+        sizes: r.sizes || p.sizes || '', colors: clean(r.colors), spec_de: clean(r.spec_de) || fallbackSpec(p), spec_da: clean(r.spec_da), spec_en: clean(r.spec_en),
+        cost: num(r.price), costCurrency: num(r.price) ? (r.currency || 'EUR').toUpperCase() : '', unit: r.unit || 'stk', kind: r.kind || 'goods', translated: true };
+    } catch (err) { throw new Error(friendly(err)); }
+  }
+  // Rest (z. B. aus CSV): nur Namen übersetzen, in Gruppen
+  const rest = products.map((p, i) => ({ p, i })).filter((x) => !out[x.i]);
+  for (let s = 0; s < rest.length; s += 25) {
+    const part = rest.slice(s, s + 25);
+    const list = part.map((x, i) => `${i}: ${x.p.name}${x.p.brand ? ` (Marke ${x.p.brand})` : ''}${x.p.description ? ` – ${x.p.description.slice(0, 120)}` : ''}`).join('\n');
     let res;
     try {
       res = await client.beta.messages.create({
         model: 'claude-haiku-5-5', max_tokens: 8000, output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
         messages: [{ role: 'user', content: `Das sind Artikel eines deutschen Großhändlers für Textilien/Stickerei-Rohlinge/Zubehör. Für jede Zeile (Nummer: Name) gib an:
-- de: kurzer, sauberer deutscher Produktname für eine Rechnung (ohne Werbetext, ohne Artikelnummer; Marke und Typ behalten, Farbe/Größe nur wenn im Namen)
+- de: kurzer, sauberer deutscher Produktname für eine Rechnung (ohne Werbetext, ohne Artikelnummer, ohne Händlername; Marke und Typ behalten, Farbe/Größe nur wenn im Namen)
 - da: derselbe Name auf Dänisch, en: auf Englisch (übliche Fachbegriffe verwenden, Markennamen nie übersetzen)
 - unit: Verkaufseinheit (stk = Stück, pakke = Paket, m, m2, kg, timer, sonst leer) – bei Textilien meist stk
 - kind: goods (Ware) oder services (Dienstleistung)
@@ -161,9 +298,9 @@ Erfinde nichts dazu. Gib die Nummer i unverändert zurück.\n\n${list}` }],
     const t = res.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
     let items = [];
     try { items = JSON.parse(t).items || []; } catch { /* ohne Übersetzung weiter */ }
-    part.forEach((p, i) => { const x = items.find((it) => it.i === i); out.push(x ? { ...p, de: x.de || p.name, da: x.da, en: x.en, unit: x.unit || 'stk', kind: x.kind, translated: true } : { ...p, de: p.name, da: '', en: '', unit: 'stk', kind: 'goods', translated: false }); });
+    part.forEach((x, i) => { const it = items.find((q) => q.i === i); out[x.i] = it ? { ...base(x.p), de: it.de || x.p.name, da: it.da, en: it.en, unit: it.unit || 'stk', kind: it.kind, translated: true } : base(x.p); });
   }
   return out;
 }
 
-module.exports = { friendly, parsePage, jsonLdProducts, fromUrl, fromHtml, collectLinks, fromCsv, translate, BOT_RE };
+module.exports = { scrub, cleanTitle, pageText, heuristics, fallbackSpec, friendly, parsePage, jsonLdProducts, fromUrl, fromHtml, collectLinks, fromCsv, translate, BOT_RE };

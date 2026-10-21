@@ -10,9 +10,13 @@ const ok = (c, m) => { console.log((c ? 'OK   ' : 'FEHL ') + m); if (!c) fails++
 const eq = (a, b, m) => ok(a === b, `${m}: ${a}${a === b ? '' : ' ≠ ' + b}`);
 // nachgestellte Übersetzung
 const tr = { 'Polo Classic': ['Polo Classic', 'Polo Classic', 'Polo Classic'] };
-let authFail = false;
+let authFail = false; const pageCalls = [];
 class Fake { constructor() { this.models = { list: async () => { if (authFail) throw new Fake.AuthenticationError('401'); return {}; } }; this.beta = { messages: { create: async (req) => {
   if (authFail) throw new Fake.AuthenticationError('401 invalid x-api-key');
+  if (req.output_config.format.schema.properties.spec_de) { // Seitenauswertung (ein Produkt)
+    pageCalls.push(req.messages[0].content);
+    return { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ de: 'Influence Hoodie', da: 'Influence Hoodie', en: 'Influence Hoodie', brand: 'B&C', sku: 'BCWG002', material: '80 % Baumwolle, 20 % Polyester', gsm: '280', sizes: 'S–3XL', colors: 'Navy, Schwarz', spec_de: 'Kapuzensweat · 280 g/m²', spec_da: 'Hættetrøje · 280 g/m²', spec_en: 'Hooded sweat · 280 g/m²', price: '18.90', currency: 'EUR', unit: 'stk', kind: 'goods' }) }] };
+  }
   const lines = req.messages[0].content.split('\n\n').pop().split('\n');
   const items = lines.map((l) => { const i = parseInt(l, 10); const n = l.replace(/^\d+: /, '').split(' (Marke')[0].split(' – ')[0]; return { i, de: n.replace('Herren ', ''), da: n.replace('Herren ', 'Herre '), en: n.replace('Herren ', "Men's "), unit: 'stk', kind: 'goods' }; });
   return { stop_reason: 'end_turn', content: [{ type: 'text', text: JSON.stringify({ items }) }] }; } } }; } }
@@ -23,6 +27,7 @@ const pages = {
   'https://shop.test/de/polo': `<html><head><title>Polo | Shop</title><script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"Herren Polo Classic &amp; Co","sku":"L-1001","brand":{"@type":"Brand","name":"Mantis"},"description":"Pique-Polo","image":["/img/polo.png"],"offers":{"@type":"Offer","price":"9.90"}}</script></head></html>`,
   'https://shop.test/de/kappe': `<html><head><meta property="og:title" content="Herren Kappe 6-Panel"><meta property="og:image" content="https://shop.test/img/kappe.png"><title>x</title></head></html>`,
   'https://shop.test/de/hoodie': `<html><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BreadcrumbList"},{"@type":"ProductGroup","name":"Influence Hoodie","productGroupID":"HD-5","brand":{"name":"Mantis"},"hasVariant":[{"@type":"Product","name":"Influence Hoodie Navy","sku":"HD-5-NAVY","image":"/img/h.png"}]}]}</script></html>`,
+  'https://shop.test/de/lshop': `<html><head><title>BCWG002 Influence Hoodie | B&amp;C BE INSPIRED | L-SHOP-TEAM | Deutschland</title></head><body><h1>Influence Hoodie</h1><p>80% Baumwolle, 20% Polyester, 280 g/m²</p><p>Größen S M L XL 2XL 3XL</p><p>Ihr Preis 18,90 € netto</p><img src="/img/hh.png"></body></html>`,
   'https://shop.test/de/bot': `<html><head><title>Bot-Validierung</title></head><body>Bitte warten …</body></html>`,
   'https://shop.test/de/login': `<html><head><title>Anmelden – Shop</title></head></html>`,
   'https://shop.test/sitemap.xml': `<urlset><url><loc>https://shop.test/de/polo</loc></url><url><loc>https://shop.test/de/kappe</loc></url><url><loc>https://shop.test/img/a.jpg</loc></url><url><loc>https://other.test/x</loc></url></urlset>`,
@@ -66,6 +71,21 @@ const A = (m, p, b = {}) => RS.api(m, p.split('/'), b, new URL('http://x/?'));
   eq(sm.items.length, 2, 'Sitemap-Adresse wird zu Produkten');
   const pg = await A('POST', 'products/import/preview', { pages: [{ name: 'a.html', html: '<script type="application/ld+json">{"@type":"Product","name":"Herren Fleece Jacke","sku":"F-9"}</script>' }, { name: 'b.html', html: '<title>Bot-Validierung</title>' }] });
   eq(pg.items.length, 1, 'Vorschau aus gespeicherten Seiten: 1 Produkt'); eq(pg.errors.length, 1, 'Vorschau aus gespeicherten Seiten: Prüfseite als Fehler');
+  // Seite ohne Suchmaschinen-Daten: Titel bereinigen, Angaben von der KI-Auswertung, Händlername nirgends
+  const ls = await A('POST', 'products/import/preview', { urls: 'https://shop.test/de/lshop' });
+  const li = ls.items[0];
+  eq(li.de, 'Influence Hoodie', 'Händlerseite: sauberer Produktname'); eq(li.sku, 'BCWG002', 'Händlerseite: Artikelnummer aus dem Titel');
+  eq(li.material, '80 % Baumwolle, 20 % Polyester', 'Händlerseite: Material'); eq(li.gsm, '280', 'Händlerseite: Grammatur'); eq(li.sizes, 'S–3XL', 'Händlerseite: Größen'); eq(li.colors, 'Navy, Schwarz', 'Händlerseite: Farben');
+  eq(li.cost, '18.90', 'Händlerseite: Einkaufspreis (angemeldet gespeicherte Seite)'); eq(li.costCurrency, 'EUR', 'Händlerseite: Währung');
+  ok(!/l-?shop/i.test(JSON.stringify({ ...li, image: '', text: '', url: '' })), 'Händlername steht in keinem Feld');
+  ok(pageCalls.length === 1 && !/l-?shop/i.test(pageCalls[0].split('Seitentext:')[1]), 'Händlername wird gar nicht erst an die KI geschickt');
+  ok(li.image.startsWith('data:image/png'), 'Händlerseite: Bild');
+  ls.items[0].costCurrency = 'DKK'; // Wechselkurs-Dienst ist im Test nicht erreichbar
+  const sv = await A('POST', 'products/import/save', { items: ls.items, markup: 100 });
+  eq(sv.added, 1, 'Händlerprodukt übernommen');
+  const hp = RS.getState().products.find((x) => x.sku === 'BCWG002');
+  eq(hp.name_de, 'Influence Hoodie', 'gespeicherter Name ohne Händler'); eq(hp.cost, '18.90', 'Einkaufspreis gespeichert'); eq(hp.price, '37.80', 'Verkaufspreis = Einkauf + 100 % Aufschlag');
+  eq(hp.desc_da, 'Hættetrøje · 280 g/m²', 'Kundentext dänisch'); eq(hp.gsm, '280', 'Grammatur gespeichert'); eq(hp.sizes, 'S–3XL', 'Größen gespeichert');
   authFail = true;
   const af = await A('POST', 'products/import/preview', { urls: 'https://shop.test/de/polo' });
   ok(!af.translated && /Schlüssel.*abgelehnt/.test(af.translateError) && af.errors.length === 0, 'falscher Schlüssel: verständliche Meldung, Produkt trotzdem in der Vorschau: ' + af.translateError.slice(0, 60));
@@ -74,7 +94,7 @@ const A = (m, p, b = {}) => RS.api(m, p.split('/'), b, new URL('http://x/?'));
   eq((await A('POST', 'ai/check', {})).ok, true, 'Schlüsselprüfung: gültiger Schlüssel');
   const s1 = await A('POST', 'products/import/save', { items: r.items });
   eq(s1.added, 2, 'übernommen');
-  const prod = RS.getState().products[0];
+  const prod = RS.getState().products.find((x) => x.sku === 'L-1001');
   eq(prod.price, '', 'Preis bleibt leer'); eq(prod.name_da, 'Herre Polo Classic & Co', 'dänischer Name gespeichert'); eq(prod.sku, 'L-1001', 'Artikelnummer gespeichert'); ok(prod.image.startsWith('data:image/png'), 'Bild gespeichert');
   const s2 = await A('POST', 'products/import/save', { items: r.items });
   eq(s2.added, 0, 'zweiter Import: keine Doppelten'); eq(s2.skipped, 2, 'als „schon vorhanden“ übersprungen');

@@ -199,7 +199,8 @@ function docEditor(id, kind) {
   const lineRow = (l, i) => `<tr data-i="${i}">
       ${isOrder ? `<td class="img-cell"><label title="Bild wählen">${l.image ? `<img class="thumb-sm" src="${DocRender.safeImg(l.image)}" alt="">` : '<span class="ph">📷</span>'}<input type="file" accept="image/*" hidden data-img></label>${l.image ? '<div><button class="small" data-noimg title="Bild entfernen">✕</button></div>' : ''}</td>` : ''}
       <td><select data-k="productId">${prodOpts}</select></td>
-      <td><textarea data-k="text" rows="1">${esc(l.text)}</textarea></td>
+      <td><textarea data-k="text" rows="1">${esc(l.text)}</textarea>${(() => { const p = S.products.find((x) => x.id === l.productId); if (!p || !(p.colors || p.sizes)) return ''; const c = splitList(p.colors), z = sizeList(p.sizes);
+        return `<div class="row small" style="margin-top:4px">${c.length ? `<select data-pick="color" style="width:auto"><option value="">Farbe…</option>${c.map((x) => `<option ${x === l.color ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}${z.length ? `<select data-pick="size" style="width:auto"><option value="">Größe…</option>${z.map((x) => `<option ${x === l.size ? 'selected' : ''}>${esc(x)}</option>`).join('')}</select>` : ''}</div>`; })()}</td>
       <td><input class="num" data-k="qty" value="${esc(num(l.qty))}"></td>
       <td><select data-k="unit">${opts(UNITS, l.unit)}</select></td>
       <td><input class="num" data-k="price" value="${esc(num(l.price))}"></td>
@@ -252,10 +253,18 @@ function docEditor(id, kind) {
           if (pc === 'DKK' && rate > 0) price = Math.round(price / rate);
           else if (pc !== 'DKK') toast('Produktpreis ist in ' + pc + ' – bitte Preis prüfen.', true);
         }
-        Object.assign(l, { productId: p.id, text: p['name_' + d.language] || p.name, unit: p.unit || 'stk', price: (price / 100).toFixed(2), kind: p.kind || 'services', vatFree: !!p.vatFree });
+        Object.assign(l, { productId: p.id, color: '', size: '', unit: p.unit || 'stk', price: (price / 100).toFixed(2), kind: p.kind || 'services', vatFree: !!p.vatFree });
+        l.text = productLineText(p, d.language, l);
         if (isOrder && p.image) l.image = p.image;
         drawLines();
       };
+      $$('[data-pick]', tr).forEach((sel) => (sel.onchange = () => {
+        read();
+        const p = S.products.find((x) => x.id === l.productId);
+        l[sel.dataset.pick] = sel.value;
+        if (p) l.text = productLineText(p, d.language, l);
+        drawLines();
+      }));
       const ta = $('textarea', tr);
       const fit = () => { ta.style.height = 'auto'; ta.style.height = ta.scrollHeight + 2 + 'px'; };
       ta.addEventListener('input', fit); fit();
@@ -277,7 +286,7 @@ function docEditor(id, kind) {
   $('[name=currency]').onchange = () => { calc(); if (d.currency !== 'DKK') getRate(); };
   $('[name=language]').onchange = () => {
     read();
-    for (const l of d.lines) { const p = S.products.find((x) => x.id === l.productId); if (p) l.text = p['name_' + d.language] || p.name; }
+    for (const l of d.lines) { const p = S.products.find((x) => x.id === l.productId); if (p) l.text = productLineText(p, d.language, l); }
     drawLines();
   };
   async function getRate() {
@@ -301,6 +310,21 @@ function docEditor(id, kind) {
   };
   $('#new-cust').onclick = () => customerForm(null, async (c) => { await save(); await act(() => api(`${base}/${id}`, 'PUT', { ...d, customerId: c.id, language: c.language, currency: c.currency || 'DKK', vatScheme: Calc.vatScheme(c) })); docEditor(id, kind); });
   drawLines();
+}
+
+// Zeilentext aus Produkt: Name, Kundentext, gewählte Farbe/Größe – in der Sprache des Dokuments
+function productLineText(p, lang, l = {}) {
+  const L = DocLang.get(lang);
+  const pick = [l.color && `${L.colorLabel}: ${l.color}`, l.size && `${L.sizeLabel}: ${l.size}`].filter(Boolean).join(' · ');
+  return [p['name_' + lang] || p.name, p['desc_' + lang] || (lang === 'de' ? p.desc_de : '') || '', pick].filter(Boolean).join('\n');
+}
+const splitList = (v) => String(v || '').split(/[,;]/).map((x) => x.trim()).filter(Boolean);
+// verfügbare Größen aus „S–3XL“ oder „S, M, L“ als Liste
+function sizeList(v) {
+  const order = ['XXS', 'XS', 'S', 'M', 'L', 'XL', '2XL', '3XL', '4XL', '5XL'];
+  const m = String(v || '').match(/^\s*(\w+)\s*[–-]\s*(\w+)\s*$/);
+  if (m && order.includes(m[1]) && order.includes(m[2])) return order.slice(order.indexOf(m[1]), order.indexOf(m[2]) + 1);
+  return splitList(v);
 }
 
 // Bild verkleinern (Produktfotos, Bilder im Auftrag) und als eingebettete JPG-Datei zurückgeben
@@ -536,7 +560,7 @@ routes.produkte = () => {
   $('#main').innerHTML = `<h1>Produkte &amp; Leistungen <span class="spacer"></span><button id="import">⬇ Aus Shop übernehmen</button><button class="primary" id="add">+ Neues Produkt</button></h1>
     ${S.products.length ? `<div class="table-wrap"><table><thead><tr><th></th><th>Name</th><th>Dänisch</th><th>Englisch</th><th>Einheit</th><th>Art</th><th class="r">Preis netto</th></tr></thead><tbody>
     ${S.products.map((p) => `<tr class="click" data-p="${p.id}"><td style="width:54px">${p.image ? `<img class="thumb-sm" src="${DocRender.safeImg(p.image)}" alt="">` : ''}</td><td><b>${esc(p.name_de || p.name)}</b></td><td>${esc(p.name_da || '')}</td><td>${esc(p.name_en || '')}</td><td>${UNITS[p.unit] || ''}</td>
-      <td>${p.kind === 'goods' ? 'Ware' : 'Leistung'}${p.vatFree ? ' · momsfrei' : ''}</td><td class="r">${p.price === '' || p.price === undefined ? '<span class="muted">Preis offen</span>' : kr(Calc.toCents(p.price), p.currency || 'DKK')}${p.sku ? `<div class="muted small">${esc(p.brand ? p.brand + ' · ' : '')}${esc(p.sku)}</div>` : ''}</td></tr>`).join('')}</tbody></table></div>`
+      <td>${p.kind === 'goods' ? 'Ware' : 'Leistung'}${p.vatFree ? ' · momsfrei' : ''}</td><td class="r">${p.price === '' || p.price === undefined ? '<span class="muted">Preis offen</span>' : kr(Calc.toCents(p.price), p.currency || 'DKK')}${p.cost ? `<div class="muted small">Einkauf ${kr(Calc.toCents(p.cost), p.costCurrency || 'EUR')}</div>` : ''}${p.sku || p.brand ? `<div class="muted small">${esc([p.brand, p.sku].filter(Boolean).join(' · '))}</div>` : ''}</td></tr>`).join('')}</tbody></table></div>`
     : '<div class="card empty">Noch keine Produkte. Trage den Namen in allen drei Sprachen ein – auf der Rechnung erscheint automatisch die Sprache des Kunden.</div>'}`;
   const form = (p) => {
     const d = p || { unit: 'stk', kind: 'services', currency: 'DKK' };
@@ -544,8 +568,19 @@ routes.produkte = () => {
       <label class="wide">Name Deutsch<input name="name_de" value="${esc(d.name_de || d.name || '')}"></label>
       <label class="wide">Name Dänisch<input name="name_da" value="${esc(d.name_da || '')}"></label>
       <label class="wide">Name Englisch<input name="name_en" value="${esc(d.name_en || '')}"></label>
-      <label>Preis netto (ohne Moms)<input name="price" value="${esc(num(d.price || ''))}"></label>
-      <label>Währung<select name="currency">${CURRENCIES.map((x) => `<option ${x === (d.currency || 'DKK') ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+      <label>Marke<input name="brand" value="${esc(d.brand || '')}"></label>
+      <label>Artikelnummer (intern)<input name="sku" value="${esc(d.sku || '')}"></label>
+      <label>Material<input name="material" value="${esc(d.material || '')}" placeholder="z. B. 80 % Baumwolle, 20 % Polyester"></label>
+      <label>Gewicht (g/m²)<input name="gsm" inputmode="numeric" value="${esc(d.gsm || '')}"></label>
+      <label>Größen<input name="sizes" value="${esc(d.sizes || '')}" placeholder="z. B. S–3XL"></label>
+      <label>Farben (mit Komma getrennt)<input name="colors" value="${esc(d.colors || '')}" placeholder="z. B. Navy, Schwarz, Weiß"></label>
+      <label class="wide">Kundentext Deutsch (erscheint unter dem Namen auf Rechnung/Auftrag)<textarea name="desc_de" rows="2">${esc(d.desc_de || '')}</textarea></label>
+      <label class="wide">Kundentext Dänisch<textarea name="desc_da" rows="2">${esc(d.desc_da || '')}</textarea></label>
+      <label class="wide">Kundentext Englisch<textarea name="desc_en" rows="2">${esc(d.desc_en || '')}</textarea></label>
+      <label>Einkaufspreis netto (intern)<input name="cost" inputmode="decimal" value="${esc(num(d.cost || ''))}"></label>
+      <label>Währung Einkauf<select name="costCurrency">${CURRENCIES.map((x) => `<option ${x === (d.costCurrency || 'EUR') ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
+      <label>Verkaufspreis netto (ohne Moms)<input name="price" value="${esc(num(d.price || ''))}"></label>
+      <label>Währung Verkauf<select name="currency">${CURRENCIES.map((x) => `<option ${x === (d.currency || 'DKK') ? 'selected' : ''}>${x}</option>`).join('')}</select></label>
       <label>Einheit<select name="unit">${opts(UNITS, d.unit)}</select></label>
       <label>Art<select name="kind"><option value="services">Dienstleistung</option><option value="goods" ${d.kind === 'goods' ? 'selected' : ''}>Ware</option></select></label>
       <label class="wide"><input type="checkbox" name="vatFree" ${d.vatFree ? 'checked' : ''}> Momsfrei (z. B. nach ML § 13 – nur wenn du sicher bist)</label>
@@ -562,7 +597,7 @@ routes.produkte = () => {
         const f = formData(el);
         f.image = image;
         f.name = f.name_de || f.name_da || f.name_en;
-        f.price = f.price.replace(/\./g, '').replace(',', '.');
+        f.price = f.price.replace(/\./g, '').replace(',', '.'); f.cost = (f.cost || '').replace(/\./g, '').replace(',', '.');
         await act(() => (p ? api('products/' + p.id, 'PUT', f) : api('products', 'POST', f)), 'Gespeichert');
         closeModal(); routes.produkte();
       };
@@ -577,7 +612,7 @@ routes.produkte = () => {
 /* Produkte aus einem Shop übernehmen: Adressen von Produktseiten (oder eine Kategorie-/Sitemap-Adresse) oder eine CSV-Datei */
 function productImport() {
   modal(`<h2>Produkte aus Shop übernehmen</h2>
-    <p class="small muted">Es werden Name, Artikelnummer, Marke und Bild übernommen und der Name ins Deutsche, Dänische und Englische übersetzt. <b>Preise bleiben leer</b>, die setzt du erst beim Verkauf.</p>
+    <p class="small muted">Übernommen werden Name (ohne Shop-Namen), Marke, Artikelnummer, Material, Gewicht, Größen, Farben, Bild und der <b>Einkaufspreis</b> (falls sichtbar). Name und Kundentext werden ins Deutsche, Dänische und Englische übertragen. Den Verkaufspreis setzt du selbst, oder lässt ihn mit einem Aufschlag berechnen.</p>
     <div class="tabs"><button class="on" data-tab="urls">Shop-Adressen</button><button data-tab="pages">Gespeicherte Seiten</button><button data-tab="csv">CSV-Datei</button></div>
     <div id="tab-urls"><label>Adressen von Produktseiten (eine pro Zeile) oder die Adresse einer Kategorie bzw. der Sitemap<textarea id="urls" rows="5" placeholder="https://shop.l-shop-team.de/de/…"></textarea></label>
       <label style="margin-top:8px"><input type="checkbox" id="expand"> Das ist eine Kategorie-/Sitemap-Adresse: alle Produktseiten darauf suchen (bis 60)</label></div>
@@ -607,10 +642,14 @@ function productImport() {
         items = r.items;
         out.innerHTML = `${!r.translated ? `<div class="note warn small">${esc(r.translateError || (r.canTranslate ? 'Übersetzung nicht möglich.' : 'Übersetzung nicht möglich – dafür braucht es den API-Schlüssel (Einstellungen → Belegerkennung).'))} Die Namen kommen nur auf Deutsch, Dänisch und Englisch kannst du später nachtragen.</div>` : ''}
           ${r.errors.length ? `<div class="note warn small">${r.errors.length} Adresse(n) nicht lesbar: ${esc(r.errors.slice(0, 3).map((e) => (e.url ? e.url + ' – ' : '') + e.error).join(' · '))}</div>` : ''}
-          <div class="table-wrap" style="max-height:42vh;overflow:auto"><table><thead><tr><th></th><th></th><th>Deutsch</th><th>Dänisch</th><th>Englisch</th><th>Art-Nr.</th><th>Einheit</th></tr></thead><tbody>
-          ${items.map((p, i) => `<tr><td><input type="checkbox" data-sel="${i}" ${p.exists ? '' : 'checked'}></td><td>${p.image ? `<img class="thumb-sm" src="${DocRender.safeImg(p.image)}" alt="">` : ''}</td>
-            <td><input data-f="de" data-i="${i}" value="${esc(p.de)}"></td><td><input data-f="da" data-i="${i}" value="${esc(p.da)}"></td><td><input data-f="en" data-i="${i}" value="${esc(p.en)}"></td>
-            <td class="small">${esc(p.sku)}${p.exists ? '<div class="badge b-open">schon da</div>' : ''}</td><td><select data-f="unit" data-i="${i}">${opts(UNITS, p.unit)}</select></td></tr>`).join('')}</tbody></table></div>`;
+          <div class="table-wrap" style="max-height:48vh;overflow:auto"><table><thead><tr><th></th><th></th><th>Name (Deutsch / Dänisch / Englisch)</th><th>Kundentext (Deutsch)</th><th>Daten</th><th>Einkauf</th></tr></thead><tbody>
+          ${items.map((p, i) => `<tr><td><input type="checkbox" data-sel="${i}" ${p.exists ? '' : 'checked'}></td><td>${p.image ? `<img class="thumb-sm" style="width:56px;height:56px" src="${DocRender.safeImg(p.image)}" alt="">` : '<span class="muted small">kein Bild</span>'}</td>
+            <td style="min-width:200px"><input data-f="de" data-i="${i}" value="${esc(p.de)}"><input data-f="da" data-i="${i}" value="${esc(p.da)}" placeholder="Dänisch" style="margin-top:3px"><input data-f="en" data-i="${i}" value="${esc(p.en)}" placeholder="Englisch" style="margin-top:3px"></td>
+            <td style="min-width:200px"><textarea data-f="spec_de" data-i="${i}" rows="4">${esc(p.spec_de || '')}</textarea></td>
+            <td class="small">${p.brand ? `<b>${esc(p.brand)}</b><br>` : ''}${esc(p.sku || '')}${p.sku ? '<br>' : ''}${p.gsm ? `${esc(p.gsm)} g/m²<br>` : ''}${p.sizes ? `Größen: ${esc(p.sizes)}<br>` : ''}${p.colors ? `Farben: ${esc(p.colors)}` : ''}${p.exists ? '<div class="badge b-open">schon da</div>' : ''}
+              <select data-f="unit" data-i="${i}" style="margin-top:4px">${opts(UNITS, p.unit)}</select></td>
+            <td class="r">${p.cost ? `${num(p.cost)} ${esc(p.costCurrency)}` : '<span class="muted small">kein Preis<br>sichtbar</span>'}</td></tr>`).join('')}</tbody></table></div>
+          <div class="row" style="margin-top:8px"><label style="margin:0">Verkaufspreis automatisch = Einkaufspreis + <input id="markup" type="number" min="0" max="500" style="width:80px;display:inline-block" placeholder="leer"> % <span class="muted small">(leer lassen = Verkaufspreis später selbst eintragen; Euro-Preise werden in DKK umgerechnet)</span></label></div>`;
         $$('[data-f]', out).forEach((inp) => (inp.oninput = inp.onchange = () => { items[inp.dataset.i][inp.dataset.f] = inp.value; }));
         $('#imp-save', el).classList.remove('hidden'); $('#imp-go', el).classList.add('hidden');
       } catch (e) { out.innerHTML = `<div class="note warn">${esc(e.message)}</div>`; }
@@ -619,8 +658,8 @@ function productImport() {
     $('#imp-save', el).onclick = async () => {
       const sel = $$('[data-sel]', el).filter((c) => c.checked).map((c) => items[c.dataset.sel]);
       if (!sel.length) return toast('Nichts ausgewählt.', true);
-      const r = await act(() => api('products/import/save', 'POST', { items: sel }), 'Produkte übernommen');
-      toast(`${r.added} Produkte übernommen${r.skipped ? `, ${r.skipped} schon vorhanden` : ''}. Preise setzt du beim Verkauf.`);
+      const r = await act(() => api('products/import/save', 'POST', { items: sel, markup: $('#markup', el)?.value || '' }), 'Produkte übernommen');
+      toast(`${r.added} Produkte übernommen${r.skipped ? `, ${r.skipped} schon vorhanden` : ''}.`);
       closeModal(); routes.produkte();
     };
   });

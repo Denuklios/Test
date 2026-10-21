@@ -6,6 +6,7 @@
   'use strict';
   const T = {
     de: {
+      colorLabel: 'Farbe', sizeLabel: 'Größe',
       order: 'Auftragsbestätigung', orderNumber: 'Auftragsnummer', orderDate: 'Datum', delivery: 'Liefertermin', validUntil: 'Gültig bis',
       orderIntro: 'Vielen Dank für Ihren Auftrag. Wir bestätigen ihn wie folgt:', orderTerms: 'Zahlungsbedingungen: zahlbar innerhalb von {days} Tagen nach Rechnungsstellung.',
       sigLine: 'Datum, Unterschrift Kunde', signedBy: 'Elektronisch unterschrieben von {name} am {date}', customerComment: 'Anmerkung des Kunden',
@@ -32,6 +33,7 @@
       units: { stk: 'Stk.', timer: 'Std.', dage: 'Tage', m: 'm', m2: 'm²', kg: 'kg', pakke: 'Paket', md: 'Monat', '': '' },
     },
     da: {
+      colorLabel: 'Farve', sizeLabel: 'Størrelse',
       order: 'Ordrebekræftelse', orderNumber: 'Ordrenr.', orderDate: 'Dato', delivery: 'Leveringsdato', validUntil: 'Gyldig til',
       orderIntro: 'Tak for jeres ordre. Vi bekræfter den som følger:', orderTerms: 'Betalingsbetingelser: netto {days} dage efter fakturering.',
       sigLine: 'Dato, kundens underskrift', signedBy: 'Underskrevet elektronisk af {name} den {date}', customerComment: 'Kundens bemærkning',
@@ -58,6 +60,7 @@
       units: { stk: 'stk.', timer: 'timer', dage: 'dage', m: 'm', m2: 'm²', kg: 'kg', pakke: 'pakke', md: 'md.', '': '' },
     },
     en: {
+      colorLabel: 'Colour', sizeLabel: 'Size',
       order: 'Order confirmation', orderNumber: 'Order no.', orderDate: 'Date', delivery: 'Delivery date', validUntil: 'Valid until',
       orderIntro: 'Thank you for your order. We confirm it as follows:', orderTerms: 'Payment terms: payable within {days} days of invoicing.',
       sigLine: 'Date, customer signature', signedBy: 'Signed electronically by {name} on {date}', customerComment: 'Customer comment',
