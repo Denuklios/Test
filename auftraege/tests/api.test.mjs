@@ -137,20 +137,21 @@ try {
     assert.ok((await call('version')).j.version > v1);
     assert.ok((await call('available', { params: { p: '3:30' } })).j.dates.includes(iso(6)));
   });
-  await ok('Teilsperre mit Uhrzeit: kürzt Kapazität, überlappende Zeiten nicht doppelt, Tag bleibt buchbar', async () => {
+  await ok('Teilsperre mit Uhrzeit: kürzt Kapazität nur im Tagesfenster, überlappende Zeiten nicht doppelt, Tag bleibt buchbar', async () => {
     const d = iso(10);
     assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '12:00' } })).j.error, 'bad_time');
     assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '16:00', time_to: '12:00' } })).j.error, 'bad_time');
     assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '25:00', time_to: '26:00' } })).j.error, 'bad_time');
+    const full = dow(d) % 6 === 0 ? 300 : 480;                    // Tagesfenster 08:00 bis 08:00 + Kapazität
+    const lostFor = (a, b) => Math.max(0, Math.min(b, 480 + full) - Math.max(a, 480));
     assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '12:00', time_to: '16:00', reason: 'Arzt' } })).status, 200);
     const cap = async () => (await call('calendar', { params: { from: d, to: d } })).j.days[0];
-    let day = await cap(); assert.equal(day.blocked, null); assert.deepEqual(day.partial.times, ['12:00-16:00']); assert.equal(day.partial.lost, 240);
-    const full = dow(d) % 6 === 0 ? 300 : 480; assert.equal(day.p.stick.cap, full - 240);
-    // überlappend 14-18: zusammen 12-18 = 360 min
+    let day = await cap(); assert.equal(day.blocked, null); assert.deepEqual(day.partial.times, ['12:00-16:00']);
+    assert.equal(day.p.stick.cap, full - lostFor(720, 960)); assert.equal(day.partial.lost, lostFor(720, 960));
+    // überlappend 14-18: zusammen 12-18, nichts wird doppelt abgezogen
     await call('blocked_save', { body: { date_from: d, time_from: '14:00', time_to: '18:00' } });
-    day = await cap(); assert.equal(day.partial.lost, 360); assert.equal(day.p.stick.cap, Math.max(0, full - 360));
-    // Tag bleibt im Datumsangebot, wenn die Arbeit in die Restkapazität passt, sonst nicht
-    const fitMin = Math.max(0, full - 360);
+    day = await cap(); assert.equal(day.p.stick.cap, full - lostFor(720, 1080));
+    const fitMin = full - lostFor(720, 1080);
     if (fitMin >= 30) assert.ok((await call('available', { params: { p: `1:${fitMin}` } })).j.dates.includes(d));
     assert.equal((await call('available', { params: { p: `1:${fitMin + 1}` } })).j.dates.includes(d), false);
     // Auftrag auf Teilsperr-Tag darf gespeichert werden
@@ -200,6 +201,42 @@ try {
     await call('order_restore', { body: { id: oid } });
     assert.equal((await call('orders', { params: { show: 'all' } })).j.orders.length, 1);
   });
+  await ok('Uhrzeiten: freie Zeitfenster, Startzeit buchen, Überschneidung abgelehnt, eigene Buchung zählt nicht doppelt', async () => {
+    let w = iso(14); while ([0, 6].includes(dow(w))) w = new Date(new Date(w + 'T00:00:00').getTime() + 864e5).toISOString().slice(0, 10);
+    const sl = async (min, ex = 0) => (await call('slots', { params: { date: w, process_id: 1, minutes: min, exclude: ex } })).j;
+    let r = await sl(120); assert.equal(r.starts[0].start, '08:00'); assert.equal(r.starts[0].end, '10:00'); assert.equal(r.starts.at(-1).start, '14:00'); assert.equal(r.starts.length, 25);
+    assert.deepEqual(r.free, [['08:00', '16:00']]);
+    assert.equal((await sl(481)).starts.length, 0, 'länger als ein Werktag: kein Zeitfenster');
+    assert.equal((await call('slots', { params: { date: iso(-1), process_id: 1, minutes: 60 } })).j.starts.length, 0, 'Vergangenheit');
+    const cid2 = (await call('customer_save', { body: { name: 'Zeitplan-Kunde' } })).j.id;
+    const base = { customer_id: cid2, title: 'Zeitplan A', qty: 5, price: 10, currency: 'DKK', due_date: w, plan_date: w };
+    assert.equal((await call('order_save', { body: { ...base, processes: [{ process_id: 1, minutes: 120, start_time: '9:00' }] } })).j.error, 'bad_start_time');
+    assert.equal((await call('order_save', { body: { ...base, due_date: '', plan_date: '', processes: [{ process_id: 1, minutes: 120, start_time: '09:00' }] } })).j.error, 'slot_needs_day');
+    const a = await call('order_save', { body: { ...base, processes: [{ process_id: 1, minutes: 120, start_time: '09:00' }] } });
+    assert.equal(a.status, 200); assert.equal(a.j.order.processes[0].start_time, '09:00');
+    // 09:00-11:00 belegt: Lücken 08-09 und 11-16
+    r = await sl(120); assert.deepEqual(r.free, [['08:00', '09:00'], ['11:00', '16:00']]); assert.equal(r.starts[0].start, '11:00');
+    const clash = await call('order_save', { body: { ...base, title: 'Zeitplan B', processes: [{ process_id: 1, minutes: 60, start_time: '10:00' }] } }); assert.equal(clash.j.error, 'slot_taken');
+    const edge = await call('order_save', { body: { ...base, title: 'Zeitplan B', processes: [{ process_id: 1, minutes: 60, start_time: '08:00' }, { process_id: 3, minutes: 30, start_time: '09:00' }] } });
+    assert.equal(edge.status, 200, 'direkt vor der Buchung und anderes Verfahren frei');
+    // eigener Auftrag: gleiche Startzeit bleibt, Verschieben auf 10:00 geht (eigene Buchung wird ausgenommen)
+    const same = await call('order_save', { body: { ...a.j.order, processes: a.j.order.processes } }); assert.equal(same.status, 200);
+    const mv = await call('order_save', { body: { ...a.j.order, processes: [{ process_id: 1, minutes: 120, start_time: '10:00' }] } }); assert.equal(mv.status, 200);
+    // Teilsperre 12:00-14:00 nimmt das Zeitfenster heraus
+    await call('blocked_save', { body: { date_from: w, time_from: '12:00', time_to: '14:00', reason: 'Termin' } });
+    r = await sl(60, a.j.order.id); assert.ok(r.free.every(([x, y]) => !(x < '14:00' && y > '12:00')), JSON.stringify(r.free)); assert.ok(!r.starts.some((x) => x.start === '12:30'));
+    assert.equal((await call('order_save', { body: { ...a.j.order, processes: [{ process_id: 1, minutes: 120, start_time: '11:00' }] } })).j.error, 'slot_taken', 'ragt in die Sperre');
+    const cal = (await call('calendar', { params: { from: w, to: w } })).j;
+    assert.ok(cal.orders.some((o) => (o.starts || '').includes('1@10:00')));
+    assert.ok(cal.days[0].p.stick.iv.length >= 1);
+    for (const b of (await call('me')).j.blocked) await call('blocked_delete', { body: { id: b.id } });
+    // Arbeitsbeginn
+    assert.equal((await call('settings_save', { body: { weekend_min: 300, day_start: '7:00' } })).j.error, 'bad_day_start');
+    await call('settings_save', { body: { weekend_min: 300, day_start: '07:00' } });
+    assert.equal((await call('me')).j.settings.day_start, '07:00');
+    assert.equal((await sl(60, a.j.order.id)).starts[0].start, '07:00');
+    await call('settings_save', { body: { weekend_min: 300, day_start: '08:00' } });
+  });
   await ok('Benutzer: 5 Plätze speichern, doppelte Admin-ID abgelehnt', async () => {
     const me = (await call('me')).j;
     const mk = (ids) => ({ users: me.users.map((u, i) => ({ ...u, wf_admin_id: ids[i] || '' })) });
@@ -211,7 +248,7 @@ try {
     const r = await fetch(`${B}/api.php?a=backup`, { headers: { cookie } }); const b = Buffer.from(await r.arrayBuffer());
     assert.equal(b.subarray(0, 15).toString(), 'SQLite format 3');
   });
-  await ok('Datenbank-Update v1 → v3 behält Daten, ergänzt Sperrtage, Uhrzeiten und Wochenende', async () => {
+  await ok('Datenbank-Update v1 → v4 behält Daten, ergänzt Sperrtage, Uhrzeiten, Startzeiten und Wochenende', async () => {
     const { execFileSync } = await import('node:child_process');
     const code = `<?php require '${root}/inc/schema.php';
       $db = new PDO('sqlite::memory:'); $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
@@ -219,8 +256,8 @@ try {
       $db->exec("INSERT INTO customers (name) VALUES ('Alt')");
       echo $db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn(), ',';
       wf_migrate($db); wf_migrate($db);
-      echo $db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn(), ',', $db->query("SELECT value FROM meta WHERE key='weekend_min'")->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM customers')->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM blocked_days')->fetchColumn();`;
-    assert.equal(execFileSync('php', ['-r', code.replace('<?php', '')]).toString(), '1,3,300,1,0');
+      echo $db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn(), ',', $db->query("SELECT value FROM meta WHERE key='weekend_min'")->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM customers')->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM blocked_days')->fetchColumn(), ',', $db->query("SELECT value FROM meta WHERE key='day_start'")->fetchColumn(), ',', $db->query("SELECT COUNT(*) FROM pragma_table_info('order_processes') WHERE name='start_time'")->fetchColumn();`;
+    assert.equal(execFileSync('php', ['-r', code.replace('<?php', '')]).toString(), '1,4,300,1,0,08:00,1');
   });
 } finally {
   srv.kill(); rmSync(data, { recursive: true, force: true });

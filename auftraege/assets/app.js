@@ -172,7 +172,7 @@ route(/^\/order\/(\d+)$/, async (id) => {
         h('dt', {}, t('due')), h('dd', { class: late ? 'due late' : '' }, (late ? '⚠ ' : '') + dfmt(o.due_date)),
         h('dt', {}, t('plan_date')), h('dd', {}, dfmt(o.plan_date)),
         h('dt', {}, t('article')), h('dd', {}, `${o.article || '—'} · ${o.qty} ${t('pcs')}`),
-        h('dt', {}, t('processes')), h('dd', {}, h('div', { class: 'row' }, o.processes.length ? o.processes.map((p) => { const pr = procById(p.process_id); return h('span', { class: 'chip', style: `--c:${pr.color}` }, h('i', { class: 'dot', style: `--c:${pr.color}` }), `${pname(pr)}${p.minutes ? ' · ' + hm(p.minutes) : ''}`); }) : '—')),
+        h('dt', {}, t('processes')), h('dd', {}, h('div', { class: 'row' }, o.processes.length ? o.processes.map((p) => { const pr = procById(p.process_id); return h('span', { class: 'chip', style: `--c:${pr.color}` }, h('i', { class: 'dot', style: `--c:${pr.color}` }), `${pname(pr)}${p.minutes ? ' · ' + hm(p.minutes) : ''}${p.start_time ? ' · 🕘 ' + p.start_time : ''}`); }) : '—')),
         h('dt', {}, t('price')), h('dd', {}, `${money(o.price, o.currency)} · ${t('deposit')} ${money(o.deposit, o.currency)} · ${t('remaining')} ${money(rest, o.currency)}`),
         h('dt', {}, t('payment')), h('dd', {}, paySel))),
     (o.description || o.notes) && h('div', { class: 'card' }, o.description && h('p', { style: 'margin:0 0 8px;white-space:pre-wrap' }, o.description), o.notes && h('p', { class: 'muted', style: 'margin:0;white-space:pre-wrap' }, o.notes)),
@@ -197,7 +197,9 @@ function dayPicker(initial, fetchDays) {
   const clear = h('button', { type: 'button', class: 'btn small', 'aria-label': t('pick_clear'), onclick: () => set('') }, '✕');
   const root = h('div', { class: 'row', style: 'flex-wrap:nowrap' }, btn, clear);
   function set(v) {
+    const changed = (v || '') !== value;
     value = v || '';
+    if (changed) root.dispatchEvent(new Event('daychange'));
     btn.textContent = value ? '📅 ' + dfmt(value) : '📅 ' + t('pick_day');
     clear.classList.toggle('hidden', !value);
   }
@@ -241,6 +243,21 @@ function dayPicker(initial, fetchDays) {
   return root;
 }
 
+// ---------- Uhrzeit waehlen: nur wirklich freie Zeitfenster ----------
+function slotModal(proc, minutes, day, r, current, onPick) {
+  const close = () => m.remove();
+  const pick = (v) => { onPick(v); close(); };
+  const m = h('div', { class: 'modal', onclick: (e) => { if (e.target === m) close(); } },
+    h('div', { class: 'sheet' },
+      h('div', { class: 'row' }, h('h2', { style: 'flex:1' }, `${pname(proc)} · ${hm(minutes)}`), h('button', { type: 'button', class: 'btn small', onclick: close }, '✕')),
+      h('p', { class: 'muted', style: 'margin:4px 0 8px' }, dfmt(day)),
+      r.free.length ? h('p', { style: 'margin:0 0 10px;font-size:.9rem' }, h('span', { class: 'muted' }, t('slot_free') + ' '), r.free.map((x) => x.join('–')).join(', ')) : null,
+      r.starts.length ? h('div', { class: 'slots' }, r.starts.map((x) => h('button', { type: 'button', class: 'dayb slot' + (x.start === current ? ' sel' : ''), onclick: () => pick(x.start) }, `${x.start}`, h('small', {}, `–${x.end}`))))
+        : h('p', { class: 'muted' }, t('slot_none')),
+      h('div', { class: 'row end', style: 'margin-top:12px' }, current ? h('button', { type: 'button', class: 'btn small danger', onclick: () => pick('') }, t('slot_clear')) : null, h('button', { type: 'button', class: 'btn small', onclick: close }, t('cancel')))));
+  document.body.append(m);
+}
+
 // ---------- Auftrag Formular (neu / bearbeiten) ----------
 route(/^\/new$/, () => orderForm(null));
 route(/^\/new\/customer\/(\d+)$/, (cid) => orderForm(null, +cid));
@@ -281,14 +298,36 @@ async function orderForm(o, presetCustomer) {
 
   // Verfahren
   const sel = new Map(D.processes.map((p) => [+p.process_id, +p.minutes]));
+  const selStart = new Map(D.processes.map((p) => [+p.process_id, p.start_time || '']));
+  const effDay = () => F.plan_date.value || F.due_date.value;
+  const addMin = (hhmm, m) => { const x = (+hhmm.slice(0, 2)) * 60 + (+hhmm.slice(3)) + m; return `${String(Math.floor(x / 60) % 24).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`; };
   const procBox = h('div', { class: 'procs' }, me.processes.filter((p) => +p.active).map((p) => {
     const cb = h('input', { type: 'checkbox', checked: sel.has(+p.id) });
     const mins = h('input', { type: 'number', min: 0, step: 15, value: sel.get(+p.id) ?? 60, 'aria-label': t('minutes') });
-    const row = h('label', { class: 'proc' + (cb.checked ? ' on' : ''), style: `--c:${p.color};text-transform:none;letter-spacing:0;font-size:1rem;color:inherit;margin:0` }, cb, h('span', {}, pname(p)), mins, h('small', { class: 'muted' }, 'min'));
-    cb.addEventListener('change', () => row.classList.toggle('on', cb.checked));
-    row._get = () => cb.checked ? { process_id: +p.id, minutes: +mins.value || 0 } : null;
+    let start = selStart.get(+p.id) || '';
+    const slotBtn = h('button', { type: 'button', class: 'slotbtn' + (cb.checked ? '' : ' hidden'), onclick: async () => {
+      const day = effDay();
+      if (!day) { toast(t('slot_need_day')); return; }
+      try {
+        const r = await api('slots', { params: { date: day, process_id: p.id, minutes: +mins.value || 0, exclude: D.id || 0 } });
+        slotModal(p, +mins.value || 0, day, r, start, (v) => setStart(v));
+      } catch (e) { toast(e.message); }
+    } });
+    const row = h('label', { class: 'proc' + (cb.checked ? ' on' : ''), style: `--c:${p.color};text-transform:none;letter-spacing:0;font-size:1rem;color:inherit;margin:0` }, cb, h('span', {}, pname(p)), mins, h('small', { class: 'muted' }, 'min'), slotBtn);
+    function setStart(v) {
+      start = v || '';
+      slotBtn.textContent = start ? `🕘 ${start}–${addMin(start, +mins.value || 0)}` : `🕘 ${t('pick_time')}`;
+      slotBtn.classList.toggle('set', !!start);
+    }
+    setStart(start);
+    cb.addEventListener('change', () => { row.classList.toggle('on', cb.checked); slotBtn.classList.toggle('hidden', !cb.checked); if (!cb.checked) setStart(''); });
+    mins.addEventListener('input', () => setStart('')); // andere Dauer = Zeitfenster passt nicht mehr
+    row._setStart = setStart;
+    row._get = () => cb.checked ? { process_id: +p.id, minutes: +mins.value || 0, start_time: start } : null;
     return row;
   }));
+  let lastDay = D.plan_date || D.due_date || '';
+  const dayChanged = () => { const d = effDay(); if (d !== lastDay) { lastDay = d; [...procBox.children].forEach((r) => r._setStart('')); } };
 
   // Terminvorschlag: naechste freie Tage je nach Verfahren, Minuten und Kapazitaet
   const needParam = () => [...procBox.children].map((r) => r._get()).filter(Boolean).map((c) => `${c.process_id}:${c.minutes}`).join(',');
@@ -297,6 +336,7 @@ async function orderForm(o, presetCustomer) {
   const duePicker = dayPicker(D.due_date, () => F.plan_date.value
     ? api('available', { params: { mode: 'open', from: F.plan_date.value } })
     : api('available', { params: { p: needParam(), exclude: D.id || 0 } }));
+  planPicker.addEventListener('daychange', dayChanged); duePicker.addEventListener('daychange', dayChanged);
   const sugOut = h('div', { class: 'row', style: 'margin-top:8px' });
   const sugBtn = h('button', { class: 'btn small', type: 'button', onclick: async () => {
     const chosen = [...procBox.children].map((r) => r._get()).filter(Boolean);
@@ -433,9 +473,10 @@ function dayModal(d, orders, act) {
       d.blocked !== null && h('p', { class: 'err', style: 'margin:10px 0 0' }, '🚫 ' + t('blocked_day') + (d.blocked ? ': ' + d.blocked : '')),
       d.partial && h('p', { style: 'margin:10px 0 0;color:var(--warn)' }, `⏱ ${t('blocked_part')} ${d.partial.times.map((x) => x.replace('-', '–')).join(', ')} (−${hm(d.partial.lost)})${d.partial.reason ? ' · ' + d.partial.reason : ''}`),
       h('h3', { style: 'margin:14px 0 6px' }, t('free_capacity')),
-      act.map((p) => { const x = d.p[p.key]; return h('div', { class: 'free' }, h('span', {}, h('i', { class: 'dot', style: `--c:${p.color}` }), ' ' + pname(p)), h('span', {}, x.cap ? `${hm(x.free)} / ${hm(x.cap)}` : '—')); }),
+      act.map((p) => { const x = d.p[p.key]; return h('div', { class: 'free', style: 'flex-wrap:wrap' }, h('span', {}, h('i', { class: 'dot', style: `--c:${p.color}` }), ' ' + pname(p)), h('span', {}, x.cap ? `${hm(x.free)} / ${hm(x.cap)}` : '—'),
+        x.iv && x.iv.length ? h('small', { class: 'muted', style: 'flex:1 0 100%' }, t('slot_free') + ' ' + x.iv.map((a) => a.join('–')).join(', ')) : null); }),
       h('h3', { style: 'margin:14px 0 6px' }, t('nav_orders')),
-      orders.length ? orders.map((o) => h('a', { class: 'free', href: `#/order/${o.id}`, onclick: close, style: 'text-decoration:none;color:inherit' }, h('span', {}, `${o.nr} · ${o.title}`), statusPill(o.status))) : h('p', { class: 'muted' }, t('no_orders'))));
+      orders.length ? orders.map((o) => h('a', { class: 'free', href: `#/order/${o.id}`, onclick: close, style: 'text-decoration:none;color:inherit' }, h('span', {}, `${o.starts ? '🕘 ' + o.starts.split(',').map((x) => x.split('@')[1]).sort()[0] + ' · ' : ''}${o.nr} · ${o.title}`), statusPill(o.status))) : h('p', { class: 'muted' }, t('no_orders'))));
   document.body.append(m);
 }
 
@@ -452,6 +493,7 @@ route(/^\/settings$/, async () => {
     return { u, name, wid, act, row: h('tr', {}, h('td', {}, name), h('td', {}, wid), h('td', {}, act)) };
   });
   const wk = h('input', { type: 'number', min: 0, max: 24, step: 0.5, value: me.settings.weekend_min / 60, style: 'width:100px' });
+  const ds = h('input', { type: 'time', value: me.settings.day_start, style: 'width:130px' });
   const bf = h('input', { type: 'date', min: today() }); const bt = h('input', { type: 'date', min: today() }); const br = h('input', { type: 'text', maxlength: 100, placeholder: t('blocked_reason_ph') });
   const btf = h('input', { type: 'time', step: 900 }); const btt = h('input', { type: 'time', step: 900 });
   const blockedList = h('div', {}, me.blocked.length ? me.blocked.map((b) => h('div', { class: 'free' },
@@ -478,8 +520,9 @@ route(/^\/settings$/, async () => {
       } }, '+ ' + t('blocked_add'))), blockedList),
     h('div', { class: 'card' }, h('h3', {}, t('capacity')), h('p', { class: 'muted' }, t('capacity_text')),
       h('div', { class: 'row', style: 'margin-bottom:12px' }, h('label', { style: 'margin:0' }, t('weekend_hours')), wk, h('span', { class: 'muted' }, 'h')),
+      h('div', { class: 'row', style: 'margin-bottom:12px' }, h('label', { style: 'margin:0' }, t('day_start')), ds, h('span', { class: 'muted', style: 'font-size:.85rem' }, t('day_start_hint'))),
       h('table', { class: 't' }, h('tr', {}, h('th', {}, t('process')), h('th', {}, t('min_per_day')), h('th', {}, t('active'))), procRows.map((r) => r.row)),
-      h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { await api('processes_save', { body: { processes: procRows.map((r) => ({ id: r.p.id, capacity_min: r.cap.value, active: r.act.checked })) } }); await api('settings_save', { body: { weekend_min: Math.round((parseFloat(wk.value) || 0) * 60) } }); await reloadMe(); toast(t('saved')); } }, t('save')))),
+      h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { await api('processes_save', { body: { processes: procRows.map((r) => ({ id: r.p.id, capacity_min: r.cap.value, active: r.act.checked })) } }); await api('settings_save', { body: { weekend_min: Math.round((parseFloat(wk.value) || 0) * 60), day_start: ds.value || '08:00' } }); await reloadMe(); toast(t('saved')); } }, t('save')))),
     h('div', { class: 'card' }, h('h3', {}, t('users')), h('p', { class: 'muted' }, t('users_text', me.user.name)),
       h('table', { class: 't' }, h('tr', {}, h('th', {}, t('name')), h('th', {}, 'Admin-ID'), h('th', {}, t('active'))), userRows.map((r) => r.row)),
       h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { try { await api('users_save', { body: { users: userRows.map((r) => ({ id: r.u.id, name: r.name.value, wf_admin_id: r.wid.value, active: r.act.checked })) } }); await reloadMe(); toast(t('saved')); } catch (e) { toast(e.message); } } }, t('save')))),

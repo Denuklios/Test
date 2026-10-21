@@ -53,3 +53,4 @@ header{grid-column:1/-1;display:flex;align-items:center;gap:2vw;border-bottom:1p
 #hint{position:fixed;right:1vw;bottom:1vh;opacity:.3;font-size:1.6em;cursor:pointer;transition:opacity .5s}
 body.idle{cursor:none}body.idle #hint{opacity:0}
 @media(max-aspect-ratio:1/1){#app{grid-template-columns:1fr;grid-template-rows:auto minmax(0,1fr) auto}}
+.ord .tm{color:var(--p3);font-weight:600;margin-right:.7em;font-variant-numeric:tabular-nums}

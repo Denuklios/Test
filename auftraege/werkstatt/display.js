@@ -84,7 +84,7 @@ function draw() {
       shown++;
       rows.push(h('div', { class: 'ord' + (g.late ? ' late' : ''), style: `--sc:${SCOL[o.status]}` },
         h('div', { class: 'sc' }),
-        h('div', { style: 'min-width:0' }, h('div', { class: 't' }, o.title), h('div', { class: 'c' }, `${o.customer} · ${o.qty} ${t().pcs}`, h('span', { class: 'dots' }, o.processes.map((k) => h('i', { style: `--c:${pm[k] ? pm[k].color : '#A855F7'}`, title: pm[k] ? (lang === 'da' ? pm[k].name_da : pm[k].name_de) : k }))))),
+        h('div', { style: 'min-width:0' }, h('div', { class: 't' }, o.title), h('div', { class: 'c' }, o.start ? h('span', { class: 'tm' }, '🕘 ' + o.start) : null, `${o.customer} · ${o.qty} ${t().pcs}`, h('span', { class: 'dots' }, o.processes.map((k) => h('i', { style: `--c:${pm[k] ? pm[k].color : '#A855F7'}`, title: pm[k] ? (lang === 'da' ? pm[k].name_da : pm[k].name_de) : k }))))),
         h('div', { class: 'r' }, h('span', { class: 'pill', style: `--c:${SCOL[o.status]}` }, t().st[o.status]), o.unpaid && h('span', { class: 'unpaid' }, t().unpaid))));
     }
     if (rows.length) main.push(h('div', { class: 'grp' + (g.late ? ' late' : '') }, g.label), ...rows);

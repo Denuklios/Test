@@ -9,11 +9,12 @@ function wf_display_payload(int $days = 10): array
     $to = date('Y-m-d', strtotime("+$days days"));
 
     $st = $db->prepare("
-      SELECT o.id, o.nr, o.title, o.qty, o.status, o.pay_status, o.due_date, o.plan_date, c.name AS customer
+      SELECT o.id, o.nr, o.title, o.qty, o.status, o.pay_status, o.due_date, o.plan_date, c.name AS customer,
+             (SELECT MIN(start_time) FROM order_processes WHERE order_id = o.id) AS start
       FROM orders o JOIN customers c ON c.id = o.customer_id
       WHERE o.deleted_at IS NULL AND o.status <> 'delivered'
         AND (o.due_date IS NULL OR o.due_date <= ?)
-      ORDER BY (o.due_date IS NULL), o.due_date, o.id");
+      ORDER BY (o.due_date IS NULL), o.due_date, (start IS NULL), start, o.id");
     $st->execute([$to]);
     $orders = $st->fetchAll();
 
@@ -50,9 +51,61 @@ function wf_hhmm_to_min(string $t): int
     return (int)substr($t, 0, 2) * 60 + (int)substr($t, 3, 2);
 }
 
+function wf_min_to_hhmm(int $m): string
+{
+    return sprintf('%02d:%02d', intdiv($m, 60), $m % 60);
+}
+
+/** Arbeitsbeginn (Minuten seit Mitternacht). Das Tagesfenster eines Verfahrens beginnt hier und ist so lang wie seine Kapazitaet. */
+function wf_day_start(): int
+{
+    $v = wf_db()->query("SELECT value FROM meta WHERE key = 'day_start'")->fetchColumn();
+    return wf_hhmm_to_min(is_string($v) && preg_match('/^\d\d:\d\d$/', $v) ? $v : '08:00');
+}
+
+/** Sortiert und verschmilzt Zeitfenster [[von, bis], ...]. */
+function wf_merge_iv(array $iv): array
+{
+    usort($iv, fn($a, $b) => $a[0] <=> $b[0]);
+    $out = [];
+    foreach ($iv as [$a, $b]) {
+        if ($out && $a <= $out[count($out) - 1][1]) {
+            $out[count($out) - 1][1] = max($out[count($out) - 1][1], $b);
+        } else {
+            $out[] = [$a, $b];
+        }
+    }
+    return $out;
+}
+
+/** Freie Zeitfenster: $window [von, bis] ohne die (verschmolzenen) $busy-Fenster. */
+function wf_free_iv(array $window, array $busy): array
+{
+    $free = [];
+    $cur = $window[0];
+    foreach (wf_merge_iv($busy) as [$a, $b]) {
+        if ($b <= $cur || $a >= $window[1]) {
+            continue;
+        }
+        if ($a > $cur) {
+            $free[] = [$cur, min($a, $window[1])];
+        }
+        $cur = max($cur, $b);
+    }
+    if ($cur < $window[1]) {
+        $free[] = [$cur, $window[1]];
+    }
+    return $free;
+}
+
+function wf_iv_len(array $iv): int
+{
+    return array_sum(array_map(fn($x) => $x[1] - $x[0], $iv));
+}
+
 /**
- * Sperren im Zeitraum je Tag: Datum => ['full' => bool, 'lost' => Minuten, 'reason' => string, 'times' => ['13:00-17:00', ...]].
- * Eintraege ohne Uhrzeit sperren den ganzen Tag; mit Uhrzeit nur dieses Zeitfenster (ueberlappende Fenster werden nicht doppelt gezaehlt).
+ * Sperren im Zeitraum je Tag: Datum => ['full' => bool, 'iv' => [[von,bis],...] (verschmolzen), 'reason' => string, 'times' => ['13:00-17:00', ...]].
+ * Eintraege ohne Uhrzeit sperren den ganzen Tag; mit Uhrzeit nur dieses Zeitfenster.
  */
 function wf_block_days(string $from, string $to): array
 {
@@ -74,24 +127,7 @@ function wf_block_days(string $from, string $to): array
     }
     $out = [];
     foreach ($raw as $d => $x) {
-        $lost = 0;
-        $iv = $x['iv'] ?? [];
-        usort($iv, fn($a, $b) => $a[0] <=> $b[0]);
-        $cur = null;
-        foreach ($iv as [$a, $b]) {
-            if ($cur && $a <= $cur[1]) {
-                $cur[1] = max($cur[1], $b);
-            } else {
-                if ($cur) {
-                    $lost += $cur[1] - $cur[0];
-                }
-                $cur = [$a, $b];
-            }
-        }
-        if ($cur) {
-            $lost += $cur[1] - $cur[0];
-        }
-        $out[$d] = ['full' => !empty($x['full']), 'lost' => $lost, 'reason' => (string)($x['reason'] ?? ''), 'times' => $x['times'] ?? []];
+        $out[$d] = ['full' => !empty($x['full']), 'iv' => wf_merge_iv($x['iv'] ?? []), 'reason' => (string)($x['reason'] ?? ''), 'times' => $x['times'] ?? []];
     }
     return $out;
 }
@@ -104,42 +140,97 @@ function wf_blocked_reason(string $date): ?string
 }
 
 /** Auslastung je Tag und Verfahren. Gebucht wird am Produktionstag, sonst am Abgabetermin.
- *  Wochenenden zaehlen mit der Wochenend-Kapazitaet, gesperrte Tage mit 0. */
+ *  Wochenenden zaehlen mit der Wochenend-Kapazitaet, gesperrte Tage mit 0.
+ *  Je Verfahren: cap, booked, free (Minuten) und iv = freie Zeitfenster ['08:00','10:00'] (Tagesfenster ab Arbeitsbeginn,
+ *  ohne Teilsperren und ohne Auftraege mit Startzeit). Auftraege ohne Startzeit zaehlen nur in booked/free. */
 function wf_capacity(string $from, string $to, int $excludeOrder = 0): array
 {
     $db = wf_db();
     $procs = $db->query('SELECT id, key, capacity_min FROM process_types WHERE active = 1 ORDER BY sort')->fetchAll();
     $st = $db->prepare("
-      SELECT COALESCE(o.plan_date, o.due_date) AS d, op.process_id, SUM(op.minutes) AS m
+      SELECT COALESCE(o.plan_date, o.due_date) AS d, op.process_id, op.minutes AS m, op.start_time AS s
       FROM order_processes op JOIN orders o ON o.id = op.order_id
       WHERE o.deleted_at IS NULL AND o.status NOT IN ('done','delivered') AND o.id <> ?
-        AND COALESCE(o.plan_date, o.due_date) BETWEEN ? AND ?
-      GROUP BY d, op.process_id");
+        AND COALESCE(o.plan_date, o.due_date) BETWEEN ? AND ?");
     $st->execute([$excludeOrder, $from, $to]);
     $booked = [];
+    $sched = [];
     foreach ($st as $r) {
-        $booked[$r['d']][(int)$r['process_id']] = (int)$r['m'];
+        $booked[$r['d']][(int)$r['process_id']] = ($booked[$r['d']][(int)$r['process_id']] ?? 0) + (int)$r['m'];
+        if ($r['s'] && (int)$r['m'] > 0) {
+            $a = wf_hhmm_to_min($r['s']);
+            $sched[$r['d']][(int)$r['process_id']][] = [$a, $a + (int)$r['m']];
+        }
     }
     $blocked = wf_block_days($from, $to);
     $wk = wf_weekend_min();
+    $start = wf_day_start();
     $out = [];
     for ($t = strtotime($from); $t <= strtotime($to); $t += 86400) {
         $d = date('Y-m-d', $t);
         $weekend = (int)date('N', $t) >= 6;
         $b = $blocked[$d] ?? null;
         $isBlocked = $b && $b['full'];
-        $lost = $b && !$b['full'] ? $b['lost'] : 0;
-        $row = ['date' => $d, 'weekend' => $weekend, 'blocked' => $isBlocked ? $b['reason'] : null,
-                'partial' => $lost > 0 ? ['lost' => $lost, 'reason' => $b['reason'], 'times' => $b['times']] : null, 'p' => []];
+        $row = ['date' => $d, 'weekend' => $weekend, 'blocked' => $isBlocked ? $b['reason'] : null, 'partial' => null, 'p' => []];
+        $maxLost = 0;
         foreach ($procs as $p) {
             $base = $weekend ? min((int)$p['capacity_min'], $wk) : (int)$p['capacity_min'];
+            $window = [$start, $start + $base];
+            $blockIv = $b && !$b['full'] ? $b['iv'] : [];
+            // Verlust = Teilsperre innerhalb des Tagesfensters dieses Verfahrens
+            $lost = $base - wf_iv_len(wf_free_iv($window, $blockIv));
+            $maxLost = max($maxLost, $lost);
             $cap = $isBlocked ? 0 : max(0, $base - $lost);
             $bk = $booked[$d][(int)$p['id']] ?? 0;
-            $row['p'][$p['key']] = ['cap' => $cap, 'booked' => $bk, 'free' => max(0, $cap - $bk)];
+            $iv = [];
+            if (!$isBlocked && $cap > 0) {
+                foreach (wf_free_iv($window, array_merge($blockIv, $sched[$d][(int)$p['id']] ?? [])) as [$x, $y]) {
+                    $iv[] = [wf_min_to_hhmm($x), wf_min_to_hhmm($y)];
+                }
+            }
+            $row['p'][$p['key']] = ['cap' => $cap, 'booked' => $bk, 'free' => max(0, $cap - $bk), 'iv' => $iv];
+        }
+        if ($b && !$b['full'] && $maxLost > 0) {
+            $row['partial'] = ['lost' => $maxLost, 'reason' => $b['reason'], 'times' => $b['times']];
         }
         $out[] = $row;
     }
     return $out;
+}
+
+/**
+ * Moegliche Startzeiten fuer eine Arbeit von $minutes Minuten eines Verfahrens an einem Tag (15-Minuten-Raster).
+ * Leer, wenn der Tag gesperrt/zu voll ist oder die Arbeit laenger als ein normaler Werktag dauert (dann kein Zeitfenster, nur "ganzer Tag").
+ * Rueckgabe: ['starts' => [['start' => '08:00', 'end' => '12:00'], ...], 'free' => [['08:00','10:00'], ...]]
+ */
+function wf_slots(string $date, int $processId, int $minutes, int $excludeOrder = 0): array
+{
+    $none = ['starts' => [], 'free' => []];
+    $key = null;
+    $dayCap = 0;
+    foreach (wf_db()->query('SELECT id, key, capacity_min FROM process_types') as $r) {
+        if ((int)$r['id'] === $processId) {
+            $key = $r['key'];
+            $dayCap = (int)$r['capacity_min'];
+        }
+    }
+    if ($key === null || $minutes <= 0 || $minutes > $dayCap || $date < date('Y-m-d')) {
+        return $none;
+    }
+    $day = wf_capacity($date, $date, $excludeOrder)[0];
+    $x = $day['p'][$key] ?? null;
+    if ($day['blocked'] !== null || !$x || $x['cap'] <= 0) {
+        return $none;
+    }
+    $starts = [];
+    if ($x['free'] >= $minutes) {
+        foreach ($x['iv'] as [$a, $b]) {
+            for ($m = wf_hhmm_to_min($a); $m + $minutes <= wf_hhmm_to_min($b); $m += 15) {
+                $starts[] = ['start' => wf_min_to_hhmm($m), 'end' => wf_min_to_hhmm($m + $minutes)];
+            }
+        }
+    }
+    return ['starts' => $starts, 'free' => $x['iv']];
 }
 
 /**

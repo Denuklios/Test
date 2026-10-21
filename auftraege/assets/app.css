@@ -127,7 +127,7 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,va
 
 /* Formular: Verfahren */
 .procs{display:grid;gap:8px}
-.proc{display:flex;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:#0c0a11}
+.proc{display:flex;flex-wrap:wrap;align-items:center;gap:10px;border:1px solid var(--line);border-radius:12px;padding:8px 12px;background:#0c0a11}
 .proc.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 12%,#0c0a11)}
 .proc input[type=checkbox]{width:22px;height:22px;min-height:0;accent-color:var(--p2)}
 .proc span{flex:1}
@@ -164,3 +164,10 @@ table.t{width:100%;border-collapse:collapse;font-size:.9rem}table.t td,table.t t
 .dayb{aspect-ratio:1;border-radius:12px;border:1px solid var(--line-strong);background:var(--surface3);font-family:var(--head);font-size:1.25rem;font-weight:600;cursor:pointer}
 .dayb:hover,.dayb.sel{background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;border-color:transparent}
 .day .blk.part{color:var(--warn)}
+
+/* Uhrzeit-Auswahl */
+.slotbtn{flex:1 0 100%;display:flex;align-items:center;min-height:40px;padding:0 12px;border-radius:10px;border:1px dashed var(--line-strong);background:transparent;color:var(--muted);cursor:pointer;font:inherit;font-size:.9rem}
+.slotbtn.set{border-style:solid;border-color:var(--c,var(--p2));color:var(--text);background:color-mix(in srgb,var(--c,var(--p2)) 14%,transparent)}
+.slots{display:grid;grid-template-columns:repeat(4,1fr);gap:6px}
+.dayb.slot{aspect-ratio:auto;padding:8px 2px;font-family:var(--body);font-size:.95rem;font-weight:600;display:flex;flex-direction:column;align-items:center;line-height:1.1}
+.dayb.slot small{font-size:.65rem;font-weight:400;opacity:.8}

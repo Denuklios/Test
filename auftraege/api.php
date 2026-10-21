@@ -69,7 +69,7 @@ function order_row(PDO $db, int $id): array
     if (!$o) {
         wf_fail('not_found', 404);
     }
-    $p = $db->prepare('SELECT process_id, minutes FROM order_processes WHERE order_id = ?');
+    $p = $db->prepare('SELECT process_id, minutes, start_time FROM order_processes WHERE order_id = ?');
     $p->execute([$id]);
     $o['processes'] = $p->fetchAll();
     $f = $db->prepare('SELECT id, original_name, mime, size, uploaded_at FROM order_files WHERE order_id = ? ORDER BY id');
@@ -96,7 +96,7 @@ try {
                 'users' => $db->query('SELECT id, name, wf_admin_id, active FROM users ORDER BY id')->fetchAll(),
                 'tokens' => $tokens,
                 'blocked' => $db->query("SELECT id, date_from, date_to, reason, time_from, time_to FROM blocked_days WHERE date_to >= date('now','localtime') ORDER BY date_from")->fetchAll(),
-                'settings' => ['weekend_min' => wf_weekend_min()],
+                'settings' => ['weekend_min' => wf_weekend_min(), 'day_start' => wf_min_to_hhmm(wf_day_start())],
                 'version' => wf_version(),
             ]);
         }
@@ -214,8 +214,31 @@ try {
             foreach ((array)($in['processes'] ?? []) as $pr) {
                 $pid = (int)($pr['process_id'] ?? 0);
                 $min = max(0, min(100000, (int)($pr['minutes'] ?? 0)));
+                $stime = trim((string)($pr['start_time'] ?? ''));
+                if ($stime !== '' && !preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $stime)) {
+                    wf_fail('bad_start_time');
+                }
                 if ($pid > 0) {
-                    $procs[$pid] = $min;
+                    $procs[$pid] = [$min, $stime === '' ? null : $stime];
+                }
+            }
+            // Startzeit: nur mit festem Tag, und das Zeitfenster muss an diesem Tag frei sein (eigene alte Buchung zaehlt nicht).
+            $day = $plan ?? $due;
+            $oldStart = [];
+            foreach ($oldRow['processes'] ?? [] as $op) {
+                $oldStart[(int)$op['process_id']] = $op['start_time'];
+            }
+            $oldDay = $oldRow ? ($oldRow['plan_date'] ?? $oldRow['due_date']) : null;
+            foreach ($procs as $pid => [$min, $stime]) {
+                if ($stime === null || ($oldRow && $oldDay === $day && ($oldStart[$pid] ?? null) === $stime)) {
+                    continue; // unveraendert
+                }
+                if ($day === null) {
+                    wf_fail('slot_needs_day');
+                }
+                $ok = array_filter(wf_slots($day, $pid, $min, $id)['starts'], fn($x) => $x['start'] === $stime);
+                if (!$ok) {
+                    wf_fail('slot_taken', 400, ['process_id' => $pid]);
                 }
             }
             $db->beginTransaction();
@@ -244,9 +267,9 @@ try {
                 log_order($db, $id, $user, 'created');
             }
             $db->prepare('DELETE FROM order_processes WHERE order_id = ?')->execute([$id]);
-            $ins = $db->prepare('INSERT INTO order_processes (order_id, process_id, minutes) SELECT ?, id, ? FROM process_types WHERE id = ?');
-            foreach ($procs as $pid => $min) {
-                $ins->execute([$id, $min, $pid]);
+            $ins = $db->prepare('INSERT INTO order_processes (order_id, process_id, minutes, start_time) SELECT ?, id, ?, ? FROM process_types WHERE id = ?');
+            foreach ($procs as $pid => [$min, $stime]) {
+                $ins->execute([$id, $min, $stime, $pid]);
             }
             wf_touch();
             $db->commit();
@@ -436,10 +459,11 @@ try {
             if (strtotime($to) - strtotime($from) > 100 * 86400) {
                 wf_fail('range_too_large');
             }
-            $st = $db->prepare("SELECT o.id, o.nr, o.title, o.qty, o.status, o.due_date, COALESCE(o.plan_date, o.due_date) AS d, c.name AS customer_name
+            $st = $db->prepare("SELECT o.id, o.nr, o.title, o.qty, o.status, o.due_date, COALESCE(o.plan_date, o.due_date) AS d, c.name AS customer_name,
+                                       (SELECT group_concat(process_id || '@' || start_time) FROM order_processes WHERE order_id = o.id AND start_time IS NOT NULL) AS starts
                                 FROM orders o JOIN customers c ON c.id = o.customer_id
                                 WHERE o.deleted_at IS NULL AND o.status <> 'delivered' AND COALESCE(o.plan_date, o.due_date) BETWEEN ? AND ?
-                                ORDER BY d, o.id");
+                                ORDER BY d, (SELECT MIN(start_time) FROM order_processes WHERE order_id = o.id) IS NULL, (SELECT MIN(start_time) FROM order_processes WHERE order_id = o.id), o.id");
             $st->execute([$from, $to]);
             wf_json(['ok' => true, 'days' => wf_capacity($from, $to), 'orders' => $st->fetchAll()]);
         }
@@ -470,6 +494,16 @@ try {
                 $dates = array_slice($dates, 0, 4);
             }
             wf_json(['ok' => true, 'dates' => $dates, 'split' => $split]);
+        }
+
+        // Freie Startzeiten fuer ein Verfahren an einem Tag
+        case 'slots': {
+            $date = (string)($_GET['date'] ?? '');
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) {
+                wf_fail('bad_date');
+            }
+            $res = wf_slots($date, (int)($_GET['process_id'] ?? 0), (int)($_GET['minutes'] ?? 0), (int)($_GET['exclude'] ?? 0));
+            wf_json(['ok' => true] + $res + ['blocked' => wf_blocked_reason($date)]);
         }
 
         case 'blocked_save': {
@@ -512,7 +546,12 @@ try {
             if ($wk < 0 || $wk > 1440) {
                 wf_fail('bad_weekend_min');
             }
+            $ds = s($in, 'day_start', 5) ?: '08:00';
+            if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $ds)) {
+                wf_fail('bad_day_start');
+            }
             $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('weekend_min', ?)")->execute([(string)$wk]);
+            $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('day_start', ?)")->execute([$ds]);
             wf_touch();
             wf_json(['ok' => true]);
         }

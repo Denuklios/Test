@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 3) {
+    if ($v >= 4) {
         return;
     }
     if ($v < 1) {
@@ -14,7 +14,22 @@ function wf_migrate(PDO $db): void
     if ($v < 2) {
         wf_migrate_v2($db);
     }
-    // Version 3: Sperrtage mit Uhrzeit (Teilsperre). NULL = ganzer Tag.
+    if ($v < 3) {
+        wf_migrate_v3($db);
+    }
+    // Version 4: Startzeit je Verfahren eines Auftrags + Arbeitsbeginn. NULL = ohne Uhrzeit.
+    $db->beginTransaction();
+    $db->exec("
+    ALTER TABLE order_processes ADD COLUMN start_time TEXT;
+    INSERT OR IGNORE INTO meta (key, value) VALUES ('day_start', '08:00');
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '4');
+    ");
+    $db->commit();
+}
+
+/** Version 3: Sperrtage mit Uhrzeit (Teilsperre). NULL = ganzer Tag. */
+function wf_migrate_v3(PDO $db): void
+{
     $db->beginTransaction();
     $db->exec("
     ALTER TABLE blocked_days ADD COLUMN time_from TEXT;
