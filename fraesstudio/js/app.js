@@ -132,7 +132,8 @@
   function modal(title, html, buttons = [{ label: 'OK', primary: true }], opts = {}) {
     return new Promise((resolve) => {
       $('#modalTitle').textContent = title;
-      $('#modalBody').innerHTML = html;
+      // frisches Element, damit Listener früherer Dialoge nicht weiterlaufen
+      const ob = $('#modalBody'), nb = ob.cloneNode(false); ob.replaceWith(nb); nb.innerHTML = html;
       $('#modal .box').classList.toggle('wide', !!opts.wide);
       const bb = $('#modalBtns');
       bb.innerHTML = '';
@@ -879,7 +880,7 @@
   // ---------------------------------------------------------------- Text
   function textDialog(o, at) {
     const fonts = FS.ttf.names();
-    const t = o || { text: 'Text', font: store.get('fs.lastFont', fonts[0]), size: 20, align: 'left', spacing: 0, lineHeight: 1.2 };
+    const t = o || { text: tr('Text'), font: store.get('fs.lastFont', fonts[0]), size: 20, align: 'left', spacing: 0, lineHeight: 1.2 };
     const html = `
       ${field('Text', `<textarea id="tText" rows="3">${esc(t.text)}</textarea>`)}
       ${field('Schrift', `<select id="tFont">${fonts.map((f) => `<option ${f === t.font ? 'selected' : ''}>${f}</option>`).join('')}</select>`)}
@@ -2102,7 +2103,7 @@
         <li>Die Maschine startet neu und meldet sich im Router an. Die <b>IP-Adresse</b> zeigt „WLAN“ → „IP anzeigen“ (nach erneutem Verbinden per USB) oder die Geräteliste deines Routers.</li>
         <li>Hier die IP eintragen. Tipp: im Router für die Maschine eine <b>feste IP</b> vergeben.</li>
         <li>Ohne Einrichtung öffnet die Maschine ein eigenes WLAN <b>MKS_DLC</b> (Adresse 192.168.4.1) – dann mit dem Computer in dieses WLAN gehen und „WLAN direkt“ nutzen.</li></ol>
-        <p>Firmware-Befehle können je nach Version abweichen; im Zweifel am Touch-Display oder im Webbrowser (<code>http://IP-der-Maschine</code>) einrichten.</p></details>`;
+        <p>Firmware-Befehle können je nach Version abweichen; im Zweifel am Touch-Display oder im Webbrowser (<code>http://&lt;IP&gt;</code>) einrichten.</p></details>`;
     let pick = null;
     const r = await modal('Mit der Maschine verbinden', html, [
       { label: 'Abbrechen', value: null },
@@ -2129,7 +2130,7 @@
       busy.classList.add('hidden');
       if (e.cancelled && !e.html) return;
       modal('Verbindung fehlgeschlagen', `<p><b>${esc(e.message)}</b></p>${e.html || ''}<p class="muted small">Die Konsole unten zeigt weitere Meldungen.</p>`, [{ label: 'Hilfe: WLAN', value: 'w' }, { label: 'Nochmal versuchen', primary: true, value: 'again' }, { label: 'Schließen', value: 'x' }], { wide: true }).then((a) => { if (a === 'again') connectDialog(); if (a === 'w') wifiAssistant(); });
-      log('Verbindung fehlgeschlagen: ' + e.message, 'err');
+      log(tr('Verbindung fehlgeschlagen: ') + tr(e.message), 'err');
       return;
     } finally { busy.classList.add('hidden'); bt.textContent = 'Fräsbahnen werden berechnet …'; }
   }
@@ -2735,7 +2736,7 @@
     $('#droY').textContent = fmt3(S.grbl ? S.grbl.status.wpos.y : 0);
     $('#droZ').textContent = fmt3(S.grbl ? S.grbl.status.wpos.z : 0);
     $('[data-step="0.1"]').textContent = fmt(0.1, 1);
-    renderSide(); updUndo(); updConn(); redraw();
+    renderSide(); if (S.mode !== 'cam') renderCam(); updUndo(); updConn(); redraw();
     if (S.mode === 'sim' && S.gc) simInfo();
   }
   if (window.HW && HW.i18n) {

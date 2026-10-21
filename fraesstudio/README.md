@@ -140,6 +140,11 @@ Ohne USB: **Datei → G-Code speichern**, „je Werkzeug eine Datei“, auf die 
 
 Wenn die Maschine beim Verbinden nicht in der Liste erscheint: CH340-USB-Treiber installieren und Candle/LaserGRBL schließen (nur ein Programm darf den Anschluss nutzen).
 
+## Sprachen
+
+Deutsch, Englisch und Dänisch – umschaltbar oben rechts mit **DE / EN / DA**. Beim ersten Start gilt die Sprache des Systems bzw. Browsers (Deutsch, Dänisch, sonst Englisch); die Wahl wird im Browser gespeichert.
+Zahlen erscheinen im Format der Sprache (Englisch mit Punkt, Deutsch und Dänisch mit Komma). G-Code-Dateien und gespeicherte Projekte bleiben unverändert (G-Code-Kommentare auf Deutsch in ASCII); Standardnamen von Werkzeugen, Materialien und Fräsbahnen werden bei der Anzeige übersetzt.
+
 ## Dateien
 
 | Endung | Inhalt |
@@ -167,6 +172,7 @@ Schriften: SIL Open Font License (`js/lib/LIZENZEN.txt`). 3D-Darstellung mit Web
 | `js/depthai.js`, `js/lib/ort/` | KI-Tiefenschätzung (ONNX Runtime Web, MIT) |
 | `js/machine.js` | GRBL-Steuerung über USB, WLAN-Brücke oder WLAN direkt |
 | `js/app.js` | Bedienoberfläche |
+| `js/i18n.js`, `js/i18n/en.js`, `js/i18n/da.js` | Sprachumschaltung (wie StickStudio) und Wörterbücher Englisch/Dänisch, Schlüssel = deutscher Text |
 
 Tests: `node fraesstudio/tests/test_cam.js` (Fräsbahnen, G-Code, Importe, Simulation) und `node fraesstudio/tests/test_machine.js` (Maschinensteuerung: Verbindungsprüfung, Roh-Bytes, Streaming, Werkzeugwechsel).
 
