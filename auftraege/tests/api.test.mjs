@@ -56,7 +56,10 @@ try {
     const r = await call('order_save', { body: { customer_id: cid, title: '40 Poloshirts', qty: 40, price: '1999,50', deposit: 500, currency: 'DKK', pay_status: 'deposit', due_date: iso(3), processes: [{ process_id: 1, minutes: 240 }, { process_id: 3, minutes: 60 }] } });
     assert.equal(r.status, 200); oid = r.j.order.id; assert.match(r.j.order.nr, /^\d{4}-0001$/); assert.equal(r.j.order.price, 1999.5); assert.equal(r.j.order.processes.length, 2);
     assert.equal(r.j.order.total_min, 300, 'Gesamtdauer = Summe der Verfahren'); assert.equal(r.j.order.worker_id, 1);
-    assert.equal(r.j.order.plan_date, iso(0), 'frühestmöglicher Tag'); assert.equal(r.j.order.days.length, 1); assert.equal(r.j.order.days[0].minutes, 300); assert.equal(r.j.order.finish_date, iso(0));
+    assert.equal(r.j.order.plan_date, iso(0), 'frühestmöglicher Tag'); assert.equal(r.j.order.finish_date, iso(0));
+    const work = r.j.order.days.filter((d) => d.kind === 'work'), ho = r.j.order.days.filter((d) => d.kind === 'handover');
+    assert.equal(work.length, 1); assert.equal(work[0].minutes, 300);
+    assert.equal(ho.length, 1, 'Übergabe-Block am Abgabetag'); assert.equal(ho[0].minutes, 60); assert.equal(ho[0].date, r.j.order.due_date); assert.ok(![0, 6].includes(dow(ho[0].date)), 'Abgabe nie am Wochenende'); assert.ok(r.j.order.due_date >= iso(3));
   });
   await ok('Validierung: Datum, Währung, Anzahlung, Kunde', async () => {
     const base = { customer_id: cid, title: 'x', qty: 1, price: 1, currency: 'DKK' };
@@ -98,8 +101,9 @@ try {
     await call('order_status', { body: { id: oid, status: 'production' } });   // erledigte Aufträge zählen nicht als belegt
     const r = (await call('calendar', { params: { from: iso(0), to: iso(10) } })).j;
     assert.equal(r.days.length, 11); assert.equal(r.workers.length, 1);
-    assert.equal(r.days.reduce((s_, d) => s_ + d.w[1].booked, 0), 300); assert.equal(r.items.length, 1); assert.equal(r.items[0].worker_id, 1);
-    assert.deepEqual(r.items[0].process_ids.split(',').sort(), ['1', '3']); assert.ok(r.items[0].thumb > 0, 'Vorschaubild-ID für Aufträge mit Foto'); assert.equal(r.items[0].total_min, 300);
+    const wk = r.items.filter((i) => i.kind === 'work'), hv = r.items.filter((i) => i.kind === 'handover');
+    assert.equal(r.days.reduce((s_, d) => s_ + d.w[1].booked, 0), 360, '5 h Arbeit + 1 h Übergabe'); assert.equal(wk.length, 1); assert.equal(hv.length, 1); assert.equal(wk[0].worker_id, 1);
+    assert.deepEqual(wk[0].process_ids.split(',').sort(), ['1', '3']); assert.ok(wk[0].thumb > 0, 'Vorschaubild-ID für Aufträge mit Foto'); assert.equal(wk[0].total_min, 300);
     const today = r.days[0].w[1]; assert.equal(today.booked, 300); assert.equal(today.free, today.cap - 300);
     assert.ok(r.days.filter((d) => d.weekend).every((d) => d.w[1].cap === 300)); assert.ok(r.days.filter((d) => !d.weekend).every((d) => d.w[1].cap === 480));
   });
@@ -178,7 +182,7 @@ try {
     assert.equal((await mkOrder({ plan_date: mon, due_date: tue, processes: [{ process_id: 1, minutes: 720 }] })).j.error, 'due_before_finish', 'am Produktionstag selbst nicht');
     const pv = (await call('plan_preview', { params: { worker_id: 1, total: 720, date: mon } })).j; assert.equal(pv.due_min, wed, 'frühester Abgabetag = Tag nach Produktionsende');
     const ok1 = await mkOrder({ plan_date: mon, due_date: wed, processes: [{ process_id: 1, minutes: 720 }] });
-    assert.equal(ok1.status, 200); assert.equal(ok1.j.order.days.length, 2); assert.equal(ok1.j.order.finish_date, tue);
+    assert.equal(ok1.status, 200); assert.equal(ok1.j.order.days.filter((d) => d.kind === 'work').length, 2); assert.equal(ok1.j.order.finish_date, tue);
     // unveränderter Abgabetermin bleibt beim Bearbeiten stehen
     assert.equal((await call('order_save', { body: { ...ok1.j.order, processes: ok1.j.order.processes, notes: 'n' } })).status, 200);
     assert.equal((await cal1(mon)).free, 0); assert.equal((await cal1(tue)).booked, 240);
@@ -277,6 +281,46 @@ try {
     await call('settings_save', { body: { weekend_min: 300, day_start: '08:00' } });
   });
 
+  await ok('Dauer je Stück: Gesamtzeit = je Stück × Menge, höchstens 60 Min. je Stück, Menge ändern plant neu', async () => {
+    const base = { title: 'Je Stück', qty: 3, plan_date: pick(180, WEEKDAY) };
+    assert.equal((await mkOrder({ ...base, processes: [{ process_id: 1, per_piece: 61 }] })).j.error, 'bad_per_piece');
+    const r = await mkOrder({ ...base, processes: [{ process_id: 1, per_piece: 30 }, { process_id: 2, per_piece: 10 }] });
+    assert.equal(r.status, 200); assert.equal(r.j.order.total_min, 120, '(30 + 10) × 3 Stück');
+    const p1 = r.j.order.processes.find((p) => p.process_id === 1); assert.equal(p1.minutes, 90); assert.equal(p1.per_piece, 30);
+    assert.equal(r.j.order.days.filter((d) => d.kind === 'work')[0].minutes, 120);
+    const more = await call('order_save', { body: { ...r.j.order, qty: 5, processes: [{ process_id: 1, per_piece: 30 }, { process_id: 2, per_piece: 10 }] } });
+    assert.equal(more.j.order.total_min, 200, 'Menge 5 → (30 + 10) × 5'); assert.equal(more.j.order.days.filter((d) => d.kind === 'work')[0].minutes, 200);
+    const keep = await call('order_save', { body: { ...more.j.order, processes: [{ process_id: 1, per_piece: 30 }, { process_id: 2, per_piece: 10 }], notes: 'x' } });
+    assert.deepEqual(keep.j.order.days, more.j.order.days, 'unverändert bleibt der Plan');
+  });
+  await ok('Abgabe nie am Wochenende: springt auf Montag; eine Stunde am Abgabetag ist weg', async () => {
+    const sat = pick(200, [6]), sun = new Date(new Date(sat + 'T00:00:00').getTime() + 864e5).toISOString().slice(0, 10), mon = new Date(new Date(sat + 'T00:00:00').getTime() + 2 * 864e5).toISOString().slice(0, 10);
+    const before = await cal1(mon);
+    const a = await mkOrder({ title: 'Samstag-Abgabe', due_date: sat, processes: [{ process_id: 1, per_piece: 20 }] });
+    assert.equal(a.status, 200); assert.equal(a.j.order.due_date, mon, 'Samstag → Montag'); assert.deepEqual(a.j.due_adjusted, { from: sat, to: mon });
+    const h = a.j.order.days.find((d) => d.kind === 'handover'); assert.equal(h.date, mon); assert.equal(h.minutes, 60); assert.equal(h.start, '15:00', 'späteste freie Stunde');
+    const after = await cal1(mon); assert.equal(after.booked, before.booked + 60, 'eine Stunde fällt am Abgabetag weg'); assert.equal(after.free, before.free - 60);
+    const b = await mkOrder({ title: 'Sonntag-Abgabe', due_date: sun, processes: [{ process_id: 1, per_piece: 20 }] });
+    assert.equal(b.j.order.due_date, mon, 'Sonntag → Montag'); assert.equal(b.j.order.days.find((d) => d.kind === 'handover').start, '14:00', 'zweite Übergabe davor');
+    const c = await mkOrder({ title: 'Werktag-Abgabe', due_date: pick(210, [3]), processes: [{ process_id: 1, per_piece: 20 }] }); assert.equal(c.j.due_adjusted, null);
+    // kalendereintrag der Übergabe
+    const ci = (await call('calendar', { params: { from: mon, to: mon } })).j.items.filter((i) => i.kind === 'handover'); assert.ok(ci.length >= 2);
+    assert.equal((await mkOrder({ title: 'Nur Termin', due_date: pick(210, [3]) })).j.order.days.filter((d) => d.kind === 'handover').length, 1, 'auch ohne Verfahren reserviert');
+  });
+  await ok('Abgabetage: nur Werktage mit freier Stunde; voller Tag wird übersprungen; unveränderter Abgabetermin behält seinen Block', async () => {
+    const mon = pick(230, [1]), tue = new Date(new Date(mon + 'T00:00:00').getTime() + 864e5).toISOString().slice(0, 10);
+    const full = await mkOrder({ title: 'Voller Montag', plan_date: mon, processes: [{ process_id: 1, per_piece: 60 }], qty: 8 });
+    assert.equal(full.status, 200); assert.equal((await cal1(mon)).free, 0);
+    const dd = (await call('due_days', { params: { worker_id: 1, from: mon } })).j.dates;
+    assert.ok(dd.length > 20 && dd.every((d) => ![0, 6].includes(dow(d))), 'keine Wochenenden'); assert.ok(!dd.includes(mon), 'voller Tag nicht'); assert.equal(dd[0], tue);
+    const x = await mkOrder({ title: 'Abgabe am vollen Tag', due_date: mon, processes: [{ process_id: 3, per_piece: 10 }] });
+    assert.equal(x.j.order.due_date, tue, 'voller Tag → nächster Tag'); assert.deepEqual(x.j.due_adjusted, { from: mon, to: tue });
+    const keep = await call('order_save', { body: { ...x.j.order, processes: [{ process_id: 3, per_piece: 10 }], notes: 'nur Notiz' } });
+    assert.equal(keep.status, 200); assert.deepEqual(keep.j.order.days, x.j.order.days); assert.equal(keep.j.due_adjusted, null);
+    const pv = (await call('plan_preview', { params: { worker_id: 1, total: 60, date: pick(250, WEEKDAY) } })).j; assert.ok(pv.due_min > pv.finish); assert.ok(![0, 6].includes(dow(pv.due_min)));
+    // erledigt: Block zählt nicht mehr als belegt
+    const before = await cal1(tue); await call('order_status', { body: { id: x.j.order.id, status: 'done' } }); assert.equal((await cal1(tue)).booked, before.booked - 60, 'die Übergabe-Stunde fällt weg (Arbeit lag an einem anderen Tag)');
+  });
   await ok('Benutzer: 5 Plätze speichern, doppelte Admin-ID abgelehnt', async () => {
     const me = (await call('me')).j;
     const mk = (ids) => ({ users: me.users.map((u, i) => ({ ...u, wf_admin_id: ids[i] || '' })) });
@@ -288,7 +332,7 @@ try {
     const r = await fetch(`${B}/api.php?a=backup`, { headers: { cookie } }); const b = Buffer.from(await r.arrayBuffer());
     assert.equal(b.subarray(0, 15).toString(), 'SQLite format 3');
   });
-  await ok('Datenbank-Update v4 → v5 übernimmt bestehende Aufträge als Block des Inhabers', async () => {
+  await ok('Datenbank-Update v4 → v6 übernimmt bestehende Aufträge als Block des Inhabers', async () => {
     const { execFileSync } = await import('node:child_process');
     const code = `require '${root}/inc/schema.php';
       $db = new PDO('sqlite::memory:'); $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
@@ -303,7 +347,7 @@ try {
       foreach ($db->query('SELECT order_id, date, start_time, minutes FROM order_days ORDER BY id') as $r) echo $r['order_id'] . '@' . $r['date'] . ' ' . $r['start_time'] . '+' . $r['minutes'] . ';';
       $o = $db->query('SELECT total_min, worker_id, plan_date FROM orders WHERE id = 1')->fetch(); echo ',', $o['total_min'], '/', $o['worker_id'], '/', $o['plan_date'];
       echo ',', $db->query('SELECT COUNT(*) FROM order_days WHERE order_id = 2')->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM customers')->fetchColumn();`;
-    assert.equal(execFileSync('php', ['-r', code]).toString(), '4,5,4,1@2030-05-06 08:00+180;3@2030-05-06 11:00+90;,180/1/2030-05-06,0,1');
+    assert.equal(execFileSync('php', ['-r', code]).toString(), '4,6,4,1@2030-05-06 08:00+180;3@2030-05-06 11:00+90;,180/1/2030-05-06,0,1');
   });
 
 } finally {

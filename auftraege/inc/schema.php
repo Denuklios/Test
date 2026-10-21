@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 5) {
+    if ($v >= 6) {
         return;
     }
     if ($v < 1) {
@@ -20,7 +20,25 @@ function wf_migrate(PDO $db): void
     if ($v < 4) {
         wf_migrate_v4($db);
     }
-    wf_migrate_v5($db);
+    if ($v < 5) {
+        wf_migrate_v5($db);
+    }
+    wf_migrate_v6($db);
+}
+
+/**
+ * Version 6: Dauer je Stueck (order_processes.per_piece; die Gesamtminuten = je Stueck x Menge) und Uebergabe-Bloecke
+ * (order_days.kind = 'handover': eine Stunde am Abgabetag, an der die Person nicht arbeiten kann).
+ */
+function wf_migrate_v6(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    ALTER TABLE order_processes ADD COLUMN per_piece INTEGER;
+    ALTER TABLE order_days ADD COLUMN kind TEXT NOT NULL DEFAULT 'work';
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '6');
+    ");
+    $db->commit();
 }
 
 /** Version 4: Startzeit je Verfahren (ab v5 nicht mehr genutzt) + Arbeitsbeginn. */

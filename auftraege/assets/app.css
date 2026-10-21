@@ -250,3 +250,20 @@ input,select,textarea{font-size:16px}              /* verhindert das Hineinzoome
   .cal .cbar .tx,.cal .cbar img{display:none}
   .cal .day .more{font-size:.55rem}
 }
+
+/* ---------- Verfahren: Minuten je Stueck per Antippen ---------- */
+.proc2{background:#0c0a11;border:1px solid var(--line);border-radius:12px;padding:8px 12px}
+.proc2.on{border-color:var(--c);background:color-mix(in srgb,var(--c) 10%,#0c0a11)}
+.proc2head{display:flex;align-items:center;gap:10px;margin:0;font-size:1rem;color:var(--text);text-transform:none;letter-spacing:0;cursor:pointer;min-height:40px}
+.proc2head input[type=checkbox]{width:22px;height:22px;min-height:0;accent-color:var(--p2);flex:none}
+.proc2head .pn{flex:1;min-width:0}
+.proc2head .ptot{font-size:.8rem;color:var(--muted);white-space:nowrap;font-variant-numeric:tabular-nums}
+.ppbox{margin:6px 0 4px}
+.ppgrid{display:grid;grid-template-columns:repeat(6,1fr);gap:6px}
+@media(max-width:480px){.ppgrid{grid-template-columns:repeat(4,1fr)}}
+.ppchip{min-height:42px;border-radius:10px;border:1px solid var(--line-strong);background:var(--surface3);color:var(--text);font:inherit;font-weight:500;cursor:pointer}
+.ppchip.on{background:linear-gradient(135deg,var(--p1),var(--p2));border-color:transparent;color:#fff;font-weight:700}
+.ppown{display:flex;align-items:center;gap:8px;margin-top:8px;font-size:.85rem}
+.ppown input{width:84px;min-height:38px;padding:6px 8px;text-align:right}
+.cbar.ho{border-left-style:dashed;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--wc) 10%,#100e14),color-mix(in srgb,var(--wc) 10%,#100e14) 6px,color-mix(in srgb,var(--wc) 20%,#100e14) 6px,color-mix(in srgb,var(--wc) 20%,#100e14) 12px)}
+@media(max-width:700px){.cal .cbar.ho{background:repeating-linear-gradient(90deg,var(--wc),var(--wc) 4px,transparent 4px,transparent 7px)}}

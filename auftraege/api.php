@@ -69,12 +69,12 @@ function order_row(PDO $db, int $id): array
     if (!$o) {
         wf_fail('not_found', 404);
     }
-    $p = $db->prepare('SELECT process_id, minutes FROM order_processes WHERE order_id = ?');
+    $p = $db->prepare('SELECT process_id, minutes, per_piece FROM order_processes WHERE order_id = ?');
     $p->execute([$id]);
     $o['processes'] = $p->fetchAll();
-    $dd = $db->prepare('SELECT date, start_time, minutes FROM order_days WHERE order_id = ? ORDER BY date, start_time');
+    $dd = $db->prepare('SELECT date, start_time, minutes, kind FROM order_days WHERE order_id = ? ORDER BY date, start_time');
     $dd->execute([$id]);
-    $o['days'] = array_map(fn($r) => ['date' => $r['date'], 'start' => $r['start_time'], 'end' => wf_min_to_hhmm(wf_hhmm_to_min($r['start_time']) + (int)$r['minutes']), 'minutes' => (int)$r['minutes']], $dd->fetchAll());
+    $o['days'] = array_map(fn($r) => ['date' => $r['date'], 'start' => $r['start_time'], 'end' => wf_min_to_hhmm(wf_hhmm_to_min($r['start_time']) + (int)$r['minutes']), 'minutes' => (int)$r['minutes'], 'kind' => $r['kind']], $dd->fetchAll());
     $f = $db->prepare('SELECT id, original_name, mime, size, uploaded_at FROM order_files WHERE order_id = ? ORDER BY id');
     $f->execute([$id]);
     $o['files'] = $f->fetchAll();
@@ -212,11 +212,24 @@ try {
             $startIn = $startIn === '' ? null : $startIn;
             $oldRow = $id ? order_row($db, $id) : null;
             // Verfahren mit geschaetzter Dauer; die Gesamtdauer ist ihre Summe (eine Person arbeitet alles nacheinander ab)
+            // Dauer je Stueck in Minuten (1-60); die Gesamtzeit je Verfahren = je Stueck x Menge. Rohe 'minutes' bleiben fuer Altdaten/API moeglich.
             $procs = [];
+            $perPiece = [];
             foreach ((array)($in['processes'] ?? []) as $pr) {
                 $pid = (int)($pr['process_id'] ?? 0);
-                if ($pid > 0) {
+                if ($pid <= 0) {
+                    continue;
+                }
+                $pp = (int)($pr['per_piece'] ?? 0);
+                if ($pp > 0) {
+                    if ($pp > 60) {
+                        wf_fail('bad_per_piece');
+                    }
+                    $procs[$pid] = $pp * $qty;
+                    $perPiece[$pid] = $pp;
+                } else {
                     $procs[$pid] = max(0, min(100000, (int)($pr['minutes'] ?? 0)));
+                    $perPiece[$pid] = null;
                 }
             }
             $total = array_sum($procs);
@@ -262,6 +275,31 @@ try {
             if ($due !== null && $finish !== null && $due <= $finish && ($dueChanged || $alloc)) {
                 wf_fail('due_before_finish', 400, ['finish' => $finish]);
             }
+            // Uebergabe am Abgabetag: eine Stunde der Person ist weg. Faellt der Termin aufs Wochenende (oder auf einen Tag ohne
+            // freie Stunde), springt er automatisch auf den naechsten passenden Tag, in der Regel Montag.
+            $handover = null;
+            $dueAdjusted = null;
+            $handoverSlot = null;
+            $needH = false;
+            if ($due !== null && !in_array($status, ['done', 'delivered'], true)) {
+                $hasH = false;
+                foreach ($oldRow['days'] ?? [] as $dd_) {
+                    $hasH = $hasH || ($dd_['kind'] ?? '') === 'handover';
+                }
+                $needH = $dueChanged || $alloc || !$oldRow || (int)$oldRow['worker_id'] !== $wid || !$hasH;
+                if ($needH) {
+                    $planH = wf_plan_load($due, date('Y-m-d', strtotime($due . ' +90 days')), $id);
+                    $next = wf_due_days($planH, $wid, $due, 1);
+                    if (!$next) {
+                        wf_fail('no_handover_slot');
+                    }
+                    if ($next[0] !== $due) {
+                        $dueAdjusted = ['from' => $due, 'to' => $next[0]];
+                        $due = $next[0];
+                    }
+                    $handoverSlot = wf_handover_slot($planH, $wid, $due);
+                }
+            }
             $db->beginTransaction();
             if ($id) {
                 $old = order_row($db, $id);
@@ -288,9 +326,9 @@ try {
                 log_order($db, $id, $user, 'created');
             }
             $db->prepare('DELETE FROM order_processes WHERE order_id = ?')->execute([$id]);
-            $ins = $db->prepare('INSERT INTO order_processes (order_id, process_id, minutes) SELECT ?, id, ? FROM process_types WHERE id = ?');
+            $ins = $db->prepare('INSERT INTO order_processes (order_id, process_id, minutes, per_piece) SELECT ?, id, ?, ? FROM process_types WHERE id = ?');
             foreach ($procs as $pid => $min) {
-                $ins->execute([$id, $min, $pid]);
+                $ins->execute([$id, $min, $perPiece[$pid], $pid]);
             }
             if ($alloc) {
                 wf_plan_save($db, $id, $alloc, $total);
@@ -300,9 +338,16 @@ try {
             } else {
                 $db->prepare('UPDATE orders SET total_min = ? WHERE id = ?')->execute([$total, $id]);
             }
+            if ($due === null || in_array($status, ['done', 'delivered'], true)) {
+                if ($due === null) {
+                    wf_handover_save($db, $id, null, null);
+                }
+            } elseif ($needH) {
+                wf_handover_save($db, $id, $due, $handoverSlot);
+            }
             wf_touch();
             $db->commit();
-            wf_json(['ok' => true, 'order' => order_row($db, $id)]);
+            wf_json(['ok' => true, 'order' => order_row($db, $id), 'due_adjusted' => $dueAdjusted]);
         }
 
         case 'order_status': {
@@ -489,7 +534,7 @@ try {
             if (strtotime($to) - strtotime($from) > 100 * 86400) {
                 wf_fail('range_too_large');
             }
-            $st = $db->prepare("SELECT d.date, d.start_time, d.minutes, o.id, o.nr, o.title, o.qty, o.status, o.worker_id, o.finish_date, o.due_date, o.total_min, c.name AS customer_name,
+            $st = $db->prepare("SELECT d.date, d.start_time, d.minutes, d.kind, o.id, o.nr, o.title, o.qty, o.status, o.worker_id, o.finish_date, o.due_date, o.total_min, c.name AS customer_name,
                                        (SELECT group_concat(process_id) FROM order_processes WHERE order_id = o.id) AS process_ids,
                                        (SELECT id FROM order_files WHERE order_id = o.id AND mime LIKE 'image/%' ORDER BY id LIMIT 1) AS thumb
                                 FROM order_days d JOIN orders o ON o.id = d.order_id JOIN customers c ON c.id = o.customer_id
@@ -545,30 +590,25 @@ try {
             $al = $date < date('Y-m-d') ? null : wf_alloc($plan, $worker['id'], $worker['day_min'], $total, $date, preg_match('/^\d\d:\d\d$/', $start) ? wf_hhmm_to_min($start) : null);
             $dueMin = null;
             if ($al) {
-                $dueMin = date('Y-m-d', strtotime($al['finish'] . ' +1 day'));
-                for ($i = 0; $i < 60 && wf_blocked_reason($dueMin) !== null; $i++) {
-                    $dueMin = date('Y-m-d', strtotime($dueMin . ' +1 day'));
-                }
+                $after = date('Y-m-d', strtotime($al['finish'] . ' +1 day'));
+                $planD = wf_plan_load($after, date('Y-m-d', strtotime($after . ' +90 days')), (int)($_GET['exclude'] ?? 0));
+                $dueMin = wf_due_days($planD, $worker['id'], $after, 1)[0] ?? null;
             }
             wf_json(['ok' => true, 'possible' => (bool)$al, 'due_min' => $dueMin] + ($al ? wf_alloc_public($al) : []));
         }
 
-        // Tage fuer den Abgabetermin: ab $from, nicht ganz gesperrt
+        // Moegliche Abgabetage ab $from: nur Werktage, nicht gesperrt, und die Person hat noch eine freie Stunde fuer die Uebergabe
         case 'due_days': {
+            $worker = wf_worker((int)($_GET['worker_id'] ?? 1) ?: 1);
+            if (!$worker || !$worker['active']) {
+                wf_fail('bad_worker');
+            }
             $from = (string)($_GET['from'] ?? '');
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || $from < date('Y-m-d')) {
                 $from = date('Y-m-d');
             }
-            $to = date('Y-m-d', strtotime($from . ' +180 days'));
-            $blocked = wf_block_days($from, $to);
-            $dates = [];
-            for ($t = strtotime($from); $t <= strtotime($to); $t += 86400) {
-                $d = date('Y-m-d', $t);
-                if (!(isset($blocked[$d]) && $blocked[$d]['full'])) {
-                    $dates[] = $d;
-                }
-            }
-            wf_json(['ok' => true, 'dates' => $dates]);
+            $plan = wf_plan_load($from, date('Y-m-d', strtotime($from . ' +180 days')), (int)($_GET['exclude'] ?? 0));
+            wf_json(['ok' => true, 'dates' => wf_due_days($plan, $worker['id'], $from, 150)]);
         }
 
         case 'workers_save': {

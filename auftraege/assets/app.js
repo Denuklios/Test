@@ -215,10 +215,11 @@ route(/^\/order\/(\d+)$/, async (id) => {
       h('dl', { class: 'kv', style: 'margin-top:14px' },
         h('dt', {}, t('due')), h('dd', { class: late ? 'due late' : '' }, (late ? '⚠ ' : '') + dfmt(o.due_date)),
         h('dt', {}, t('article')), h('dd', {}, `${o.article || '—'} · ${o.qty} ${t('pcs')}`),
-        h('dt', {}, t('processes')), h('dd', {}, h('div', { class: 'row' }, o.processes.length ? o.processes.map((p) => { const pr = procById(p.process_id); return h('span', { class: 'chip', style: `--c:${pr.color}` }, h('i', { class: 'dot', style: `--c:${pr.color}` }), `${pname(pr)}${p.minutes ? ' · ' + hm(p.minutes) : ''}`); }) : '—')),
+        h('dt', {}, t('processes')), h('dd', {}, h('div', { class: 'row' }, o.processes.length ? o.processes.map((p) => { const pr = procById(p.process_id); return h('span', { class: 'chip', style: `--c:${pr.color}` }, h('i', { class: 'dot', style: `--c:${pr.color}` }), `${pname(pr)}${p.per_piece ? ` · ${p.per_piece} ${t('min_short')} × ${o.qty}` : ''}${p.minutes ? ' = ' + hm(p.minutes) : ''}`); }) : '—')),
         h('dt', {}, t('total_time')), h('dd', {}, o.total_min ? `${hm(o.total_min)} · ${Math.round(o.total_min / dayMin * 100)} % ${t('of_a_day')}` : '—'),
         h('dt', {}, t('worker')), h('dd', {}, wchip(wk)),
-        h('dt', {}, t('production')), h('dd', {}, o.days.length ? h('div', {}, o.days.map((d) => h('div', {}, `${dfmt(d.date)} · ${d.start}–${d.end}`)), o.finish_date ? h('small', { class: 'muted' }, `${t('finish')}: ${dfmt(o.finish_date)}`) : null) : '—'),
+        h('dt', {}, t('production')), h('dd', {}, o.days.some((d) => d.kind === 'work') ? h('div', {}, o.days.filter((d) => d.kind === 'work').map((d) => h('div', {}, `${dfmt(d.date)} · ${d.start}–${d.end}`)), o.finish_date ? h('small', { class: 'muted' }, `${t('finish')}: ${dfmt(o.finish_date)}`) : null) : '—'),
+        o.days.some((d) => d.kind === 'handover') ? [h('dt', {}, t('handover')), h('dd', {}, o.days.filter((d) => d.kind === 'handover').map((d) => h('div', {}, `🤝 ${dfmt(d.date)} · ${d.start}–${d.end}`)))] : null,
         h('dt', {}, t('price')), h('dd', {}, `${money(o.price, o.currency)} · ${t('deposit')} ${money(o.deposit, o.currency)} · ${t('remaining')} ${money(rest, o.currency)}`),
         h('dt', {}, t('payment')), h('dd', {}, paySel))),
     (o.description || o.notes) && h('div', { class: 'card' }, o.description && h('p', { style: 'margin:0 0 8px;white-space:pre-wrap' }, o.description), o.notes && h('p', { class: 'muted', style: 'margin:0;white-space:pre-wrap' }, o.notes)),
@@ -352,31 +353,48 @@ async function orderForm(o, presetCustomer) {
     wid = w.id; drawWorkers(); S.start = ''; planPicker.value = ''; updateSummary(); refreshPlan(true);
   } }, h('i'), w.name)));
 
-  // --- Verfahren mit geschaetzter Dauer (Stunden); die Gesamtdauer rechnet die App selbst
+  // --- Verfahren mit Dauer JE STUECK (Minuten); die App rechnet mal Menge und addiert alles
   const S = { start: D.start_time || '' };                       // gewaehlte Uhrzeit ('' = automatisch frueheste)
-  const sel = new Map(D.processes.map((p) => [+p.process_id, +p.minutes]));
+  const PP = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
+  const curQty = () => Math.max(1, parseInt(F.qty ? F.qty.value : D.qty, 10) || 1);
+  const sel = new Map(D.processes.map((p) => [+p.process_id, p.per_piece ? +p.per_piece : Math.min(60, Math.max(1, Math.round(+p.minutes / Math.max(1, +D.qty || 1))))]));
+  let rt;
+  const procChanged = () => { S.start = ''; updateSummary(); clearTimeout(rt); rt = setTimeout(() => refreshPlan(!planPicker.value), 350); };
   const procBox = h('div', { class: 'procs' }, me.processes.filter((p) => +p.active).map((p) => {
+    let pp = sel.get(+p.id) || 10;
     const cb = h('input', { type: 'checkbox', checked: sel.has(+p.id) });
-    const hrs = h('input', { type: 'text', inputmode: 'decimal', value: minToHours(sel.get(+p.id) ?? 60), 'aria-label': t('hours') });
-    const row = h('label', { class: 'proc' + (cb.checked ? ' on' : ''), style: `--c:${p.color};text-transform:none;letter-spacing:0;font-size:1rem;color:inherit;margin:0` }, cb, h('span', {}, pname(p)), hrs, h('small', { class: 'muted' }, t('hours_unit')));
-    const changed = () => { S.start = ''; updateSummary(); clearTimeout(rt); rt = setTimeout(() => refreshPlan(!planPicker.value), 350); };
-    cb.addEventListener('change', () => { row.classList.toggle('on', cb.checked); changed(); });
-    hrs.addEventListener('input', changed);
-    row._min = () => (cb.checked ? hoursToMin(hrs.value) : 0);
-    row._get = () => (cb.checked ? { process_id: +p.id, minutes: hoursToMin(hrs.value) } : null);
+    const tot = h('span', { class: 'ptot' });
+    const own = h('input', { type: 'number', min: 1, max: 60, step: 1, inputmode: 'numeric', 'aria-label': t('min_per_piece') });
+    const chips = PP.map((v) => h('button', { type: 'button', class: 'ppchip', onclick: () => { pp = v; upd(); procChanged(); } }, v));
+    const box = h('div', { class: 'ppbox' + (cb.checked ? '' : ' hidden') }, h('div', { class: 'ppgrid' }, chips), h('div', { class: 'ppown' }, h('span', { class: 'muted' }, t('min_per_piece') + ':'), own));
+    const row = h('div', { class: 'proc2' + (cb.checked ? ' on' : ''), style: `--c:${p.color}` },
+      h('label', { class: 'proc2head' }, cb, h('span', { class: 'pn' }, pname(p)), tot), box);
+    function upd() {
+      chips.forEach((c, i) => c.classList.toggle('on', PP[i] === pp));
+      own.value = pp;
+      tot.textContent = cb.checked ? `${pp} ${t('min_short')} × ${curQty()} = ${hm(pp * curQty())}` : '';
+    }
+    cb.addEventListener('change', () => { row.classList.toggle('on', cb.checked); box.classList.toggle('hidden', !cb.checked); upd(); procChanged(); });
+    own.addEventListener('input', () => { pp = Math.min(60, Math.max(1, parseInt(own.value, 10) || 1)); upd(); procChanged(); });
+    row._upd = upd; row._pp = () => pp;
+    row._min = () => (cb.checked ? pp * curQty() : 0);
+    row._get = () => (cb.checked ? { process_id: +p.id, per_piece: pp } : null);
+    upd();
     return row;
   }));
-  let rt;
   const totalMin = () => [...procBox.children].reduce((s_, r) => s_ + r._min(), 0);
   const sumBox = h('div', { class: 'sumbox' });
   function updateSummary() {
+    [...procBox.children].forEach((r) => r._upd());
     const tm = totalMin();
     const dm = (workerById(wid) || { day_min: 480 }).day_min || 480;
     if (!tm) { sumBox.replaceChildren(h('span', { class: 'muted' }, t('sum_hint'))); return; }
     const pct = Math.round(tm / dm * 100);
     const days = Math.round(tm / dm * 10) / 10;
+    const perOne = [...procBox.children].reduce((s_, r) => s_ + (r._min() ? r._pp() : 0), 0);
     sumBox.replaceChildren(
       h('div', { class: 'sumline' }, h('b', {}, hm(tm)), h('span', { class: 'muted' }, ` · ${pct} % ${t('of_a_day')}${tm > dm ? ` (≈ ${String(days).replace('.', ',')} ${t('work_days')})` : ''}`)),
+      h('div', { class: 'muted', style: 'font-size:.85rem;margin-top:2px' }, `${t('per_piece_sum')}: ${perOne} ${t('min_short')} × ${curQty()} ${t('pcs')}`),
       h('div', { class: 'meter' + (pct > 100 ? ' over' : '') }, h('i', { style: `width:${Math.min(100, pct)}%` })));
   }
 
@@ -391,7 +409,7 @@ async function orderForm(o, presetCustomer) {
     return { dates: r.options.map((x) => x.start_date) };
   });
   let dueMin = '';
-  const duePicker = dayPicker(D.due_date, () => api('due_days', { params: { from: dueMin || (finish ? addDays(finish, 1) : today()) } }));
+  const duePicker = dayPicker(D.due_date, () => api('due_days', { params: { worker_id: wid, from: dueMin || (finish ? addDays(finish, 1) : today()), exclude: D.id || 0 } }));
   duePicker.addEventListener('daychange', () => { if (!dueAuto) dueTouched = true; });
   const optsBox = h('div', { class: 'row', style: 'margin-bottom:8px' });
   const previewBox = h('div', { class: 'plan-preview hidden' });
@@ -429,12 +447,12 @@ async function orderForm(o, presetCustomer) {
       toast(t('plan_moved')); return refreshPlan(true);
     }
     finish = r.finish; dueMin = r.due_min;
-    previewBox.replaceChildren(...r.chunks.map((c) => h('div', {}, `${dfmt(c.date)} · ${c.start}–${c.end}`)), h('small', { class: 'muted' }, `${t('finish')}: ${dfmt(r.finish)} ${r.finish_time} · ${t('due_earliest')}: ${dfmt(r.due_min)}`));
+    previewBox.replaceChildren(...r.chunks.map((c) => h('div', {}, `${dfmt(c.date)} · ${c.start}–${c.end}`)), h('small', { class: 'muted' }, `${t('finish')}: ${dfmt(r.finish)} ${r.finish_time}${r.due_min ? ' · ' + t('due_earliest') + ': ' + dfmt(r.due_min) : ''}`), h('small', { class: 'muted' }, '🤝 ' + t('handover_note')));
     previewBox.classList.remove('hidden');
     timeBtn.textContent = `🕘 ${r.start}${S.start ? '' : ' (' + t('automatic') + ')'} · ${t('change')}`;
     timeBtn.classList.remove('hidden'); timeBtn.classList.toggle('set', !!S.start);
     // Abgabetermin mindestens einen Tag nach dem Produktionsende
-    if (!duePicker.value ? !dueTouched : duePicker.value < r.due_min) {
+    if (r.due_min && (!duePicker.value ? !dueTouched : duePicker.value < r.due_min)) {
       const moved = !!duePicker.value;
       dueAuto = true; duePicker.value = r.due_min; dueAuto = false;
       if (moved) toast(t('due_moved', dfmt(r.due_min)));
@@ -481,7 +499,7 @@ async function orderForm(o, presetCustomer) {
     try {
       const r = await api('order_save', { body });
       if (pending.length) { toast(t('uploading_files')); await uploadFiles(r.order.id, pending); }
-      toast(t('saved'));
+      toast(r.due_adjusted ? t('due_jumped', dfmt(r.due_adjusted.from), dfmt(r.due_adjusted.to)) : t('saved'));
       location.hash = `#/order/${r.order.id}`;
     } catch (e) { err.textContent = e.message; btn.scrollIntoView({ block: 'center' }); } finally { btn.disabled = false; }
   };
@@ -507,6 +525,7 @@ async function orderForm(o, presetCustomer) {
     moreBtn, moreCard,
     err,
     h('div', { class: 'formbar' }, h('a', { class: 'btn', href: isNew ? '#/' : `#/order/${D.id}` }, t('cancel')), btn));
+  F.qty.addEventListener('input', procChanged);
   drawWorkers(); updateSummary(); refreshPlan(isNew);
 }
 
@@ -560,11 +579,12 @@ try { calView = localStorage.getItem('wf_calview'); } catch (e) { /* Speicher ge
 // Ein Balken = ein eingeplanter Block: Uhrzeit, Verfahren, Auftrag, Kunde, Person und ein kleines Foto (wenn vorhanden)
 function calBar(i, big) {
   const w = workerById(i.worker_id);
-  const more = i.finish_date && i.finish_date > i.date ? ' →' : '';
-  return h('a', { class: 'cbar' + (big ? ' big' : ''), href: `#/order/${i.id}`, style: `--wc:${w ? w.color : 'var(--p2)'}`, title: `${i.nr} · ${i.title} · ${i.customer_name}`, onclick: (e) => e.stopPropagation() },
+  const ho = i.kind === 'handover';
+  const more = !ho && i.finish_date && i.finish_date > i.date ? ' →' : '';
+  return h('a', { class: 'cbar' + (big ? ' big' : '') + (ho ? ' ho' : ''), href: `#/order/${i.id}`, style: `--wc:${w ? w.color : 'var(--p2)'}`, title: `${i.nr} · ${i.title} · ${i.customer_name}`, onclick: (e) => e.stopPropagation() },
     h('span', { class: 'tx' },
-      h('span', { class: 'l1' }, h('b', {}, `${i.start_time}–${i.end}`), more, big ? ' ' + i.title : ''),
-      h('span', { class: 'l2' }, big ? `${i.customer_name} · ${procNames(i.process_ids, 3)}` : `${procNames(i.process_ids, 2)} · ${i.customer_name}`),
+      h('span', { class: 'l1' }, ho ? '🤝 ' : '', h('b', {}, `${i.start_time}–${i.end}`), more, ho ? ' ' + t('handover') : (big ? ' ' + i.title : '')),
+      h('span', { class: 'l2' }, ho ? (big ? `${i.title} · ${i.customer_name}` : i.customer_name) : (big ? `${i.customer_name} · ${procNames(i.process_ids, 3)}` : `${procNames(i.process_ids, 2)} · ${i.customer_name}`)),
       big && activeWorkers().length > 1 ? h('span', { class: 'l3' }, wchip(w)) : null),
     i.thumb ? h('img', { src: thumbUrl(i.thumb), alt: '', loading: 'lazy' }) : null);
 }

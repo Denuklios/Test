@@ -357,7 +357,7 @@ function wf_plan_starts(array $plan, int $wid, int $dayRef, int $total, string $
 /** Speichert die Bloecke eines Auftrags und die abgeleiteten Felder. */
 function wf_plan_save(PDO $db, int $orderId, array $al, int $total): void
 {
-    $db->prepare('DELETE FROM order_days WHERE order_id = ?')->execute([$orderId]);
+    $db->prepare("DELETE FROM order_days WHERE order_id = ? AND kind = 'work'")->execute([$orderId]);
     $ins = $db->prepare('INSERT INTO order_days (order_id, date, start_time, minutes) VALUES (?,?,?,?)');
     foreach ($al['chunks'] as [$d, $a, $m]) {
         $ins->execute([$orderId, $d, wf_min_to_hhmm($a), $m]);
@@ -369,6 +369,53 @@ function wf_plan_save(PDO $db, int $orderId, array $al, int $total): void
 /** Entfernt die Planung eines Auftrags (z. B. keine Dauer mehr). */
 function wf_plan_clear(PDO $db, int $orderId, int $total): void
 {
-    $db->prepare('DELETE FROM order_days WHERE order_id = ?')->execute([$orderId]);
+    $db->prepare("DELETE FROM order_days WHERE order_id = ? AND kind = 'work'")->execute([$orderId]);
     $db->prepare('UPDATE orders SET start_time = NULL, finish_date = NULL, total_min = ? WHERE id = ?')->execute([$total, $orderId]);
+}
+
+// ---------- Uebergabe (Abgabetag) ----------
+// Am Abgabetag ist die Person eine Stunde nicht an der Arbeit (Kunde kommt / Versand). Diese Stunde wird als Block reserviert.
+// Abgabe nie am Wochenende, nie an ganz gesperrten Tagen, und nur an Tagen, an denen die Person noch eine freie Stunde hat.
+const WF_HANDOVER_MIN = 60;
+
+/** Spaeteste freie Stunde an einem Tag: [von, bis] in Minuten oder null, wenn der Tag nicht fuer eine Abgabe taugt. */
+function wf_handover_slot(array $plan, int $wid, string $date): ?array
+{
+    $d = $plan['days'][$date] ?? null;
+    if (!$d || $d['weekend'] || $d['blocked'] !== null) {
+        return null;
+    }
+    $best = null;
+    foreach (($d['w'][$wid]['iv'] ?? []) as [$a, $b]) {
+        if ($b - $a >= WF_HANDOVER_MIN) {
+            $best = [$b - WF_HANDOVER_MIN, $b];
+        }
+    }
+    return $best;
+}
+
+/** Die naechsten moeglichen Abgabetage ab $from (nie in der Vergangenheit). */
+function wf_due_days(array $plan, int $wid, string $from, int $limit): array
+{
+    $from = max($from, date('Y-m-d'));
+    $out = [];
+    foreach ($plan['days'] as $d => $row) {
+        if ($d >= $from && wf_handover_slot($plan, $wid, $d)) {
+            $out[] = $d;
+            if (count($out) >= $limit) {
+                break;
+            }
+        }
+    }
+    return $out;
+}
+
+/** Speichert (oder entfernt bei $slot = null) den Uebergabe-Block eines Auftrags. */
+function wf_handover_save(PDO $db, int $orderId, ?string $date, ?array $slot): void
+{
+    $db->prepare("DELETE FROM order_days WHERE order_id = ? AND kind = 'handover'")->execute([$orderId]);
+    if ($date !== null && $slot) {
+        $db->prepare("INSERT INTO order_days (order_id, date, start_time, minutes, kind) VALUES (?,?,?,?, 'handover')")
+           ->execute([$orderId, $date, wf_min_to_hhmm($slot[0]), $slot[1] - $slot[0]]);
+    }
 }

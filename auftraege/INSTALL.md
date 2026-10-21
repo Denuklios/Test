@@ -32,10 +32,10 @@ Unter **Einstellungen**:
 **Update einer bestehenden Installation:** neue Dateien einfach drüberkopieren. Die Datenbank wird beim nächsten Aufruf automatisch ergänzt, alle Daten bleiben erhalten (vorher trotzdem Backup ziehen).
 
 **So plant die App:**
-- Du gibst je Verfahren die ungefähre Dauer in **Stunden** ein. Die App rechnet die Gesamtdauer und den Anteil am Arbeitstag aus.
+- Du tippst je Verfahren an, wie viele **Minuten ein Stück** braucht (5, 10, 15 … bis 60, oder einen eigenen Wert). Die App rechnet **mal Menge**, addiert alle Verfahren und zeigt die Gesamtdauer und den Anteil am Arbeitstag (z. B. 3 Shirts × 30 Min. = 1:30 Std.). Mehr als 60 Minuten pro Stück sind nicht möglich.
 - Eine Person arbeitet alles nacheinander: Was ein Auftrag an einem Tag belegt, ist für andere Aufträge derselben Person weg, egal welches Verfahren (5 h Sticken + 1 h DTF + 2 h Gravur = ein voller 8-Stunden-Tag).
 - Oben im Auftrag stehen die **nächsten freien Produktionstage** (der erste ist vorgewählt). Die Uhrzeit wird automatisch früh gesetzt und lässt sich über „ändern“ wählen. Dauert ein Auftrag länger als ein Arbeitstag, verteilt er sich auf die nächsten freien Tage.
-- Der **Abgabetermin** liegt immer **mindestens einen Tag nach dem Produktionsende** (gesperrte Tage werden übersprungen) und wird so vorbelegt. Vergangene, gesperrte und volle Tage werden nicht angeboten.
+- Der **Abgabetermin** liegt immer **mindestens einen Tag nach dem Produktionsende** und wird so vorbelegt. Er ist **nie am Wochenende**: Fällt er auf Samstag oder Sonntag, springt er automatisch auf Montag (und weiter, wenn dort nichts mehr frei ist). Am Abgabetag wird **eine Stunde für die Übergabe** reserviert (spätestens möglich am Tag, im Kalender als 🤝 sichtbar), denn dann bist du nicht an der Arbeit. Vergangene, gesperrte und volle Tage werden nicht angeboten.
 - **Werkstatt-Anzeige:** Jede Zeile zeigt Foto (falls vorhanden), Uhrzeit von–bis, Verfahren, Gesamtdauer, Person (bei mehr als einer aktiven Person) und Status. Es werden so viele Aufträge angezeigt, wie auf den Bildschirm passen, der Rest steht als „+ n weitere“. Das Foto wird nur über den geheimen Link ausgeliefert.
 - **Kalender:** Am Handy als **Liste** (jeder Auftrag mit Uhrzeit, Verfahren, Kunde, Person und kleinem Foto), am PC als **Monat** mit kompakten Balken. Oben umschaltbar. Kleine Vorschaubilder erzeugt der Server beim ersten Aufruf selbst (benötigt die PHP-Erweiterung GD, sonst wird kein Bild gezeigt).
 
