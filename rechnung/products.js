@@ -124,7 +124,9 @@ function parsePage(html, url) {
     name = BOT_RE.test(raw) ? raw : ct.name; sku = sku || ct.sku; brand = ct.brand;
   }
   if (!name) return null;
-  name = scrub(name, host); brand = scrub(brand, host); description = scrub(description, host);
+  const site = meta(html, 'og:site_name');
+  if (p && / [|–—] /.test(name)) { const ct = cleanTitle(name, host); name = ct.name; sku = sku || ct.sku; brand = brand || ct.brand; }
+  for (const h of [host, site]) { name = scrub(name, h); brand = scrub(brand, h); description = scrub(description, h); }
   if (!image) image = pickImage(html, sku, name);
   try { if (image) image = new URL(image, url).href; } catch { image = ''; }
   const txt = pageText(html);
@@ -164,12 +166,13 @@ async function fromUrl(url) {
 }
 
 // eine im Browser gespeicherte Produktseite (HTML-Datei) auslesen – umgeht Bot-Schutz und Anmeldung, weil der Browser sie schon geholt hat
-async function fromHtml(html, fileName = '') {
-  const canon = (html.match(/<link[^>]+rel=["']canonical["'][^>]*href=["']([^"']+)["']/i) || html.match(/<link[^>]+href=["']([^"']+)["'][^>]*rel=["']canonical["']/i) || [])[1] || meta(html, 'og:url') || '';
+async function fromHtml(html, fileName = '', opts = {}) {
+  const canon = opts.url || (html.match(/<link[^>]+rel=["']canonical["'][^>]*href=["']([^"']+)["']/i) || html.match(/<link[^>]+href=["']([^"']+)["'][^>]*rel=["']canonical["']/i) || [])[1] || meta(html, 'og:url') || '';
   const prod = parsePage(html, canon || 'https://invalid.invalid/');
   if (!prod || (!prod.structured && BOT_RE.test(prod.name))) throw new Error(`${fileName ? fileName + ': ' : ''}${prod && BOT_RE.test(prod.name) ? 'Das ist die Prüfseite des Bot-Schutzes, nicht das Produkt – bitte die Seite erst fertig laden lassen und dann speichern.' : 'Keine Produktdaten in dieser Datei gefunden.'}`);
   prod.url = canon;
-  prod.image = prod.image && canon ? await fetchImage(prod.image, new URL(canon).origin + '/') : '';
+  if (/^data:image\/(jpeg|png|webp);base64,[A-Za-z0-9+/=]+$/.test(opts.image || '')) prod.image = opts.image; // vom Browser-Knopf aus der geöffneten Seite gelesen
+  else prod.image = prod.image && canon ? await fetchImage(prod.image, new URL(canon).origin + '/') : '';
   return prod;
 }
 

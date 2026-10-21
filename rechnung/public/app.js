@@ -557,6 +557,7 @@ function customerForm(c, done) {
 
 /* ---------- Produkte ---------- */
 routes.produkte = () => {
+  if (S.importPending && $('#modal').classList.contains('hidden')) setTimeout(() => { productImport(); $('#imp-go').click(); }, 0);
   $('#main').innerHTML = `<h1>Produkte &amp; Leistungen <span class="spacer"></span><button id="import">⬇ Aus Shop übernehmen</button><button class="primary" id="add">+ Neues Produkt</button></h1>
     ${S.products.length ? `<div class="table-wrap"><table><thead><tr><th></th><th>Name</th><th>Dänisch</th><th>Englisch</th><th>Einheit</th><th>Art</th><th class="r">Preis netto</th></tr></thead><tbody>
     ${S.products.map((p) => `<tr class="click" data-p="${p.id}"><td style="width:54px">${p.image ? `<img class="thumb-sm" src="${DocRender.safeImg(p.image)}" alt="">` : ''}</td><td><b>${esc(p.name_de || p.name)}</b></td><td>${esc(p.name_da || '')}</td><td>${esc(p.name_en || '')}</td><td>${UNITS[p.unit] || ''}</td>
@@ -610,11 +611,17 @@ routes.produkte = () => {
 };
 
 /* Produkte aus einem Shop übernehmen: Adressen von Produktseiten (oder eine Kategorie-/Sitemap-Adresse) oder eine CSV-Datei */
+// Lesezeichen-Knopf: schickt die geöffnete (angemeldete) Produktseite samt Bild an dieses Programm
+const bookmarklet = () => `javascript:(function(){try{var d=document,img='';try{var b=null,bs=0;[].forEach.call(d.images,function(i){var a=i.naturalWidth*i.naturalHeight;if(i.naturalWidth>=200&&a>bs){bs=a;b=i}});if(b){var c=d.createElement('canvas'),k=Math.min(1,800/Math.max(b.naturalWidth,b.naturalHeight));c.width=b.naturalWidth*k;c.height=b.naturalHeight*k;c.getContext('2d').drawImage(b,0,0,c.width,c.height);img=c.toDataURL('image/jpeg',.85)}}catch(e){}var f=d.createElement('form');f.method='POST';f.action='${location.origin}/import-page';f.target='_blank';f.acceptCharset='UTF-8';[['url',location.href],['html',d.documentElement.outerHTML],['image',img]].forEach(function(p){var t=d.createElement('input');t.type='hidden';t.name=p[0];t.value=p[1];f.appendChild(t)});d.body.appendChild(f);f.submit()}catch(e){alert('Fehler: '+e.message)}})()`;
 function productImport() {
   modal(`<h2>Produkte aus Shop übernehmen</h2>
     <p class="small muted">Übernommen werden Name (ohne Shop-Namen), Marke, Artikelnummer, Material, Gewicht, Größen, Farben, Bild und der <b>Einkaufspreis</b> (falls sichtbar). Name und Kundentext werden ins Deutsche, Dänische und Englische übertragen. Den Verkaufspreis setzt du selbst, oder lässt ihn mit einem Aufschlag berechnen.</p>
-    <div class="tabs"><button class="on" data-tab="urls">Shop-Adressen</button><button data-tab="pages">Gespeicherte Seiten</button><button data-tab="csv">CSV-Datei</button></div>
-    <div id="tab-urls"><label>Adressen von Produktseiten (eine pro Zeile) oder die Adresse einer Kategorie bzw. der Sitemap<textarea id="urls" rows="5" placeholder="https://shop.l-shop-team.de/de/…"></textarea></label>
+    <div class="tabs"><button class="on" data-tab="btn">Browser-Knopf (am einfachsten)</button><button data-tab="urls">Shop-Adressen</button><button data-tab="pages">Gespeicherte Seiten</button><button data-tab="csv">CSV-Datei</button></div>
+    <div id="tab-btn"><div class="note small"><b>Einmalig einrichten:</b> Diesen Knopf mit der Maus in die Lesezeichenleiste deines Browsers ziehen (Leiste einblenden: Strg + Umschalt + B):
+        <div style="margin:8px 0"><a id="bmk" class="btn primary" draggable="true" style="display:inline-block;padding:8px 14px;border-radius:8px;background:var(--primary,#1e40af);color:#fff;text-decoration:none">➕ In RechnungsStudio übernehmen</a></div>
+        <b>Jedes Produkt:</b> im Shop anmelden, Produktseite öffnen, den Knopf in der Leiste anklicken. Es öffnet sich ein neues Fenster mit der Vorschau – mit Größen, Farben, Material, Gewicht, Bild und deinem Einkaufspreis. Kein Speichern von Dateien nötig.<br>
+        <span class="muted">Mehrere Produkte nacheinander: Knopf auf jeder Seite klicken, dann hier „Vorschau laden“.</span></div></div>
+    <div id="tab-urls" class="hidden"><label>Adressen von Produktseiten (eine pro Zeile) oder die Adresse einer Kategorie bzw. der Sitemap<textarea id="urls" rows="5" placeholder="https://shop.l-shop-team.de/de/…"></textarea></label>
       <label style="margin-top:8px"><input type="checkbox" id="expand"> Das ist eine Kategorie-/Sitemap-Adresse: alle Produktseiten darauf suchen (bis 60)</label></div>
     <div id="tab-pages" class="hidden"><div class="note small">Für Shops mit <b>Bot-Schutz oder Anmeldung</b>: Produktseite im Browser öffnen (angemeldet), <b>Strg + S</b> drücken, Typ „Webseite, nur HTML“ wählen und speichern. Das für jedes Produkt wiederholen, dann hier alle Dateien auf einmal auswählen.</div>
       <label>Gespeicherte Produktseiten (HTML, mehrere möglich)<input type="file" id="pagefiles" accept=".html,.htm" multiple></label></div>
@@ -622,12 +629,18 @@ function productImport() {
     <div id="imp-out" style="margin-top:12px"></div>
     <div class="modal-actions"><button onclick="closeModal()">Schließen</button><button class="primary" id="imp-go">Vorschau laden</button><button class="primary hidden" id="imp-save">Ausgewählte übernehmen</button></div>`, (el) => {
     $('.modal-box').classList.add('wide');
-    let mode = 'urls', items = [];
-    $$('[data-tab]', el).forEach((b) => (b.onclick = () => { mode = b.dataset.tab; $$('[data-tab]', el).forEach((x) => x.classList.toggle('on', x === b)); $('#tab-urls', el).classList.toggle('hidden', mode !== 'urls'); $('#tab-csv', el).classList.toggle('hidden', mode !== 'csv'); $('#tab-pages', el).classList.toggle('hidden', mode !== 'pages'); }));
+    let mode = 'btn', items = [];
+    $('#bmk', el).href = bookmarklet(); $('#bmk', el).onclick = (e) => { e.preventDefault(); toast('Nicht anklicken – mit der Maus in die Lesezeichenleiste ziehen.', true); };
+    $$('[data-tab]', el).forEach((b) => (b.onclick = () => { mode = b.dataset.tab; $$('[data-tab]', el).forEach((x) => x.classList.toggle('on', x === b)); $('#tab-btn', el).classList.toggle('hidden', mode !== 'btn'); $('#tab-urls', el).classList.toggle('hidden', mode !== 'urls'); $('#tab-csv', el).classList.toggle('hidden', mode !== 'csv'); $('#tab-pages', el).classList.toggle('hidden', mode !== 'pages'); }));
     $('#imp-go', el).onclick = async () => {
       const out = $('#imp-out', el);
       let body;
-      if (mode === 'pages') {
+      if (mode === 'btn') {
+        const q = await api('products/import/queue');
+        S.importPending = 0;
+        if (!q.pages.length) return toast('Noch keine Seite angekommen. Erst im Shop eine Produktseite öffnen und den Knopf anklicken.', true);
+        body = { pages: q.pages };
+      } else if (mode === 'pages') {
         const fs = [...$('#pagefiles', el).files]; if (!fs.length) return toast('Bitte Dateien wählen.', true);
         body = { pages: await Promise.all(fs.map(async (f) => ({ name: f.name, html: await f.text() }))) };
       } else if (mode === 'csv') {
@@ -640,7 +653,7 @@ function productImport() {
       try {
         const r = await api('products/import/preview', 'POST', body);
         items = r.items;
-        out.innerHTML = `${!r.translated ? `<div class="note warn small">${esc(r.translateError || (r.canTranslate ? 'Übersetzung nicht möglich.' : 'Übersetzung nicht möglich – dafür braucht es den API-Schlüssel (Einstellungen → Belegerkennung).'))} Die Namen kommen nur auf Deutsch, Dänisch und Englisch kannst du später nachtragen.</div>` : ''}
+        out.innerHTML = `${!r.translated ? `<div class="note warn small">${esc(r.translateError || (r.canTranslate ? 'Übersetzung nicht möglich.' : S.ai.installed ? 'Kein gültiger API-Schlüssel gespeichert (Einstellungen → Belegerkennung → „Schlüssel prüfen“). Wurde das Programm in einen neuen Ordner entpackt, ist der Schlüssel dort noch nicht eingetragen – der Ordner „data“ muss vom alten Programm kopiert werden.' : 'Das Erkennungs-Paket fehlt (Programm über das Startskript starten).'))} Die Namen kommen nur auf Deutsch, Dänisch und Englisch kannst du später nachtragen.</div>` : ''}
           ${r.errors.length ? `<div class="note warn small">${r.errors.length} Adresse(n) nicht lesbar: ${esc(r.errors.slice(0, 3).map((e) => (e.url ? e.url + ' – ' : '') + e.error).join(' · '))}</div>` : ''}
           <div class="table-wrap" style="max-height:48vh;overflow:auto"><table><thead><tr><th></th><th></th><th>Name (Deutsch / Dänisch / Englisch)</th><th>Kundentext (Deutsch)</th><th>Daten</th><th>Einkauf</th></tr></thead><tbody>
           ${items.map((p, i) => `<tr><td><input type="checkbox" data-sel="${i}" ${p.exists ? '' : 'checked'}></td><td>${p.image ? `<img class="thumb-sm" style="width:56px;height:56px" src="${DocRender.safeImg(p.image)}" alt="">` : '<span class="muted small">kein Bild</span>'}</td>

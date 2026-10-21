@@ -251,6 +251,7 @@ const MIME_EXT = { 'image/jpeg': '.jpg', 'image/png': '.png', 'image/webp': '.we
 
 // Erkennung läuft nacheinander im Hintergrund, damit viele Fotos auf einmal kein Problem sind
 let queue = Promise.resolve();
+const importQueue = []; // vom Browser-Knopf gesendete Produktseiten (nur im Speicher, bis sie abgeholt werden)
 const enqueue = (id) => (queue = queue.then(() => recognize(id)).catch((e) => console.error('Belegerkennung:', e)));
 
 async function recognize(id) {
@@ -364,7 +365,7 @@ async function api(method, parts, body, url) {
   const S = state.settings;
 
   if (res === 'state' && method === 'GET') {
-    return { ...state, secrets: undefined, version: VERSION, ai: { installed: Receipts.available(), enabled: Receipts.enabled(apiKey()), fromEnv: !!ENV.ANTHROPIC_API_KEY, hasKey: !!state.secrets.anthropicKey }, cvr: { user: state.secrets.cvrUser || '', hasPass: !!state.secrets.cvrPass } };
+    return { ...state, secrets: undefined, version: VERSION, importPending: importQueue.length, ai: { installed: Receipts.available(), enabled: Receipts.enabled(apiKey()), fromEnv: !!ENV.ANTHROPIC_API_KEY, hasKey: !!state.secrets.anthropicKey }, cvr: { user: state.secrets.cvrUser || '', hasPass: !!state.secrets.cvrPass } };
   }
 
   // Schlüssel der Belegerkennung testen (kostenlos)
@@ -391,6 +392,7 @@ async function api(method, parts, body, url) {
   }
 
   // Produktimport aus einem Shop (Produktseiten oder CSV), mit Übersetzung; Preise werden nicht übernommen
+  if (res === 'products' && id === 'import' && action === 'queue' && method === 'GET') return { pages: importQueue.splice(0, 40) };
   if (res === 'products' && id === 'import' && method === 'POST') {
     if (action === 'preview') {
       const errors = [];
@@ -401,7 +403,7 @@ async function api(method, parts, body, url) {
         raw = c.rows;
       } else if (Array.isArray(body.pages)) {
         for (const pg of body.pages.slice(0, 40)) {
-          try { raw.push(await Products.fromHtml(String(pg.html || ''), str(pg.name, 80))); } catch (e) { errors.push({ url: str(pg.name, 80), error: e.message }); }
+          try { raw.push(await Products.fromHtml(String(pg.html || ''), str(pg.name, 80), { url: str(pg.url, 500), image: str(pg.image, 4e6) })); } catch (e) { errors.push({ url: str(pg.name, 80), error: e.message }); }
         }
       } else {
         let urls = String(body.urls || '').split(/\s+/).map((u) => u.trim()).filter(Boolean);
@@ -817,6 +819,16 @@ const server = http.createServer(async (req, res) => {
       const out = parts[0] === 'public' ? publicApi(req.method, parts.slice(1), body, req) : await api(req.method, parts, body, url);
       if (req.method !== 'GET') save();
       return send(200, out);
+    }
+    // Browser-Knopf: die geöffnete Produktseite (angemeldet, fertig geladen) kommt per Formular hierher
+    if (req.method === 'POST' && url.pathname === '/import-page') {
+      const chunks = []; let size = 0;
+      for await (const c of req) { size += c.length; if (size > 30e6) fail('Seite zu groß.', 413); chunks.push(c); }
+      const f = new URLSearchParams(Buffer.concat(chunks).toString());
+      if (!f.get('html')) fail('Die Seite war leer.', 400);
+      importQueue.push({ name: 'Browser', url: (f.get('url') || '').slice(0, 500), html: f.get('html'), image: (f.get('image') || '').slice(0, 4e6) });
+      if (importQueue.length > 40) importQueue.shift();
+      res.writeHead(303, { Location: '/#/produkte' }); return res.end();
     }
     if (/^\/a\/[a-f0-9]{36}$/.test(url.pathname)) return send(200, fs.readFileSync(path.join(PUBLIC, 'sign.html')), MIME['.html']);
     // Belegfoto/PDF anzeigen
