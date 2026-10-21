@@ -20,6 +20,7 @@ const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR
 const pages = {
   'https://shop.test/de/polo': `<html><head><title>Polo | Shop</title><script type="application/ld+json">{"@context":"https://schema.org","@type":"Product","name":"Herren Polo Classic &amp; Co","sku":"L-1001","brand":{"@type":"Brand","name":"Mantis"},"description":"Pique-Polo","image":["/img/polo.png"],"offers":{"@type":"Offer","price":"9.90"}}</script></head></html>`,
   'https://shop.test/de/kappe': `<html><head><meta property="og:title" content="Herren Kappe 6-Panel"><meta property="og:image" content="https://shop.test/img/kappe.png"><title>x</title></head></html>`,
+  'https://shop.test/de/hoodie': `<html><script type="application/ld+json">{"@context":"https://schema.org","@graph":[{"@type":"BreadcrumbList"},{"@type":"ProductGroup","name":"Influence Hoodie","productGroupID":"HD-5","brand":{"name":"Mantis"},"hasVariant":[{"@type":"Product","name":"Influence Hoodie Navy","sku":"HD-5-NAVY","image":"/img/h.png"}]}]}</script></html>`,
   'https://shop.test/de/login': `<html><head><title>Anmelden – Shop</title></head></html>`,
   'https://shop.test/sitemap.xml': `<urlset><url><loc>https://shop.test/de/polo</loc></url><url><loc>https://shop.test/de/kappe</loc></url><url><loc>https://shop.test/img/a.jpg</loc></url><url><loc>https://other.test/x</loc></url></urlset>`,
 };
@@ -40,6 +41,9 @@ const A = (m, p, b = {}) => RS.api(m, p.split('/'), b, new URL('http://x/?'));
   ok(!('price' in p1), 'kein Preis übernommen');
   const p2 = await P.fromUrl('https://shop.test/de/kappe');
   eq(p2.name, 'Herren Kappe 6-Panel', 'Name aus og:title bei Seiten ohne Suchmaschinen-Daten');
+  const hg = await P.fromUrl('https://shop.test/de/hoodie');
+  eq(hg.name, 'Influence Hoodie', 'Produktgruppe mit Farben/Größen: Name'); eq(hg.sku, 'HD-5', 'Produktgruppe: Gruppen-Artikelnummer'); eq(hg.brand, 'Mantis', 'Produktgruppe: Marke');
+  ok(hg.image.startsWith('data:image/png'), 'Produktgruppe: Bild der Variante');
   try { await P.fromUrl('https://shop.test/de/login'); ok(false, 'Login'); } catch (e) { ok(/Anmeldeseite|Login/.test(e.message), 'Anmeldeseite erkannt: ' + e.message.slice(0, 50)); }
   try { await P.fromUrl('https://shop.test/de/404'); ok(false, '404'); } catch (e) { ok(/Fehler 404/.test(e.message), 'Fehlerseite gemeldet'); }
   const links = await P.collectLinks('https://shop.test/sitemap.xml');

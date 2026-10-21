@@ -20,7 +20,7 @@ function jsonLdProducts(html) {
     if (!n || typeof n !== 'object') return;
     if (Array.isArray(n)) return n.forEach(walk);
     const t = [].concat(n['@type'] || []).map(String);
-    if (t.includes('Product')) out.push(n);
+    if (t.includes('Product') || t.includes('ProductGroup')) out.push(n); // Produktgruppe = ein Artikel mit Farben/Größen
     walk(n['@graph']); walk(n.mainEntity); walk(n.itemListElement); walk(n.item);
   };
   for (const m of html.matchAll(/<script[^>]+type=["']application\/ld\+json["'][^>]*>([\s\S]*?)<\/script>/gi)) {
@@ -37,8 +37,9 @@ function parsePage(html, url) {
   const p = jsonLdProducts(html)[0];
   let name, sku, brand, image, description;
   if (p) {
-    name = text(p.name); sku = text(p.sku || p.mpn || p.productID || p.gtin13 || ''); brand = text(p.brand); description = text(p.description);
-    image = text([].concat(p.image || [])[0]);
+    const v = [].concat(p.hasVariant || [])[0] || {};
+    name = text(p.name || v.name); sku = text(p.productGroupID || p.sku || p.mpn || p.productID || v.sku || ''); brand = text(p.brand || v.brand); description = text(p.description || v.description);
+    image = text([].concat(p.image || v.image || [])[0]);
   } else {
     name = meta(html, 'og:title') || decode((html.match(/<title[^>]*>([\s\S]*?)<\/title>/i) || [])[1]);
     description = meta(html, 'og:description') || meta(html, 'description');
