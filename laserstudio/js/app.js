@@ -137,7 +137,10 @@
   function modal(title, html, buttons = [{ label: 'OK', primary: true }], opts = {}) {
     return new Promise((resolve) => {
       $('#modalTitle').textContent = title;
-      $('#modalBody').innerHTML = html;
+      // frisches Element, damit Listener früherer Dialoge (onOpen) nicht weiterlaufen
+      const ob = $('#modalBody'), nb = ob.cloneNode(false);
+      ob.replaceWith(nb);
+      nb.innerHTML = html;
       $('#modal .box').classList.toggle('wide', !!opts.wide);
       const bb = $('#modalBtns');
       bb.innerHTML = '';
@@ -2728,9 +2731,7 @@
       updateSnapInfo(); updUndo(); updConn();
       if (S.mode === 'design') hint(TOOL_HINTS[S.tool]);
       if (S.mode === 'laser') hint(LASER_HINT);
-      if (S.mode === 'preview' && !S.plan) $('#pvInfo').textContent = '';
       renderSide(); renderLaserSide();
-      if (S.mode === 'preview') renderPreviewSide();
       if (S.grbl && S.grbl.connected) S.grbl.emit('status', S.grbl.status);
       redraw();
     }));

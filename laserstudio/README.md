@@ -8,6 +8,12 @@ LaserStudio ist ein **eigenes Programm** und kein Teil von FräsStudio oder Stic
 `index.html` doppelklicken, am besten in **Google Chrome** oder **Microsoft Edge**. Nur diese Browser können den Laser per USB steuern und die Kamera einbinden.
 Das Projekt wird automatisch im Browser zwischengespeichert.
 
+## Sprachen
+
+Die Oberfläche gibt es auf **Deutsch, Englisch und Dänisch**. Beim ersten Start richtet sich die Sprache nach dem System bzw. Browser (Deutsch → DE, Dänisch/Norwegisch → DA, sonst EN). Umschalten oben rechts mit **DE / EN / DA**, die Wahl wird gespeichert.
+Zahlen erscheinen im Format der Sprache (DE/DA `0,1 mm`, EN `0.1 mm`). G-Code und Projektdateien bleiben unverändert; Standardnamen (z. B. Ebene „Schneiden“) werden in der gewählten Sprache angezeigt.
+Technik: `js/i18n.js` (gleicher Mechanismus wie in StickStudio) mit den Wörterbüchern `js/i18n/en.js` und `js/i18n/da.js`, Schlüssel ist jeweils der deutsche Text.
+
 ## Was aus welchem Programm übernommen ist
 
 Für LaserStudio habe ich mir die bekannten Laserprogramme angesehen und ihre besten Funktionen zusammengeführt. Der Programmcode ist komplett neu geschrieben, es ist kein fremder Code enthalten.
@@ -125,6 +131,7 @@ Reines HTML/JavaScript ohne Build-Schritt.
 | `js/machine.js` | GRBL-Steuerung über USB oder WLAN |
 | `js/core.js`, `js/shapes.js`, `js/ttf.js`, `js/importers.js` | Geometrie, Formen, Schriften, SVG/DXF-Import, Nachzeichnen |
 | `js/app.js` | Bedienoberfläche |
+| `js/i18n.js`, `js/i18n/en.js`, `js/i18n/da.js` | Sprachumschaltung und Übersetzungen (Englisch, Dänisch) |
 
 Tests: `node laserstudio/tests/test_laser.js` (Laserbahnen, G-Code, Bilder, Materialtest, Kamera-Mathematik, Streamen) und `node laserstudio/tests/test_machine.js` (GRBL-Steuerung).
 Polygonberechnung: [Clipper](http://www.angusj.com) (Boost Software License). Schriften: SIL Open Font License (`js/lib/LIZENZEN.txt`).
