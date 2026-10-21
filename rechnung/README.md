@@ -20,6 +20,7 @@ Deine Daten liegen in `rechnung/data/rechnung.json`. Jeden Tag wird automatisch 
 |---|---|
 | **Kunden** | Land, Sprache (DE/DA/EN), Währung, CVR-Nr. bzw. USt-IdNr. Dänische Firmen: Daten per Klick aus dem **CVR-Register** holen. EU-Firmen: USt-IdNr. per Klick bei der EU (**VIES**) prüfen. |
 | **Momsart automatisch** | Dänemark → 25 % Moms · EU-Firma mit USt-IdNr. → 0 %, Reverse Charge · EU-Privatkunde → 25 % · außerhalb der EU → 0 % (Export) |
+| **Produkte ⬇** | Produkte aus einem Shop übernehmen („Aus Shop übernehmen“): Adressen von Produktseiten, eine Kategorie-/Sitemap-Adresse oder eine CSV-Preisliste. Übernommen werden Name, Artikelnummer, Marke und Bild, der Name wird ins Deutsche, Dänische und Englische übersetzt (mit API-Schlüssel). Preise bleiben leer. |
 | **Produkte** | Name in drei Sprachen. Auf der Rechnung erscheint automatisch der Name in der Kundensprache. |
 | **Aufträge ✍️** | Auftragsbestätigung mit Produktbildern in der Kundensprache, Kunde unterschreibt online per Link, Unterschrift kommt automatisch zurück, danach mit einem Klick die Rechnung. |
 | **Rechnungen** | Entwurf → genehmigen (fortlaufende Nummer, danach gesperrt) → bezahlt. Gutschriften (Kreditnota), Kopieren, Zahlungserinnerung, Rabatt, momsfreie Zeilen, Fremdwährung mit Kurs von Nationalbanken/EZB. Drucken bzw. **als PDF speichern**, E-Mail-Text in der Kundensprache. |

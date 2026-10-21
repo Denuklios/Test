@@ -533,10 +533,10 @@ function customerForm(c, done) {
 
 /* ---------- Produkte ---------- */
 routes.produkte = () => {
-  $('#main').innerHTML = `<h1>Produkte &amp; Leistungen <span class="spacer"></span><button class="primary" id="add">+ Neues Produkt</button></h1>
+  $('#main').innerHTML = `<h1>Produkte &amp; Leistungen <span class="spacer"></span><button id="import">⬇ Aus Shop übernehmen</button><button class="primary" id="add">+ Neues Produkt</button></h1>
     ${S.products.length ? `<div class="table-wrap"><table><thead><tr><th></th><th>Name</th><th>Dänisch</th><th>Englisch</th><th>Einheit</th><th>Art</th><th class="r">Preis netto</th></tr></thead><tbody>
     ${S.products.map((p) => `<tr class="click" data-p="${p.id}"><td style="width:54px">${p.image ? `<img class="thumb-sm" src="${DocRender.safeImg(p.image)}" alt="">` : ''}</td><td><b>${esc(p.name_de || p.name)}</b></td><td>${esc(p.name_da || '')}</td><td>${esc(p.name_en || '')}</td><td>${UNITS[p.unit] || ''}</td>
-      <td>${p.kind === 'goods' ? 'Ware' : 'Leistung'}${p.vatFree ? ' · momsfrei' : ''}</td><td class="r">${kr(Calc.toCents(p.price), p.currency || 'DKK')}</td></tr>`).join('')}</tbody></table></div>`
+      <td>${p.kind === 'goods' ? 'Ware' : 'Leistung'}${p.vatFree ? ' · momsfrei' : ''}</td><td class="r">${p.price === '' || p.price === undefined ? '<span class="muted">Preis offen</span>' : kr(Calc.toCents(p.price), p.currency || 'DKK')}${p.sku ? `<div class="muted small">${esc(p.brand ? p.brand + ' · ' : '')}${esc(p.sku)}</div>` : ''}</td></tr>`).join('')}</tbody></table></div>`
     : '<div class="card empty">Noch keine Produkte. Trage den Namen in allen drei Sprachen ein – auf der Rechnung erscheint automatisch die Sprache des Kunden.</div>'}`;
   const form = (p) => {
     const d = p || { unit: 'stk', kind: 'services', currency: 'DKK' };
@@ -570,8 +570,56 @@ routes.produkte = () => {
     });
   };
   $('#add').onclick = () => form();
+  $('#import').onclick = productImport;
   $$('[data-p]').forEach((tr) => (tr.onclick = () => form(S.products.find((p) => p.id === tr.dataset.p))));
 };
+
+/* Produkte aus einem Shop übernehmen: Adressen von Produktseiten (oder eine Kategorie-/Sitemap-Adresse) oder eine CSV-Datei */
+function productImport() {
+  modal(`<h2>Produkte aus Shop übernehmen</h2>
+    <p class="small muted">Es werden Name, Artikelnummer, Marke und Bild übernommen und der Name ins Deutsche, Dänische und Englische übersetzt. <b>Preise bleiben leer</b>, die setzt du erst beim Verkauf.</p>
+    <div class="tabs"><button class="on" data-tab="urls">Shop-Adressen</button><button data-tab="csv">CSV-Datei</button></div>
+    <div id="tab-urls"><label>Adressen von Produktseiten (eine pro Zeile) oder die Adresse einer Kategorie bzw. der Sitemap<textarea id="urls" rows="5" placeholder="https://shop.l-shop-team.de/de/…"></textarea></label>
+      <label style="margin-top:8px"><input type="checkbox" id="expand"> Das ist eine Kategorie-/Sitemap-Adresse: alle Produktseiten darauf suchen (bis 60)</label></div>
+    <div id="tab-csv" class="hidden"><label>Exportdatei oder Preisliste aus dem Shop (CSV) – Spalten wie „Artikelnummer“, „Name/Bezeichnung“, „Marke“<input type="file" id="csvfile" accept=".csv,.txt"></label></div>
+    <div id="imp-out" style="margin-top:12px"></div>
+    <div class="modal-actions"><button onclick="closeModal()">Schließen</button><button class="primary" id="imp-go">Vorschau laden</button><button class="primary hidden" id="imp-save">Ausgewählte übernehmen</button></div>`, (el) => {
+    $('.modal-box').classList.add('wide');
+    let mode = 'urls', items = [];
+    $$('[data-tab]', el).forEach((b) => (b.onclick = () => { mode = b.dataset.tab; $$('[data-tab]', el).forEach((x) => x.classList.toggle('on', x === b)); $('#tab-urls', el).classList.toggle('hidden', mode !== 'urls'); $('#tab-csv', el).classList.toggle('hidden', mode !== 'csv'); }));
+    $('#imp-go', el).onclick = async () => {
+      const out = $('#imp-out', el);
+      let body;
+      if (mode === 'csv') {
+        const f = $('#csvfile', el).files[0]; if (!f) return toast('Bitte eine Datei wählen.', true);
+        const buf = await f.arrayBuffer(); let t = new TextDecoder('utf-8').decode(buf); if (t.includes('\uFFFD')) t = new TextDecoder('windows-1252').decode(buf);
+        body = { csv: t };
+      } else body = { urls: $('#urls', el).value, expand: $('#expand', el).checked };
+      out.innerHTML = '<span class="spin"></span> Lade Produkte und übersetze… (das kann eine Minute dauern)';
+      $('#imp-go', el).disabled = true;
+      try {
+        const r = await api('products/import/preview', 'POST', body);
+        items = r.items;
+        out.innerHTML = `${!r.translated ? `<div class="note warn small">Übersetzung nicht möglich${r.canTranslate ? '' : ' – dafür braucht es den API-Schlüssel (Einstellungen → Belegerkennung)'}. Die Namen kommen nur auf Deutsch, Dänisch/Englisch kannst du später nachtragen.</div>` : ''}
+          ${r.errors.length ? `<div class="note warn small">${r.errors.length} Adresse(n) nicht lesbar: ${esc(r.errors.slice(0, 3).map((e) => (e.url ? e.url + ' – ' : '') + e.error).join(' · '))}</div>` : ''}
+          <div class="table-wrap" style="max-height:42vh;overflow:auto"><table><thead><tr><th></th><th></th><th>Deutsch</th><th>Dänisch</th><th>Englisch</th><th>Art-Nr.</th><th>Einheit</th></tr></thead><tbody>
+          ${items.map((p, i) => `<tr><td><input type="checkbox" data-sel="${i}" ${p.exists ? '' : 'checked'}></td><td>${p.image ? `<img class="thumb-sm" src="${DocRender.safeImg(p.image)}" alt="">` : ''}</td>
+            <td><input data-f="de" data-i="${i}" value="${esc(p.de)}"></td><td><input data-f="da" data-i="${i}" value="${esc(p.da)}"></td><td><input data-f="en" data-i="${i}" value="${esc(p.en)}"></td>
+            <td class="small">${esc(p.sku)}${p.exists ? '<div class="badge b-open">schon da</div>' : ''}</td><td><select data-f="unit" data-i="${i}">${opts(UNITS, p.unit)}</select></td></tr>`).join('')}</tbody></table></div>`;
+        $$('[data-f]', out).forEach((inp) => (inp.oninput = inp.onchange = () => { items[inp.dataset.i][inp.dataset.f] = inp.value; }));
+        $('#imp-save', el).classList.remove('hidden'); $('#imp-go', el).classList.add('hidden');
+      } catch (e) { out.innerHTML = `<div class="note warn">${esc(e.message)}</div>`; }
+      $('#imp-go', el).disabled = false;
+    };
+    $('#imp-save', el).onclick = async () => {
+      const sel = $$('[data-sel]', el).filter((c) => c.checked).map((c) => items[c.dataset.sel]);
+      if (!sel.length) return toast('Nichts ausgewählt.', true);
+      const r = await act(() => api('products/import/save', 'POST', { items: sel }), 'Produkte übernommen');
+      toast(`${r.added} Produkte übernommen${r.skipped ? `, ${r.skipped} schon vorhanden` : ''}. Preise setzt du beim Verkauf.`);
+      closeModal(); routes.produkte();
+    };
+  });
+}
 
 /* ---------- Ausgaben (Købsmoms) und sonstige Einnahmen ---------- */
 const CATS = Fradrag.names;

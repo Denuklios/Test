@@ -11,6 +11,7 @@ const DocLang = require('./public/doclang');
 const Fradrag = require('./public/fradrag');
 const Bank = require('./bank');
 const Receipts = require('./receipts');
+const Products = require('./products');
 const os = require('os');
 
 const ENV = process.env;
@@ -20,7 +21,7 @@ const DATA_DIR = ENV.DATA_DIR || path.join(__dirname, 'data');
 const FILE = path.join(DATA_DIR, 'rechnung.json');
 const PUBLIC = path.join(__dirname, 'public');
 const RECEIPT_DIR = path.join(DATA_DIR, 'belege');
-const VERSION = '1.10';
+const VERSION = '1.11';
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = () => crypto.randomBytes(8).toString('hex');
 
@@ -76,7 +77,7 @@ const str = (v, n = 500) => String(v ?? '').slice(0, n);
 const byId = (list, id) => list.find((x) => x.id === id) || fail('Nicht gefunden.', 404);
 
 const CUSTOMER_KEYS = ['name', 'isBusiness', 'contact', 'street', 'zip', 'city', 'country', 'vatId', 'cvr', 'email', 'phone', 'language', 'currency', 'dueDays', 'note', 'ean', 'vatChecked'];
-const PRODUCT_KEYS = ['name', 'name_de', 'name_da', 'name_en', 'unit', 'price', 'kind', 'vatFree', 'currency', 'image'];
+const PRODUCT_KEYS = ['name', 'name_de', 'name_da', 'name_en', 'unit', 'price', 'kind', 'vatFree', 'currency', 'image', 'sku', 'brand', 'source'];
 const EXPENSE_KEYS = ['date', 'supplier', 'text', 'category', 'amount', 'vat', 'euPurchase', 'deductible', 'paid', 'paidDate', 'dueDate', 'invoiceNumber', 'currency', 'receiptId', 'vatShare', 'taxShare'];
 const TRIP_KEYS = ['date', 'from', 'to', 'purpose', 'km', 'customerId'];
 // abziehbare Anteile (Moms/Steuer) aus der Kategorie, wenn nicht ausdrücklich angegeben
@@ -380,6 +381,49 @@ async function api(method, parts, body, url) {
     if (typeof body.cvrPass === 'string' && body.cvrPass) state.secrets.cvrPass = body.cvrPass.slice(0, 200);
     log('Einstellungen geändert');
     return S;
+  }
+
+  // Produktimport aus einem Shop (Produktseiten oder CSV), mit Übersetzung; Preise werden nicht übernommen
+  if (res === 'products' && id === 'import' && method === 'POST') {
+    if (action === 'preview') {
+      const errors = [];
+      let raw = [];
+      if (body.csv) {
+        const c = Products.fromCsv(String(body.csv));
+        if (c.error) fail(c.error);
+        raw = c.rows;
+      } else {
+        let urls = String(body.urls || '').split(/\s+/).map((u) => u.trim()).filter(Boolean);
+        if (body.expand && urls.length === 1) {
+          try { urls = await Products.collectLinks(urls[0], 60); } catch (e) { fail('Die Seite konnte nicht gelesen werden: ' + e.message, 502); }
+          if (!urls.length) fail('Auf dieser Seite wurden keine Links gefunden.');
+        }
+        if (!urls.length) fail('Bitte mindestens eine Adresse einfügen.');
+        for (const u of urls.slice(0, 60)) {
+          try { raw.push(await Products.fromUrl(u)); } catch (e) { errors.push({ url: u, error: e.message }); }
+        }
+      }
+      if (!raw.length) fail(errors[0]?.error ? `Keine Produkte gefunden. ${errors[0].error}` : 'Keine Produkte gefunden.', 422);
+      raw = raw.slice(0, 200);
+      let items = await Products.translate(raw, apiKey()).catch((e) => { errors.push({ url: '', error: 'Übersetzung nicht möglich: ' + e.message }); return raw.map((p) => ({ ...p, de: p.name, da: '', en: '', unit: 'stk', kind: 'goods', translated: false })); });
+      items = items.map((p) => ({ ...p, exists: state.products.some((x) => (p.sku && x.sku === p.sku) || (x.name_de || x.name || '').toLowerCase() === (p.de || '').toLowerCase()) }));
+      return { items, errors, translated: items.some((p) => p.translated), canTranslate: Receipts.enabled(apiKey()) };
+    }
+    if (action === 'save') {
+      const list = Array.isArray(body.items) ? body.items.slice(0, 200) : [];
+      let added = 0, skipped = 0;
+      for (const it of list) {
+        const name = str(it.de || it.name, 200).trim();
+        if (!name) continue;
+        if (state.products.some((x) => (it.sku && x.sku === it.sku) || (x.name_de || x.name || '').toLowerCase() === name.toLowerCase())) { skipped++; continue; }
+        state.products.push({ id: uid(), createdAt: new Date().toISOString(), name, name_de: name, name_da: str(it.da, 200), name_en: str(it.en, 200),
+          unit: ['stk', 'pakke', 'm', 'm2', 'kg', 'timer', ''].includes(it.unit) ? it.unit : 'stk', kind: it.kind === 'services' ? 'services' : 'goods', price: '', currency: 'DKK', vatFree: false,
+          image: cleanImg(it.image), sku: str(it.sku, 60), brand: str(it.brand, 80), source: str(it.url, 300) });
+        added++;
+      }
+      log('Produkte importiert', `${added} neu, ${skipped} schon vorhanden`);
+      return { added, skipped };
+    }
   }
 
   // Fahrtenbuch: Kilometergeld der noch nicht abgerechneten Fahrten eines Jahres als Ausgabe buchen
