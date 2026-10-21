@@ -7,9 +7,9 @@ const RAW_LEN = (qs.get('t') || '').trim().length;
 let lang = qs.get('l') === 'da' ? 'da' : 'de';
 const POLL_MS = 4000;
 const T = {
-  de: { overdue: 'Überfällig', today: 'Heute', tomorrow: 'Morgen', later: 'Später', nodate: 'Ohne Termin', unpaid: 'UNBEZAHLT', pcs: 'Stk.', cap: 'Freie Kapazität', status: 'Status', none: 'Keine offenen Aufträge', more: 'weitere Aufträge …', bad: 'Link ungültig', revoked: 'Link gesperrt – bitte in den Einstellungen einen neuen erzeugen', short: 'Link unvollständig ({0} von 64 Zeichen) – bitte den ganzen Link kopieren', server: 'Server antwortet nicht richtig (Code {0})', free: 'frei',
+  de: { overdue: 'Überfällig', today: 'Heute', tomorrow: 'Morgen', later: 'Später', nodate: 'Ohne Termin', unpaid: 'UNBEZAHLT', pcs: 'Stk.', cap: 'Freie Kapazität', status: 'Status', none: 'Keine offenen Aufträge', more: 'weitere Aufträge …', bad: 'Link ungültig', revoked: 'Link gesperrt – bitte in den Einstellungen einen neuen erzeugen', short: 'Link unvollständig ({0} von 64 Zeichen) – bitte den ganzen Link kopieren', server: 'Server antwortet nicht richtig (Code {0})', free: 'frei', full: 'voll', many: 'viel frei', some: 'halb', few: 'wenig', capSub: 'Freie Stunden je Tag',
     st: { inquiry: 'Angefragt', approval: 'Freigabe', material: 'Material bestellt', production: 'In Produktion', done: 'Fertig', delivered: 'Abgeholt' } },
-  da: { overdue: 'Forfaldne', today: 'I dag', tomorrow: 'I morgen', later: 'Senere', nodate: 'Uden dato', unpaid: 'UBETALT', pcs: 'stk.', cap: 'Ledig kapacitet', status: 'Status', none: 'Ingen åbne ordrer', more: 'flere ordrer …', bad: 'Linket er ugyldigt', revoked: 'Linket er spærret – opret et nyt under Indstillinger', short: 'Linket er ufuldstændigt ({0} af 64 tegn) – kopiér hele linket', server: 'Serveren svarer ikke korrekt (kode {0})', free: 'ledig',
+  da: { overdue: 'Forfaldne', today: 'I dag', tomorrow: 'I morgen', later: 'Senere', nodate: 'Uden dato', unpaid: 'UBETALT', pcs: 'stk.', cap: 'Ledig kapacitet', status: 'Status', none: 'Ingen åbne ordrer', more: 'flere ordrer …', bad: 'Linket er ugyldigt', revoked: 'Linket er spærret – opret et nyt under Indstillinger', short: 'Linket er ufuldstændigt ({0} af 64 tegn) – kopiér hele linket', server: 'Serveren svarer ikke korrekt (kode {0})', free: 'ledig', full: 'fuld', many: 'meget ledigt', some: 'halvt', few: 'lidt', capSub: 'Ledige timer pr. dag',
     st: { inquiry: 'Forespurgt', approval: 'Godkendelse', material: 'Materiale bestilt', production: 'I produktion', done: 'Færdig', delivered: 'Afhentet' } }
 };
 const SCOL = { inquiry: '#9d94ad', approval: '#38bdf8', material: '#f59e0b', production: '#A855F7', done: '#34d399', delivered: '#6b6479' };
@@ -92,18 +92,32 @@ function draw() {
   if (hidden) main.push(h('div', { class: 'more' }, `+ ${hidden} ${t().more}`));
   $('main').replaceChildren(...(main.length ? main : [h('div', { class: 'empty-big' }, t().none)]));
 
-  // Kapazitaet
+  // Kapazitaet: EIN Raster fuer Kopfzeile und Zeilen, damit Tage und Stunden immer exakt untereinander stehen
   const days = data.capacity;
-  const head = h('div', { class: 'cap-head' }, h('div'), h('div', {}, days.map((d) => h('span', {}, new Date(d.date + 'T00:00:00').toLocaleDateString(loc(), { weekday: 'short' }).slice(0, 2)))));
-  const rowsCap = data.processes.map((p) => h('div', { class: 'cap-row' }, h('div', { class: 'n' }, h('span', { style: `color:${p.color}` }, '● '), lang === 'da' ? p.name_da : p.name_de),
-    h('div', { class: 'cap-days' }, days.map((d) => {
+  const nf = new Intl.NumberFormat(loc(), { maximumFractionDigits: 1 });
+  const grid = h('div', { class: 'cgrid' }, h('div', { class: 'ch' }));
+  for (const d of days) {
+    const dt = new Date(d.date + 'T00:00:00');
+    grid.append(h('div', { class: 'ch' + (d.date === data.today ? ' today' : '') + (d.weekend ? ' we' : '') },
+      h('b', {}, dt.toLocaleDateString(loc(), { weekday: 'short' }).replace('.', '').slice(0, 2)), h('small', {}, dt.getDate())));
+  }
+  for (const p of data.processes) {
+    grid.append(h('div', { class: 'cn' }, h('i', { class: 'cdot', style: `--c:${p.color}` }), lang === 'da' ? p.name_da : p.name_de));
+    for (const d of days) {
       const x = d.p[p.key];
-      if (!x || x.cap === 0) return h('div', { class: 'cap-d we' }, '–');
+      if (d.blocked !== null) { grid.append(h('div', { class: 'cc blk', title: d.blocked || '' }, '🚫')); continue; }
+      if (!x || x.cap === 0) { grid.append(h('div', { class: 'cc off' }, '–')); continue; }
       const fr = x.free / x.cap;
-      return h('div', { class: 'cap-d' + (x.free === 0 ? ' full' : ''), style: `--f:${fr}` }, x.free === 0 ? '0' : (x.free / 60).toFixed(x.free % 60 ? 1 : 0) + 'h');
-    }))));
+      const cls = x.free === 0 ? 'full' : fr < 0.3 ? 'low' : fr < 0.65 ? 'mid' : 'ok';
+      grid.append(h('div', { class: `cc ${cls}${d.partial ? ' part' : ''}`, style: `--u:${Math.min(100, Math.round(x.booked / x.cap * 100))}%` },
+        x.free === 0 ? t().full : nf.format(x.free / 60), h('i')));
+    }
+  }
+  const capLegend = h('div', { class: 'clegend' }, h('span', { class: 'ok' }, t().many), h('span', { class: 'mid' }, t().some), h('span', { class: 'low' }, t().few), h('span', { class: 'full' }, t().full));
   const legend = h('div', { class: 'legend' }, Object.entries(SCOL).slice(0, 5).map(([k, c]) => h('span', { style: `--c:${c}` }, h('i'), t().st[k])));
-  $('side').replaceChildren(h('div', { class: 'panel' }, h('h3', {}, t().cap), head, ...rowsCap), h('div', { class: 'panel' }, h('h3', {}, t().status), legend));
+  $('side').replaceChildren(
+    h('div', { class: 'panel' }, h('h3', {}, t().cap), h('div', { class: 'csub' }, t().capSub), grid, capLegend),
+    h('div', { class: 'panel' }, h('h3', {}, t().status), legend));
 }
 
 function clock() {
