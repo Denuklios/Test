@@ -7,9 +7,9 @@ const RAW_LEN = (qs.get('t') || '').trim().length;
 let lang = qs.get('l') === 'da' ? 'da' : 'de';
 const POLL_MS = 4000;
 const T = {
-  de: { overdue: 'Überfällig', today: 'Heute', tomorrow: 'Morgen', later: 'Später', nodate: 'Ohne Termin', unpaid: 'UNBEZAHLT', pcs: 'Stk.', cap: 'Freie Kapazität', status: 'Status', none: 'Keine offenen Aufträge', more: 'weitere Aufträge …', bad: 'Link ungültig', revoked: 'Link gesperrt – bitte in den Einstellungen einen neuen erzeugen', short: 'Link unvollständig ({0} von 64 Zeichen) – bitte den ganzen Link kopieren', server: 'Server antwortet nicht richtig (Code {0})', free: 'frei', full: 'voll', many: 'viel frei', some: 'halb', few: 'wenig', capSub: 'Freie Stunden je Tag',
+  de: { overdue: 'Überfällig', today: 'Heute', tomorrow: 'Morgen', later: 'Später', nodate: 'Ohne Termin', unpaid: 'UNBEZAHLT', pcs: 'Stk.', cap: 'Freie Kapazität', status: 'Status', none: 'Keine offenen Aufträge', more: 'weitere Aufträge …', bad: 'Link ungültig', revoked: 'Link gesperrt – bitte in den Einstellungen einen neuen erzeugen', short: 'Link unvollständig ({0} von 64 Zeichen) – bitte den ganzen Link kopieren', server: 'Server antwortet nicht richtig (Code {0})', free: 'frei', todayShort: 'Heute', full: 'voll', many: 'viel frei', some: 'halb', few: 'wenig', capSub: 'Freie Stunden je Tag',
     st: { inquiry: 'Angefragt', approval: 'Freigabe', material: 'Material bestellt', production: 'In Produktion', done: 'Fertig', delivered: 'Abgeholt' } },
-  da: { overdue: 'Forfaldne', today: 'I dag', tomorrow: 'I morgen', later: 'Senere', nodate: 'Uden dato', unpaid: 'UBETALT', pcs: 'stk.', cap: 'Ledig kapacitet', status: 'Status', none: 'Ingen åbne ordrer', more: 'flere ordrer …', bad: 'Linket er ugyldigt', revoked: 'Linket er spærret – opret et nyt under Indstillinger', short: 'Linket er ufuldstændigt ({0} af 64 tegn) – kopiér hele linket', server: 'Serveren svarer ikke korrekt (kode {0})', free: 'ledig', full: 'fuld', many: 'meget ledigt', some: 'halvt', few: 'lidt', capSub: 'Ledige timer pr. dag',
+  da: { overdue: 'Forfaldne', today: 'I dag', tomorrow: 'I morgen', later: 'Senere', nodate: 'Uden dato', unpaid: 'UBETALT', pcs: 'stk.', cap: 'Ledig kapacitet', status: 'Status', none: 'Ingen åbne ordrer', more: 'flere ordrer …', bad: 'Linket er ugyldigt', revoked: 'Linket er spærret – opret et nyt under Indstillinger', short: 'Linket er ufuldstændigt ({0} af 64 tegn) – kopiér hele linket', server: 'Serveren svarer ikke korrekt (kode {0})', free: 'ledig', todayShort: 'I dag', full: 'fuld', many: 'meget ledigt', some: 'halvt', few: 'lidt', capSub: 'Ledige timer pr. dag',
     st: { inquiry: 'Forespurgt', approval: 'Godkendelse', material: 'Materiale bestilt', production: 'I produktion', done: 'Færdig', delivered: 'Afhentet' } }
 };
 const SCOL = { inquiry: '#9d94ad', approval: '#38bdf8', material: '#f59e0b', production: '#A855F7', done: '#34d399', delivered: '#6b6479' };
@@ -58,6 +58,47 @@ function wk(o) {
   return data.workers.length > 1 && w ? h('span', { class: 'wchip', style: `--wc:${w.color}` }, h('i'), w.name) : null;
 }
 
+
+const shortDate = (d) => new Date(d + 'T00:00:00').toLocaleDateString(loc(), { weekday: 'short', day: '2-digit', month: '2-digit' });
+
+// Eine Auftragszeile: Foto, Titel, Zeit/Verfahren/Person, Kunde und Menge
+function orderRow(o, g, pm) {
+  const planTxt = o.start
+    ? [o.plan_date && o.plan_date !== data.today ? shortDate(o.plan_date) : t().todayShort, `${o.start}${o.end ? '–' + o.end : ''}`, o.finish_date && o.plan_date && o.finish_date > o.plan_date ? '→ ' + shortDate(o.finish_date) : ''].filter(Boolean).join(' ')
+    : null;
+  const procChips = o.processes.map((k) => pm[k] ? h('span', { class: 'pc', style: `--c:${pm[k].color}` }, h('i'), lang === 'da' ? pm[k].name_da : pm[k].name_de) : null);
+  const dur = o.total_min ? h('span', { class: 'dur' }, `⏱ ${Math.floor(o.total_min / 60)}:${String(o.total_min % 60).padStart(2, '0')} h`) : null;
+  const line = [planTxt ? h('span', { class: 'tm' }, '🕘 ' + planTxt) : null, ...procChips, dur, wk(o)].filter(Boolean);
+  return h('div', { class: 'ord' + (g.late ? ' late' : ''), style: `--sc:${SCOL[o.status]}` },
+    h('div', { class: 'sc' }),
+    h('div', { class: 'main' },
+      o.thumb ? h('img', { class: 'th', src: `../display_api.php?t=${TOKEN}&file=${o.thumb}`, alt: '' }) : null,
+      h('div', { class: 'txt' },
+        h('div', { class: 't' }, o.title, h('span', { class: 'who' }, ` ${o.customer} · ${o.qty} ${t().pcs}`)),
+        line.length ? h('div', { class: 'c' }, ...line) : null)),
+    h('div', { class: 'r' }, h('span', { class: 'pill', style: `--c:${SCOL[o.status]}` }, t().st[o.status]), o.unpaid && h('span', { class: 'unpaid' }, t().unpaid)));
+}
+
+// Zeilen entfernen, die nicht mehr auf den Bildschirm passen; dafuer "+ n weitere" zeigen
+function fitRows() {
+  const m = $('main');
+  const rows = [...m.querySelectorAll('.ord')];
+  let hidden = 0;
+  const over = () => m.scrollHeight > m.clientHeight + 1;
+  if (!over()) return;
+  const more = h('div', { class: 'more' }, '');
+  m.append(more);
+  while (over() && rows.length) {
+    const r = rows.pop(); hidden++;
+    const prev = r.previousElementSibling;
+    r.remove();
+    if (prev && prev.classList.contains('grp') && !(prev.nextElementSibling && prev.nextElementSibling.classList.contains('ord'))) prev.remove();
+    more.textContent = `+ ${hidden} ${t().more}`;
+  }
+  const tail = [...m.querySelectorAll('.grp')].pop();
+  if (tail && tail.nextElementSibling === more) tail.remove();
+}
+
 function dateLabel(d, today) {
   if (!d) return t().nodate;
   const diff = Math.round((new Date(d + 'T00:00:00') - new Date(today + 'T00:00:00')) / 864e5);
@@ -74,7 +115,7 @@ function draw() {
   lastJson = json;
   const pm = Object.fromEntries(data.processes.map((p) => [p.key, p]));
   const groups = [];
-  const LIMIT = 9;
+  const LIMIT = 30;
   let shown = 0, hidden = 0;
   const main = [];
   for (const o of data.orders) {
@@ -89,15 +130,12 @@ function draw() {
     for (const o of g.items) {
       if (shown >= LIMIT) { hidden++; continue; }
       shown++;
-      rows.push(h('div', { class: 'ord' + (g.late ? ' late' : ''), style: `--sc:${SCOL[o.status]}` },
-        h('div', { class: 'sc' }),
-        h('div', { style: 'min-width:0' }, h('div', { class: 't' }, o.title), h('div', { class: 'c' }, o.start ? h('span', { class: 'tm' }, '🕘 ' + o.start) : null, wk(o), `${o.customer} · ${o.qty} ${t().pcs}`, h('span', { class: 'dots' }, o.processes.map((k) => h('i', { style: `--c:${pm[k] ? pm[k].color : '#A855F7'}`, title: pm[k] ? (lang === 'da' ? pm[k].name_da : pm[k].name_de) : k }))))),
-        h('div', { class: 'r' }, h('span', { class: 'pill', style: `--c:${SCOL[o.status]}` }, t().st[o.status]), o.unpaid && h('span', { class: 'unpaid' }, t().unpaid))));
+      rows.push(orderRow(o, g, pm));
     }
     if (rows.length) main.push(h('div', { class: 'grp' + (g.late ? ' late' : '') }, g.label), ...rows);
   }
-  if (hidden) main.push(h('div', { class: 'more' }, `+ ${hidden} ${t().more}`));
   $('main').replaceChildren(...(main.length ? main : [h('div', { class: 'empty-big' }, t().none)]));
+  fitRows();
 
   // Kapazitaet: EIN Raster fuer Kopfzeile und Zeilen, damit Tage und Stunden immer exakt untereinander stehen
   const days = data.capacity;

@@ -117,6 +117,10 @@ try {
     const full = await (await fetch(`${B}/display_api.php?t=${token}&full=1`)).json();
     assert.equal(full.orders.length, 1); assert.equal(full.capacity.length, 7);
     const o = full.orders[0]; assert.equal('price' in o, false); assert.equal('email' in o, false); assert.equal(o.unpaid, false);
+    assert.equal(o.worker_id, 1); assert.equal(o.total_min, 300); assert.equal(o.start, '08:00'); assert.equal(o.end, '13:00'); assert.ok(o.thumb > 0, 'Foto-ID für den Monitor'); assert.equal(full.workers.length, 1);
+    const tr = await fetch(`${B}/display_api.php?t=${token}&file=${o.thumb}`); assert.equal(tr.status, 200); assert.equal(tr.headers.get('content-type'), 'image/png');
+    assert.equal((await fetch(`${B}/display_api.php?t=${token}&file=99999`)).status, 404);
+    assert.equal((await fetch(`${B}/display_api.php?t=${'c'.repeat(64)}&file=${o.thumb}`)).status, 403, 'ohne gültigen Token kein Foto')
     assert.equal((await fetch(`${B}/display_api.php?t=${'a'.repeat(64)}`)).status, 403);
     const list = (await call('me')).j.tokens; assert.equal(list.length, 1); assert.equal(JSON.stringify(list).includes(token), false);
     await call('token_revoke', { body: { id: list[0].id } });

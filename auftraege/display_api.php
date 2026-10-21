@@ -34,6 +34,26 @@ if (!$row['last_used_at'] || strtotime($row['last_used_at'] . ' UTC') < time() -
     $db->prepare("UPDATE display_tokens SET last_used_at = datetime('now') WHERE id = ?")->execute([$row['id']]);
 }
 
+// Vorschaubild eines Fotos: nur fuer Bilder von Auftraegen, die nicht geloescht und nicht abgeholt sind
+if (isset($_GET['file'])) {
+    require __DIR__ . '/inc/thumb.php';
+    $fs = $db->prepare("SELECT f.* FROM order_files f JOIN orders o ON o.id = f.order_id WHERE f.id = ? AND o.deleted_at IS NULL AND o.status <> 'delivered' AND f.mime LIKE 'image/%'");
+    $fs->execute([(int)$_GET['file']]);
+    $f = $fs->fetch();
+    $dir = rtrim((string)wf_cfg('data_dir'), '/') . '/uploads';
+    $t = $f ? wf_thumb($dir, $f, $dir . '/' . $f['stored_name']) : null;
+    if (!$t) {
+        http_response_code(404);
+        exit;
+    }
+    header('Content-Type: ' . $t[1]);
+    header('Content-Length: ' . filesize($t[0]));
+    header('Cache-Control: private, max-age=86400');
+    header('X-Content-Type-Options: nosniff');
+    readfile($t[0]);
+    exit;
+}
+
 if (isset($_GET['full'])) {
     wf_json(['ok' => true] + wf_display_payload());
 }

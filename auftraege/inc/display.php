@@ -11,7 +11,9 @@ function wf_display_payload(int $days = 10): array
     $to = date('Y-m-d', strtotime("+$days days"));
 
     $st = $db->prepare("
-      SELECT o.id, o.nr, o.title, o.qty, o.status, o.pay_status, o.due_date, o.plan_date, o.start_time AS start, o.worker_id, o.total_min,
+      SELECT o.id, o.nr, o.title, o.qty, o.status, o.pay_status, o.due_date, o.plan_date, o.finish_date, o.start_time AS start, o.worker_id, o.total_min,
+             (SELECT minutes FROM order_days WHERE order_id = o.id ORDER BY date, start_time LIMIT 1) AS first_min,
+             (SELECT id FROM order_files WHERE order_id = o.id AND mime LIKE 'image/%' ORDER BY id LIMIT 1) AS thumb,
              c.name AS customer
       FROM orders o JOIN customers c ON c.id = o.customer_id
       WHERE o.deleted_at IS NULL AND o.status <> 'delivered'
@@ -30,7 +32,9 @@ function wf_display_payload(int $days = 10): array
         $o['unpaid'] = $o['pay_status'] !== 'paid';
         $o['worker_id'] = (int)$o['worker_id'];
         $o['total_min'] = (int)$o['total_min'];
-        unset($o['id']);
+        $o['end'] = $o['start'] && $o['first_min'] ? wf_min_to_hhmm(wf_hhmm_to_min($o['start']) + (int)$o['first_min']) : null;
+        $o['thumb'] = $o['thumb'] ? (int)$o['thumb'] : null;
+        unset($o['id'], $o['first_min']);
     }
     unset($o);
 
