@@ -140,7 +140,7 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,va
 .cal{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
 .cal .dow{font-size:.68rem;letter-spacing:.14em;text-transform:uppercase;color:var(--muted);text-align:center;padding:4px 0}
 .day{min-height:92px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:6px;cursor:pointer;position:relative;overflow:hidden}
-.day.we{opacity:.45}.day.today{border-color:var(--p2);box-shadow:0 0 0 1px var(--p2)}
+.day.we{background:#0d0b13}.day.past{opacity:.4}.day.blocked{background:repeating-linear-gradient(135deg,#150f1d,#150f1d 6px,#1d1428 6px,#1d1428 12px);border-color:rgba(248,113,113,.4)}.day .blk{font-size:.65rem;color:var(--bad);margin-top:6px;line-height:1.2;word-break:break-word}.day.today{border-color:var(--p2);box-shadow:0 0 0 1px var(--p2)}
 .day .dn{font-family:var(--head);font-size:1.15rem;font-weight:600}
 .day .cnt{position:absolute;top:6px;right:8px;font-size:.7rem;color:var(--muted)}
 .bars{display:grid;gap:3px;margin-top:6px}
@@ -156,3 +156,10 @@ select{appearance:none;background-image:linear-gradient(45deg,transparent 50%,va
 .empty{text-align:center;color:var(--muted);padding:40px 10px;font-family:var(--head);font-size:1.3rem;font-style:italic}
 table.t{width:100%;border-collapse:collapse;font-size:.9rem}table.t td,table.t th{padding:8px 6px;border-bottom:1px solid var(--line);text-align:left}
 .token-box{word-break:break-all;background:#0c0a11;border:1px dashed var(--p2);border-radius:12px;padding:12px;font-size:.85rem}
+
+/* Tageswahl */
+.pickbtn{flex:1;justify-content:flex-start;min-height:46px;background:#0c0a11;border-color:var(--line);font-weight:400}
+.mgrid{display:grid;grid-template-columns:repeat(7,1fr);gap:6px}
+.mgrid .dow{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:center}
+.dayb{aspect-ratio:1;border-radius:12px;border:1px solid var(--line-strong);background:var(--surface3);font-family:var(--head);font-size:1.25rem;font-weight:600;cursor:pointer}
+.dayb:hover,.dayb.sel{background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;border-color:transparent}

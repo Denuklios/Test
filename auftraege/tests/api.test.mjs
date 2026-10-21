@@ -92,16 +92,61 @@ try {
     const booked = r.j.days.reduce((s, d) => s + d.p.stick.booked, 0); assert.equal(booked, 240);
     assert.equal(r.j.orders.length, 1);
   });
-  await ok('Terminvorschlag: Wochenenden übersprungen, volle Tage ausgelassen, eigener Auftrag zählt nicht doppelt', async () => {
+  const iso = (n) => new Date(Date.now() + n * 864e5).toISOString().slice(0, 10);
+  const dow = (d) => new Date(d + 'T00:00:00').getDay();
+  await ok('Terminvorschlag: Wochenende zählt mit 5 h, volle Tage fehlen, eigener Auftrag zählt nicht doppelt', async () => {
     const r = await call('suggest', { params: { p: '1:60' } });
-    assert.ok(r.j.dates.length >= 3); assert.ok(r.j.dates.every((d) => ![0, 6].includes(new Date(d + 'T00:00:00').getDay())));
-    // Sticken ist am Abgabetag mit 240 min belegt; 300 min passen dort nicht (480-240=240), also darf der Tag fehlen.
-    const due = new Date(Date.now() + 3 * 864e5).toISOString().slice(0, 10);
-    const big = await call('suggest', { params: { p: '1:300' } }); assert.equal(big.j.dates.includes(due), false);
-    const own = await call('suggest', { params: { p: '1:300', exclude: oid } });
-    if (new Date(due + 'T00:00:00').getDay() % 6 !== 0) assert.equal(own.j.dates.includes(due), true);
+    assert.ok(r.j.dates.length >= 3);
+    const due = iso(3);
+    const big = await call('suggest', { params: { p: '1:300' } }); assert.equal(big.j.dates.includes(due), dow(due) % 6 === 0 && false);
+    const own = await call('suggest', { params: { p: '1:300', exclude: oid } }); assert.equal(own.j.dates.includes(due), true);
     assert.equal((await call('suggest', { params: { p: '' } })).j.error, 'no_processes');
-    const long = await call('suggest', { params: { p: '1:900' } }); assert.equal(long.j.split, true); assert.equal(long.j.dates.includes(due), false);
+    // Wochenende: 300 min passen (5 h), 301 min nicht
+    const all = (await call('available', { params: { p: '3:300' } })).j.dates;
+    assert.ok(all.some((d) => dow(d) === 6) && all.some((d) => dow(d) === 0), 'Samstag und Sonntag sind buchbar');
+    const over = (await call('available', { params: { p: '3:301' } })).j; assert.ok(over.dates.every((d) => ![0, 6].includes(dow(d))) && over.split === false);
+    const multi = (await call('available', { params: { p: '3:900' } })).j; assert.equal(multi.split, true); assert.ok(multi.dates.some((d) => dow(d) === 6));
+    // Kalender: Wochenende hat 300 min Kapazität
+    const cal = (await call('calendar', { params: { from: iso(0), to: iso(10) } })).j.days;
+    assert.ok(cal.filter((d) => d.weekend).every((d) => d.p.stick.cap === 300)); assert.ok(cal.filter((d) => !d.weekend).every((d) => d.p.stick.cap === 480));
+  });
+  await ok('Verfügbarkeit: keine vergangenen Tage, heute möglich', async () => {
+    const r = (await call('available', { params: { p: '3:60', from: '2020-01-01' } })).j.dates;
+    assert.ok(r.length > 0 && r.every((d) => d >= iso(0))); assert.equal(r[0], iso(0));
+  });
+  let blockId;
+  await ok('Sperrtage: anlegen, fallen aus Verfügbarkeit/Vorschlag/Kalender, Auftrag darauf abgelehnt', async () => {
+    const d1 = iso(5), d2 = iso(7);
+    assert.equal((await call('blocked_save', { body: { date_from: iso(-3), date_to: iso(-2), reason: 'alt' } })).j.error, 'date_past');
+    assert.equal((await call('blocked_save', { body: { date_from: d2, date_to: d1 } })).j.error, 'bad_date_to');
+    assert.equal((await call('blocked_save', { body: { date_from: d1, date_to: d2, reason: 'Urlaub' } })).status, 200);
+    const me = (await call('me')).j; assert.equal(me.blocked.length, 1); blockId = me.blocked[0].id;
+    for (const a of ['available', 'suggest']) {
+      const dates = (await call(a, { params: { p: '3:30' } })).j.dates; assert.ok(![iso(5), iso(6), iso(7)].some((d) => dates.includes(d)), a);
+    }
+    assert.equal((await call('available', { params: { mode: 'open' } })).j.dates.includes(iso(6)), false);
+    const day = (await call('calendar', { params: { from: iso(5), to: iso(5) } })).j.days[0]; assert.equal(day.blocked, 'Urlaub'); assert.equal(day.p.stick.cap, 0);
+    const base = { customer_id: cid, title: 'x', qty: 1, price: 1, currency: 'DKK' };
+    assert.equal((await call('order_save', { body: { ...base, due_date: iso(6) } })).j.error, 'date_blocked');
+    assert.equal((await call('order_save', { body: { ...base, due_date: iso(-1) } })).j.error, 'date_past');
+    assert.equal((await call('order_save', { body: { ...base, plan_date: iso(9), due_date: iso(8) } })).j.error, 'due_before_plan');
+  });
+  await ok('Sperrtag löschen gibt die Tage wieder frei; Änderungsnummer steigt', async () => {
+    const v1 = (await call('version')).j.version;
+    await call('blocked_delete', { body: { id: blockId } });
+    assert.ok((await call('version')).j.version > v1);
+    assert.ok((await call('available', { params: { p: '3:30' } })).j.dates.includes(iso(6)));
+  });
+  await ok('Wochenend-Stunden einstellbar (0 = Wochenende zu)', async () => {
+    assert.equal((await call('settings_save', { body: { weekend_min: 5000 } })).j.error, 'bad_weekend_min');
+    await call('settings_save', { body: { weekend_min: 0 } });
+    assert.ok((await call('available', { params: { p: '3:30' } })).j.dates.every((d) => ![0, 6].includes(dow(d))));
+    await call('settings_save', { body: { weekend_min: 300 } });
+    assert.equal((await call('me')).j.settings.weekend_min, 300);
+  });
+  await ok('Bestehender Auftrag mit altem Datum bleibt bearbeitbar (Datum unverändert)', async () => {
+    const o = (await call('order', { params: { id: oid } })).j.order;
+    const r = await call('order_save', { body: { ...o, processes: o.processes, notes: 'geändert' } }); assert.equal(r.status, 200);
   });
   await ok('Kunde: Historie, Export, Anonymisierung', async () => {
     assert.equal((await call('customer', { params: { id: cid } })).j.customer.orders.length, 1);
@@ -143,6 +188,17 @@ try {
   await ok('Backup lädt gültige SQLite-Datei', async () => {
     const r = await fetch(`${B}/api.php?a=backup`, { headers: { cookie } }); const b = Buffer.from(await r.arrayBuffer());
     assert.equal(b.subarray(0, 15).toString(), 'SQLite format 3');
+  });
+  await ok('Datenbank-Update v1 → v2 behält Daten, ergänzt Sperrtage und Wochenende', async () => {
+    const { execFileSync } = await import('node:child_process');
+    const code = `<?php require '${root}/inc/schema.php';
+      $db = new PDO('sqlite::memory:'); $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+      $db->exec('CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)'); wf_migrate_v1($db);
+      $db->exec("INSERT INTO customers (name) VALUES ('Alt')");
+      echo $db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn(), ',';
+      wf_migrate($db); wf_migrate($db);
+      echo $db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn(), ',', $db->query("SELECT value FROM meta WHERE key='weekend_min'")->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM customers')->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM blocked_days')->fetchColumn();`;
+    assert.equal(execFileSync('php', ['-r', code.replace('<?php', '')]).toString(), '1,2,300,1,0');
   });
 } finally {
   srv.kill(); rmSync(data, { recursive: true, force: true });

@@ -95,6 +95,8 @@ try {
                 'processes' => $db->query('SELECT * FROM process_types ORDER BY sort')->fetchAll(),
                 'users' => $db->query('SELECT id, name, wf_admin_id, active FROM users ORDER BY id')->fetchAll(),
                 'tokens' => $tokens,
+                'blocked' => $db->query("SELECT id, date_from, date_to, reason FROM blocked_days WHERE date_to >= date('now','localtime') ORDER BY date_from")->fetchAll(),
+                'settings' => ['weekend_min' => wf_weekend_min()],
                 'version' => wf_version(),
             ]);
         }
@@ -194,6 +196,20 @@ try {
             }
             $due = date_or_null($in, 'due_date');
             $plan = date_or_null($in, 'plan_date');
+            $oldRow = $id ? order_row($db, $id) : null;
+            foreach (['due_date' => $due, 'plan_date' => $plan] as $field => $val) {
+                if ($val !== null && (!$oldRow || ($oldRow[$field] ?? null) !== $val)) {
+                    if ($val < date('Y-m-d')) {
+                        wf_fail('date_past', 400, ['field' => $field]);
+                    }
+                    if (wf_blocked_reason($val) !== null) {
+                        wf_fail('date_blocked', 400, ['field' => $field]);
+                    }
+                }
+            }
+            if ($due !== null && $plan !== null && $due < $plan) {
+                wf_fail('due_before_plan');
+            }
             $procs = [];
             foreach ((array)($in['processes'] ?? []) as $pr) {
                 $pid = (int)($pr['process_id'] ?? 0);
@@ -428,9 +444,9 @@ try {
             wf_json(['ok' => true, 'days' => wf_capacity($from, $to), 'orders' => $st->fetchAll()]);
         }
 
-        // ---------- Terminvorschlag ----------
-        // Fruehestes Datum, an dem alle gewaehlten Verfahren in ihre freie Tageskapazitaet passen.
-        case 'suggest': {
+        // ---------- Terminvorschlag / Verfuegbarkeit ----------
+        case 'suggest':
+        case 'available': {
             $need = [];
             foreach (explode(',', (string)($_GET['p'] ?? '')) as $part) {
                 [$pid, $min] = array_pad(explode(':', $part), 2, '0');
@@ -438,50 +454,58 @@ try {
                     $need[(int)$pid] = max(0, min(100000, (int)$min));
                 }
             }
-            if (!$need) {
+            if ($a === 'suggest' && !$need) {
                 wf_fail('no_processes');
             }
             $from = (string)($_GET['from'] ?? '');
             if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $from) || $from < date('Y-m-d')) {
                 $from = date('Y-m-d');
             }
-            $to = date('Y-m-d', strtotime($from . ' +60 days'));
-            $keys = [];
-            foreach ($db->query('SELECT id, key FROM process_types') as $r) {
-                $keys[(int)$r['id']] = $r['key'];
-            }
-            $days = wf_capacity($from, $to, (int)($_GET['exclude'] ?? 0));
-            $out = [];
+            // mode=open: nur nicht gesperrte Tage (Abgabetermin nach feststehendem Produktionstag), keine Kapazitaetspruefung
+            $open = ($_GET['mode'] ?? '') === 'open';
+            $to = date('Y-m-d', strtotime($from . ($a === 'suggest' ? ' +60 days' : ' +180 days')));
             $split = false;
-            foreach ($days as $d) {
-                if ($d['weekend']) {
-                    continue;
-                }
-                $fits = true;
-                foreach ($need as $pid => $min) {
-                    $x = $d['p'][$keys[$pid] ?? ''] ?? null;
-                    if (!$x || $x['cap'] <= 0) {
-                        $fits = false;
-                        break;
-                    }
-                    // Dauert laenger als ein Tag: nur ein komplett freier Tag kommt in Frage.
-                    $needMin = min($min, $x['cap']);
-                    if ($min > $x['cap']) {
-                        $split = true;
-                    }
-                    if ($x['free'] < $needMin) {
-                        $fits = false;
-                        break;
-                    }
-                }
-                if ($fits) {
-                    $out[] = $d['date'];
-                    if (count($out) >= 4) {
-                        break;
-                    }
-                }
+            $dates = wf_free_days($open ? [] : $need, $from, $to, (int)($_GET['exclude'] ?? 0), $split);
+            if ($a === 'suggest') {
+                $dates = array_slice($dates, 0, 4);
             }
-            wf_json(['ok' => true, 'dates' => $out, 'split' => $split]);
+            wf_json(['ok' => true, 'dates' => $dates, 'split' => $split]);
+        }
+
+        case 'blocked_save': {
+            need_post();
+            $f = date_or_null($in, 'date_from');
+            $t = date_or_null($in, 'date_to') ?? $f;
+            if (!$f) {
+                wf_fail('bad_date_from');
+            }
+            if ($t < $f) {
+                wf_fail('bad_date_to');
+            }
+            if ($t < date('Y-m-d')) {
+                wf_fail('date_past');
+            }
+            $db->prepare('INSERT INTO blocked_days (date_from, date_to, reason) VALUES (?,?,?)')->execute([$f, $t, s($in, 'reason', 100)]);
+            wf_touch();
+            wf_json(['ok' => true]);
+        }
+
+        case 'blocked_delete': {
+            need_post();
+            $db->prepare('DELETE FROM blocked_days WHERE id = ?')->execute([(int)($in['id'] ?? 0)]);
+            wf_touch();
+            wf_json(['ok' => true]);
+        }
+
+        case 'settings_save': {
+            need_post();
+            $wk = (int)($in['weekend_min'] ?? 300);
+            if ($wk < 0 || $wk > 1440) {
+                wf_fail('bad_weekend_min');
+            }
+            $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('weekend_min', ?)")->execute([(string)$wk]);
+            wf_touch();
+            wf_json(['ok' => true]);
         }
 
         // ---------- Einstellungen ----------

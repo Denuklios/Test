@@ -189,6 +189,58 @@ function logText(w) {
   return t('log_' + w);
 }
 
+// ---------- Tageswahl: zeigt nur Tage, die wirklich moeglich sind ----------
+// fetchDays() liefert { dates: ['YYYY-MM-DD', ...] }. Alles andere (vergangen, gesperrt, voll) wird gar nicht angezeigt.
+function dayPicker(initial, fetchDays) {
+  let value = initial || '';
+  const btn = h('button', { type: 'button', class: 'btn pickbtn', onclick: () => open() });
+  const clear = h('button', { type: 'button', class: 'btn small', 'aria-label': t('pick_clear'), onclick: () => set('') }, '✕');
+  const root = h('div', { class: 'row', style: 'flex-wrap:nowrap' }, btn, clear);
+  function set(v) {
+    value = v || '';
+    btn.textContent = value ? '📅 ' + dfmt(value) : '📅 ' + t('pick_day');
+    clear.classList.toggle('hidden', !value);
+  }
+  Object.defineProperty(root, 'value', { get: () => value, set });
+  set(value);
+  async function open() {
+    let r;
+    try { r = await fetchDays(); } catch (e) { toast(e.message); return; }
+    const avail = new Set(r.dates);
+    if (value) avail.add(value); // bereits gespeicherter Tag bleibt sichtbar
+    const sorted = [...avail].sort();
+    let month = (value || sorted[0] || today()).slice(0, 7);
+    const first = today().slice(0, 7);
+    const modal = h('div', { class: 'modal', onclick: (e) => { if (e.target === modal) modal.remove(); } });
+    const draw = () => {
+      const [y, m] = month.split('-').map(Number);
+      const lead = (new Date(y, m - 1, 1).getDay() + 6) % 7;
+      const n = new Date(y, m, 0).getDate();
+      const cells = [...Array(lead)].map(() => h('div'));
+      let any = false;
+      for (let d = 1; d <= n; d++) {
+        const iso = `${month}-${String(d).padStart(2, '0')}`;
+        if (avail.has(iso)) {
+          any = true;
+          cells.push(h('button', { type: 'button', class: 'dayb' + (iso === value ? ' sel' : ''), onclick: () => { set(iso); modal.remove(); } }, d));
+        } else cells.push(h('div'));
+      }
+      const label = new Date(y, m - 1, 1).toLocaleDateString(lang === 'da' ? 'da-DK' : 'de-DE', { month: 'long', year: 'numeric' });
+      const dows = [...Array(7)].map((_, i) => new Date(2024, 0, 1 + i).toLocaleDateString(lang === 'da' ? 'da-DK' : 'de-DE', { weekday: 'short' }));
+      const shift = (k) => { const dt = new Date(y, m - 1 + k, 1); month = `${dt.getFullYear()}-${String(dt.getMonth() + 1).padStart(2, '0')}`; draw(); };
+      modal.replaceChildren(h('div', { class: 'sheet' },
+        h('div', { class: 'row' }, h('button', { type: 'button', class: 'btn small', disabled: month <= first, onclick: () => shift(-1) }, '←'), h('h2', { style: 'flex:1;text-align:center' }, label), h('button', { type: 'button', class: 'btn small', onclick: () => shift(1) }, '→')),
+        h('p', { class: 'muted', style: 'font-size:.85rem;margin:6px 0' }, t('pick_hint')),
+        h('div', { class: 'mgrid' }, dows.map((x) => h('div', { class: 'dow' }, x)), cells),
+        !any && h('p', { class: 'muted' }, t('pick_none')),
+        h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { type: 'button', class: 'btn small', onclick: () => modal.remove() }, t('cancel')))));
+    };
+    draw();
+    document.body.append(modal);
+  }
+  return root;
+}
+
 // ---------- Auftrag Formular (neu / bearbeiten) ----------
 route(/^\/new$/, () => orderForm(null));
 route(/^\/new\/customer\/(\d+)$/, (cid) => orderForm(null, +cid));
@@ -239,6 +291,12 @@ async function orderForm(o, presetCustomer) {
   }));
 
   // Terminvorschlag: naechste freie Tage je nach Verfahren, Minuten und Kapazitaet
+  const needParam = () => [...procBox.children].map((r) => r._get()).filter(Boolean).map((c) => `${c.process_id}:${c.minutes}`).join(',');
+  const planPicker = dayPicker(D.plan_date, () => api('available', { params: { p: needParam(), exclude: D.id || 0 } }));
+  // Abgabetermin: mit festem Produktionstag ab diesem Tag (nicht gesperrt), sonst nur Tage mit freier Kapazitaet
+  const duePicker = dayPicker(D.due_date, () => F.plan_date.value
+    ? api('available', { params: { mode: 'open', from: F.plan_date.value } })
+    : api('available', { params: { p: needParam(), exclude: D.id || 0 } }));
   const sugOut = h('div', { class: 'row', style: 'margin-top:8px' });
   const sugBtn = h('button', { class: 'btn small', type: 'button', onclick: async () => {
     const chosen = [...procBox.children].map((r) => r._get()).filter(Boolean);
@@ -264,7 +322,7 @@ async function orderForm(o, presetCustomer) {
   const depRow = field('deposit', t('deposit'), inp('deposit', 'number', { step: '0.01', min: 0, inputmode: 'decimal' }));
   more.append(
     field('article', t('article'), inp('article')),
-    h('div', { class: 'grid c2' }, field('plan_date', t('plan_date'), inp('plan_date', 'date')), field('status', t('status'), h('select', {}, me.statuses.map((s) => h('option', { value: s, selected: s === D.status }, t('st_' + s)))))),
+    h('div', { class: 'grid c2' }, field('plan_date', t('plan_date'), planPicker), field('status', t('status'), h('select', {}, me.statuses.map((s) => h('option', { value: s, selected: s === D.status }, t('st_' + s)))))),
     payRow, depRow,
     field('description', t('description'), h('textarea', {}, D.description)),
     field('notes', t('notes'), h('textarea', {}, D.notes)));
@@ -290,7 +348,7 @@ async function orderForm(o, presetCustomer) {
     h('div', { class: 'card grid' },
       h('div', {}, h('label', {}, t('customer')), custBox),
       field('title', t('title'), inp('title', 'text', { placeholder: t('title_ph'), maxlength: 200 })),
-      h('div', { class: 'grid c2' }, field('qty', t('qty'), inp('qty', 'number', { min: 1, inputmode: 'numeric' })), field('due_date', t('due'), inp('due_date', 'date'))),
+      h('div', { class: 'grid c2' }, field('qty', t('qty'), inp('qty', 'number', { min: 1, inputmode: 'numeric' })), field('due_date', t('due'), duePicker)),
       h('div', {}, h('label', {}, t('processes')), procBox, sugBtn, sugOut),
       isNew && h('button', { class: 'btn small', type: 'button', onclick: (e) => { moreWrap.classList.toggle('hidden'); e.currentTarget.textContent = moreWrap.classList.contains('hidden') ? t('more_details') : t('less_details'); } }, t('more_details')),
       moreWrap, err,
@@ -357,8 +415,9 @@ route(/^\/calendar$/, async () => {
       const pct = x.booked ? Math.min(100, Math.round(x.booked / x.cap * 100)) : 0;
       return h('div', { class: 'bar' + (x.booked >= x.cap ? ' full' : ''), style: `--c:${p.color};--w:${pct}%` }, h('i'));
     });
-    return h('div', { class: 'day' + (d.weekend ? ' we' : '') + (d.date === today() ? ' today' : ''), onclick: () => dayModal(d, byDay[d.date] || [], act) },
-      h('div', { class: 'dn' }, +d.date.slice(8)), n > 0 && h('div', { class: 'cnt' }, `${n}×`), h('div', { class: 'bars' }, bars));
+    return h('div', { class: 'day' + (d.weekend ? ' we' : '') + (d.blocked !== null ? ' blocked' : '') + (d.date === today() ? ' today' : '') + (d.date < today() ? ' past' : ''), onclick: () => dayModal(d, byDay[d.date] || [], act) },
+      h('div', { class: 'dn' }, +d.date.slice(8)), n > 0 && h('div', { class: 'cnt' }, `${n}×`),
+      d.blocked !== null ? h('div', { class: 'blk' }, '🚫 ' + (d.blocked || t('blocked_day'))) : h('div', { class: 'bars' }, bars));
   });
   view().replaceChildren(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('capacity')), h('h1', {}, t('cal_h1_a'), ' ', h('em', {}, t('cal_h1_b')))),
@@ -370,6 +429,7 @@ function dayModal(d, orders, act) {
   const close = () => m.remove();
   const m = h('div', { class: 'modal', onclick: (e) => e.target === m && close() },
     h('div', { class: 'sheet' }, h('div', { class: 'row' }, h('h2', {}, dfmt(d.date)), h('span', { class: 'spacer' }), h('button', { class: 'btn small', onclick: close }, '✕')),
+      d.blocked !== null && h('p', { class: 'err', style: 'margin:10px 0 0' }, '🚫 ' + t('blocked_day') + (d.blocked ? ': ' + d.blocked : '')),
       h('h3', { style: 'margin:14px 0 6px' }, t('free_capacity')),
       act.map((p) => { const x = d.p[p.key]; return h('div', { class: 'free' }, h('span', {}, h('i', { class: 'dot', style: `--c:${p.color}` }), ' ' + pname(p)), h('span', {}, x.cap ? `${hm(x.free)} / ${hm(x.cap)}` : '—')); }),
       h('h3', { style: 'margin:14px 0 6px' }, t('nav_orders')),
@@ -389,6 +449,11 @@ route(/^\/settings$/, async () => {
     const act = h('input', { type: 'checkbox', checked: +u.active, style: 'width:22px;min-height:0;height:22px' });
     return { u, name, wid, act, row: h('tr', {}, h('td', {}, name), h('td', {}, wid), h('td', {}, act)) };
   });
+  const wk = h('input', { type: 'number', min: 0, max: 24, step: 0.5, value: me.settings.weekend_min / 60, style: 'width:100px' });
+  const bf = h('input', { type: 'date', min: today() }); const bt = h('input', { type: 'date', min: today() }); const br = h('input', { type: 'text', maxlength: 100, placeholder: t('blocked_reason_ph') });
+  const blockedList = h('div', {}, me.blocked.length ? me.blocked.map((b) => h('div', { class: 'free' },
+    h('span', {}, `${dfmt(b.date_from)}${b.date_to !== b.date_from ? ' – ' + dfmt(b.date_to) : ''}${b.reason ? ' · ' + b.reason : ''}`),
+    h('button', { class: 'btn small danger', onclick: async () => { await api('blocked_delete', { body: { id: b.id } }); await reloadMe(); render(); } }, t('delete')))) : h('p', { class: 'muted' }, t('blocked_none')));
   const tokOut = h('div');
   const tokList = h('div', {}, me.tokens.map((k) => h('div', { class: 'free' }, h('span', {}, `${k.label} · ${k.created_at.slice(0, 10)}${k.last_used_at ? ' · ' + t('last_seen') + ' ' + k.last_used_at.slice(0, 16) : ''}`),
     k.revoked_at ? h('span', { class: 'muted' }, t('revoked')) : h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('confirm_revoke'))) { await api('token_revoke', { body: { id: k.id } }); await reloadMe(); render(); } } }, t('revoke')))));
@@ -401,9 +466,15 @@ route(/^\/settings$/, async () => {
         tokOut.replaceChildren(h('p', { class: 'muted' }, t('display_once')), h('div', { class: 'token-box' }, url), h('div', { class: 'row', style: 'margin-top:8px' }, h('button', { class: 'btn small', onclick: () => navigator.clipboard.writeText(url).then(() => toast(t('copied'))) }, t('copy')), h('a', { class: 'btn small', href: url, target: '_blank', rel: 'noopener' }, t('open'))));
         await reloadMe();
       } }, t('create_link'))), tokOut, h('div', { style: 'margin-top:12px' }, tokList)),
+    h('div', { class: 'card' }, h('h3', {}, t('blocked_title')), h('p', { class: 'muted' }, t('blocked_text')),
+      h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('blocked_from')), bf), h('div', {}, h('label', {}, t('blocked_to')), bt), h('div', {}, h('label', {}, t('blocked_reason')), br)),
+      h('div', { class: 'row end', style: 'margin:10px 0' }, h('button', { class: 'btn primary', onclick: async () => {
+        try { await api('blocked_save', { body: { date_from: bf.value, date_to: bt.value || bf.value, reason: br.value } }); await reloadMe(); render(); } catch (e) { toast(e.message); }
+      } }, '+ ' + t('blocked_add'))), blockedList),
     h('div', { class: 'card' }, h('h3', {}, t('capacity')), h('p', { class: 'muted' }, t('capacity_text')),
+      h('div', { class: 'row', style: 'margin-bottom:12px' }, h('label', { style: 'margin:0' }, t('weekend_hours')), wk, h('span', { class: 'muted' }, 'h')),
       h('table', { class: 't' }, h('tr', {}, h('th', {}, t('process')), h('th', {}, t('min_per_day')), h('th', {}, t('active'))), procRows.map((r) => r.row)),
-      h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { await api('processes_save', { body: { processes: procRows.map((r) => ({ id: r.p.id, capacity_min: r.cap.value, active: r.act.checked })) } }); await reloadMe(); toast(t('saved')); } }, t('save')))),
+      h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { await api('processes_save', { body: { processes: procRows.map((r) => ({ id: r.p.id, capacity_min: r.cap.value, active: r.act.checked })) } }); await api('settings_save', { body: { weekend_min: Math.round((parseFloat(wk.value) || 0) * 60) } }); await reloadMe(); toast(t('saved')); } }, t('save')))),
     h('div', { class: 'card' }, h('h3', {}, t('users')), h('p', { class: 'muted' }, t('users_text', me.user.name)),
       h('table', { class: 't' }, h('tr', {}, h('th', {}, t('name')), h('th', {}, 'Admin-ID'), h('th', {}, t('active'))), userRows.map((r) => r.row)),
       h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { try { await api('users_save', { body: { users: userRows.map((r) => ({ id: r.u.id, name: r.name.value, wf_admin_id: r.wid.value, active: r.act.checked })) } }); await reloadMe(); toast(t('saved')); } catch (e) { toast(e.message); } } }, t('save')))),

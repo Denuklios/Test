@@ -5,9 +5,31 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 1) {
+    if ($v >= 2) {
         return;
     }
+    if ($v < 1) {
+        wf_migrate_v1($db);
+    }
+    // Version 2: Sperrtage und Wochenend-Kapazitaet
+    $db->beginTransaction();
+    $db->exec("
+    CREATE TABLE IF NOT EXISTS blocked_days (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      date_from TEXT NOT NULL,
+      date_to TEXT NOT NULL,
+      reason TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_blocked ON blocked_days(date_from, date_to);
+    INSERT OR IGNORE INTO meta (key, value) VALUES ('weekend_min', '300');
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '2');
+    ");
+    $db->commit();
+}
+
+function wf_migrate_v1(PDO $db): void
+{
     $db->beginTransaction();
     $db->exec("
     CREATE TABLE users (

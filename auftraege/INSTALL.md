@@ -23,8 +23,11 @@ Wichtig: Das Cookie der Hauptseite muss auch im Unterordner `/auftraege/` gelten
 `https://wunsch-fabrik.dk/auftraege/` im Browser öffnen (als Admin angemeldet). Die Datenbank wird beim ersten Aufruf automatisch angelegt, mit den 7 Veredelungsarten und 5 Benutzerplätzen.
 Unter **Einstellungen**:
 - **Benutzer:** Namen der 5 Personen eintragen und deren Admin-ID aus dem Login der Hauptseite (damit der Verlauf den Namen zeigt).
-- **Kapazität:** Minuten pro Tag je Maschine/Verfahren.
+- **Kapazität:** Minuten pro Werktag je Maschine/Verfahren. Samstag und Sonntag zählen mit der Stundenzahl darunter (Standard 5 h, 0 = Wochenende zu).
+- **Gesperrte Tage:** Urlaub, Messe, Arzttermin usw. eintragen. Diese Tage fallen aus Kalender, Terminvorschlag und Tageswahl heraus und können nicht als Termin gespeichert werden.
 - **Werkstatt-Anzeige:** „Neuen Link erzeugen“, den Link kopieren und im Werkstatt-PC-Browser öffnen. Doppelklick oder Symbol unten rechts = Vollbild. Der Link wird nur einmal angezeigt; zum Widerrufen „Sperren“ klicken und einen neuen erzeugen.
+
+**Update einer bestehenden Installation:** neue Dateien einfach drüberkopieren. Die Datenbank wird beim nächsten Aufruf automatisch ergänzt, alle Daten bleiben erhalten (vorher trotzdem Backup ziehen).
 
 ## 5. Als App auf dem Handy
 Seite im Handy-Browser öffnen → Menü → „Zur Startseite hinzufügen“ (Android/Chrome: „App installieren“).
