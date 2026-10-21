@@ -1,17 +1,24 @@
-/* Sprachumschaltung Deutsch / Englisch.
-   Die Oberfläche ist auf Deutsch geschrieben; für Englisch werden Texte über Wörterbücher ersetzt:
+/* Sprachumschaltung Deutsch / Englisch / Dänisch.
+   Die Oberfläche ist auf Deutsch geschrieben; für andere Sprachen werden Texte über Wörterbücher ersetzt:
    - HW.I18N.en.exact: { 'deutscher Text': 'English text' }  (Leerraum wird vor dem Nachschlagen vereinheitlicht)
    - HW.I18N.en.rx:    [[/^Regex mit (\d+) Werten$/, 'English with $1 values'], …]  für Texte mit Zahlen/Namen
+   - HW.I18N.da genauso für Dänisch; fehlt dort ein Text, wird der englische genommen.
+   Speicher-Schlüssel je Programm: window.I18N_KEY (Standard 'stickstudio.lang').
    Übersetzt werden Textknoten und die Attribute title, placeholder, aria-label – auch in später erzeugten
    Dialogen (MutationObserver). JS-Texte, die nicht im DOM landen (Canvas, confirm, Hilfe-Kästchen), über HW.i18n.t(). */
 (function (g) {
   const HW = (g.HW = g.HW || {});
-  HW.I18N = HW.I18N || { en: { exact: {}, rx: [] } };
-  const KEY = 'stickstudio.lang';
+  HW.I18N = HW.I18N || {};
+  HW.I18N.en = HW.I18N.en || { exact: {}, rx: [] };
+  HW.I18N.da = HW.I18N.da || { exact: {}, rx: [] };
+  const LANGS = ['de', 'en', 'da'];
+  const KEY = g.I18N_KEY || 'stickstudio.lang';
+  // Sprache des Systems/Browsers: Deutsch, Dänisch, sonst Englisch
+  const sysLang = () => { const n = String((typeof navigator !== 'undefined' && navigator.language) || 'de').toLowerCase(); return n.startsWith('de') ? 'de' : /^(da|nb|nn|no)\b/.test(n) ? 'da' : 'en'; };
   let lang = 'de';
   // online zählt die am Konto gespeicherte Sprache, sonst die zuletzt gewählte bzw. die des Browsers
-  try { lang = (g.STICK_CONFIG && g.STICK_CONFIG.online && g.STICK_CONFIG.lang) || localStorage.getItem(KEY) || ((navigator.language || 'de').startsWith('de') ? 'de' : 'en'); } catch (e) { /* privat */ }
-  if (lang !== 'de' && lang !== 'en') lang = 'de';
+  try { lang = (g.STICK_CONFIG && g.STICK_CONFIG.online && g.STICK_CONFIG.lang) || localStorage.getItem(KEY) || sysLang(); } catch (e) { lang = sysLang(); }
+  if (!LANGS.includes(lang)) lang = 'de';
 
   const norm = (s) => s.replace(/\s+/g, ' ').trim();
 
@@ -21,13 +28,17 @@
     const str = String(s);
     const key = norm(str);
     if (!key || !/[A-Za-zÄÖÜäöüß]/.test(key)) return str;
-    const d = HW.I18N[lang];
-    if (!d) return str;
-    let out = d.exact[key];
-    if (out === undefined) {
-      for (const [re, rep] of d.rx) {
-        if (re.test(key)) { out = key.replace(re, rep); break; }
+    let out;
+    for (const l of lang === 'da' ? ['da', 'en'] : [lang]) {
+      const d = HW.I18N[l];
+      if (!d) continue;
+      out = d.exact[key];
+      if (out === undefined) {
+        for (const [re, rep] of d.rx) {
+          if (re.test(key)) { out = key.replace(re, rep); break; }
+        }
       }
+      if (out !== undefined) break;
     }
     if (out === undefined) return str;
     // führenden/folgenden Leerraum erhalten (Textstücke zwischen <b> … </b>)
@@ -36,8 +47,9 @@
   }
 
   // Zahlen im Format der Sprache (12,5 bzw. 12.5)
-  const locale = () => (lang === 'de' ? 'de-DE' : 'en-GB');
-  const num = (v, d = 1) => (lang === 'de' ? Number(v).toFixed(d).replace('.', ',') : Number(v).toFixed(d));
+  const locale = () => ({ de: 'de-DE', da: 'da-DK' }[lang] || 'en-GB');
+  const comma = () => lang !== 'en';
+  const num = (v, d = 1) => (comma() ? Number(v).toFixed(d).replace('.', ',') : Number(v).toFixed(d));
 
   /* ---------- DOM übersetzen ---------- */
   const orig = new WeakMap(); // Textknoten → deutscher Originaltext
@@ -101,7 +113,7 @@
   }
 
   function setLang(l) {
-    if (l !== 'de' && l !== 'en') return;
+    if (!LANGS.includes(l)) return;
     const old = lang;
     lang = l;
     try { localStorage.setItem(KEY, l); } catch (e) { /* privat */ }
@@ -113,7 +125,7 @@
   }
 
   HW.i18n = {
-    t, apply, setLang, locale, num, listeners: [],
+    t, apply, setLang, locale, num, comma, sysLang, langs: LANGS, listeners: [],
     get lang() { return lang; },
     start() { if (typeof document === 'undefined') return; document.documentElement.lang = lang; apply(document.body); observe(); document.querySelectorAll('[data-lang-btn]').forEach((b) => b.classList.toggle('on', b.dataset.langBtn === lang)); },
   };

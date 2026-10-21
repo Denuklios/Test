@@ -1,0 +1,19 @@
+{
+  "name": "studio-desktop",
+  "private": true,
+  "description": "Desktop-Installer (Windows, Mac, Linux) für StickStudio, FräsStudio und LaserStudio mit Kauf-Lizenz",
+  "scripts": {
+    "test": "node test_license.js",
+    "build:laser": "node build.js laser",
+    "build:fraes": "node build.js fraes",
+    "build:stick": "node build.js stick",
+    "build:all": "node build.js stick && node build.js fraes && node build.js laser",
+    "start:laser": "node build.js laser --dir && electron out/laser"
+  },
+  "devDependencies": {
+    "electron": "38.2.2",
+    "electron-builder": "26.0.12",
+    "javascript-obfuscator": "4.1.1",
+    "terser": "5.36.0"
+  }
+}

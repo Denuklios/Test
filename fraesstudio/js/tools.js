@@ -1,0 +1,108 @@
+/* Werkzeuge, Materialien und Maschinenprofil (Voreinstellungen für die Twotrees TTC450).
+   Schnittwerte sind bewusst vorsichtig gewählt (80-W-Spindel, Trapezgewindespindeln). */
+(function (g) {
+  const FS = (g.FS = g.FS || {});
+
+  const TYPES = { flat: 'Schaftfräser', ball: 'Kugelfräser', taperball: 'Konischer Kugelfräser', vbit: 'V-Fräser / Gravierstichel', drill: 'Bohrer' };
+
+  // feed/plunge in mm/min, stepdown in mm, stepover in % vom Durchmesser
+  const DEFAULT_TOOLS = [
+    { id: 't1', name: 'Schaftfräser 3,175 mm, 2 Schneiden', type: 'flat', d: 3.175, flutes: 2, len: 12, rpm: 8000, feed: 500, plunge: 150, stepdown: 1.0, stepover: 40 },
+    { id: 't2', name: 'Schaftfräser 2 mm, 2 Schneiden', type: 'flat', d: 2, flutes: 2, len: 8, rpm: 8000, feed: 400, plunge: 120, stepdown: 0.6, stepover: 40 },
+    { id: 't3', name: 'Schaftfräser 1 mm, 2 Schneiden', type: 'flat', d: 1, flutes: 2, len: 4, rpm: 8000, feed: 250, plunge: 80, stepdown: 0.3, stepover: 40 },
+    { id: 't4', name: 'Schaftfräser 6 mm, 2 Schneiden (500-W-Spindel)', type: 'flat', d: 6, flutes: 2, len: 20, rpm: 12000, feed: 800, plunge: 200, stepdown: 1.5, stepover: 45 },
+    { id: 't5', name: 'Gravierstichel 30°, Spitze 0,1 mm', type: 'vbit', d: 3.175, angle: 30, tip: 0.1, flutes: 1, len: 6, rpm: 8000, feed: 300, plunge: 100, stepdown: 0.5, stepover: 30 },
+    { id: 't6', name: 'V-Fräser 60°, 6,35 mm', type: 'vbit', d: 6.35, angle: 60, tip: 0, flutes: 2, len: 6, rpm: 8000, feed: 500, plunge: 150, stepdown: 1.0, stepover: 30 },
+    { id: 't7', name: 'V-Fräser 90°, 12,7 mm', type: 'vbit', d: 12.7, angle: 90, tip: 0, flutes: 2, len: 7, rpm: 8000, feed: 500, plunge: 150, stepdown: 1.0, stepover: 30 },
+    { id: 't8', name: 'Kugelfräser 3,175 mm (R 1,59)', type: 'ball', d: 3.175, flutes: 2, len: 12, rpm: 8000, feed: 600, plunge: 150, stepdown: 1.0, stepover: 12 },
+    { id: 't9', name: 'Kugelfräser 1,5 mm (R 0,75)', type: 'ball', d: 1.5, flutes: 2, len: 6, rpm: 8000, feed: 400, plunge: 100, stepdown: 0.5, stepover: 10 },
+    { id: 't10', name: 'Bohrer 3 mm', type: 'drill', d: 3, flutes: 2, len: 20, rpm: 8000, feed: 300, plunge: 100, stepdown: 1.5, stepover: 0 },
+    // Konische Kugelfräser für feine Reliefs: d = Schaft, tip = Kugel-Ø an der Spitze, angle = Kegelwinkel gesamt
+    { id: 't11', name: 'Konischer Kugelfräser R0,25 (Spitze Ø 0,5 mm, 30°)', type: 'taperball', d: 3.175, tip: 0.5, angle: 30, flutes: 2, len: 15, rpm: 8000, feed: 500, plunge: 120, stepdown: 0.5, stepover: 20 },
+    { id: 't12', name: 'Konischer Kugelfräser R0,5 (Spitze Ø 1 mm, 30°)', type: 'taperball', d: 3.175, tip: 1, angle: 30, flutes: 2, len: 15, rpm: 8000, feed: 600, plunge: 150, stepdown: 0.8, stepover: 15 },
+    { id: 't13', name: 'Konischer Kugelfräser R0,75 (Spitze Ø 1,5 mm, 20°)', type: 'taperball', d: 3.175, tip: 1.5, angle: 20, flutes: 2, len: 15, rpm: 8000, feed: 600, plunge: 150, stepdown: 1, stepover: 15 },
+  ];
+
+  // Faktoren auf Vorschub (feed) und Zustellung (depth)
+  const MATERIALS = [
+    { id: 'weichholz', name: 'Weichholz (Kiefer, Fichte, Linde)', feed: 1.0, depth: 1.0, color: '#e8c99a' },
+    { id: 'hartholz', name: 'Hartholz (Buche, Eiche, Ahorn)', feed: 0.75, depth: 0.7, color: '#c99a63' },
+    { id: 'mdf', name: 'MDF', feed: 0.9, depth: 0.9, color: '#b89a74' },
+    { id: 'sperrholz', name: 'Sperrholz / Multiplex', feed: 0.85, depth: 0.8, color: '#dcb985' },
+    { id: 'acryl', name: 'Acryl (PMMA, gegossen)', feed: 0.7, depth: 0.6, color: '#bfe3ef' },
+    { id: 'pvc', name: 'PVC-Hartschaum / Forex', feed: 1.2, depth: 1.2, color: '#f0f0f0' },
+    { id: 'hdpe', name: 'HDPE / POM', feed: 0.8, depth: 0.7, color: '#eeeeea' },
+    { id: 'pcb', name: 'Leiterplatte (FR4)', feed: 0.5, depth: 0.4, color: '#c9a34a' },
+    { id: 'alu', name: 'Aluminium (nur 500-W-Spindel, sehr vorsichtig)', feed: 0.3, depth: 0.2, color: '#c8ccd2' },
+    { id: 'messing', name: 'Messing (nur 500-W-Spindel, sehr vorsichtig)', feed: 0.25, depth: 0.15, color: '#d8b75c' },
+  ];
+
+  // power: Spindelleistung in W. spindle: 'pwm' = Drehzahl per S-Wert, 'manual' = Drehregler am Motor (dial = Anzahl Stufen)
+  const MACHINES = {
+    ttc450: { id: 'ttc450', name: 'Twotrees TTC450 (80-W-Spindel)', w: 460, h: 460, z: 80, power: 80, minRpm: 0, maxRpm: 8000, spindle: 'pwm', dial: 0, sMax: 1000, maxFeed: 1000, maxZFeed: 400, rapid: 1000, baud: 115200, rxBuffer: 127 },
+    ttc450_500: { id: 'ttc450_500', name: 'Twotrees TTC450 (500-W-Spindel)', w: 460, h: 460, z: 80, power: 500, minRpm: 0, maxRpm: 12000, spindle: 'pwm', dial: 0, sMax: 1000, maxFeed: 1000, maxZFeed: 400, rapid: 1000, baud: 115200, rxBuffer: 127 },
+    ttc450_800: { id: 'ttc450_800', name: 'Twotrees TTC450 (800-W-Fräsmotor, Drehregler)', w: 460, h: 460, z: 80, power: 800, minRpm: 10000, maxRpm: 30000, spindle: 'manual', dial: 6, sMax: 1000, maxFeed: 1000, maxZFeed: 400, rapid: 1000, baud: 115200, rxBuffer: 127 },
+    custom: { id: 'custom', name: 'Eigene GRBL-Maschine', w: 300, h: 180, z: 45, power: 300, minRpm: 0, maxRpm: 10000, spindle: 'pwm', dial: 0, sMax: 1000, maxFeed: 1500, maxZFeed: 500, rapid: 1500, baud: 115200, rxBuffer: 127 },
+  };
+
+  // Mehr Spindelleistung -> tiefere Zustellung und etwas mehr Vorschub. Die Werkzeugwerte gelten für 80 W.
+  function powerFactors(mach) {
+    const p = Math.max(40, mach.power || 80);
+    const k = Math.log10(p / 80);
+    return { depth: Math.max(1, Math.min(3, 1 + 1.5 * k)), feed: Math.max(1, Math.min(2, 1 + 0.5 * k)) };
+  }
+
+  // Drehzahl: schwache Spindeln immer voll; schnelle Motoren nach Werkzeugdurchmesser (kleine Fräser schneller)
+  function rpmFor(tool, mach) {
+    if (mach.maxRpm <= 12000) return Math.min(mach.maxRpm, tool.rpm);
+    const d = tool.type === 'vbit' ? 3 : tool.type === 'taperball' ? Math.max(0.5, tool.tip || 1) : tool.d;
+    const f = d <= 1.5 ? 0.95 : d <= 2.5 ? 0.8 : d <= 4 ? 0.6 : d <= 6.5 ? 0.5 : 0.4;
+    return Math.max(mach.minRpm || 0, Math.min(mach.maxRpm, Math.round((mach.maxRpm * f) / 1000) * 1000));
+  }
+
+  // Stufe am Drehregler (1..dial, gleichmäßig von minRpm bis maxRpm) für eine Drehzahl
+  function dialFor(rpm, mach) {
+    if (!(mach.dial > 1)) return null;
+    const t = (rpm - mach.minRpm) / Math.max(1, mach.maxRpm - mach.minRpm);
+    const step = Math.max(1, Math.min(mach.dial, Math.round(1 + t * (mach.dial - 1))));
+    return { step, rpm: Math.round(mach.minRpm + ((step - 1) * (mach.maxRpm - mach.minRpm)) / (mach.dial - 1)) };
+  }
+
+  // Schnittwerte für Werkzeug + Material + Maschine
+  function cutParams(tool, matId, machine) {
+    const m = MATERIALS.find((x) => x.id === matId) || MATERIALS[0];
+    const mach = machine || MACHINES.ttc450;
+    const pf = powerFactors(mach);
+    // Zustellung höchstens 1× Werkzeugdurchmesser (V-Fräser/Gravierstichel ausgenommen)
+    const maxDepth = tool.type === 'vbit' ? Infinity : Math.max(tool.d, tool.stepdown);
+    return {
+      feed: Math.min(mach.maxFeed, Math.round(tool.feed * m.feed * pf.feed)),
+      plunge: Math.min(mach.maxZFeed, Math.round(tool.plunge * m.feed * pf.feed)),
+      stepdown: Math.max(0.05, +Math.min(maxDepth, tool.stepdown * m.depth * pf.depth).toFixed(2)),
+      rpm: rpmFor(tool, mach),
+    };
+  }
+
+  // Schnittprofil: Höhe der Werkzeugschneide über der Spitze im Abstand r von der Achse (Infinity = außerhalb)
+  function profile(tool) {
+    const R = tool.d / 2;
+    if (tool.type === 'ball') return (r) => (r > R ? Infinity : R - Math.sqrt(Math.max(0, R * R - r * r)));
+    if (tool.type === 'vbit') {
+      const t = Math.tan(((tool.angle || 60) * Math.PI) / 360), tip = (tool.tip || 0) / 2;
+      return (r) => (r > R ? Infinity : r <= tip ? 0 : (r - tip) / t);
+    }
+    if (tool.type === 'taperball') {
+      // Kugel (Radius rb) geht tangential in den Kegel (halber Winkel a) über
+      const rb = Math.max(0.01, (tool.tip || 0.5) / 2), a = Math.max(0.5, (tool.angle || 30) / 2) * (Math.PI / 180);
+      const r0 = rb * Math.cos(a), h0 = rb * (1 - Math.sin(a)), ta = Math.tan(a);
+      return (r) => (r > R ? Infinity : r <= r0 ? rb - Math.sqrt(Math.max(0, rb * rb - r * r)) : h0 + (r - r0) / ta);
+    }
+    return (r) => (r > R ? Infinity : 0);
+  }
+
+  const describe = (t) => `${t.name}`;
+  // wirksamer Durchmesser für die Überlappung (beim konischen Kugelfräser die Spitze)
+  const effD = (t) => (t.type === 'taperball' ? t.tip || t.d : t.d);
+
+  FS.tools = { TYPES, DEFAULT_TOOLS, MATERIALS, MACHINES, cutParams, profile, describe, powerFactors, rpmFor, dialFor, effD };
+})(typeof window !== 'undefined' ? window : globalThis);

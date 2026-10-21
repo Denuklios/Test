@@ -1,0 +1,334 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FräsStudio</title>
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header id="menubar">
+  <span class="brand">FräsStudio</span>
+  <div class="menu"><button>Datei</button>
+    <div class="dd">
+      <button data-cmd="new">Neues Projekt… <kbd>Strg+N</kbd></button>
+      <button data-cmd="open">Projekt öffnen… <kbd>Strg+O</kbd></button>
+      <button data-cmd="save">Projekt speichern <kbd>Strg+S</kbd></button>
+      <button data-cmd="example">Beispielprojekt laden</button>
+      <hr>
+      <button data-cmd="importVector">Zeichnung importieren (SVG, DXF)… <kbd>Strg+I</kbd></button>
+      <button data-cmd="importTrace">Bild nachzeichnen (PNG, JPG → Umriss)…</button>
+      <button data-cmd="importRelief">3D-Relief aus Bild (schwarz = tief, weiß = flach)…</button>
+      <button data-cmd="importStl">3D-Modell als Relief (STL)…</button>
+      <hr>
+      <button data-cmd="exportGcode">G-Code speichern… <kbd>Strg+E</kbd></button>
+      <button data-cmd="exportSvg">Zeichnung als SVG speichern</button>
+      <button data-cmd="openGcode">G-Code-Datei zum Fräsen öffnen…</button>
+    </div>
+  </div>
+  <div class="menu"><button>Bearbeiten</button>
+    <div class="dd">
+      <button data-cmd="undo">Rückgängig <kbd>Strg+Z</kbd></button>
+      <button data-cmd="redo">Wiederholen <kbd>Strg+Y</kbd></button>
+      <hr>
+      <button data-cmd="copy">Kopieren <kbd>Strg+C</kbd></button>
+      <button data-cmd="paste">Einfügen <kbd>Strg+V</kbd></button>
+      <button data-cmd="duplicate">Duplizieren <kbd>Strg+D</kbd></button>
+      <button data-cmd="delete">Löschen <kbd>Entf</kbd></button>
+      <button data-cmd="selectAll">Alles auswählen <kbd>Strg+A</kbd></button>
+      <hr>
+      <button data-cmd="stock">Werkstück einrichten…</button>
+      <button data-cmd="toolLib">Werkzeugbibliothek…</button>
+      <button data-cmd="machineSettings">Maschine…</button>
+    </div>
+  </div>
+  <div class="menu"><button>Anordnen</button>
+    <div class="dd">
+      <button data-cmd="alignLeft">Links ausrichten</button>
+      <button data-cmd="alignCenterH">Waagrecht mittig</button>
+      <button data-cmd="alignRight">Rechts ausrichten</button>
+      <button data-cmd="alignTop">Oben ausrichten</button>
+      <button data-cmd="alignCenterV">Senkrecht mittig</button>
+      <button data-cmd="alignBottom">Unten ausrichten</button>
+      <button data-cmd="centerStock">Auf Werkstück zentrieren</button>
+      <hr>
+      <button data-cmd="mirrorH">Waagrecht spiegeln</button>
+      <button data-cmd="mirrorV">Senkrecht spiegeln</button>
+      <button data-cmd="rot90">90° drehen</button>
+      <hr>
+      <button data-cmd="union">Vereinen</button>
+      <button data-cmd="subtract">Abziehen (Obere von der Ersten)</button>
+      <button data-cmd="intersect">Schnittmenge</button>
+      <button data-cmd="offset">Versatz (Umriss vergrößern/verkleinern)…</button>
+      <button data-cmd="array">Mehrfach anordnen (Reihe/Gitter)…</button>
+      <hr>
+      <button data-cmd="toPath">In Kurve umwandeln (Punkte bearbeiten)</button>
+      <button data-cmd="toLines">In Linien umwandeln</button>
+    </div>
+  </div>
+  <div class="menu"><button>Ansicht</button>
+    <div class="dd">
+      <button data-cmd="fit">Alles zeigen <kbd>F</kbd></button>
+      <button data-cmd="zoomIn">Vergrößern <kbd>+</kbd></button>
+      <button data-cmd="zoomOut">Verkleinern <kbd>−</kbd></button>
+      <hr>
+      <button data-cmd="toggleWheel">Mausrad: Zoom / Verschieben umschalten</button>
+      <button data-cmd="toggleSnap">Am Raster fangen ein/aus <kbd>G</kbd></button>
+      <button data-cmd="togglePaths">Fräsbahnen im Entwurf zeigen ein/aus</button>
+      <button data-cmd="toggleTheme">Hell / Dunkel umschalten</button>
+      <hr>
+      <button data-cmd="camera">Kamera einrichten…</button>
+      <button data-cmd="toggleCam">Kamerabild ein/aus <kbd>C</kbd></button>
+    </div>
+  </div>
+  <div class="menu"><button>Hilfe</button>
+    <div class="dd">
+      <button data-cmd="help">Kurzanleitung <kbd>F1</kbd></button>
+      <button data-cmd="welcome">Startbildschirm</button>
+      <button data-cmd="ttcTips">Tipps für die TTC450</button>
+      <button data-cmd="about">Über FräsStudio</button>
+    </div>
+  </div>
+
+  <span class="undoBtns">
+    <button class="tb" id="undoBtn" data-cmd="undo" title="Rückgängig (Strg+Z)" disabled>↶</button>
+    <button class="tb" id="redoBtn" data-cmd="redo" title="Wiederholen (Strg+Y)" disabled>↷</button>
+  </span>
+  <nav id="modes">
+    <button data-mode="design" class="active"><b>1</b> Entwerfen</button>
+    <button data-mode="cam"><b>2</b> Fräsbahnen</button>
+    <button data-mode="sim"><b>3</b> 3D-Vorschau</button>
+    <button data-mode="machine"><b>4</b> Fräsen</button>
+  </nav>
+  <span class="spacer"></span>
+  <span class="langsw" data-noi18n><button data-lang-btn="de" title="Deutsch">DE</button><button data-lang-btn="en" title="English">EN</button><button data-lang-btn="da" title="Dansk">DA</button></span>
+  <button class="tb" id="stockBtn" data-cmd="stock" title="Werkstück einrichten"></button>
+  <span id="connDot" title="Maschine nicht verbunden"></span>
+</header>
+
+<main>
+  <aside id="toolbox">
+    <div class="group">Auswahl</div>
+    <button data-tool="select" class="active" title="Auswählen und verschieben (V)"><b>⬉</b><span>Auswahl</span></button>
+    <button data-tool="node" title="Punkte bearbeiten (R)"><b>◇</b><span>Umformen</span></button>
+    <div class="group">Zeichnen</div>
+    <button data-tool="line" title="Linie / Kurve (L): Linksklick Ecke, Rechtsklick Kurve, Enter fertig"><b>✎</b><span>Linie</span></button>
+    <button data-tool="rect" title="Rechteck (Q), Umschalt = Quadrat"><b>▭</b><span>Rechteck</span></button>
+    <button data-tool="ellipse" title="Kreis / Ellipse (K), Umschalt = Kreis"><b>◯</b><span>Kreis</span></button>
+    <button data-tool="polygon" title="Vieleck (P)"><b>⬡</b><span>Vieleck</span></button>
+    <button data-tool="star" title="Stern (S)"><b>☆</b><span>Stern</span></button>
+    <button data-tool="text" title="Text (T)"><b>A</b><span>Text</span></button>
+    <div class="group">Hilfen</div>
+    <button data-tool="measure" title="Messen (M)"><b>⟷</b><span>Messen</span></button>
+    <button data-cmd="importVector" title="SVG oder DXF importieren"><b>⇪</b><span>Import</span></button>
+    <button data-cmd="importRelief" title="Schwarz-Weiß-Bild als 3D-Relief: schwarz = tief, weiß = flach"><b>◩</b><span>Bild → 3D</span></button>
+    <button data-cmd="camera" title="Kamerabild von oben (Webcam über der Fräse)"><b>◉</b><span>Kamera</span></button>
+  </aside>
+
+  <section id="stage">
+    <canvas id="cv"></canvas>
+    <canvas id="cv3d" class="hidden"></canvas>
+    <div id="hint"></div>
+    <div id="viewBtns">
+      <button data-cmd="panLeft" title="Ansicht nach links (Pfeiltaste)">←</button>
+      <button data-cmd="panUp" title="Ansicht nach oben">↑</button>
+      <button data-cmd="panDown" title="Ansicht nach unten">↓</button>
+      <button data-cmd="panRight" title="Ansicht nach rechts">→</button>
+      <span class="sep"></span>
+      <button data-cmd="zoomOut" title="Verkleinern (−)">−</button>
+      <button data-cmd="fit" title="Alles zeigen (F)">⤢</button>
+      <button data-cmd="zoomIn" title="Vergrößern (+)">+</button>
+    </div>
+    <div id="camBar" class="hidden"><span>Kamera</span><input id="camOpacity" type="range" min="10" max="100" value="80" title="Deckkraft"><label><input type="checkbox" id="camLive" checked> live</label><button data-cmd="camera">Einrichten</button><button data-cmd="toggleCam" title="Ausblenden">✕</button></div>
+    <div id="dropHint" class="hidden">Datei hier loslassen<br><small>Bild, SVG, DXF, STL, G-Code oder Projekt</small></div>
+    <div id="busy" class="hidden"><div class="spin"></div><span>Fräsbahnen werden berechnet …</span></div>
+  </section>
+
+  <aside id="side">
+    <!-- Entwerfen -->
+    <div class="pane" data-pane="design">
+      <div class="panel">
+        <h3>Werkstück</h3>
+        <div id="stockInfo"></div>
+      </div>
+      <div class="panel" id="propsPanel">
+        <h3>Objekt <small id="propsTitle"></small></h3>
+        <div id="props"></div>
+      </div>
+      <div class="panel grow">
+        <h3>Objekte <small id="objCount"></small></h3>
+        <div id="objlist"></div>
+      </div>
+    </div>
+    <!-- Fräsbahnen -->
+    <div class="pane hidden" data-pane="cam">
+      <div class="panel">
+        <h3>Neue Fräsbahn <small>für die Auswahl</small></h3>
+        <div class="opgrid">
+          <button data-addop="profile" title="Entlang der Kontur fräsen – zum Ausschneiden"><i class="ico-profile"></i>Kontur</button>
+          <button data-addop="pocket" title="Fläche ausräumen"><i class="ico-pocket"></i>Tasche</button>
+          <button data-addop="vcarve" title="Schrift und Ornamente mit V-Fräser – scharfe Ecken"><i class="ico-vcarve"></i>V-Carving</button>
+          <button data-addop="engrave" title="Genau auf der Linie gravieren"><i class="ico-engrave"></i>Gravieren</button>
+          <button data-addop="drill" title="Bohrungen an Kreisen"><i class="ico-drill"></i>Bohren</button>
+          <button data-addop="face" title="Ganze Oberfläche plan fräsen"><i class="ico-face"></i>Planfräsen</button>
+          <button data-addop="relief_rough" title="3D-Relief grob vorarbeiten"><i class="ico-rough"></i>3D schruppen</button>
+          <button data-addop="relief_finish" title="3D-Relief fein nacharbeiten"><i class="ico-finish"></i>3D schlichten</button>
+          <button data-addop="relief_rest" title="Feine Stellen mit kleinem (konischem) Kugelfräser nacharbeiten, die der dicke Fräser nicht erreicht"><i class="ico-rest"></i>3D Rest</button>
+        </div>
+      </div>
+      <div class="panel grow">
+        <h3>Fräsbahnen <small id="opSummary"></small></h3>
+        <div id="oplist"></div>
+      </div>
+      <div class="panel" id="opEditPanel">
+        <div id="opedit"></div>
+      </div>
+      <div class="panel">
+        <div class="row">
+          <button class="primary wide" data-cmd="exportGcode">G-Code speichern</button>
+          <button class="wide" data-mode-go="sim">3D-Vorschau ▶</button>
+        </div>
+      </div>
+    </div>
+    <!-- 3D-Vorschau -->
+    <div class="pane hidden" data-pane="sim">
+      <div class="panel">
+        <h3>Simulation</h3>
+        <div class="row">
+          <button id="simPlay" class="primary">▶ Abspielen</button>
+          <button id="simEnd">⏭ Ergebnis</button>
+          <button id="simReset">⟲ Neu</button>
+        </div>
+        <div class="field"><label>Geschwindigkeit</label><input id="simSpeed" type="range" min="1" max="100" value="40"></div>
+        <div class="progress"><div id="simBar"></div></div>
+        <div id="simInfo" class="muted"></div>
+      </div>
+      <div class="panel">
+        <h3>Ansicht</h3>
+        <div class="row">
+          <button data-view="iso">Schräg</button>
+          <button data-view="top">Oben</button>
+          <button data-view="front">Vorne</button>
+        </div>
+        <label class="check"><input type="checkbox" id="simPaths" checked> Fräsbahnen zeigen</label>
+        <p class="muted small">Ziehen = drehen · Leertaste halten, zwei Finger, rechte Maustaste oder Pfeiltasten = verschieben · Spreizen / Strg + Rad = zoomen</p>
+      </div>
+      <div class="panel grow">
+        <h3>Ablauf</h3>
+        <div id="simOps"></div>
+        <div id="simWarn"></div>
+      </div>
+      <div class="panel">
+        <div class="row">
+          <button class="primary wide" data-cmd="exportGcode">G-Code speichern</button>
+          <button class="wide" data-mode-go="machine">Fräsen ▶</button>
+        </div>
+      </div>
+    </div>
+    <!-- Fräsen -->
+    <div class="pane hidden" data-pane="machine">
+      <div class="panel">
+        <h3>Maschine <small id="machName"></small></h3>
+        <div class="row">
+          <button id="mConnect" class="primary wide">Verbinden …</button>
+          <button id="mWifi" title="WLAN der Maschine einrichten und IP-Adresse anzeigen">WLAN</button>
+        </div>
+        <div id="mState" class="state">Getrennt</div>
+        <div class="dro">
+          <div><span>X</span><b id="droX">0,000</b><button data-zero="X" title="X hier auf 0 setzen">X0</button></div>
+          <div><span>Y</span><b id="droY">0,000</b><button data-zero="Y" title="Y hier auf 0 setzen">Y0</button></div>
+          <div><span>Z</span><b id="droZ">0,000</b><button data-zero="Z" title="Z hier auf 0 setzen">Z0</button></div>
+        </div>
+        <div class="row">
+          <button data-zero="XYZ" class="wide">Alle auf 0</button>
+          <button id="mGoZero" class="wide">Zum Nullpunkt</button>
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Verfahren</h3>
+        <div class="jog">
+          <div class="jogxy">
+            <button data-jog="-1,1,0">↖</button><button data-jog="0,1,0">Y+</button><button data-jog="1,1,0">↗</button>
+            <button data-jog="-1,0,0">X−</button><button id="jogStop" title="Stopp">■</button><button data-jog="1,0,0">X+</button>
+            <button data-jog="-1,-1,0">↙</button><button data-jog="0,-1,0">Y−</button><button data-jog="1,-1,0">↘</button>
+          </div>
+          <div class="jogz">
+            <button data-jog="0,0,1">Z+</button>
+            <button data-jog="0,0,-1">Z−</button>
+          </div>
+        </div>
+        <div class="steps" id="jogSteps">
+          <button data-step="0.1">0,1</button><button data-step="1" class="active">1</button><button data-step="10">10</button><button data-step="50">50 mm</button>
+        </div>
+        <div class="field"><label>Verfahrgeschwindigkeit</label><input id="jogFeed" type="number" value="800" min="10" step="50"></div>
+        <p class="muted small">Tastatur: Pfeiltasten X/Y, Bild↑/Bild↓ Z (nur im Fräsen-Schritt)</p>
+        <div class="row">
+          <button id="mProbe" class="wide" title="Z mit Messplatte antasten">Z antasten…</button>
+          <button id="mHome" title="Referenzfahrt ($H)">Referenzfahrt</button>
+          <button id="mUnlock" title="Alarm entsperren ($X)">Entsperren</button>
+        </div>
+        <div class="row">
+          <button id="mSpindle" class="wide">Spindel an</button>
+          <input id="mRpm" type="number" value="8000" step="500" title="Drehzahl U/min" style="width:90px">
+        </div>
+      </div>
+      <div class="panel">
+        <h3>Auftrag <small id="jobName"></small></h3>
+        <div class="row">
+          <button id="jobFromProject" class="wide">Aktuelles Projekt laden</button>
+          <button id="jobFromFile">Datei…</button>
+        </div>
+        <div id="jobInfo" class="muted"></div>
+        <div class="progress"><div id="jobBar"></div></div>
+        <div class="row">
+          <button id="jobStart" class="primary wide">▶ Start</button>
+          <button id="jobPause" class="wide">⏸ Pause</button>
+          <button id="jobStop" class="danger wide">■ Stopp</button>
+        </div>
+        <div class="ovr">
+          <span>Vorschub <b id="ovF">100 %</b></span><button data-ov="f-">−10</button><button data-ov="f0">100</button><button data-ov="f+">+10</button>
+        </div>
+        <div class="ovr">
+          <span>Drehzahl <b id="ovS">100 %</b></span><button data-ov="s-">−10</button><button data-ov="s0">100</button><button data-ov="s+">+10</button>
+        </div>
+      </div>
+      <div class="panel grow">
+        <h3>Konsole</h3>
+        <div id="console"></div>
+        <form id="consoleForm"><input id="consoleIn" placeholder="Befehl, z. B. $$ oder G0 X10" autocomplete="off"><button>Senden</button></form>
+      </div>
+    </div>
+  </aside>
+</main>
+
+<footer id="statusbar">
+  <span id="status"></span>
+  <span class="spacer"></span>
+  <span id="snapInfo"></span>
+  <span id="coords"></span>
+</footer>
+
+<div id="modal" class="hidden"><div class="box"><h2 id="modalTitle"></h2><div id="modalBody"></div><div class="row end" id="modalBtns"></div></div></div>
+<input type="file" id="fileIn" class="hidden">
+
+<script>window.I18N_KEY = 'fraesstudio.lang';</script>
+<script src="js/i18n.js"></script>
+<script src="js/i18n/en.js"></script>
+<script src="js/i18n/da.js"></script>
+<script src="js/lib/clipper.js"></script>
+<script src="js/fonts.js"></script>
+<script src="js/core.js"></script>
+<script src="js/ttf.js"></script>
+<script src="js/shapes.js"></script>
+<script src="js/tools.js"></script>
+<script src="js/importers.js"></script>
+<script src="js/cam.js"></script>
+<script src="js/gcode.js"></script>
+<script src="js/sim.js"></script>
+<script src="js/camera.js"></script>
+<script src="js/depthai.js"></script>
+<script src="js/view3d.js"></script>
+<script src="js/machine.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>

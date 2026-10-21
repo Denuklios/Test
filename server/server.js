@@ -12,6 +12,7 @@ const pages = require('./pages');
 const mail = require('./mail');
 const fileio = require('./fileio');
 const geo = require('./geoip');
+const licenses = require('./licenses');
 
 const ROOT = path.join(__dirname, '..');
 const ENV = process.env;
@@ -28,13 +29,15 @@ geo.load(GEO_FILE);
 const EVENT_DAYS = +(ENV.EVENT_DAYS || 90); // so lange bleibt das Protokoll (mit IP-Adressen)
 const countryOf = (ip) => (geo.isLocal(ip) ? '' : geo.lookup(ip));
 const now = () => Date.now();
+// Kauf-Lizenzen der Desktop-Programme (Aktivierung, regelmäßige Prüfung, Verwaltung)
+const LIC = licenses.init({ db, dataDir: DATA_DIR, env: ENV, now, log: (kind, info) => logEvent(null, kind, info) });
 
 /* ---------- Einstellungen (in der Verwaltung änderbar) ---------- */
 const SETTING_DEFAULTS = {
   trial_days: '14', license_days: '365', buy_url: '', support_email: '',
-  company: '', owner: '', street: '', zip_city: '', country: 'Deutschland', email: '', phone: '', vat_id: '', register: '',
-  hosting_provider: '', payment_provider: '', supervisory_authority: '',
-  price_text_de: '', price_text_en: '', license_term_de: '12 Monate', license_term_en: '12 months', legal_date: '',
+  company: 'Wunsch-Fabrik', owner: '', street: '', zip_city: '', country: 'Danmark', email: '', phone: '', vat_id: '', register: 'CVR-nr. 46733428',
+  hosting_provider: '', payment_provider: 'Lemon Squeezy, LLC', supervisory_authority: 'Datatilsynet, Carl Jacobsens Vej 35, 2500 Valby, Danmark, www.datatilsynet.dk',
+  price_text_de: '', price_text_en: '', price_text_da: '', license_term_de: '12 Monate', license_term_en: '12 months', license_term_da: '', legal_date: '',
 };
 function settings() {
   const s = { ...SETTING_DEFAULTS };
@@ -115,7 +118,8 @@ function license(u) {
   };
 }
 const subInfo = (u) => (u.sub_id ? { status: u.sub_status, renews: u.sub_renews || null, ends: u.sub_ends || null, portal: u.sub_portal || '' } : null);
-const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, lang: u.lang, verified: !!u.verified, created: u.created, license: license(u), sub: subInfo(u) });
+const fraesAccess = (u) => !!u && (u.role === 'admin' || !!u.fraes);
+const publicUser = (u) => ({ id: u.id, email: u.email, name: u.name, role: u.role, lang: u.lang, verified: !!u.verified, created: u.created, license: license(u), sub: subInfo(u), fraes: fraesAccess(u) });
 
 /* ---------- Schutz vor zu vielen Versuchen ---------- */
 const hits = new Map();
@@ -166,19 +170,38 @@ async function readJson(req, limit = 1 << 20) {
   try { return JSON.parse(b.toString('utf8') || '{}'); } catch (e) { throw Object.assign(new Error('Ungültige Daten'), { code: 400 }); }
 }
 
-/* ---------- Sprache ---------- */
+/* ---------- Sprache (Deutsch, Englisch, Dänisch) ---------- */
+const LANGS = ['de', 'en', 'da'];
+const normLang = (l) => (LANGS.includes(l) ? l : null);
+// Text in der Sprache des Kunden: L3(lang, deutsch, englisch, dänisch)
+const L3 = (lang, de, en, da) => (lang === 'de' ? de : lang === 'da' ? da : en);
+const LOCALE = { de: 'de-DE', en: 'en-GB', da: 'da-DK' };
+const fmtDate = (ms, lang) => new Date(ms).toLocaleDateString(LOCALE[lang] || 'de-DE');
+/** Browser-Sprache: erste passende Angabe aus Accept-Language (da/nb/nn/no → da, de → de, sonst en) */
+function acceptLang(h) {
+  const first = String(h || 'de').split(',').map((x) => x.split(';')[0].trim().toLowerCase()).filter((x) => x && x !== '*')[0] || 'de';
+  return /^de\b/.test(first) ? 'de' : /^(da|nb|nn|no)\b/.test(first) ? 'da' : 'en';
+}
+/** Sprache nach Land (Lemon Squeezy, Geo-IP): DK/NO → da, DE/AT/CH/LI → de, sonst en */
+function langOfCountry(cc) {
+  cc = String(cc || '').trim().toUpperCase();
+  if (!cc) return null;
+  if (['DK', 'GL', 'FO', 'NO'].includes(cc)) return 'da';
+  if (['DE', 'AT', 'CH', 'LI'].includes(cc)) return 'de';
+  return 'en';
+}
 function langOf(req, u) {
-  const q = new URL(req.url, 'http://x').searchParams.get('lang');
-  if (q === 'de' || q === 'en') return q;
-  const c = cookies(req).lang;
-  if (c === 'de' || c === 'en') return c;
-  if (u && (u.lang === 'de' || u.lang === 'en')) return u.lang;
-  return /^de\b/i.test(String(req.headers['accept-language'] || 'de')) ? 'de' : 'en';
+  const q = normLang(new URL(req.url, 'http://x').searchParams.get('lang'));
+  if (q) return q;
+  const c = normLang(cookies(req).lang);
+  if (c) return c;
+  if (u && normLang(u.lang)) return u.lang;
+  return acceptLang(req.headers['accept-language']);
 }
 const langCookie = (l) => `lang=${l}; Path=/; SameSite=Lax; Max-Age=31536000${SECURE_COOKIE ? '; Secure' : ''}`;
 
 /* ---------- Statische Dateien (nur angemeldet; Formatcode bleibt auf dem Server) ---------- */
-const MIME = { '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
+const MIME = { '.onnx': 'application/octet-stream', '.mjs': 'text/javascript; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.html': 'text/html; charset=utf-8', '.ttf': 'font/ttf', '.woff2': 'font/woff2', '.json': 'application/json', '.svg': 'image/svg+xml', '.png': 'image/png', '.txt': 'text/plain; charset=utf-8', '.md': 'text/plain; charset=utf-8' };
 const SERVER_ONLY = new Set(['js/dst_io.js', 'js/formats.js']);
 const APP_DIRS = ['js/', 'css/', 'fonts/'];
 function staticFile(res, rel, cacheable) {
@@ -191,6 +214,35 @@ function staticFile(res, rel, cacheable) {
   if (!st.isFile()) return false;
   const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
   res.writeHead(200, { 'Content-Type': type, 'Cache-Control': cacheable ? 'private, max-age=3600' : 'no-cache', ...SEC_HEADERS });
+  fs.createReadStream(file).pipe(res);
+  return true;
+}
+
+/* ---------- FräsStudio (Ordner fraesstudio/, nur angemeldet und freigeschaltet) ---------- */
+const FRAES_PATH = '/fraesstudio/';
+const FRAES_ROOT = path.join(ROOT, 'fraesstudio');
+const nextCookie = (v, maxAge) => `next=${v}; Path=/; HttpOnly; SameSite=Lax; Max-Age=${maxAge}${SECURE_COOKIE ? '; Secure' : ''}`;
+// FräsStudio braucht Kamera (Bild von oben) und USB (Web Serial zur Fräse) – nur für diese Seiten erlaubt
+// KI-Tiefenschätzung: WebAssembly ausführen und (falls das Modell nicht auf dem Server liegt) von HuggingFace laden
+const FRAES_HEADERS = {
+  ...SEC_HEADERS,
+  'Permissions-Policy': 'camera=(self), serial=(self), microphone=(), geolocation=()',
+  'Content-Security-Policy': SEC_HEADERS['Content-Security-Policy']
+    .replace("script-src 'self'", "script-src 'self' 'wasm-unsafe-eval'")
+    .replace("connect-src 'self'", "connect-src 'self' https://huggingface.co https://*.huggingface.co https://*.hf.co"),
+};
+function fraesFile(res, rel) {
+  let dec;
+  try { dec = decodeURIComponent(rel); } catch (e) { return false; }
+  const norm = path.posix.normalize(dec).replace(/^\/+/, '');
+  if (norm.includes('..') || norm.startsWith('tests/') || norm.endsWith('.md')) return false;
+  const file = path.join(FRAES_ROOT, norm);
+  if (!file.startsWith(FRAES_ROOT + path.sep)) return false;
+  let st;
+  try { st = fs.statSync(file); } catch (e) { return false; }
+  if (!st.isFile()) return false;
+  const type = MIME[path.extname(file).toLowerCase()] || 'application/octet-stream';
+  res.writeHead(200, { 'Content-Type': type, 'Cache-Control': 'private, no-cache', ...FRAES_HEADERS });
   fs.createReadStream(file).pipe(res);
   return true;
 }
@@ -262,8 +314,9 @@ function ensureAdmin() {
 async function sendVerify(u, lang) {
   const tok = newToken(u.id, 'verify', 72);
   const link = `${BASE_URL}/verify?token=${tok}`;
-  await mail.send(u.email, lang === 'de' ? 'StickStudio – E-Mail bestätigen' : 'StickStudio – confirm your email',
-    lang === 'de' ? `Hallo,\n\nbitte bestätige deine E-Mail-Adresse für StickStudio:\n${link}\n\nDer Link ist 3 Tage gültig.\n` : `Hello,\n\nplease confirm your email address for StickStudio:\n${link}\n\nThe link is valid for 3 days.\n`);
+  await mail.send(u.email, L3(lang, 'StickStudio – E-Mail bestätigen', 'StickStudio – confirm your email', 'StickStudio – bekræft din e-mail'),
+    L3(lang, `Hallo,\n\nbitte bestätige deine E-Mail-Adresse für StickStudio:\n${link}\n\nDer Link ist 3 Tage gültig.\n`, `Hello,\n\nplease confirm your email address for StickStudio:\n${link}\n\nThe link is valid for 3 days.\n`,
+      `Hej,\n\nbekræft venligst din e-mailadresse til StickStudio:\n${link}\n\nLinket er gyldigt i 3 dage.\n`));
 }
 
 /* ---------- Abo über Lemon Squeezy ---------- */
@@ -301,12 +354,13 @@ async function renewalReminders() {
   const s = settings();
   const rows = db.prepare("SELECT * FROM users WHERE sub_status = 'active' AND sub_renews > ? AND sub_renews < ? AND sub_reminded != sub_renews").all(t, t + 15 * DAY);
   for (const u of rows) {
-    const de = u.lang !== 'en';
-    const d = new Date(u.sub_renews).toLocaleDateString(de ? 'de-DE' : 'en-GB');
-    const price = (de ? s.price_text_de : s.price_text_en) || '';
-    const ok = await mail.send(u.email, de ? 'StickStudio – dein Abo verlängert sich bald' : 'StickStudio – your subscription renews soon',
-      de ? `Hallo,\n\ndein StickStudio-Abo verlängert sich am ${d}${price ? ` (${price})` : ''}.\nWenn du nicht verlängern möchtest, kannst du jederzeit kündigen: ${BASE_URL}/kuendigen\n${u.sub_portal ? `Abo verwalten: ${u.sub_portal}\n` : ''}\nViele Grüße\n${s.company || 'StickStudio'}\n`
-        : `Hello,\n\nyour StickStudio subscription renews on ${d}${price ? ` (${price})` : ''}.\nIf you do not want to renew, you can cancel at any time: ${BASE_URL}/kuendigen\n${u.sub_portal ? `Manage subscription: ${u.sub_portal}\n` : ''}\nBest regards\n${s.company || 'StickStudio'}\n`);
+    const lang = normLang(u.lang) || 'de';
+    const d = fmtDate(u.sub_renews, lang);
+    const price = pages.settingFor(s, 'price_text', lang);
+    const ok = await mail.send(u.email, L3(lang, 'StickStudio – dein Abo verlängert sich bald', 'StickStudio – your subscription renews soon', 'StickStudio – dit abonnement fornyes snart'),
+      L3(lang, `Hallo,\n\ndein StickStudio-Abo verlängert sich am ${d}${price ? ` (${price})` : ''}.\nWenn du nicht verlängern möchtest, kannst du jederzeit kündigen: ${BASE_URL}/kuendigen\n${u.sub_portal ? `Abo verwalten: ${u.sub_portal}\n` : ''}\nViele Grüße\n${s.company || 'StickStudio'}\n`,
+        `Hello,\n\nyour StickStudio subscription renews on ${d}${price ? ` (${price})` : ''}.\nIf you do not want to renew, you can cancel at any time: ${BASE_URL}/kuendigen\n${u.sub_portal ? `Manage subscription: ${u.sub_portal}\n` : ''}\nBest regards\n${s.company || 'StickStudio'}\n`,
+        `Hej,\n\ndit StickStudio-abonnement fornyes den ${d}${price ? ` (${price})` : ''}.\nHvis du ikke ønsker at forny, kan du til enhver tid opsige det: ${BASE_URL}/kuendigen\n${u.sub_portal ? `Administrer abonnement: ${u.sub_portal}\n` : ''}\nVenlig hilsen\n${s.company || 'StickStudio'}\n`));
     if (ok) db.prepare('UPDATE users SET sub_reminded = ? WHERE id = ?').run(u.sub_renews, u.id);
   }
 }
@@ -314,10 +368,10 @@ async function renewalReminders() {
 // Kündigung/Widerruf: Bestätigung an den Kunden, Info an dich
 async function confirmRequest(kind, to, lang, lines) {
   const s = settings();
-  const de = lang === 'de';
-  const title = kind === 'cancel' ? (de ? 'Eingangsbestätigung deiner Kündigung' : 'Confirmation of your cancellation') : (de ? 'Eingangsbestätigung deines Widerrufs' : 'Confirmation of your withdrawal');
+  const title = kind === 'cancel' ? L3(lang, 'Eingangsbestätigung deiner Kündigung', 'Confirmation of your cancellation', 'Kvittering for din opsigelse')
+    : L3(lang, 'Eingangsbestätigung deines Widerrufs', 'Confirmation of your withdrawal', 'Kvittering for din fortrydelse');
   const body = lines.map(([k, v]) => `${k}: ${v}`).join('\n');
-  const sent = await mail.send(to, 'StickStudio – ' + title, `${de ? 'Hallo' : 'Hello'},\n\n${title}:\n\n${body}\n\n${de ? 'Viele Grüße' : 'Best regards'}\n${s.company || 'StickStudio'}\n`);
+  const sent = await mail.send(to, 'StickStudio – ' + title, `${L3(lang, 'Hallo', 'Hello', 'Hej')},\n\n${title}:\n\n${body}\n\n${L3(lang, 'Viele Grüße', 'Best regards', 'Venlig hilsen')}\n${s.company || 'StickStudio'}\n`);
   const owner = s.support_email || s.email;
   if (owner) await mail.send(owner, `StickStudio – ${kind === 'cancel' ? 'Kündigung' : 'Widerruf'} von ${to}`, body + `\n\nVerwaltung: ${BASE_URL}/admin`);
   return sent && mail.enabled();
@@ -333,6 +387,70 @@ function extendLicense(userId, days, reason) {
   return true;
 }
 
+/* ---------- Brücke zur Fräse per WLAN (Telnet, Port 23) ----------
+   Der Browser kann kein TCP sprechen. Der Server (im selben Heimnetz wie die Fräse) verbindet sich per Telnet
+   und reicht die Daten über HTTP (Server-Sent Events + POST) an FräsStudio weiter – funktioniert hinter HTTPS und Reverse Proxy.
+   Nur für Konten mit FräsStudio-Zugang. Ziel nur im eigenen Netz (oder CNC_HOST). Bei Verbindungsverlust: Not-Aus (Soft-Reset). */
+const net = require('net');
+const dns = require('dns').promises;
+const cnc = new Map(); // id -> Sitzung
+const CNC_MAX = 4;
+function privateIp(ip) {
+  const m = /^(\d+)\.(\d+)\.(\d+)\.(\d+)$/.exec(ip);
+  if (!m) return false;
+  const [a, b] = [+m[1], +m[2]];
+  return a === 10 || a === 127 || (a === 172 && b >= 16 && b <= 31) || (a === 192 && b === 168) || (a === 169 && b === 254);
+}
+async function cncTarget(host, port) {
+  host = String(host || '').trim();
+  port = +port || 23;
+  const ports = new Set([23, ...String(ENV.CNC_PORTS || '').split(',').map((x) => +x).filter(Boolean)]);
+  if (!ports.has(port)) throw Object.assign(new Error('Port nicht erlaubt (nur Telnet 23).'), { code: 400 });
+  if (!/^[A-Za-z0-9.-]{1,100}$/.test(host)) throw Object.assign(new Error('Adresse ungültig.'), { code: 400 });
+  if (ENV.CNC_HOST && host.toLowerCase() !== String(ENV.CNC_HOST).toLowerCase()) throw Object.assign(new Error('Nur die am Server eingestellte Maschine ist erlaubt.'), { code: 400 });
+  let ip = host;
+  if (!/^\d+\.\d+\.\d+\.\d+$/.test(host)) {
+    try { ip = (await dns.lookup(host, { family: 4 })).address; } catch (e) { throw Object.assign(new Error('Name „' + host + '“ wurde nicht gefunden.'), { code: 400 }); }
+  }
+  if (!ENV.CNC_HOST && !privateIp(ip)) throw Object.assign(new Error('Nur Adressen im eigenen Netz sind erlaubt (192.168.x.x, 10.x.x.x, 172.16–31.x.x).'), { code: 400 });
+  return { ip, port };
+}
+function cncClose(sess, reason, estop) {
+  if (!sess || sess.closed) return;
+  sess.closed = true;
+  clearTimeout(sess.grace); clearInterval(sess.beat);
+  try { if (estop && sess.sock.writable) sess.sock.write(Buffer.from([0x18])); } catch (e) { /* weg */ }
+  for (const r of sess.clients) { try { r.write(`data: ${JSON.stringify({ c: 1, m: reason || '' })}\n\n`); r.end(); } catch (e) { /* weg */ } }
+  setTimeout(() => { try { sess.sock.destroy(); } catch (e) { /* weg */ } }, estop ? 150 : 0);
+  cnc.delete(sess.id);
+  logEvent(sess.userId, 'cnc-close', (reason || '') + (estop ? ' (Not-Aus)' : ''));
+}
+function cncOpen(userId, host, port) {
+  return new Promise((resolve, reject) => {
+    for (const sess of cnc.values()) if (sess.userId === userId) cncClose(sess, 'neue Verbindung');
+    if (cnc.size >= CNC_MAX) return reject(Object.assign(new Error('Zu viele Verbindungen.'), { code: 429 }));
+    const sock = net.connect({ host, port });
+    sock.setNoDelay(true);
+    sock.setKeepAlive(true, 10000);
+    const sess = { id: crypto.randomBytes(12).toString('hex'), userId, sock, clients: new Set(), pending: [], closed: false, lastSend: 0, host: `${host}:${port}` };
+    const timer = setTimeout(() => { sock.destroy(); reject(Object.assign(new Error('Die Maschine antwortet nicht (Zeitüberschreitung). Ist sie an, im WLAN und Telnet aktiv?'), { code: 502 })); }, 6000);
+    sock.once('connect', () => {
+      clearTimeout(timer);
+      cnc.set(sess.id, sess);
+      sess.beat = setInterval(() => { for (const r of sess.clients) r.write(': ping\n\n'); }, 15000);
+      sess.grace = setTimeout(() => { if (!sess.clients.size) cncClose(sess, 'kein Browser verbunden'); }, 15000);
+      logEvent(userId, 'cnc-open', sess.host);
+      resolve(sess);
+    });
+    sock.on('data', (buf) => {
+      const msg = `data: ${JSON.stringify({ d: buf.toString('latin1') })}\n\n`;
+      if (sess.clients.size) for (const r of sess.clients) r.write(msg); else if (sess.pending.length < 200) sess.pending.push(msg);
+    });
+    sock.on('error', (e) => { clearTimeout(timer); if (!sess.closed && cnc.has(sess.id)) cncClose(sess, 'Fehler: ' + e.code); else reject(Object.assign(new Error({ ECONNREFUSED: 'Verbindung abgelehnt – ist Telnet an der Maschine aktiv (Port 23)?', EHOSTUNREACH: 'Maschine nicht erreichbar.', ENETUNREACH: 'Netz nicht erreichbar.', ETIMEDOUT: 'Zeitüberschreitung.' }[e.code] || 'Verbindungsfehler: ' + e.code), { code: 502 })); });
+    sock.on('close', () => cncClose(sess, 'Maschine hat die Verbindung beendet'));
+  });
+}
+
 /* ---------- Routen ---------- */
 async function route(req, res) {
   const url = new URL(req.url, 'http://x');
@@ -345,7 +463,8 @@ async function route(req, res) {
   const s = settings();
 
   // API: nur gleiche Herkunft (Schutz vor fremden Seiten)
-  if (p.startsWith('/api/') && m !== 'GET' && p !== '/api/webhook/lemonsqueezy') {
+  // Ausnahmen: Zahlungsanbieter und die Desktop-Programme (die melden sich mit dem Lizenzschlüssel, nicht mit einer Sitzung)
+  if (p.startsWith('/api/') && m !== 'GET' && p !== '/api/webhook/lemonsqueezy' && !p.startsWith('/api/license/')) {
     const origin = req.headers.origin;
     const host = req.headers['x-forwarded-host'] || req.headers.host;
     if ((origin && new URL(origin).host !== host) || req.headers['x-requested-with'] !== 'StickStudio') return json(res, 403, { error: 'forbidden' });
@@ -362,29 +481,30 @@ async function route(req, res) {
   if (p === '/login' && m === 'POST') {
     const f = await readForm(req);
     const email = String(f.email || '').trim().toLowerCase();
-    if (limited('login:' + ipOf(req), 20, 15 * 60e3) || limited('login:' + email, 8, 15 * 60e3)) return page(pages.login(lang, { text: lang === 'de' ? 'Zu viele Versuche. Bitte in 15 Minuten erneut versuchen.' : 'Too many attempts. Please try again in 15 minutes.' }, email), 429);
+    if (limited('login:' + ipOf(req), 20, 15 * 60e3) || limited('login:' + email, 8, 15 * 60e3)) return page(pages.login(lang, { text: L3(lang, 'Zu viele Versuche. Bitte in 15 Minuten erneut versuchen.', 'Too many attempts. Please try again in 15 minutes.', 'For mange forsøg. Prøv igen om 15 minutter.') }, email), 429);
     const u = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
-    if (!u || !checkPass(String(f.password || ''), u.pass)) return page(pages.login(lang, { text: lang === 'de' ? 'E-Mail oder Passwort falsch.' : 'Wrong email or password.' }, email), 401);
-    if (u.blocked) return page(pages.login(lang, { text: lang === 'de' ? 'Dieses Konto ist gesperrt. Bitte wende dich an den Support.' : 'This account is blocked. Please contact support.' }, email), 403);
+    if (!u || !checkPass(String(f.password || ''), u.pass)) return page(pages.login(lang, { text: L3(lang, 'E-Mail oder Passwort falsch.', 'Wrong email or password.', 'Forkert e-mail eller adgangskode.') }, email), 401);
+    if (u.blocked) return page(pages.login(lang, { text: L3(lang, 'Dieses Konto ist gesperrt. Bitte wende dich an den Support.', 'This account is blocked. Please contact support.', 'Denne konto er spærret. Kontakt venligst support.') }, email), 403);
     if (!u.verified && mail.enabled()) { await sendVerify(u, lang); return page(pages.info(lang, pages.T[lang].verifyTitle, pages.T[lang].verifySent)); }
     { const ip = ipOf(req), cc = countryOf(ip);
       db.prepare('UPDATE users SET last_login = ?, last_seen = ?, last_ip = ?, last_country = ? WHERE id = ?').run(now(), now(), ip, cc, u.id);
       logEvent(u.id, 'login', `${ip}${cc ? ' · ' + cc : ''}`); }
-    return redirect(res, '/', { 'Set-Cookie': [sidCookie(newSession(u.id), SESSION_DAYS * 86400), langCookie(u.lang || lang)] });
+    const back = cookies(req).next === FRAES_PATH ? FRAES_PATH : '/';
+    return redirect(res, back, { 'Set-Cookie': [sidCookie(newSession(u.id), SESSION_DAYS * 86400), langCookie(u.lang || lang), nextCookie('', 0)] });
   }
   if (p === '/register' && m === 'GET') return user ? redirect(res, '/') : page(pages.register(lang, null, {}, +s.trial_days || 0));
   if (p === '/register' && m === 'POST') {
     const f = await readForm(req);
     const v = { email: String(f.email || '').trim().toLowerCase(), name: String(f.name || '').trim() };
-    const L = f.lang === 'en' ? 'en' : f.lang === 'de' ? 'de' : lang;
+    const L = normLang(f.lang) || lang;
     const err = (text, code = 400) => page(pages.register(L, { text }, v, +s.trial_days || 0), code);
-    if (ENV.REGISTRATION === 'closed') return err(L === 'de' ? 'Die Registrierung ist zurzeit geschlossen.' : 'Registration is currently closed.', 403);
-    if (limited('reg:' + ipOf(req), 5, 60 * 60e3)) return err(L === 'de' ? 'Zu viele Registrierungen. Bitte später erneut versuchen.' : 'Too many sign-ups. Please try again later.', 429);
-    if (!validEmail(v.email)) return err(L === 'de' ? 'Bitte eine gültige E-Mail-Adresse eingeben.' : 'Please enter a valid email address.');
-    if (!validPw(f.password)) return err(L === 'de' ? 'Das Passwort muss mindestens 10 Zeichen lang sein.' : 'The password must be at least 10 characters long.');
-    if (f.password !== f.password2) return err(L === 'de' ? 'Die Passwörter stimmen nicht überein.' : 'The passwords do not match.');
-    if (f.accept !== '1') return err(L === 'de' ? 'Bitte AGB und Datenschutzerklärung bestätigen.' : 'Please accept the terms and the privacy policy.');
-    if (db.prepare('SELECT id FROM users WHERE email = ?').get(v.email)) return err(L === 'de' ? 'Für diese E-Mail-Adresse gibt es schon ein Konto. Bitte anmelden oder „Passwort vergessen“ nutzen.' : 'An account with this email already exists. Please sign in or use “Forgot password”.', 409);
+    if (ENV.REGISTRATION === 'closed') return err(L3(L, 'Die Registrierung ist zurzeit geschlossen.', 'Registration is currently closed.', 'Oprettelse af konti er lukket i øjeblikket.'), 403);
+    if (limited('reg:' + ipOf(req), 5, 60 * 60e3)) return err(L3(L, 'Zu viele Registrierungen. Bitte später erneut versuchen.', 'Too many sign-ups. Please try again later.', 'For mange registreringer. Prøv igen senere.'), 429);
+    if (!validEmail(v.email)) return err(L3(L, 'Bitte eine gültige E-Mail-Adresse eingeben.', 'Please enter a valid email address.', 'Indtast venligst en gyldig e-mailadresse.'));
+    if (!validPw(f.password)) return err(L3(L, 'Das Passwort muss mindestens 10 Zeichen lang sein.', 'The password must be at least 10 characters long.', 'Adgangskoden skal være på mindst 10 tegn.'));
+    if (f.password !== f.password2) return err(L3(L, 'Die Passwörter stimmen nicht überein.', 'The passwords do not match.', 'Adgangskoderne er ikke ens.'));
+    if (f.accept !== '1') return err(L3(L, 'Bitte AGB und Datenschutzerklärung bestätigen.', 'Please accept the terms and the privacy policy.', 'Accepter venligst handelsbetingelserne og privatlivspolitikken.'));
+    if (db.prepare('SELECT id FROM users WHERE email = ?').get(v.email)) return err(L3(L, 'Für diese E-Mail-Adresse gibt es schon ein Konto. Bitte anmelden oder „Passwort vergessen“ nutzen.', 'An account with this email already exists. Please sign in or use “Forgot password”.', 'Der findes allerede en konto med denne e-mailadresse. Log ind, eller brug „Glemt adgangskode“.'), 409);
     const id = createUser({ email: v.email, password: f.password, name: v.name, lang: L, verified: mail.enabled() ? 0 : 1, accepted: 1 });
     { const ip = ipOf(req), cc = countryOf(ip);
       db.prepare('UPDATE users SET last_ip = ?, last_country = ?, reg_country = ?, last_seen = ?, last_login = ? WHERE id = ?').run(ip, cc, cc, now(), now(), id);
@@ -403,23 +523,25 @@ async function route(req, res) {
   if (p === '/forgot' && m === 'POST') {
     const f = await readForm(req);
     const email = String(f.email || '').trim().toLowerCase();
-    const okMsg = { ok: true, text: mail.enabled() ? (lang === 'de' ? 'Wenn ein Konto existiert, haben wir eine E-Mail geschickt.' : 'If an account exists, we have sent an email.') : (lang === 'de' ? `E-Mail-Versand ist noch nicht eingerichtet. Bitte wende dich an ${s.support_email || s.email || 'den Support'}.` : `Email sending is not set up yet. Please contact ${s.support_email || s.email || 'support'}.`) };
+    const okMsg = { ok: true, text: mail.enabled() ? L3(lang, 'Wenn ein Konto existiert, haben wir eine E-Mail geschickt.', 'If an account exists, we have sent an email.', 'Hvis der findes en konto, har vi sendt en e-mail.')
+      : L3(lang, `E-Mail-Versand ist noch nicht eingerichtet. Bitte wende dich an ${s.support_email || s.email || 'den Support'}.`, `Email sending is not set up yet. Please contact ${s.support_email || s.email || 'support'}.`, `Afsendelse af e-mails er endnu ikke sat op. Kontakt venligst ${s.support_email || s.email || 'support'}.`) };
     if (limited('forgot:' + ipOf(req), 5, 60 * 60e3)) return page(pages.forgot(lang, okMsg));
     const u = db.prepare('SELECT * FROM users WHERE email = ?').get(email);
     if (u && !u.blocked && mail.enabled()) {
       const tok = newToken(u.id, 'reset', 1);
       const link = `${BASE_URL}/reset?token=${tok}`;
-      const L = u.lang || lang;
-      await mail.send(u.email, L === 'de' ? 'StickStudio – Passwort zurücksetzen' : 'StickStudio – reset your password',
-        L === 'de' ? `Hallo,\n\nüber diesen Link kannst du ein neues Passwort festlegen (1 Stunde gültig):\n${link}\n\nWenn du das nicht angefordert hast, ignoriere diese E-Mail.\n` : `Hello,\n\nuse this link to set a new password (valid for 1 hour):\n${link}\n\nIf you did not request this, just ignore this email.\n`);
+      const L = normLang(u.lang) || lang;
+      await mail.send(u.email, L3(L, 'StickStudio – Passwort zurücksetzen', 'StickStudio – reset your password', 'StickStudio – nulstil din adgangskode'),
+        L3(L, `Hallo,\n\nüber diesen Link kannst du ein neues Passwort festlegen (1 Stunde gültig):\n${link}\n\nWenn du das nicht angefordert hast, ignoriere diese E-Mail.\n`, `Hello,\n\nuse this link to set a new password (valid for 1 hour):\n${link}\n\nIf you did not request this, just ignore this email.\n`,
+          `Hej,\n\nvia dette link kan du vælge en ny adgangskode (gyldigt i 1 time):\n${link}\n\nHvis du ikke har bedt om det, kan du blot se bort fra denne e-mail.\n`));
     }
     return page(pages.forgot(lang, okMsg));
   }
   if (p === '/reset' && m === 'GET') return page(pages.reset(lang, url.searchParams.get('token') || ''));
   if (p === '/reset' && m === 'POST') {
     const f = await readForm(req);
-    if (!validPw(f.password)) return page(pages.reset(lang, f.token, { text: lang === 'de' ? 'Das Passwort muss mindestens 10 Zeichen lang sein.' : 'The password must be at least 10 characters long.' }), 400);
-    if (f.password !== f.password2) return page(pages.reset(lang, f.token, { text: lang === 'de' ? 'Die Passwörter stimmen nicht überein.' : 'The passwords do not match.' }), 400);
+    if (!validPw(f.password)) return page(pages.reset(lang, f.token, { text: L3(lang, 'Das Passwort muss mindestens 10 Zeichen lang sein.', 'The password must be at least 10 characters long.', 'Adgangskoden skal være på mindst 10 tegn.') }), 400);
+    if (f.password !== f.password2) return page(pages.reset(lang, f.token, { text: L3(lang, 'Die Passwörter stimmen nicht überein.', 'The passwords do not match.', 'Adgangskoderne er ikke ens.') }), 400);
     const id = useToken(f.token, 'reset');
     if (!id) return page(pages.info(lang, pages.T[lang].resetTitle, pages.T[lang].badLink, false), 400);
     db.prepare('UPDATE users SET pass = ?, verified = 1 WHERE id = ?').run(hashPass(f.password), id);
@@ -439,13 +561,13 @@ async function route(req, res) {
       kind: f.kind === 'extraordinary' ? 'extraordinary' : 'ordinary', reason: String(f.reason || '').slice(0, 2000), when: f.when === 'date' ? 'date' : 'next', date: String(f.date || '').slice(0, 10), ordered: String(f.ordered || '').slice(0, 10) };
     const form = (m2, code) => page(kind === 'cancel' ? pages.cancelForm(lang, v, m2) : pages.withdrawForm(lang, v, m2), code);
     if (!v.name || !validEmail(v.email)) return form({ text: t.required }, 400);
-    if (limited(kind + ':' + ipOf(req), 10, 60 * 60e3)) return form({ text: lang === 'de' ? 'Zu viele Anfragen. Bitte später erneut versuchen.' : 'Too many requests. Please try again later.' }, 429);
+    if (limited(kind + ':' + ipOf(req), 10, 60 * 60e3)) return form({ text: L3(lang, 'Zu viele Anfragen. Bitte später erneut versuchen.', 'Too many requests. Please try again later.', 'For mange forespørgsler. Prøv igen senere.') }, 429);
     const at = new Date();
-    const atText = at.toLocaleString(lang === 'de' ? 'de-DE' : 'en-GB', { timeZone: 'Europe/Berlin' }) + (lang === 'de' ? ' Uhr' : ' (Berlin time)');
+    const atText = at.toLocaleString(LOCALE[lang], { timeZone: lang === 'da' ? 'Europe/Copenhagen' : 'Europe/Berlin' }) + L3(lang, ' Uhr', ' (Berlin time)', ' (dansk tid)');
     const lines = kind === 'cancel'
-      ? [[t.contract, t.contractName], [t.kind, v.kind === 'extraordinary' ? t.extraordinary : t.ordinary], ...(v.reason ? [[lang === 'de' ? 'Grund' : 'Reason', v.reason]] : []),
-        [t.when, v.when === 'date' && v.date ? v.date : t.nextPossible], [lang === 'de' ? 'Name' : 'Name', v.name], [t.email, v.email], ...(v.ref ? [[t.ref, v.ref]] : []), [lang === 'de' ? 'Eingegangen am' : 'Received on', atText]]
-      : [[t.statement, t.withdrawStatement], [lang === 'de' ? 'Name' : 'Name', v.name], [t.email, v.email], ...(v.ordered ? [[t.orderedOn, v.ordered]] : []), ...(v.ref ? [[t.ref, v.ref]] : []), [lang === 'de' ? 'Eingegangen am' : 'Received on', atText]];
+      ? [[t.contract, t.contractName], [t.kind, v.kind === 'extraordinary' ? t.extraordinary : t.ordinary], ...(v.reason ? [[t.reasonLabel, v.reason]] : []),
+        [t.when, v.when === 'date' && v.date ? v.date : t.nextPossible], [t.nameLabel, v.name], [t.email, v.email], ...(v.ref ? [[t.ref, v.ref]] : []), [t.receivedOn, atText]]
+      : [[t.statement, t.withdrawStatement], [t.nameLabel, v.name], [t.email, v.email], ...(v.ordered ? [[t.orderedOn, v.ordered]] : []), ...(v.ref ? [[t.ref, v.ref]] : []), [t.receivedOn, atText]];
     const acc = (user && user.email === v.email ? user : null) || db.prepare('SELECT * FROM users WHERE email = ?').get(v.email);
     let result = '';
     // ordentliche Kündigung: direkt bei Lemon Squeezy beenden, wenn möglich
@@ -466,6 +588,19 @@ async function route(req, res) {
     return redirect(res, '/login', { 'Set-Cookie': sidCookie('', 0) });
   }
 
+  // Desktop-Programme: Lizenz aktivieren, regelmäßig prüfen, Gerät freigeben
+  if (p.startsWith('/api/license/') && m === 'POST') {
+    const ip = ipOf(req);
+    const b = await readJson(req, 16 * 1024);
+    if (limited('lic:' + ip, 60, 60 * 60e3)) return json(res, 429, { error: 'rate', message: L3(normLang(b.lang) || 'de', 'Zu viele Versuche – bitte in einer Stunde erneut.', 'Too many attempts – please try again in an hour.', 'For mange forsøg – prøv igen om en time.') });
+    if (p === '/api/license/activate' || p === '/api/license/check') {
+      const r = LIC.activate(b, ip);
+      return json(res, r.ok ? 200 : r.code, r);
+    }
+    if (p === '/api/license/deactivate') return json(res, 200, LIC.deactivate(b));
+    return json(res, 404, { error: 'not found' });
+  }
+
   // Zahlungsanbieter meldet Kauf/Verlängerung (Lemon Squeezy, Signatur mit LEMONSQUEEZY_SECRET)
   if (p === '/api/webhook/lemonsqueezy' && m === 'POST') {
     const secret = ENV.LEMONSQUEEZY_SECRET;
@@ -481,6 +616,24 @@ async function route(req, res) {
     const attrs = data.attributes || {};
     const custom = (ev.meta && ev.meta.custom_data) || {};
     const email = String(attrs.user_email || attrs.customer_email || '').toLowerCase();
+    // Einmalkauf eines Desktop-Programms: Lizenzschlüssel anlegen und per E-Mail schicken (ohne Konto)
+    if (name === 'order_created' && data.type === 'orders') {
+      const olang = orderLang(attrs, custom, email);
+      const made = LIC.fromOrder(attrs, data.id, olang);
+      if (made.length) {
+        await sendLicenseMail(made, email, attrs.user_name || '', olang).catch((e) => logEvent(null, 'mail-fehler', e.message));
+        return json(res, 200, { ok: true, licenses: made.length });
+      }
+      // Update-Verlängerung einer Kauf-Lizenz
+      let ren = LIC.renewFromOrder(attrs, data.id, custom);
+      if (ren && ren.key && !ren.lang && olangKnown(attrs, custom)) ren = LIC.update(ren.id, { lang: olang }) || ren;
+      if (ren && ren.key) {
+        await sendRenewMail(ren).catch((e) => logEvent(null, 'mail-fehler', e.message));
+        return json(res, 200, { ok: true, renewed: ren.key });
+      }
+      if (ren) return json(res, 200, { ok: true, renewed: false });
+    }
+    if (name === 'order_refunded' && data.type === 'orders' && LIC.revokeOrder(data.id)) logEvent(null, 'lizenz-gesperrt', `Erstattung Bestellung ${data.id}`);
     let u = custom.user_id ? db.prepare('SELECT * FROM users WHERE id = ?').get(+custom.user_id) : null;
     if (!u && data.type === 'subscriptions' && data.id) u = db.prepare('SELECT * FROM users WHERE sub_id = ?').get(String(data.id));
     if (!u && attrs.subscription_id) u = db.prepare('SELECT * FROM users WHERE sub_id = ?').get(String(attrs.subscription_id));
@@ -501,12 +654,65 @@ async function route(req, res) {
   /* --- ab hier nur angemeldet --- */
   if (!user) {
     if (p.startsWith('/api/')) return json(res, 401, { error: 'login' });
-    return redirect(res, '/login' + (url.searchParams.get('lang') ? '?lang=' + lang : ''));
+    // nach der Anmeldung zurück zu FräsStudio
+    const extra = p === '/fraesstudio' || p.startsWith(FRAES_PATH) ? { 'Set-Cookie': nextCookie(FRAES_PATH, 1800) } : {};
+    return redirect(res, '/login' + (url.searchParams.get('lang') ? '?lang=' + lang : ''), extra);
   }
   const lic = license(user);
   if (now() - (user.last_seen || 0) > 5 * 60e3) {
     const ip = ipOf(req), cc = countryOf(ip);
     db.prepare('UPDATE users SET last_seen = ?, last_ip = ?, last_country = ? WHERE id = ?').run(now(), ip, cc || user.last_country, user.id);
+  }
+
+  /* --- FräsStudio: nur für freigeschaltete Konten --- */
+  if (p === '/fraesstudio') return redirect(res, FRAES_PATH);
+  if (p.startsWith(FRAES_PATH)) {
+    if (!fraesAccess(user)) {
+      logEvent(user.id, 'fraes-verweigert', p.slice(0, 100));
+      return page(pages.info(lang, 'FräsStudio', L3(lang, 'Für dieses Konto ist FräsStudio nicht freigeschaltet. Bitte wende dich an den Betreiber.', 'FräsStudio is not enabled for this account. Please contact the operator.', 'FräsStudio er ikke aktiveret for denne konto. Kontakt venligst udbyderen.'), false), 403);
+    }
+    if (m !== 'GET' && m !== 'HEAD') return send(res, 405, 'Method not allowed', 'text/plain');
+    return fraesFile(res, p.slice(FRAES_PATH.length) || 'index.html') || send(res, 404, 'Not found', 'text/plain');
+  }
+
+  /* --- Brücke zur Fräse (nur mit FräsStudio-Zugang) --- */
+  if (p.startsWith('/api/cnc/')) {
+    if (!fraesAccess(user)) return json(res, 403, { error: 'FräsStudio ist für dieses Konto nicht freigeschaltet.' });
+    if (p === '/api/cnc/config' && m === 'GET') return json(res, 200, { enabled: ENV.CNC_BRIDGE !== 'off', host: ENV.CNC_HOST || '', port: 23 });
+    if (ENV.CNC_BRIDGE === 'off') return json(res, 403, { error: 'Die WLAN-Brücke ist am Server abgeschaltet (CNC_BRIDGE=off).' });
+    if (p === '/api/cnc/open' && m === 'POST') {
+      const b = await readJson(req, 4096);
+      if (limited('cnc:' + user.id, 20, 60e3)) return json(res, 429, { error: 'Zu viele Versuche.' });
+      try {
+        const t = await cncTarget(b.host, b.port);
+        const sess = await cncOpen(user.id, t.ip, t.port);
+        return json(res, 200, { id: sess.id });
+      } catch (e) { return json(res, e.code >= 400 && e.code < 600 ? e.code : 502, { error: e.message }); }
+    }
+    const sess = cnc.get(String(url.searchParams.get('id') || ''));
+    if (!sess || sess.userId !== user.id) return json(res, 404, { error: 'Keine Verbindung (mehr).' });
+    if (p === '/api/cnc/stream' && m === 'GET') {
+      res.writeHead(200, { 'Content-Type': 'text/event-stream; charset=utf-8', 'Cache-Control': 'no-cache, no-transform', Connection: 'keep-alive', 'X-Accel-Buffering': 'no', ...SEC_HEADERS });
+      res.write(`data: ${JSON.stringify({ o: 1 })}\n\n`);
+      for (const msg of sess.pending.splice(0)) res.write(msg);
+      sess.clients.add(res);
+      clearTimeout(sess.grace);
+      res.on('close', () => {
+        sess.clients.delete(res);
+        // Browser weg (Tab zu, Absturz, Netz weg): nach kurzer Gnadenfrist Not-Aus, damit die Fräse nicht weiterläuft
+        if (!sess.clients.size && !sess.closed) sess.grace = setTimeout(() => { if (!sess.clients.size) cncClose(sess, 'Browser getrennt', true); }, 3000);
+      });
+      return;
+    }
+    if (p === '/api/cnc/send' && m === 'POST') {
+      const body = await readBody(req, 8192);
+      if (sess.closed || !sess.sock.writable) return json(res, 410, { error: 'Verbindung beendet.' });
+      sess.sock.write(body);
+      sess.lastSend = now();
+      return send(res, 204, '');
+    }
+    if (p === '/api/cnc/close' && m === 'POST') { cncClose(sess, 'Trennen'); return json(res, 200, { ok: true }); }
+    return json(res, 404, { error: 'not found' });
   }
 
   if (p === '/' || p === '/index.html') return page(appHtml());
@@ -529,14 +735,14 @@ async function route(req, res) {
   }
   if (p === '/api/account/lang' && m === 'POST') {
     const b = await readJson(req);
-    const l = b.lang === 'en' ? 'en' : 'de';
+    const l = normLang(b.lang) || 'de';
     db.prepare('UPDATE users SET lang = ? WHERE id = ?').run(l, user.id);
     return json(res, 200, { ok: true }, { 'Set-Cookie': langCookie(l) });
   }
   if (p === '/api/account/password' && m === 'POST') {
     const b = await readJson(req);
-    if (!checkPass(String(b.old || ''), user.pass)) return json(res, 400, { error: lang === 'de' ? 'Das bisherige Passwort ist falsch.' : 'The current password is wrong.' });
-    if (!validPw(b.password)) return json(res, 400, { error: lang === 'de' ? 'Das neue Passwort muss mindestens 10 Zeichen lang sein.' : 'The new password must be at least 10 characters long.' });
+    if (!checkPass(String(b.old || ''), user.pass)) return json(res, 400, { error: L3(lang, 'Das bisherige Passwort ist falsch.', 'The current password is wrong.', 'Den nuværende adgangskode er forkert.') });
+    if (!validPw(b.password)) return json(res, 400, { error: L3(lang, 'Das neue Passwort muss mindestens 10 Zeichen lang sein.', 'The new password must be at least 10 characters long.', 'Den nye adgangskode skal være på mindst 10 tegn.') });
     db.prepare('UPDATE users SET pass = ? WHERE id = ?').run(hashPass(b.password), user.id);
     // andere Sitzungen beenden, aktuelle behalten
     db.prepare('DELETE FROM sessions WHERE user_id = ? AND hash != ?').run(user.id, sha(cookies(req).sid));
@@ -556,8 +762,8 @@ async function route(req, res) {
   }
   if (p === '/api/account' && m === 'DELETE') {
     const b = await readJson(req);
-    if (!checkPass(String(b.password || ''), user.pass)) return json(res, 400, { error: lang === 'de' ? 'Passwort falsch.' : 'Wrong password.' });
-    if (user.role === 'admin' && db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n <= 1) return json(res, 400, { error: lang === 'de' ? 'Das letzte Admin-Konto kann nicht gelöscht werden.' : 'The last admin account cannot be deleted.' });
+    if (!checkPass(String(b.password || ''), user.pass)) return json(res, 400, { error: L3(lang, 'Passwort falsch.', 'Wrong password.', 'Forkert adgangskode.') });
+    if (user.role === 'admin' && db.prepare("SELECT COUNT(*) AS n FROM users WHERE role = 'admin'").get().n <= 1) return json(res, 400, { error: L3(lang, 'Das letzte Admin-Konto kann nicht gelöscht werden.', 'The last admin account cannot be deleted.', 'Den sidste administratorkonto kan ikke slettes.') });
     // laufendes Abo mit beenden (sonst liefe die Zahlung weiter)
     if (user.sub_id && ['active', 'on_trial', 'past_due', 'paused'].includes(user.sub_status)) {
       const a = await lsCancel(user.sub_id);
@@ -581,7 +787,7 @@ async function route(req, res) {
     return json(res, 200, { ...r, tags: JSON.parse(r.tags), date: r.updated });
   }
   if ((p === '/api/projects' && m === 'POST') || (pm && m === 'PUT')) {
-    if (!lic.active) return json(res, 402, { error: 'license', message: lang === 'de' ? 'Deine Lizenz ist abgelaufen – Speichern ist nur mit gültiger Lizenz möglich.' : 'Your license has expired – saving requires a valid license.' });
+    if (!lic.active) return json(res, 402, { error: 'license', message: L3(lang, 'Deine Lizenz ist abgelaufen – Speichern ist nur mit gültiger Lizenz möglich.', 'Your license has expired – saving requires a valid license.', 'Din licens er udløbet – du kan kun gemme med en gyldig licens.') });
     const b = await readJson(req, 25 << 20);
     if (typeof b.data !== 'string' || !b.data.startsWith('{')) return json(res, 400, { error: 'data' });
     const row = [String(b.name || 'Design').slice(0, 120), JSON.stringify((Array.isArray(b.tags) ? b.tags : []).slice(0, 30).map((x) => String(x).slice(0, 40))), String(b.customer || '').slice(0, 120),
@@ -592,7 +798,7 @@ async function route(req, res) {
       if (!r.changes) return json(res, 404, { error: 'not found' });
       return json(res, 200, { id: +pm[1] });
     }
-    if (count >= +(ENV.MAX_PROJECTS || 2000)) return json(res, 400, { error: lang === 'de' ? 'Maximale Anzahl Designs erreicht.' : 'Maximum number of designs reached.' });
+    if (count >= +(ENV.MAX_PROJECTS || 2000)) return json(res, 400, { error: L3(lang, 'Maximale Anzahl Designs erreicht.', 'Maximum number of designs reached.', 'Det maksimale antal designs er nået.') });
     const r = db.prepare('INSERT INTO projects(user_id, name, tags, customer, stitches, w, h, colors, thumb, data, created, updated) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').run(user.id, ...row, now(), now());
     return json(res, 200, { id: Number(r.lastInsertRowid) });
   }
@@ -603,7 +809,7 @@ async function route(req, res) {
 
   // Stickdatei erzeugen – nur mit gültiger Lizenz (Testversion zählt)
   if (p === '/api/export' && m === 'POST') {
-    if (!lic.active) return json(res, 402, { error: 'license', message: lang === 'de' ? 'Deine Lizenz ist abgelaufen – Stickdateien können nur mit gültiger Lizenz erzeugt werden.' : 'Your license has expired – embroidery files can only be created with a valid license.' });
+    if (!lic.active) return json(res, 402, { error: 'license', message: L3(lang, 'Deine Lizenz ist abgelaufen – Stickdateien können nur mit gültiger Lizenz erzeugt werden.', 'Your license has expired – embroidery files can only be created with a valid license.', 'Din licens er udløbet – broderifiler kan kun oprettes med en gyldig licens.') });
     if (limited('export:' + user.id, 600, 60 * 60e3)) return json(res, 429, { error: 'zu viele Exporte' });
     const b = await readJson(req, 80 << 20);
     try {
@@ -620,16 +826,34 @@ async function route(req, res) {
   /* --- Verwaltung --- */
   if (p.startsWith('/api/admin/')) {
     if (user.role !== 'admin') return json(res, 403, { error: 'forbidden' });
+    // Kauf-Lizenzen der Desktop-Programme
+    if (p === '/api/admin/licenses' && m === 'GET') return json(res, 200, { list: LIC.list(url.searchParams.get('q') || ''), publicKey: LIC.publicPem, products: LIC.PRODUCTS, variants: !!ENV.LICENSE_VARIANTS });
+    if (p === '/api/admin/licenses' && m === 'POST') {
+      const b = await readJson(req);
+      const n = Math.max(1, Math.min(50, b.count | 0 || 1));
+      const made = [];
+      for (let i = 0; i < n; i++) made.push(LIC.create({ product: b.product, name: b.name, email: b.email, max: b.max, note: b.note, lang: normLang(b.lang) || '' }));
+      if (b.mail && validEmail(String(b.email || ''))) await sendLicenseMail(made, b.email, b.name, normLang(b.lang) || 'de').catch((e) => logEvent(null, 'mail-fehler', e.message));
+      logEvent(user.id, 'lizenz-neu', `${made.length} × ${b.product} für ${b.email || b.name || '–'}`);
+      return json(res, 200, { list: made });
+    }
+    const lm = /^\/api\/admin\/licenses\/(\d+)(\/offline)?$/.exec(p);
+    if (lm) {
+      const id = +lm[1];
+      if (lm[2] && m === 'POST') { const b = await readJson(req); return json(res, 200, { token: LIC.offlineGrant(id, b.machine, b.days) }); }
+      if (m === 'GET') { const l = LIC.list().find((x) => x.id === id); return l ? json(res, 200, { ...l, devices: LIC.devices(id) }) : json(res, 404, { error: 'not found' }); }
+      if (m === 'POST') { const l = LIC.update(id, await readJson(req)); return l ? json(res, 200, l) : json(res, 404, { error: 'not found' }); }
+    }
     if (p === '/api/admin/users' && m === 'GET') {
       const q = '%' + (url.searchParams.get('q') || '') + '%';
-      const rows = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen,
+      const rows = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen, u.fraes,
         (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS projects FROM users u WHERE u.email LIKE ? OR u.name LIKE ? ORDER BY u.created DESC LIMIT 500`).all(q, q);
       let list = rows;
       // Suche nach der Kennung aus einer weitergegebenen Programmdatei
       const qq = (url.searchParams.get('q') || '').trim().toLowerCase();
       if (!list.length && /^[0-9a-f]{16}$/.test(qq)) {
         const hit = db.prepare('SELECT id FROM users').all().find((r) => mark(r) === qq);
-        if (hit) list = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen,
+        if (hit) list = db.prepare(`SELECT u.id, u.email, u.name, u.role, u.lang, u.verified, u.blocked, u.trial_until, u.license_until, u.note, u.created, u.last_login, u.sub_id, u.sub_status, u.sub_renews, u.sub_ends, u.sub_portal, u.last_ip, u.last_country, u.reg_country, u.last_seen, u.fraes,
           (SELECT COUNT(*) FROM projects p WHERE p.user_id = u.id) AS projects FROM users u WHERE u.id = ?`).all(hit.id);
       }
       return json(res, 200, list.map((r) => ({ ...r, license: license(r), mark: mark(r) })));
@@ -661,8 +885,9 @@ async function route(req, res) {
           verified: b.verified !== undefined ? (b.verified ? 1 : 0) : u.verified,
           note: b.note !== undefined ? String(b.note).slice(0, 2000) : u.note,
           name: b.name !== undefined ? String(b.name).slice(0, 120) : u.name,
+          fraes: b.fraes !== undefined ? (b.fraes ? 1 : 0) : u.fraes,
         };
-        db.prepare('UPDATE users SET license_until=?, trial_until=?, blocked=?, role=?, verified=?, note=?, name=? WHERE id=?').run(upd.license_until, upd.trial_until, upd.blocked, upd.role, upd.verified, upd.note, upd.name, id);
+        db.prepare('UPDATE users SET license_until=?, trial_until=?, blocked=?, role=?, verified=?, note=?, name=?, fraes=? WHERE id=?').run(upd.license_until, upd.trial_until, upd.blocked, upd.role, upd.verified, upd.note, upd.name, upd.fraes, id);
         if (upd.blocked) db.prepare('DELETE FROM sessions WHERE user_id = ?').run(id);
         logEvent(id, 'admin-edit', `${user.email}: ${JSON.stringify(b).slice(0, 300)}`);
         return json(res, 200, { ok: true });
@@ -680,7 +905,7 @@ async function route(req, res) {
       if (!validEmail(email)) return json(res, 400, { error: 'E-Mail ungültig' });
       if (db.prepare('SELECT id FROM users WHERE email = ?').get(email)) return json(res, 409, { error: 'E-Mail existiert schon' });
       const pw = crypto.randomBytes(9).toString('base64url');
-      const id = createUser({ email, password: pw, name: b.name || '', lang: b.lang === 'en' ? 'en' : 'de', verified: 1, accepted: 0 });
+      const id = createUser({ email, password: pw, name: b.name || '', lang: normLang(b.lang) || 'de', verified: 1, accepted: 0 });
       const tok = newToken(id, 'reset', 72);
       logEvent(id, 'admin-create', user.email);
       return json(res, 200, { id, link: `${BASE_URL}/reset?token=${tok}` });
@@ -752,6 +977,143 @@ async function route(req, res) {
   return p.startsWith('/api/') ? json(res, 404, { error: 'not found' }) : page(pages.info(lang, pages.T[lang].notFound, pages.T[lang].notFound, false), 404);
 }
 
+// Kauf-Link für die Update-Verlängerung je Programm: LICENSE_RENEW_URLS="laser=https://… fraes=https://… stick=https://…"
+function renewUrl(product, key) {
+  const m = {};
+  for (const part of String(ENV.LICENSE_RENEW_URLS || '').split(/\s+/)) { const i = part.indexOf('='); if (i > 0) m[part.slice(0, i)] = part.slice(i + 1); }
+  if (!m[product]) return '';
+  try { const u = new URL(m[product]); u.searchParams.set('checkout[custom][license_key]', key); return u.toString(); } catch (e) { return m[product]; }
+}
+/**
+ * Sprache eines Kaufs bei Lemon Squeezy: Kauf-Link (checkout[custom][lang]) > Land des Käufers (falls im Webhook enthalten)
+ * > Währung DKK > Sprache eines Kontos mit dieser E-Mail > Deutsch.
+ */
+function orderCountry(attrs) {
+  return attrs.country || attrs.user_country || attrs.customer_country || (attrs.billing_address && attrs.billing_address.country) || '';
+}
+const olangKnown = (attrs, custom) => !!(normLang(String((custom && custom.lang) || '').toLowerCase()) || orderCountry(attrs) || String(attrs.currency || '').toUpperCase() === 'DKK');
+function orderLang(attrs, custom = {}, email = '') {
+  const c = normLang(String(custom.lang || '').toLowerCase().slice(0, 2));
+  if (c) return c;
+  const byCountry = langOfCountry(orderCountry(attrs));
+  if (byCountry) return byCountry;
+  if (String(attrs.currency || '').toUpperCase() === 'DKK') return 'da';
+  const u = email ? db.prepare('SELECT lang FROM users WHERE email = ?').get(email) : null;
+  return (u && normLang(u.lang)) || 'de';
+}
+const licLang = (lic) => normLang(lic && lic.lang) || 'de';
+const greet = (lang, name) => L3(lang, 'Hallo', 'Hello', 'Hej') + (name ? ' ' + name : '') + ',';
+async function sendRenewMail(lic) {
+  if (!lic.email) return false;
+  const lang = licLang(lic), d = fmtDate(lic.updates_until, lang);
+  const name = (licenses.PRODUCTS[lic.product] || {}).name || lic.product;
+  const company = settings().company ? '\n' + settings().company : '';
+  return mail.send(lic.email, L3(lang, `${name}: Updates verlängert`, `${name}: updates renewed`, `${name}: opdateringer forlænget`), L3(lang,
+    `${greet(lang, lic.name)}
+
+vielen Dank! Die Updates für ${name} (${lic.key}) sind jetzt bis zum ${d} freigeschaltet.
+Das Programm übernimmt das bei der nächsten Prüfung automatisch (oder sofort über „Programm → Lizenz jetzt prüfen“).
+${company}`,
+    `${greet(lang, lic.name)}
+
+thank you! Updates for ${name} (${lic.key}) are now included until ${d}.
+The program picks this up automatically at its next check (or right away via “Program → Check license now”).
+${company}`,
+    `${greet(lang, lic.name)}
+
+mange tak! Opdateringerne til ${name} (${lic.key}) er nu inkluderet til og med ${d}.
+Programmet registrerer det automatisk ved næste kontrol (eller med det samme via „Program → Kontrollér licens nu“).
+${company}`));
+}
+// Erinnerung etwa 2 Wochen bevor die inklusiven Updates enden
+async function updateReminders() {
+  for (const lic of LIC.dueReminders(14)) {
+    const name = (licenses.PRODUCTS[lic.product] || {}).name || lic.product, url = renewUrl(lic.product, lic.key);
+    const lang = licLang(lic), d = fmtDate(lic.updates_until, lang);
+    const company = settings().company ? '\n' + settings().company : '';
+    await mail.send(lic.email, L3(lang, `${name}: Updates enden am ${d}`, `${name}: updates end on ${d}`, `${name}: opdateringerne slutter den ${d}`), L3(lang,
+      `${greet(lang, lic.name)}
+
+die Updates für ${name} (${lic.key}) sind noch bis zum ${d} inklusive.
+Dein Programm läuft danach ganz normal weiter – du bekommst nur keine neuen Versionen mehr.
+${url ? `\nWenn du weiter neue Funktionen und Verbesserungen bekommen möchtest, kannst du die Updates hier um ein Jahr verlängern:\n${url}\n` : ''}${company}`,
+      `${greet(lang, lic.name)}
+
+updates for ${name} (${lic.key}) are included until ${d}.
+After that your program keeps working as usual – you just won't receive new versions.
+${url ? `\nIf you would like to keep getting new features and improvements, you can extend updates by one year here:\n${url}\n` : ''}${company}`,
+      `${greet(lang, lic.name)}
+
+opdateringerne til ${name} (${lic.key}) er inkluderet til og med ${d}.
+Derefter kører dit program helt normalt videre – du får blot ikke flere nye versioner.
+${url ? `\nHvis du fortsat vil have nye funktioner og forbedringer, kan du forlænge opdateringerne med et år her:\n${url}\n` : ''}${company}`)).catch((e) => logEvent(null, 'mail-fehler', e.message));
+    LIC.markReminded(lic.id);
+  }
+}
+
+// Lizenzschlüssel per E-Mail an den Käufer (lang: de | en | da)
+async function sendLicenseMail(list, to, name, lang = 'de') {
+  if (!to) return false;
+  lang = normLang(lang) || 'de';
+  const s = settings();
+  const names = list.map((l) => `${(licenses.PRODUCTS[l.product] || {}).name || l.product}: ${l.key}`).join('\n');
+  const many = list.length > 1, upd = fmtDate(list[0].updates_until, lang), dev = list[0].max_devices, off = licenses.OFFLINE_DAYS;
+  const foot = `${s.company ? '\n' + s.company : ''}${s.support_email ? '\n' + L3(lang, 'Hilfe', 'Help', 'Hjælp') + ': ' + s.support_email : ''}`;
+  const text = L3(lang, `${greet(lang, name)}
+
+vielen Dank für deinen Kauf! Hier ${many ? 'sind deine Lizenzschlüssel' : 'ist dein Lizenzschlüssel'}:
+
+${names}
+
+So geht es:
+1. Programm installieren und starten.
+2. Den Schlüssel im Fenster „Lizenz“ eingeben und auf „Freischalten“ klicken (einmal Internet nötig).
+3. Das Programm prüft die Lizenz danach gelegentlich im Hintergrund. Ohne Internet läuft es bis zu ${off} Tage weiter.
+
+Die Lizenz ist ein Kauf und gilt dauerhaft. Updates (neue Versionen) sind bis zum ${upd} inklusive.
+Danach läuft dein Programm einfach weiter. Neue Versionen gibt es dann mit einer Update-Verlängerung.
+
+Eine Lizenz gilt für ${dev} Geräte. Beim Wechsel auf einen neuen Rechner im alten Programm unter „Lizenz“ → „Dieses Gerät freigeben“ abmelden.
+
+Bitte bewahre diese E-Mail gut auf.
+${foot}`, `${greet(lang, name)}
+
+thank you for your purchase! Here ${many ? 'are your license keys' : 'is your license key'}:
+
+${names}
+
+How it works:
+1. Install and start the program.
+2. Enter the key in the “License” window and click “Activate” (an internet connection is needed once).
+3. After that, the program checks the license occasionally in the background. Without internet it keeps running for up to ${off} days.
+
+The license is a one-time purchase and is valid permanently. Updates (new versions) are included until ${upd}.
+After that your program simply keeps running. New versions are then available with an update extension.
+
+One license is valid for ${dev} devices. When moving to a new computer, sign out in the old program under “License” → “Release this device”.
+
+Please keep this email in a safe place.
+${foot}`, `${greet(lang, name)}
+
+mange tak for dit køb! Her ${many ? 'er dine licensnøgler' : 'er din licensnøgle'}:
+
+${names}
+
+Sådan gør du:
+1. Installér og start programmet.
+2. Indtast nøglen i vinduet „Licens“, og klik på „Aktivér“ (kræver internet én gang).
+3. Derefter kontrollerer programmet licensen en gang imellem i baggrunden. Uden internet kører det videre i op til ${off} dage.
+
+Licensen er et engangskøb og gælder permanent. Opdateringer (nye versioner) er inkluderet til og med ${upd}.
+Derefter kører dit program bare videre. Nye versioner får du så med en forlængelse af opdateringerne.
+
+En licens gælder til ${dev} enheder. Når du skifter til en ny computer, skal du logge af i det gamle program under „Licens“ → „Frigiv denne enhed“.
+
+Gem venligst denne e-mail et sikkert sted.
+${foot}`);
+  return mail.send(to, L3(lang, many ? 'Deine Lizenzschlüssel' : 'Dein Lizenzschlüssel', many ? 'Your license keys' : 'Your license key', many ? 'Dine licensnøgler' : 'Din licensnøgle'), text);
+}
+
 // Kauf-Link mit Kundendaten (Lemon Squeezy: checkout[email] und checkout[custom][user_id])
 function buyUrl(s, u) {
   if (!s.buy_url) return '';
@@ -778,7 +1140,8 @@ const server = http.createServer((req, res) => {
 
 if (require.main === module) {
   ensureAdmin();
-  server.listen(PORT, () => console.log(`StickStudio läuft auf ${BASE_URL} (Port ${PORT}, Daten in ${DATA_DIR})`));
+  // HOST=127.0.0.1: nur über den Reverse Proxy auf demselben Rechner erreichbar (z. B. neben Nextcloud/Immich)
+  server.listen(PORT, ENV.HOST || undefined, () => console.log(`StickStudio läuft auf ${BASE_URL} (Port ${PORT}${ENV.HOST ? ', nur ' + ENV.HOST : ''}, Daten in ${DATA_DIR})`));
   // Protokoll aufräumen (Datenschutz) und Länderdaten aktuell halten
   const housekeeping = () => {
     try { db.prepare('DELETE FROM events WHERE at < ?').run(now() - EVENT_DAYS * DAY); db.prepare('DELETE FROM sessions WHERE expires < ?').run(now()); db.prepare('DELETE FROM tokens WHERE expires < ?').run(now()); } catch (e) { console.error(e); }
@@ -790,5 +1153,8 @@ if (require.main === module) {
   // stündlich: Verlängerungshinweise per E-Mail
   setInterval(() => renewalReminders().catch((e) => console.error(e)), 60 * 60e3).unref();
   setTimeout(() => renewalReminders().catch((e) => console.error(e)), 30e3).unref();
+  // Kauf-Lizenzen: Erinnerung vor dem Ende der inklusiven Updates
+  setInterval(() => updateReminders().catch((e) => console.error(e)), 6 * 60 * 60e3).unref();
+  setTimeout(() => updateReminders().catch((e) => console.error(e)), 60e3).unref();
 }
-module.exports = { server, db, ensureAdmin, createUser, license, renewalReminders, geo };
+module.exports = { server, db, ensureAdmin, createUser, license, renewalReminders, updateReminders, geo, LIC, langOf, acceptLang, langOfCountry, orderLang, sendLicenseMail, L3 };

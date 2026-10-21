@@ -1797,7 +1797,7 @@
         return false;
       } }]);
   }
-  const fmt2 = (v) => { const r = (Math.round(v * 10) / 10).toString(); return HW.i18n && HW.i18n.lang !== 'de' ? r : r.replace('.', ','); };
+  const fmt2 = (v) => { const r = (Math.round(v * 10) / 10).toString(); return HW.i18n && !HW.i18n.comma() ? r : r.replace('.', ','); };
 
   // Großes Design auf mehrere Einspannungen verteilen, mit Passmarken zum Ausrichten
   // beide Lagen des Rahmens probieren (hoch/quer) – weniger Einspannungen gewinnt

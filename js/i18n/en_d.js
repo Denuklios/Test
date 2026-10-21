@@ -1,7 +1,7 @@
 /* Englische Übersetzungen (Teil D: Online-Version – Konto-Menü, Lizenz-Hinweise) */
 (function (g) {
   const HW = (g.HW = g.HW || {});
-  HW.I18N = HW.I18N || { en: { exact: {}, rx: [] } };
+  HW.I18N = HW.I18N || {}; HW.I18N.en = HW.I18N.en || { exact: {}, rx: [] };
   const E = HW.I18N.en;
   Object.assign(E.exact, {
     "Bezugspunkt setzen: die Mitte des Halsausschnitts am Kragen anklicken (bei Kappen die Mitte der Schirmnaht). Esc = abbrechen.": "Set reference point: click the center of the neckline at the collar (for caps the center of the bill seam). Esc = cancel.",

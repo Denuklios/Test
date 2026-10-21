@@ -1,7 +1,7 @@
 /* „Mein Konto“: Lizenz, Name, Passwort, Sprache, Datenauskunft, Konto löschen */
 (function () {
   const root = document.getElementById('accountApp');
-  const lang = root.dataset.lang === 'en' ? 'en' : 'de';
+  const lang = ['de', 'en', 'da'].includes(root.dataset.lang) ? root.dataset.lang : 'de';
   const L = {
     de: {
       title: 'Mein Konto', email: 'E-Mail', name: 'Name / Firma', since: 'Konto seit', status: 'Status', until: 'Gültig bis',
@@ -25,6 +25,17 @@
       delTitle: 'Delete account', delInfo: 'Permanently deletes your account and all designs. Download your data first if needed. A running subscription is cancelled at the earliest possible date.', delPw: 'Your password to confirm', del: 'Delete account permanently',
       delConfirm: 'Really delete your account and all designs permanently?', toApp: 'Open the program', support: 'Questions? Write to',
     },
+    da: {
+      title: 'Min konto', email: 'E-mail', name: 'Navn / firma', since: 'Konto siden', status: 'Status', until: 'Gyldig til',
+      admin: 'Admin', licensed: 'Licens aktiv', trial: 'Prøveversion', expired: 'Udløbet – kun visning', buy: 'Tegn abonnement', renew: 'Administrer abonnement',
+      sub: 'Abonnement', subActive: 'aktivt – fornyes den', subCancelled: 'opsagt – adgang til', subPastDue: 'betaling mangler – kontrollér venligst din betalingsmetode', subEnded: 'afsluttet',
+      manage: 'Administrer abonnement (betalingsmetode, fakturaer)', cancel: 'Opsig aftaler her', withdraw: 'Fortryd aftale',
+      days: 'dage tilbage', saveName: 'Gem navn', pwTitle: 'Skift adgangskode', oldPw: 'Nuværende adgangskode', newPw: 'Ny adgangskode (mindst 10 tegn)',
+      newPw2: 'Gentag ny adgangskode', changePw: 'Skift adgangskode', pwMismatch: 'De nye adgangskoder er ikke ens.', saved: 'Gemt.',
+      langTitle: 'Sprog', dataTitle: 'Mine data', dataInfo: 'Download alle data, der er gemt om din konto (konto og designs), som en fil.', download: 'Download data',
+      delTitle: 'Slet konto', delInfo: 'Sletter din konto og alle designs permanent. Download eventuelt dine data først. Et løbende abonnement opsiges samtidig til det tidligst mulige tidspunkt.', delPw: 'Din adgangskode som bekræftelse', del: 'Slet konto permanent',
+      delConfirm: 'Vil du virkelig slette din konto og alle designs permanent?', toApp: 'Åbn programmet', support: 'Spørgsmål? Skriv til',
+    },
   }[lang];
   const esc = (s) => String(s ?? '').replace(/&/g, '&amp;').replace(/</g, '&lt;');
   const api = async (path, opts = {}) => {
@@ -33,7 +44,7 @@
     if (!r.ok) throw new Error(d.error || d.message || r.status);
     return d;
   };
-  const date = (ms) => (ms ? new Date(ms).toLocaleDateString(lang === 'de' ? 'de-DE' : 'en-GB') : '–');
+  const date = (ms) => (ms ? new Date(ms).toLocaleDateString({ de: 'de-DE', da: 'da-DK' }[lang] || 'en-GB') : '–');
 
   api('/api/me').then(({ user, buyUrl }) => {
     const l = user.license;
@@ -49,13 +60,13 @@
       ${!l.admin && sub && sub.portal ? `<p><a class="btn" style="display:inline-block;width:auto;text-decoration:none" href="${esc(sub.portal)}" target="_blank" rel="noopener">${L.manage}</a></p>`
         : buyUrl && !l.admin && (!sub || !live) ? `<p><a class="btn primary" style="display:inline-block;width:auto;text-decoration:none" href="${esc(buyUrl)}" target="_blank" rel="noopener">${L.buy}</a></p>` : ''}
       ${!l.admin ? `<p class="muted"><a href="/kuendigen">${L.cancel}</a> · <a href="/widerrufen">${L.withdraw}</a></p>` : ''}
-      <p><a href="/">${L.toApp} →</a></p>
+      <p><a href="/">${L.toApp} →</a>${user.fraes ? ` · <a href="/fraesstudio/">FräsStudio →</a>` : ''}</p>
       <h2>${L.name}</h2><div class="row"><input id="nm" value="${esc(user.name)}" style="flex:1"><button id="nmSave">${L.saveName}</button></div><div id="nmMsg"></div>
       <h2>${L.pwTitle}</h2>
       <label>${L.oldPw}<input type="password" id="pw0" autocomplete="current-password"></label>
       <div class="grid2"><label>${L.newPw}<input type="password" id="pw1" minlength="10" autocomplete="new-password"></label><label>${L.newPw2}<input type="password" id="pw2" minlength="10" autocomplete="new-password"></label></div>
       <button id="pwSave">${L.changePw}</button><div id="pwMsg"></div>
-      <h2>${L.langTitle}</h2><div class="row"><button data-l="de">Deutsch</button><button data-l="en">English</button></div>
+      <h2>${L.langTitle}</h2><div class="row"><button data-l="de">Deutsch</button><button data-l="en">English</button><button data-l="da">Dansk</button></div>
       <h2>${L.dataTitle}</h2><p class="muted">${L.dataInfo}</p><a class="btn" href="/api/account/export">${L.download}</a>
       <h2>${L.delTitle}</h2><p class="muted">${L.delInfo}</p>
       <div class="row"><input type="password" id="delPw" placeholder="${L.delPw}" style="flex:1" autocomplete="current-password"><button class="danger" id="delBtn">${L.del}</button></div><div id="delMsg"></div>`;

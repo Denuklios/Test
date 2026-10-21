@@ -2,13 +2,13 @@
 <div class="draft">Draft – have this reviewed by a lawyer before publishing. Not legal advice.</div>
 <p><em>This is an English translation of our German privacy policy (Datenschutzerklärung).</em></p>
 
-<p>In this privacy policy we inform you, in accordance with Articles 13 and 14 of the General Data Protection Regulation (GDPR), which personal data we process when you use the online embroidery software StickStudio and our website, for what purposes and on what legal basis, and which rights you have.</p>
+<p>In this privacy policy we inform you, in accordance with Articles 13 and 14 of the General Data Protection Regulation (GDPR), which personal data we process when you use the online embroidery software StickStudio, our installable programs StickStudio, FräsStudio and LaserStudio ("desktop programs") and our website, for what purposes and on what legal basis, and which rights you have.</p>
 
 <h2>1. Controller</h2>
 <p>The controller within the meaning of the GDPR is:</p>
 <p>{{company}}<br>
-{{owner}}<br>
-{{street}}<br>
+<span data-optional="owner">{{owner}}<br>
+</span>{{street}}<br>
 {{zip_city}}<br>
 {{country}}<br>
 Email: <a href="mailto:{{email}}">{{email}}</a><br>
@@ -56,6 +56,20 @@ Phone: {{phone}}</p>
 <p>Your projects are stored on our server and assigned to your account (project data in JSON format, including any template images and text you have inserted). To import and export embroidery files (e.g. DST, PES, JEF, EXP), you transfer files to our server, where they are processed only for conversion and are not stored permanently unless you save them as a project.</p>
 <p>Projects usually do not contain personal data; however, this may be the case if, for example, you enter names for name embroidery. We do not look at your projects unless this is necessary to fix an error you have reported and you have agreed, or we are legally obliged to do so. The legal basis is Art. 6(1)(b) GDPR.</p>
 
+<h2>6a. Desktop programs: activation and licence check</h2>
+<p>The desktop programs run on your computer. Your drawings, embroidery designs, projects, images and camera images remain on your device and are <strong>not</strong> transmitted to us. The program uses the camera and USB ports only locally to control your machine.</p>
+<p>Only for <strong>activation</strong>, for the <strong>regular licence check</strong> (currently about every seven days) and when <strong>deactivating a device</strong> does the program connect to our licence server and transmit:</p>
+<ul>
+<li>the licence key and the program (StickStudio, FräsStudio or LaserStudio),</li>
+<li>a <strong>device identifier</strong>: a non-reversible check value (hash) calculated from an identifier of the operating system, which allows us to recognise your device without receiving hardware data,</li>
+<li>a device name (computer name and operating system, e.g. "Workshop PC (Windows)"), so that you and we can tell your devices apart,</li>
+<li>the program version and, for technical reasons, your IP address and the time.</li>
+</ul>
+<p>In connection with the licence key we also store the name and email address from the purchase, the purchase date, the order number, the end of the update period and the activated devices with device name, first and last check, program version and most recently used IP address.</p>
+<p>The purpose is the performance of the licence agreement (provision, limitation to the permitted number of devices, update period, blocking after a refund) – legal basis Art. 6(1)(b) GDPR – and our legitimate interest in preventing the unauthorised sharing of licence keys (Art. 6(1)(f) GDPR). We store the data for as long as the licence exists; a deactivated device is deleted from the device list immediately. In addition, the statutory retention periods apply (section 10). Activation is not possible without this transmission; offline activation (device code by email) is an alternative.</p>
+<p>About two weeks before the end of the update period we send a reminder by email to the address from the purchase (Art. 6(1)(b) GDPR, information relating to the contract).</p>
+<p>The website on which we present the programs uses <strong>no cookies</strong>, no tracking and no third-party content; only the technically necessary server log files are generated (section 3).</p>
+
 <h2>7. Payment processing</h2>
 <p>Paid licences are processed via {{payment_provider}}. When you order, you are redirected to a payment page of {{payment_provider}} or this page is displayed as an overlay. The data entered there (e.g. name, billing address, email address, payment details such as credit card or bank details, VAT ID where applicable) are collected and processed directly by {{payment_provider}}. We do not receive complete payment details.</p>
 <p>From {{payment_provider}} we only receive the information required to perform the contract: email address, name and country where applicable, order number, product purchased, amount, payment and subscription status, and term.</p>
@@ -77,11 +91,12 @@ Phone: {{phone}}</p>
 <h2>10. Storage periods</h2>
 <p>We only store personal data for as long as necessary for the respective purpose or as required by statutory retention obligations:</p>
 <ul>
-<li><strong>Server log files:</strong> 14 days (exception: investigation of a specific security incident, see section 3).</li>
+<li><strong>Server log files:</strong> 14 days; sign-in log in the database: 90 days (exception: investigation of a specific security incident, see section 3).</li>
 <li><strong>Session cookie:</strong> until you log out or the session expires.</li>
 <li><strong>Account data and projects:</strong> until your account is deleted. After the trial or licence has expired, the account and projects are retained in view-only mode. We delete accounts that have not been used for more than 24 months thereafter, after prior notice by email. Deleted data are removed from backups after 30 days at the latest.</li>
 <li><strong>Password reset links:</strong> expire after a short time (e.g. one hour) and are then deleted.</li>
-<li><strong>Invoices and accounting records</strong> (where we are the seller ourselves): 8 years; <strong>commercial and business correspondence</strong> (e.g. order confirmations, correspondence relating to the contract): 6 years, in each case from the end of the calendar year (Section 147 of the German Fiscal Code, Section 257 of the German Commercial Code, Section 14b of the German VAT Act). During this time, the data are blocked for other purposes.</li>
+<li><strong>Accounting records</strong> (e.g. invoices, credit notes, order records): 5 years from the end of the financial year under the Danish Bookkeeping Act (bogføringsloven). During this time, the data are blocked for other purposes.</li>
+<li><strong>Licence data of the desktop programs</strong> (section 6a): for as long as the licence exists; deactivated devices immediately.</li>
 <li><strong>Evidence of consent</strong> (e.g. to the early start of performance) and of cancellations: until the limitation periods for possible claims have expired (generally 3 years from the end of the calendar year in which the contract ended).</li>
 </ul>
 

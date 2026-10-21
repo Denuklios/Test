@@ -1,0 +1,40 @@
+# Baut die Desktop-Installer (Windows .exe, Mac .dmg, Linux .AppImage) für StickStudio, FräsStudio und LaserStudio.
+# Starten: auf GitHub unter „Actions“ → „Desktop-Installer bauen“ → „Run workflow“, oder automatisch bei einem Tag v1.2.3.
+# Den Lizenzserver unter Settings → Secrets and variables → Actions → Variables als LICENSE_SERVER eintragen (z. B. https://stick.deine-domain.de).
+name: Desktop-Installer bauen
+on:
+  workflow_dispatch:
+  push:
+    tags: ['v*']
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, macos-latest, ubuntu-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Abhängigkeiten
+        working-directory: desktop
+        run: npm ci --no-audit --no-fund
+      - name: Installer bauen
+        working-directory: desktop
+        env:
+          LICENSE_SERVER: ${{ vars.LICENSE_SERVER }}
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+        run: |
+          node build.js stick
+          node build.js fraes
+          node build.js laser
+      - uses: actions/upload-artifact@v4
+        with:
+          name: installer-${{ matrix.os }}
+          path: |
+            desktop/dist/*.exe
+            desktop/dist/*.dmg
+            desktop/dist/*.AppImage
+          if-no-files-found: error

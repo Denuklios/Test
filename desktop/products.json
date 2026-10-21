@@ -1,0 +1,58 @@
+{
+  "stick": {
+    "name": "StickStudio",
+    "code": "STK",
+    "appId": "dk.wunschfabrik.stickstudio",
+    "description": "Stickprogramm: digitalisieren, Schrift, DST/PES/JEF/EXP",
+    "src": "..",
+    "files": [
+      "index.html",
+      "css",
+      "js",
+      "fonts",
+      "docs/StickStudio-Handbuch.pdf",
+      "docs/StickStudio-Manual.pdf"
+    ],
+    "data": [
+      "js/fonts.js",
+      "js/stickfonts/",
+      "js/garment_assets.js",
+      "js/i18n/",
+      "js/vendor/"
+    ]
+  },
+  "fraes": {
+    "name": "FräsStudio",
+    "code": "FRS",
+    "appId": "dk.wunschfabrik.fraesstudio",
+    "description": "CAD/CAM und Maschinensteuerung für GRBL-Fräsen",
+    "src": "../fraesstudio",
+    "files": [
+      "index.html",
+      "css",
+      "js"
+    ],
+    "data": [
+      "js/fonts.js",
+      "js/lib/",
+      "js/i18n/"
+    ]
+  },
+  "laser": {
+    "name": "LaserStudio",
+    "code": "LSR",
+    "appId": "dk.wunschfabrik.laserstudio",
+    "description": "Laserprogramm für GRBL-Laser mit Kamera",
+    "src": "../laserstudio",
+    "files": [
+      "index.html",
+      "css",
+      "js"
+    ],
+    "data": [
+      "js/fonts.js",
+      "js/lib/",
+      "js/i18n/"
+    ]
+  }
+}

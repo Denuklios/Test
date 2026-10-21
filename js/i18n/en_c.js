@@ -1,7 +1,7 @@
 /* Englische Übersetzungen (Teil C: Hilfe-Infos, Stickprüfung, Stoffe, Rahmen) */
 (function (g) {
   const HW = (g.HW = g.HW || {});
-  HW.I18N = HW.I18N || { en: { exact: {}, rx: [] } };
+  HW.I18N = HW.I18N || {}; HW.I18N.en = HW.I18N.en || { exact: {}, rx: [] };
   const E = HW.I18N.en;
   // Teiltexte rekursiv übersetzen (für zusammengesetzte Texte wie „⚠ Meldung“ oder „1 × Vlies (Gewicht)“)
   const T = (s) => (HW.i18n && HW.i18n.t ? HW.i18n.t(s) : s);
