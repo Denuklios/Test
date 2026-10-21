@@ -5,13 +5,28 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 2) {
+    if ($v >= 3) {
         return;
     }
     if ($v < 1) {
         wf_migrate_v1($db);
     }
-    // Version 2: Sperrtage und Wochenend-Kapazitaet
+    if ($v < 2) {
+        wf_migrate_v2($db);
+    }
+    // Version 3: Sperrtage mit Uhrzeit (Teilsperre). NULL = ganzer Tag.
+    $db->beginTransaction();
+    $db->exec("
+    ALTER TABLE blocked_days ADD COLUMN time_from TEXT;
+    ALTER TABLE blocked_days ADD COLUMN time_to TEXT;
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '3');
+    ");
+    $db->commit();
+}
+
+/** Version 2: Sperrtage und Wochenend-Kapazitaet. */
+function wf_migrate_v2(PDO $db): void
+{
     $db->beginTransaction();
     $db->exec("
     CREATE TABLE IF NOT EXISTS blocked_days (

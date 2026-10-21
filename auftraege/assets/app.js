@@ -417,7 +417,8 @@ route(/^\/calendar$/, async () => {
     });
     return h('div', { class: 'day' + (d.weekend ? ' we' : '') + (d.blocked !== null ? ' blocked' : '') + (d.date === today() ? ' today' : '') + (d.date < today() ? ' past' : ''), onclick: () => dayModal(d, byDay[d.date] || [], act) },
       h('div', { class: 'dn' }, +d.date.slice(8)), n > 0 && h('div', { class: 'cnt' }, `${n}×`),
-      d.blocked !== null ? h('div', { class: 'blk' }, '🚫 ' + (d.blocked || t('blocked_day'))) : h('div', { class: 'bars' }, bars));
+      d.blocked !== null ? h('div', { class: 'blk' }, '🚫 ' + (d.blocked || t('blocked_day')))
+        : [d.partial && h('div', { class: 'blk part' }, '⏱ ' + d.partial.times.map((x) => x.replace('-', '–')).join(', ')), h('div', { class: 'bars' }, bars)]);
   });
   view().replaceChildren(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('capacity')), h('h1', {}, t('cal_h1_a'), ' ', h('em', {}, t('cal_h1_b')))),
@@ -430,6 +431,7 @@ function dayModal(d, orders, act) {
   const m = h('div', { class: 'modal', onclick: (e) => e.target === m && close() },
     h('div', { class: 'sheet' }, h('div', { class: 'row' }, h('h2', {}, dfmt(d.date)), h('span', { class: 'spacer' }), h('button', { class: 'btn small', onclick: close }, '✕')),
       d.blocked !== null && h('p', { class: 'err', style: 'margin:10px 0 0' }, '🚫 ' + t('blocked_day') + (d.blocked ? ': ' + d.blocked : '')),
+      d.partial && h('p', { style: 'margin:10px 0 0;color:var(--warn)' }, `⏱ ${t('blocked_part')} ${d.partial.times.map((x) => x.replace('-', '–')).join(', ')} (−${hm(d.partial.lost)})${d.partial.reason ? ' · ' + d.partial.reason : ''}`),
       h('h3', { style: 'margin:14px 0 6px' }, t('free_capacity')),
       act.map((p) => { const x = d.p[p.key]; return h('div', { class: 'free' }, h('span', {}, h('i', { class: 'dot', style: `--c:${p.color}` }), ' ' + pname(p)), h('span', {}, x.cap ? `${hm(x.free)} / ${hm(x.cap)}` : '—')); }),
       h('h3', { style: 'margin:14px 0 6px' }, t('nav_orders')),
@@ -451,8 +453,9 @@ route(/^\/settings$/, async () => {
   });
   const wk = h('input', { type: 'number', min: 0, max: 24, step: 0.5, value: me.settings.weekend_min / 60, style: 'width:100px' });
   const bf = h('input', { type: 'date', min: today() }); const bt = h('input', { type: 'date', min: today() }); const br = h('input', { type: 'text', maxlength: 100, placeholder: t('blocked_reason_ph') });
+  const btf = h('input', { type: 'time', step: 900 }); const btt = h('input', { type: 'time', step: 900 });
   const blockedList = h('div', {}, me.blocked.length ? me.blocked.map((b) => h('div', { class: 'free' },
-    h('span', {}, `${dfmt(b.date_from)}${b.date_to !== b.date_from ? ' – ' + dfmt(b.date_to) : ''}${b.reason ? ' · ' + b.reason : ''}`),
+    h('span', {}, `${dfmt(b.date_from)}${b.date_to !== b.date_from ? ' – ' + dfmt(b.date_to) : ''}${b.time_from ? ' · ' + b.time_from + '–' + b.time_to : ' · ' + t('whole_day')}${b.reason ? ' · ' + b.reason : ''}`),
     h('button', { class: 'btn small danger', onclick: async () => { await api('blocked_delete', { body: { id: b.id } }); await reloadMe(); render(); } }, t('delete')))) : h('p', { class: 'muted' }, t('blocked_none')));
   const tokOut = h('div');
   const tokList = h('div', {}, me.tokens.map((k) => h('div', { class: 'free' }, h('span', {}, `${k.label} · ${k.created_at.slice(0, 10)}${k.last_used_at ? ' · ' + t('last_seen') + ' ' + k.last_used_at.slice(0, 16) : ''}`),
@@ -468,8 +471,10 @@ route(/^\/settings$/, async () => {
       } }, t('create_link'))), tokOut, h('div', { style: 'margin-top:12px' }, tokList)),
     h('div', { class: 'card' }, h('h3', {}, t('blocked_title')), h('p', { class: 'muted' }, t('blocked_text')),
       h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('blocked_from')), bf), h('div', {}, h('label', {}, t('blocked_to')), bt), h('div', {}, h('label', {}, t('blocked_reason')), br)),
+      h('div', { class: 'grid c2', style: 'margin-top:10px' }, h('div', {}, h('label', {}, t('time_from')), btf), h('div', {}, h('label', {}, t('time_to')), btt)),
+      h('p', { class: 'muted', style: 'font-size:.85rem;margin:6px 0 0' }, t('time_hint')),
       h('div', { class: 'row end', style: 'margin:10px 0' }, h('button', { class: 'btn primary', onclick: async () => {
-        try { await api('blocked_save', { body: { date_from: bf.value, date_to: bt.value || bf.value, reason: br.value } }); await reloadMe(); render(); } catch (e) { toast(e.message); }
+        try { await api('blocked_save', { body: { date_from: bf.value, date_to: bt.value || bf.value, reason: br.value, time_from: btf.value, time_to: btt.value } }); await reloadMe(); render(); } catch (e) { toast(e.message); }
       } }, '+ ' + t('blocked_add'))), blockedList),
     h('div', { class: 'card' }, h('h3', {}, t('capacity')), h('p', { class: 'muted' }, t('capacity_text')),
       h('div', { class: 'row', style: 'margin-bottom:12px' }, h('label', { style: 'margin:0' }, t('weekend_hours')), wk, h('span', { class: 'muted' }, 'h')),

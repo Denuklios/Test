@@ -24,7 +24,7 @@ Wichtig: Das Cookie der Hauptseite muss auch im Unterordner `/auftraege/` gelten
 Unter **Einstellungen**:
 - **Benutzer:** Namen der 5 Personen eintragen und deren Admin-ID aus dem Login der Hauptseite (damit der Verlauf den Namen zeigt).
 - **Kapazität:** Minuten pro Werktag je Maschine/Verfahren. Samstag und Sonntag zählen mit der Stundenzahl darunter (Standard 5 h, 0 = Wochenende zu).
-- **Gesperrte Tage:** Urlaub, Messe, Arzttermin usw. eintragen. Diese Tage fallen aus Kalender, Terminvorschlag und Tageswahl heraus und können nicht als Termin gespeichert werden.
+- **Gesperrte Tage:** Urlaub, Messe, Arzttermin usw. eintragen. Ohne Uhrzeit ist der ganze Tag gesperrt: Er fällt aus Kalender, Terminvorschlag und Tageswahl heraus und kann nicht als Termin gespeichert werden. Mit Uhrzeit (z. B. 13:00–17:00) wird nur dieser Zeitraum von der Tageskapazität abgezogen, der Rest bleibt buchbar.
 - **Werkstatt-Anzeige:** „Neuen Link erzeugen“, den Link kopieren und im Werkstatt-PC-Browser öffnen. Doppelklick oder Symbol unten rechts = Vollbild. Der Link wird nur einmal angezeigt; zum Widerrufen „Sperren“ klicken und einen neuen erzeugen.
 
 **Update einer bestehenden Installation:** neue Dateien einfach drüberkopieren. Die Datenbank wird beim nächsten Aufruf automatisch ergänzt, alle Daten bleiben erhalten (vorher trotzdem Backup ziehen).

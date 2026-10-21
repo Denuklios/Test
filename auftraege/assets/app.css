@@ -163,3 +163,4 @@ table.t{width:100%;border-collapse:collapse;font-size:.9rem}table.t td,table.t t
 .mgrid .dow{font-size:.68rem;letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:center}
 .dayb{aspect-ratio:1;border-radius:12px;border:1px solid var(--line-strong);background:var(--surface3);font-family:var(--head);font-size:1.25rem;font-weight:600;cursor:pointer}
 .dayb:hover,.dayb.sel{background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff;border-color:transparent}
+.day .blk.part{color:var(--warn)}

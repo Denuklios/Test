@@ -137,6 +137,28 @@ try {
     assert.ok((await call('version')).j.version > v1);
     assert.ok((await call('available', { params: { p: '3:30' } })).j.dates.includes(iso(6)));
   });
+  await ok('Teilsperre mit Uhrzeit: kürzt Kapazität, überlappende Zeiten nicht doppelt, Tag bleibt buchbar', async () => {
+    const d = iso(10);
+    assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '12:00' } })).j.error, 'bad_time');
+    assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '16:00', time_to: '12:00' } })).j.error, 'bad_time');
+    assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '25:00', time_to: '26:00' } })).j.error, 'bad_time');
+    assert.equal((await call('blocked_save', { body: { date_from: d, time_from: '12:00', time_to: '16:00', reason: 'Arzt' } })).status, 200);
+    const cap = async () => (await call('calendar', { params: { from: d, to: d } })).j.days[0];
+    let day = await cap(); assert.equal(day.blocked, null); assert.deepEqual(day.partial.times, ['12:00-16:00']); assert.equal(day.partial.lost, 240);
+    const full = dow(d) % 6 === 0 ? 300 : 480; assert.equal(day.p.stick.cap, full - 240);
+    // überlappend 14-18: zusammen 12-18 = 360 min
+    await call('blocked_save', { body: { date_from: d, time_from: '14:00', time_to: '18:00' } });
+    day = await cap(); assert.equal(day.partial.lost, 360); assert.equal(day.p.stick.cap, Math.max(0, full - 360));
+    // Tag bleibt im Datumsangebot, wenn die Arbeit in die Restkapazität passt, sonst nicht
+    const fitMin = Math.max(0, full - 360);
+    if (fitMin >= 30) assert.ok((await call('available', { params: { p: `1:${fitMin}` } })).j.dates.includes(d));
+    assert.equal((await call('available', { params: { p: `1:${fitMin + 1}` } })).j.dates.includes(d), false);
+    // Auftrag auf Teilsperr-Tag darf gespeichert werden
+    const o = (await call('order', { params: { id: oid } })).j.order;
+    const moved = await call('order_save', { body: { ...o, processes: o.processes, due_date: d, plan_date: '' } });
+    assert.equal(moved.status, 200); assert.equal(moved.j.order.due_date, d);
+    for (const b of (await call('me')).j.blocked) await call('blocked_delete', { body: { id: b.id } });
+  });
   await ok('Wochenend-Stunden einstellbar (0 = Wochenende zu)', async () => {
     assert.equal((await call('settings_save', { body: { weekend_min: 5000 } })).j.error, 'bad_weekend_min');
     await call('settings_save', { body: { weekend_min: 0 } });
@@ -189,7 +211,7 @@ try {
     const r = await fetch(`${B}/api.php?a=backup`, { headers: { cookie } }); const b = Buffer.from(await r.arrayBuffer());
     assert.equal(b.subarray(0, 15).toString(), 'SQLite format 3');
   });
-  await ok('Datenbank-Update v1 → v2 behält Daten, ergänzt Sperrtage und Wochenende', async () => {
+  await ok('Datenbank-Update v1 → v3 behält Daten, ergänzt Sperrtage, Uhrzeiten und Wochenende', async () => {
     const { execFileSync } = await import('node:child_process');
     const code = `<?php require '${root}/inc/schema.php';
       $db = new PDO('sqlite::memory:'); $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
@@ -198,7 +220,7 @@ try {
       echo $db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn(), ',';
       wf_migrate($db); wf_migrate($db);
       echo $db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn(), ',', $db->query("SELECT value FROM meta WHERE key='weekend_min'")->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM customers')->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM blocked_days')->fetchColumn();`;
-    assert.equal(execFileSync('php', ['-r', code.replace('<?php', '')]).toString(), '1,2,300,1,0');
+    assert.equal(execFileSync('php', ['-r', code.replace('<?php', '')]).toString(), '1,3,300,1,0');
   });
 } finally {
   srv.kill(); rmSync(data, { recursive: true, force: true });

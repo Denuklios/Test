@@ -45,24 +45,62 @@ function wf_weekend_min(): int
     return $v === false ? 300 : max(0, (int)$v);
 }
 
-/** Gesperrte Tage im Zeitraum: Datum => Grund. */
-function wf_blocked_map(string $from, string $to): array
+function wf_hhmm_to_min(string $t): int
 {
-    $st = wf_db()->prepare('SELECT date_from, date_to, reason FROM blocked_days WHERE date_to >= ? AND date_from <= ?');
-    $st->execute([$from, $to]);
-    $map = [];
-    foreach ($st as $r) {
-        for ($t = max(strtotime($r['date_from']), strtotime($from)); $t <= min(strtotime($r['date_to']), strtotime($to)); $t += 86400) {
-            $map[date('Y-m-d', $t)] = $map[date('Y-m-d', $t)] ?? $r['reason'];
-        }
-    }
-    return $map;
+    return (int)substr($t, 0, 2) * 60 + (int)substr($t, 3, 2);
 }
 
+/**
+ * Sperren im Zeitraum je Tag: Datum => ['full' => bool, 'lost' => Minuten, 'reason' => string, 'times' => ['13:00-17:00', ...]].
+ * Eintraege ohne Uhrzeit sperren den ganzen Tag; mit Uhrzeit nur dieses Zeitfenster (ueberlappende Fenster werden nicht doppelt gezaehlt).
+ */
+function wf_block_days(string $from, string $to): array
+{
+    $st = wf_db()->prepare('SELECT date_from, date_to, reason, time_from, time_to FROM blocked_days WHERE date_to >= ? AND date_from <= ? ORDER BY id');
+    $st->execute([$from, $to]);
+    $raw = [];
+    foreach ($st as $r) {
+        $part = ($r['time_from'] && $r['time_to']) ? [wf_hhmm_to_min($r['time_from']), wf_hhmm_to_min($r['time_to'])] : null;
+        for ($t = max(strtotime($r['date_from']), strtotime($from)); $t <= min(strtotime($r['date_to']), strtotime($to)); $t += 86400) {
+            $d = date('Y-m-d', $t);
+            $raw[$d]['reason'] = $raw[$d]['reason'] ?? $r['reason'];
+            if ($part) {
+                $raw[$d]['iv'][] = $part;
+                $raw[$d]['times'][] = $r['time_from'] . '-' . $r['time_to'];
+            } else {
+                $raw[$d]['full'] = true;
+            }
+        }
+    }
+    $out = [];
+    foreach ($raw as $d => $x) {
+        $lost = 0;
+        $iv = $x['iv'] ?? [];
+        usort($iv, fn($a, $b) => $a[0] <=> $b[0]);
+        $cur = null;
+        foreach ($iv as [$a, $b]) {
+            if ($cur && $a <= $cur[1]) {
+                $cur[1] = max($cur[1], $b);
+            } else {
+                if ($cur) {
+                    $lost += $cur[1] - $cur[0];
+                }
+                $cur = [$a, $b];
+            }
+        }
+        if ($cur) {
+            $lost += $cur[1] - $cur[0];
+        }
+        $out[$d] = ['full' => !empty($x['full']), 'lost' => $lost, 'reason' => (string)($x['reason'] ?? ''), 'times' => $x['times'] ?? []];
+    }
+    return $out;
+}
+
+/** Grund, wenn der ganze Tag gesperrt ist; sonst null (Teilsperren verhindern keinen Termin). */
 function wf_blocked_reason(string $date): ?string
 {
-    $m = wf_blocked_map($date, $date);
-    return array_key_exists($date, $m) ? $m[$date] : null;
+    $m = wf_block_days($date, $date);
+    return isset($m[$date]) && $m[$date]['full'] ? $m[$date]['reason'] : null;
 }
 
 /** Auslastung je Tag und Verfahren. Gebucht wird am Produktionstag, sonst am Abgabetermin.
@@ -82,18 +120,22 @@ function wf_capacity(string $from, string $to, int $excludeOrder = 0): array
     foreach ($st as $r) {
         $booked[$r['d']][(int)$r['process_id']] = (int)$r['m'];
     }
-    $blocked = wf_blocked_map($from, $to);
+    $blocked = wf_block_days($from, $to);
     $wk = wf_weekend_min();
     $out = [];
     for ($t = strtotime($from); $t <= strtotime($to); $t += 86400) {
         $d = date('Y-m-d', $t);
         $weekend = (int)date('N', $t) >= 6;
-        $isBlocked = array_key_exists($d, $blocked);
-        $row = ['date' => $d, 'weekend' => $weekend, 'blocked' => $isBlocked ? ($blocked[$d] ?? '') : null, 'p' => []];
+        $b = $blocked[$d] ?? null;
+        $isBlocked = $b && $b['full'];
+        $lost = $b && !$b['full'] ? $b['lost'] : 0;
+        $row = ['date' => $d, 'weekend' => $weekend, 'blocked' => $isBlocked ? $b['reason'] : null,
+                'partial' => $lost > 0 ? ['lost' => $lost, 'reason' => $b['reason'], 'times' => $b['times']] : null, 'p' => []];
         foreach ($procs as $p) {
-            $cap = $isBlocked ? 0 : ($weekend ? min((int)$p['capacity_min'], $wk) : (int)$p['capacity_min']);
-            $b = $booked[$d][(int)$p['id']] ?? 0;
-            $row['p'][$p['key']] = ['cap' => $cap, 'booked' => $b, 'free' => max(0, $cap - $b)];
+            $base = $weekend ? min((int)$p['capacity_min'], $wk) : (int)$p['capacity_min'];
+            $cap = $isBlocked ? 0 : max(0, $base - $lost);
+            $bk = $booked[$d][(int)$p['id']] ?? 0;
+            $row['p'][$p['key']] = ['cap' => $cap, 'booked' => $bk, 'free' => max(0, $cap - $bk)];
         }
         $out[] = $row;
     }

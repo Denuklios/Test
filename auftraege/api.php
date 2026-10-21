@@ -95,7 +95,7 @@ try {
                 'processes' => $db->query('SELECT * FROM process_types ORDER BY sort')->fetchAll(),
                 'users' => $db->query('SELECT id, name, wf_admin_id, active FROM users ORDER BY id')->fetchAll(),
                 'tokens' => $tokens,
-                'blocked' => $db->query("SELECT id, date_from, date_to, reason FROM blocked_days WHERE date_to >= date('now','localtime') ORDER BY date_from")->fetchAll(),
+                'blocked' => $db->query("SELECT id, date_from, date_to, reason, time_from, time_to FROM blocked_days WHERE date_to >= date('now','localtime') ORDER BY date_from")->fetchAll(),
                 'settings' => ['weekend_min' => wf_weekend_min()],
                 'version' => wf_version(),
             ]);
@@ -485,7 +485,16 @@ try {
             if ($t < date('Y-m-d')) {
                 wf_fail('date_past');
             }
-            $db->prepare('INSERT INTO blocked_days (date_from, date_to, reason) VALUES (?,?,?)')->execute([$f, $t, s($in, 'reason', 100)]);
+            $tf = s($in, 'time_from', 5);
+            $tt = s($in, 'time_to', 5);
+            if ($tf !== '' || $tt !== '') {
+                // Uhrzeit nur komplett (von und bis), im Format HH:MM, Ende nach Anfang
+                if (!preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $tf) || !preg_match('/^([01]\d|2[0-3]):[0-5]\d$/', $tt) || $tt <= $tf) {
+                    wf_fail('bad_time');
+                }
+            }
+            $db->prepare('INSERT INTO blocked_days (date_from, date_to, reason, time_from, time_to) VALUES (?,?,?,?,?)')
+               ->execute([$f, $t, s($in, 'reason', 100), $tf === '' ? null : $tf, $tt === '' ? null : $tt]);
             wf_touch();
             wf_json(['ok' => true]);
         }
