@@ -74,7 +74,7 @@ function orderRow(o, g, pm) {
     h('div', { class: 'main' },
       o.thumb ? h('img', { class: 'th', src: `../display_api.php?t=${TOKEN}&file=${o.thumb}`, alt: '' }) : null,
       h('div', { class: 'txt' },
-        h('div', { class: 't' }, o.title, h('span', { class: 'who' }, ` ${o.customer} · ${o.qty} ${t().pcs}`)),
+        h('div', { class: 't' }, h('span', { class: 'tt' }, o.title), h('span', { class: 'who' }, ` ${o.customer} · ${o.qty} ${t().pcs}`)),
         line.length ? h('div', { class: 'c' }, ...line) : null)),
     h('div', { class: 'r' }, h('span', { class: 'pill', style: `--c:${SCOL[o.status]}` }, t().st[o.status]), o.unpaid && h('span', { class: 'unpaid' }, t().unpaid)));
 }

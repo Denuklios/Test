@@ -78,3 +78,34 @@ body.idle{cursor:none}body.idle #hint{opacity:0}
 .grp{font-size:1.1em;margin:.5vh 0 .1vh;letter-spacing:.18em}
 #main{gap:.5vh}
 .ord .t .who{text-transform:none}
+
+/* schlankere Kapazitaets-Spalte: mehr Platz fuer die Auftraege */
+#app{grid-template-columns:minmax(0,1fr) 21vw}
+#side .panel{font-size:.74em;padding:1vh .8vw}
+#side .panel h3{font-size:1.05em;letter-spacing:.16em;margin-bottom:.4vh}
+.csub{display:none}
+.cgrid{gap:.4vh .25vw}
+.ch{padding:.15em 0;border-radius:8px}
+.ch small{font-size:1.1em}
+.cn{font-size:.9em;padding-right:.4vw;gap:.4em}
+.cc{min-height:1.9em;border-radius:7px;font-size:.9em}
+.clegend{margin-top:.6vh;gap:.2vh .6vw;font-size:.72em}
+#side .legend{font-size:.9em;gap:.2vh .6vw}
+
+.ord .t .tt{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:0 1 auto}
+/* breite Bildschirme: Auftraege in zwei Spalten, Tageskoepfe ueber beide */
+@media(min-width:1500px){
+  #main{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));column-gap:1vw;row-gap:.6vh;align-content:start;grid-auto-rows:min-content}
+  #main .grp,#main .more,#main .empty-big{grid-column:1/-1}
+  .ord .r{flex-direction:column;align-items:flex-end;gap:.4vh}
+  .ord .t{font-size:1.3em}
+  .ord .th{width:3.2em;height:3.2em}
+}
+.ord .t .who{flex-shrink:4}
+@media(min-width:1500px){
+  .ord .pill,.ord .unpaid{font-size:.62em;padding:.25em .8em}
+  .ord .r{gap:.3vh}
+  .ord .th{width:2.9em;height:2.9em}
+  .ord .main{gap:.7vw}
+  .ord .t{font-size:1.28em}
+}
