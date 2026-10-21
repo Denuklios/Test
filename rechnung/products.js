@@ -5,6 +5,9 @@ let Anthropic = null;
 try { Anthropic = require('@anthropic-ai/sdk').default; } catch { /* ohne Paket keine Übersetzung */ }
 
 const MAX_IMG = 450000;
+// Prüf-/Sperrseiten von Bot-Schutz (Cloudflare & Co.) – das sind keine Produkte
+const BOT_RE = /bot-?validierung|just a moment|attention required|access denied|captcha|verifying you are human|are you a robot|pardon our interruption|checking your browser|zugriff verweigert|sicherheitsüberprüfung|security check|nicht als roboter/i;
+const BOT_MSG = 'Der Shop hat das Programm als Roboter erkannt und zeigt nur eine Prüfseite (Bot-Schutz). Öffne die Produktseiten im Browser, speichere sie mit Strg + S (als „Webseite, nur HTML“) und lade die Dateien unter „Gespeicherte Seiten“ hoch. Oder nimm den CSV-Weg.';
 const decode = (s) => String(s || '').replace(/&(#x?[0-9a-f]+|amp|lt|gt|quot|apos|nbsp|auml|ouml|uuml|szlig|Auml|Ouml|Uuml);/gi, (m, e) => {
   const t = { amp: '&', lt: '<', gt: '>', quot: '"', apos: "'", nbsp: ' ', auml: 'ä', ouml: 'ö', uuml: 'ü', szlig: 'ß', Auml: 'Ä', Ouml: 'Ö', Uuml: 'Ü' };
   if (t[e]) return t[e];
@@ -74,9 +77,22 @@ async function fromUrl(url) {
   const r = await fetchText(u.href);
   const html = await r.text();
   const prod = parsePage(html, r.url || u.href);
-  if (!prod) throw new Error('Keine Produktdaten gefunden – evtl. ist eine Anmeldung nötig');
+  if (!prod || (!prod.structured && BOT_RE.test(prod.name + ' ' + (html.length < 6000 ? html.replace(/<[^>]+>/g, ' ') : '')))) {
+    if (BOT_RE.test(html.slice(0, 20000))) throw new Error(BOT_MSG);
+    if (!prod) throw new Error('Keine Produktdaten gefunden – evtl. ist eine Anmeldung nötig');
+  }
   if (/anmeld|login|einloggen/i.test(prod.name) && !prod.structured) throw new Error('Das ist die Anmeldeseite – der Shop zeigt Produkte nur nach Login. Bitte den CSV-Import nutzen.');
   prod.image = prod.image ? await fetchImage(prod.image) : '';
+  return prod;
+}
+
+// eine im Browser gespeicherte Produktseite (HTML-Datei) auslesen – umgeht Bot-Schutz und Anmeldung, weil der Browser sie schon geholt hat
+async function fromHtml(html, fileName = '') {
+  const canon = (html.match(/<link[^>]+rel=["']canonical["'][^>]*href=["']([^"']+)["']/i) || html.match(/<link[^>]+href=["']([^"']+)["'][^>]*rel=["']canonical["']/i) || [])[1] || meta(html, 'og:url') || '';
+  const prod = parsePage(html, canon || 'https://invalid.invalid/');
+  if (!prod || (!prod.structured && BOT_RE.test(prod.name))) throw new Error(`${fileName ? fileName + ': ' : ''}${prod && BOT_RE.test(prod.name) ? 'Das ist die Prüfseite des Bot-Schutzes, nicht das Produkt – bitte die Seite erst fertig laden lassen und dann speichern.' : 'Keine Produktdaten in dieser Datei gefunden.'}`);
+  prod.url = canon;
+  prod.image = prod.image && canon ? await fetchImage(prod.image) : '';
   return prod;
 }
 
@@ -115,6 +131,14 @@ const SCHEMA = {
     i: { type: 'integer' }, de: { type: 'string' }, da: { type: 'string' }, en: { type: 'string' },
     unit: { type: 'string', enum: ['stk', 'pakke', 'm', 'm2', 'kg', 'timer', ''] }, kind: { type: 'string', enum: ['goods', 'services'] } } } } },
 };
+// verständliche Meldung statt der Rohmeldung des Dienstes
+function friendly(err) {
+  if (Anthropic && err instanceof Anthropic.AuthenticationError) return 'Der API-Schlüssel wurde von Anthropic abgelehnt (ungültig oder gelöscht). Bitte unter Einstellungen → Belegerkennung neu eintragen und mit „Schlüssel prüfen“ testen.';
+  if (Anthropic && err instanceof Anthropic.RateLimitError) return 'Zu viele Anfragen – bitte in einer Minute noch einmal versuchen.';
+  if (Anthropic && err instanceof Anthropic.PermissionDeniedError) return 'Der Schlüssel hat keine Berechtigung – bitte in der Anthropic-Konsole prüfen.';
+  if (/credit|billing|balance/i.test(String(err.message))) return 'Das Guthaben bei Anthropic ist aufgebraucht – bitte unter platform.claude.com aufladen.';
+  return 'Übersetzung nicht möglich: ' + String(err.message).slice(0, 120);
+}
 async function translate(products, apiKey) {
   if (!Anthropic || !apiKey) return products.map((p) => ({ ...p, de: p.name, da: '', en: '', unit: 'stk', kind: 'goods', translated: false }));
   const client = new Anthropic({ apiKey });
@@ -122,15 +146,18 @@ async function translate(products, apiKey) {
   for (let s = 0; s < products.length; s += 25) {
     const part = products.slice(s, s + 25);
     const list = part.map((p, i) => `${i}: ${p.name}${p.brand ? ` (Marke ${p.brand})` : ''}${p.description ? ` – ${p.description.slice(0, 120)}` : ''}`).join('\n');
-    const res = await client.beta.messages.create({
-      model: 'claude-haiku-5-5', max_tokens: 8000, output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
-      messages: [{ role: 'user', content: `Das sind Artikel eines deutschen Großhändlers für Textilien/Stickerei-Rohlinge/Zubehör. Für jede Zeile (Nummer: Name) gib an:
+    let res;
+    try {
+      res = await client.beta.messages.create({
+        model: 'claude-haiku-5-5', max_tokens: 8000, output_config: { effort: 'low', format: { type: 'json_schema', schema: SCHEMA } },
+        messages: [{ role: 'user', content: `Das sind Artikel eines deutschen Großhändlers für Textilien/Stickerei-Rohlinge/Zubehör. Für jede Zeile (Nummer: Name) gib an:
 - de: kurzer, sauberer deutscher Produktname für eine Rechnung (ohne Werbetext, ohne Artikelnummer; Marke und Typ behalten, Farbe/Größe nur wenn im Namen)
 - da: derselbe Name auf Dänisch, en: auf Englisch (übliche Fachbegriffe verwenden, Markennamen nie übersetzen)
 - unit: Verkaufseinheit (stk = Stück, pakke = Paket, m, m2, kg, timer, sonst leer) – bei Textilien meist stk
 - kind: goods (Ware) oder services (Dienstleistung)
 Erfinde nichts dazu. Gib die Nummer i unverändert zurück.\n\n${list}` }],
-    });
+      });
+    } catch (err) { throw new Error(friendly(err)); }
     const t = res.content.filter((b) => b.type === 'text').map((b) => b.text).join('');
     let items = [];
     try { items = JSON.parse(t).items || []; } catch { /* ohne Übersetzung weiter */ }
@@ -139,4 +166,4 @@ Erfinde nichts dazu. Gib die Nummer i unverändert zurück.\n\n${list}` }],
   return out;
 }
 
-module.exports = { parsePage, jsonLdProducts, fromUrl, collectLinks, fromCsv, translate };
+module.exports = { friendly, parsePage, jsonLdProducts, fromUrl, fromHtml, collectLinks, fromCsv, translate, BOT_RE };

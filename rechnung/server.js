@@ -21,7 +21,7 @@ const DATA_DIR = ENV.DATA_DIR || path.join(__dirname, 'data');
 const FILE = path.join(DATA_DIR, 'rechnung.json');
 const PUBLIC = path.join(__dirname, 'public');
 const RECEIPT_DIR = path.join(DATA_DIR, 'belege');
-const VERSION = '1.12';
+const VERSION = '1.13';
 const today = () => new Date().toISOString().slice(0, 10);
 const uid = () => crypto.randomBytes(8).toString('hex');
 
@@ -367,6 +367,13 @@ async function api(method, parts, body, url) {
     return { ...state, secrets: undefined, version: VERSION, ai: { installed: Receipts.available(), enabled: Receipts.enabled(apiKey()), fromEnv: !!ENV.ANTHROPIC_API_KEY, hasKey: !!state.secrets.anthropicKey }, cvr: { user: state.secrets.cvrUser || '', hasPass: !!state.secrets.cvrPass } };
   }
 
+  // Schlüssel der Belegerkennung testen (kostenlos)
+  if (res === 'ai' && id === 'check' && method === 'POST') {
+    const k = (typeof body.key === 'string' && body.key.trim()) || apiKey();
+    await Receipts.check(k).catch((e) => fail(e.message, 422));
+    return { ok: true };
+  }
+
   // Adressen im Heimnetz, damit das Handy das Programm findet
   if (res === 'lan' && method === 'GET') {
     const ips = Object.values(os.networkInterfaces()).flat().filter((i) => i && i.family === 'IPv4' && !i.internal).map((i) => i.address);
@@ -392,6 +399,10 @@ async function api(method, parts, body, url) {
         const c = Products.fromCsv(String(body.csv));
         if (c.error) fail(c.error);
         raw = c.rows;
+      } else if (Array.isArray(body.pages)) {
+        for (const pg of body.pages.slice(0, 40)) {
+          try { raw.push(await Products.fromHtml(String(pg.html || ''), str(pg.name, 80))); } catch (e) { errors.push({ url: str(pg.name, 80), error: e.message }); }
+        }
       } else {
         let urls = String(body.urls || '').split(/\s+/).map((u) => u.trim()).filter(Boolean);
         if (body.expand && urls.length === 1) {
@@ -405,9 +416,10 @@ async function api(method, parts, body, url) {
       }
       if (!raw.length) fail(errors[0]?.error ? `Keine Produkte gefunden. ${errors[0].error}` : 'Keine Produkte gefunden.', 422);
       raw = raw.slice(0, 200);
-      let items = await Products.translate(raw, apiKey()).catch((e) => { errors.push({ url: '', error: 'Übersetzung nicht möglich: ' + e.message }); return raw.map((p) => ({ ...p, de: p.name, da: '', en: '', unit: 'stk', kind: 'goods', translated: false })); });
+      let translateError = '';
+      let items = await Products.translate(raw, apiKey()).catch((e) => { translateError = e.message; return raw.map((p) => ({ ...p, de: p.name, da: '', en: '', unit: 'stk', kind: 'goods', translated: false })); });
       items = items.map((p) => ({ ...p, exists: state.products.some((x) => (p.sku && x.sku === p.sku) || (x.name_de || x.name || '').toLowerCase() === (p.de || '').toLowerCase()) }));
-      return { items, errors, translated: items.some((p) => p.translated), canTranslate: Receipts.enabled(apiKey()) };
+      return { items, errors, translateError, translated: items.some((p) => p.translated), canTranslate: Receipts.enabled(apiKey()) };
     }
     if (action === 'save') {
       const list = Array.isArray(body.items) ? body.items.slice(0, 200) : [];

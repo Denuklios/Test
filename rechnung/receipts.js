@@ -95,4 +95,16 @@ async function ask(client, kind, content) {
   try { return JSON.parse(text); } catch { throw new Error('Die Erkennung hat keine lesbare Antwort geliefert.'); }
 }
 
-module.exports = { extract, enabled, CATEGORIES, IMAGE_TYPES, SCHEMA, MODELS, available: () => !!Anthropic };
+// Schlüssel testen, ohne etwas zu bezahlen (es wird nur die Modellliste abgefragt)
+async function check(apiKey) {
+  if (!Anthropic) throw new Error('Das Paket für die Belegerkennung fehlt (im Ordner rechnung „npm install“ ausführen).');
+  if (!apiKey) throw new Error('Es ist kein Schlüssel eingetragen.');
+  try { await new Anthropic({ apiKey }).models.list({ limit: 1 }); return true; }
+  catch (err) {
+    if (err instanceof Anthropic.AuthenticationError) throw new Error('Der Schlüssel wird abgelehnt (ungültig, abgeschnitten oder gelöscht). Bitte in der Anthropic-Konsole (platform.claude.com → API Keys) einen neuen erzeugen und komplett kopieren.');
+    if (err instanceof Anthropic.PermissionDeniedError) throw new Error('Der Schlüssel hat keine Berechtigung.');
+    throw new Error('Anthropic ist nicht erreichbar: ' + String(err.message).slice(0, 100));
+  }
+}
+
+module.exports = { check, extract, enabled, CATEGORIES, IMAGE_TYPES, SCHEMA, MODELS, available: () => !!Anthropic };

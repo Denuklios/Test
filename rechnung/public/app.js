@@ -578,19 +578,24 @@ routes.produkte = () => {
 function productImport() {
   modal(`<h2>Produkte aus Shop übernehmen</h2>
     <p class="small muted">Es werden Name, Artikelnummer, Marke und Bild übernommen und der Name ins Deutsche, Dänische und Englische übersetzt. <b>Preise bleiben leer</b>, die setzt du erst beim Verkauf.</p>
-    <div class="tabs"><button class="on" data-tab="urls">Shop-Adressen</button><button data-tab="csv">CSV-Datei</button></div>
+    <div class="tabs"><button class="on" data-tab="urls">Shop-Adressen</button><button data-tab="pages">Gespeicherte Seiten</button><button data-tab="csv">CSV-Datei</button></div>
     <div id="tab-urls"><label>Adressen von Produktseiten (eine pro Zeile) oder die Adresse einer Kategorie bzw. der Sitemap<textarea id="urls" rows="5" placeholder="https://shop.l-shop-team.de/de/…"></textarea></label>
       <label style="margin-top:8px"><input type="checkbox" id="expand"> Das ist eine Kategorie-/Sitemap-Adresse: alle Produktseiten darauf suchen (bis 60)</label></div>
+    <div id="tab-pages" class="hidden"><div class="note small">Für Shops mit <b>Bot-Schutz oder Anmeldung</b>: Produktseite im Browser öffnen (angemeldet), <b>Strg + S</b> drücken, Typ „Webseite, nur HTML“ wählen und speichern. Das für jedes Produkt wiederholen, dann hier alle Dateien auf einmal auswählen.</div>
+      <label>Gespeicherte Produktseiten (HTML, mehrere möglich)<input type="file" id="pagefiles" accept=".html,.htm" multiple></label></div>
     <div id="tab-csv" class="hidden"><label>Exportdatei oder Preisliste aus dem Shop (CSV) – Spalten wie „Artikelnummer“, „Name/Bezeichnung“, „Marke“<input type="file" id="csvfile" accept=".csv,.txt"></label></div>
     <div id="imp-out" style="margin-top:12px"></div>
     <div class="modal-actions"><button onclick="closeModal()">Schließen</button><button class="primary" id="imp-go">Vorschau laden</button><button class="primary hidden" id="imp-save">Ausgewählte übernehmen</button></div>`, (el) => {
     $('.modal-box').classList.add('wide');
     let mode = 'urls', items = [];
-    $$('[data-tab]', el).forEach((b) => (b.onclick = () => { mode = b.dataset.tab; $$('[data-tab]', el).forEach((x) => x.classList.toggle('on', x === b)); $('#tab-urls', el).classList.toggle('hidden', mode !== 'urls'); $('#tab-csv', el).classList.toggle('hidden', mode !== 'csv'); }));
+    $$('[data-tab]', el).forEach((b) => (b.onclick = () => { mode = b.dataset.tab; $$('[data-tab]', el).forEach((x) => x.classList.toggle('on', x === b)); $('#tab-urls', el).classList.toggle('hidden', mode !== 'urls'); $('#tab-csv', el).classList.toggle('hidden', mode !== 'csv'); $('#tab-pages', el).classList.toggle('hidden', mode !== 'pages'); }));
     $('#imp-go', el).onclick = async () => {
       const out = $('#imp-out', el);
       let body;
-      if (mode === 'csv') {
+      if (mode === 'pages') {
+        const fs = [...$('#pagefiles', el).files]; if (!fs.length) return toast('Bitte Dateien wählen.', true);
+        body = { pages: await Promise.all(fs.map(async (f) => ({ name: f.name, html: await f.text() }))) };
+      } else if (mode === 'csv') {
         const f = $('#csvfile', el).files[0]; if (!f) return toast('Bitte eine Datei wählen.', true);
         const buf = await f.arrayBuffer(); let t = new TextDecoder('utf-8').decode(buf); if (t.includes('\uFFFD')) t = new TextDecoder('windows-1252').decode(buf);
         body = { csv: t };
@@ -600,7 +605,7 @@ function productImport() {
       try {
         const r = await api('products/import/preview', 'POST', body);
         items = r.items;
-        out.innerHTML = `${!r.translated ? `<div class="note warn small">Übersetzung nicht möglich${r.canTranslate ? '' : ' – dafür braucht es den API-Schlüssel (Einstellungen → Belegerkennung)'}. Die Namen kommen nur auf Deutsch, Dänisch/Englisch kannst du später nachtragen.</div>` : ''}
+        out.innerHTML = `${!r.translated ? `<div class="note warn small">${esc(r.translateError || (r.canTranslate ? 'Übersetzung nicht möglich.' : 'Übersetzung nicht möglich – dafür braucht es den API-Schlüssel (Einstellungen → Belegerkennung).'))} Die Namen kommen nur auf Deutsch, Dänisch und Englisch kannst du später nachtragen.</div>` : ''}
           ${r.errors.length ? `<div class="note warn small">${r.errors.length} Adresse(n) nicht lesbar: ${esc(r.errors.slice(0, 3).map((e) => (e.url ? e.url + ' – ' : '') + e.error).join(' · '))}</div>` : ''}
           <div class="table-wrap" style="max-height:42vh;overflow:auto"><table><thead><tr><th></th><th></th><th>Deutsch</th><th>Dänisch</th><th>Englisch</th><th>Art-Nr.</th><th>Einheit</th></tr></thead><tbody>
           ${items.map((p, i) => `<tr><td><input type="checkbox" data-sel="${i}" ${p.exists ? '' : 'checked'}></td><td>${p.image ? `<img class="thumb-sm" src="${DocRender.safeImg(p.image)}" alt="">` : ''}</td>
@@ -1160,6 +1165,7 @@ routes.einstellungen = () => {
         <label>Genauigkeit<select name="aiMode">${opts({ auto: 'Automatisch – erst günstig, bei Unklarheit genau (empfohlen)', cheap: 'Günstig – ca. 0,1 Cent pro Beleg', precise: 'Genau – ca. 3–6 Cent pro Beleg' }, s.aiMode || 'auto')}</select></label>
         <label>Nach dem Erkennen<select name="autoBook">${opts({ yes: 'Eindeutige Belege sofort automatisch buchen', no: 'Jeden Beleg erst zur Prüfung vorlegen' }, s.autoBook)}</select></label>
       </div>
+      <div class="row" style="margin-top:8px"><button type="button" id="testkey">Schlüssel prüfen</button><span class="small" id="keyres"></span></div>
       <div class="small" style="margin-top:8px">${!S.ai.installed ? '<span style="color:var(--bad)">Das Erkennungs-Paket fehlt – bitte das Programm über das Startskript starten (es installiert alles automatisch).</span>' : S.ai.enabled ? '<span style="color:var(--ok)">✔ Erkennung ist eingeschaltet.</span>' : 'Erkennung ist aus.'}
         ${S.ai.hasKey ? ' <button type="button" class="small" id="delkey">Schlüssel löschen</button>' : ''}</div></div>
     <div class="card"><b>CVR-Register (Firmendaten automatisch holen)</b>
@@ -1171,6 +1177,11 @@ routes.einstellungen = () => {
     <div class="card" style="margin-top:18px"><b>Datensicherung</b><p class="muted small">Das Programm legt jeden Tag automatisch eine Sicherung im Ordner <code>rechnung/data/sicherung</code> an. Nach dem dänischen Buchführungsgesetz müssen Rechnungen und Belege 5 Jahre aufbewahrt werden. Die Belegfotos liegen als Dateien in <code>rechnung/data/belege</code> – sichere deshalb regelmäßig den <b>ganzen Ordner <code>rechnung/data</code></b> extern (USB-Stick, Cloud in der EU). Der Knopf unten sichert nur die Buchungsdaten ohne Fotos.</p>
       <div class="row"><button id="bk">Sicherung herunterladen</button><label class="btn">Sicherung einspielen<input type="file" id="restore" accept=".json" hidden></label></div></div>`;
   $('#save').onclick = async () => { await act(() => api('settings', 'PUT', formData($('#main'))), 'Einstellungen gespeichert'); routes.einstellungen(); };
+  $('#testkey').onclick = async () => {
+    const out = $('#keyres'); out.textContent = 'prüfe…'; out.style.color = '';
+    try { await api('ai/check', 'POST', { key: $('[name=aiKey]').value }); out.textContent = '✔ Der Schlüssel funktioniert.'; out.style.color = 'var(--ok)'; }
+    catch (e) { out.textContent = '✖ ' + e.message; out.style.color = 'var(--bad)'; }
+  };
   $('#delkey') && ($('#delkey').onclick = async () => { await act(() => api('settings', 'PUT', { aiKeyDelete: true }), 'Schlüssel gelöscht'); routes.einstellungen(); });
   api('lan').then((l) => {
     const el = $('#lan'); if (!el) return;
