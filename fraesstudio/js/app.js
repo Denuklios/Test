@@ -1254,9 +1254,9 @@
       ${field('Material', `<select id="sM">${TL.MATERIALS.map((m) => `<option value="${m.id}" ${m.id === st.material ? 'selected' : ''}>${esc(m.name)}</option>`).join('')}</select>`)}
       ${field('Sicherheitshöhe', inputN('sS', st.safeZ || 5, 0.5, 'min="1"'), 'mm')}
       <div class="field"><label>Nullpunkt X/Y<br><span class="muted small">Dort stellst du die Maschine auf X0 Y0</span></label>
-        <div class="zeropick">${['ul', 'uc', 'ur', 'cl', 'c', 'cr', 'll', 'lc', 'lr'].map((k) => `<button data-z="${k}" class="${k === zero ? 'active' : ''}" title="${k}"></button>`).join('')}</div></div>
+        <div class="zeropick">${['ul', 'uc', 'ur', 'cl', 'c', 'cr', 'll', 'lc', 'lr'].map((k) => `<button data-z="${k}" class="${k === zero ? 'active' : ''}" title="${zeroText(k)}"></button>`).join('')}</div></div>
       ${field('Nullpunkt Z', `<select id="sZ"><option value="top" ${st.zeroZ !== 'bottom' ? 'selected' : ''}>Materialoberfläche (empfohlen)</option><option value="bottom" ${st.zeroZ === 'bottom' ? 'selected' : ''}>Maschinentisch / Opferplatte</option></select>`)}
-      <div class="info">Arbeitsbereich der ${esc(S.machine.name)}: ${S.machine.w} × ${S.machine.h} × ${S.machine.z} mm</div>`;
+      <div class="info">Arbeitsbereich der ${esc(tr(S.machine.name))}: ${S.machine.w} × ${S.machine.h} × ${S.machine.z} mm</div>`;
     let z = zero;
     modal(isNew ? 'Neues Projekt' : 'Werkstück einrichten', html, [{ label: 'Abbrechen', value: null }, { label: isNew ? 'Anlegen' : 'Übernehmen', primary: true, value: 'ok' }], {
       onOpen: (b) => b.querySelector('.zeropick').addEventListener('click', (e) => {
@@ -1298,7 +1298,7 @@
         ${field('Zustellung', inputN('wS', t.stepdown, 0.05), 'mm')}
         ${field('Überlappung', inputN('wO', t.stepover, 1), '%')}
       </div>
-      <p class="muted small">Werte gelten für Weichholz und die 80-W-Spindel; Material und Spindelleistung (Maschine: ${esc(S.machine.name)}) passen Vorschub, Zustellung und Drehzahl automatisch an. Höchstvorschub: ${S.machine.maxFeed} mm/min.</p>`;
+      <p class="muted small">Werte gelten für Weichholz und die 80-W-Spindel; Material und Spindelleistung (Maschine: ${esc(tr(S.machine.name))}) passen Vorschub, Zustellung und Drehzahl automatisch an. Höchstvorschub: ${S.machine.maxFeed} mm/min.</p>`;
     const render = () => {
       $('#tlList').innerHTML = list();
       $('#tlForm').innerHTML = form(S.doc.tools.find((t) => t.id === cur));
@@ -1892,7 +1892,7 @@
     const gc = await buildAll();
     const warns = ops.flatMap((op) => resultFor(op).res.warnings.map((w) => `${tr(op.name)}: ${tr(w)}`));
     let html = `<p>Laufzeit ≈ <b>${FS.gcode.fmtTime(gc.time)}</b> · ${FS.gcode.lineCount(gc.text)} Zeilen · ${toolIds.length} Werkzeug(e)</p>
-      <div class="info">Nullpunkt: X/Y ${esc(zeroText(S.doc.stock.zeroXY))}, Z auf der ${S.doc.stock.zeroZ === 'bottom' ? 'Tischoberfläche' : 'Materialoberfläche'}.</div>`;
+      <div class="info">${tr('Nullpunkt')}: X/Y ${esc(tr(zeroText(S.doc.stock.zeroXY)))}, Z ${tr(S.doc.stock.zeroZ === 'bottom' ? 'auf der Tischoberfläche' : 'auf der Materialoberfläche')}.</div>`;
     if (warns.length) html += warns.map((w) => `<div class="warnbox">${esc(w)}</div>`).join('');
     if (toolIds.length > 1) html += `<label class="check"><input type="radio" name="gsplit" value="one" checked> Eine Datei – das Programm hält beim Werkzeugwechsel an (M0)</label>
       <label class="check"><input type="radio" name="gsplit" value="split"> Je Werkzeug eine eigene Datei (empfohlen für SD-Karte / Candle)</label>`;
@@ -1946,7 +1946,7 @@
     const ops = S.doc.ops.filter((o) => o.enabled);
     $('#simOps').innerHTML = ops.length ? ops.map((op, i) => {
       const r = resultFor(op);
-      return `<div class="op"><span class="dot" style="background:${OP_COLORS[S.doc.ops.indexOf(op) % OP_COLORS.length]}"></span><span class="n">${i + 1}. ${esc(op.name)}<br><span class="c">${esc(r.res.tool.name)}</span></span><span class="c">${FS.gcode.fmtTime(r.time)}</span></div>`;
+      return `<div class="op"><span class="dot" style="background:${OP_COLORS[S.doc.ops.indexOf(op) % OP_COLORS.length]}"></span><span class="n">${i + 1}. <!---->${esc(op.name)}<br><span class="c">${esc(r.res.tool.name)}</span></span><span class="c">${FS.gcode.fmtTime(r.time)}</span></div>`;
     }).join('') : '<div class="empty">Keine Fräsbahnen – zuerst im Schritt 2 anlegen.</div>';
     $('#simWarn').innerHTML = gc.toolChanges ? `<div class="info">${gc.toolChanges} Werkzeugwechsel – das Programm hält dort an.</div>` : '';
     simInfo();
@@ -2011,7 +2011,7 @@
     g.on('connect', () => {
       alarmHinted = false;
       $('#mConnect').textContent = 'Trennen'; $('#mConnect').classList.remove('primary');
-      log(`Verbunden (${{ usb: 'USB' + (g.baud ? ', ' + g.baud + ' Baud' : ''), bridge: 'WLAN über den Server', ws: 'WLAN direkt' }[g.kind] || g.kind}).`, 'info');
+      log(`${tr('Verbunden')} (${{ usb: 'USB' + (g.baud ? ', ' + g.baud + ' Baud' : ''), bridge: tr('WLAN über den Server'), ws: tr('WLAN direkt') }[g.kind] || g.kind}).`, 'info');
       updConn();
     });
     g.on('disconnect', (lost) => {
@@ -2278,7 +2278,7 @@
       <li>Werkstück fest eingespannt, Spannmittel außerhalb der Fräsbahnen?</li>
       <li>Richtiges Werkzeug eingesetzt${firstTool ? `: <b>${esc(gcTool(firstTool))}</b>` : ''}?</li>
       ${firstDial ? `<li>Drehregler am Fräsmotor auf <b>${esc(gcDial(firstDial))}</b> gestellt und Motorschalter auf „Ein“ bzw. Steuerbox verbunden?</li>` : ''}
-      <li>X/Y-Nullpunkt am richtigen Punkt (${esc(zeroText(S.doc.stock.zeroXY))}) und Z genullt?</li>
+      <li>X/Y-Nullpunkt am richtigen Punkt (${esc(tr(zeroText(S.doc.stock.zeroXY)))}) und Z genullt?</li>
       <li>Schutzbrille, Absaugung, Hände weg von der Spindel.</li></ul>`,
     [{ label: 'Abbrechen', value: false }, { label: '▶ Jetzt fräsen', primary: true, value: true }]);
     if (!ok) return;
@@ -2453,7 +2453,7 @@
         x.beginPath(); x.arc(q.x, q.y, 7 * dpr, 0, Math.PI * 2); x.fill(); x.stroke();
         x.fillStyle = '#fff'; x.font = `bold ${12 * dpr}px system-ui`; x.fillText(String(i + 1), q.x + 10 * dpr, q.y - 8 * dpr);
       });
-      $('#cmStep').textContent = raw.length < 4 ? `Klicke die Ecke ${raw.length + 1} von 4 an: ${names[raw.length]} (vom Werkstück aus gesehen, X nach rechts, Y nach hinten)` : 'Fertig ausgerichtet – Punkte bei Bedarf verschieben.';
+      $('#cmStep').textContent = raw.length < 4 ? `Klicke die Ecke ${raw.length + 1} von 4 an: ${tr(names[raw.length])} (vom Werkstück aus gesehen, X nach rechts, Y nach hinten)` : 'Fertig ausgerichtet – Punkte bei Bedarf verschieben.';
       requestAnimationFrame(overlay);
     };
     const r = await modal('Kamera von oben', html, [{ label: 'Abbrechen', value: null }, { label: 'Übernehmen und einblenden', primary: true, value: 'ok' }], {
