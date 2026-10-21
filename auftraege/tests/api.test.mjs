@@ -120,7 +120,7 @@ try {
     assert.equal((await fetch(`${B}/display_api.php?t=${'a'.repeat(64)}`)).status, 403);
     const list = (await call('me')).j.tokens; assert.equal(list.length, 1); assert.equal(JSON.stringify(list).includes(token), false);
     await call('token_revoke', { body: { id: list[0].id } });
-    assert.equal((await fetch(`${B}/display_api.php?t=${token}`)).status, 403);
+    const rv = await fetch(`${B}/display_api.php?t=${token}`); assert.equal(rv.status, 403); assert.equal((await rv.json()).error, 'revoked');
   });
   await ok('Werkstatt-Token: Ratenbegrenzung nach 30 Fehlversuchen', async () => {
     let last = 0; for (let i = 0; i < 35; i++) last = (await fetch(`${B}/display_api.php?t=${'b'.repeat(64)}`)).status;

@@ -2,13 +2,14 @@
 (() => {
 'use strict';
 const qs = new URLSearchParams(location.search);
-const TOKEN = qs.get('t') || '';
+const TOKEN = (qs.get('t') || '').replace(/[^0-9a-fA-F]/g, '').toLowerCase(); // Leerzeichen/Zeilenumbrueche vom Kopieren entfernen
+const RAW_LEN = (qs.get('t') || '').trim().length;
 let lang = qs.get('l') === 'da' ? 'da' : 'de';
 const POLL_MS = 4000;
 const T = {
-  de: { overdue: 'Überfällig', today: 'Heute', tomorrow: 'Morgen', later: 'Später', nodate: 'Ohne Termin', unpaid: 'UNBEZAHLT', pcs: 'Stk.', cap: 'Freie Kapazität', status: 'Status', none: 'Keine offenen Aufträge', more: 'weitere Aufträge …', bad: 'Link ungültig oder gesperrt', free: 'frei',
+  de: { overdue: 'Überfällig', today: 'Heute', tomorrow: 'Morgen', later: 'Später', nodate: 'Ohne Termin', unpaid: 'UNBEZAHLT', pcs: 'Stk.', cap: 'Freie Kapazität', status: 'Status', none: 'Keine offenen Aufträge', more: 'weitere Aufträge …', bad: 'Link ungültig', revoked: 'Link gesperrt – bitte in den Einstellungen einen neuen erzeugen', short: 'Link unvollständig ({0} von 64 Zeichen) – bitte den ganzen Link kopieren', server: 'Server antwortet nicht richtig (Code {0})', free: 'frei',
     st: { inquiry: 'Angefragt', approval: 'Freigabe', material: 'Material bestellt', production: 'In Produktion', done: 'Fertig', delivered: 'Abgeholt' } },
-  da: { overdue: 'Forfaldne', today: 'I dag', tomorrow: 'I morgen', later: 'Senere', nodate: 'Uden dato', unpaid: 'UBETALT', pcs: 'stk.', cap: 'Ledig kapacitet', status: 'Status', none: 'Ingen åbne ordrer', more: 'flere ordrer …', bad: 'Linket er ugyldigt eller spærret', free: 'ledig',
+  da: { overdue: 'Forfaldne', today: 'I dag', tomorrow: 'I morgen', later: 'Senere', nodate: 'Uden dato', unpaid: 'UBETALT', pcs: 'stk.', cap: 'Ledig kapacitet', status: 'Status', none: 'Ingen åbne ordrer', more: 'flere ordrer …', bad: 'Linket er ugyldigt', revoked: 'Linket er spærret – opret et nyt under Indstillinger', short: 'Linket er ufuldstændigt ({0} af 64 tegn) – kopiér hele linket', server: 'Serveren svarer ikke korrekt (kode {0})', free: 'ledig',
     st: { inquiry: 'Forespurgt', approval: 'Godkendelse', material: 'Materiale bestilt', production: 'I produktion', done: 'Færdig', delivered: 'Afhentet' } }
 };
 const SCOL = { inquiry: '#9d94ad', approval: '#38bdf8', material: '#f59e0b', production: '#A855F7', done: '#34d399', delivered: '#6b6479' };
@@ -26,9 +27,10 @@ let version = -1, lastJson = '', data = null;
 
 async function get(params) {
   const r = await fetch('../display_api.php?' + new URLSearchParams({ t: TOKEN, ...params }), { cache: 'no-store' });
-  if (r.status === 403) throw Object.assign(new Error('invalid'), { invalid: true });
-  const j = await r.json();
-  if (!j.ok) throw new Error(j.error);
+  let j = null;
+  try { j = await r.json(); } catch (e) { /* keine JSON-Antwort */ }
+  if (r.status === 403) throw Object.assign(new Error('invalid'), { invalid: true, reason: j && j.error });
+  if (!j || !j.ok) throw Object.assign(new Error('http'), { http: r.status });
   return j;
 }
 const conn = (ok, msg) => { $('conn').classList.toggle('off', !ok); $('conn').title = msg || ''; };
@@ -43,7 +45,8 @@ async function tick() {
       draw();
     }
   } catch (e) {
-    if (e.invalid) { $('main').replaceChildren(h('div', { class: 'empty-big' }, t().bad)); $('side').replaceChildren(); conn(false, 'invalid'); return; }
+    if (e.invalid) { $('main').replaceChildren(h('div', { class: 'empty-big' }, e.reason === 'revoked' ? t().revoked : t().bad)); $('side').replaceChildren(); conn(false, 'invalid'); return; }
+    if (e.http && version < 0) { $('main').replaceChildren(h('div', { class: 'empty-big' }, t().server.replace('{0}', e.http))); }
     conn(false, e.message);
   }
 }
@@ -120,7 +123,7 @@ document.addEventListener('mousemove', wake); wake();
 // Bildschirm wach halten, wenn der Browser es kann
 try { if (navigator.wakeLock) navigator.wakeLock.request('screen').catch(() => {}); document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible' && navigator.wakeLock) navigator.wakeLock.request('screen').catch(() => {}); }); } catch (e) { /* optional */ }
 
-if (!/^[0-9a-f]{64}$/.test(TOKEN)) { $('main').replaceChildren(h('div', { class: 'empty-big' }, t().bad)); conn(false, 'invalid'); }
+if (!/^[0-9a-f]{64}$/.test(TOKEN)) { $('main').replaceChildren(h('div', { class: 'empty-big' }, RAW_LEN ? t().short.replace('{0}', RAW_LEN) : t().bad)); conn(false, 'invalid'); }
 else { tick(); setInterval(tick, POLL_MS); }
 clock(); setInterval(clock, 5000);
 })();

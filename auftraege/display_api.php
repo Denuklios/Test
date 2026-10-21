@@ -22,13 +22,13 @@ if ((int)$cnt->fetchColumn() >= 30) {
 $token = (string)($_GET['t'] ?? '');
 $row = false;
 if (preg_match('/^[0-9a-f]{64}$/', $token)) {
-    $st = $db->prepare('SELECT id, last_used_at FROM display_tokens WHERE token_hash = ? AND revoked_at IS NULL');
+    $st = $db->prepare('SELECT id, last_used_at, revoked_at FROM display_tokens WHERE token_hash = ?');
     $st->execute([hash('sha256', $token)]);
     $row = $st->fetch();
 }
-if (!$row) {
+if (!$row || $row['revoked_at']) {
     $db->prepare('INSERT INTO rate_limit (ip, at) VALUES (?, ?)')->execute([$ip, time()]);
-    wf_fail('invalid_token', 403);
+    wf_fail($row ? 'revoked' : 'invalid_token', 403);
 }
 if (!$row['last_used_at'] || strtotime($row['last_used_at'] . ' UTC') < time() - 60) {
     $db->prepare("UPDATE display_tokens SET last_used_at = datetime('now') WHERE id = ?")->execute([$row['id']]);
