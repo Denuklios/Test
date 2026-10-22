@@ -15,7 +15,8 @@ Preisrechner für Bastelprojekte im Julekontor-Design. Läuft im Browser, auch a
    Rechenweg: (Material + Zeit × Lohn + Sonstiges) + Aufschlag, danach optional MwSt./Moms.
 5. **Fotos:** „Foto aufnehmen“ öffnet am Handy die Kamera, „Bild hochladen“ die Galerie.
 
-6. **Fertig & Nachbauen:** „Als fertig markieren“ legt das Projekt unter dem Filter **Fertig** ab. Dort gibst du an, wie viele Stück du nachbauen willst, und bekommst die Liste zum Bereitlegen: Menge je Material, wie viele Rollen/Packungen nötig sind, Kosten, Arbeitszeit und Verkaufswert. Mit „… als gebaut eintragen“ zählt die App mit, wie oft du es schon gemacht hast.
+6. **Stoppuhr:** Oben im Projekt auf „Start“ tippen und nebenbei basteln. Die Uhr läuft weiter, auch wenn die App zu ist oder das Handy gesperrt. Läuft sie, zeigt eine rote Leiste unten die Zeit auf jeder Seite. „Als Arbeitszeit übernehmen“ trägt die Minuten ein; bei „Gemessen für 8 Stück“ wird die Zeit pro Stück eingetragen.
+7. **Fertig & Nachbauen:** „Als fertig markieren“ legt das Projekt unter dem Filter **Fertig** ab. Dort gibst du an, wie viele Stück du nachbauen willst, und bekommst die Liste zum Bereitlegen: Menge je Material, wie viele Rollen/Packungen nötig sind, Kosten, Arbeitszeit und Verkaufswert. Mit „… als gebaut eintragen“ zählt die App mit, wie oft du es schon gemacht hast.
 
 ## Abgleich Handy ↔ PC
 

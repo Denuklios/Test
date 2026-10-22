@@ -44,6 +44,7 @@
   color-scheme: dark;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   background: var(--paper); color: var(--ink);
   font-family: var(--f-body); font-size: 16px; line-height: 1.5;
@@ -184,6 +185,24 @@ textarea { min-height: 80px; resize: vertical; }
 .need li.got .nname, .need li.got .namount { text-decoration: line-through; color: var(--muted); }
 .history { font-size: .85rem; color: var(--muted); margin: 0; padding-left: 18px; }
 
+/* Stoppuhr */
+.timer { margin-top: 14px; background: var(--card); border: 1.5px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 8px 16px; align-items: center; }
+.timer.running { border-color: var(--red); }
+.timer .tlabel { font-size: .75rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+.timer .tdisp { font-family: var(--f-display); font-size: 2rem; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.timer.running .tdisp { color: var(--red); }
+.timer .tbtns { display: flex; gap: 8px; flex-wrap: wrap; justify-content: flex-end; }
+.timer .tfoot { grid-column: 1 / -1; display: flex; gap: 8px 12px; flex-wrap: wrap; align-items: center; font-size: .85rem; color: var(--muted); border-top: 1px dashed var(--line); padding-top: 8px; }
+.timer .tfoot input { width: 60px; min-height: 34px; padding: 4px 8px; }
+@media (max-width: 520px) { .timer { grid-template-columns: 1fr; } .timer .tbtns { justify-content: flex-start; } }
+.timebar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 40; background: var(--red); color: var(--red-ink);
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 8px calc(8px + env(safe-area-inset-bottom, 0px)); display: flex; gap: 10px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.timebar .tbname { font-weight: 700; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; flex: 1; }
+.timebar .tbtime { font-weight: 800; font-variant-numeric: tabular-nums; font-size: 1.1rem; }
+.timebar .btn { background: var(--red-ink); color: var(--red); border-color: var(--red-ink); }
+.timebar .btn.ghost { background: transparent; color: var(--red-ink); }
+
 /* Abgleich */
 .syncchip { font-size: .8rem; font-weight: 700; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
 .syncchip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
@@ -319,6 +338,7 @@ dialog h3 { color: var(--red); }
   <img id="light-img" alt="Projektfoto groß">
 </dialog>
 
+<div id="timebar" class="timebar" hidden></div>
 <div id="toast" class="toast" hidden></div>
 
 <script>
@@ -611,6 +631,7 @@ document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('cl
   ui.tab = b.dataset.tab; ui.projectId = null; render(); window.scrollTo(0, 0);
 }));
 function render() {
+  paintTimers();
   document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === ui.tab)));
   if (ui.tab === 'projekte') ui.projectId ? renderProject() : renderProjects();
   else if (ui.tab === 'lager') renderLager();
@@ -706,6 +727,7 @@ function renderProject() {
       ${p.done ? `<span class="status">✓ Fertig seit ${new Date(p.done).toLocaleDateString('de-DE')}</span>` : '<span class="status open">● In Arbeit</span>'}
       <button class="btn ${p.done ? 'quiet' : 'ghost'} sm" id="toggle-done">${p.done ? 'Wieder in Arbeit nehmen' : 'Als fertig markieren'}</button>
     </div>
+    ${timerHtml(p)}
     ${p.done ? repeatHtml(p) : ''}
     <div class="section" style="margin-top:14px">
       <div class="grid2">
@@ -756,6 +778,7 @@ function renderProject() {
     toast(p.done ? 'Als fertig gespeichert. Unter „Fertig“ findest du es zum Nachbauen.' : 'Wieder in Arbeit');
   };
   bindRepeat(p);
+  bindTimer(p);
   $('#delp').onclick = async () => {
     if (await askConfirm('Projekt löschen?', `„${p.name}“ mit allen Fotos wird gelöscht. Das Material im Lager bleibt erhalten.`)) {
       p.images.forEach(delImg);
@@ -764,7 +787,7 @@ function renderProject() {
   };
   $('#dup').onclick = async () => {
     const copy = JSON.parse(JSON.stringify(p));
-    copy.id = uid(); copy.name = p.name + ' (Kopie)'; copy.example = false; copy.images = []; copy.done = null; copy.builds = []; delete copy.upd;
+    copy.id = uid(); copy.name = p.name + ' (Kopie)'; copy.example = false; copy.images = []; copy.done = null; copy.builds = []; copy.timer = null; delete copy.upd;
     for (const id of p.images) { const b = await getImg(id); if (b) { const nid = uid(); await putImg(nid, b); copy.images.push(nid); } }
     copy.lines.forEach(l => l.id = uid());
     state.projects.push(copy); save(); ui.projectId = copy.id; render(); toast('Kopie angelegt');
@@ -840,6 +863,81 @@ function lineHtml(l) {
     <div class="lactions"><button class="btn quiet sm" data-editmat>Material ändern</button><button class="btn quiet sm" data-rm aria-label="Zeile entfernen">Entfernen</button></div>
   </div>`;
 }
+
+/* ---------- Stoppuhr ----------
+   Gespeichert wird nur der Startzeitpunkt und die schon gestoppte Zeit. So läuft die Uhr weiter,
+   wenn die App geschlossen oder das Handy gesperrt ist, und auch auf dem anderen Gerät. */
+const timerMs = p => { const t = p.timer || {}; return (t.acc || 0) + (t.start ? Math.max(0, Date.now() - t.start) : 0); };
+function clock(ms) {
+  const sec = Math.floor(ms / 1000), h = Math.floor(sec / 3600), m = Math.floor(sec / 60) % 60, x = sec % 60;
+  return `${h}:${String(m).padStart(2, '0')}:${String(x).padStart(2, '0')}`;
+}
+function timerHtml(p) {
+  const t = p.timer || {}, run = !!t.start, ms = timerMs(p);
+  return `<div class="timer${run ? ' running' : ''}" id="timer">
+    <div><div class="tlabel">Stoppuhr</div><div class="tdisp" id="t-disp">${clock(ms)}</div></div>
+    <div class="tbtns">
+      <button class="btn${run ? ' ghost' : ''}" id="t-start">${run ? 'Pause' : ms ? 'Weiter' : 'Start'}</button>
+      <button class="btn ghost" id="t-take"${ms ? '' : ' disabled'}>Als Arbeitszeit übernehmen</button>
+      <button class="btn quiet sm" id="t-reset"${ms ? '' : ' hidden'}>Zurücksetzen</button>
+    </div>
+    <div class="tfoot">
+      <label for="t-pcs">Gemessen für</label><input type="text" inputmode="numeric" id="t-pcs" value="${esc(t.pcs || 1)}"><span>Stück</span>
+      <span id="t-per"></span>
+    </div>
+  </div>`;
+}
+function perPieceMin(p) { return timerMs(p) / 60000 / Math.max(1, num((p.timer || {}).pcs) || 1); }
+function bindTimer(p) {
+  const tm = () => p.timer || (p.timer = { start: null, acc: 0, pcs: 1 });
+  $('#t-start').onclick = () => {
+    const t = tm();
+    if (t.start) { t.acc += Date.now() - t.start; t.start = null; } else t.start = Date.now();
+    p.example = false; save(); renderProject();
+  };
+  $('#t-take').onclick = () => {
+    const min = Math.round(perPieceMin(p) * 10) / 10;
+    p.minutes = amountText(min); p.example = false; save();
+    $('#p-min').value = p.minutes; updateSums(p); updateRepeat(p);
+    toast(`${amountText(min)} Min. als Arbeitszeit übernommen`);
+  };
+  $('#t-reset').onclick = async () => {
+    if (!(await askConfirm('Stoppuhr zurücksetzen?', 'Die gemessene Zeit wird auf 0 gesetzt. Die eingetragene Arbeitszeit bleibt.', 'Zurücksetzen'))) return;
+    p.timer = { start: null, acc: 0, pcs: tm().pcs }; save(); renderProject();
+  };
+  $('#t-pcs').addEventListener('input', e => { tm().pcs = e.target.value; save(); paintTimers(); });
+  paintTimers();
+}
+// Jede Sekunde: Anzeige im Projekt und die Leiste unten (läuft auf allen Seiten der App).
+function paintTimers() {
+  if (!state) return;
+  const open = projById(ui.projectId);
+  const d = $('#t-disp');
+  if (open && d) {
+    d.textContent = clock(timerMs(open));
+    const per = $('#t-per'), pcs = Math.max(1, num((open.timer || {}).pcs) || 1);
+    if (per) per.textContent = timerMs(open) ? `= ${amountText(Math.round(perPieceMin(open) * 10) / 10)} Min.${pcs > 1 ? ' pro Stück' : ''}` : '';
+    const take = $('#t-take'); if (take) take.disabled = !timerMs(open);
+  }
+  const running = state.projects.filter(p => p.timer && p.timer.start);
+  const bar = $('#timebar');
+  const onIt = running.length === 1 && ui.tab === 'projekte' && ui.projectId === running[0].id;
+  if (!running.length || onIt) { bar.hidden = true; bar.dataset.ids = ''; return; }
+  const ids = running.map(p => p.id).join(',');
+  if (bar.dataset.ids !== ids) {
+    bar.dataset.ids = ids;
+    bar.innerHTML = running.map(p => `<span class="tbname">⏱ ${esc(p.name)}</span><span class="tbtime" data-tb="${p.id}"></span>
+      <button class="btn sm" data-tbpause="${p.id}">Pause</button><button class="btn sm ghost" data-tbopen="${p.id}">Öffnen</button>`).join('');
+    bar.querySelectorAll('[data-tbpause]').forEach(b => b.onclick = () => {
+      const p = projById(b.dataset.tbpause); p.timer.acc += Date.now() - p.timer.start; p.timer.start = null; save(); render();
+    });
+    bar.querySelectorAll('[data-tbopen]').forEach(b => b.onclick = () => { ui.tab = 'projekte'; ui.projectId = b.dataset.tbopen; render(); window.scrollTo(0, 0); });
+  }
+  bar.hidden = false;
+  running.forEach(p => { const el = bar.querySelector(`[data-tb="${p.id}"]`); if (el) el.textContent = clock(timerMs(p)); });
+}
+setInterval(paintTimers, 1000);
+document.addEventListener('visibilitychange', paintTimers);
 
 /* ---------- Nachbauen ---------- */
 const builtCount = p => (p.builds || []).reduce((s, b) => s + num(b.qty), 0);
