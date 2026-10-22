@@ -15,7 +15,21 @@ Preisrechner für Bastelprojekte im Julekontor-Design. Läuft im Browser, auch a
    Rechenweg: (Material + Zeit × Lohn + Sonstiges) + Aufschlag, danach optional MwSt./Moms.
 5. **Fotos:** „Foto aufnehmen“ öffnet am Handy die Kamera, „Bild hochladen“ die Galerie.
 
-Daten und Fotos bleiben nur auf dem jeweiligen Gerät (IndexedDB). Unter **Einstellungen → Sicherung speichern** eine Datei sichern und auf einem anderen Gerät mit „Sicherung laden“ einspielen.
+6. **Fertig & Nachbauen:** „Als fertig markieren“ legt das Projekt unter dem Filter **Fertig** ab. Dort gibst du an, wie viele Stück du nachbauen willst, und bekommst die Liste zum Bereitlegen: Menge je Material, wie viele Rollen/Packungen nötig sind, Kosten, Arbeitszeit und Verkaufswert. Mit „… als gebaut eintragen“ zählt die App mit, wie oft du es schon gemacht hast.
+
+## Abgleich Handy ↔ PC
+
+Wird die Werkstatt über den eigenen Server geöffnet, meldet man sich unter **Einstellungen** an. Danach sind Projekte, Material und Fotos auf allen Geräten gleich. Alle Zugänge teilen dieselben Daten (ein gemeinsames Julekontor).
+
+- Änderungen gehen nach ca. 2 Sekunden an den Server, andere Geräte holen sie alle 30 Sekunden und beim Öffnen.
+- Ohne Internet arbeitet die App weiter und gleicht später ab.
+- Wurde derselbe Eintrag auf zwei Geräten geändert, gilt die neuere Änderung.
+
+**Einrichten auf dem Server** (Ubuntu, auch neben StickStudio): Ordner auf den Server kopieren, dann `sudo bash deploy/install.sh`. Das Skript fragt nach Adresse (z. B. `bastel.julekontor.dk`), E-Mail und Passwort und richtet HTTPS, Dienst und tägliche Sicherung ein.
+
+Lokal ausprobieren: `node --no-warnings server/server.js add-user du@julekontor.dk 'passwort'` und danach `node --no-warnings server/server.js` → http://localhost:8090
+
+Ohne Server (Datei doppelklicken oder Claude-Link) bleiben Daten und Fotos nur auf dem jeweiligen Gerät. Unter **Einstellungen → Sicherung speichern** kann man sie trotzdem als Datei sichern.
 
 ## Dateien
 

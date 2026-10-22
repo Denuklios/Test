@@ -141,8 +141,11 @@ textarea { min-height: 80px; resize: vertical; }
 .line .lmeta { font-size: .82rem; color: var(--muted); }
 .line .lcost { font-weight: 800; font-size: 1.1rem; text-align: right; white-space: nowrap; }
 .line .usage { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
-.line .usage input { width: 80px; min-width: 0; }
-.line .usage select { width: auto; flex: none; }
+.line .usage input { width: 64px; min-width: 0; }
+/* Zahl und Einheit als ein Feld: [ 20 |cm ] */
+.pair { display: inline-flex; align-items: stretch; flex: none; }
+.pair input { border-radius: 8px 0 0 8px; border-right: 0; text-align: right; }
+.pair select { width: auto; min-height: 42px; border-radius: 0 8px 8px 0; padding: 0 2px 0 6px; font-size: .8rem; color: var(--muted); background: var(--paper); }
 .line .lactions { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px dashed var(--line); padding-top: 8px; }
 .line .usage .times { color: var(--muted); font-weight: 700; }
 .line .usage .grow { flex: 1; }
@@ -157,6 +160,37 @@ textarea { min-height: 80px; resize: vertical; }
 .rrow.sum { border-top: 1px dashed var(--line); padding-top: 8px; font-weight: 700; }
 .rrow.total { border-top: 2px solid var(--ink); padding-top: 10px; font-family: var(--f-display); font-size: 1.5rem; font-weight: 800; color: var(--green); }
 .rinputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 6px; }
+
+/* Status & Filter */
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { appearance: none; border: 1.5px solid var(--line); background: var(--card); color: var(--muted); font: 700 .85rem var(--f-body); padding: 5px 12px; border-radius: 999px; cursor: pointer; min-height: 34px; }
+.chip[aria-pressed="true"] { border-color: var(--red); color: var(--red); }
+.badge.done { color: var(--green); border-color: var(--green); }
+.status { display: inline-flex; align-items: center; gap: 6px; font-weight: 800; font-size: .85rem; color: var(--green); }
+.status.open { color: var(--gold); }
+
+/* Nachbauen */
+.repeat { background: var(--card); border: 1.5px solid var(--green); border-radius: var(--radius); padding: 14px 16px; display: grid; gap: 12px; }
+.repeat .qtyrow { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.repeat .qtyrow input { width: 80px; }
+.need { list-style: none; margin: 0; padding: 0; display: grid; gap: 0; }
+.need li { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 2px 10px; align-items: start; padding: 9px 0; border-top: 1px dashed var(--line); }
+.need li:first-child { border-top: 0; }
+.need input[type="checkbox"] { width: 22px; height: 22px; margin: 2px 0 0; accent-color: var(--green); }
+.need .nname { font-weight: 700; }
+.need .namount { font-size: .9rem; }
+.need .npack { font-size: .8rem; color: var(--muted); }
+.need .ncost { font-weight: 700; white-space: nowrap; text-align: right; }
+.need li.got .nname, .need li.got .namount { text-decoration: line-through; color: var(--muted); }
+.history { font-size: .85rem; color: var(--muted); margin: 0; padding-left: 18px; }
+
+/* Abgleich */
+.syncchip { font-size: .8rem; font-weight: 700; color: var(--muted); display: inline-flex; align-items: center; gap: 6px; }
+.syncchip::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: var(--line); }
+.syncchip.ok::before { background: var(--green); }
+.syncchip.busy::before { background: var(--gold); }
+.syncchip.err::before { background: var(--danger); }
+.loginbox { display: grid; gap: 12px; max-width: 420px; }
 
 /* Lager */
 .mat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 12px; align-items: center; }
@@ -192,6 +226,7 @@ dialog h3 { color: var(--red); }
     <div class="brandline">
       <h1>Bastelwerkstatt</h1>
       <span class="muted">Materialkosten, Arbeitszeit und Verkaufspreis für jedes Projekt</span>
+      <span id="syncchip" class="syncchip" hidden></span>
     </div>
   </header>
 
@@ -427,20 +462,40 @@ async function loadState() {
   try { return await idb('kv', 'readonly', s => s.get('state')); } catch (e) { return memState; }
 }
 let saveTimer = null;
+// Jede Änderung: geänderte Einträge für den Abgleich markieren, auf dem Gerät speichern, Abgleich anstoßen.
 function save() {
+  trackChanges();
+  persist();
+  scheduleSync(2000);
+}
+function persist() {
   clearTimeout(saveTimer);
   saveTimer = setTimeout(async () => {
     const copy = JSON.parse(JSON.stringify(state));
-    try { await idb('kv', 'readwrite', s => s.put(copy, 'state')); } catch (e) { memState = copy; }
+    const meta = JSON.parse(JSON.stringify(sync.meta));
+    try { await idb('kv', 'readwrite', s => { s.put(meta, 'sync'); return s.put(copy, 'state'); }); } catch (e) { memState = copy; }
   }, 250);
 }
 async function putImg(id, blob) {
   memImg.set(id, blob);
   try { await idb('img', 'readwrite', s => s.put(blob, id)); } catch (e) {}
 }
-async function getImg(id) {
+async function getLocalImg(id) {
   if (memImg.has(id)) return memImg.get(id);
   try { const b = await idb('img', 'readonly', s => s.get(id)); if (b) memImg.set(id, b); return b; } catch (e) { return null; }
+}
+// Fotos von anderen Geräten werden beim ersten Anzeigen vom Server geholt und danach auf dem Gerät behalten.
+async function getImg(id) {
+  const b = await getLocalImg(id);
+  if (b || !sync.user) return b;
+  try {
+    const r = await fetch('api/img/' + id, { credentials: 'same-origin' });
+    if (!r.ok) return null;
+    const blob = await r.blob();
+    await putImg(id, blob);
+    sync.meta.uploaded[id] = 1; persist();
+    return blob;
+  } catch (e) { return null; }
 }
 async function delImg(id) {
   memImg.delete(id);
@@ -478,7 +533,7 @@ function shrink(file, max = 1600) {
 /* ---------- Zustand ---------- */
 const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
 let state = null;
-let ui = { tab: 'projekte', projectId: null };
+let ui = { tab: 'projekte', projectId: null, filter: 'alle', repeatQty: {}, checks: {} };
 
 function sample() {
   const papier = { id: uid(), name: 'Bastelpapier rot, große Rolle', type: 'area', price: 80, note: 'Beispiel', pack: { length: 100, lengthUnit: 'm', width: 70, widthUnit: 'cm', count: 1 }, example: true };
@@ -565,24 +620,32 @@ function render() {
 /* ---------- Projektübersicht ---------- */
 function renderProjects() {
   const cats = state.categories;
-  const orphan = state.projects.filter(p => !catById(p.categoryId));
+  const f = ui.filter || 'alle';
+  const shown = p => f === 'alle' || (f === 'fertig' ? !!p.done : !p.done);
+  const orphan = state.projects.filter(p => !catById(p.categoryId) && shown(p));
+  const nDone = state.projects.filter(p => p.done).length;
   let html = `<div class="row between" style="margin-bottom:18px">
-      <p class="muted" style="margin:0">${state.projects.length} Projekte in ${cats.length} Kategorien</p>
+      <div class="chips" role="group" aria-label="Projekte filtern">
+        <button class="chip" data-filter="alle" aria-pressed="${f === 'alle'}">Alle (${state.projects.length})</button>
+        <button class="chip" data-filter="offen" aria-pressed="${f === 'offen'}">In Arbeit (${state.projects.length - nDone})</button>
+        <button class="chip" data-filter="fertig" aria-pressed="${f === 'fertig'}">Fertig (${nDone})</button>
+      </div>
       <div class="row"><button class="btn ghost" id="add-cat">+ Kategorie</button><button class="btn" id="add-proj">+ Projekt</button></div>
     </div>`;
   if (!cats.length) html += `<div class="empty">Lege zuerst eine Kategorie an, z. B. „Weihnachtsschmuck“ oder „Adventskränze“.</div>`;
-  const groups = cats.map(c => ({ c, list: state.projects.filter(p => p.categoryId === c.id) }));
+  const groups = cats.map(c => ({ c, list: state.projects.filter(p => p.categoryId === c.id && shown(p)) }));
   if (orphan.length) groups.push({ c: { id: '', name: 'Ohne Kategorie' }, list: orphan });
   for (const { c, list } of groups) {
     html += `<section class="cat">
       <div class="cat-head"><h2>${esc(c.name)}</h2>
         ${c.id ? `<div class="row"><button class="btn sm ghost" data-newin="${c.id}">+ Projekt</button><button class="btn sm quiet" data-rencat="${c.id}">Umbenennen</button><button class="btn sm quiet" data-delcat="${c.id}">Löschen</button></div>` : ''}
       </div>
-      ${list.length ? `<div class="cards">${list.map(cardHtml).join('')}</div>` : `<div class="empty">Noch keine Projekte in dieser Kategorie.</div>`}
+      ${list.length ? `<div class="cards">${list.map(cardHtml).join('')}</div>` : `<div class="empty">${f === 'fertig' ? 'Noch kein fertiges Projekt in dieser Kategorie.' : f === 'offen' ? 'Nichts in Arbeit in dieser Kategorie.' : 'Noch keine Projekte in dieser Kategorie.'}</div>`}
     </section>`;
   }
   view.innerHTML = html;
   fillThumbs();
+  view.querySelectorAll('[data-filter]').forEach(b => b.onclick = () => { ui.filter = b.dataset.filter; renderProjects(); });
   $('#add-cat').onclick = addCategory;
   $('#add-proj').onclick = () => addProject(cats[0]?.id);
   view.querySelectorAll('[data-newin]').forEach(b => b.onclick = () => addProject(b.dataset.newin));
@@ -604,8 +667,8 @@ function cardHtml(p) {
   return `<button class="pcard" data-id="${p.id}">
     <div class="thumb" data-img="${p.images[0] || ''}">${p.images[0] ? '' : 'Kein Foto'}</div>
     <div class="body">
-      <span class="name">${esc(p.name)} ${p.example ? '<span class="badge">Beispiel</span>' : ''}</span>
-      <span class="small muted">Material ${money(c.material)} · ${amountText(c.minutes)} Min.</span>
+      <span class="name">${esc(p.name)} ${p.example ? '<span class="badge">Beispiel</span>' : ''} ${p.done ? '<span class="badge done">Fertig</span>' : ''}</span>
+      <span class="small muted">Material ${money(c.material)} · ${amountText(c.minutes)} Min.${builtCount(p) ? ` · ${builtCount(p)}× gebaut` : ''}</span>
       <span class="price num">${money(c.gross)}</span>
     </div>
   </button>`;
@@ -639,6 +702,11 @@ function renderProject() {
       <button class="btn quiet sm" id="back">← Alle Projekte</button>
       <div class="row"><button class="btn quiet sm" id="dup">Kopieren</button><button class="btn danger sm" id="delp">Projekt löschen</button></div>
     </div>
+    <div class="row between" style="margin-top:14px">
+      ${p.done ? `<span class="status">✓ Fertig seit ${new Date(p.done).toLocaleDateString('de-DE')}</span>` : '<span class="status open">● In Arbeit</span>'}
+      <button class="btn ${p.done ? 'quiet' : 'ghost'} sm" id="toggle-done">${p.done ? 'Wieder in Arbeit nehmen' : 'Als fertig markieren'}</button>
+    </div>
+    ${p.done ? repeatHtml(p) : ''}
     <div class="section" style="margin-top:14px">
       <div class="grid2">
         <label class="f">Projektname <input type="text" id="p-name" value="${esc(p.name)}"></label>
@@ -679,9 +747,15 @@ function renderProject() {
         </div>
         <div id="sum"></div>
       </div>
-    </div>`;
+    </div>
+    ${p.done ? '' : repeatHtml(p)}`;
 
   $('#back').onclick = () => { ui.projectId = null; render(); };
+  $('#toggle-done').onclick = () => {
+    p.done = p.done ? null : Date.now(); p.example = false; save(); renderProject();
+    toast(p.done ? 'Als fertig gespeichert. Unter „Fertig“ findest du es zum Nachbauen.' : 'Wieder in Arbeit');
+  };
+  bindRepeat(p);
   $('#delp').onclick = async () => {
     if (await askConfirm('Projekt löschen?', `„${p.name}“ mit allen Fotos wird gelöscht. Das Material im Lager bleibt erhalten.`)) {
       p.images.forEach(delImg);
@@ -690,7 +764,7 @@ function renderProject() {
   };
   $('#dup').onclick = async () => {
     const copy = JSON.parse(JSON.stringify(p));
-    copy.id = uid(); copy.name = p.name + ' (Kopie)'; copy.example = false; copy.images = [];
+    copy.id = uid(); copy.name = p.name + ' (Kopie)'; copy.example = false; copy.images = []; copy.done = null; copy.builds = []; delete copy.upd;
     for (const id of p.images) { const b = await getImg(id); if (b) { const nid = uid(); await putImg(nid, b); copy.images.push(nid); } }
     copy.lines.forEach(l => l.id = uid());
     state.projects.push(copy); save(); ui.projectId = copy.id; render(); toast('Kopie angelegt');
@@ -699,6 +773,7 @@ function renderProject() {
   bind('#p-name', 'name'); bind('#p-notes', 'notes');
   $('#p-cat').onchange = e => { p.categoryId = e.target.value; save(); };
   bind('#p-min', 'minutes'); bind('#p-rate', 'rate'); bind('#p-markup', 'markup'); bind('#p-extra', 'extra');
+  ['#p-min', '#p-rate', '#p-markup', '#p-extra'].forEach(sel => $(sel).addEventListener('input', () => updateRepeat(p)));
 
   // Fotos
   const onFiles = async e => {
@@ -727,7 +802,7 @@ function renderProject() {
     const l = p.lines.find(x => x.id === row.dataset.line);
     row.querySelectorAll('[data-u]').forEach(inp => {
       const ev = inp.tagName === 'SELECT' ? 'change' : 'input';
-      inp.addEventListener(ev, () => { l.use[inp.dataset.u] = inp.value; p.example = false; save(); updateSums(p); });
+      inp.addEventListener(ev, () => { l.use[inp.dataset.u] = inp.value; p.example = false; save(); updateSums(p); updateRepeat(p); });
     });
     row.querySelector('[data-rm]').onclick = () => { p.lines = p.lines.filter(x => x !== l); save(); renderProject(); };
     row.querySelector('[data-editmat]').onclick = () => openMaterial(matById(l.materialId), () => renderProject());
@@ -735,25 +810,28 @@ function renderProject() {
   updateSums(p);
 }
 
+function pair(k, uk, u, units, def, label) {
+  return `<span class="pair"><input type="text" inputmode="decimal" data-u="${k}" value="${esc(u[k])}" aria-label="${label}"><select data-u="${uk}" aria-label="Einheit ${label}">${units.map(o => `<option${o === (u[uk] || def) ? ' selected' : ''}>${o}</option>`).join('')}</select></span>`;
+}
 function lineHtml(l) {
   const m = matById(l.materialId);
   if (!m) return `<div class="line" data-line="${l.id}"><div><div class="lname">Material wurde gelöscht</div></div><div class="lcost">–</div><div class="usage"><span class="grow"></span><button class="btn quiet sm" data-rm>Entfernen</button><button hidden data-editmat></button></div></div>`;
   const u = l.use;
   let usage = '';
   if (m.type === 'area') {
-    usage = `<input type="text" inputmode="decimal" data-u="a" value="${esc(u.a)}" aria-label="Breite"> ${unitSelect('', ['mm', 'cm', 'm'], u.aUnit || 'cm').replace('<select', '<select data-u="aUnit"')}
+    usage = `${pair('a', 'aUnit', u, ['mm', 'cm', 'm'], 'cm', 'Breite')}
       <span class="times">×</span>
-      <input type="text" inputmode="decimal" data-u="b" value="${esc(u.b)}" aria-label="Höhe"> ${unitSelect('', ['mm', 'cm', 'm'], u.bUnit || 'cm').replace('<select', '<select data-u="bUnit"')}
+      ${pair('b', 'bUnit', u, ['mm', 'cm', 'm'], 'cm', 'Höhe')}
       <span class="times">×</span><input type="text" inputmode="decimal" data-u="qty" value="${esc(u.qty ?? 1)}" aria-label="Anzahl Stücke" style="width:60px"><span class="small muted">Stück</span>`;
   } else if (m.type === 'length') {
-    usage = `<input type="text" inputmode="decimal" data-u="a" value="${esc(u.a)}" aria-label="Länge"> ${unitSelect('', ['mm', 'cm', 'm'], u.aUnit || 'cm').replace('<select', '<select data-u="aUnit"')}
+    usage = `${pair('a', 'aUnit', u, ['mm', 'cm', 'm'], 'cm', 'Länge')}
       <span class="times">×</span><input type="text" inputmode="decimal" data-u="qty" value="${esc(u.qty ?? 1)}" aria-label="Anzahl" style="width:60px"><span class="small muted">mal</span>`;
   } else if (m.type === 'piece') {
     usage = `<input type="text" inputmode="decimal" data-u="a" value="${esc(u.a)}" aria-label="Anzahl"> <span class="small muted">Stück</span>`;
   } else if (m.type === 'weight') {
-    usage = `<input type="text" inputmode="decimal" data-u="a" value="${esc(u.a)}" aria-label="Gewicht"> ${unitSelect('', ['g', 'kg'], u.aUnit || 'g').replace('<select', '<select data-u="aUnit"')}`;
+    usage = `${pair('a', 'aUnit', u, ['g', 'kg'], 'g', 'Gewicht')}`;
   } else {
-    usage = `<input type="text" inputmode="decimal" data-u="a" value="${esc(u.a)}" aria-label="Menge"> ${unitSelect('', ['ml', 'l'], u.aUnit || 'ml').replace('<select', '<select data-u="aUnit"')}`;
+    usage = `${pair('a', 'aUnit', u, ['ml', 'l'], 'ml', 'Menge')}`;
   }
   return `<div class="line" data-line="${l.id}">
     <div style="min-width:0"><div class="lname">${esc(m.name)}</div><div class="lmeta">${esc(packText(m))} für ${money(num(m.price))} · ${unitPriceText(m)}</div></div>
@@ -761,6 +839,84 @@ function lineHtml(l) {
     <div class="usage"><span class="small muted">Verbraucht:</span> ${usage}</div>
     <div class="lactions"><button class="btn quiet sm" data-editmat>Material ändern</button><button class="btn quiet sm" data-rm aria-label="Zeile entfernen">Entfernen</button></div>
   </div>`;
+}
+
+/* ---------- Nachbauen ---------- */
+const builtCount = p => (p.builds || []).reduce((s, b) => s + num(b.qty), 0);
+function fmtBase(type, v) {
+  const n = new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 });
+  if (type === 'length') return v >= 100 ? n.format(v / 100) + ' m' : n.format(v) + ' cm';
+  if (type === 'area') return v >= 10000 ? n.format(v / 10000) + ' m²' : n.format(v) + ' cm²';
+  if (type === 'weight') return v >= 1000 ? n.format(v / 1000) + ' kg' : n.format(v) + ' g';
+  if (type === 'volume') return v >= 1000 ? n.format(v / 1000) + ' l' : n.format(v) + ' ml';
+  return n.format(v) + ' Stück';
+}
+function needText(m, u, n) {
+  const qty = u.qty === undefined || u.qty === '' ? 1 : num(u.qty);
+  const total = usedAmount(m, u) * n;
+  if (m.type === 'area') return `${amountText(qty * n)} Stück à ${amountText(num(u.a))} ${u.aUnit || 'cm'} × ${amountText(num(u.b))} ${u.bUnit || 'cm'} <span class="muted">(${fmtBase('area', total)})</span>`;
+  if (m.type === 'length') return qty * n > 1 ? `${amountText(qty * n)} × ${amountText(num(u.a))} ${u.aUnit || 'cm'} <span class="muted">(${fmtBase('length', total)})</span>` : fmtBase('length', total);
+  return fmtBase(m.type, total);
+}
+function packWord(m, k) {
+  if (m.type === 'area' || m.type === 'length') return k === 1 ? 'Rolle' : 'Rollen';
+  return k === 1 ? 'Packung' : 'Packungen';
+}
+function repeatHtml(p) {
+  const n = Math.max(1, Math.round(num(ui.repeatQty[p.id] ?? 1)));
+  const hist = (p.builds || []).slice(-5).reverse();
+  return `<div class="section" id="repeat">
+    <h3>Nachbauen</h3>
+    <div class="repeat">
+      <div class="qtyrow">
+        <label class="f" for="rep-qty" style="display:flex;align-items:center;gap:8px;color:var(--ink)">Wie viele Stück? <input type="text" inputmode="numeric" id="rep-qty" value="${n}"></label>
+        <span class="hint">Liste zum Bereitlegen. Abhaken, was schon auf dem Tisch liegt.</span>
+      </div>
+      <ul class="need" id="need"></ul>
+      <div id="rep-sum"></div>
+      <div class="row between">
+        <span class="small muted">${builtCount(p) ? `Bisher ${amountText(builtCount(p))} Stück gebaut` : 'Noch nicht nachgebaut'}</span>
+        <button class="btn" id="rep-log">${n} Stück als gebaut eintragen</button>
+      </div>
+      ${hist.length ? `<ul class="history">${hist.map(b => `<li>${new Date(b.at).toLocaleDateString('de-DE')}: ${amountText(num(b.qty))} Stück</li>`).join('')}</ul>` : ''}
+    </div>
+  </div>`;
+}
+function updateRepeat(p) {
+  const list = $('#need'); if (!list) return;
+  const n = Math.max(1, Math.round(num(ui.repeatQty[p.id] ?? 1)));
+  const checks = ui.checks[p.id] || (ui.checks[p.id] = {});
+  list.innerHTML = p.lines.length ? p.lines.map(l => {
+    const m = matById(l.materialId); if (!m) return '';
+    const per = usedAmount(m, l.use), total = per * n, pack = packTotal(m);
+    const packs = pack > 0 ? Math.ceil(total / pack - 1e-9) : 0;
+    const perPack = per > 0 && pack > 0 ? Math.floor(pack / per + 1e-9) : 0;
+    return `<li class="${checks[l.id] ? 'got' : ''}">
+      <input type="checkbox" data-chk="${l.id}" ${checks[l.id] ? 'checked' : ''} aria-label="${esc(m.name)} bereitgelegt">
+      <span style="min-width:0"><span class="nname">${esc(m.name)}</span><br><span class="namount">${needText(m, l.use, n)}</span><br>
+        <span class="npack">${per > 0 ? `${packs || 1} ${packWord(m, packs || 1)} nötig · eine ${packWord(m, 1)} reicht für ${amountText(perPack)} Stück` : 'Verbrauch fehlt'}</span></span>
+      <span class="ncost num">${moneyFine(unitPrice(m) * total)}</span>
+    </li>`;
+  }).join('') : '<li><span></span><span class="muted">Noch kein Material im Projekt.</span><span></span></li>';
+  list.querySelectorAll('[data-chk]').forEach(c => c.onchange = () => { checks[c.dataset.chk] = c.checked; c.closest('li').classList.toggle('got', c.checked); });
+  const c = projectCalc(p);
+  const mins = c.minutes * n;
+  const r = (label, val, cls = '') => `<div class="rrow ${cls}"><span>${label}</span><span class="num">${val}</span></div>`;
+  $('#rep-sum').innerHTML = r(`Material für ${n} Stück`, money(c.material * n), 'sum') +
+    r('Arbeitszeit', mins >= 60 ? `${Math.floor(mins / 60)} Std. ${Math.round(mins % 60)} Min.` : `${amountText(mins)} Min.`) +
+    r(`Verkaufswert ${n} × ${money(c.gross)}`, money(c.gross * n), 'total');
+  const btn = $('#rep-log'); if (btn) btn.textContent = `${n} Stück als gebaut eintragen`;
+}
+function bindRepeat(p) {
+  const q = $('#rep-qty'); if (!q) return;
+  q.addEventListener('input', () => { ui.repeatQty[p.id] = q.value; updateRepeat(p); });
+  $('#rep-log').onclick = () => {
+    const n = Math.max(1, Math.round(num(ui.repeatQty[p.id] ?? 1)));
+    (p.builds || (p.builds = [])).push({ at: Date.now(), qty: n });
+    ui.checks[p.id] = {}; p.example = false; save(); renderProject();
+    toast(`${n} Stück eingetragen`);
+  };
+  updateRepeat(p);
 }
 
 function updateSums(p) {
@@ -912,8 +1068,12 @@ function renderSettings() {
       <p class="hint">Rechenweg: Material + Arbeitszeit × Stundenlohn + Sonstiges = Selbstkosten. Darauf kommt der Aufschlag, danach die MwSt./Moms (in Dänemark 25 %, bei 0 wird sie nicht angezeigt).</p>
     </section>
     <section class="cat">
+      <div class="cat-head"><h2>Abgleich Handy ↔ PC</h2></div>
+      <div id="sync-box"></div>
+    </section>
+    <section class="cat">
       <div class="cat-head"><h2>Sicherung</h2></div>
-      <p class="muted" style="margin-top:0; max-width:60ch">Alle Daten und Fotos liegen nur auf diesem Gerät im Browser. Speichere ab und zu eine Sicherung, z. B. bevor du den Browserverlauf löschst oder das Handy wechselst.</p>
+      <p class="muted" style="margin-top:0; max-width:60ch">${sync.user ? 'Deine Daten liegen auf diesem Gerät und auf dem Julekontor-Server.' : 'Ohne Abgleich liegen alle Daten und Fotos nur auf diesem Gerät im Browser.'} Eine Sicherungsdatei schadet trotzdem nicht, z. B. vor einem Handywechsel.</p>
       <div class="row">
         <button class="btn" id="exp">Sicherung speichern</button>
         <label class="btn ghost" for="imp">Sicherung laden</label>
@@ -927,6 +1087,7 @@ function renderSettings() {
     </section>`;
   const bind = (id, key, isNum) => $(id).addEventListener(isNum ? 'input' : 'change', e => { s[key] = isNum ? num(e.target.value) : e.target.value; save(); });
   bind('#s-cur', 'currency', false); bind('#s-rate', 'rate', true); bind('#s-markup', 'markup', true); bind('#s-vat', 'vat', true);
+  renderSyncBox();
   $('#exp').onclick = exportBackup;
   $('#imp').onchange = importBackup;
   $('#clr-ex').onclick = async () => {
@@ -962,20 +1123,199 @@ async function importBackup(e) {
     if (!(await askConfirm('Sicherung laden?', 'Alle jetzigen Daten auf diesem Gerät werden durch die Sicherung vom ' + new Date(data.exported).toLocaleDateString('de-DE') + ' ersetzt.', 'Laden'))) return;
     for (const p of state.projects) for (const id of p.images) await delImg(id);
     for (const [id, url] of Object.entries(data.images || {})) { const b = await (await fetch(url)).blob(); await putImg(id, b); }
-    state = data.state; save(); ui = { tab: 'projekte', projectId: null }; render(); toast('Sicherung geladen');
+    state = data.state; save(); ui.tab = 'projekte'; ui.projectId = null; render(); toast('Sicherung geladen');
   } catch (err) {
     toast('Diese Datei ist keine Sicherung der Bastelwerkstatt');
   }
+}
+
+/* ---------- Abgleich zwischen Geräten ----------
+   Jede Kategorie, jedes Material, jedes Projekt und die Einstellungen sind ein Eintrag mit Änderungszeit (upd).
+   Beim Abgleich gewinnt pro Eintrag die neuere Fassung. Fotos werden einzeln hoch- und heruntergeladen. */
+const sync = { avail: false, user: null, busy: false, last: 0, err: '', pendingRender: false,
+  meta: { lastSeq: 0, joined: false, dirty: {}, tomb: {}, uploaded: {} } };
+let snap = new Map();
+function entities(st) {
+  const out = new Map();
+  st.categories.forEach(c => out.set('cat:' + c.id, c));
+  st.materials.forEach(m => out.set('mat:' + m.id, m));
+  st.projects.forEach(p => out.set('proj:' + p.id, p));
+  out.set('set:settings', st.settings);
+  return out;
+}
+const bodyOf = o => { const { upd, ...r } = o; return JSON.stringify(r); };
+function takeSnapshot() { snap = new Map(); for (const [k, o] of entities(state)) snap.set(k, bodyOf(o)); }
+function trackChanges() {
+  const t = Date.now(), cur = entities(state);
+  for (const [k, o] of cur) {
+    const b = bodyOf(o);
+    if (snap.get(k) !== b) { o.upd = t; sync.meta.dirty[k] = t; delete sync.meta.tomb[k]; snap.set(k, b); }
+  }
+  for (const k of [...snap.keys()]) if (!cur.has(k)) { snap.delete(k); delete sync.meta.dirty[k]; sync.meta.tomb[k] = t; }
+}
+let syncTimer = null;
+function scheduleSync(ms) { if (!sync.user) return; clearTimeout(syncTimer); syncTimer = setTimeout(runSync, ms); }
+async function api(path, opt = {}) {
+  const headers = typeof opt.body === 'string' ? { 'content-type': 'application/json' } : {};
+  const r = await fetch('api/' + path, { credentials: 'same-origin', ...opt, headers: { ...headers, ...(opt.headers || {}) } });
+  const data = (r.headers.get('content-type') || '').includes('json') ? await r.json() : null;
+  if (r.status === 401 && path !== 'login') { sync.user = null; throw new Error('auth'); }
+  if (!r.ok) throw Object.assign(new Error((data && data.error) || 'Fehler ' + r.status), { status: r.status });
+  return data;
+}
+function applyRemote(items) {
+  let changed = false;
+  for (const it of items) {
+    const i0 = it.key.indexOf(':'), kind = it.key.slice(0, i0), id = it.key.slice(i0 + 1);
+    const localDirty = sync.meta.dirty[it.key];
+    if (kind === 'set') {
+      if (!it.deleted && it.data && it.upd > (state.settings.upd || 0) && !localDirty) { Object.assign(state.settings, it.data); changed = true; }
+      continue;
+    }
+    const prop = kind === 'cat' ? 'categories' : kind === 'mat' ? 'materials' : kind === 'proj' ? 'projects' : null;
+    if (!prop) continue;
+    const list = state[prop], i = list.findIndex(x => x.id === id), local = list[i];
+    if (it.deleted) {
+      if (local && (local.upd || 0) <= it.upd) { list.splice(i, 1); delete sync.meta.dirty[it.key]; changed = true; }
+    } else if (!local) {
+      if (!(sync.meta.tomb[it.key] >= it.upd) && it.data) { list.push(it.data); changed = true; }
+    } else if ((local.upd || 0) < it.upd && it.data) {
+      // Gleiches Objekt behalten, damit eine gerade offene Ansicht weiter auf den richtigen Eintrag schreibt.
+      for (const k of Object.keys(local)) delete local[k];
+      Object.assign(local, it.data); delete sync.meta.dirty[it.key]; changed = true;
+    }
+  }
+  if (changed) takeSnapshot();
+  return changed;
+}
+async function firstJoin() {
+  const r = await api('sync?since=0');
+  const onlyExamples = state.projects.every(p => p.example) && state.materials.every(m => m.example);
+  if (r.items.length && onlyExamples) {
+    // Der Server hat schon Daten, dieses Gerät nur die Beispiele: Beispiele verwerfen, Serverdaten übernehmen.
+    state = { v: 1, settings: { ...state.settings, upd: 0 }, categories: [], materials: [], projects: [] };
+    sync.meta.dirty = {}; sync.meta.tomb = {};
+  } else {
+    // Alles, was auf diesem Gerät liegt, einmal hochladen.
+    const t = Date.now();
+    for (const [k, o] of entities(state)) { if (!o.upd) o.upd = t; sync.meta.dirty[k] = o.upd; }
+  }
+  applyRemote(r.items);
+  takeSnapshot();
+  sync.meta.joined = true; sync.meta.lastSeq = r.seq;
+}
+async function uploadImages() {
+  for (const p of state.projects) for (const id of p.images) {
+    if (sync.meta.uploaded[id]) continue;
+    const b = await getLocalImg(id); if (!b) continue;
+    await api('img/' + id, { method: 'PUT', body: b, headers: { 'content-type': b.type || 'image/jpeg' } });
+    sync.meta.uploaded[id] = 1;
+  }
+}
+async function runSync() {
+  if (!sync.avail || !sync.user || sync.busy) return;
+  if (!navigator.onLine) { sync.err = 'Offline. Wird später abgeglichen.'; paintSync(); return; }
+  sync.busy = true; paintSync();
+  let changed = false;
+  try {
+    if (!sync.meta.joined) { await firstJoin(); changed = true; }
+    await uploadImages();
+    const cur = entities(state), items = [], sent = {};
+    for (const k of Object.keys(sync.meta.dirty)) { const o = cur.get(k); if (o) { items.push({ key: k, upd: o.upd, data: o }); sent[k] = sync.meta.dirty[k]; } else delete sync.meta.dirty[k]; }
+    const tombs = { ...sync.meta.tomb };
+    for (const [k, t] of Object.entries(tombs)) items.push({ key: k, upd: t, deleted: true });
+    if (items.length) {
+      await api('sync', { method: 'POST', body: JSON.stringify({ items }) });
+      for (const k in sent) if (sync.meta.dirty[k] === sent[k]) delete sync.meta.dirty[k];
+      for (const k in tombs) if (sync.meta.tomb[k] === tombs[k]) delete sync.meta.tomb[k];
+    }
+    const r = await api('sync?since=' + sync.meta.lastSeq);
+    if (applyRemote(r.items)) changed = true;
+    sync.meta.lastSeq = r.seq; sync.last = Date.now(); sync.err = '';
+  } catch (e) {
+    sync.err = e.message === 'auth' ? 'Bitte neu anmelden.' : navigator.onLine ? 'Server nicht erreichbar. Neuer Versuch gleich.' : 'Offline. Wird später abgeglichen.';
+  }
+  sync.busy = false;
+  persist(); paintSync();
+  if (changed) safeRender();
+  if (ui.tab === 'einstellungen') renderSyncBox();
+}
+// Nicht neu zeichnen, während jemand tippt: sonst springt der Cursor weg.
+function safeRender() {
+  const a = document.activeElement;
+  if (document.querySelector('dialog[open]') || (a && view.contains(a) && /INPUT|TEXTAREA|SELECT/.test(a.tagName))) { sync.pendingRender = true; return; }
+  sync.pendingRender = false; render();
+}
+view.addEventListener('focusout', () => setTimeout(() => { if (sync.pendingRender) safeRender(); }, 300));
+function paintSync() {
+  const el = $('#syncchip'); if (!el) return;
+  el.hidden = !sync.avail;
+  el.className = 'syncchip ' + (!sync.user ? '' : sync.busy ? 'busy' : sync.err ? 'err' : 'ok');
+  el.textContent = !sync.user ? 'Nicht angemeldet' : sync.busy ? 'Gleiche ab …' : sync.err ? sync.err
+    : sync.last ? 'Abgeglichen ' + new Date(sync.last).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }) : 'Angemeldet';
+}
+function renderSyncBox() {
+  const box = $('#sync-box'); if (!box) return;
+  if (!sync.avail) {
+    box.innerHTML = `<p class="muted" style="margin-top:0; max-width:60ch">Der Abgleich funktioniert, wenn du die Werkstatt über deinen Julekontor-Server öffnest (z. B. <strong>https://bastel.julekontor.dk</strong>). Dort meldest du dich am Handy und am PC mit demselben Zugang an, dann sind Projekte, Material und Fotos überall gleich.</p>`;
+    return;
+  }
+  if (!sync.user) {
+    box.innerHTML = `<form class="loginbox" id="login-form">
+      <p class="muted" style="margin:0">Melde dich an, damit Projekte, Material und Fotos auf allen Geräten gleich sind.</p>
+      <label class="f">E-Mail <input type="text" id="l-email" autocomplete="username" inputmode="email" required></label>
+      <label class="f">Passwort <input type="password" id="l-pass" autocomplete="current-password" required style="font:1rem var(--f-body);color:var(--ink);background:var(--card);border:1.5px solid var(--line);border-radius:8px;padding:8px 10px;min-height:42px"></label>
+      <div class="row"><button class="btn" type="submit">Anmelden</button><span class="hint" id="l-err"></span></div>
+    </form>`;
+    $('#login-form').onsubmit = async e => {
+      e.preventDefault();
+      $('#l-err').textContent = 'Melde an …';
+      try {
+        const r = await api('login', { method: 'POST', body: JSON.stringify({ email: $('#l-email').value, password: $('#l-pass').value }) });
+        sync.user = r.user; sync.err = ''; paintSync(); renderSyncBox(); toast('Angemeldet'); runSync();
+      } catch (err) { $('#l-err').textContent = err.message; }
+    };
+    return;
+  }
+  const open = Object.keys(sync.meta.dirty).length + Object.keys(sync.meta.tomb).length;
+  box.innerHTML = `<div class="loginbox">
+    <p style="margin:0">Angemeldet als <strong>${esc(sync.user)}</strong></p>
+    <p class="hint" style="margin:0">${sync.last ? 'Zuletzt abgeglichen um ' + new Date(sync.last).toLocaleTimeString('de-DE') : 'Noch nicht abgeglichen'}${open ? ` · ${open} Änderung(en) warten` : ''}${sync.err ? ' · ' + esc(sync.err) : ''}</p>
+    <p class="hint" style="margin:0">Änderungen gehen nach wenigen Sekunden an den Server. Andere Geräte holen sie alle 30 Sekunden und beim Öffnen der App.</p>
+    <div class="row"><button class="btn" id="sync-now">Jetzt abgleichen</button><button class="btn quiet" id="sync-out">Abmelden</button></div>
+  </div>`;
+  $('#sync-now').onclick = runSync;
+  $('#sync-out').onclick = async () => {
+    try { await api('logout', { method: 'POST' }); } catch (e) {}
+    sync.user = null; paintSync(); renderSyncBox(); toast('Abgemeldet. Die Daten bleiben auf diesem Gerät.');
+  };
+}
+async function initSync() {
+  try {
+    const ctl = new AbortController(); setTimeout(() => ctl.abort(), 5000);
+    const r = await fetch('api/me', { credentials: 'same-origin', signal: ctl.signal });
+    const d = r.ok ? await r.json() : null;
+    if (!d || d.app !== 'julekontor-bastel') return;
+    sync.avail = true; sync.user = d.user;
+  } catch (e) { return; }
+  paintSync();
+  if (ui.tab === 'einstellungen') renderSyncBox();
+  if (sync.user) runSync();
+  setInterval(runSync, 30000);
+  document.addEventListener('visibilitychange', () => { if (document.visibilityState === 'visible') runSync(); });
+  window.addEventListener('online', runSync);
 }
 
 /* ---------- Start ---------- */
 (async () => {
   const loaded = await loadState();
   state = loaded && loaded.v ? loaded : sample();
-  if (!loaded) save();
+  try { const m = await idb('kv', 'readonly', st => st.get('sync')); if (m) sync.meta = { ...sync.meta, ...m }; } catch (e) {}
+  if (loaded) takeSnapshot(); else save();
   render();
+  initSync();
 })();
-if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude|claudeusercontent/.test(location.hostname)) {
+if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude/.test(location.hostname)) {
   navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 })();
