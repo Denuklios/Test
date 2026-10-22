@@ -1,0 +1,978 @@
+<title>Julekontor Bastelwerkstatt</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="theme-color" content="#a3201d">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,600;0,800;1,600&family=Nunito+Sans:opsz,wght@6..12,400;6..12,600;6..12,700&display=swap">
+<style>
+/* Layout: Werkstatt-Mappe. Kopfband mit Logo, darunter Reiter; Projekte als Karteikarten, Kalkulation als Kassenzettel. */
+:root {
+  --paper: #f6efe2;
+  --card: #fffaf1;
+  --ink: #3a1d17;
+  --muted: #7a6152;
+  --line: #e2d3b9;
+  --red: #a3201d;
+  --red-ink: #fff7ec;
+  --gold: #a87b2e;
+  --green: #2e5a3c;
+  --danger: #b3261e;
+  --shadow: 0 1px 0 rgba(90, 50, 20, .06), 0 6px 18px -10px rgba(90, 50, 20, .35);
+  --f-display: "Playfair Display", "Georgia", "Times New Roman", serif;
+  --f-body: "Nunito Sans", "Segoe UI", system-ui, -apple-system, sans-serif;
+  --radius: 10px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #1c1412; --card: #281d19; --ink: #f3e7d3; --muted: #bba48f; --line: #47362d;
+    --red: #d8463d; --red-ink: #1c1412; --gold: #d9ab5c; --green: #82b592; --danger: #ff8a80;
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 8px 20px -12px rgba(0,0,0,.7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #1c1412; --card: #281d19; --ink: #f3e7d3; --muted: #bba48f; --line: #47362d;
+  --red: #d8463d; --red-ink: #1c1412; --gold: #d9ab5c; --green: #82b592; --danger: #ff8a80;
+  --shadow: 0 1px 0 rgba(0,0,0,.3), 0 8px 20px -12px rgba(0,0,0,.7);
+  color-scheme: dark;
+}
+* { box-sizing: border-box; }
+body {
+  background: var(--paper); color: var(--ink);
+  font-family: var(--f-body); font-size: 16px; line-height: 1.5;
+  margin: 0;
+}
+.wrap {
+  max-width: 980px; margin: 0 auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px));
+  padding-right: max(16px, env(safe-area-inset-right, 0px));
+  padding-block: 16px 96px;
+}
+h1, h2, h3 { font-family: var(--f-display); text-wrap: balance; margin: 0; line-height: 1.2; }
+h2 { font-size: 1.6rem; color: var(--red); }
+h3 { font-size: 1.2rem; }
+.num { font-variant-numeric: tabular-nums; }
+.muted { color: var(--muted); }
+.small { font-size: .875rem; }
+
+/* Kopf */
+.banner { display: block; border: 2px solid var(--gold); border-radius: var(--radius); overflow: hidden; box-shadow: var(--shadow); background: #f6efe2; }
+.banner img { display: block; width: 100%; max-height: 220px; object-fit: cover; object-position: center 45%; }
+.brandline { display: flex; align-items: baseline; justify-content: space-between; gap: 8px 16px; flex-wrap: wrap; margin-top: 12px; }
+.brandline h1 { font-size: 1.5rem; color: var(--red); font-style: italic; }
+.brandline .muted { font-size: .9rem; }
+
+/* Reiter */
+nav.tabs { display: flex; gap: 6px; margin: 16px 0 20px; border-bottom: 2px solid var(--line); overflow-x: auto; }
+nav.tabs button {
+  appearance: none; border: 0; background: none; color: var(--muted);
+  font: 700 .95rem var(--f-body); padding: 10px 14px; border-bottom: 3px solid transparent; margin-bottom: -2px;
+  cursor: pointer; white-space: nowrap; letter-spacing: .02em;
+}
+nav.tabs button[aria-selected="true"] { color: var(--red); border-bottom-color: var(--red); }
+
+/* Knöpfe & Felder */
+.btn {
+  appearance: none; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  border: 1.5px solid var(--red); background: var(--red); color: var(--red-ink);
+  font: 700 .95rem var(--f-body); padding: 9px 14px; border-radius: 8px; cursor: pointer; min-height: 42px;
+  text-decoration: none;
+}
+.btn.ghost { background: transparent; color: var(--red); }
+.btn.quiet { background: transparent; color: var(--muted); border-color: var(--line); }
+.btn.danger { background: transparent; color: var(--danger); border-color: var(--danger); }
+.btn.sm { padding: 5px 10px; min-height: 34px; font-size: .85rem; }
+.btn:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible, nav.tabs button:focus-visible, .pcard:focus-visible {
+  outline: 3px solid var(--gold); outline-offset: 2px;
+}
+.row { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.row.between { justify-content: space-between; }
+label.f { display: grid; gap: 4px; font-size: .85rem; font-weight: 700; color: var(--muted); min-width: 0; }
+input[type="text"], input[type="number"], select, textarea {
+  font: 1rem var(--f-body); color: var(--ink); background: var(--card);
+  border: 1.5px solid var(--line); border-radius: 8px; padding: 8px 10px; width: 100%; min-height: 42px;
+}
+textarea { min-height: 80px; resize: vertical; }
+.grid2 { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; }
+.unitfield { display: flex; gap: 6px; }
+.unitfield input { flex: 1; min-width: 0; }
+.unitfield select { width: auto; flex: none; }
+
+/* Kategorien & Projektkarten */
+.cat { margin-bottom: 28px; }
+.cat-head { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; padding-bottom: 8px; border-bottom: 1px dashed var(--gold); margin-bottom: 12px; }
+.cat-head h2 { font-size: 1.35rem; }
+.cards { display: grid; grid-template-columns: repeat(auto-fill, minmax(210px, 1fr)); gap: 14px; }
+.pcard {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+  overflow: hidden; cursor: pointer; display: flex; flex-direction: column; text-align: left; padding: 0; font: inherit; color: inherit;
+}
+.pcard .thumb { aspect-ratio: 4 / 3; background: repeating-linear-gradient(45deg, var(--paper) 0 10px, var(--card) 10px 20px); display: grid; place-items: center; color: var(--muted); font-size: .85rem; max-width: 100%; }
+.pcard .thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+.pcard .body { padding: 10px 12px 12px; display: grid; gap: 2px; }
+.pcard .name { font-family: var(--f-display); font-size: 1.1rem; font-weight: 600; }
+.pcard .price { font-weight: 800; color: var(--green); font-size: 1.05rem; }
+.badge { display: inline-block; font-size: .7rem; font-weight: 800; letter-spacing: .08em; text-transform: uppercase; color: var(--gold); border: 1px solid var(--gold); border-radius: 999px; padding: 1px 8px; vertical-align: middle; }
+.empty { border: 1.5px dashed var(--line); border-radius: var(--radius); padding: 18px; color: var(--muted); text-align: center; }
+
+/* Projekt-Detail */
+.section { margin-top: 26px; }
+.section > h3 { margin-bottom: 10px; color: var(--ink); }
+.photos { display: grid; grid-template-columns: repeat(auto-fill, minmax(110px, 1fr)); gap: 10px; }
+.photo { position: relative; aspect-ratio: 1; border-radius: 8px; overflow: hidden; border: 1px solid var(--line); background: var(--card); max-width: 100%; }
+.photo img { width: 100%; height: 100%; object-fit: cover; display: block; cursor: zoom-in; }
+.photo .x { position: absolute; top: 4px; right: 4px; width: 30px; height: 30px; border-radius: 50%; border: 0; background: rgba(0,0,0,.6); color: #fff; font-size: 18px; line-height: 1; cursor: pointer; }
+.photo .cover { position: absolute; left: 4px; bottom: 4px; font-size: .7rem; font-weight: 800; background: rgba(0,0,0,.6); color: #fff; border-radius: 4px; padding: 1px 6px; }
+.hidden-input { position: absolute; width: 1px; height: 1px; opacity: 0; pointer-events: none; }
+
+.lines { display: grid; gap: 10px; }
+.line {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px;
+  display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px 14px; align-items: start;
+}
+.line .lname { font-weight: 700; }
+.line .lmeta { font-size: .82rem; color: var(--muted); }
+.line .lcost { font-weight: 800; font-size: 1.1rem; text-align: right; white-space: nowrap; }
+.line .usage { grid-column: 1 / -1; display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.line .usage input { width: 80px; min-width: 0; }
+.line .usage select { width: auto; flex: none; }
+.line .lactions { grid-column: 1 / -1; display: flex; gap: 8px; justify-content: flex-end; border-top: 1px dashed var(--line); padding-top: 8px; }
+.line .usage .times { color: var(--muted); font-weight: 700; }
+.line .usage .grow { flex: 1; }
+
+/* Kassenzettel */
+.receipt {
+  background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); box-shadow: var(--shadow);
+  padding: 16px 18px; display: grid; gap: 8px; position: relative;
+}
+.receipt::before { content: ""; position: absolute; inset: 0 0 auto; height: 5px; border-radius: var(--radius) var(--radius) 0 0; background: repeating-linear-gradient(90deg, var(--red) 0 14px, var(--gold) 14px 18px, var(--green) 18px 32px, var(--gold) 32px 36px); }
+.rrow { display: flex; justify-content: space-between; gap: 12px; align-items: baseline; }
+.rrow.sum { border-top: 1px dashed var(--line); padding-top: 8px; font-weight: 700; }
+.rrow.total { border-top: 2px solid var(--ink); padding-top: 10px; font-family: var(--f-display); font-size: 1.5rem; font-weight: 800; color: var(--green); }
+.rinputs { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 12px; margin-bottom: 6px; }
+
+/* Lager */
+.mat { background: var(--card); border: 1px solid var(--line); border-radius: var(--radius); padding: 12px 14px; display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 4px 12px; align-items: center; }
+.mat .mname { font-weight: 700; }
+.mat .mmeta { font-size: .85rem; color: var(--muted); grid-column: 1; }
+.mat .mside { grid-row: 1 / span 2; grid-column: 2; display: flex; gap: 6px; }
+.typechip { font-size: .7rem; font-weight: 800; text-transform: uppercase; letter-spacing: .07em; color: var(--green); }
+
+/* Dialoge */
+dialog { border: 1px solid var(--line); border-radius: 14px; background: var(--card); color: var(--ink); padding: 0; width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 32px); box-shadow: 0 20px 60px -20px rgba(0,0,0,.5); }
+dialog::backdrop { background: rgba(30, 15, 10, .55); }
+dialog form, dialog .dbody { padding: 18px; display: grid; gap: 14px; }
+dialog h3 { color: var(--red); }
+.lightbox { width: min(1000px, calc(100vw - 16px)); background: #000; border: 0; }
+.lightbox img { display: block; max-width: 100%; max-height: calc(100vh - 80px); margin: 0 auto; }
+.lightbox .row { padding: 8px; justify-content: flex-end; }
+
+.toast { position: fixed; left: 50%; transform: translateX(-50%); bottom: calc(18px + env(safe-area-inset-bottom, 0px)); background: var(--ink); color: var(--paper); padding: 10px 16px; border-radius: 999px; font-weight: 700; font-size: .9rem; z-index: 50; box-shadow: var(--shadow); max-width: calc(100vw - 32px); }
+.hint { font-size: .85rem; color: var(--muted); }
+.preview-price { font-weight: 800; color: var(--green); }
+
+@media (max-width: 520px) {
+  h2 { font-size: 1.35rem; }
+  .banner img { max-height: 150px; }
+  .rrow.total { font-size: 1.3rem; }
+}
+@media (prefers-reduced-motion: reduce) { * { transition: none !important; animation: none !important; } }
+</style>
+
+<div class="wrap">
+  <header>
+    <div class="banner"><img src="logo.jpg" alt="Julekontor – Danmarks Gammeldags Julebutik"></div>
+    <div class="brandline">
+      <h1>Bastelwerkstatt</h1>
+      <span class="muted">Materialkosten, Arbeitszeit und Verkaufspreis für jedes Projekt</span>
+    </div>
+  </header>
+
+  <nav class="tabs" role="tablist">
+    <button id="tab-projekte" role="tab" data-tab="projekte" aria-selected="true">Projekte</button>
+    <button id="tab-lager" role="tab" data-tab="lager" aria-selected="false">Materiallager</button>
+    <button id="tab-einstellungen" role="tab" data-tab="einstellungen" aria-selected="false">Einstellungen</button>
+  </nav>
+
+  <main id="view"></main>
+</div>
+
+<!-- Material anlegen / bearbeiten -->
+<dialog id="dlg-mat">
+  <form id="form-mat" method="dialog">
+    <h3 id="mat-title">Material anlegen</h3>
+    <label class="f">Bezeichnung
+      <input type="text" id="m-name" required placeholder="z. B. Bastelpapier rot, Rolle">
+    </label>
+    <label class="f">Wie wird es gekauft?
+      <select id="m-type">
+        <option value="area">Fläche – Rolle oder Bogen (Papier, Stoff, Filz)</option>
+        <option value="length">Länge – Rolle (Draht, Band, Kordel)</option>
+        <option value="piece">Stück – Packung (Perlen, Kugeln, Glöckchen)</option>
+        <option value="weight">Gewicht (Wachs, Ton, Watte)</option>
+        <option value="volume">Menge (Kleber, Farbe, Lack)</option>
+      </select>
+    </label>
+    <div class="grid2" id="m-fields"></div>
+    <label class="f">Kaufpreis
+      <div class="unitfield"><input type="text" inputmode="decimal" id="m-price" placeholder="80,00"><span class="cur muted" style="align-self:center"></span></div>
+    </label>
+    <label class="f">Händler / Notiz (optional)
+      <input type="text" id="m-note" placeholder="z. B. Panduro, Art.-Nr. 12345">
+    </label>
+    <p class="hint">Grundpreis: <span id="m-unitprice" class="preview-price">–</span></p>
+    <div class="row between">
+      <button type="button" class="btn danger sm" id="m-delete" hidden>Löschen</button>
+      <div class="row" style="margin-left:auto">
+        <button type="button" class="btn quiet" data-close>Abbrechen</button>
+        <button type="submit" class="btn" id="m-save">Speichern</button>
+      </div>
+    </div>
+  </form>
+</dialog>
+
+<!-- Material zum Projekt hinzufügen -->
+<dialog id="dlg-pick">
+  <div class="dbody">
+    <h3>Material hinzufügen</h3>
+    <label class="f">Aus dem Lager suchen
+      <input type="text" id="pick-search" placeholder="Name eingeben …">
+    </label>
+    <div id="pick-list" class="lines" style="max-height:50vh; overflow:auto"></div>
+    <div class="row between">
+      <button type="button" class="btn ghost" id="pick-new">+ Neues Material anlegen</button>
+      <button type="button" class="btn quiet" data-close>Fertig</button>
+    </div>
+  </div>
+</dialog>
+
+<!-- Textabfrage (Kategorie, Projektname) -->
+<dialog id="dlg-text">
+  <form id="form-text" method="dialog">
+    <h3 id="text-title"></h3>
+    <label class="f"><span id="text-label"></span>
+      <input type="text" id="text-input" required>
+    </label>
+    <div class="row" style="justify-content:flex-end">
+      <button type="button" class="btn quiet" data-close>Abbrechen</button>
+      <button type="submit" class="btn">OK</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- Sicherheitsabfrage -->
+<dialog id="dlg-confirm">
+  <div class="dbody">
+    <h3 id="confirm-title">Wirklich löschen?</h3>
+    <p id="confirm-text" style="margin:0"></p>
+    <div class="row" style="justify-content:flex-end">
+      <button type="button" class="btn quiet" data-close>Abbrechen</button>
+      <button type="button" class="btn danger" id="confirm-ok">Löschen</button>
+    </div>
+  </div>
+</dialog>
+
+<dialog id="dlg-light" class="lightbox">
+  <div class="row"><button type="button" class="btn sm" data-close>Schließen</button></div>
+  <img id="light-img" alt="Projektfoto groß">
+</dialog>
+
+<div id="toast" class="toast" hidden></div>
+
+<script>
+(() => {
+'use strict';
+
+/* ---------- Einheiten ---------- */
+// Jedes Material wird intern in einer Grundeinheit gespeichert: cm, cm², Stück, g, ml.
+const TYPES = {
+  area:   { label: 'Fläche', base: 'cm²' },
+  length: { label: 'Länge',  base: 'cm' },
+  piece:  { label: 'Stück',  base: 'Stk.' },
+  weight: { label: 'Gewicht', base: 'g' },
+  volume: { label: 'Menge',  base: 'ml' },
+};
+const LEN = { mm: 0.1, cm: 1, m: 100 };
+const WEIGHT = { g: 1, kg: 1000 };
+const VOL = { ml: 1, l: 1000 };
+
+function packTotal(m) {
+  const p = m.pack || {};
+  switch (m.type) {
+    case 'area':   return num(p.length) * (LEN[p.lengthUnit] || 1) * num(p.width) * (LEN[p.widthUnit] || 1) * Math.max(1, num(p.count) || 1);
+    case 'length': return num(p.length) * (LEN[p.lengthUnit] || 1) * Math.max(1, num(p.count) || 1);
+    case 'piece':  return num(p.count);
+    case 'weight': return num(p.amount) * (WEIGHT[p.unit] || 1);
+    case 'volume': return num(p.amount) * (VOL[p.unit] || 1);
+  }
+  return 0;
+}
+function unitPrice(m) {
+  const t = packTotal(m);
+  return t > 0 ? num(m.price) / t : 0;
+}
+function usedAmount(m, u) {
+  u = u || {};
+  const qty = Math.max(0, u.qty === undefined || u.qty === '' ? 1 : num(u.qty));
+  switch (m.type) {
+    case 'area':   return num(u.a) * (LEN[u.aUnit] || 1) * num(u.b) * (LEN[u.bUnit] || 1) * qty;
+    case 'length': return num(u.a) * (LEN[u.aUnit] || 1) * qty;
+    case 'piece':  return num(u.a);
+    case 'weight': return num(u.a) * (WEIGHT[u.aUnit] || 1);
+    case 'volume': return num(u.a) * (VOL[u.aUnit] || 1);
+  }
+  return 0;
+}
+function lineCost(line) {
+  const m = matById(line.materialId);
+  return m ? unitPrice(m) * usedAmount(m, line.use) : 0;
+}
+function projectCalc(p) {
+  const material = p.lines.reduce((s, l) => s + lineCost(l), 0);
+  const minutes = num(p.minutes);
+  const rate = p.rate === '' || p.rate === undefined ? num(state.settings.rate) : num(p.rate);
+  const labor = minutes / 60 * rate;
+  const extra = num(p.extra);
+  const cost = material + labor + extra;
+  const markupPct = p.markup === '' || p.markup === undefined ? num(state.settings.markup) : num(p.markup);
+  const markup = cost * markupPct / 100;
+  const net = cost + markup;
+  const vatPct = num(state.settings.vat);
+  const vat = net * vatPct / 100;
+  return { material, minutes, rate, labor, extra, cost, markupPct, markup, net, vatPct, vat, gross: net + vat };
+}
+
+/* ---------- Zahlen ---------- */
+function num(v) {
+  if (typeof v === 'number') return isFinite(v) ? v : 0;
+  if (v === undefined || v === null) return 0;
+  let s = String(v).trim().replace(/\s/g, '');
+  // Deutsche Schreibweise: 1.234,50 → 1234.50; ohne Komma gilt der Punkt als Dezimalzeichen.
+  if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.');
+  const n = parseFloat(s);
+  return isFinite(n) ? n : 0;
+}
+const nf2 = new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+function money(v) { return nf2.format(v) + ' ' + state.settings.currency; }
+// Kleine Beträge (Bruchteile eines Cents) mit mehr Stellen zeigen, damit 0,0046 € nicht als 0,00 € erscheint.
+function moneyFine(v) {
+  if (v === 0) return money(0);
+  const abs = Math.abs(v);
+  const digits = abs >= 1 ? 2 : abs >= 0.1 ? 3 : abs >= 0.01 ? 3 : 4;
+  return new Intl.NumberFormat('de-DE', { minimumFractionDigits: 2, maximumFractionDigits: digits }).format(v) + ' ' + state.settings.currency;
+}
+function amountText(v) {
+  return new Intl.NumberFormat('de-DE', { maximumFractionDigits: 2 }).format(v);
+}
+function unitPriceText(m) {
+  const up = unitPrice(m);
+  if (!up) return 'Preis und Menge eingeben';
+  switch (m.type) {
+    case 'area':   return moneyFine(up * 100) + ' pro 10×10 cm · ' + moneyFine(up * 10000) + ' pro m²';
+    case 'length': return moneyFine(up * 100) + ' pro Meter · ' + moneyFine(up) + ' pro cm';
+    case 'piece':  return moneyFine(up) + ' pro Stück';
+    case 'weight': return moneyFine(up * 100) + ' pro 100 g';
+    case 'volume': return moneyFine(up * 100) + ' pro 100 ml';
+  }
+  return '';
+}
+function packText(m) {
+  const p = m.pack || {};
+  const c = Math.max(1, num(p.count) || 1);
+  const pre = c > 1 ? c + ' × ' : '';
+  switch (m.type) {
+    case 'area':   return pre + p.length + ' ' + p.lengthUnit + ' × ' + p.width + ' ' + p.widthUnit;
+    case 'length': return pre + p.length + ' ' + p.lengthUnit;
+    case 'piece':  return p.count + ' Stück';
+    case 'weight': return p.amount + ' ' + p.unit;
+    case 'volume': return p.amount + ' ' + p.unit;
+  }
+  return '';
+}
+
+/* ---------- Speicher (IndexedDB, sonst nur im Speicher) ---------- */
+const DB_NAME = 'julekontor-bastel';
+let dbp = null;
+function db() {
+  if (dbp) return dbp;
+  dbp = new Promise((res, rej) => {
+    try {
+      const r = indexedDB.open(DB_NAME, 1);
+      r.onupgradeneeded = () => { r.result.createObjectStore('kv'); r.result.createObjectStore('img'); };
+      r.onsuccess = () => res(r.result);
+      r.onerror = () => rej(r.error);
+    } catch (e) { rej(e); }
+  });
+  return dbp;
+}
+const memImg = new Map();
+let memState = null;
+async function idb(store, mode, fn) {
+  const d = await db();
+  return new Promise((res, rej) => {
+    const tx = d.transaction(store, mode);
+    const req = fn(tx.objectStore(store));
+    tx.oncomplete = () => res(req && req.result);
+    tx.onerror = () => rej(tx.error);
+  });
+}
+async function loadState() {
+  try { return await idb('kv', 'readonly', s => s.get('state')); } catch (e) { return memState; }
+}
+let saveTimer = null;
+function save() {
+  clearTimeout(saveTimer);
+  saveTimer = setTimeout(async () => {
+    const copy = JSON.parse(JSON.stringify(state));
+    try { await idb('kv', 'readwrite', s => s.put(copy, 'state')); } catch (e) { memState = copy; }
+  }, 250);
+}
+async function putImg(id, blob) {
+  memImg.set(id, blob);
+  try { await idb('img', 'readwrite', s => s.put(blob, id)); } catch (e) {}
+}
+async function getImg(id) {
+  if (memImg.has(id)) return memImg.get(id);
+  try { const b = await idb('img', 'readonly', s => s.get(id)); if (b) memImg.set(id, b); return b; } catch (e) { return null; }
+}
+async function delImg(id) {
+  memImg.delete(id);
+  const u = urlCache.get(id); if (u) { URL.revokeObjectURL(u); urlCache.delete(id); }
+  try { await idb('img', 'readwrite', s => s.delete(id)); } catch (e) {}
+}
+const urlCache = new Map();
+async function imgUrl(id) {
+  if (urlCache.has(id)) return urlCache.get(id);
+  const b = await getImg(id);
+  if (!b) return null;
+  const u = URL.createObjectURL(b);
+  urlCache.set(id, u);
+  return u;
+}
+
+/* ---------- Bilder verkleinern ---------- */
+function shrink(file, max = 1600) {
+  return new Promise((res) => {
+    const url = URL.createObjectURL(file);
+    const img = new Image();
+    img.onload = () => {
+      const s = Math.min(1, max / Math.max(img.naturalWidth, img.naturalHeight));
+      const c = document.createElement('canvas');
+      c.width = Math.round(img.naturalWidth * s); c.height = Math.round(img.naturalHeight * s);
+      c.getContext('2d').drawImage(img, 0, 0, c.width, c.height);
+      URL.revokeObjectURL(url);
+      c.toBlob(b => res(b || file), 'image/jpeg', 0.85);
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); res(file); };
+    img.src = url;
+  });
+}
+
+/* ---------- Zustand ---------- */
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+let state = null;
+let ui = { tab: 'projekte', projectId: null };
+
+function sample() {
+  const papier = { id: uid(), name: 'Bastelpapier rot, große Rolle', type: 'area', price: 80, note: 'Beispiel', pack: { length: 100, lengthUnit: 'm', width: 70, widthUnit: 'cm', count: 1 }, example: true };
+  const draht = { id: uid(), name: 'Bindedraht grün', type: 'length', price: 3.99, note: 'Beispiel', pack: { length: 200, lengthUnit: 'm', count: 1 }, example: true };
+  const perlen = { id: uid(), name: 'Holzperlen rot, 8 mm', type: 'piece', price: 4.5, note: 'Beispiel', pack: { count: 150 }, example: true };
+  const kleber = { id: uid(), name: 'Bastelkleber', type: 'volume', price: 5.95, note: 'Beispiel', pack: { amount: 250, unit: 'ml' }, example: true };
+  const cat = { id: uid(), name: 'Weihnachtsschmuck' };
+  const cat2 = { id: uid(), name: 'Türkränze' };
+  const proj = {
+    id: uid(), categoryId: cat.id, name: 'Papierstern mit Perlen', notes: 'Beispielprojekt. Zum Ausprobieren ändern oder löschen.', example: true,
+    images: [], minutes: 20, rate: '', markup: '', extra: '',
+    lines: [
+      { id: uid(), materialId: papier.id, use: { a: 20, aUnit: 'cm', b: 20, bUnit: 'cm', qty: 1 } },
+      { id: uid(), materialId: draht.id, use: { a: 30, aUnit: 'cm', qty: 1 } },
+      { id: uid(), materialId: perlen.id, use: { a: 6 } },
+      { id: uid(), materialId: kleber.id, use: { a: 3, aUnit: 'ml' } },
+    ],
+  };
+  return {
+    v: 1,
+    settings: { currency: '€', rate: 15, markup: 30, vat: 0 },
+    categories: [cat, cat2],
+    materials: [papier, draht, perlen, kleber],
+    projects: [proj],
+  };
+}
+
+const matById = id => state.materials.find(m => m.id === id);
+const projById = id => state.projects.find(p => p.id === id);
+const catById = id => state.categories.find(c => c.id === id);
+
+/* ---------- Hilfen ---------- */
+const $ = (s, el = document) => el.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const view = $('#view');
+let toastT;
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.hidden = false;
+  clearTimeout(toastT); toastT = setTimeout(() => { t.hidden = true; }, 2200);
+}
+document.querySelectorAll('dialog').forEach(d => {
+  d.addEventListener('click', e => {
+    if (e.target.closest('[data-close]')) d.close();
+    else if (e.target === d) d.close();
+  });
+});
+function askText(title, label, value = '') {
+  return new Promise(res => {
+    const d = $('#dlg-text');
+    $('#text-title').textContent = title; $('#text-label').textContent = label;
+    const inp = $('#text-input'); inp.value = value;
+    let done = false;
+    const f = $('#form-text');
+    f.onsubmit = e => { e.preventDefault(); done = true; d.close(); res(inp.value.trim() || null); };
+    d.onclose = () => { if (!done) res(null); };
+    d.showModal(); inp.focus(); inp.select();
+  });
+}
+function askConfirm(title, text, okLabel = 'Löschen') {
+  return new Promise(res => {
+    const d = $('#dlg-confirm');
+    $('#confirm-title').textContent = title; $('#confirm-text').textContent = text; $('#confirm-ok').textContent = okLabel;
+    let done = false;
+    $('#confirm-ok').onclick = () => { done = true; d.close(); res(true); };
+    d.onclose = () => { if (!done) res(false); };
+    d.showModal();
+  });
+}
+function unitSelect(id, opts, val) {
+  return `<select${id ? ` id="${id}"` : ''} aria-label="Einheit">${opts.map(o => `<option${o === val ? ' selected' : ''}>${o}</option>`).join('')}</select>`;
+}
+
+/* ---------- Reiter ---------- */
+document.querySelectorAll('nav.tabs button').forEach(b => b.addEventListener('click', () => {
+  ui.tab = b.dataset.tab; ui.projectId = null; render(); window.scrollTo(0, 0);
+}));
+function render() {
+  document.querySelectorAll('nav.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === ui.tab)));
+  if (ui.tab === 'projekte') ui.projectId ? renderProject() : renderProjects();
+  else if (ui.tab === 'lager') renderLager();
+  else renderSettings();
+}
+
+/* ---------- Projektübersicht ---------- */
+function renderProjects() {
+  const cats = state.categories;
+  const orphan = state.projects.filter(p => !catById(p.categoryId));
+  let html = `<div class="row between" style="margin-bottom:18px">
+      <p class="muted" style="margin:0">${state.projects.length} Projekte in ${cats.length} Kategorien</p>
+      <div class="row"><button class="btn ghost" id="add-cat">+ Kategorie</button><button class="btn" id="add-proj">+ Projekt</button></div>
+    </div>`;
+  if (!cats.length) html += `<div class="empty">Lege zuerst eine Kategorie an, z. B. „Weihnachtsschmuck“ oder „Adventskränze“.</div>`;
+  const groups = cats.map(c => ({ c, list: state.projects.filter(p => p.categoryId === c.id) }));
+  if (orphan.length) groups.push({ c: { id: '', name: 'Ohne Kategorie' }, list: orphan });
+  for (const { c, list } of groups) {
+    html += `<section class="cat">
+      <div class="cat-head"><h2>${esc(c.name)}</h2>
+        ${c.id ? `<div class="row"><button class="btn sm ghost" data-newin="${c.id}">+ Projekt</button><button class="btn sm quiet" data-rencat="${c.id}">Umbenennen</button><button class="btn sm quiet" data-delcat="${c.id}">Löschen</button></div>` : ''}
+      </div>
+      ${list.length ? `<div class="cards">${list.map(cardHtml).join('')}</div>` : `<div class="empty">Noch keine Projekte in dieser Kategorie.</div>`}
+    </section>`;
+  }
+  view.innerHTML = html;
+  fillThumbs();
+  $('#add-cat').onclick = addCategory;
+  $('#add-proj').onclick = () => addProject(cats[0]?.id);
+  view.querySelectorAll('[data-newin]').forEach(b => b.onclick = () => addProject(b.dataset.newin));
+  view.querySelectorAll('[data-rencat]').forEach(b => b.onclick = async () => {
+    const c = catById(b.dataset.rencat); const n = await askText('Kategorie umbenennen', 'Name', c.name);
+    if (n) { c.name = n; save(); render(); }
+  });
+  view.querySelectorAll('[data-delcat]').forEach(b => b.onclick = async () => {
+    const c = catById(b.dataset.delcat);
+    const n = state.projects.filter(p => p.categoryId === c.id).length;
+    if (await askConfirm('Kategorie löschen?', n ? `„${c.name}“ enthält ${n} Projekt(e). Die Projekte bleiben erhalten und stehen danach unter „Ohne Kategorie“.` : `„${c.name}“ wird gelöscht.`)) {
+      state.categories = state.categories.filter(x => x !== c); save(); render();
+    }
+  });
+  view.querySelectorAll('.pcard').forEach(el => el.onclick = () => { ui.projectId = el.dataset.id; render(); window.scrollTo(0, 0); });
+}
+function cardHtml(p) {
+  const c = projectCalc(p);
+  return `<button class="pcard" data-id="${p.id}">
+    <div class="thumb" data-img="${p.images[0] || ''}">${p.images[0] ? '' : 'Kein Foto'}</div>
+    <div class="body">
+      <span class="name">${esc(p.name)} ${p.example ? '<span class="badge">Beispiel</span>' : ''}</span>
+      <span class="small muted">Material ${money(c.material)} · ${amountText(c.minutes)} Min.</span>
+      <span class="price num">${money(c.gross)}</span>
+    </div>
+  </button>`;
+}
+async function fillThumbs() {
+  for (const el of view.querySelectorAll('[data-img]')) {
+    const id = el.dataset.img; if (!id) continue;
+    const u = await imgUrl(id); if (u) el.innerHTML = `<img src="${u}" alt="">`;
+  }
+}
+async function addCategory() {
+  const n = await askText('Neue Kategorie', 'Name der Kategorie');
+  if (n) { state.categories.push({ id: uid(), name: n }); save(); render(); }
+}
+async function addProject(catId) {
+  if (!state.categories.length) { await addCategory(); catId = state.categories[0]?.id; if (!catId) return; }
+  const n = await askText('Neues Projekt', 'Name des Projekts');
+  if (!n) return;
+  const p = { id: uid(), categoryId: catId || state.categories[0].id, name: n, notes: '', images: [], lines: [], minutes: '', rate: '', markup: '', extra: '' };
+  state.projects.push(p); save();
+  ui.projectId = p.id; render(); window.scrollTo(0, 0);
+}
+
+/* ---------- Projekt-Detail ---------- */
+function renderProject() {
+  const p = projById(ui.projectId);
+  if (!p) { ui.projectId = null; return render(); }
+  const s = state.settings;
+  view.innerHTML = `
+    <div class="row between">
+      <button class="btn quiet sm" id="back">← Alle Projekte</button>
+      <div class="row"><button class="btn quiet sm" id="dup">Kopieren</button><button class="btn danger sm" id="delp">Projekt löschen</button></div>
+    </div>
+    <div class="section" style="margin-top:14px">
+      <div class="grid2">
+        <label class="f">Projektname <input type="text" id="p-name" value="${esc(p.name)}"></label>
+        <label class="f">Kategorie
+          <select id="p-cat">${state.categories.map(c => `<option value="${c.id}"${c.id === p.categoryId ? ' selected' : ''}>${esc(c.name)}</option>`).join('')}</select>
+        </label>
+      </div>
+      <label class="f" style="margin-top:12px">Notizen (Anleitung, Maße, Farben)
+        <textarea id="p-notes" placeholder="z. B. Stern 8 Zacken, Kleber erst trocknen lassen …">${esc(p.notes)}</textarea>
+      </label>
+    </div>
+
+    <div class="section">
+      <div class="row between" style="margin-bottom:10px"><h3>Fotos</h3>
+        <div class="row">
+          <label class="btn ghost sm" for="cam">Foto aufnehmen</label>
+          <label class="btn ghost sm" for="upl">Bild hochladen</label>
+        </div>
+      </div>
+      <input class="hidden-input" type="file" id="cam" accept="image/*" capture="environment">
+      <input class="hidden-input" type="file" id="upl" accept="image/*" multiple>
+      <div class="photos" id="photos">${p.images.length ? p.images.map((id, i) => `<div class="photo" data-pid="${id}">${i === 0 ? '<span class="cover">Titelbild</span>' : ''}<button class="x" data-delimg="${id}" aria-label="Foto entfernen">×</button></div>`).join('') : '<div class="empty" style="grid-column:1/-1">Noch keine Fotos. Mit dem Handy direkt aufnehmen oder aus der Galerie wählen.</div>'}</div>
+    </div>
+
+    <div class="section">
+      <div class="row between" style="margin-bottom:10px"><h3>Material</h3><button class="btn sm" id="add-line">+ Material hinzufügen</button></div>
+      <div class="lines" id="lines">${p.lines.length ? p.lines.map(lineHtml).join('') : '<div class="empty">Noch kein Material. Füge Papier, Draht, Perlen usw. hinzu.</div>'}</div>
+    </div>
+
+    <div class="section">
+      <h3>Kalkulation</h3>
+      <div class="receipt">
+        <div class="rinputs">
+          <label class="f">Arbeitszeit (Minuten) <input type="text" inputmode="decimal" id="p-min" value="${esc(p.minutes)}" placeholder="0"></label>
+          <label class="f">Stundenlohn (${esc(s.currency)}) <input type="text" inputmode="decimal" id="p-rate" value="${esc(p.rate)}" placeholder="${esc(amountText(num(s.rate)))} (Standard)"></label>
+          <label class="f">Aufschlag (%) <input type="text" inputmode="decimal" id="p-markup" value="${esc(p.markup)}" placeholder="${esc(amountText(num(s.markup)))} (Standard)"></label>
+          <label class="f">Sonstiges (${esc(s.currency)}) <input type="text" inputmode="decimal" id="p-extra" value="${esc(p.extra)}" placeholder="Verpackung, Etikett …"></label>
+        </div>
+        <div id="sum"></div>
+      </div>
+    </div>`;
+
+  $('#back').onclick = () => { ui.projectId = null; render(); };
+  $('#delp').onclick = async () => {
+    if (await askConfirm('Projekt löschen?', `„${p.name}“ mit allen Fotos wird gelöscht. Das Material im Lager bleibt erhalten.`)) {
+      p.images.forEach(delImg);
+      state.projects = state.projects.filter(x => x !== p); save(); ui.projectId = null; render(); toast('Projekt gelöscht');
+    }
+  };
+  $('#dup').onclick = async () => {
+    const copy = JSON.parse(JSON.stringify(p));
+    copy.id = uid(); copy.name = p.name + ' (Kopie)'; copy.example = false; copy.images = [];
+    for (const id of p.images) { const b = await getImg(id); if (b) { const nid = uid(); await putImg(nid, b); copy.images.push(nid); } }
+    copy.lines.forEach(l => l.id = uid());
+    state.projects.push(copy); save(); ui.projectId = copy.id; render(); toast('Kopie angelegt');
+  };
+  const bind = (sel, key, rerender) => $(sel).addEventListener('input', e => { p[key] = e.target.value; p.example = false; save(); rerender ? render() : updateSums(p); });
+  bind('#p-name', 'name'); bind('#p-notes', 'notes');
+  $('#p-cat').onchange = e => { p.categoryId = e.target.value; save(); };
+  bind('#p-min', 'minutes'); bind('#p-rate', 'rate'); bind('#p-markup', 'markup'); bind('#p-extra', 'extra');
+
+  // Fotos
+  const onFiles = async e => {
+    const files = [...e.target.files]; e.target.value = '';
+    for (const f of files) { const b = await shrink(f); const id = uid(); await putImg(id, b); p.images.push(id); }
+    if (files.length) { save(); renderProject(); toast(files.length === 1 ? 'Foto gespeichert' : files.length + ' Fotos gespeichert'); }
+  };
+  $('#cam').onchange = onFiles; $('#upl').onchange = onFiles;
+  (async () => {
+    for (const el of view.querySelectorAll('[data-pid]')) {
+      const u = await imgUrl(el.dataset.pid);
+      if (u) { const img = document.createElement('img'); img.src = u; img.alt = 'Projektfoto'; el.prepend(img);
+        img.onclick = () => { $('#light-img').src = u; $('#dlg-light').showModal(); }; }
+    }
+  })();
+  view.querySelectorAll('[data-delimg]').forEach(b => b.onclick = async ev => {
+    ev.stopPropagation();
+    if (await askConfirm('Foto entfernen?', 'Das Foto wird aus diesem Projekt gelöscht.', 'Entfernen')) {
+      p.images = p.images.filter(x => x !== b.dataset.delimg); delImg(b.dataset.delimg); save(); renderProject();
+    }
+  });
+
+  // Materialzeilen
+  $('#add-line').onclick = () => openPicker(p);
+  view.querySelectorAll('[data-line]').forEach(row => {
+    const l = p.lines.find(x => x.id === row.dataset.line);
+    row.querySelectorAll('[data-u]').forEach(inp => {
+      const ev = inp.tagName === 'SELECT' ? 'change' : 'input';
+      inp.addEventListener(ev, () => { l.use[inp.dataset.u] = inp.value; p.example = false; save(); updateSums(p); });
+    });
+    row.querySelector('[data-rm]').onclick = () => { p.lines = p.lines.filter(x => x !== l); save(); renderProject(); };
+    row.querySelector('[data-editmat]').onclick = () => openMaterial(matById(l.materialId), () => renderProject());
+  });
+  updateSums(p);
+}
+
+function lineHtml(l) {
+  const m = matById(l.materialId);
+  if (!m) return `<div class="line" data-line="${l.id}"><div><div class="lname">Material wurde gelöscht</div></div><div class="lcost">–</div><div class="usage"><span class="grow"></span><button class="btn quiet sm" data-rm>Entfernen</button><button hidden data-editmat></button></div></div>`;
+  const u = l.use;
+  let usage = '';
+  if (m.type === 'area') {
+    usage = `<input type="text" inputmode="decimal" data-u="a" value="${esc(u.a)}" aria-label="Breite"> ${unitSelect('', ['mm', 'cm', 'm'], u.aUnit || 'cm').replace('<select', '<select data-u="aUnit"')}
+      <span class="times">×</span>
+      <input type="text" inputmode="decimal" data-u="b" value="${esc(u.b)}" aria-label="Höhe"> ${unitSelect('', ['mm', 'cm', 'm'], u.bUnit || 'cm').replace('<select', '<select data-u="bUnit"')}
+      <span class="times">×</span><input type="text" inputmode="decimal" data-u="qty" value="${esc(u.qty ?? 1)}" aria-label="Anzahl Stücke" style="width:60px"><span class="small muted">Stück</span>`;
+  } else if (m.type === 'length') {
+    usage = `<input type="text" inputmode="decimal" data-u="a" value="${esc(u.a)}" aria-label="Länge"> ${unitSelect('', ['mm', 'cm', 'm'], u.aUnit || 'cm').replace('<select', '<select data-u="aUnit"')}
+      <span class="times">×</span><input type="text" inputmode="decimal" data-u="qty" value="${esc(u.qty ?? 1)}" aria-label="Anzahl" style="width:60px"><span class="small muted">mal</span>`;
+  } else if (m.type === 'piece') {
+    usage = `<input type="text" inputmode="decimal" data-u="a" value="${esc(u.a)}" aria-label="Anzahl"> <span class="small muted">Stück</span>`;
+  } else if (m.type === 'weight') {
+    usage = `<input type="text" inputmode="decimal" data-u="a" value="${esc(u.a)}" aria-label="Gewicht"> ${unitSelect('', ['g', 'kg'], u.aUnit || 'g').replace('<select', '<select data-u="aUnit"')}`;
+  } else {
+    usage = `<input type="text" inputmode="decimal" data-u="a" value="${esc(u.a)}" aria-label="Menge"> ${unitSelect('', ['ml', 'l'], u.aUnit || 'ml').replace('<select', '<select data-u="aUnit"')}`;
+  }
+  return `<div class="line" data-line="${l.id}">
+    <div style="min-width:0"><div class="lname">${esc(m.name)}</div><div class="lmeta">${esc(packText(m))} für ${money(num(m.price))} · ${unitPriceText(m)}</div></div>
+    <div class="lcost num" data-cost="${l.id}">–</div>
+    <div class="usage"><span class="small muted">Verbraucht:</span> ${usage}</div>
+    <div class="lactions"><button class="btn quiet sm" data-editmat>Material ändern</button><button class="btn quiet sm" data-rm aria-label="Zeile entfernen">Entfernen</button></div>
+  </div>`;
+}
+
+function updateSums(p) {
+  p.lines.forEach(l => { const el = view.querySelector(`[data-cost="${l.id}"]`); if (el) el.textContent = matById(l.materialId) ? moneyFine(lineCost(l)) : '–'; });
+  const c = projectCalc(p);
+  const r = (label, val, cls = '') => `<div class="rrow ${cls}"><span>${label}</span><span class="num">${val}</span></div>`;
+  $('#sum').innerHTML =
+    r(`Material (${p.lines.length} Posten)`, money(c.material)) +
+    r(`Arbeit: ${amountText(c.minutes)} Min. × ${money(c.rate)}/Std.`, money(c.labor)) +
+    (c.extra ? r('Sonstiges', money(c.extra)) : '') +
+    r('Selbstkosten', money(c.cost), 'sum') +
+    r(`Aufschlag ${amountText(c.markupPct)} %`, money(c.markup)) +
+    (c.vatPct ? r('Netto', money(c.net), 'sum') + r(`MwSt./Moms ${amountText(c.vatPct)} %`, money(c.vat)) : '') +
+    r('Verkaufspreis', money(c.gross), 'total') +
+    `<p class="hint" style="margin:4px 0 0">Gewinn je Stück nach Material und Lohn: <strong class="num">${money(c.markup)}</strong></p>`;
+}
+
+/* ---------- Material auswählen ---------- */
+function openPicker(p) {
+  const d = $('#dlg-pick');
+  const search = $('#pick-search'); search.value = '';
+  const list = () => {
+    const q = search.value.trim().toLowerCase();
+    const ms = state.materials.filter(m => !q || m.name.toLowerCase().includes(q) || (m.note || '').toLowerCase().includes(q));
+    $('#pick-list').innerHTML = ms.length ? ms.map(m => `<button class="mat" style="text-align:left;cursor:pointer;font:inherit;color:inherit" data-pick="${m.id}">
+        <span class="mname">${esc(m.name)}</span><span class="mmeta">${esc(packText(m))} · ${money(num(m.price))} · ${unitPriceText(m)}</span>
+        <span class="mside"><span class="btn sm">Hinzufügen</span></span></button>`).join('')
+      : `<div class="empty">${state.materials.length ? 'Nichts gefunden.' : 'Das Lager ist noch leer.'} Lege ein neues Material an.</div>`;
+    $('#pick-list').querySelectorAll('[data-pick]').forEach(b => b.onclick = () => { addLine(p, b.dataset.pick); d.close(); });
+  };
+  search.oninput = list; list();
+  $('#pick-new').onclick = () => { d.close(); openMaterial(null, m => { if (m) addLine(p, m.id); else renderProject(); }); };
+  d.showModal();
+}
+function addLine(p, materialId) {
+  const m = matById(materialId);
+  const use = m.type === 'area' ? { a: '', aUnit: 'cm', b: '', bUnit: 'cm', qty: 1 } : m.type === 'length' ? { a: '', aUnit: 'cm', qty: 1 } : m.type === 'weight' ? { a: '', aUnit: 'g' } : m.type === 'volume' ? { a: '', aUnit: 'ml' } : { a: '' };
+  const l = { id: uid(), materialId, use };
+  p.lines.push(l); p.example = false; save(); renderProject();
+  const first = view.querySelector(`[data-line="${l.id}"] [data-u="a"]`);
+  if (first) { first.focus(); first.scrollIntoView({ block: 'center' }); }
+}
+
+/* ---------- Material anlegen / bearbeiten ---------- */
+let matDone = null, matEditing = null;
+function matFieldsHtml(type, p) {
+  p = p || {};
+  const cur = esc(state.settings.currency);
+  if (type === 'area') return `
+    <label class="f">Länge der Rolle / des Bogens <div class="unitfield"><input type="text" inputmode="decimal" id="mp-length" value="${esc(p.length ?? '')}" placeholder="100">${unitSelect('mp-lengthUnit', ['cm', 'm'], p.lengthUnit || 'm')}</div></label>
+    <label class="f">Breite <div class="unitfield"><input type="text" inputmode="decimal" id="mp-width" value="${esc(p.width ?? '')}" placeholder="70">${unitSelect('mp-widthUnit', ['cm', 'm'], p.widthUnit || 'cm')}</div></label>
+    <label class="f">Anzahl in der Packung <input type="text" inputmode="decimal" id="mp-count" value="${esc(p.count ?? 1)}"></label>`;
+  if (type === 'length') return `
+    <label class="f">Länge der Rolle <div class="unitfield"><input type="text" inputmode="decimal" id="mp-length" value="${esc(p.length ?? '')}" placeholder="200">${unitSelect('mp-lengthUnit', ['cm', 'm'], p.lengthUnit || 'm')}</div></label>
+    <label class="f">Anzahl Rollen in der Packung <input type="text" inputmode="decimal" id="mp-count" value="${esc(p.count ?? 1)}"></label>`;
+  if (type === 'piece') return `<label class="f">Stück in der Packung <input type="text" inputmode="decimal" id="mp-count" value="${esc(p.count ?? '')}" placeholder="100"></label>`;
+  if (type === 'weight') return `<label class="f">Inhalt <div class="unitfield"><input type="text" inputmode="decimal" id="mp-amount" value="${esc(p.amount ?? '')}" placeholder="500">${unitSelect('mp-unit', ['g', 'kg'], p.unit || 'g')}</div></label>`;
+  return `<label class="f">Inhalt <div class="unitfield"><input type="text" inputmode="decimal" id="mp-amount" value="${esc(p.amount ?? '')}" placeholder="250">${unitSelect('mp-unit', ['ml', 'l'], p.unit || 'ml')}</div></label>`;
+}
+function readMatForm() {
+  const type = $('#m-type').value;
+  const v = id => { const el = $('#' + id); return el ? el.value : undefined; };
+  const pack = {};
+  ['length', 'lengthUnit', 'width', 'widthUnit', 'count', 'amount', 'unit'].forEach(k => { const x = v('mp-' + k); if (x !== undefined) pack[k] = x; });
+  return { name: $('#m-name').value.trim(), type, price: $('#m-price').value, note: $('#m-note').value.trim(), pack };
+}
+function refreshMatPreview() {
+  const m = readMatForm();
+  $('#m-unitprice').textContent = unitPriceText(m);
+}
+function openMaterial(m, done) {
+  matEditing = m; matDone = done;
+  const d = $('#dlg-mat');
+  $('#mat-title').textContent = m ? 'Material bearbeiten' : 'Material anlegen';
+  $('#m-name').value = m ? m.name : '';
+  $('#m-type').value = m ? m.type : 'area';
+  $('#m-type').disabled = !!(m && state.projects.some(p => p.lines.some(l => l.materialId === m.id)));
+  $('#m-price').value = m ? String(m.price).replace('.', ',') : '';
+  $('#m-note').value = m ? (m.note || '') : '';
+  $('#m-fields').innerHTML = matFieldsHtml($('#m-type').value, m && m.pack);
+  d.querySelectorAll('.cur').forEach(e => e.textContent = state.settings.currency);
+  $('#m-delete').hidden = !m;
+  refreshMatPreview();
+  d.showModal();
+  setTimeout(() => $('#m-name').focus(), 30);
+}
+$('#m-type').addEventListener('change', () => { $('#m-fields').innerHTML = matFieldsHtml($('#m-type').value, null); refreshMatPreview(); });
+$('#form-mat').addEventListener('input', refreshMatPreview);
+$('#form-mat').addEventListener('change', refreshMatPreview);
+$('#form-mat').addEventListener('submit', e => {
+  e.preventDefault();
+  const f = readMatForm();
+  if (!f.name) { $('#m-name').focus(); toast('Bitte eine Bezeichnung eingeben'); return; }
+  if (!(packTotal(f) > 0)) { toast('Bitte die Menge der Packung eingeben'); return; }
+  let m = matEditing;
+  if (m) Object.assign(m, f, { price: num(f.price), example: false });
+  else { m = { id: uid(), ...f, price: num(f.price) }; state.materials.push(m); }
+  save();
+  $('#dlg-mat').close();
+  toast('Material gespeichert');
+  const cb = matDone; matDone = null;
+  cb ? cb(m) : render();
+});
+$('#m-delete').addEventListener('click', async () => {
+  const m = matEditing; if (!m) return;
+  const used = state.projects.filter(p => p.lines.some(l => l.materialId === m.id));
+  $('#dlg-mat').close();
+  const ok = await askConfirm('Material löschen?', used.length ? `„${m.name}“ wird in ${used.length} Projekt(en) verwendet. Dort fällt die Zeile weg.` : `„${m.name}“ wird aus dem Lager gelöscht.`);
+  if (!ok) return;
+  state.materials = state.materials.filter(x => x !== m);
+  state.projects.forEach(p => p.lines = p.lines.filter(l => l.materialId !== m.id));
+  save(); matDone = null; render(); toast('Material gelöscht');
+});
+
+/* ---------- Materiallager ---------- */
+function renderLager() {
+  const used = id => state.projects.filter(p => p.lines.some(l => l.materialId === id)).length;
+  const groups = Object.keys(TYPES).map(t => ({ t, list: state.materials.filter(m => m.type === t).sort((a, b) => a.name.localeCompare(b.name, 'de')) })).filter(g => g.list.length);
+  view.innerHTML = `
+    <div class="row between" style="margin-bottom:18px">
+      <p class="muted" style="margin:0; max-width:60ch">Hier trägst du jede Rolle, Packung oder Flasche einmal ein. In den Projekten gibst du dann nur noch an, wie viel du verbraucht hast.</p>
+      <button class="btn" id="add-mat">+ Material anlegen</button>
+    </div>
+    ${groups.length ? groups.map(g => `<section class="cat"><div class="cat-head"><h2>${TYPES[g.t].label}</h2></div><div class="lines">
+      ${g.list.map(m => `<div class="mat">
+        <span class="mname">${esc(m.name)} ${m.example ? '<span class="badge">Beispiel</span>' : ''}</span>
+        <span class="mmeta">${esc(packText(m))} für <strong class="num">${money(num(m.price))}</strong> · ${unitPriceText(m)}${m.note && !m.example ? ' · ' + esc(m.note) : ''} · in ${used(m.id)} Projekt(en)</span>
+        <span class="mside"><button class="btn sm ghost" data-edit="${m.id}">Bearbeiten</button></span>
+      </div>`).join('')}</div></section>`).join('') : '<div class="empty">Noch kein Material im Lager.</div>'}`;
+  $('#add-mat').onclick = () => openMaterial(null, () => renderLager());
+  view.querySelectorAll('[data-edit]').forEach(b => b.onclick = () => openMaterial(matById(b.dataset.edit), () => renderLager()));
+}
+
+/* ---------- Einstellungen ---------- */
+function renderSettings() {
+  const s = state.settings;
+  view.innerHTML = `
+    <section class="cat">
+      <div class="cat-head"><h2>Standardwerte</h2></div>
+      <p class="muted" style="margin-top:0; max-width:60ch">Gelten für alle Projekte, bei denen du Stundenlohn oder Aufschlag leer lässt.</p>
+      <div class="grid2">
+        <label class="f">Währung
+          <select id="s-cur">${['€', 'kr.', 'DKK', 'EUR'].map(c => `<option${c === s.currency ? ' selected' : ''}>${c}</option>`).join('')}</select>
+        </label>
+        <label class="f">Stundenlohn <input type="text" inputmode="decimal" id="s-rate" value="${esc(amountText(num(s.rate)))}"></label>
+        <label class="f">Aufschlag in % <input type="text" inputmode="decimal" id="s-markup" value="${esc(amountText(num(s.markup)))}"></label>
+        <label class="f">MwSt. / Moms in % <input type="text" inputmode="decimal" id="s-vat" value="${esc(amountText(num(s.vat)))}" placeholder="0 = ohne"></label>
+      </div>
+      <p class="hint">Rechenweg: Material + Arbeitszeit × Stundenlohn + Sonstiges = Selbstkosten. Darauf kommt der Aufschlag, danach die MwSt./Moms (in Dänemark 25 %, bei 0 wird sie nicht angezeigt).</p>
+    </section>
+    <section class="cat">
+      <div class="cat-head"><h2>Sicherung</h2></div>
+      <p class="muted" style="margin-top:0; max-width:60ch">Alle Daten und Fotos liegen nur auf diesem Gerät im Browser. Speichere ab und zu eine Sicherung, z. B. bevor du den Browserverlauf löschst oder das Handy wechselst.</p>
+      <div class="row">
+        <button class="btn" id="exp">Sicherung speichern</button>
+        <label class="btn ghost" for="imp">Sicherung laden</label>
+        <input class="hidden-input" type="file" id="imp" accept="application/json,.json">
+      </div>
+      <p class="hint" id="exp-hint"></p>
+    </section>
+    <section class="cat">
+      <div class="cat-head"><h2>Beispiele</h2></div>
+      <div class="row"><button class="btn danger" id="clr-ex">Beispieldaten entfernen</button></div>
+    </section>`;
+  const bind = (id, key, isNum) => $(id).addEventListener(isNum ? 'input' : 'change', e => { s[key] = isNum ? num(e.target.value) : e.target.value; save(); });
+  bind('#s-cur', 'currency', false); bind('#s-rate', 'rate', true); bind('#s-markup', 'markup', true); bind('#s-vat', 'vat', true);
+  $('#exp').onclick = exportBackup;
+  $('#imp').onchange = importBackup;
+  $('#clr-ex').onclick = async () => {
+    if (!(await askConfirm('Beispieldaten entfernen?', 'Beispielprojekte und Beispielmaterial werden gelöscht. Deine eigenen Daten bleiben.', 'Entfernen'))) return;
+    state.projects = state.projects.filter(p => !p.example);
+    state.materials = state.materials.filter(m => !m.example || state.projects.some(p => p.lines.some(l => l.materialId === m.id)));
+    state.categories = state.categories.filter(c => state.projects.some(p => p.categoryId === c.id) || !['Weihnachtsschmuck', 'Türkränze'].includes(c.name));
+    save(); toast('Beispiele entfernt');
+  };
+}
+function blobToDataUrl(b) { return new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); }); }
+async function exportBackup() {
+  const images = {};
+  for (const p of state.projects) for (const id of p.images) { const b = await getImg(id); if (b) images[id] = await blobToDataUrl(b); }
+  const data = JSON.stringify({ app: 'julekontor-bastel', exported: new Date().toISOString(), state, images });
+  const blob = new Blob([data], { type: 'application/json' });
+  const name = 'julekontor-bastel-' + new Date().toISOString().slice(0, 10) + '.json';
+  const file = new File([blob], name, { type: 'application/json' });
+  try {
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { await navigator.share({ files: [file], title: name }); return; }
+  } catch (e) { if (e && e.name === 'AbortError') return; }
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  $('#exp-hint').textContent = 'Datei „' + name + '“ wurde erstellt. Falls nichts passiert, öffne die Werkstatt direkt im Browser.';
+}
+async function importBackup(e) {
+  const f = e.target.files[0]; e.target.value = '';
+  if (!f) return;
+  try {
+    const data = JSON.parse(await f.text());
+    if (data.app !== 'julekontor-bastel' || !data.state) throw new Error('fremd');
+    if (!(await askConfirm('Sicherung laden?', 'Alle jetzigen Daten auf diesem Gerät werden durch die Sicherung vom ' + new Date(data.exported).toLocaleDateString('de-DE') + ' ersetzt.', 'Laden'))) return;
+    for (const p of state.projects) for (const id of p.images) await delImg(id);
+    for (const [id, url] of Object.entries(data.images || {})) { const b = await (await fetch(url)).blob(); await putImg(id, b); }
+    state = data.state; save(); ui = { tab: 'projekte', projectId: null }; render(); toast('Sicherung geladen');
+  } catch (err) {
+    toast('Diese Datei ist keine Sicherung der Bastelwerkstatt');
+  }
+}
+
+/* ---------- Start ---------- */
+(async () => {
+  const loaded = await loadState();
+  state = loaded && loaded.v ? loaded : sample();
+  if (!loaded) save();
+  render();
+})();
+if ('serviceWorker' in navigator && location.protocol === 'https:' && !/claude|claudeusercontent/.test(location.hostname)) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}
+})();
+</script>
