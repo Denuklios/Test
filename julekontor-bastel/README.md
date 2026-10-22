@@ -9,6 +9,9 @@ Preisrechner für Bastelprojekte im Julekontor-Design. Läuft im Browser, auch a
    - Draht: Rolle 200 m für 3,99 € (Länge)
    - Perlen: 150 Stück für 4,50 € (Stück)
    - Kleber: 250 ml für 5,95 € (Menge), oder Gewicht in g/kg
+   - Keramik-Gießpulver: 5 kg für 20 €, Mischverhältnis Pulver : Wasser 100 : 30 (Gießpulver). Im Projekt die fertige Gießmasse eingeben, die App rechnet Pulver und Wasser aus.
+   - Silikonform: 15 €, hält ca. 50 Abgüsse (Form/Werkzeug) → 0,30 € pro Benutzung
+   - Beim Anlegen gibt es **Vorlagen** für über 70 typische Bastelmaterialien (Papier, Filz, Bänder, Gießen, Farben, Kerzen, Floristik, Verpackung …).
 2. **Kategorien und Projekte** anlegen (z. B. „Weihnachtsschmuck“ → „Papierstern“).
 3. Im Projekt Material hinzufügen und nur den **Verbrauch** eingeben: 20 × 20 cm Papier, 30 cm Draht, 6 Perlen. Der Preis steht sofort daneben.
 4. **Arbeitszeit, Stundenlohn, Aufschlag %** und Sonstiges eingeben → Verkaufspreis.

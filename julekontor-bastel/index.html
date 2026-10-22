@@ -262,6 +262,9 @@ dialog h3 { color: var(--red); }
 <dialog id="dlg-mat">
   <form id="form-mat" method="dialog">
     <h3 id="mat-title">Material anlegen</h3>
+    <label class="f" id="m-tpl-wrap">Vorlage (optional)
+      <select id="m-tpl"></select>
+    </label>
     <label class="f">Bezeichnung
       <input type="text" id="m-name" required placeholder="z. B. Bastelpapier rot, Rolle">
     </label>
@@ -271,7 +274,9 @@ dialog h3 { color: var(--red); }
         <option value="length">Länge – Rolle (Draht, Band, Kordel)</option>
         <option value="piece">Stück – Packung (Perlen, Kugeln, Glöckchen)</option>
         <option value="weight">Gewicht (Wachs, Ton, Watte)</option>
-        <option value="volume">Menge (Kleber, Farbe, Lack)</option>
+        <option value="volume">Menge (Kleber, Farbe, Lack, Gießharz)</option>
+        <option value="cast">Gießpulver mit Wasser (Keramik, Gips, Raysin, Beton)</option>
+        <option value="wear">Form oder Werkzeug, hält mehrmals (Silikonform, Stanzer)</option>
       </select>
     </label>
     <div class="grid2" id="m-fields"></div>
@@ -281,6 +286,7 @@ dialog h3 { color: var(--red); }
     <label class="f">Händler / Notiz (optional)
       <input type="text" id="m-note" placeholder="z. B. Panduro, Art.-Nr. 12345">
     </label>
+    <p class="hint" id="m-typehint" hidden></p>
     <p class="hint">Grundpreis: <span id="m-unitprice" class="preview-price">–</span></p>
     <div class="row between">
       <button type="button" class="btn danger sm" id="m-delete" hidden>Löschen</button>
@@ -352,6 +358,8 @@ const TYPES = {
   length: { label: 'Länge',  base: 'cm' },
   piece:  { label: 'Stück',  base: 'Stk.' },
   weight: { label: 'Gewicht', base: 'g' },
+  cast:   { label: 'Gießpulver', base: 'g' },
+  wear:   { label: 'Formen & Werkzeug', base: 'Mal' },
   volume: { label: 'Menge',  base: 'ml' },
 };
 const LEN = { mm: 0.1, cm: 1, m: 100 };
@@ -365,6 +373,8 @@ function packTotal(m) {
     case 'length': return num(p.length) * (LEN[p.lengthUnit] || 1) * Math.max(1, num(p.count) || 1);
     case 'piece':  return num(p.count);
     case 'weight': return num(p.amount) * (WEIGHT[p.unit] || 1);
+    case 'cast':   return num(p.amount) * (WEIGHT[p.unit] || 1);
+    case 'wear':   return num(p.count);
     case 'volume': return num(p.amount) * (VOL[p.unit] || 1);
   }
   return 0;
@@ -381,9 +391,16 @@ function usedAmount(m, u) {
     case 'length': return num(u.a) * (LEN[u.aUnit] || 1) * qty;
     case 'piece':  return num(u.a);
     case 'weight': return num(u.a) * (WEIGHT[u.aUnit] || 1);
+    case 'cast':   return num(u.a) * (WEIGHT[u.aUnit] || 1) * (u.mode === 'pulver' ? 1 : powderShare(m));
+    case 'wear':   return u.a === undefined || u.a === '' ? 1 : num(u.a);
     case 'volume': return num(u.a) * (VOL[u.aUnit] || 1);
   }
   return 0;
+}
+// Gießpulver: Anteil Pulver an der fertigen Masse, z. B. 100 : 30 → 100 / 130. Ohne Angabe zählt alles als Pulver.
+function powderShare(m) {
+  const P = num((m.pack || {}).ratioP), W = num((m.pack || {}).ratioW);
+  return P > 0 && W >= 0 ? P / (P + W) : 1;
 }
 function lineCost(line) {
   const m = matById(line.materialId);
@@ -434,6 +451,8 @@ function unitPriceText(m) {
     case 'length': return moneyFine(up * 100) + ' pro Meter · ' + moneyFine(up) + ' pro cm';
     case 'piece':  return moneyFine(up) + ' pro Stück';
     case 'weight': return moneyFine(up * 100) + ' pro 100 g';
+    case 'cast':   return moneyFine(up * 100) + ' pro 100 g Pulver' + (powderShare(m) < 1 ? ' · ' + moneyFine(up * 100 * powderShare(m)) + ' pro 100 g fertige Masse' : '');
+    case 'wear':   return moneyFine(up) + ' pro Benutzung';
     case 'volume': return moneyFine(up * 100) + ' pro 100 ml';
   }
   return '';
@@ -447,6 +466,8 @@ function packText(m) {
     case 'length': return pre + p.length + ' ' + p.lengthUnit;
     case 'piece':  return p.count + ' Stück';
     case 'weight': return p.amount + ' ' + p.unit;
+    case 'cast':   return p.amount + ' ' + p.unit + (num(p.ratioP) > 0 ? ` · Pulver : Wasser = ${p.ratioP} : ${p.ratioW || 0}` : ' · ohne Mischverhältnis');
+    case 'wear':   return `hält ca. ${p.count}×`;
     case 'volume': return p.amount + ' ' + p.unit;
   }
   return '';
@@ -853,6 +874,15 @@ function lineHtml(l) {
     usage = `<input type="text" inputmode="decimal" data-u="a" value="${esc(u.a)}" aria-label="Anzahl"> <span class="small muted">Stück</span>`;
   } else if (m.type === 'weight') {
     usage = `${pair('a', 'aUnit', u, ['g', 'kg'], 'g', 'Gewicht')}`;
+  } else if (m.type === 'cast') {
+    usage = `${pair('a', 'aUnit', u, ['g', 'kg'], 'g', 'Gießmenge')}
+      <select data-u="mode" aria-label="Was wurde gewogen?" style="width:auto;min-height:42px;font-size:.85rem">
+        <option value="masse"${u.mode !== 'pulver' ? ' selected' : ''}>fertige Gießmasse</option>
+        <option value="pulver"${u.mode === 'pulver' ? ' selected' : ''}>nur Pulver</option>
+      </select>
+      <span class="small muted" data-casthint="${l.id}" style="flex-basis:100%"></span>`;
+  } else if (m.type === 'wear') {
+    usage = `<input type="text" inputmode="decimal" data-u="a" value="${esc(u.a ?? 1)}" aria-label="Wie oft benutzt"> <span class="small muted">× benutzt</span>`;
   } else {
     usage = `${pair('a', 'aUnit', u, ['ml', 'l'], 'ml', 'Menge')}`;
   }
@@ -947,9 +977,18 @@ function fmtBase(type, v) {
   if (type === 'area') return v >= 10000 ? n.format(v / 10000) + ' m²' : n.format(v) + ' cm²';
   if (type === 'weight') return v >= 1000 ? n.format(v / 1000) + ' kg' : n.format(v) + ' g';
   if (type === 'volume') return v >= 1000 ? n.format(v / 1000) + ' l' : n.format(v) + ' ml';
+  if (type === 'cast') return fmtBase('weight', v);
   return n.format(v) + ' Stück';
 }
+function castText(m, u, n) {
+  if (!m || !num(u.a)) return '';
+  const powder = usedAmount(m, u) * n, share = powderShare(m);
+  if (share >= 1) return `= ${fmtBase('weight', powder)} Pulver (Mischverhältnis im Lager eintragen, dann rechnet die App das Wasser mit)`;
+  return `= ${fmtBase('weight', powder)} Pulver + ${fmtBase('weight', powder * (1 - share) / share)} Wasser`;
+}
 function needText(m, u, n) {
+  if (m.type === 'cast') return castText(m, u, n).replace(/^= /, '').replace(/ \(Mischverhältnis.*$/, '');
+  if (m.type === 'wear') return `${amountText(usedAmount(m, u) * n)}× benutzen`;
   const qty = u.qty === undefined || u.qty === '' ? 1 : num(u.qty);
   const total = usedAmount(m, u) * n;
   if (m.type === 'area') return `${amountText(qty * n)} Stück à ${amountText(num(u.a))} ${u.aUnit || 'cm'} × ${amountText(num(u.b))} ${u.bUnit || 'cm'} <span class="muted">(${fmtBase('area', total)})</span>`;
@@ -958,6 +997,8 @@ function needText(m, u, n) {
 }
 function packWord(m, k) {
   if (m.type === 'area' || m.type === 'length') return k === 1 ? 'Rolle' : 'Rollen';
+  if (m.type === 'wear') return k === 1 ? 'Stück' : 'Stück';
+  if (m.type === 'cast') return k === 1 ? 'Sack' : 'Säcke';
   return k === 1 ? 'Packung' : 'Packungen';
 }
 function repeatHtml(p) {
@@ -992,7 +1033,7 @@ function updateRepeat(p) {
     return `<li class="${checks[l.id] ? 'got' : ''}">
       <input type="checkbox" data-chk="${l.id}" ${checks[l.id] ? 'checked' : ''} aria-label="${esc(m.name)} bereitgelegt">
       <span style="min-width:0"><span class="nname">${esc(m.name)}</span><br><span class="namount">${needText(m, l.use, n)}</span><br>
-        <span class="npack">${per > 0 ? `${packs || 1} ${packWord(m, packs || 1)} nötig · eine ${packWord(m, 1)} reicht für ${amountText(perPack)} Stück` : 'Verbrauch fehlt'}</span></span>
+        <span class="npack">${per <= 0 ? 'Verbrauch fehlt' : m.type === 'wear' ? `hält insgesamt ca. ${amountText(pack)}× · ${packs || 1} Stück nötig` : `${packs || 1} ${packWord(m, packs || 1)} nötig · 1 ${packWord(m, 1)} reicht für ${amountText(perPack)} Stück`}</span></span>
       <span class="ncost num">${moneyFine(unitPrice(m) * total)}</span>
     </li>`;
   }).join('') : '<li><span></span><span class="muted">Noch kein Material im Projekt.</span><span></span></li>';
@@ -1018,7 +1059,10 @@ function bindRepeat(p) {
 }
 
 function updateSums(p) {
-  p.lines.forEach(l => { const el = view.querySelector(`[data-cost="${l.id}"]`); if (el) el.textContent = matById(l.materialId) ? moneyFine(lineCost(l)) : '–'; });
+  p.lines.forEach(l => {
+    const el = view.querySelector(`[data-cost="${l.id}"]`); if (el) el.textContent = matById(l.materialId) ? moneyFine(lineCost(l)) : '–';
+    const h = view.querySelector(`[data-casthint="${l.id}"]`); if (h) h.textContent = castText(matById(l.materialId), l.use, 1);
+  });
   const c = projectCalc(p);
   const r = (label, val, cls = '') => `<div class="rrow ${cls}"><span>${label}</span><span class="num">${val}</span></div>`;
   $('#sum').innerHTML =
@@ -1051,7 +1095,7 @@ function openPicker(p) {
 }
 function addLine(p, materialId) {
   const m = matById(materialId);
-  const use = m.type === 'area' ? { a: '', aUnit: 'cm', b: '', bUnit: 'cm', qty: 1 } : m.type === 'length' ? { a: '', aUnit: 'cm', qty: 1 } : m.type === 'weight' ? { a: '', aUnit: 'g' } : m.type === 'volume' ? { a: '', aUnit: 'ml' } : { a: '' };
+  const use = m.type === 'area' ? { a: '', aUnit: 'cm', b: '', bUnit: 'cm', qty: 1 } : m.type === 'length' ? { a: '', aUnit: 'cm', qty: 1 } : m.type === 'weight' ? { a: '', aUnit: 'g' } : m.type === 'volume' ? { a: '', aUnit: 'ml' } : m.type === 'cast' ? { a: '', aUnit: 'g', mode: 'masse' } : m.type === 'wear' ? { a: 1 } : { a: '' };
   const l = { id: uid(), materialId, use };
   p.lines.push(l); p.example = false; save(); renderProject();
   const first = view.querySelector(`[data-line="${l.id}"] [data-u="a"]`);
@@ -1071,14 +1115,140 @@ function matFieldsHtml(type, p) {
     <label class="f">Länge der Rolle <div class="unitfield"><input type="text" inputmode="decimal" id="mp-length" value="${esc(p.length ?? '')}" placeholder="200">${unitSelect('mp-lengthUnit', ['cm', 'm'], p.lengthUnit || 'm')}</div></label>
     <label class="f">Anzahl Rollen in der Packung <input type="text" inputmode="decimal" id="mp-count" value="${esc(p.count ?? 1)}"></label>`;
   if (type === 'piece') return `<label class="f">Stück in der Packung <input type="text" inputmode="decimal" id="mp-count" value="${esc(p.count ?? '')}" placeholder="100"></label>`;
+  if (type === 'cast') return `<label class="f">Inhalt der Packung <div class="unitfield"><input type="text" inputmode="decimal" id="mp-amount" value="${esc(p.amount ?? '')}" placeholder="5">${unitSelect('mp-unit', ['g', 'kg'], p.unit || 'kg')}</div></label>
+    <label class="f">Mischverhältnis Pulver : Wasser <div class="unitfield"><input type="text" inputmode="decimal" id="mp-ratioP" value="${esc(p.ratioP ?? '')}" placeholder="100" aria-label="Teile Pulver"><span class="muted" style="align-self:center">:</span><input type="text" inputmode="decimal" id="mp-ratioW" value="${esc(p.ratioW ?? '')}" placeholder="30" aria-label="Teile Wasser"></div></label>`;
+  if (type === 'wear') return `<label class="f">Hält ungefähr wie oft? <div class="unitfield"><input type="text" inputmode="decimal" id="mp-count" value="${esc(p.count ?? '')}" placeholder="50"><span class="muted" style="align-self:center">Mal</span></div></label>`;
   if (type === 'weight') return `<label class="f">Inhalt <div class="unitfield"><input type="text" inputmode="decimal" id="mp-amount" value="${esc(p.amount ?? '')}" placeholder="500">${unitSelect('mp-unit', ['g', 'kg'], p.unit || 'g')}</div></label>`;
   return `<label class="f">Inhalt <div class="unitfield"><input type="text" inputmode="decimal" id="mp-amount" value="${esc(p.amount ?? '')}" placeholder="250">${unitSelect('mp-unit', ['ml', 'l'], p.unit || 'ml')}</div></label>`;
 }
+const TYPE_HINT = {
+  cast: 'Das Mischverhältnis steht auf der Packung (nach Gewicht, z. B. 100 g Pulver auf 30 g Wasser). Im Projekt wiegst du dann einfach die fertige Gießmasse oder das fertige Teil, die App rechnet den Pulveranteil aus.',
+  wear: 'Für Dinge, die nicht verbraucht werden, sich aber abnutzen. Beispiel: Silikonform für 15 €, hält ca. 50 Abgüsse → 0,30 € pro Abguss.',
+  area: 'Bei Rollen die Breite nicht vergessen, sie steht auf dem Etikett. Bei Bögen: Länge × Breite eines Bogens und die Anzahl in der Packung.',
+};
+// Vorlagen füllen nur Name, Art und typische Maße aus. Preis und Menge kommen von deiner Packung.
+const PRESETS = [
+  ['Papier & Karton', [
+    ['Bastelpapier, Rolle', 'area', { lengthUnit: 'm', widthUnit: 'cm', count: 1 }],
+    ['Tonkarton, Bogen 50 × 70 cm', 'area', { length: 70, lengthUnit: 'cm', width: 50, widthUnit: 'cm', count: 10 }],
+    ['Fotokarton A4', 'area', { length: 29.7, lengthUnit: 'cm', width: 21, widthUnit: 'cm', count: 50 }],
+    ['Transparentpapier, Bogen', 'area', { lengthUnit: 'cm', widthUnit: 'cm', count: 10 }],
+    ['Seidenpapier, Bogen', 'area', { length: 75, lengthUnit: 'cm', width: 50, widthUnit: 'cm', count: 20 }],
+    ['Krepppapier, Rolle', 'area', { length: 2.5, lengthUnit: 'm', width: 50, widthUnit: 'cm', count: 1 }],
+    ['Wellpappe, Rolle', 'area', { lengthUnit: 'm', widthUnit: 'cm', count: 1 }],
+    ['Geschenkpapier, Rolle', 'area', { lengthUnit: 'm', widthUnit: 'cm', count: 1 }],
+  ]],
+  ['Stoff, Filz & Wolle', [
+    ['Bastelfilz, Platte 20 × 30 cm', 'area', { length: 30, lengthUnit: 'cm', width: 20, widthUnit: 'cm', count: 10 }],
+    ['Filz, Meterware', 'area', { length: 1, lengthUnit: 'm', width: 90, widthUnit: 'cm', count: 1 }],
+    ['Baumwollstoff, Meterware 140 cm breit', 'area', { length: 1, lengthUnit: 'm', width: 140, widthUnit: 'cm', count: 1 }],
+    ['Jutestoff, Meterware', 'area', { length: 1, lengthUnit: 'm', width: 100, widthUnit: 'cm', count: 1 }],
+    ['Wolle / Garn (Knäuel)', 'length', { lengthUnit: 'm', count: 1 }],
+    ['Füllwatte', 'weight', { unit: 'g' }],
+  ]],
+  ['Bänder, Draht & Schnur', [
+    ['Satinband, Rolle', 'length', { lengthUnit: 'm', count: 1 }],
+    ['Juteband, Rolle', 'length', { lengthUnit: 'm', count: 1 }],
+    ['Samtband, Rolle', 'length', { lengthUnit: 'm', count: 1 }],
+    ['Kordel / Baumwollschnur', 'length', { lengthUnit: 'm', count: 1 }],
+    ['Bindedraht, Spule', 'length', { lengthUnit: 'm', count: 1 }],
+    ['Myrtendraht (Silber/Gold)', 'length', { lengthUnit: 'm', count: 1 }],
+    ['Aludraht', 'length', { lengthUnit: 'm', count: 1 }],
+    ['Basteldraht in Stäben', 'piece', {}],
+  ]],
+  ['Gießen & Modellieren', [
+    ['Keramik-Gießpulver', 'cast', { unit: 'kg' }],
+    ['Raysin', 'cast', { unit: 'kg' }],
+    ['Modellgips', 'cast', { unit: 'kg' }],
+    ['Kreativbeton', 'cast', { unit: 'kg' }],
+    ['Gießharz (Epoxid) A + B', 'volume', { unit: 'ml' }],
+    ['Silikonform', 'wear', {}],
+    ['Silikon zum Formenbau', 'weight', { unit: 'g' }],
+    ['Trennmittel', 'volume', { unit: 'ml' }],
+    ['Modelliermasse / Ton', 'weight', { unit: 'g' }],
+    ['Pigment / Farbpulver', 'weight', { unit: 'g' }],
+  ]],
+  ['Farben & Veredeln', [
+    ['Acrylfarbe', 'volume', { unit: 'ml' }],
+    ['Sprühlack / Sprühfarbe', 'volume', { unit: 'ml' }],
+    ['Klarlack / Versiegelung', 'volume', { unit: 'ml' }],
+    ['Kreidefarbe', 'volume', { unit: 'ml' }],
+    ['Glitter', 'weight', { unit: 'g' }],
+    ['Blattgold / Blattmetall', 'piece', {}],
+    ['Serviettenkleber (Decoupage)', 'volume', { unit: 'ml' }],
+  ]],
+  ['Kleben', [
+    ['Heißklebesticks', 'piece', {}],
+    ['Bastelkleber / Holzleim', 'volume', { unit: 'ml' }],
+    ['Doppelseitiges Klebeband', 'length', { lengthUnit: 'm', count: 1 }],
+    ['Klebepunkte', 'piece', {}],
+  ]],
+  ['Kerzen & Seife', [
+    ['Kerzenwachs / Paraffin', 'weight', { unit: 'kg' }],
+    ['Sojawachs', 'weight', { unit: 'kg' }],
+    ['Docht, Rolle', 'length', { lengthUnit: 'm', count: 1 }],
+    ['Docht mit Plättchen', 'piece', {}],
+    ['Duftöl', 'volume', { unit: 'ml' }],
+    ['Wachsfarbe', 'weight', { unit: 'g' }],
+    ['Seifengießmasse', 'weight', { unit: 'kg' }],
+  ]],
+  ['Floristik & Natur', [
+    ['Kranzrohling (Stroh/Styropor)', 'piece', {}],
+    ['Tannengrün, Bund', 'piece', {}],
+    ['Moos', 'weight', { unit: 'g' }],
+    ['Steckmasse / Steckschaum', 'piece', {}],
+    ['Zapfen', 'piece', {}],
+    ['Zimtstangen', 'piece', {}],
+    ['Getrocknete Orangenscheiben', 'piece', {}],
+    ['Holzscheiben', 'piece', {}],
+    ['Drahtkranz / Steckdraht', 'piece', {}],
+  ]],
+  ['Deko-Teile', [
+    ['Glaskugeln', 'piece', {}],
+    ['Holzperlen', 'piece', {}],
+    ['Glöckchen', 'piece', {}],
+    ['Pompons', 'piece', {}],
+    ['Holzsterne / Streuteile', 'piece', {}],
+    ['LED-Lichterkette mit Batterie', 'piece', {}],
+    ['Batterien', 'piece', {}],
+    ['Aufhänger / Ösen', 'piece', {}],
+  ]],
+  ['Verpackung & Verkauf', [
+    ['Geschenktüten / Cellophantüten', 'piece', {}],
+    ['Etiketten / Preisschilder', 'piece', {}],
+    ['Geschenkkarton', 'piece', {}],
+    ['Packseide', 'area', { lengthUnit: 'cm', widthUnit: 'cm', count: 1 }],
+  ]],
+  ['Werkzeug (Verschleiß)', [
+    ['Motivstanzer', 'wear', {}],
+    ['Cutterklingen', 'wear', {}],
+    ['Pinsel', 'wear', {}],
+    ['Brennofen: Strom pro Brand', 'wear', { count: 1 }],
+  ]],
+];
+function presetOptions() {
+  return '<option value="">– eigene Bezeichnung –</option>' + PRESETS.map(([g, list], gi) =>
+    `<optgroup label="${esc(g)}">${list.map(([n], i) => `<option value="${gi}.${i}">${esc(n)}</option>`).join('')}</optgroup>`).join('');
+}
+function showTypeHint() {
+  const h = $('#m-typehint'), t = TYPE_HINT[$('#m-type').value];
+  h.hidden = !t; h.textContent = t || '';
+}
+$('#m-tpl').addEventListener('change', e => {
+  if (!e.target.value) return;
+  const [gi, i] = e.target.value.split('.').map(Number);
+  const [n, type, pack] = PRESETS[gi][1][i];
+  $('#m-name').value = n;
+  $('#m-type').value = type;
+  $('#m-fields').innerHTML = matFieldsHtml(type, pack);
+  showTypeHint(); refreshMatPreview();
+  const first = $('#m-fields input'); if (first) first.focus();
+});
 function readMatForm() {
   const type = $('#m-type').value;
   const v = id => { const el = $('#' + id); return el ? el.value : undefined; };
   const pack = {};
-  ['length', 'lengthUnit', 'width', 'widthUnit', 'count', 'amount', 'unit'].forEach(k => { const x = v('mp-' + k); if (x !== undefined) pack[k] = x; });
+  ['length', 'lengthUnit', 'width', 'widthUnit', 'count', 'amount', 'unit', 'ratioP', 'ratioW'].forEach(k => { const x = v('mp-' + k); if (x !== undefined) pack[k] = x; });
   return { name: $('#m-name').value.trim(), type, price: $('#m-price').value, note: $('#m-note').value.trim(), pack };
 }
 function refreshMatPreview() {
@@ -1097,11 +1267,14 @@ function openMaterial(m, done) {
   $('#m-fields').innerHTML = matFieldsHtml($('#m-type').value, m && m.pack);
   d.querySelectorAll('.cur').forEach(e => e.textContent = state.settings.currency);
   $('#m-delete').hidden = !m;
+  $('#m-tpl').innerHTML = presetOptions();
+  $('#m-tpl-wrap').hidden = !!m;
+  showTypeHint();
   refreshMatPreview();
   d.showModal();
-  setTimeout(() => $('#m-name').focus(), 30);
+  setTimeout(() => (m ? $('#m-name') : $('#m-tpl')).focus(), 30);
 }
-$('#m-type').addEventListener('change', () => { $('#m-fields').innerHTML = matFieldsHtml($('#m-type').value, null); refreshMatPreview(); });
+$('#m-type').addEventListener('change', () => { $('#m-fields').innerHTML = matFieldsHtml($('#m-type').value, null); showTypeHint(); refreshMatPreview(); });
 $('#form-mat').addEventListener('input', refreshMatPreview);
 $('#form-mat').addEventListener('change', refreshMatPreview);
 $('#form-mat').addEventListener('submit', e => {
