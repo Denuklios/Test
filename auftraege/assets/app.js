@@ -143,7 +143,7 @@ const route = (re, fn) => routes.push([re, fn]);
 async function render() {
   if (!me) return;
   const hash = location.hash.replace(/^#/, '') || '/';
-  const navHash = /^\/(expense|bank|invoice)/.test(hash) ? '/invoices' : hash;
+  const navHash = /^\/(expense|bank|invoice|tax)/.test(hash) ? '/invoices' : hash;
   document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('on', a.dataset.r && (navHash === a.dataset.r || (a.dataset.r !== '/' && navHash.startsWith(a.dataset.r)))));
   for (const [re, fn] of routes) {
     const m = re.exec(hash);
@@ -184,6 +184,11 @@ route(/^\/$/, async () => {
       h('label', { class: 'chip' + (filt.overdue ? ' on' : ''), style: 'margin:0', onclick: (e) => { filt.overdue = !filt.overdue; e.currentTarget.classList.toggle('on', filt.overdue); load(); } }, t('only_overdue'))),
     list);
   await load();
+  // Hinweis, wenn in der Buchhaltung etwas Wichtiges offen ist (Frist, Backup, Schwellen)
+  api('tax_overview').then((t0) => {
+    const n = t0.warnings.filter((w) => w.level !== 'info').length;
+    if (n && location.hash.replace(/^#/, '') in { '': 1, '/': 1 }) view().prepend(h('a', { class: 'alertbar', href: '#/tax' }, h('span', {}, t0.warnings.some((w) => w.level === 'bad') ? '⛔' : '⚠'), h('span', {}, t('alert_tax', n)), h('b', { style: 'margin-left:auto' }, '→')));
+  }).catch(() => {});
 });
 
 function orderCard(o) {
@@ -1004,7 +1009,7 @@ function invoiceView(i) {
 }
 
 // ---------- Ausgaben & Bank ----------
-const moneyTabs = (on) => h('div', { class: 'mtabs' }, [['/invoices', t('tab_invoices')], ['/expenses', t('tab_expenses')], ['/bank', t('tab_bank')]].map(([r, l]) => h('a', { href: '#' + r, class: r === on ? 'on' : '' }, l)));
+const moneyTabs = (on) => h('div', { class: 'mtabs' }, [['/invoices', t('tab_invoices')], ['/expenses', t('tab_expenses')], ['/bank', t('tab_bank')], ['/tax', t('tab_tax')]].map(([r, l]) => h('a', { href: '#' + r, class: r === on ? 'on' : '' }, l)));
 const catName = (k) => { const c = me.exp_categories[k] || me.exp_categories.misc; return lang === 'da' ? c[1] : c[0]; };
 const catInfo = (k) => { const c = me.exp_categories[k] || me.exp_categories.misc; return lang === 'da' ? c[5] : c[4]; };
 const catShare = (k) => { const c = me.exp_categories[k] || me.exp_categories.misc; return c[2] === 'phone' ? +(me.company.phone_share ?? 50) : +c[2]; };
@@ -1218,6 +1223,104 @@ route(/^\/bank$/, async () => {
       h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => csvIn.click() }, '⬆ ' + t('bank_import')), csvIn,
         h('select', { onchange: (ev) => { bankShow = ev.target.value; render(); } }, [['open', t('bank_show_open', open)], ['all', t('bank_show_all')]].map(([v, l]) => h('option', { value: v, selected: bankShow === v }, l))))),
     tx.length ? h('div', { class: 'btxs' }, tx.map(txCard)) : h('div', { class: 'empty' }, bankShow === 'open' ? t('bank_none_open') : t('bank_none')));
+});
+
+// ---------- Moms-Cockpit ----------
+const kr = (c) => Math.round((+c || 0) / 100);
+const krFmt = (c) => new Intl.NumberFormat(lang === 'da' ? 'da-DK' : 'de-DE').format(kr(c)) + ' kr.';
+function periodLabel(p) {
+  if (p.kind === 'month') return `${String(p.idx).padStart(2, '0')}/${p.year}`;
+  return t(p.kind === 'quarter' ? 'per_q' : 'per_h', p.idx, p.year);
+}
+function warnText(w) {
+  const per = w.quarter ? t('per_q', ...w.quarter.split('/')) : w.from ? periodLabel(taxPeriodOf(w.from)) : '';
+  return t('w_' + w.code, w.n ?? per, w.date ? dfmt(w.date) : '', w.days ?? '', w.amount != null ? (w.code.startsWith('oss') ? new Intl.NumberFormat(lang === 'da' ? 'da-DK' : 'de-DE').format(Math.round(w.amount / 100)) + ' €' : krFmt(w.amount)) : '', w.problems || '');
+}
+let taxPeriods = [];
+const taxPeriodOf = (from) => taxPeriods.find((p) => p.from === from) || { kind: 'half', idx: 1, year: from.slice(0, 4) };
+const W_LINK = { company_missing: '#/settings', bank_open: '#/bank', expense_drafts: '#/expenses', invoices_overdue: '#/invoices', no_receipt: '#/expenses' };
+let taxYear = new Date().getFullYear();
+let taxSel = null;
+
+route(/^\/tax$/, async () => {
+  const o = await api('tax_overview', { params: { year: taxYear } });
+  taxPeriods = o.periods;
+  const today0 = today();
+  if (!taxSel || !o.periods.some((p) => p.from === taxSel)) {
+    const pick = o.periods.find((p) => ['overdue', 'due'].includes(p.state)) || o.periods.find((p) => p.state === 'running') || o.periods[o.periods.length - 1];
+    taxSel = pick.from;
+  }
+  const sel = o.periods.find((p) => p.from === taxSel);
+  const SCOLT = { reported: 'var(--ok)', running: 'var(--info)', due: 'var(--warn)', overdue: 'var(--bad)', future: 'var(--muted)', none: 'var(--faint)' };
+  const stTxt = (p) => p.state === 'due' ? t('ps_due', Math.max(0, Math.round((new Date(p.deadline) - new Date(today0)) / 864e5))) : t('ps_' + p.state);
+  const repBox = h('div', { class: 'card' }, h('p', { class: 'muted' }, '…'));
+  const th = o.thresholds;
+  const bar = (label, val, max, fmt, note) => h('div', { class: 'thr' }, h('div', { class: 'thr-h' }, h('span', {}, label), h('b', {}, fmt(val) + ' / ' + fmt(max))),
+    h('div', { class: 'thr-bar' }, h('i', { style: `width:${Math.min(100, Math.max(0, val / max * 100))}%;background:${val >= max ? 'var(--bad)' : val >= max * 0.8 ? 'var(--warn)' : 'var(--ok)'}` })), note ? h('small', { class: 'muted' }, note) : null);
+  const eurFmt = (c) => new Intl.NumberFormat(lang === 'da' ? 'da-DK' : 'de-DE').format(Math.round(c / 100)) + ' €';
+  const yearSel = h('select', { onchange: (e) => { taxYear = +e.target.value; taxSel = null; render(); } }, [0, 1, 2, 3, 4, 5].map((k) => { const y = new Date().getFullYear() - k; return h('option', { value: y, selected: y === taxYear }, y); }));
+  const revYear = h('select', {}, [1, 0, 2, 3, 4, 5].map((k) => { const y = new Date().getFullYear() - k; return h('option', { value: y }, y); }));
+  show(
+    h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('money_eyebrow')), h('h1', {}, t('tax_h1_a'), ' ', h('em', {}, t('tax_h1_b'))))),
+    moneyTabs('/tax'),
+    h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:8px' }, t('todo_title')),
+      o.warnings.length ? h('div', { class: 'warns' }, o.warnings.map((w) => {
+        const inner = [h('span', { class: 'wi' }, w.level === 'bad' ? '⛔' : w.level === 'warn' ? '⚠' : 'ℹ'), h('span', {}, warnText(w))];
+        if (w.code === 'backup') return h('a', { class: 'warn ' + w.level, href: `${BASE}api.php?a=backup` }, inner);
+        if (w.from) return h('a', { class: 'warn ' + w.level, href: '#/tax', onclick: (e) => { e.preventDefault(); taxSel = w.from; render(); } }, inner);
+        return W_LINK[w.code] ? h('a', { class: 'warn ' + w.level, href: W_LINK[w.code] }, inner) : h('div', { class: 'warn ' + w.level }, inner);
+      })) : h('p', { class: 'ok-t' }, '✓ ' + t('todo_none'))),
+    h('div', { class: 'card' }, h('div', { class: 'row', style: 'justify-content:space-between;margin-bottom:10px' }, h('h3', {}, t('periods_title', t('per_' + o.moms_period))), yearSel),
+      h('div', { class: 'pers' }, o.periods.map((p) => h('button', { class: 'per' + (p.from === taxSel ? ' on' : ''), style: `--pc:${SCOLT[p.state]}`, onclick: () => { taxSel = p.from; render(); } },
+        h('b', {}, periodLabel(p)), h('small', {}, `${t('deadline')} ${dfmt(p.deadline)}`), h('span', { class: 'pst' }, stTxt(p)))))),
+    repBox,
+    o.eu_quarters.length ? h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:6px' }, t('eu_title')), h('p', { class: 'muted', style: 'margin:0 0 10px' }, t('eu_text')),
+      o.eu_quarters.map((q) => h('div', { class: 'euq' },
+        h('div', { class: 'row', style: 'justify-content:space-between' }, h('b', {}, t('per_q', q.idx, q.year)),
+          q.reported_at ? pill('✓ ' + t('ps_reported'), 'var(--ok)') : h('button', { class: 'btn small primary', onclick: async () => { if (confirm(t('eu_mark_confirm'))) { await api('eu_sales_mark', { body: { from: q.from } }); render(); } } }, t('mark_reported'))),
+        h('small', { class: 'muted' }, `${t('deadline')} ${dfmt(q.eu_deadline)}`),
+        h('div', { class: 'tscroll' }, h('table', { class: 't' }, h('tr', {}, h('th', {}, t('vat_id')), h('th', {}, t('company')), h('th', { class: 'n' }, t('goods')), h('th', { class: 'n' }, t('services'))),
+          q.sales.map((x) => h('tr', {}, h('td', {}, x.vat_id), h('td', {}, x.name), h('td', { class: 'n' }, krFmt(x.goods)), h('td', { class: 'n' }, krFmt(x.services))))))))) : null,
+    h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:10px' }, t('thr_title')),
+      bar(t('thr_rev', taxYear), th.revenue_this, 30000000, krFmt, t('thr_rev_note')),
+      bar(t('thr_rev', taxYear - 1), th.revenue_last, 30000000, krFmt),
+      !me.company.moms_registered ? bar(t('thr_moms'), th.revenue_12m, 5000000, krFmt, t('thr_moms_note')) : null,
+      bar(t('thr_oss'), th.oss_eur, 1000000, eurFmt, t('thr_oss_note'))),
+    h('div', { class: 'card' }, h('h3', {}, t('rev_title')), h('p', { class: 'muted' }, t('rev_text')),
+      h('div', { class: 'row' }, revYear, h('button', { class: 'btn primary', onclick: () => { location.href = `${BASE}api.php?a=revisor_zip&year=${revYear.value}`; } }, '⬇ ' + t('rev_download')))));
+
+  // Momsangivelse des gewaehlten Zeitraums
+  const { report: r, reported } = await api('tax_report', { params: { from: sel.from, to: sel.to } });
+  const shown = reported ? reported.data : r;
+  const F = [
+    ['salgsmoms', 'f_salgsmoms'], ['moms_varekoeb_udland', 'f_varekoeb'], ['moms_ydelseskoeb_udland', 'f_ydelseskoeb'], ['koebsmoms', 'f_koebsmoms'],
+    ['rubrik_a_varer', 'f_a_varer'], ['rubrik_a_ydelser', 'f_a_ydelser'], ['rubrik_b_varer', 'f_b_varer'], ['rubrik_b_ydelser', 'f_b_ydelser'], ['rubrik_c', 'f_c']];
+  const copyBtn = (c) => h('button', { class: 'btn small', onclick: () => navigator.clipboard.writeText(String(kr(c))).then(() => toast(t('copied') + ': ' + kr(c))) }, '⧉');
+  const fieldRow = ([k, label]) => h('div', { class: 'vrow' + (shown[k] ? '' : ' zero') }, h('div', {}, h('div', {}, t(label)), lang !== 'da' ? h('small', { class: 'muted' }, t(label + '_x')) : null), h('b', {}, krFmt(shown[k])), copyBtn(shown[k]));
+  const changed = reported && (r.momstilsvar !== reported.momstilsvar);
+  repBox.replaceChildren(...[
+    h('div', { class: 'row', style: 'justify-content:space-between' }, h('h3', {}, t('report_title', periodLabel(sel))), pill(stTxt(sel), SCOLT[sel.state])),
+    h('p', { class: 'muted', style: 'margin:4px 0 12px' }, `${dfmt(sel.from)} – ${dfmt(sel.to)} · ${t('deadline')} ${dfmt(sel.deadline)} · ${t('report_counts', r.invoices, r.expenses)}`),
+    sel.state === 'running' ? h('p', { class: 'warn-t' }, t('report_running')) : null,
+    r.drafts && !reported ? h('p', { class: 'warn-t' }, '⚠ ' + t('report_drafts', r.drafts)) : null,
+    h('div', { class: 'vrows' }, F.slice(0, 4).map(fieldRow),
+      h('div', { class: 'vrow total' }, h('div', {}, t(shown.momstilsvar < 0 ? 'f_tilsvar_neg' : 'f_tilsvar')), h('b', {}, krFmt(Math.abs(shown.momstilsvar))), copyBtn(shown.momstilsvar)),
+      h('div', { class: 'sechead', style: 'margin-top:12px' }, t('rubrikker')), F.slice(4).map(fieldRow)),
+    h('p', { class: 'muted', style: 'font-size:.82rem;margin:10px 0 0' }, t('report_hint')),
+    shown.eu_sales && shown.eu_sales.length ? h('div', { style: 'margin-top:14px' }, h('div', { class: 'sechead' }, t('eu_sales_title')),
+      h('div', { class: 'tscroll' }, h('table', { class: 't' }, h('tr', {}, h('th', {}, t('vat_id')), h('th', {}, t('company')), h('th', { class: 'n' }, t('goods')), h('th', { class: 'n' }, t('services'))),
+        shown.eu_sales.map((x) => h('tr', {}, h('td', {}, x.vat_id), h('td', {}, x.name), h('td', { class: 'n' }, krFmt(x.goods)), h('td', { class: 'n' }, krFmt(x.services))))))) : null,
+    reported ? h('div', { class: 'confok', style: 'margin-top:14px' }, h('b', {}, '✓ ' + t('reported_at', reported.reported_at.slice(0, 16), reported.reported_by)),
+      changed ? h('span', { class: 'warn-t' }, t('reported_changed')) : null)
+      : ['due', 'overdue'].includes(sel.state) ? h('div', { class: 'row end', style: 'margin-top:14px' }, h('button', { class: 'btn primary', onclick: async () => {
+        if (!confirm(t('mark_confirm', periodLabel(sel), krFmt(r.momstilsvar)))) return;
+        try { await api('vat_return_mark', { body: { from: sel.from, to: sel.to } }); }
+        catch (e) {
+          if (e.code !== 'period_drafts' || !confirm(t('mark_drafts_confirm'))) { toast(e.message); return; }
+          await api('vat_return_mark', { body: { from: sel.from, to: sel.to, ignore_drafts: 1 } });
+        }
+        toast(t('saved')); render();
+      } }, '✓ ' + t('mark_reported'))) : null].filter(Boolean));
 });
 
 // ---------- Einstellungen ----------

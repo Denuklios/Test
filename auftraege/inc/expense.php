@@ -80,6 +80,9 @@ function wf_exp_fingerprint(array $e): string
     foreach ($k as $x) {
         $h[$x] = (string)($e[$x] ?? '');
     }
+    if (!empty($e['vat_date']) && $e['vat_date'] !== $e['date']) {
+        $h['vat_date'] = (string)$e['vat_date'];
+    }
     if (!empty($e['file_stored'])) {
         $p = rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/' . $e['file_stored'];
         $h['file_sha256'] = is_file($p) ? hash_file('sha256', $p) : '';
@@ -119,13 +122,16 @@ function wf_exp_approve(PDO $db, int $id, string $user): int
         }
         $c = wf_exp_calc((int)$e['gross'], (int)$e['vat'], $e['vat_mode'], (int)$e['vat_share'], $e['rate']);
         $number = (int)($db->query("SELECT COALESCE(MAX(number),0) FROM expenses WHERE status = 'final'")->fetchColumn()) + 1;
-        $e = array_replace($e, $c, ['number' => $number]);
+        // Momsdatum: Belegdatum; liegt es in einem schon gemeldeten Zeitraum, zaehlt die Ausgabe im naechsten offenen Zeitraum
+        $lastRep = (string)($db->query('SELECT MAX(period_to) FROM vat_returns')->fetchColumn() ?: '');
+        $vatDate = ($lastRep !== '' && $e['date'] <= $lastRep) ? date('Y-m-d', strtotime($lastRep . ' +1 day')) : $e['date'];
+        $e = array_replace($e, $c, ['number' => $number, 'vat_date' => $vatDate]);
         $hash = wf_exp_fingerprint($e);
-        $db->prepare("UPDATE expenses SET number=?, vat=?, gross_dkk=?, vat_dkk=?, net_dkk=?, rc_vat_dkk=?, deduct_dkk=?, hash=?, status='final', approved_at=datetime('now'), approved_by=? WHERE id = ? AND status = 'draft'")
-            ->execute([$number, $c['vat'], $c['gross_dkk'], $c['vat_dkk'], $c['net_dkk'], $c['rc_vat_dkk'], $c['deduct_dkk'], $hash, $user, $id]);
+        $db->prepare("UPDATE expenses SET number=?, vat=?, gross_dkk=?, vat_dkk=?, net_dkk=?, rc_vat_dkk=?, deduct_dkk=?, vat_date=?, hash=?, status='final', approved_at=datetime('now'), approved_by=? WHERE id = ? AND status = 'draft'")
+            ->execute([$number, $c['vat'], $c['gross_dkk'], $c['vat_dkk'], $c['net_dkk'], $c['rc_vat_dkk'], $c['deduct_dkk'], $vatDate, $hash, $user, $id]);
         wf_journal($db, $user, 'expense_final', $id, ['number' => $number, 'date' => $e['date'], 'supplier' => $e['supplier'], 'category' => $e['category'],
             'vat_mode' => $e['vat_mode'], 'gross_dkk' => $c['gross_dkk'], 'vat_dkk' => $c['vat_dkk'], 'rc_vat_dkk' => $c['rc_vat_dkk'], 'deduct_dkk' => $c['deduct_dkk'],
-            'reverses' => $e['reverses'] ? (int)$e['reverses'] : null, 'hash' => $hash]);
+            'reverses' => $e['reverses'] ? (int)$e['reverses'] : null, 'vat_date' => $vatDate, 'hash' => $hash]);
         $db->commit();
         return $number;
     } catch (Throwable $ex) {

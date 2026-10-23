@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 9) {
+    if ($v >= 10) {
         return;
     }
     if ($v < 1) {
@@ -32,7 +32,52 @@ function wf_migrate(PDO $db): void
     if ($v < 8) {
         wf_migrate_v8($db);
     }
-    wf_migrate_v9($db);
+    if ($v < 9) {
+        wf_migrate_v9($db);
+    }
+    wf_migrate_v10($db);
+}
+
+/**
+ * Version 10: Momsangivelse.
+ * - vat_returns: gemeldete Zeitraeume (mit den gemeldeten Zahlen); Rechnungen in gemeldeten Zeitraeumen koennen nicht mehr festgeschrieben werden
+ * - expenses.vat_date: Momsdatum; liegt das Belegdatum in einem gemeldeten Zeitraum, zaehlt die Ausgabe im naechsten offenen Zeitraum
+ */
+function wf_migrate_v10(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    CREATE TABLE vat_returns (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      period_from TEXT NOT NULL,
+      period_to TEXT NOT NULL,
+      data TEXT NOT NULL,
+      momstilsvar INTEGER NOT NULL,
+      reported_at TEXT NOT NULL DEFAULT (datetime('now')),
+      reported_by TEXT NOT NULL DEFAULT '',
+      UNIQUE (period_from, period_to)
+    );
+    CREATE TRIGGER vat_returns_lock_upd BEFORE UPDATE ON vat_returns BEGIN SELECT RAISE(ABORT, 'period_locked'); END;
+    CREATE TRIGGER vat_returns_lock_del BEFORE DELETE ON vat_returns BEGIN SELECT RAISE(ABORT, 'period_locked'); END;
+    ALTER TABLE expenses ADD COLUMN vat_date TEXT;
+    UPDATE expenses SET vat_date = date WHERE status = 'final';
+    DROP TRIGGER exp_lock_update;
+    CREATE TRIGGER exp_lock_update BEFORE UPDATE ON expenses
+    WHEN OLD.status = 'final' AND (
+      NEW.status IS NOT OLD.status OR NEW.number IS NOT OLD.number OR NEW.date IS NOT OLD.date OR NEW.supplier IS NOT OLD.supplier
+      OR NEW.supplier_country IS NOT OLD.supplier_country OR NEW.supplier_vat IS NOT OLD.supplier_vat OR NEW.doc_no IS NOT OLD.doc_no
+      OR NEW.description IS NOT OLD.description OR NEW.category IS NOT OLD.category OR NEW.currency IS NOT OLD.currency
+      OR NEW.rate IS NOT OLD.rate OR NEW.rate_date IS NOT OLD.rate_date OR NEW.gross IS NOT OLD.gross OR NEW.vat IS NOT OLD.vat
+      OR NEW.vat_mode IS NOT OLD.vat_mode OR NEW.vat_share IS NOT OLD.vat_share OR NEW.gross_dkk IS NOT OLD.gross_dkk
+      OR NEW.net_dkk IS NOT OLD.net_dkk OR NEW.vat_dkk IS NOT OLD.vat_dkk OR NEW.rc_vat_dkk IS NOT OLD.rc_vat_dkk
+      OR NEW.deduct_dkk IS NOT OLD.deduct_dkk OR NEW.file_stored IS NOT OLD.file_stored OR NEW.no_receipt IS NOT OLD.no_receipt
+      OR NEW.note IS NOT OLD.note OR NEW.reverses IS NOT OLD.reverses OR NEW.hash IS NOT OLD.hash
+      OR NEW.approved_at IS NOT OLD.approved_at OR NEW.approved_by IS NOT OLD.approved_by OR NEW.created_at IS NOT OLD.created_at
+      OR NEW.vat_date IS NOT OLD.vat_date)
+    BEGIN SELECT RAISE(ABORT, 'expense_locked'); END;
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '10');
+    ");
+    $db->commit();
 }
 
 /**

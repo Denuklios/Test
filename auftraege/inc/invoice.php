@@ -414,6 +414,10 @@ function wf_inv_approve(PDO $db, int $id, string $user): array
         if ($i['issue_date'] > $today) {
             throw new RuntimeException('issue_in_future');
         }
+        $rep = (string)($db->query('SELECT MAX(period_to) FROM vat_returns')->fetchColumn() ?: '');
+        if ($rep !== '' && $i['issue_date'] <= $rep) {
+            throw new RuntimeException('period_reported:' . $rep);
+        }
         $last = (string)($db->query("SELECT MAX(issue_date) FROM invoices WHERE status = 'final'")->fetchColumn() ?: '');
         if ($last !== '' && $i['issue_date'] < $last) {
             throw new RuntimeException('issue_before_last:' . $last);

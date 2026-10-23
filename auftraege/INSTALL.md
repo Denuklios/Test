@@ -71,6 +71,14 @@ Unter **Einstellungen**:
 
 **Belegerkennung einrichten (optional):** Bei Anthropic (platform.claude.com) ein Konto anlegen, unter „API Keys“ einen Schlüssel erzeugen und unter Einstellungen → „Belegerkennung mit Claude“ eintragen. Kosten etwa 1–3 Cent pro Beleg. Der Server braucht dafür ausgehenden Zugriff auf api.anthropic.com.
 
+**Moms & Fristen (Buchhaltung → Moms):** Das Cockpit zeigt oben alles, was zu tun ist (überfällige oder bald fällige Momsangivelse, EU-salg-Meldung, offene Kontobewegungen, Entwürfe, überfällige Rechnungen, fehlende Belegfotos, altes Backup, Umsatzgrenzen). Auf der Startseite erscheint ein roter Balken, solange dort etwas Wichtiges offen ist.
+- **Momsangivelse:** Für jeden Zeitraum (halbjährlich, vierteljährlich oder monatlich laut Firmendaten) stehen die TastSelv-Felder fertig da: Salgsmoms, Moms af varekøb/ydelseskøb i udlandet, Købsmoms, Momstilsvar und die Rubrikker A, B, C. Mit ⧉ kopierst du jede Zahl (ganze Kronen) und trägst sie in TastSelv Erhverv → Moms ein.
+- **Als gemeldet markieren:** Danach sind die Zahlen eingefroren. Rechnungen mit Datum in diesem Zeitraum lassen sich nicht mehr festschreiben. Ein später gefundener Beleg zählt automatisch im nächsten offenen Zeitraum.
+- **EU-salg uden moms:** Quartalsweise Liste je Kunden-USt-IdNr. (Frist am 25. nach dem Quartal), mit Haken „gemeldet“.
+- **Grenzen:** Nettoumsatz gegen 300.000 kr. (digitale Buchführungspflicht), 50.000 kr. (Momsregistrierung, falls nicht registriert) und 10.000 € an EU-Privatkunden (OSS).
+- **Paket für den Revisor:** ein ZIP pro Jahr mit allen Rechnungen (CSV und als Dokument), Zahlungen, Ausgaben mit Belegfotos, Kontoauszug, Momsangivelser und Journal inkl. Prüfergebnis. Braucht die PHP-Erweiterung ZIP (bei one.com Standard).
+- Fristen werden auf den nächsten Werktag geschoben. Feiertage kennt die App nicht; im Zweifel zählt die Frist bei skat.dk.
+
 **Prüfkette:** Jede Festschreibung, Zahlung und Stornierung steht in einem Journal mit Hash-Kette. „Prüfkette kontrollieren“ (Einstellungen) zeigt, ob alles unverändert und lückenlos ist.
 
 **Internet-Zugriff vom Server:** Tageskurs, CVR-Abruf (cvrapi.dk) und VIES-Prüfung brauchen ausgehende Verbindungen von one.com (Nationalbank, EU-Kommission). Klappt das nicht, Kurs von Hand eintragen; die USt-IdNr. kann man dann unter ec.europa.eu/taxation_customs/vies prüfen.
@@ -86,4 +94,4 @@ Seite im Handy-Browser öffnen → Menü → „Zur Startseite hinzufügen“ (A
 - Schriften liegen lokal, kein Tracking. Externe Abfragen nur für Tageskurs (Nationalbank/EZB) und USt-IdNr.-Prüfung (EU-VIES).
 
 ## Tests (lokal, optional)
-`node auftraege/tests/api.test.mjs` und `node auftraege/tests/invoice.test.mjs` (benötigt PHP 8.x mit pdo_sqlite und Node 18+).
+`node auftraege/tests/api.test.mjs`, `invoice.test.mjs`, `expense.test.mjs` und `tax.test.mjs` (benötigt PHP 8.x mit pdo_sqlite und Node 18+).

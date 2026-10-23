@@ -5,6 +5,7 @@ require __DIR__ . '/inc/display.php';
 require_once __DIR__ . '/inc/invoice.php';
 require __DIR__ . '/inc/confirm.php';
 require_once __DIR__ . '/inc/expense.php';
+require_once __DIR__ . '/inc/tax.php';
 
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
@@ -966,7 +967,8 @@ try {
         }
 
         case 'backup': {
-            // Konsistente Kopie der SQLite-Datei.
+            // Konsistente Kopie der SQLite-Datei; Datum fuer die Erinnerung merken
+            $db->exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('last_backup', date('now','localtime'))");
             $tmp = tempnam(sys_get_temp_dir(), 'wfb');
             $db->exec("VACUUM INTO '" . str_replace("'", "''", $tmp . '.sqlite') . "'");
             header('Content-Type: application/octet-stream');
@@ -1621,6 +1623,93 @@ try {
             wf_json(['ok' => true, 'id' => $id]);
         }
 
+
+        // ---------- Moms-Cockpit ----------
+        case 'tax_overview': {
+            $y = (int)($_GET['year'] ?? date('Y'));
+            if ($y < 2000 || $y > 2100) {
+                wf_fail('bad_date');
+            }
+            wf_json(['ok' => true] + wf_tax_overview($db, $y));
+        }
+
+        case 'tax_report': {
+            $from = date_or_null($_GET, 'from');
+            $to = date_or_null($_GET, 'to');
+            if (!$from || !$to || $to < $from) {
+                wf_fail('bad_date');
+            }
+            $v = $db->prepare('SELECT * FROM vat_returns WHERE period_from = ? AND period_to = ?');
+            $v->execute([$from, $to]);
+            $rep = $v->fetch() ?: null;
+            if ($rep) {
+                $rep['data'] = json_decode($rep['data'], true);
+            }
+            wf_json(['ok' => true, 'report' => wf_vat_report($db, $from, $to), 'reported' => $rep]);
+        }
+
+        // Zeitraum als bei SKAT gemeldet markieren: Zahlen werden eingefroren, Rechnungen in dem Zeitraum sind danach gesperrt
+        case 'vat_return_mark': {
+            need_post();
+            $from = date_or_null($in, 'from');
+            $to = date_or_null($in, 'to');
+            $co = wf_company();
+            $valid = false;
+            foreach (wf_vat_periods((int)substr((string)$from, 0, 4), $co['moms_period']) as $p) {
+                $valid = $valid || ($p['from'] === $from && $p['to'] === $to);
+            }
+            if (!$valid) {
+                wf_fail('bad_period');
+            }
+            if ($to >= date('Y-m-d')) {
+                wf_fail('period_running');
+            }
+            $prev = (string)($db->query('SELECT MAX(period_to) FROM vat_returns')->fetchColumn() ?: '');
+            if ($prev !== '' && $from <= $prev) {
+                wf_fail('period_locked');
+            }
+            $r = wf_vat_report($db, (string)$from, (string)$to);
+            if ($r['drafts'] && empty($in['ignore_drafts'])) {
+                wf_fail('period_drafts', 400, ['detail' => (string)$r['drafts']]);
+            }
+            $db->beginTransaction();
+            $db->prepare('INSERT INTO vat_returns (period_from, period_to, data, momstilsvar, reported_by) VALUES (?,?,?,?,?)')
+                ->execute([$from, $to, json_encode($r, JSON_UNESCAPED_UNICODE), $r['momstilsvar'], $user['name']]);
+            wf_journal($db, $user['name'], 'vat_return', null, ['from' => $from, 'to' => $to, 'momstilsvar' => $r['momstilsvar'], 'salgsmoms' => $r['salgsmoms'], 'koebsmoms' => $r['koebsmoms']]);
+            $db->commit();
+            wf_json(['ok' => true]);
+        }
+
+        case 'eu_sales_mark': {
+            need_post();
+            $from = date_or_null($in, 'from');
+            if (!$from || !preg_match('/-(01|04|07|10)-01$/', $from)) {
+                wf_fail('bad_period');
+            }
+            $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES (?, datetime('now','localtime'))")->execute(['eu_reported:' . $from]);
+            wf_journal($db, $user['name'], 'eu_sales_reported', null, ['quarter_from' => $from]);
+            wf_json(['ok' => true]);
+        }
+
+        case 'revisor_zip': {
+            $y = (int)($_GET['year'] ?? 0);
+            if ($y < 2000 || $y > 2100) {
+                wf_fail('bad_date');
+            }
+            try {
+                $f = wf_revisor_zip($db, $y);
+            } catch (RuntimeException $e) {
+                wf_fail($e->getMessage(), 500);
+            }
+            $co = wf_company();
+            header('Content-Type: application/zip');
+            header('Content-Disposition: attachment; filename="regnskab-' . $y . '-' . preg_replace('/\D/', '', (string)$co['cvr']) . '.zip"');
+            header('Content-Length: ' . filesize($f));
+            readfile($f);
+            @unlink($f);
+            exit;
+        }
+
         case 'journal_verify':
             wf_json(['ok' => true] + wf_journal_verify($db));
 
@@ -1632,7 +1721,7 @@ try {
         $db->rollBack();
     }
     // Datenbank-Sperren (Trigger) als verstaendlicher Fehler statt Serverfehler
-    if (preg_match('/(invoice_locked|payment_locked|journal_locked|invoice_not_final|expense_locked|confirmation_locked)/', $e->getMessage(), $m)) {
+    if (preg_match('/(invoice_locked|payment_locked|journal_locked|invoice_not_final|expense_locked|confirmation_locked|period_locked)/', $e->getMessage(), $m)) {
         wf_fail($m[1], 409);
     }
     error_log('auftraege api: ' . $e->getMessage());
