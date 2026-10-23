@@ -1,0 +1,138 @@
+package de.obdwerkstatt.core;
+
+import java.io.IOException;
+import java.util.List;
+
+/** Ansteuerung eines ELM327 (oder kompatiblen) Adapters. */
+public final class Elm327 {
+    public final Transport transport;
+    public String version = "";
+    public String protocolDesc = "";
+    /** ELM-Protokollnummer 1..C (6..9 = CAN). */
+    public int protocol;
+
+    /** Protokollnamen für ATSP-Auswahl. */
+    public static final String[] PROTOCOLS = {
+            "0 – Automatisch",
+            "1 – SAE J1850 PWM (Ford)",
+            "2 – SAE J1850 VPW (GM)",
+            "3 – ISO 9141-2",
+            "4 – ISO 14230-4 KWP (5 Baud)",
+            "5 – ISO 14230-4 KWP (schnell)",
+            "6 – ISO 15765-4 CAN 11 Bit 500 kBit/s",
+            "7 – ISO 15765-4 CAN 29 Bit 500 kBit/s",
+            "8 – ISO 15765-4 CAN 11 Bit 250 kBit/s",
+            "9 – ISO 15765-4 CAN 29 Bit 250 kBit/s",
+    };
+
+    public Elm327(Transport t) {
+        this.transport = t;
+    }
+
+    /** Sendet einen Befehl und liefert die ungefilterte Antwort (ohne Prompt). */
+    public synchronized String raw(String cmd, long timeoutMs) throws IOException {
+        transport.clearInput();
+        transport.write(cmd + "\r");
+        String r = transport.readUntilPrompt(timeoutMs);
+        if (r == null) {
+            // Adapter mit einem Zeilenumbruch unterbrechen und neu synchronisieren
+            transport.write("\r");
+            transport.readUntilPrompt(1500);
+            throw new IOException("Keine Antwort vom Adapter auf \"" + cmd + "\" (Zeitüberschreitung)");
+        }
+        return r;
+    }
+
+    public String cmd(String c) throws IOException {
+        return cmd(c, 5000);
+    }
+
+    public String cmd(String c, long timeoutMs) throws IOException {
+        return clean(raw(c, timeoutMs), c);
+    }
+
+    static String clean(String r, String cmd) {
+        String c = cmd.replace(" ", "");
+        StringBuilder sb = new StringBuilder();
+        for (String l : r.split("[\r\n]+")) {
+            String t = l.trim();
+            if (t.isEmpty()) continue;
+            if (t.replace(" ", "").equalsIgnoreCase(c)) continue; // Echo
+            if (t.startsWith("SEARCHING")) continue;
+            if (t.startsWith("BUS INIT") && t.endsWith("OK")) continue;
+            if (sb.length() > 0) sb.append('\n');
+            sb.append(t);
+        }
+        return sb.toString();
+    }
+
+    public boolean isCan() {
+        return protocol >= 6;
+    }
+
+    public boolean is29Bit() {
+        return protocol == 7 || protocol == 9 || protocol == 0xB;
+    }
+
+    public List<Frame> query(String c) throws IOException {
+        return query(c, 5000);
+    }
+
+    public List<Frame> query(String c, long timeoutMs) throws IOException {
+        return ResponseParser.parse(cmd(c, timeoutMs), isCan(), is29Bit());
+    }
+
+    /** Grundeinstellungen setzen (nach ATZ oder ATD). */
+    public void setup() throws IOException {
+        cmd("ATE0");
+        cmd("ATL0");
+        cmd("ATS1");
+        cmd("ATH1");
+        cmd("ATAT1");
+    }
+
+    /**
+     * Initialisiert Adapter und Fahrzeugverbindung.
+     *
+     * @param protocolChoice 0 = automatisch, sonst feste Protokollnummer
+     */
+    public void init(int protocolChoice, Log log) throws IOException {
+        log.line("Adapter wird zurückgesetzt (ATZ) …");
+        try {
+            raw("ATZ", 5000);
+        } catch (IOException e) {
+            raw("ATZ", 5000);
+        }
+        setup();
+        version = cmd("ATI");
+        log.line("Adapter: " + version);
+        cmd("ATSP" + Integer.toHexString(protocolChoice).toUpperCase());
+        log.line("Verbinde mit Fahrzeug, Protokollsuche …");
+        String r = cmd("0100", 20000);
+        if (ResponseParser.parse(r, true, false).isEmpty() && ResponseParser.parse(r, false, false).isEmpty()) {
+            throw new IOException("Keine Antwort vom Fahrzeug (" + r.replace('\n', ' ')
+                    + "). Ist die Zündung eingeschaltet?");
+        }
+        String dpn = cmd("ATDPN").replace("A", "").trim();
+        try {
+            protocol = Integer.parseInt(dpn.isEmpty() ? "0" : dpn.substring(dpn.length() - 1), 16);
+        } catch (NumberFormatException e) {
+            protocol = 6;
+        }
+        protocolDesc = cmd("ATDP");
+        log.line("Protokoll: " + protocolDesc);
+        // Feste Protokollnummer setzen, damit später keine Suche mehr nötig ist
+        cmd("ATSP" + Integer.toHexString(protocol).toUpperCase());
+    }
+
+    /** Stellt den Normalzustand nach Spezialbefehlen (UDS, Header) wieder her. */
+    public void restore() throws IOException {
+        cmd("ATD");
+        setup();
+        cmd("ATSP" + Integer.toHexString(protocol).toUpperCase());
+    }
+
+    public interface Log {
+        void line(String s);
+    }
+}
