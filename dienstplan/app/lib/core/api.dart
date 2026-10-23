@@ -67,7 +67,7 @@ class ApiClient {
         'Accept': 'application/json',
         if (token != null) 'Authorization': 'Bearer $token',
         // Fallback, falls der Webserver den Authorization-Header verwirft
-        if (token != null) 'X-Dienstplan-Token': token!,
+        'X-Dienstplan-Token': ?token,
       };
 
   Future<Map<String, dynamic>> _send(String api, {Object? body, Map<String, String>? query}) async {
