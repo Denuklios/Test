@@ -466,6 +466,11 @@ public final class QuickPanel implements NotificationHub.Listener {
     @Override public void onNotificationsChanged() {
         if (!open) return;
         notifBox.removeAllViews();
+        if (!NotificationHub.isDeclared(act)) {
+            clearAll.setVisibility(View.GONE);
+            notifBox.addView(systemShadeCard());
+            return;
+        }
         if (!NotificationHub.isAllowed(act)) {
             clearAll.setVisibility(View.GONE);
             notifBox.addView(permissionCard());
@@ -489,6 +494,34 @@ public final class QuickPanel implements NotificationHub.Listener {
             lp.topMargin = dp(8);
             notifBox.addView(card, lp);
         }
+    }
+
+    /** Normale Version ohne Benachrichtigungs-Zugriff: Knopf zum Android-Bereich. */
+    private View systemShadeCard() {
+        LinearLayout c = new LinearLayout(act);
+        c.setOrientation(LinearLayout.VERTICAL);
+        c.setBackground(WfStyle.card(dp(16), density));
+        c.setPadding(dp(16), dp(14), dp(16), dp(14));
+        TextView t = text(14, WfStyle.MUTED);
+        t.setText("Nachrichten zeigt diese Version nicht direkt hier an (das blockiert Google Play Protect bei "
+                + "selbst installierten Apps). Mit der Vollversion per PC-Installation geht es.");
+        c.addView(t);
+        TextView b = primaryButton("Benachrichtigungen anzeigen");
+        b.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                close(false);
+                try {
+                    Object sb = act.getSystemService("statusbar");
+                    Class.forName("android.app.StatusBarManager").getMethod("expandNotificationsPanel").invoke(sb);
+                } catch (Exception e) {
+                    Toast.makeText(act, "Bitte oben vom Rand herunterziehen", Toast.LENGTH_SHORT).show();
+                }
+            }
+        });
+        LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(-1, dp(44));
+        lp.topMargin = dp(12);
+        c.addView(b, lp);
+        return c;
     }
 
     private View permissionCard() {

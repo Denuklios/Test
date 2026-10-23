@@ -12,8 +12,8 @@ ZIPALIGN=$(tool zipalign)
 APKSIGNER=$(tool apksigner)
 JAR="$SDK/platforms/android-23/android.jar"
 OUT=build/apk
-VERSION_CODE=2
-VERSION_NAME=1.1
+VERSION_CODE=3
+VERSION_NAME=1.2
 KS=keystore/wf-launcher.jks
 KS_PASS=${KS_PASS:-wflauncher}
 
@@ -27,10 +27,16 @@ java -cp build/test de.wunschfabrik.launcher.SearchTest
 
 echo "== Ressourcen"
 "$AAPT2" compile --dir res -o "$OUT/res.zip"
-"$AAPT2" link -I "$JAR" -A assets --manifest AndroidManifest.xml \
-    --min-sdk-version 23 --target-sdk-version 34 \
-    --version-code $VERSION_CODE --version-name $VERSION_NAME \
-    --java "$OUT/gen" -o "$OUT/app.unsigned.apk" "$OUT/res.zip"
+# Zwei Varianten: normal (ohne Benachrichtigungs-Zugriff, lässt sich trotz Play Protect installieren)
+# und voll (mit Benachrichtigungen im WF-Schnellbereich, Installation per ADB).
+sed '/NOTIF-START/,/NOTIF-END/d' AndroidManifest.xml > "$OUT/AndroidManifest-normal.xml"
+for V in normal voll; do
+    M=AndroidManifest.xml; [ $V = normal ] && M="$OUT/AndroidManifest-normal.xml"
+    "$AAPT2" link -I "$JAR" -A assets --manifest "$M" \
+        --min-sdk-version 23 --target-sdk-version 34 \
+        --version-code $VERSION_CODE --version-name $VERSION_NAME \
+        --java "$OUT/gen" -o "$OUT/$V.unsigned.apk" "$OUT/res.zip"
+done
 
 echo "== Java"
 # Stubs für neuere APIs (TileService) nur zum Kompilieren, kommen nicht in die APK.
@@ -42,7 +48,7 @@ javac -classpath "$OUT/stubs" -nowarn -encoding UTF-8 -source 8 -target 8 -bootc
 
 echo "== Dex"
 "$DX" --dex --min-sdk-version=23 --output="$OUT/classes.dex" "$OUT/classes"
-(cd "$OUT" && zip -q -j app.unsigned.apk classes.dex)
+(cd "$OUT" && zip -q -j normal.unsigned.apk classes.dex && zip -q -j voll.unsigned.apk classes.dex)
 
 echo "== Signieren"
 if [ ! -f "$KS" ]; then
@@ -50,9 +56,12 @@ if [ ! -f "$KS" ]; then
     keytool -genkeypair -keystore "$KS" -storepass "$KS_PASS" -keypass "$KS_PASS" -alias wf \
         -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=WF Launcher, O=Privat, C=DE" >/dev/null 2>&1
 fi
-"$ZIPALIGN" -f 4 "$OUT/app.unsigned.apk" "$OUT/app.aligned.apk"
-"$APKSIGNER" sign --ks "$KS" --ks-pass "pass:$KS_PASS" --key-pass "pass:$KS_PASS" \
-    --min-sdk-version 23 --out "dist/WF-Launcher-$VERSION_NAME.apk" "$OUT/app.aligned.apk"
+for V in normal voll; do
+    NAME="dist/WF-Launcher-$VERSION_NAME.apk"; [ $V = voll ] && NAME="dist/WF-Launcher-$VERSION_NAME-voll.apk"
+    "$ZIPALIGN" -f 4 "$OUT/$V.unsigned.apk" "$OUT/$V.aligned.apk"
+    "$APKSIGNER" sign --ks "$KS" --ks-pass "pass:$KS_PASS" --key-pass "pass:$KS_PASS" \
+        --min-sdk-version 23 --out "$NAME" "$OUT/$V.aligned.apk"
+    "$APKSIGNER" verify "$NAME"
+done
 rm -f dist/*.idsig
-"$APKSIGNER" verify "dist/WF-Launcher-$VERSION_NAME.apk"
-ls -la "dist/WF-Launcher-$VERSION_NAME.apk"
+ls -la dist/*.apk

@@ -61,6 +61,16 @@ public final class NotificationHub extends NotificationListenerService {
 
     public static boolean connected() { return instance != null; }
 
+    /** Nur die Vollversion meldet den Dienst an (Play Protect blockiert ihn bei selbst installierten APKs). */
+    public static boolean isDeclared(Context c) {
+        try {
+            c.getPackageManager().getServiceInfo(new ComponentName(c, NotificationHub.class), 0);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     static CharSequence title(Notification n) {
         CharSequence t = n.extras.getCharSequence(Notification.EXTRA_TITLE_BIG);
         if (TextUtils.isEmpty(t)) t = n.extras.getCharSequence(Notification.EXTRA_TITLE);
