@@ -198,7 +198,7 @@ function orderCard(o) {
         activeWorkers().length > 1 ? wchip(workerById(o.worker_id)) : null,
         procDots((o.process_ids || '').split(',').filter(Boolean))),
       o.plan_date ? h('div', { class: 'o-plan' }, `🔧 ${t('production')}: ${dfmt(o.plan_date)}${o.start_time ? ' ' + o.start_time : ''}${o.finish_date && o.finish_date !== o.plan_date ? ' → ' + dfmt(o.finish_date) : ''}`) : null),
-    nextS && !o.deleted_at && h('div', { class: 'next' }, h('button', { class: 'btn small', onclick: async (e) => { e.preventDefault(); await api('order_status', { body: { id: o.id, status: nextS } }); toast(t('saved')); render(); } }, '→ ' + t('st_' + nextS))));
+    nextS && !o.deleted_at && h('div', { class: 'next' }, h('button', { class: 'btn small', onclick: async (e) => { e.preventDefault(); const r = await api('order_status', { body: { id: o.id, status: nextS } }); toast(r.invoice_id ? t('inv_draft_auto') : t('saved')); render(); } }, '→ ' + t('st_' + nextS))));
   return card;
 }
 
@@ -207,7 +207,7 @@ route(/^\/order\/(\d+)$/, async (id) => {
   const { order: o } = await api('order', { params: { id } });
   const reload = () => render();
   const late = o.due_date && o.due_date < today() && !['done', 'delivered'].includes(o.status);
-  const steps = h('div', { class: 'steps' }, me.statuses.map((s, i) => h('button', { class: i < me.statuses.indexOf(o.status) ? 'done' : i === me.statuses.indexOf(o.status) ? 'cur' : '', onclick: async () => { await api('order_status', { body: { id: o.id, status: s } }); reload(); } }, t('st_' + s))));
+  const steps = h('div', { class: 'steps' }, me.statuses.map((s, i) => h('button', { class: i < me.statuses.indexOf(o.status) ? 'done' : i === me.statuses.indexOf(o.status) ? 'cur' : '', onclick: async () => { const r = await api('order_status', { body: { id: o.id, status: s } }); if (r.invoice_id) toast(t('inv_draft_auto')); reload(); } }, t('st_' + s))));
   const paySel = h('select', { onchange: async (e) => { await api('order_status', { body: { id: o.id, pay_status: e.target.value } }); reload(); } }, me.pay.map((p) => h('option', { value: p, selected: p === o.pay_status }, t('pay_' + p))));
   const rest = o.price - o.deposit;
   const wk = workerById(o.worker_id);
@@ -217,7 +217,6 @@ route(/^\/order\/(\d+)$/, async (id) => {
     h('div', { class: 'page-head', style: 'margin-top:8px' }, h('div', {}, h('div', { class: 'eyebrow' }, o.nr), h('h1', {}, o.title), h('div', { class: 'muted' }, h('a', { href: `#/customer/${o.customer_id}` }, o.customer_name + (o.customer_company ? ' · ' + o.customer_company : '')))),
       h('div', { class: 'row' }, o.deleted_at ? h('button', { class: 'btn', onclick: async () => { await api('order_restore', { body: { id: o.id } }); reload(); } }, t('restore')) : [
         h('a', { class: 'btn', href: `#/order/${o.id}/edit` }, t('edit')),
-        h('a', { class: 'btn', href: `#/invoice/new/order/${o.id}` }, '🧾 ' + t('invoice_from_order')),
         h('button', { class: 'btn danger', onclick: async () => { if (confirm(t('confirm_delete'))) { await api('order_delete', { body: { id: o.id } }); location.hash = '#/'; } } }, t('delete'))])),
     h('div', { class: 'card' }, steps,
       h('dl', { class: 'kv', style: 'margin-top:14px' },
@@ -231,6 +230,7 @@ route(/^\/order\/(\d+)$/, async (id) => {
         h('dt', {}, t('price')), h('dd', {}, `${money(o.price, o.currency)} · ${t('deposit')} ${money(o.deposit, o.currency)} · ${t('remaining')} ${money(rest, o.currency)}`),
         h('dt', {}, t('payment')), h('dd', {}, paySel))),
     (o.description || o.notes) && h('div', { class: 'card' }, o.description && h('p', { style: 'margin:0 0 8px;white-space:pre-wrap' }, o.description), o.notes && h('p', { class: 'muted', style: 'margin:0;white-space:pre-wrap' }, o.notes)),
+    !o.deleted_at && orderMoneyCard(o, reload),
     h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:10px' }, t('files')),
       photoButtons(async (list) => { await uploadFiles(o.id, list); reload(); }),
       h('div', { class: 'files' }, o.files.map((f) => h('div', { class: 'file' },
@@ -238,10 +238,50 @@ route(/^\/order\/(\d+)$/, async (id) => {
         h('div', { class: 'n' }, h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, f.original_name), h('a', { href: '#', title: t('delete'), onclick: async (e) => { e.preventDefault(); if (confirm(t('confirm_delete_file'))) { await api('file_delete', { body: { id: f.id } }); reload(); } } }, '✕')))))),
     h('div', { class: 'card' }, h('h3', {}, t('history')), h('ul', { class: 'log' }, o.log.map((l) => h('li', {}, `${l.at.slice(0, 16)} · ${l.user_name} · ${logText(l.what)}`)))));
 });
+// Rechnungen und Auftragsbestaetigung direkt am Auftrag
+function orderMoneyCard(o, reload) {
+  const main = o.invoices.filter((i) => i.purpose !== 'deposit' && !i.fully_credited);
+  const go = async (purpose, amount) => {
+    try { const r = await api('order_invoice', { body: { order_id: o.id, purpose, amount } }); location.hash = `#/invoice/${r.id}`; } catch (e) { toast(e.message); }
+  };
+  const c = o.confirmation;
+  const linkBox = h('div');
+  const showLink = (token) => {
+    const url = new URL(`${BASE}bestaetigung.php?t=${token}`, location.href).href;
+    const text = t('confirm_share_text', o.nr);
+    linkBox.replaceChildren(h('p', { class: 'muted', style: 'margin:10px 0 6px' }, t('confirm_link_once')), h('div', { class: 'token-box' }, url),
+      h('div', { class: 'row', style: 'margin-top:8px' },
+        navigator.share ? h('button', { class: 'btn small primary', onclick: () => navigator.share({ title: t('confirm_title'), text, url }).catch(() => {}) }, t('share')) : null,
+        h('button', { class: 'btn small', onclick: () => navigator.clipboard.writeText(url).then(() => toast(t('copied'))) }, t('copy')),
+        o.customer_email ? h('a', { class: 'btn small', href: `mailto:${encodeURIComponent(o.customer_email)}?subject=${encodeURIComponent(t('confirm_title') + ' ' + o.nr)}&body=${encodeURIComponent(text + '\n\n' + url)}` }, '✉ E-Mail') : null,
+        h('a', { class: 'btn small', href: url, target: '_blank', rel: 'noopener' }, t('open'))));
+  };
+  const send = async () => { const r = await api('confirm_create', { body: { order_id: o.id } }); showLink(r.token); };
+  let conf;
+  if (c && c.signed_at) {
+    conf = h('div', { class: 'confok' }, h('b', {}, '✓ ' + t('confirm_signed', c.signer_name, c.signed_at.slice(0, 16))), h('img', { src: `${BASE}api.php?a=confirm_signature&id=${c.id}`, alt: '', class: 'sigimg' }));
+  } else if (c && !c.revoked_at && c.expires_at > new Date().toISOString().slice(0, 19).replace('T', ' ')) {
+    conf = h('div', {}, h('p', { class: 'muted', style: 'margin:0 0 8px' }, t('confirm_open', c.created_at.slice(0, 10)) + (c.viewed_at ? ' · ' + t('confirm_viewed', c.viewed_at.slice(0, 16)) : '')),
+      h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: send }, t('confirm_new_link')), h('button', { class: 'btn small danger', onclick: async () => { await api('confirm_revoke', { body: { order_id: o.id } }); reload(); } }, t('revoke'))), linkBox);
+  } else {
+    conf = h('div', {}, h('p', { class: 'muted', style: 'margin:0 0 8px' }, t('confirm_text')), h('button', { class: 'btn', onclick: send }, '✍ ' + t('confirm_send')), linkBox);
+  }
+  return h('div', { class: 'card' },
+    h('h3', { style: 'margin-bottom:10px' }, t('money_card')),
+    o.invoices.length ? h('div', { style: 'margin-bottom:10px' }, o.invoices.map((i) => h('a', { class: 'free', href: `#/invoice/${i.id}`, style: 'text-decoration:none;color:inherit' },
+      h('span', {}, `${t('purpose_' + (i.purpose || 'none'))} ${i.status === 'final' ? i.number : '· ' + t('draft')}`),
+      h('span', { class: 'row', style: 'gap:8px' }, cents(i.total, i.currency), invState(i.status === 'draft' ? 'draft' : i.fully_credited ? 'credit' : i.open > 0 ? (i.due_date < today() ? 'overdue' : 'open') : 'paid'))))) : h('p', { class: 'muted', style: 'margin:0 0 10px' }, t('no_invoices_order')),
+    !main.length && h('div', { class: 'row' },
+      h('button', { class: 'btn', onclick: () => { const v = prompt(t('deposit_prompt', o.currency), String(Math.round(o.price / 2 * 100) / 100).replace('.', ',')); if (v) go('deposit', v); } }, t('make_deposit')),
+      h('button', { class: 'btn primary', onclick: () => go('final') }, '🧾 ' + t(o.invoices.length ? 'make_final' : 'invoice_from_order'))),
+    h('div', { class: 'sechead', style: 'margin-top:16px' }, t('confirm_title')), conf);
+}
+
 function logText(w) {
   if (w.startsWith('status:')) return t('log_status') + ' ' + t('st_' + w.slice(7));
   if (w.startsWith('pay:')) return t('log_pay') + ' ' + t('pay_' + w.slice(4));
   if (w.startsWith('file:')) return t('log_file') + ' ' + w.slice(5);
+  if (w.startsWith('confirmed:')) return t('log_confirmed');
   return t('log_' + w);
 }
 
@@ -594,6 +634,15 @@ route(/^\/customer\/(new|\d+)$/, async (id) => {
       h('div', { class: 'row' }, h('a', { class: 'btn small', href: `${BASE}api.php?a=customer_export&id=${c.id}` }, t('export_data')),
         h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('confirm_anonymize'))) { await api('customer_anonymize', { body: { id: c.id } }); location.hash = '#/customers'; } } }, t('anonymize')))));
   vatWrap.append(f('vat_id', t('vat_id'), h('input', { type: 'text', value: c.vat_id, placeholder: t('vat_id_ph'), autocapitalize: 'characters' })), vatState,
+    h('button', { type: 'button', class: 'btn small', style: 'margin:6px 8px 0 0', onclick: async () => {
+      try {
+        const r = await api('company_lookup', { params: { country: F.country.value, number: F.vat_id.value } });
+        F.company.value = r.name || F.company.value;
+        const addr = r.address || [r.street, [r.zip, r.city].filter(Boolean).join(' ')].filter(Boolean).join(', ');
+        if (addr) F.address.value = addr;
+        toast(t('lookup_ok', r.source));
+      } catch (e) { toast(e.message); }
+    } }, '🔎 ' + t('lookup')),
     !isNew && c.vat_id && F.country.value !== 'DK' && me.eu.includes(c.country) ? h('button', { type: 'button', class: 'btn small', style: 'margin-top:6px', onclick: async () => {
       try { const r = await api('customer_vat_check', { body: { id: c.id } }); vatState.textContent = r.valid ? t('vat_ok', r.name ? ': ' + r.name : '') : t('vat_bad'); } catch (e) { toast(e.message); }
     } }, t('vat_check')) : null);
@@ -746,6 +795,7 @@ async function invoiceEditor(inv, preset = {}) {
   let cust = inv ? inv.customer : preset.customer || null;
   const isCredit = D.type === 'credit';
   const err = h('div', { class: 'err' });
+  const products = (await api('products')).products.filter((p) => +p.active);
   if (!D.lines.length) D.lines.push({ description: '', qty: 1, unit: 'stk', unit_price: 0, discount: 0, kind: 'goods' });
   if (!D.due_date) D.due_date = addDays(D.issue_date, +me.company.pay_days || 0);
 
@@ -878,7 +928,15 @@ async function invoiceEditor(inv, preset = {}) {
       h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('currency')), curSel), h('div', {}, h('label', {}, t('doc_lang')), langSel), h('div', {}, h('label', {}, t('vat_rule')), schSel)),
       rateBox, schInfo, inclBox),
     h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:10px' }, t('lines')), linesBox,
-      h('button', { type: 'button', class: 'btn', style: 'margin-top:10px', onclick: () => { addLine({}); rows[rows.length - 1].desc.focus(); } }, t('add_line')),
+      h('div', { class: 'row', style: 'margin-top:10px' },
+        h('button', { type: 'button', class: 'btn', onclick: () => { addLine({}); rows[rows.length - 1].desc.focus(); } }, t('add_line')),
+        products.length ? h('select', { class: 'prodsel', onchange: (e) => {
+          const p = products.find((x) => +x.id === +e.target.value); e.target.value = '';
+          if (!p) return;
+          const last = rows[rows.length - 1];
+          if (last && !last.desc.value.trim() && !last.price.value.trim()) { last.el.remove(); rows.pop(); }
+          addLine({ description: p.name, qty: 1, unit: p.unit, unit_price: p.price, kind: p.kind }); recalc();
+        } }, h('option', { value: '' }, '+ ' + t('from_products')), products.map((p) => h('option', { value: p.id }, `${p.name} · ${cents(p.price, 'DKK')}`))) : null),
       h('div', { style: 'margin-top:14px' }, sumBox)),
     h('div', { class: 'card' }, h('label', {}, t('note_on_doc')), note),
     err,
@@ -918,6 +976,7 @@ function invoiceView(i) {
         h('dt', {}, t('issue_date')), h('dd', {}, dfmt(i.issue_date) + (i.delivery_date && i.delivery_date !== i.issue_date ? ` · ${t('delivery_date').split(' (')[0]} ${dfmt(i.delivery_date)}` : '')),
         !isCredit && [h('dt', {}, t('due_date')), h('dd', { class: state === 'overdue' ? 'due late' : '' }, dfmt(i.due_date))],
         isCredit && [h('dt', {}, t('invoice')), h('dd', {}, h('a', { href: `#/invoice/${i.credit_of}` }, String(i.credit_of_number)))],
+        i.order_id ? [h('dt', {}, t('order_word')), h('dd', {}, h('a', { href: `#/order/${i.order_id}` }, t('purpose_' + (i.purpose || 'none'))))] : null,
         h('dt', {}, t('vat_rule')), h('dd', {}, t('sch_' + i.vat_scheme)),
         h('dt', {}, t('net')), h('dd', {}, cents(i.net, cur)),
         h('dt', {}, t('vat')), h('dd', {}, cents(i.vat, cur) + (cur !== 'DKK' && +i.vat ? ` · ${cents(i.vat_dkk, 'DKK')} (${t('rate_from', String(i.rate).replace('.', ','), dfmt(i.rate_date), i.rate_source)})` : '')),
@@ -995,12 +1054,28 @@ route(/^\/settings$/, async () => {
           await api('company_save', { body }); await reloadMe(); toast(t('saved')); render();
         } catch (e) { coErr.textContent = e.message; }
       } }, t('save'))), verifyOut);
+  // Produkte / Preisliste
+  const { products } = await api('products');
+  const prodRow = (p) => {
+    const nm = h('input', { value: p.name || '', placeholder: t('prod_name_ph') });
+    const un = h('select', {}, me.units.map((u) => h('option', { value: u, selected: u === (p.unit || 'stk') }, t('u_' + u))));
+    const pr = h('input', { type: 'text', inputmode: 'decimal', value: p.price != null ? centsIn(p.price) : '', placeholder: '0,00' });
+    const kd = h('select', {}, ['goods', 'services'].map((k) => h('option', { value: k, selected: k === (p.kind || 'goods') }, t(k))));
+    const row = h('div', { class: 'prow' }, nm, un, pr, kd,
+      h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: pr.value || '0', kind: kd.value, active: 1 } }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, '✓'),
+      p.id ? h('button', { class: 'btn small danger', onclick: async () => { await api('product_delete', { body: { id: p.id } }); render(); } }, '✕') : null);
+    return row;
+  };
+  const prodCard = h('div', { class: 'card' }, h('h3', {}, t('products_title')), h('p', { class: 'muted' }, t('products_text')),
+    h('div', { class: 'prow head' }, h('small', {}, t('prod_name')), h('small', {}, t('unit')), h('small', {}, t('unit_price') + ' DKK'), h('small', {}, t('vat_rule'))),
+    products.map(prodRow), prodRow({}));
   const tokOut = h('div');
   const tokList = h('div', {}, me.tokens.map((k) => h('div', { class: 'free' }, h('span', {}, `${k.label} · ${k.created_at.slice(0, 10)}${k.last_used_at ? ' · ' + t('last_seen') + ' ' + k.last_used_at.slice(0, 16) : ''}`),
     k.revoked_at ? h('span', { class: 'muted' }, t('revoked')) : h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('confirm_revoke'))) { await api('token_revoke', { body: { id: k.id } }); await reloadMe(); render(); } } }, t('revoke')))));
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_settings')), h('h1', {}, t('settings_h1_a'), ' ', h('em', {}, t('settings_h1_b'))))),
     companyCard,
+    prodCard,
     h('div', { class: 'card' }, h('h3', {}, t('display_title')), h('p', { class: 'muted' }, t('display_text')),
       h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: async () => {
         const r = await api('token_create', { body: { label: t('display_label') } });

@@ -307,3 +307,10 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 @media(max-width:640px){
   .formbar{flex-wrap:wrap}.formbar .btn.primary{flex:1 1 100%;order:9}
 }
+.prow{display:grid;grid-template-columns:minmax(0,2.4fr) minmax(0,.9fr) minmax(0,1fr) minmax(0,1fr) auto auto;gap:8px;align-items:center;margin-bottom:8px}
+.prow.head small{color:var(--muted);font-size:.65rem;letter-spacing:.12em;text-transform:uppercase}
+.prow .btn{min-width:40px}
+.prodsel{width:auto;max-width:100%;flex:1}
+.confok{display:flex;flex-direction:column;gap:6px;color:var(--ok)}
+.sigimg{background:#fff;border-radius:10px;height:80px;width:auto;max-width:100%;align-self:flex-start}
+@media(max-width:640px){.prow{grid-template-columns:1fr 1fr}.prow > input:first-child{grid-column:1/-1}.prow.head{display:none}}

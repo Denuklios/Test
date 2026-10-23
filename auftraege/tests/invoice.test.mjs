@@ -157,8 +157,72 @@ try {
     await call('invoice_delete', { body: { id: r.j.id } });
     await call('company_save', { body: { ...co, moms_registered: true } });
   });
+
+  // ---------- Phase 2: Auftrag <-> Rechnung ----------
+  let oid, depId, finId;
+  await ok('Anzahlungsrechnung aus Auftrag: Betrag inkl. Moms, Text in Kundensprache', async () => {
+    const r = await call('order_save', { body: { customer_id: dk, title: '20 Hoodies', article: 'Hoodie schwarz', qty: 20, price: '5000', deposit: 0, currency: 'DKK', pay_status: 'open', processes: [] } });
+    oid = r.j.order.id;
+    assert.equal((await call('order_invoice', { body: { order_id: oid, purpose: 'final', } })).status, 200, 'Schluss vor Anzahlung erlaubt');
+    // wieder entfernen, damit Anzahlung moeglich ist
+    const first = (await call('order', { params: { id: oid } })).j.order.invoices[0]; await call('invoice_delete', { body: { id: first.id } });
+    assert.equal((await call('order_invoice', { body: { order_id: oid, purpose: 'deposit', amount: '6000' } })).j.error, 'deposit_too_high');
+    depId = (await call('order_invoice', { body: { order_id: oid, purpose: 'deposit', amount: '1000' } })).j.id;
+    assert.equal((await call('order_invoice', { body: { order_id: oid, purpose: 'deposit' } })).j.id, depId, 'kein doppelter Entwurf');
+    const i = (await call('invoice', { params: { id: depId } })).j.invoice;
+    assert.equal(i.purpose, 'deposit'); assert.equal(i.total, 100000); assert.equal(i.vat, 20000); assert.match(i.lines[0].description, /Forudbetaling.*20 Hoodies/);
+    assert.equal((await call('order_invoice', { body: { order_id: oid, purpose: 'final' } })).j.error, 'deposit_draft_open');
+  });
+  await ok('Anzahlung bezahlt → Auftrag zeigt „Anzahlung“; Abgeholt → Schlussrechnung mit Abzug automatisch', async () => {
+    const n = (await call('invoice_approve', { body: { id: depId } })).j.number;
+    await call('invoice_pay', { body: { id: depId, amount: '1000' } });
+    let o = (await call('order', { params: { id: oid } })).j.order;
+    assert.equal(o.pay_status, 'deposit'); assert.equal(o.deposit, 1000);
+    const r = await call('order_status', { body: { id: oid, status: 'delivered' } });
+    finId = r.j.invoice_id; assert.ok(finId, 'Entwurf angelegt');
+    const f = (await call('invoice', { params: { id: finId } })).j.invoice;
+    assert.equal(f.purpose, 'final'); assert.equal(f.lines.length, 2); assert.equal(f.lines[0].qty, 20); assert.equal(f.lines[0].unit_price, 25000);
+    assert.equal(f.lines[1].unit_price, -100000); assert.match(f.lines[1].description, new RegExp('Fradrag forudbetaling, faktura nr. ' + n));
+    assert.equal(f.total, 400000); assert.equal(f.vat, 80000);
+    assert.equal((await call('order_invoice', { body: { order_id: oid, purpose: 'deposit' } })).j.error, 'main_invoice_exists');
+    // erneut "abgeholt" erzeugt keine zweite Rechnung
+    assert.equal((await call('order_status', { body: { id: oid, status: 'delivered' } })).j.invoice_id, null);
+  });
+  await ok('Schlussrechnung bezahlt → Auftrag „bezahlt“; Storno → wieder „Anzahlung“', async () => {
+    await call('invoice_approve', { body: { id: finId } });
+    await call('invoice_pay', { body: { id: finId, amount: '4000' } });
+    let o = (await call('order', { params: { id: oid } })).j.order; assert.equal(o.pay_status, 'paid'); assert.equal(o.deposit, 5000);
+    assert.equal(o.invoices.length, 2);
+    const p = (await call('invoice', { params: { id: finId } })).j.invoice.payments[0];
+    await call('invoice_pay_reverse', { body: { payment_id: p.id } });
+    o = (await call('order', { params: { id: oid } })).j.order; assert.equal(o.pay_status, 'deposit');
+    assert.ok(o.log.some((l) => l.what === 'pay:paid'));
+  });
+  await ok('Auftragsbestätigung: Link, Ansicht, Unterschrift, danach gesperrt', async () => {
+    const r = await call('confirm_create', { body: { order_id: oid } }); const tok = r.j.token; assert.match(tok, /^[0-9a-f]{48}$/);
+    const page = await (await fetch(`${B}/bestaetigung.php?t=${tok}`)).text();
+    assert.match(page, /Ordrebekræftelse/); assert.match(page, /20 Hoodies/); assert.match(page, /5\.000,00 DKK/); assert.match(page, /inkl\. 25 % moms/);
+    assert.match(await (await fetch(`${B}/bestaetigung.php?t=${'0'.repeat(48)}`)).text(), /ugyldigt eller udløbet/);
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    const post = (body) => fetch(`${B}/bestaetigung.php?t=${tok}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
+    assert.equal((await post({ name: 'Hans', signature: png })).status, 400, 'ohne Haken nicht');
+    assert.equal((await post({ name: 'Hans', accept: true, signature: 'data:image/png;base64,AAAA' })).status, 400);
+    assert.equal((await post({ name: 'Hans Hansen', accept: true, signature: png })).status, 200);
+    assert.equal((await post({ name: 'Andere', accept: true, signature: png })).status, 409);
+    const o = (await call('order', { params: { id: oid } })).j.order;
+    assert.equal(o.confirmation.signer_name, 'Hans Hansen'); assert.ok(o.log.some((l) => l.what.startsWith('confirmed:')));
+    assert.match(sql(`UPDATE order_confirmations SET signer_name = 'X'`), /confirmation_locked/);
+    const sig = await fetch(`${B}/api.php?a=confirm_signature&id=${o.confirmation.id}`, { headers: { cookie } }); assert.equal(sig.headers.get('content-type'), 'image/png');
+    assert.match(await (await fetch(`${B}/bestaetigung.php?t=${tok}`)).text(), /bekræftet .* af Hans Hansen/);
+  });
+  await ok('Produkte anlegen, ändern, löschen', async () => {
+    const id = (await call('product_save', { body: { name: 'Stick bis 10.000 Stiche', unit: 'stk', price: '45,00', kind: 'services' } })).j.id;
+    await call('product_save', { body: { id, name: 'Stick bis 10.000 Stiche', unit: 'stk', price: '49,50', kind: 'services', active: 1 } });
+    let l = (await call('products')).j.products; assert.equal(l[0].price, 4950); assert.equal(l[0].kind, 'services');
+    await call('product_delete', { body: { id } }); assert.equal((await call('products')).j.products.length, 0);
+  });
   await ok('Journal: Hash-Kette und alle Rechnungen geprüft, keine Lücke', async () => {
-    const r = await call('journal_verify'); assert.equal(r.j.ok, true, JSON.stringify(r.j.problems)); assert.equal(r.j.invoices, 4); assert.ok(r.j.entries >= 8);
+    const r = await call('journal_verify'); assert.equal(r.j.ok, true, JSON.stringify(r.j.problems)); assert.equal(r.j.invoices, 6); assert.ok(r.j.entries >= 12);
   });
 } finally {
   srv.kill();

@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 7) {
+    if ($v >= 8) {
         return;
     }
     if ($v < 1) {
@@ -26,7 +26,72 @@ function wf_migrate(PDO $db): void
     if ($v < 6) {
         wf_migrate_v6($db);
     }
-    wf_migrate_v7($db);
+    if ($v < 7) {
+        wf_migrate_v7($db);
+    }
+    wf_migrate_v8($db);
+}
+
+/**
+ * Version 8: Auftrag <-> Rechnung.
+ * - invoices.purpose: '' normal, 'deposit' Anzahlungsrechnung, 'final' Schlussrechnung (zieht Anzahlungen ab); in die Sperre aufgenommen
+ * - products: Produkt-/Preisliste fuer Rechnungszeilen
+ * - order_confirmations: Auftragsbestaetigung per geheimem Link mit Unterschrift; der bestaetigte Inhalt wird eingefroren
+ */
+function wf_migrate_v8(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    ALTER TABLE invoices ADD COLUMN purpose TEXT NOT NULL DEFAULT '';
+    CREATE INDEX idx_inv_order ON invoices(order_id);
+    DROP TRIGGER inv_lock_update;
+    CREATE TRIGGER inv_lock_update BEFORE UPDATE ON invoices
+    WHEN OLD.status = 'final' AND (
+      NEW.status IS NOT OLD.status OR NEW.type IS NOT OLD.type OR NEW.number IS NOT OLD.number OR NEW.customer_id IS NOT OLD.customer_id
+      OR NEW.order_id IS NOT OLD.order_id OR NEW.credit_of IS NOT OLD.credit_of OR NEW.issue_date IS NOT OLD.issue_date
+      OR NEW.delivery_date IS NOT OLD.delivery_date OR NEW.due_date IS NOT OLD.due_date OR NEW.currency IS NOT OLD.currency
+      OR NEW.rate IS NOT OLD.rate OR NEW.rate_date IS NOT OLD.rate_date OR NEW.rate_source IS NOT OLD.rate_source
+      OR NEW.vat_scheme IS NOT OLD.vat_scheme OR NEW.scheme_manual IS NOT OLD.scheme_manual OR NEW.prices_incl IS NOT OLD.prices_incl
+      OR NEW.lang IS NOT OLD.lang OR NEW.customer_snap IS NOT OLD.customer_snap OR NEW.seller_snap IS NOT OLD.seller_snap
+      OR NEW.note IS NOT OLD.note OR NEW.net IS NOT OLD.net OR NEW.vat IS NOT OLD.vat OR NEW.total IS NOT OLD.total
+      OR NEW.net_dkk IS NOT OLD.net_dkk OR NEW.vat_dkk IS NOT OLD.vat_dkk OR NEW.total_dkk IS NOT OLD.total_dkk
+      OR NEW.hash IS NOT OLD.hash OR NEW.created_at IS NOT OLD.created_at OR NEW.created_by IS NOT OLD.created_by
+      OR NEW.approved_at IS NOT OLD.approved_at OR NEW.approved_by IS NOT OLD.approved_by OR NEW.purpose IS NOT OLD.purpose)
+    BEGIN SELECT RAISE(ABORT, 'invoice_locked'); END;
+
+    CREATE TABLE products (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      unit TEXT NOT NULL DEFAULT 'stk',
+      price INTEGER NOT NULL DEFAULT 0,
+      kind TEXT NOT NULL DEFAULT 'goods',
+      active INTEGER NOT NULL DEFAULT 1,
+      sort INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE TABLE order_confirmations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
+      token_hash TEXT NOT NULL UNIQUE,
+      lang TEXT NOT NULL DEFAULT 'da',
+      snapshot TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by TEXT NOT NULL DEFAULT '',
+      expires_at TEXT NOT NULL,
+      revoked_at TEXT,
+      viewed_at TEXT,
+      signed_at TEXT,
+      signer_name TEXT,
+      signature TEXT,
+      sign_ip TEXT,
+      sign_ua TEXT
+    );
+    CREATE INDEX idx_conf_order ON order_confirmations(order_id);
+    -- Unterschriebene Bestaetigung bleibt unveraendert (Beweis)
+    CREATE TRIGGER conf_lock BEFORE UPDATE ON order_confirmations WHEN OLD.signed_at IS NOT NULL
+    BEGIN SELECT RAISE(ABORT, 'confirmation_locked'); END;
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '8');
+    ");
+    $db->commit();
 }
 
 /**

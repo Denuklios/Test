@@ -2,8 +2,8 @@
 declare(strict_types=1);
 // Druckansicht A4 einer Rechnung/Kreditnota in der Sprache des Kunden. Drucken -> "Als PDF speichern".
 require __DIR__ . '/inc/bootstrap.php';
-require __DIR__ . '/inc/invoice.php';
-require __DIR__ . '/inc/doctext.php';
+require_once __DIR__ . '/inc/invoice.php';
+require_once __DIR__ . '/inc/doctext.php';
 wf_require_user(false);
 header('Cache-Control: no-store');
 header("Content-Security-Policy: default-src 'none'; img-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; script-src 'unsafe-inline'");

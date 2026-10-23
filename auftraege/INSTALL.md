@@ -53,9 +53,17 @@ Unter **Einstellungen**:
 6. **PDF / Drucken** → „Als PDF speichern“ und an den Kunden schicken. Sprache lässt sich oben umschalten.
 7. **Zahlungen** erfassen (Teilzahlungen möglich). Eine falsche Zahlung wird storniert (Gegenbuchung), nie gelöscht.
 
+**Auftrag → Rechnung (nichts doppelt eingeben):** Im Auftrag gibt es die Karte „Rechnung & Bestätigung“:
+- **Anzahlungsrechnung:** Betrag eingeben (Vorschlag 50 %), festschreiben, Zahlung erfassen → der Auftrag steht automatisch auf „Anzahlung“.
+- **Schlussrechnung:** übernimmt Auftrag, Menge und Preis und zieht festgeschriebene Anzahlungen automatisch ab (gleiche Moms-Regel). Wird ein Auftrag auf **„Abgeholt/Versendet“** gesetzt, legt die App die Schlussrechnung selbst als Entwurf an.
+- Ist die Schlussrechnung bezahlt, steht der Auftrag automatisch auf **„Bezahlt“** (Storno setzt ihn zurück).
+- **Auftragsbestätigung:** „Bestätigung zum Unterschreiben senden“ erzeugt einen geheimen Link (30 Tage gültig) zum Teilen per WhatsApp/SMS/E-Mail. Der Kunde sieht Motiv-Fotos, Menge, Preis und Termin, unterschreibt mit dem Finger und hakt die Bestätigung an. Unterschrift, Name, Zeitpunkt und der bestätigte Stand werden unveränderbar gespeichert und im Auftrag angezeigt.
+- **Preisliste:** Einstellungen → „Preisliste“; im Rechnungseditor „Aus Preisliste“.
+- **Kunde:** „Daten holen (CVR/EU)“ füllt Firmenname und Adresse aus dem CVR-Register bzw. EU-Register (braucht Internet-Zugriff vom Server).
+
 **Prüfkette:** Jede Festschreibung, Zahlung und Stornierung steht in einem Journal mit Hash-Kette. „Prüfkette kontrollieren“ (Einstellungen) zeigt, ob alles unverändert und lückenlos ist.
 
-**Internet-Zugriff vom Server:** Tageskurs und VIES-Prüfung brauchen ausgehende Verbindungen von one.com (Nationalbank, EU-Kommission). Klappt das nicht, Kurs von Hand eintragen; die USt-IdNr. kann man dann unter ec.europa.eu/taxation_customs/vies prüfen.
+**Internet-Zugriff vom Server:** Tageskurs, CVR-Abruf (cvrapi.dk) und VIES-Prüfung brauchen ausgehende Verbindungen von one.com (Nationalbank, EU-Kommission). Klappt das nicht, Kurs von Hand eintragen; die USt-IdNr. kann man dann unter ec.europa.eu/taxation_customs/vies prüfen.
 
 **Aufbewahrung:** Bogføringsloven verlangt 5 Jahre Aufbewahrung. Backup (unten) regelmäßig ziehen und außerhalb des Servers speichern. Vor der ersten echten Rechnung einmal vom Revisor/Buchhalter anschauen lassen.
 

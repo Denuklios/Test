@@ -1,5 +1,6 @@
 <?php
 declare(strict_types=1);
+require_once __DIR__ . '/doctext.php';
 
 /*
  * Rechnungen und Kreditnotas (Gutschriften) nach dänischem Recht.
@@ -415,6 +416,9 @@ function wf_inv_approve(PDO $db, int $id, string $user): array
                 throw new RuntimeException('line_text_missing');
             }
         }
+        if ($i['purpose'] === 'final' && $i['order_id'] && (int)$db->query("SELECT COUNT(*) FROM invoices WHERE order_id = " . (int)$i['order_id'] . " AND purpose = 'deposit' AND status = 'draft'")->fetchColumn()) {
+            throw new RuntimeException('deposit_draft_open');
+        }
         if ($i['currency'] !== 'DKK' && (float)$i['rate'] <= 0) {
             throw new RuntimeException('rate_missing');
         }
@@ -480,4 +484,194 @@ function wf_inv_approve(PDO $db, int $id, string $user): array
         }
         throw $e;
     }
+}
+
+// ---------- Auftrag <-> Rechnung ----------
+/** Zeilentexte fuer automatisch erzeugte Rechnungen in der Belegsprache. */
+function wf_order_line_text(string $key, string $lang, array $r): string
+{
+    $T = [
+        'deposit' => ['da' => 'Forudbetaling (a conto) – ordre {nr}: {title}', 'de' => 'Anzahlung – Auftrag {nr}: {title}', 'en' => 'Deposit – order {nr}: {title}'],
+        'deduct' => ['da' => 'Fradrag forudbetaling, faktura nr. {n} af {d}', 'de' => 'Abzüglich Anzahlung, Rechnung Nr. {n} vom {d}', 'en' => 'Less deposit, invoice no. {n} dated {d}'],
+        'pcs' => ['da' => 'stk.', 'de' => 'Stk.', 'en' => 'pcs'],
+    ];
+    return strtr($T[$key][$lang] ?? $T[$key]['da'], $r);
+}
+
+/** Anzahlungs-/Hauptrechnungen eines Auftrags (ohne Kreditnotas), mit offenem Betrag und Gutschriften. */
+function wf_order_invoices(PDO $db, int $orderId): array
+{
+    $st = $db->prepare("SELECT * FROM invoices WHERE order_id = ? AND type = 'invoice' ORDER BY id");
+    $st->execute([$orderId]);
+    $out = [];
+    foreach ($st->fetchAll() as $i) {
+        $b = wf_inv_open($db, $i);
+        $cr = $db->query("SELECT COALESCE(SUM(net),0) AS n, COALESCE(SUM(total),0) AS t FROM invoices WHERE credit_of = " . (int)$i['id'] . " AND status = 'final'")->fetch();
+        $i['balance'] = $b;
+        $i['credited_net'] = (int)$cr['n'];
+        $i['fully_credited'] = $i['status'] === 'final' && (int)$cr['t'] >= (int)$i['total'];
+        $out[] = $i;
+    }
+    return $out;
+}
+
+/** Preise inkl. Moms bei Privatkunden mit Moms, sonst netto (B2B-Ueblichkeit). */
+function wf_default_incl(string $scheme, array $cust): int
+{
+    return in_array($scheme, ['dk', 'eu_b2c'], true) && empty($cust['is_business']) ? 1 : 0;
+}
+
+/**
+ * Entwurf aus Auftrag: 'deposit' = Anzahlungsrechnung ueber $amount (Standard 50 % des Preises), 'final' = Schlussrechnung ueber den Auftragspreis
+ * abzueglich festgeschriebener Anzahlungsrechnungen. Gibt die Rechnungs-ID zurueck (bestehender Entwurf wird wiederverwendet).
+ */
+function wf_order_invoice(PDO $db, int $orderId, string $purpose, string $user, ?int $amount = null): int
+{
+    $st = $db->prepare('SELECT * FROM orders WHERE id = ? AND deleted_at IS NULL');
+    $st->execute([$orderId]);
+    $o = $st->fetch();
+    if (!$o) {
+        throw new RuntimeException('not_found');
+    }
+    $cs = $db->prepare('SELECT * FROM customers WHERE id = ? AND anonymized_at IS NULL');
+    $cs->execute([$o['customer_id']]);
+    $cust = $cs->fetch();
+    if (!$cust) {
+        throw new RuntimeException('bad_customer');
+    }
+    $all = wf_order_invoices($db, $orderId);
+    $deposits = array_values(array_filter($all, fn($i) => $i['purpose'] === 'deposit' && !$i['fully_credited']));
+    $mains = array_values(array_filter($all, fn($i) => $i['purpose'] !== 'deposit' && !$i['fully_credited']));
+    $co = wf_company();
+    $lang = wf_doc_lang_for($cust);
+    $scheme = wf_scheme_auto($co, $cust);
+    $manual = 0;
+    $incl = wf_default_incl($scheme, $cust);
+    $price = (int)round((float)$o['price'] * 100);
+    $lines = [];
+
+    if ($purpose === 'deposit') {
+        if ($mains) {
+            throw new RuntimeException('main_invoice_exists');
+        }
+        foreach ($deposits as $d) {
+            if ($d['status'] === 'draft') {
+                return (int)$d['id'];
+            }
+        }
+        $dep = $amount ?? (int)round($price / 2);
+        if ($dep <= 0) {
+            throw new RuntimeException('no_deposit');
+        }
+        $already = array_sum(array_map(fn($d) => (int)$d['total'], $deposits));
+        if ($already + $dep > $price && $price > 0) {
+            throw new RuntimeException('deposit_too_high');
+        }
+        $incl = in_array($scheme, ['dk', 'eu_b2c'], true) ? 1 : 0;   // Anzahlung = Betrag, den der Kunde zahlt
+        $lines[] = ['description' => wf_order_line_text('deposit', $lang, ['{nr}' => $o['nr'], '{title}' => $o['title']]), 'qty' => 1, 'unit' => 'stk', 'unit_price' => $dep, 'discount' => 0, 'kind' => 'goods'];
+    } else {
+        foreach ($mains as $m) {
+            return (int)$m['id'];   // gibt es schon (Entwurf oder festgeschrieben): nicht doppelt anlegen
+        }
+        foreach ($deposits as $d) {
+            if ($d['status'] === 'draft') {
+                throw new RuntimeException('deposit_draft_open');
+            }
+        }
+        if ($deposits) {
+            // Gleiche Moms-Regel und Preisart wie die Anzahlung, sonst stimmt der Abzug nicht
+            $scheme = $deposits[0]['vat_scheme'];
+            $manual = 1;
+            $incl = (int)$deposits[0]['prices_incl'];
+        }
+        $qty = max(1, (int)$o['qty']);
+        $even = $price % $qty === 0;
+        $desc = trim($o['title'] . ($o['article'] !== '' ? ' · ' . $o['article'] : '')) . ($even || $qty === 1 ? '' : ' (' . $qty . ' ' . wf_order_line_text('pcs', $lang, []) . ')');
+        $lines[] = ['description' => $desc, 'qty' => $even ? $qty : 1, 'unit' => 'stk', 'unit_price' => $even ? intdiv($price, $qty) : $price, 'discount' => 0, 'kind' => 'goods'];
+        foreach ($deposits as $d) {
+            $credNet = (int)$d['credited_net'];
+            $credTot = (int)$d['balance']['credited'];
+            $amount = $incl ? (int)$d['total'] - $credTot : (int)$d['net'] - $credNet;
+            if ($amount > 0) {
+                $lines[] = ['description' => wf_order_line_text('deduct', $lang, ['{n}' => $d['number'], '{d}' => wf_doc_date($d['issue_date'], $lang)]), 'qty' => 1, 'unit' => 'stk', 'unit_price' => -$amount, 'discount' => 0, 'kind' => 'goods'];
+            }
+        }
+    }
+    $issue = date('Y-m-d');
+    $cur = in_array($o['currency'], ['DKK', 'EUR'], true) ? $o['currency'] : 'DKK';
+    $rate = '1';
+    $rd = null;
+    $rs = '';
+    if ($cur !== 'DKK') {
+        $r = wf_rate($cur);
+        [$rate, $rd, $rs] = $r ? [$r['rate'], $r['date'], $r['source']] : ['0', null, ''];
+    }
+    $db->beginTransaction();
+    $db->prepare('INSERT INTO invoices (purpose, customer_id, order_id, issue_date, delivery_date, due_date, currency, rate, rate_date, rate_source, vat_scheme, scheme_manual, prices_incl, lang, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        ->execute([$purpose, $o['customer_id'], $orderId, $issue, $purpose === 'final' && $o['due_date'] && $o['due_date'] < $issue ? $o['due_date'] : null,
+            date('Y-m-d', strtotime("+{$co['pay_days']} days")), $cur, $rate, $rd, $rs, $scheme, $manual, $incl, $lang, $user]);
+    $id = (int)$db->lastInsertId();
+    $ins = $db->prepare('INSERT INTO invoice_lines (invoice_id, pos, description, qty, unit, unit_price, discount, kind) VALUES (?,?,?,?,?,?,?,?)');
+    foreach ($lines as $k => $l) {
+        $ins->execute([$id, $k + 1, $l['description'], $l['qty'], $l['unit'], $l['unit_price'], $l['discount'], $l['kind']]);
+    }
+    wf_inv_recalc($db, $id);
+    $db->commit();
+    return $id;
+}
+
+/**
+ * Zahlstatus des Auftrags aus seinen Rechnungen ableiten (nur wenn es festgeschriebene Rechnungen gibt):
+ * Hauptrechnung voll bezahlt = bezahlt; sonst bezahlte Anzahlung = Anzahlung; sonst offen.
+ */
+function wf_order_sync_pay(PDO $db, ?int $orderId): void
+{
+    if (!$orderId) {
+        return;
+    }
+    $inv = array_values(array_filter(wf_order_invoices($db, $orderId), fn($i) => $i['status'] === 'final' && !$i['fully_credited']));
+    if (!$inv) {
+        return;
+    }
+    $mains = array_filter($inv, fn($i) => $i['purpose'] !== 'deposit');
+    $deps = array_filter($inv, fn($i) => $i['purpose'] === 'deposit');
+    $paidCents = array_sum(array_map(fn($i) => $i['balance']['paid'] - $i['balance']['refunded'], $inv));
+    if ($mains && !array_filter($mains, fn($i) => $i['balance']['open'] > 0)) {
+        $st = 'paid';
+    } elseif ($deps && !array_filter($deps, fn($i) => $i['balance']['open'] > 0) || $paidCents > 0) {
+        $st = 'deposit';
+    } else {
+        $st = 'open';
+    }
+    $cur = $db->query('SELECT pay_status FROM orders WHERE id = ' . $orderId)->fetchColumn();
+    $db->prepare("UPDATE orders SET pay_status = ?, deposit = ?, updated_at = datetime('now') WHERE id = ?")
+        ->execute([$st, $st === 'paid' ? (float)$db->query('SELECT price FROM orders WHERE id = ' . $orderId)->fetchColumn() : round(max(0, $paidCents) / 100, 2), $orderId]);
+    if ($cur !== $st) {
+        $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([$orderId, 'Rechnung', 'pay:' . $st]);
+    }
+    wf_touch();
+}
+
+/** Firmendaten aus CVR (DK) bzw. VIES (EU) holen. null = nicht erreichbar. */
+function wf_company_lookup(string $country, string $number): ?array
+{
+    $num = preg_replace('/[^A-Za-z0-9]/', '', $number) ?? '';
+    if ($country === 'DK') {
+        $num = preg_replace('/^DK/i', '', $num);
+        $j = json_decode((string)wf_http('https://cvrapi.dk/api?search=' . urlencode($num) . '&country=dk'), true);
+        if (is_array($j) && !empty($j['name'])) {
+            return ['name' => (string)$j['name'], 'street' => (string)($j['address'] ?? ''), 'zip' => (string)($j['zipcode'] ?? ''), 'city' => (string)($j['city'] ?? ''), 'source' => 'CVR'];
+        }
+    }
+    $vat = wf_vat_norm($num, $country);
+    if (!preg_match('/^([A-Z]{2})([A-Z0-9]{2,14})$/', $vat, $m)) {
+        return null;
+    }
+    $r = wf_http('https://ec.europa.eu/taxation_customs/vies/rest-api/check-vat-number', json_encode(['countryCode' => $m[1], 'vatNumber' => $m[2]]), 10);
+    $j = $r ? json_decode($r, true) : null;
+    if (!is_array($j) || empty($j['valid'])) {
+        return is_array($j) ? ['name' => '', 'valid' => false] : null;
+    }
+    $addr = trim(preg_replace('/\s*\n\s*/', ', ', (string)($j['address'] ?? '')) ?? '');
+    return ['name' => trim((string)($j['name'] ?? '')) === '---' ? '' : trim((string)($j['name'] ?? '')), 'address' => $addr === '---' ? '' : $addr, 'valid' => true, 'source' => 'VIES'];
 }

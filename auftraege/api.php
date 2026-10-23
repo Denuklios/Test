@@ -2,7 +2,8 @@
 declare(strict_types=1);
 require __DIR__ . '/inc/bootstrap.php';
 require __DIR__ . '/inc/display.php';
-require __DIR__ . '/inc/invoice.php';
+require_once __DIR__ . '/inc/invoice.php';
+require __DIR__ . '/inc/confirm.php';
 
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
@@ -64,7 +65,7 @@ function log_order(PDO $db, int $orderId, array $user, string $what): void
 }
 function order_row(PDO $db, int $id): array
 {
-    $st = $db->prepare('SELECT o.*, c.name AS customer_name, c.company AS customer_company FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = ?');
+    $st = $db->prepare('SELECT o.*, c.name AS customer_name, c.company AS customer_company, c.email AS customer_email FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = ?');
     $st->execute([$id]);
     $o = $st->fetch();
     if (!$o) {
@@ -82,6 +83,11 @@ function order_row(PDO $db, int $id): array
     $l = $db->prepare('SELECT user_name, what, at FROM status_log WHERE order_id = ? ORDER BY id DESC LIMIT 30');
     $l->execute([$id]);
     $o['log'] = $l->fetchAll();
+    $o['invoices'] = array_map(fn($i) => ['id' => $i['id'], 'purpose' => $i['purpose'], 'status' => $i['status'], 'number' => $i['number'], 'total' => (int)$i['total'],
+        'currency' => $i['currency'], 'open' => $i['balance']['open'], 'paid' => $i['balance']['paid'], 'due_date' => $i['due_date'], 'fully_credited' => $i['fully_credited']], wf_order_invoices($db, $id));
+    $c = $db->prepare('SELECT id, created_at, expires_at, revoked_at, viewed_at, signed_at, signer_name, sign_ip FROM order_confirmations WHERE order_id = ? ORDER BY id DESC LIMIT 1');
+    $c->execute([$id]);
+    $o['confirmation'] = $c->fetch() ?: null;
     return $o;
 }
 
@@ -435,7 +441,114 @@ try {
                 }
             }
             wf_touch();
-            wf_json(['ok' => true, 'order' => order_row($db, $id)]);
+            // Abgeholt/versendet: Schlussrechnung als Entwurf vorbereiten (falls noch keine Rechnung existiert)
+            $invId = null;
+            if (($upd['status'] ?? '') === 'delivered' && (float)$o['price'] > 0) {
+                $had = (bool)array_filter(wf_order_invoices($db, $id), fn($i) => $i['purpose'] !== 'deposit' && !$i['fully_credited']);
+                if (!$had) {
+                    try {
+                        $invId = wf_order_invoice($db, $id, 'final', $user['name']);
+                    } catch (RuntimeException $e) {
+                        $invId = null;   // z. B. Anzahlung noch Entwurf: dann von Hand
+                    }
+                }
+            }
+            wf_json(['ok' => true, 'order' => order_row($db, $id), 'invoice_id' => $invId]);
+        }
+
+        case 'order_invoice': {
+            need_post();
+            try {
+                $amt = isset($in['amount']) && $in['amount'] !== '' ? wf_to_cents($in['amount']) : null;
+                if (isset($in['amount']) && $in['amount'] !== '' && !$amt) {
+                    wf_fail('bad_amount');
+                }
+                $iid = wf_order_invoice($db, (int)($in['order_id'] ?? 0), ($in['purpose'] ?? '') === 'deposit' ? 'deposit' : 'final', $user['name'], $amt);
+            } catch (RuntimeException $e) {
+                wf_fail($e->getMessage(), $e->getMessage() === 'not_found' ? 404 : 400);
+            }
+            wf_json(['ok' => true, 'id' => $iid]);
+        }
+
+        // ---------- Auftragsbestaetigung mit Unterschrift ----------
+        case 'confirm_create': {
+            need_post();
+            $o = order_row($db, (int)($in['order_id'] ?? 0));
+            $cs = $db->prepare('SELECT * FROM customers WHERE id = ?');
+            $cs->execute([$o['customer_id']]);
+            $cust = $cs->fetch();
+            $token = bin2hex(random_bytes(24));
+            $lang = in_array($in['lang'] ?? '', WF_DOC_LANGS, true) ? $in['lang'] : wf_doc_lang_for($cust);
+            $db->prepare("UPDATE order_confirmations SET revoked_at = datetime('now') WHERE order_id = ? AND signed_at IS NULL AND revoked_at IS NULL")->execute([$o['id']]);
+            $db->prepare("INSERT INTO order_confirmations (order_id, token_hash, lang, snapshot, created_by, expires_at) VALUES (?,?,?,?,?, datetime('now', '+30 days'))")
+                ->execute([$o['id'], hash('sha256', $token), $lang, json_encode(wf_confirm_snapshot($db, $o, $cust), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $user['name']]);
+            log_order($db, $o['id'], $user, 'confirm_sent');
+            wf_json(['ok' => true, 'token' => $token]);
+        }
+
+        case 'confirm_revoke': {
+            need_post();
+            $db->prepare("UPDATE order_confirmations SET revoked_at = datetime('now') WHERE order_id = ? AND signed_at IS NULL AND revoked_at IS NULL")->execute([(int)($in['order_id'] ?? 0)]);
+            wf_json(['ok' => true]);
+        }
+
+        case 'confirm_signature': {
+            $st = $db->prepare('SELECT signature FROM order_confirmations WHERE id = ? AND signed_at IS NOT NULL');
+            $st->execute([(int)($_GET['id'] ?? 0)]);
+            $sig = (string)($st->fetchColumn() ?: '');
+            if ($sig === '') {
+                wf_fail('not_found', 404);
+            }
+            header('Content-Type: image/png');
+            header('Cache-Control: private, max-age=3600');
+            echo base64_decode($sig);
+            exit;
+        }
+
+        // ---------- Produkte ----------
+        case 'products':
+            wf_json(['ok' => true, 'products' => $db->query('SELECT * FROM products ORDER BY active DESC, sort, name COLLATE NOCASE')->fetchAll()]);
+
+        case 'product_save': {
+            need_post();
+            $name = s($in, 'name', 300);
+            if ($name === '') {
+                wf_fail('name_required');
+            }
+            $price = wf_to_cents($in['price'] ?? '0');
+            if ($price === null) {
+                wf_fail('bad_price');
+            }
+            $vals = [$name, in_array($in['unit'] ?? '', WF_UNITS, true) ? $in['unit'] : 'stk', $price, ($in['kind'] ?? '') === 'services' ? 'services' : 'goods', !empty($in['active']) || !isset($in['active']) ? 1 : 0];
+            $id = (int)($in['id'] ?? 0);
+            if ($id) {
+                $db->prepare('UPDATE products SET name=?, unit=?, price=?, kind=?, active=? WHERE id = ?')->execute([...$vals, $id]);
+            } else {
+                $db->prepare('INSERT INTO products (name, unit, price, kind, active) VALUES (?,?,?,?,?)')->execute($vals);
+                $id = (int)$db->lastInsertId();
+            }
+            wf_json(['ok' => true, 'id' => $id]);
+        }
+
+        case 'product_delete': {
+            need_post();
+            $db->prepare('DELETE FROM products WHERE id = ?')->execute([(int)($in['id'] ?? 0)]);
+            wf_json(['ok' => true]);
+        }
+
+        case 'company_lookup': {
+            $country = (string)($_GET['country'] ?? 'DK');
+            if (!isset(wf_countries()[$country])) {
+                wf_fail('bad_country');
+            }
+            $r = wf_company_lookup($country, (string)($_GET['number'] ?? ''));
+            if ($r === null) {
+                wf_fail('lookup_unavailable', 503);
+            }
+            if (($r['valid'] ?? true) === false || ($r['name'] ?? '') === '') {
+                wf_fail('lookup_not_found', 404);
+            }
+            wf_json(['ok' => true] + $r);
         }
 
         case 'order_delete':
@@ -1090,6 +1203,7 @@ try {
                 [$code, $detail] = array_pad(explode(':', $e->getMessage(), 2), 2, '');
                 wf_fail($code, 400, ['detail' => $detail]);
             }
+            wf_order_sync_pay($db, (int)$db->query('SELECT order_id FROM invoices WHERE id = ' . (int)$in['id'])->fetchColumn() ?: null);
             wf_json(['ok' => true] + $r);
         }
 
@@ -1117,7 +1231,7 @@ try {
             $today = date('Y-m-d');
             $db->beginTransaction();
             $db->prepare('INSERT INTO invoices (type, customer_id, order_id, credit_of, issue_date, delivery_date, due_date, currency, rate, rate_date, rate_source, vat_scheme, scheme_manual, prices_incl, lang, note, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-                ->execute([$credit ? 'credit' : 'invoice', $src['customer_id'], $src['order_id'], $credit ? $src['id'] : null, $today, $credit ? $src['delivery_date'] : null,
+                ->execute([$credit ? 'credit' : 'invoice', $src['customer_id'], $credit ? $src['order_id'] : null, $credit ? $src['id'] : null, $today, $credit ? $src['delivery_date'] : null,
                     $credit ? $today : date('Y-m-d', strtotime("+{$co['pay_days']} days")), $src['currency'], $credit ? $src['rate'] : ($src['currency'] === 'DKK' ? '1' : '0'),
                     $credit ? $src['rate_date'] : null, $credit ? $src['rate_source'] : '', $src['vat_scheme'], $credit ? 1 : (int)$src['scheme_manual'], $src['prices_incl'], $src['lang'], $credit ? '' : $src['note'], $user['name']]);
             $nid = (int)$db->lastInsertId();
@@ -1150,6 +1264,7 @@ try {
             $pid = (int)$db->lastInsertId();
             wf_journal($db, $user['name'], $i['type'] === 'credit' ? 'refund' : 'payment', $i['id'], ['number' => $i['number'], 'payment' => $pid, 'date' => $date, 'amount' => $amt, 'currency' => $i['currency'], 'method' => $method]);
             $db->commit();
+            wf_order_sync_pay($db, $i['order_id'] ? (int)$i['order_id'] : null);
             wf_json(['ok' => true, 'balance' => wf_inv_open($db, $i)]);
         }
 
@@ -1167,6 +1282,7 @@ try {
                 ->execute([$p['invoice_id'], date('Y-m-d'), -(int)$p['amount'], $p['method'], 'Storno', $p['id'], $user['name']]);
             wf_journal($db, $user['name'], 'payment_reversal', (int)$p['invoice_id'], ['number' => $p['number'], 'reverses' => (int)$p['id'], 'amount' => -(int)$p['amount'], 'currency' => $p['currency']]);
             $db->commit();
+            wf_order_sync_pay($db, (int)$db->query('SELECT order_id FROM invoices WHERE id = ' . (int)$p['invoice_id'])->fetchColumn() ?: null);
             wf_json(['ok' => true]);
         }
 
