@@ -57,6 +57,8 @@ import java.util.Map;
 import java.util.Set;
 
 public final class MainActivity extends Activity implements AppRepository.Listener {
+    /** Von der Kachel „Alle Apps“: App-Liste sofort öffnen. */
+    public static final String ACTION_OPEN_APPS = "de.wunschfabrik.launcher.OPEN_APPS";
     private static final int MAX_FAVORITES = 28;
     /** So viele Favoriten liegen in der Leiste unten (je zwei links und rechts vom violetten Knopf). */
     private static final int DOCK_SLOTS = 4;
@@ -80,6 +82,7 @@ public final class MainActivity extends Activity implements AppRepository.Listen
     private AppAdapter adapter;
     private GestureDetector gestures;
     private WfMenu openMenu;
+    private QuickPanel panel;
     private boolean drawerOpen;
     private float density;
 
@@ -92,6 +95,13 @@ public final class MainActivity extends Activity implements AppRepository.Listen
         gestures = new GestureDetector(this, new Swipes());
         repo = new AppRepository(this, prefs, this);
         repo.start();
+        if (ACTION_OPEN_APPS.equals(getIntent().getAction())) openDrawer(false);
+    }
+
+    @Override protected void onResume() {
+        super.onResume();
+        // Zurück aus WLAN-Fenster, Einstellungen usw.: Schalter neu lesen.
+        if (panel.isOpen()) panel.refresh();
     }
 
     @Override protected void onDestroy() {
@@ -166,6 +176,7 @@ public final class MainActivity extends Activity implements AppRepository.Listen
                 dlp.height = dp(68) + in.getStableInsetBottom();
                 dock.setLayoutParams(dlp);
                 drawer.setPadding(dp(8) + l, in.getSystemWindowInsetTop() + dp(14), dp(8) + r, in.getSystemWindowInsetBottom());
+                panel.setInsets(l, in.getSystemWindowInsetTop(), r, in.getSystemWindowInsetBottom());
                 return in.consumeSystemWindowInsets();
             }
         });
@@ -177,6 +188,10 @@ public final class MainActivity extends Activity implements AppRepository.Listen
         buildDrawer();
         root.addView(home, new FrameLayout.LayoutParams(-1, -1));
         root.addView(drawer, new FrameLayout.LayoutParams(-1, -1));
+        panel = new QuickPanel(this, new Runnable() {
+            @Override public void run() { home.animate().alpha(1f).setDuration(200).start(); }
+        });
+        root.addView(panel.view(), new FrameLayout.LayoutParams(-1, -1));
         setContentView(root);
         applyLayoutPrefs();
     }
@@ -380,6 +395,7 @@ public final class MainActivity extends Activity implements AppRepository.Listen
         boolean wf = prefs.wfBackground();
         root.setBackground(wf ? WfStyle.background(dm.widthPixels, dm.heightPixels) : null);
         drawer.setBackground(wf ? WfStyle.background(dm.widthPixels, dm.heightPixels) : new ColorDrawable(0xF2090909));
+        panel.setBackground(wf ? WfStyle.background(dm.widthPixels, dm.heightPixels) : new ColorDrawable(0xF5090909));
         GradientDrawable nav = new GradientDrawable();
         nav.setColor(wf ? WfStyle.NAV : 0xB30D0B12);
         nav.setStroke(Math.max(1, dp(1)), WfStyle.LINE);
@@ -629,12 +645,14 @@ public final class MainActivity extends Activity implements AppRepository.Listen
 
     private void showHomeMenu(View anchor) {
         new WfMenu(this)
+                .add(4, "WF-Schnellbereich")
                 .add(1, "Hintergrundbild")
                 .add(2, "Launcher-Einstellungen")
                 .add(3, "Android-Einstellungen")
                 .show(clockBox, new WfMenu.OnPick() {
                     @Override public void onPick(int id) {
-                        if (id == 1) pickWallpaper();
+                        if (id == 4) openPanel();
+                        else if (id == 1) pickWallpaper();
                         else if (id == 2) showSettings();
                         else startSafe(new Intent(Settings.ACTION_SETTINGS));
                     }
@@ -659,10 +677,13 @@ public final class MainActivity extends Activity implements AppRepository.Listen
                 "Uhr und Datum: " + (prefs.showClock() ? "an" : "aus"),
                 "App-Namen: " + (prefs.showLabels() ? "an" : "aus"),
                 "Tastatur beim Öffnen der App-Liste: " + (prefs.keyboardOnDrawer() ? "an" : "aus"),
-                "Nach unten wischen öffnet Benachrichtigungen: " + (prefs.swipeDownNotifications() ? "an" : "aus"),
+                "Nach unten wischen: " + SWIPE_NAMES[prefs.swipeDown()],
                 "Ausgeblendete Apps (" + prefs.hidden().size() + ") …",
                 "Hintergrundbild ändern …",
                 "Als Standard-Startbildschirm festlegen …",
+                "WF-Hintergrundbild fürs ganze Handy (lila Systemfarben) …",
+                "WF-Kacheln im Android-Schnellzugriff hinzufügen …",
+                "Zugriff auf Benachrichtigungen …",
         };
         new AlertDialog.Builder(this)
                 .setTitle("WF Launcher")
@@ -676,10 +697,13 @@ public final class MainActivity extends Activity implements AppRepository.Listen
                             case 3: prefs.setShowClock(!prefs.showClock()); break;
                             case 4: prefs.setShowLabels(!prefs.showLabels()); break;
                             case 5: prefs.setKeyboardOnDrawer(!prefs.keyboardOnDrawer()); break;
-                            case 6: prefs.setSwipeDownNotifications(!prefs.swipeDownNotifications()); break;
+                            case 6: prefs.setSwipeDown((prefs.swipeDown() + 1) % SWIPE_NAMES.length); break;
                             case 7: reopen = false; showHidden(); break;
                             case 8: reopen = false; pickWallpaper(); break;
                             case 9: reopen = false; openHomeSettings(); break;
+                            case 10: reopen = false; confirmSystemWallpaper(); break;
+                            case 11: reopen = false; addTiles(); break;
+                            case 12: reopen = false; startSafe(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); break;
                         }
                         applyLayoutPrefs();
                         if (reopen) showSettings();
@@ -687,6 +711,81 @@ public final class MainActivity extends Activity implements AppRepository.Listen
                 })
                 .setNegativeButton("Fertig", null)
                 .show();
+    }
+
+    private static final String[] SWIPE_NAMES = {"WF-Schnellbereich", "Android-Bereich", "nichts"};
+
+    private void openPanel() {
+        if (panel.isOpen()) return;
+        if (drawerOpen) closeDrawer(false);
+        if (openMenu != null) openMenu.dismiss();
+        home.animate().alpha(0f).setDuration(150).start();
+        panel.open();
+    }
+
+    private void confirmSystemWallpaper() {
+        new AlertDialog.Builder(this)
+                .setTitle("WF-Hintergrundbild setzen?")
+                .setMessage("Setzt ein schwarz-violettes Bild mit WF-Logo für Startbildschirm und Sperrbildschirm.\n\n"
+                        + "Nothing OS färbt danach Schnellzugriff, Einstellungen und Tastatur passend ein. Falls nicht: "
+                        + "Einstellungen → Personalisierung (bzw. Hintergrund & Stil) → Farben → „Hintergrundfarben“ wählen.")
+                .setPositiveButton("Setzen", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) { applySystemWallpaper(); }
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+    }
+
+    private void applySystemWallpaper() {
+        Toast.makeText(this, "Hintergrundbild wird gesetzt …", Toast.LENGTH_SHORT).show();
+        final android.os.Handler h = new android.os.Handler();
+        new Thread(new Runnable() {
+            @Override public void run() {
+                boolean ok;
+                try {
+                    android.graphics.Bitmap bmp = WfWallpaper.create(MainActivity.this);
+                    Compat.setWallpaper(MainActivity.this, bmp);
+                    ok = true;
+                } catch (Exception e) {
+                    ok = false;
+                }
+                final boolean done = ok;
+                h.post(new Runnable() {
+                    @Override public void run() {
+                        if (done) {
+                            // Launcher zeigt jetzt das Systembild, damit Startbildschirm und System gleich aussehen.
+                            prefs.setWfBackground(false);
+                            applyLayoutPrefs();
+                        }
+                        Toast.makeText(MainActivity.this, done ? "Fertig – Systemfarben passen sich in ein paar Sekunden an"
+                                : "Hintergrundbild konnte nicht gesetzt werden", Toast.LENGTH_LONG).show();
+                    }
+                });
+            }
+        }, "wallpaper").start();
+    }
+
+    /** Ab Android 13 fragt das System je Kachel „Hinzufügen?“, sonst Anleitung. */
+    private void addTiles() {
+        addTile(0);
+    }
+
+    private void addTile(final int i) {
+        if (i >= Tiles.ALL.length) {
+            Toast.makeText(this, "Kacheln fertig – zum Verschieben im Schnellzugriff auf den Stift tippen", Toast.LENGTH_LONG).show();
+            return;
+        }
+        boolean asked = Compat.requestAddTile(this, Tiles.component(this, i), Tiles.LABELS[i], Tiles.ICONS[i], new Compat.Result() {
+            @Override public void done(boolean added) { addTile(i + 1); }
+        });
+        if (!asked) {
+            new AlertDialog.Builder(this)
+                    .setTitle("WF-Kacheln hinzufügen")
+                    .setMessage("Von oben zweimal herunterziehen → Stift (Bearbeiten) → unten „Aufträge“, „Neuer Auftrag“, "
+                            + "„WF-Kalender“ und „Alle Apps“ nach oben ziehen.")
+                    .setPositiveButton("OK", null)
+                    .show();
+        }
     }
 
     private void openHomeSettings() {
@@ -772,19 +871,27 @@ public final class MainActivity extends Activity implements AppRepository.Listen
     }
 
     @Override public void onBackPressed() {
-        if (drawerOpen) closeDrawer(true);
+        if (panel.isOpen()) panel.close(true);
+        else if (drawerOpen) closeDrawer(true);
         // Auf dem Startbildschirm macht Zurück nichts.
     }
 
     @Override protected void onNewIntent(Intent intent) {
         super.onNewIntent(intent);
         // Home-Taste gedrückt, während der Launcher schon vorne ist.
-        if (Intent.ACTION_MAIN.equals(intent.getAction())) closeDrawer(hasWindowFocus());
+        if (ACTION_OPEN_APPS.equals(intent.getAction())) {
+            panel.close(false);
+            openDrawer(false);
+        } else if (Intent.ACTION_MAIN.equals(intent.getAction())) {
+            panel.close(hasWindowFocus());
+            closeDrawer(hasWindowFocus());
+        }
     }
 
     @Override protected void onStop() {
         super.onStop();
         closeDrawer(false);
+        panel.close(false);
     }
 
     @Override public boolean dispatchTouchEvent(MotionEvent ev) {
@@ -798,9 +905,14 @@ public final class MainActivity extends Activity implements AppRepository.Listen
             float dy = b.getY() - a.getY();
             float dx = b.getX() - a.getX();
             if (Math.abs(dy) < dp(60) || Math.abs(dy) < Math.abs(dx) * 1.5f || Math.abs(vy) < dp(400)) return false;
+            if (panel.isOpen()) {
+                if (dy < 0 && panel.atBottom()) { panel.close(true); return true; }
+                return false;
+            }
             if (!drawerOpen) {
                 if (dy < 0) openDrawer(false);
-                else if (prefs.swipeDownNotifications()) expandNotifications();
+                else if (prefs.swipeDown() == Prefs.SWIPE_WF_PANEL) openPanel();
+                else if (prefs.swipeDown() == Prefs.SWIPE_SYSTEM) expandNotifications();
                 return true;
             }
             if (dy > 0 && !grid.canScrollVertically(-1)) { closeDrawer(true); return true; }

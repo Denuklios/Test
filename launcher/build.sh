@@ -12,12 +12,13 @@ ZIPALIGN=$(tool zipalign)
 APKSIGNER=$(tool apksigner)
 JAR="$SDK/platforms/android-23/android.jar"
 OUT=build/apk
-VERSION_CODE=1
-VERSION_NAME=1.0
+VERSION_CODE=2
+VERSION_NAME=1.1
 KS=keystore/wf-launcher.jks
 KS_PASS=${KS_PASS:-wflauncher}
 
 rm -rf "$OUT" && mkdir -p "$OUT/gen" "$OUT/classes" dist
+rm -f dist/*.apk
 
 echo "== Tests"
 mkdir -p build/test
@@ -32,7 +33,11 @@ echo "== Ressourcen"
     --java "$OUT/gen" -o "$OUT/app.unsigned.apk" "$OUT/res.zip"
 
 echo "== Java"
+# Stubs für neuere APIs (TileService) nur zum Kompilieren, kommen nicht in die APK.
+mkdir -p "$OUT/stubs"
 javac -nowarn -encoding UTF-8 -source 8 -target 8 -bootclasspath "$JAR" -Xlint:-options \
+    -d "$OUT/stubs" $(find stubs -name '*.java')
+javac -classpath "$OUT/stubs" -nowarn -encoding UTF-8 -source 8 -target 8 -bootclasspath "$JAR" -Xlint:-options \
     -d "$OUT/classes" $(find src "$OUT/gen" -name '*.java')
 
 echo "== Dex"

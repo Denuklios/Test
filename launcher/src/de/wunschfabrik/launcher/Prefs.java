@@ -60,6 +60,8 @@ public final class Prefs {
     public boolean wfBackground() { return sp.getBoolean("wf_background", true); }
     public void setWfBackground(boolean b) { sp.edit().putBoolean("wf_background", b).apply(); }
 
-    public boolean swipeDownNotifications() { return sp.getBoolean("swipe_notif", true); }
-    public void setSwipeDownNotifications(boolean b) { sp.edit().putBoolean("swipe_notif", b).apply(); }
+    public static final int SWIPE_WF_PANEL = 0, SWIPE_SYSTEM = 1, SWIPE_NOTHING = 2;
+    /** Nach unten wischen: 0 = WF-Schnellbereich, 1 = Android-Bereich, 2 = nichts. */
+    public int swipeDown() { return sp.getInt("swipe_down", SWIPE_WF_PANEL); }
+    public void setSwipeDown(int m) { sp.edit().putInt("swipe_down", m).apply(); }
 }
