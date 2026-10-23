@@ -51,6 +51,26 @@ public final class Compat {
         wm.setBitmap(bmp);
     }
 
+    /**
+     * Ab Android 10: System-Fenster „Als Standard-Startbildschirm festlegen?“ (RoleManager, Rolle HOME).
+     * Liefert false, wenn das Handy das nicht anbietet – dann die Einstellungsseite öffnen.
+     */
+    public static boolean requestHomeRole(android.app.Activity a, int requestCode) {
+        if (Build.VERSION.SDK_INT < 29) return false;
+        try {
+            Object rm = a.getSystemService("role");
+            Class<?> cls = rm.getClass();
+            String role = "android.app.role.HOME";
+            if (!(Boolean) cls.getMethod("isRoleAvailable", String.class).invoke(rm, role)) return false;
+            if ((Boolean) cls.getMethod("isRoleHeld", String.class).invoke(rm, role)) return true;
+            Intent i = (Intent) cls.getMethod("createRequestRoleIntent", String.class).invoke(rm, role);
+            a.startActivityForResult(i, requestCode);
+            return true;
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     public interface Result { void done(boolean added); }
 
     /** Ab Android 13: System fragt „Kachel hinzufügen?“. Liefert false, wenn das nicht geht. */

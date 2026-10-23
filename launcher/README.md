@@ -5,8 +5,8 @@ Farben `#8B2BE2 / #A855F7 / #C9A0FF`, Schriften Cormorant Garamond (Uhr, Übersc
 WF-Logo als App-Symbol, unten eine Leiste mit dem runden violetten Knopf wie in der Auftrags-App.
 
 Fertige APKs – Android 6.0 oder neuer:
-- [`dist/WF-Launcher-1.2.apk`](dist/WF-Launcher-1.2.apk) – **normale Version**, direkt aufs Handy laden und installieren.
-- [`dist/WF-Launcher-1.2-voll.apk`](dist/WF-Launcher-1.2-voll.apk) – **Vollversion** mit Benachrichtigungen im
+- [`dist/WF-Launcher-1.3.apk`](dist/WF-Launcher-1.3.apk) – **normale Version**, direkt aufs Handy laden und installieren.
+- [`dist/WF-Launcher-1.3-voll.apk`](dist/WF-Launcher-1.3-voll.apk) – **Vollversion** mit Benachrichtigungen im
   WF-Schnellbereich. Google Play Protect blockiert Apps mit Benachrichtigungs-Zugriff, wenn man sie aus dem Browser
   oder Dateimanager installiert; daher per PC installieren (siehe unten).
 
@@ -64,15 +64,16 @@ das Wischen auch auf den Android-Bereich umstellen).
 Normale Version:
 
 1. APK aufs Handy laden und öffnen, „Installation aus unbekannten Quellen“ erlauben.
-2. Home-Taste drücken und „WF Launcher“ als Standard wählen – oder in der App unter
-   Einstellungen → „Als Standard-Startbildschirm festlegen“.
+2. „WF Launcher“ einmal öffnen: Android fragt „Als Standard-Startbildschirm festlegen?“ → WF Launcher wählen.
+   Kommt keine Frage: violetten Hinweis oben antippen, oder Einstellungen → Apps → Standard-Apps →
+   Startbildschirm-App → WF Launcher.
 3. Zurück zum alten Launcher: Android-Einstellungen → Apps → Standard-Apps → Startbildschirm-App.
 
 Vollversion per PC (ADB) – Play Protect blockiert diesen Weg nicht:
 1. Am Handy: Einstellungen → Über das Telefon → 7× auf „Build-Nummer“ tippen → Entwickleroptionen →
    „USB-Debugging“ einschalten.
 2. Am PC die „SDK Platform-Tools“ von Google entpacken, Handy per USB anschließen, am Handy „Zulassen“ tippen.
-3. `adb install -r WF-Launcher-1.2-voll.apk` – ersetzt die normale Version, Einstellungen bleiben (gleicher Schlüssel).
+3. `adb install -r WF-Launcher-1.3-voll.apk` – ersetzt die normale Version, Einstellungen bleiben (gleicher Schlüssel).
 4. USB-Debugging danach wieder ausschalten.
 
 ## Selbst bauen
@@ -81,7 +82,7 @@ Ohne Gradle und ohne Google-SDK, nur mit Paketen aus Ubuntu/Debian:
 
 ```sh
 sudo apt install openjdk-17-jdk android-sdk-build-tools android-sdk-platform-23 dalvik-exchange apksigner zipalign
-./build.sh            # führt die Tests aus, Ergebnis: dist/WF-Launcher-1.2.apk und -voll.apk
+./build.sh            # führt die Tests aus, Ergebnis: dist/WF-Launcher-1.3.apk und -voll.apk
 ```
 
 `keystore/wf-launcher.jks` ist der Signierschlüssel (Passwort `wflauncher`). Für Updates immer denselben

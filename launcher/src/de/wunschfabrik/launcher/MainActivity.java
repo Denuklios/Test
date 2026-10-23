@@ -83,6 +83,8 @@ public final class MainActivity extends Activity implements AppRepository.Listen
     private GestureDetector gestures;
     private WfMenu openMenu;
     private QuickPanel panel;
+    private TextView defaultBanner;
+    private boolean askedDefault;
     private boolean drawerOpen;
     private float density;
 
@@ -102,6 +104,32 @@ public final class MainActivity extends Activity implements AppRepository.Listen
         super.onResume();
         // Zurück aus WLAN-Fenster, Einstellungen usw.: Schalter neu lesen.
         if (panel.isOpen()) panel.refresh();
+        boolean isDefault = isDefaultHome();
+        defaultBanner.setVisibility(isDefault ? View.GONE : View.VISIBLE);
+        // Beim ersten Öffnen einmal direkt fragen, solange noch ein anderer Startbildschirm Standard ist.
+        if (!isDefault && !askedDefault) {
+            askedDefault = true;
+            root.postDelayed(new Runnable() { @Override public void run() { makeDefault(); } }, 600);
+        }
+    }
+
+    private boolean isDefaultHome() {
+        Intent home = new Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME);
+        ResolveInfo ri = getPackageManager().resolveActivity(home, android.content.pm.PackageManager.MATCH_DEFAULT_ONLY);
+        return ri != null && ri.activityInfo != null && getPackageName().equals(ri.activityInfo.packageName);
+    }
+
+    /** Fragt per System-Fenster nach, sonst Einstellungsseite „Startbildschirm-App“. */
+    private void makeDefault() {
+        if (isDefaultHome()) return;
+        if (!Compat.requestHomeRole(this, 7)) openHomeSettings();
+    }
+
+    @Override protected void onActivityResult(int request, int result, Intent data) {
+        super.onActivityResult(request, result, data);
+        if (request == 7 && !isDefaultHome()) {
+            Toast.makeText(this, "Nicht festgelegt – über den Hinweis oben jederzeit erneut", Toast.LENGTH_LONG).show();
+        }
     }
 
     @Override protected void onDestroy() {
@@ -260,6 +288,22 @@ public final class MainActivity extends Activity implements AppRepository.Listen
         homeContent.addView(bar, blp);
 
         homeContent.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 1f));
+
+        defaultBanner = text(14, Color.WHITE);
+        defaultBanner.setTypeface(WfStyle.bodyMedium(this));
+        defaultBanner.setText("WF Launcher als Standard-Startbildschirm festlegen  →");
+        defaultBanner.setGravity(Gravity.CENTER);
+        defaultBanner.setPadding(dp(16), dp(12), dp(16), dp(12));
+        GradientDrawable bannerBg = new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{WfStyle.P1, WfStyle.P2});
+        bannerBg.setCornerRadius(dp(12));
+        defaultBanner.setBackground(bannerBg);
+        defaultBanner.setVisibility(View.GONE);
+        defaultBanner.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { makeDefault(); }
+        });
+        LinearLayout.LayoutParams dblp = new LinearLayout.LayoutParams(-1, -2);
+        dblp.bottomMargin = dp(16);
+        homeContent.addView(defaultBanner, dblp);
 
         favoritesHint = text(14, WfStyle.MUTED);
         favoritesHint.setGravity(Gravity.CENTER);
@@ -700,7 +744,7 @@ public final class MainActivity extends Activity implements AppRepository.Listen
                             case 6: prefs.setSwipeDown((prefs.swipeDown() + 1) % SWIPE_NAMES.length); break;
                             case 7: reopen = false; showHidden(); break;
                             case 8: reopen = false; pickWallpaper(); break;
-                            case 9: reopen = false; openHomeSettings(); break;
+                            case 9: reopen = false; makeDefault(); break;
                             case 10: reopen = false; confirmSystemWallpaper(); break;
                             case 11: reopen = false; addTiles(); break;
                             case 12: reopen = false; startSafe(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); break;
