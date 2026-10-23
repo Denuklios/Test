@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/inc/bootstrap.php';
 require __DIR__ . '/inc/display.php';
+require __DIR__ . '/inc/invoice.php';
 
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
@@ -84,6 +85,48 @@ function order_row(PDO $db, int $id): array
     return $o;
 }
 
+/** Rechnungszeilen aus der Eingabe pruefen. */
+function inv_lines_in(array $in): array
+{
+    $raw = $in['lines'] ?? [];
+    if (!is_array($raw) || count($raw) > 200) {
+        wf_fail('bad_lines');
+    }
+    $out = [];
+    foreach ($raw as $l) {
+        if (!is_array($l)) {
+            wf_fail('bad_lines');
+        }
+        $desc = s($l, 'description', 2000);
+        $qty = str_replace(',', '.', (string)($l['qty'] ?? '1'));
+        $price = wf_to_cents($l['unit_price'] ?? '0', true);
+        $disc = str_replace(',', '.', (string)($l['discount'] ?? '0'));
+        if ($desc === '' && ($price ?? 0) === 0) {
+            continue;   // leere Zeile ignorieren
+        }
+        if (!is_numeric($qty) || abs((float)$qty) > 1000000 || $price === null || !is_numeric($disc ?: '0') || (float)$disc < 0 || (float)$disc > 100) {
+            wf_fail('bad_lines');
+        }
+        $out[] = ['description' => $desc, 'qty' => round((float)$qty, 3), 'unit' => in_array($l['unit'] ?? '', WF_UNITS, true) ? $l['unit'] : 'stk',
+            'unit_price' => $price, 'discount' => round((float)($disc ?: 0), 2), 'kind' => ($l['kind'] ?? '') === 'services' ? 'services' : 'goods'];
+    }
+    return [$out];
+}
+function inv_rate_in(array $in, string $currency): string
+{
+    if ($currency === 'DKK') {
+        return '1';
+    }
+    $r = str_replace(',', '.', trim((string)($in['rate'] ?? '')));
+    if ($r === '' || !is_numeric($r)) {
+        return '0';
+    }
+    if ((float)$r < 0 || (float)$r > 10000) {
+        wf_fail('bad_rate');
+    }
+    return rtrim(rtrim(sprintf('%.6F', (float)$r), '0'), '.');
+}
+
 try {
     switch ($a) {
         case 'me': {
@@ -102,6 +145,12 @@ try {
                 'blocked' => $db->query("SELECT id, date_from, date_to, reason, time_from, time_to FROM blocked_days WHERE date_to >= date('now','localtime') ORDER BY date_from")->fetchAll(),
                 'settings' => ['weekend_min' => wf_weekend_min(), 'day_start' => wf_min_to_hhmm(wf_day_start())],
                 'version' => wf_version(),
+                'company' => wf_company(),
+                'company_missing' => wf_company_missing(wf_company()),
+                'countries' => wf_countries(),
+                'eu' => WF_EU,
+                'units' => WF_UNITS,
+                'invoices_final' => (int)$db->query("SELECT COUNT(*) FROM invoices WHERE status = 'final'")->fetchColumn(),
             ]);
         }
 
@@ -404,7 +453,7 @@ try {
         case 'customers': {
             $q = trim((string)($_GET['q'] ?? ''));
             $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
-            $st = $db->prepare("SELECT c.id, c.name, c.company, c.email, c.phone, c.currency,
+            $st = $db->prepare("SELECT c.id, c.name, c.company, c.email, c.phone, c.currency, c.country, c.vat_id, c.is_business,
                                   (SELECT COUNT(*) FROM orders o WHERE o.customer_id = c.id AND o.deleted_at IS NULL) AS order_count
                                 FROM customers c
                                 WHERE c.anonymized_at IS NULL AND (? = '' OR c.name LIKE ? ESCAPE '\\' OR c.company LIKE ? ESCAPE '\\' OR c.email LIKE ? ESCAPE '\\' OR c.phone LIKE ? ESCAPE '\\')
@@ -424,6 +473,9 @@ try {
             $o = $db->prepare('SELECT id, nr, title, qty, price, deposit, currency, status, pay_status, due_date FROM orders WHERE customer_id = ? AND deleted_at IS NULL ORDER BY id DESC');
             $o->execute([$id]);
             $c['orders'] = $o->fetchAll();
+            $iv = $db->prepare('SELECT id, type, status, number, issue_date, due_date, currency, total FROM invoices WHERE customer_id = ? ORDER BY COALESCE(number, 1e12) DESC, id DESC');
+            $iv->execute([$id]);
+            $c['invoices'] = $iv->fetchAll();
             wf_json(['ok' => true, 'customer' => $c]);
         }
 
@@ -442,12 +494,42 @@ try {
             if (!in_array($cur, wf_cfg('currencies'), true)) {
                 wf_fail('bad_currency');
             }
-            $vals = [$name, s($in, 'company', 200), $email, s($in, 'phone', 60), s($in, 'address', 500), $cur, s($in, 'notes', 3000)];
+            $country = s($in, 'country', 2) ?: 'DK';
+            if (!isset(wf_countries()[$country])) {
+                wf_fail('bad_country');
+            }
+            $docLang = s($in, 'doc_lang', 2);
+            if ($docLang !== '' && !in_array($docLang, WF_DOC_LANGS, true)) {
+                wf_fail('bad_lang');
+            }
+            $isBiz = !empty($in['is_business']) ? 1 : 0;
+            $vat = wf_vat_norm(s($in, 'vat_id', 30), $country);
+            if ($vat !== '' && $country === 'DK' && !wf_cvr_valid(substr($vat, 2))) {
+                wf_fail('bad_cvr');
+            }
+            if ($vat !== '' && in_array($country, WF_EU, true) && !preg_match('/^[A-Z]{2}[A-Z0-9]{2,14}$/', $vat)) {
+                wf_fail('bad_vat_id');
+            }
+            $vals = [$name, s($in, 'company', 200), $email, s($in, 'phone', 60), s($in, 'address', 500), $cur, s($in, 'notes', 3000), $country, $vat, $isBiz, $docLang];
             if ($id) {
-                $db->prepare('UPDATE customers SET name=?, company=?, email=?, phone=?, address=?, currency=?, notes=? WHERE id=? AND anonymized_at IS NULL')->execute([...$vals, $id]);
+                $old = $db->prepare('SELECT vat_id, country FROM customers WHERE id = ?');
+                $old->execute([$id]);
+                $o = $old->fetch();
+                $db->prepare('UPDATE customers SET name=?, company=?, email=?, phone=?, address=?, currency=?, notes=?, country=?, vat_id=?, is_business=?, doc_lang=? WHERE id=? AND anonymized_at IS NULL')->execute([...$vals, $id]);
+                if ($o && ($o['vat_id'] !== $vat || $o['country'] !== $country)) {
+                    $db->prepare("UPDATE customers SET vat_valid = NULL, vat_checked_at = NULL, vat_checked_name = '' WHERE id = ?")->execute([$id]);
+                }
             } else {
-                $db->prepare('INSERT INTO customers (name, company, email, phone, address, currency, notes) VALUES (?,?,?,?,?,?,?)')->execute($vals);
+                $db->prepare('INSERT INTO customers (name, company, email, phone, address, currency, notes, country, vat_id, is_business, doc_lang) VALUES (?,?,?,?,?,?,?,?,?,?,?)')->execute($vals);
                 $id = (int)$db->lastInsertId();
+            }
+            // EU-Firmenkunde: USt-ID gleich bei VIES pruefen (ohne Netz bleibt sie ungeprueft)
+            if ($vat !== '' && in_array($country, WF_EU, true)) {
+                $chk = $db->prepare('SELECT vat_checked_at FROM customers WHERE id = ?');
+                $chk->execute([$id]);
+                if (!$chk->fetchColumn() && ($r = wf_vies($vat)) !== null) {
+                    $db->prepare("UPDATE customers SET vat_valid = ?, vat_checked_name = ?, vat_checked_at = datetime('now') WHERE id = ?")->execute([$r['valid'] ? 1 : 0, $r['name'], $id]);
+                }
             }
             wf_touch();
             wf_json(['ok' => true, 'id' => $id]);
@@ -468,8 +550,10 @@ try {
             $c->execute([$id]);
             $o = $db->prepare('SELECT nr, title, description, article, qty, price, deposit, currency, status, pay_status, due_date, notes, created_at FROM orders WHERE customer_id = ?');
             $o->execute([$id]);
+            $iv = $db->prepare('SELECT type, status, number, issue_date, due_date, currency, net, vat, total, customer_snap FROM invoices WHERE customer_id = ?');
+            $iv->execute([$id]);
             header('Content-Disposition: attachment; filename="kunde-' . $id . '.json"');
-            wf_json(['customer' => $c->fetch(), 'orders' => $o->fetchAll()]);
+            wf_json(['customer' => $c->fetch(), 'orders' => $o->fetchAll(), 'invoices' => $iv->fetchAll()]);
         }
 
         // ---------- Dateien ----------
@@ -766,12 +850,345 @@ try {
             wf_json(['ok' => true, 'purged' => $n]);
         }
 
+
+        // ---------- Firmendaten ----------
+        case 'company_save': {
+            need_post();
+            $c = wf_company();
+            foreach (['name' => 200, 'owner' => 200, 'street' => 200, 'zip' => 20, 'city' => 100, 'email' => 200, 'phone' => 60, 'web' => 200, 'bank' => 100, 'bic' => 11] as $k => $max) {
+                if (array_key_exists($k, $in)) {
+                    $c[$k] = s($in, $k, $max);
+                }
+            }
+            $c['cvr'] = preg_replace('/\D/', '', s($in, 'cvr', 20)) ?? '';
+            if ($c['cvr'] !== '' && !wf_cvr_valid($c['cvr'])) {
+                wf_fail('bad_cvr');
+            }
+            $c['reg_no'] = preg_replace('/\D/', '', s($in, 'reg_no', 10)) ?? '';
+            $c['account_no'] = preg_replace('/\D/', '', s($in, 'account_no', 20)) ?? '';
+            if ($c['reg_no'] !== '' && strlen($c['reg_no']) !== 4) {
+                wf_fail('bad_reg_no');
+            }
+            $iban = strtoupper(preg_replace('/\s+/', '', s($in, 'iban', 40)) ?? '');
+            if ($iban !== '') {
+                $r = substr($iban, 4) . substr($iban, 0, 4);
+                $num = preg_replace_callback('/[A-Z]/', fn($m) => (string)(ord($m[0]) - 55), $r);
+                $mod = 0;
+                foreach (str_split((string)$num, 7) as $part) {
+                    $mod = (int)(($mod . $part) % 97);
+                }
+                if (!preg_match('/^[A-Z]{2}\d{2}[A-Z0-9]{8,30}$/', $iban) || $mod !== 1) {
+                    wf_fail('bad_iban');
+                }
+            }
+            $c['iban'] = $iban;
+            $c['bic'] = strtoupper($c['bic']);
+            if ($c['email'] !== '' && !filter_var($c['email'], FILTER_VALIDATE_EMAIL)) {
+                wf_fail('bad_email');
+            }
+            $c['moms_registered'] = !empty($in['moms_registered']);
+            $c['moms_period'] = in_array($in['moms_period'] ?? '', ['half', 'quarter', 'month'], true) ? $in['moms_period'] : 'half';
+            $c['pay_days'] = max(0, min(90, (int)($in['pay_days'] ?? 14)));
+            // Startnummer nur bis zur ersten festgeschriebenen Rechnung aenderbar (sonst Luecke)
+            if ((int)$db->query("SELECT COUNT(*) FROM invoices WHERE status = 'final'")->fetchColumn() === 0) {
+                $c['invoice_start'] = max(1, min(99999999, (int)($in['invoice_start'] ?? 1)));
+            }
+            $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('company', ?)")->execute([json_encode($c, JSON_UNESCAPED_UNICODE)]);
+            wf_journal($db, $user['name'], 'company', null, ['cvr' => $c['cvr'], 'name' => $c['name'], 'moms_registered' => $c['moms_registered']]);
+            wf_json(['ok' => true, 'company' => $c, 'missing' => wf_company_missing($c)]);
+        }
+
+        case 'customer_vat_check': {
+            need_post();
+            $st = $db->prepare('SELECT id, vat_id, country FROM customers WHERE id = ? AND anonymized_at IS NULL');
+            $st->execute([(int)($in['id'] ?? 0)]);
+            $c = $st->fetch();
+            if (!$c || $c['vat_id'] === '') {
+                wf_fail('vat_id_required');
+            }
+            $r = wf_vies($c['vat_id']);
+            if ($r === null) {
+                wf_fail('vies_unreachable', 503);
+            }
+            $db->prepare("UPDATE customers SET vat_valid = ?, vat_checked_name = ?, vat_checked_at = datetime('now') WHERE id = ?")->execute([$r['valid'] ? 1 : 0, $r['name'], $c['id']]);
+            wf_json(['ok' => true, 'valid' => $r['valid'], 'name' => $r['name']]);
+        }
+
+        case 'rate': {
+            $cur = (string)($_GET['cur'] ?? '');
+            if (!in_array($cur, wf_cfg('currencies'), true)) {
+                wf_fail('bad_currency');
+            }
+            $r = wf_rate($cur);
+            if (!$r) {
+                wf_fail('rate_unavailable', 503);
+            }
+            wf_json(['ok' => true] + $r);
+        }
+
+        // ---------- Rechnungen ----------
+        case 'invoices': {
+            $w = ['1=1'];
+            $p = [];
+            $q = trim((string)($_GET['q'] ?? ''));
+            if ($q !== '') {
+                $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
+                $w[] = "(CAST(i.number AS TEXT) = ? OR c.name LIKE ? ESCAPE '\\' OR c.company LIKE ? ESCAPE '\\')";
+                array_push($p, $q, $like, $like);
+            }
+            if (!empty($_GET['customer_id'])) {
+                $w[] = 'i.customer_id = ?';
+                $p[] = (int)$_GET['customer_id'];
+            }
+            if (!empty($_GET['year']) && preg_match('/^\d{4}$/', (string)$_GET['year'])) {
+                $w[] = "substr(i.issue_date,1,4) = ?";
+                $p[] = (string)$_GET['year'];
+            }
+            $st = $db->prepare("SELECT i.id, i.type, i.status, i.number, i.issue_date, i.due_date, i.currency, i.rate, i.total, i.total_dkk, i.vat_scheme, i.sent_at, i.credit_of,
+                                       c.name AS customer_name, c.company AS customer_company, i.customer_id,
+                                       (SELECT number FROM invoices o WHERE o.id = i.credit_of) AS credit_of_number
+                                FROM invoices i JOIN customers c ON c.id = i.customer_id
+                                WHERE " . implode(' AND ', $w) . " ORDER BY i.status = 'final', COALESCE(i.number, 0) DESC, i.id DESC LIMIT 500");
+            $st->execute($p);
+            $rows = $st->fetchAll();
+            $today = date('Y-m-d');
+            $sum = ['open_dkk' => 0, 'overdue_dkk' => 0, 'drafts' => 0, 'overdue' => 0];
+            foreach ($rows as &$r) {
+                $o = wf_inv_open($db, $r);
+                $r['paid'] = $o['paid'];
+                $r['open'] = $o['open'];
+                $r['state'] = $r['status'] === 'draft' ? 'draft' : ($r['type'] === 'credit' ? 'credit' : ($o['open'] > 0 ? ($r['due_date'] < $today ? 'overdue' : 'open') : ($o['open'] < 0 ? 'refund' : 'paid')));
+                if ($r['state'] === 'draft') {
+                    $sum['drafts']++;
+                }
+                if (in_array($r['state'], ['open', 'overdue'], true)) {
+                    $dkk = (int)round($o['open'] * (float)$r['rate']);
+                    $sum['open_dkk'] += $dkk;
+                    if ($r['state'] === 'overdue') {
+                        $sum['overdue_dkk'] += $dkk;
+                        $sum['overdue']++;
+                    }
+                }
+            }
+            unset($r);
+            $f = (string)($_GET['state'] ?? '');
+            if ($f !== '') {
+                $rows = array_values(array_filter($rows, fn($r) => $f === 'unpaid' ? in_array($r['state'], ['open', 'overdue'], true) : $r['state'] === $f));
+            }
+            wf_json(['ok' => true, 'invoices' => $rows, 'summary' => $sum]);
+        }
+
+        case 'invoice': {
+            $i = wf_inv_load($db, (int)($_GET['id'] ?? 0));
+            if (!$i) {
+                wf_fail('not_found', 404);
+            }
+            $c = $db->prepare('SELECT * FROM customers WHERE id = ?');
+            $c->execute([$i['customer_id']]);
+            $i['customer'] = $c->fetch();
+            $i['balance'] = wf_inv_open($db, $i);
+            $i['credits'] = $db->query('SELECT id, number, status, total, issue_date FROM invoices WHERE credit_of = ' . (int)$i['id'] . ' ORDER BY id')->fetchAll();
+            $i['credit_of_number'] = $i['credit_of'] ? $db->query('SELECT number FROM invoices WHERE id = ' . (int)$i['credit_of'])->fetchColumn() : null;
+            if ($i['status'] === 'draft') {
+                $i['scheme_auto'] = wf_scheme_auto(wf_company(), $i['customer']);
+                $i['calc'] = wf_inv_calc($i['lines'], $i['vat_scheme'], (bool)$i['prices_incl'], $i['rate']);
+            }
+            wf_json(['ok' => true, 'invoice' => $i]);
+        }
+
+        // Live-Summe im Editor (ohne zu speichern) - gleiche Rechnung wie beim Festschreiben
+        case 'invoice_calc': {
+            need_post();
+            [$lines] = inv_lines_in($in);
+            $scheme = in_array($in['vat_scheme'] ?? '', WF_SCHEMES, true) ? $in['vat_scheme'] : 'dk';
+            wf_json(['ok' => true, 'calc' => wf_inv_calc($lines, $scheme, !empty($in['prices_incl']), inv_rate_in($in, (string)($in['currency'] ?? 'DKK')))]);
+        }
+
+        case 'invoice_save': {
+            need_post();
+            $id = (int)($in['id'] ?? 0);
+            $cur = null;
+            if ($id) {
+                $cur = wf_inv_load($db, $id);
+                if (!$cur) {
+                    wf_fail('not_found', 404);
+                }
+                if ($cur['status'] !== 'draft') {
+                    wf_fail('invoice_locked', 409);
+                }
+            }
+            $isCredit = $cur && $cur['type'] === 'credit';
+            $cid = $isCredit ? (int)$cur['customer_id'] : (int)($in['customer_id'] ?? 0);
+            $cs = $db->prepare('SELECT * FROM customers WHERE id = ? AND anonymized_at IS NULL');
+            $cs->execute([$cid]);
+            $cust = $cs->fetch();
+            if (!$cust) {
+                wf_fail('bad_customer');
+            }
+            $co = wf_company();
+            $issue = date_or_null($in, 'issue_date') ?? date('Y-m-d');
+            $delivery = date_or_null($in, 'delivery_date');
+            $due = date_or_null($in, 'due_date') ?? date('Y-m-d', strtotime($issue . ' +' . (int)$co['pay_days'] . ' days'));
+            if ($due < $issue) {
+                wf_fail('due_before_issue');
+            }
+            [$lines] = inv_lines_in($in);
+            if ($isCredit) {
+                // Kreditnota: Waehrung, Kurs, Moms-Regel und Preisart wie die Originalrechnung
+                [$currency, $rate, $rateDate, $rateSrc, $scheme, $manual, $incl] = [$cur['currency'], $cur['rate'], $cur['rate_date'], $cur['rate_source'], $cur['vat_scheme'], 1, (int)$cur['prices_incl']];
+            } else {
+                $currency = s($in, 'currency', 3) ?: $cust['currency'];
+                if (!in_array($currency, wf_cfg('currencies'), true)) {
+                    wf_fail('bad_currency');
+                }
+                $rate = inv_rate_in($in, $currency);
+                $rateDate = $currency === 'DKK' ? null : (date_or_null($in, 'rate_date') ?? $issue);
+                $rateSrc = $currency === 'DKK' ? '' : (s($in, 'rate_source', 60) ?: 'manuel');
+                if ($currency !== 'DKK' && (float)$rate <= 0 && ($r = wf_rate($currency))) {
+                    [$rate, $rateDate, $rateSrc] = [$r['rate'], $r['date'], $r['source']];
+                }
+                $sch = (string)($in['vat_scheme'] ?? '');
+                $manual = in_array($sch, WF_SCHEMES, true) ? 1 : 0;
+                $scheme = $manual ? $sch : wf_scheme_auto($co, $cust);
+                $incl = !empty($in['prices_incl']) ? 1 : 0;
+            }
+            $lang = in_array($in['lang'] ?? '', WF_DOC_LANGS, true) ? $in['lang'] : wf_doc_lang_for($cust);
+            $vals = [$cid, $issue, $delivery, $due, $currency, $rate, $rateDate, $rateSrc, $scheme, $manual, $incl, $lang, s($in, 'note', 3000)];
+            $db->beginTransaction();
+            if ($id) {
+                $db->prepare("UPDATE invoices SET customer_id=?, issue_date=?, delivery_date=?, due_date=?, currency=?, rate=?, rate_date=?, rate_source=?, vat_scheme=?, scheme_manual=?, prices_incl=?, lang=?, note=? WHERE id = ? AND status = 'draft'")->execute([...$vals, $id]);
+                $db->prepare('DELETE FROM invoice_lines WHERE invoice_id = ?')->execute([$id]);
+            } else {
+                $orderId = (int)($in['order_id'] ?? 0) ?: null;
+                $db->prepare('INSERT INTO invoices (customer_id, issue_date, delivery_date, due_date, currency, rate, rate_date, rate_source, vat_scheme, scheme_manual, prices_incl, lang, note, order_id, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute([...$vals, $orderId, $user['name']]);
+                $id = (int)$db->lastInsertId();
+            }
+            $ins = $db->prepare('INSERT INTO invoice_lines (invoice_id, pos, description, qty, unit, unit_price, discount, kind) VALUES (?,?,?,?,?,?,?,?)');
+            foreach ($lines as $k => $l) {
+                $ins->execute([$id, $k + 1, $l['description'], $l['qty'], $l['unit'], $l['unit_price'], $l['discount'], $l['kind']]);
+            }
+            $calc = wf_inv_recalc($db, $id);
+            $db->commit();
+            wf_json(['ok' => true, 'id' => $id, 'calc' => $calc, 'vat_scheme' => $scheme, 'rate' => $rate]);
+        }
+
+        case 'invoice_delete': {
+            need_post();
+            $st = $db->prepare("DELETE FROM invoices WHERE id = ? AND status = 'draft'");
+            $st->execute([(int)($in['id'] ?? 0)]);
+            if (!$st->rowCount()) {
+                wf_fail('invoice_locked', 409);
+            }
+            wf_json(['ok' => true]);
+        }
+
+        case 'invoice_approve': {
+            need_post();
+            try {
+                $r = wf_inv_approve($db, (int)($in['id'] ?? 0), $user['name']);
+            } catch (RuntimeException $e) {
+                [$code, $detail] = array_pad(explode(':', $e->getMessage(), 2), 2, '');
+                wf_fail($code, 400, ['detail' => $detail]);
+            }
+            wf_json(['ok' => true] + $r);
+        }
+
+        case 'invoice_credit':
+        case 'invoice_copy': {
+            need_post();
+            $src = wf_inv_load($db, (int)($in['id'] ?? 0));
+            if (!$src) {
+                wf_fail('not_found', 404);
+            }
+            $credit = $a === 'invoice_credit';
+            if ($credit && ($src['status'] !== 'final' || $src['type'] !== 'invoice')) {
+                wf_fail('bad_credit_ref');
+            }
+            if ($credit) {
+                $left = (int)$src['total'] - (int)$db->query("SELECT COALESCE(SUM(total),0) FROM invoices WHERE credit_of = " . (int)$src['id'] . " AND status = 'final'")->fetchColumn();
+                if ($left <= 0) {
+                    wf_fail('credit_too_high');
+                }
+                if ((int)$db->query("SELECT COUNT(*) FROM invoices WHERE credit_of = " . (int)$src['id'] . " AND status = 'draft'")->fetchColumn()) {
+                    wf_fail('credit_draft_exists');
+                }
+            }
+            $co = wf_company();
+            $today = date('Y-m-d');
+            $db->beginTransaction();
+            $db->prepare('INSERT INTO invoices (type, customer_id, order_id, credit_of, issue_date, delivery_date, due_date, currency, rate, rate_date, rate_source, vat_scheme, scheme_manual, prices_incl, lang, note, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                ->execute([$credit ? 'credit' : 'invoice', $src['customer_id'], $src['order_id'], $credit ? $src['id'] : null, $today, $credit ? $src['delivery_date'] : null,
+                    $credit ? $today : date('Y-m-d', strtotime("+{$co['pay_days']} days")), $src['currency'], $credit ? $src['rate'] : ($src['currency'] === 'DKK' ? '1' : '0'),
+                    $credit ? $src['rate_date'] : null, $credit ? $src['rate_source'] : '', $src['vat_scheme'], $credit ? 1 : (int)$src['scheme_manual'], $src['prices_incl'], $src['lang'], $credit ? '' : $src['note'], $user['name']]);
+            $nid = (int)$db->lastInsertId();
+            $ins = $db->prepare('INSERT INTO invoice_lines (invoice_id, pos, description, qty, unit, unit_price, discount, kind) VALUES (?,?,?,?,?,?,?,?)');
+            foreach ($src['lines'] as $l) {
+                $ins->execute([$nid, $l['pos'], $l['description'], $l['qty'], $l['unit'], $l['unit_price'], $l['discount'], $l['kind']]);
+            }
+            wf_inv_recalc($db, $nid);
+            $db->commit();
+            wf_json(['ok' => true, 'id' => $nid]);
+        }
+
+        case 'invoice_pay': {
+            need_post();
+            $i = wf_inv_load($db, (int)($in['id'] ?? 0));
+            if (!$i || $i['status'] !== 'final') {
+                wf_fail('invoice_not_final');
+            }
+            $amt = wf_to_cents($in['amount'] ?? '');
+            if (!$amt) {
+                wf_fail('bad_amount');
+            }
+            $date = date_or_null($in, 'date') ?? date('Y-m-d');
+            if ($date > date('Y-m-d')) {
+                wf_fail('date_in_future');
+            }
+            $method = in_array($in['method'] ?? '', ['bank', 'mobilepay', 'cash', 'card', 'other'], true) ? $in['method'] : 'bank';
+            $db->beginTransaction();
+            $db->prepare('INSERT INTO invoice_payments (invoice_id, date, amount, method, note, created_by) VALUES (?,?,?,?,?,?)')->execute([$i['id'], $date, $amt, $method, s($in, 'note', 200), $user['name']]);
+            $pid = (int)$db->lastInsertId();
+            wf_journal($db, $user['name'], $i['type'] === 'credit' ? 'refund' : 'payment', $i['id'], ['number' => $i['number'], 'payment' => $pid, 'date' => $date, 'amount' => $amt, 'currency' => $i['currency'], 'method' => $method]);
+            $db->commit();
+            wf_json(['ok' => true, 'balance' => wf_inv_open($db, $i)]);
+        }
+
+        // Zahlung zuruecknehmen = Gegenbuchung (das Original bleibt sichtbar)
+        case 'invoice_pay_reverse': {
+            need_post();
+            $st = $db->prepare('SELECT p.*, i.number, i.currency FROM invoice_payments p JOIN invoices i ON i.id = p.invoice_id WHERE p.id = ? AND p.reverses IS NULL AND p.amount > 0');
+            $st->execute([(int)($in['payment_id'] ?? 0)]);
+            $p = $st->fetch();
+            if (!$p || $db->query('SELECT 1 FROM invoice_payments WHERE reverses = ' . (int)$p['id'])->fetchColumn()) {
+                wf_fail('not_found', 404);
+            }
+            $db->beginTransaction();
+            $db->prepare('INSERT INTO invoice_payments (invoice_id, date, amount, method, note, reverses, created_by) VALUES (?,?,?,?,?,?,?)')
+                ->execute([$p['invoice_id'], date('Y-m-d'), -(int)$p['amount'], $p['method'], 'Storno', $p['id'], $user['name']]);
+            wf_journal($db, $user['name'], 'payment_reversal', (int)$p['invoice_id'], ['number' => $p['number'], 'reverses' => (int)$p['id'], 'amount' => -(int)$p['amount'], 'currency' => $p['currency']]);
+            $db->commit();
+            wf_json(['ok' => true]);
+        }
+
+        case 'invoice_sent': {
+            need_post();
+            $db->prepare("UPDATE invoices SET sent_at = COALESCE(sent_at, datetime('now')) WHERE id = ? AND status = 'final'")->execute([(int)($in['id'] ?? 0)]);
+            wf_json(['ok' => true]);
+        }
+
+        case 'journal_verify':
+            wf_json(['ok' => true] + wf_journal_verify($db));
+
         default:
             wf_fail('unknown_action', 404);
     }
 } catch (Throwable $e) {
     if ($db->inTransaction()) {
         $db->rollBack();
+    }
+    // Datenbank-Sperren (Trigger) als verstaendlicher Fehler statt Serverfehler
+    if (preg_match('/(invoice_locked|payment_locked|journal_locked|invoice_not_final)/', $e->getMessage(), $m)) {
+        wf_fail($m[1], 409);
     }
     error_log('auftraege api: ' . $e->getMessage());
     wf_fail('server_error', 500);

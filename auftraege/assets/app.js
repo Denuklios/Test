@@ -29,6 +29,7 @@ function h(tag, attrs, ...kids) {
 }
 const $ = (s, r = document) => r.querySelector(s);
 const view = () => $('#view');
+const show = (...kids) => view().replaceChildren(...kids.flat().filter((k) => k != null && k !== false && k !== ''));
 function toast(msg) {
   const el = h('div', { class: 'toast' }, msg);
   document.body.append(el);
@@ -36,7 +37,7 @@ function toast(msg) {
 }
 const ICON = {
   list: 'M4 6h16M4 12h16M4 18h10', plus: 'M12 5v14M5 12h14', cal: 'M5 5h14v15H5zM5 10h14M9 3v4M15 3v4',
-  users: 'M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M20 19v-1a3 3 0 0 0-2-2.8', cog: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12l2-1-2-4-2 1-2-1-1-2h-4l-1 2-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1 1 2h4l1-2 2-1 2 1 2-4-2-1z'
+  doc: 'M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5', users: 'M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M20 19v-1a3 3 0 0 0-2-2.8', cog: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12l2-1-2-4-2 1-2-1-1-2h-4l-1 2-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1 1 2h4l1-2 2-1 2 1 2-4-2-1z'
 };
 function icon(n) {
   const s = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
@@ -62,11 +63,17 @@ async function api(a, { params = {}, body = null, form = null } = {}) {
   let j = null;
   try { j = await r.json(); } catch (e) { /* leer */ }
   if (r.status === 401) { showLogin(); throw new Error('not_logged_in'); }
-  if (!j || !j.ok) throw new Error(t('err_' + (j ? j.error : 'server_error')));
+  if (!j || !j.ok) {
+    const code = j ? j.error : 'server_error';
+    let detail = j && j.detail ? j.detail : '';
+    if (code === 'company_incomplete') detail = detail.split(',').map((k) => t('co_' + (k === 'bank' ? 'iban' : k))).join(', ');
+    else if (detail && /^\d{4}-\d{2}-\d{2}$/.test(detail)) detail = dfmt(detail);
+    const e = new Error(t('err_' + code, detail)); e.code = code; throw e;
+  }
   return j;
 }
 function showLogin() {
-  view().replaceChildren(h('div', { class: 'card' }, h('h2', {}, t('login_title')), h('p', { class: 'muted' }, t('login_text'))));
+  show(h('div', { class: 'card' }, h('h2', {}, t('login_title')), h('p', { class: 'muted' }, t('login_text'))));
 }
 
 // ---------- Formatierung ----------
@@ -140,7 +147,7 @@ async function render() {
   for (const [re, fn] of routes) {
     const m = re.exec(hash);
     if (m) {
-      try { await fn(...m.slice(1)); } catch (e) { if (e.message !== 'not_logged_in') view().replaceChildren(h('div', { class: 'card err' }, e.message)); }
+      try { await fn(...m.slice(1)); } catch (e) { if (e.message !== 'not_logged_in') show(h('div', { class: 'card err' }, e.message)); }
       window.scrollTo(0, 0);
       return;
     }
@@ -163,7 +170,7 @@ route(/^\/$/, async () => {
   let timer;
   const sel = (key, opts, ph) => h('select', { onchange: (e) => { filt[key] = e.target.value; load(); } },
     h('option', { value: '' }, ph), opts.map(([v, l]) => h('option', { value: v, selected: String(filt[key]) === String(v) }, l)));
-  view().replaceChildren(
+  show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('workshop')), h('h1', {}, t('orders_h1_a'), ' ', h('em', {}, t('orders_h1_b'))))),
     h('div', { class: 'filters' },
       h('input', { type: 'search', placeholder: t('search_ph'), value: filt.q, oninput: (e) => { filt.q = e.target.value; clearTimeout(timer); timer = setTimeout(load, 250); } }),
@@ -205,11 +212,12 @@ route(/^\/order\/(\d+)$/, async (id) => {
   const rest = o.price - o.deposit;
   const wk = workerById(o.worker_id);
   const dayMin = wk ? wk.day_min : 480;
-  view().replaceChildren(
+  show(
     h('a', { href: '#/', class: 'muted' }, '← ' + t('nav_orders')),
     h('div', { class: 'page-head', style: 'margin-top:8px' }, h('div', {}, h('div', { class: 'eyebrow' }, o.nr), h('h1', {}, o.title), h('div', { class: 'muted' }, h('a', { href: `#/customer/${o.customer_id}` }, o.customer_name + (o.customer_company ? ' · ' + o.customer_company : '')))),
       h('div', { class: 'row' }, o.deleted_at ? h('button', { class: 'btn', onclick: async () => { await api('order_restore', { body: { id: o.id } }); reload(); } }, t('restore')) : [
         h('a', { class: 'btn', href: `#/order/${o.id}/edit` }, t('edit')),
+        h('a', { class: 'btn', href: `#/invoice/new/order/${o.id}` }, '🧾 ' + t('invoice_from_order')),
         h('button', { class: 'btn danger', onclick: async () => { if (confirm(t('confirm_delete'))) { await api('order_delete', { body: { id: o.id } }); location.hash = '#/'; } } }, t('delete'))])),
     h('div', { class: 'card' }, steps,
       h('dl', { class: 'kv', style: 'margin-top:14px' },
@@ -505,7 +513,7 @@ async function orderForm(o, presetCustomer) {
   };
   const btn = h('button', { class: 'btn primary', onclick: (e) => save(e.currentTarget) }, t('save'));
   const sec = (title, ...kids) => h('div', { class: 'card grid' }, h('h3', { class: 'sechead' }, title), ...kids);
-  view().replaceChildren(
+  show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, isNew ? t('new_order') : D.nr), h('h1', {}, isNew ? t('capture_a') : t('edit'), ' ', isNew && h('em', {}, t('capture_b'))))),
     sec(t('form_order'),
       h('div', {}, h('label', {}, t('customer')), custBox),
@@ -539,7 +547,7 @@ route(/^\/customers$/, async () => {
       h('div', { class: 'o-meta' }, `${c.order_count} ${t('nav_orders')} · ${c.currency}`))) : [h('div', { class: 'empty' }, t('no_customers'))]));
   };
   let tm;
-  view().replaceChildren(
+  show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_customers')), h('h1', {}, t('customers_h1_a'), ' ', h('em', {}, t('customers_h1_b')))), h('a', { class: 'btn primary', href: '#/customer/new' }, '+ ' + t('new_customer'))),
     h('div', { class: 'filters' }, h('input', { type: 'search', placeholder: t('search_ph'), oninput: (e) => { clearTimeout(tm); tm = setTimeout(() => load(e.target.value), 250); } })), list);
   await load();
@@ -547,29 +555,49 @@ route(/^\/customers$/, async () => {
 
 route(/^\/customer\/(new|\d+)$/, async (id) => {
   const isNew = id === 'new';
-  const c = isNew ? { id: 0, name: '', company: '', email: '', phone: '', address: '', currency: 'DKK', notes: '', orders: [] } : (await api('customer', { params: { id } })).customer;
+  const c = isNew ? { id: 0, name: '', company: '', email: '', phone: '', address: '', currency: 'DKK', notes: '', country: 'DK', vat_id: '', is_business: 0, doc_lang: '', orders: [], invoices: [] } : (await api('customer', { params: { id } })).customer;
   const F = {};
   const err = h('div', { class: 'err' });
   const f = (k, label, el) => { F[k] = el; return h('div', {}, h('label', {}, label), el); };
   const mk = (k, type = 'text') => h('input', { type, value: c[k] });
-  view().replaceChildren(
+  let biz = +c.is_business;
+  const bizRow = h('div', { class: 'row' });
+  const vatWrap = h('div');
+  const drawBiz = () => {
+    bizRow.replaceChildren(...[[0, t('private')], [1, t('business')]].map(([v, l]) => h('button', { type: 'button', class: 'chip' + (biz === v ? ' on' : ''), onclick: () => { biz = v; drawBiz(); } }, l)));
+    vatWrap.classList.toggle('hidden', !biz);
+  };
+  const vatState = h('div', { class: 'muted', style: 'font-size:.85rem;margin-top:4px' },
+    c.vat_id ? (c.vat_valid === null || c.vat_valid === undefined ? t('vat_unchecked') : +c.vat_valid ? t('vat_ok', c.vat_checked_name ? ': ' + c.vat_checked_name : '') : t('vat_bad')) + (c.vat_checked_at ? ' · ' + t('checked_at', c.vat_checked_at.slice(0, 10)) : '') : '');
+  show(
     h('a', { href: '#/customers', class: 'muted' }, '← ' + t('nav_customers')),
     h('div', { class: 'page-head', style: 'margin-top:8px' }, h('h1', {}, isNew ? t('new_customer') : c.name),
-      !isNew && h('a', { class: 'btn primary', href: `#/new/customer/${c.id}` }, '+ ' + t('new_order'))),
+      !isNew && h('div', { class: 'row' }, h('a', { class: 'btn primary', href: `#/new/customer/${c.id}` }, '+ ' + t('new_order')), h('a', { class: 'btn', href: `#/invoice/new/customer/${c.id}` }, '+ ' + t('invoice')))),
     h('div', { class: 'card grid' },
+      h('div', {}, h('label', {}, t('cust_type')), bizRow),
       h('div', { class: 'grid c2' }, f('name', t('name'), mk('name')), f('company', t('company'), mk('company'))),
       h('div', { class: 'grid c2' }, f('phone', t('phone'), mk('phone', 'tel')), f('email', t('email'), mk('email', 'email'))),
       f('address', t('address'), mk('address')),
-      f('currency', t('currency'), h('select', {}, me.currencies.map((x) => h('option', { value: x, selected: x === c.currency }, x)))),
+      h('div', { class: 'grid c3' }, f('country', t('country'), h('select', {}, countryOpts(c.country || 'DK'))),
+        f('currency', t('currency'), h('select', {}, me.currencies.map((x) => h('option', { value: x, selected: x === c.currency }, x)))),
+        f('doc_lang', t('doc_lang'), h('select', {}, h('option', { value: '' }, t('lang_auto')), ['da', 'de', 'en'].map((l) => h('option', { value: l, selected: c.doc_lang === l }, t('lang_' + l)))))),
+      h('div', {}, vatWrap),
       f('notes', t('notes'), h('textarea', {}, c.notes)), err,
       h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: async () => {
         err.textContent = '';
-        try { const r = await api('customer_save', { body: { id: c.id, ...Object.fromEntries(Object.entries(F).map(([k, el]) => [k, el.value])) } }); toast(t('saved')); location.hash = `#/customer/${r.id}`; render(); } catch (e) { err.textContent = e.message; }
+        try { const r = await api('customer_save', { body: { id: c.id, is_business: biz, ...Object.fromEntries(Object.entries(F).map(([k, el]) => [k, el.value])) } }); toast(t('saved')); location.hash = `#/customer/${r.id}`; render(); } catch (e) { err.textContent = e.message; }
       } }, t('save')))),
+    !isNew && c.invoices && c.invoices.length ? h('div', { class: 'card' }, h('h3', {}, t('nav_invoices')), h('div', { class: 'tscroll' }, h('table', { class: 't' }, c.invoices.map((i) => h('tr', {},
+      h('td', {}, h('a', { href: `#/invoice/${i.id}` }, invLabel(i))), h('td', {}, dfmt(i.issue_date)), h('td', { class: 'n' }, (i.type === 'credit' ? '− ' : '') + cents(i.total, i.currency))))))) : null,
     !isNew && h('div', { class: 'card' }, h('h3', {}, t('history')), c.orders.length ? h('div', { class: 'tscroll' }, h('table', { class: 't' }, c.orders.map((o) => h('tr', {}, h('td', {}, h('a', { href: `#/order/${o.id}` }, o.nr)), h('td', {}, o.title), h('td', {}, dfmt(o.due_date)), h('td', {}, statusPill(o.status)), h('td', {}, payPill(o.pay_status)), h('td', {}, money(o.price, o.currency)))))) : h('p', { class: 'muted' }, t('no_orders'))),
     !isNew && h('div', { class: 'card' }, h('h3', {}, t('privacy')), h('p', { class: 'muted' }, t('privacy_text')),
       h('div', { class: 'row' }, h('a', { class: 'btn small', href: `${BASE}api.php?a=customer_export&id=${c.id}` }, t('export_data')),
         h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('confirm_anonymize'))) { await api('customer_anonymize', { body: { id: c.id } }); location.hash = '#/customers'; } } }, t('anonymize')))));
+  vatWrap.append(f('vat_id', t('vat_id'), h('input', { type: 'text', value: c.vat_id, placeholder: t('vat_id_ph'), autocapitalize: 'characters' })), vatState,
+    !isNew && c.vat_id && F.country.value !== 'DK' && me.eu.includes(c.country) ? h('button', { type: 'button', class: 'btn small', style: 'margin-top:6px', onclick: async () => {
+      try { const r = await api('customer_vat_check', { body: { id: c.id } }); vatState.textContent = r.valid ? t('vat_ok', r.name ? ': ' + r.name : '') : t('vat_bad'); } catch (e) { toast(e.message); }
+    } }, t('vat_check')) : null);
+  drawBiz();
 });
 
 // ---------- Kalender ----------
@@ -626,7 +654,7 @@ route(/^\/calendar$/, async () => {
       !(byDay[d.date] || []).length && d.blocked === null ? h('div', { class: 'muted', style: 'font-size:.85rem' }, t('no_orders')) : null)) : h('div', { class: 'empty' }, t('no_orders')));
   }
   const tog = (v, label) => h('button', { class: 'btn small' + (view_ === v ? ' primary' : ''), onclick: () => { calView = v; try { localStorage.setItem('wf_calview', v); } catch (e) { /* egal */ } render(); } }, label);
-  view().replaceChildren(
+  show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('capacity')), h('h1', {}, t('cal_h1_a'), ' ', h('em', {}, t('cal_h1_b')))),
       h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: () => { calStart = addDays(calStart, -28); render(); } }, '←'), h('button', { class: 'btn small', onclick: () => { calStart = mondayOf(today()); render(); } }, t('today')), h('button', { class: 'btn small', onclick: () => { calStart = addDays(calStart, 28); render(); } }, '→'))),
     h('div', { class: 'row', style: 'margin-bottom:8px' }, tog('agenda', '☰ ' + t('view_list')), tog('month', '▦ ' + t('view_month'))),
@@ -645,6 +673,274 @@ function dayModal(d, items, workers) {
       h('h3', { style: 'margin:14px 0 6px' }, t('nav_orders')),
       items.length ? items.map((i) => { const bar = calBar(i, true); bar.addEventListener('click', close); return bar; }) : h('p', { class: 'muted' }, t('no_orders'))));
   document.body.append(m);
+}
+
+// ---------- Rechnungen ----------
+const cents = (c, cur) => money((+c || 0) / 100, cur);
+const centsIn = (c) => ((+c || 0) / 100).toFixed(2).replace('.', ',');
+const ICOL = { draft: 'var(--muted)', open: 'var(--info)', overdue: 'var(--bad)', paid: 'var(--ok)', credit: 'var(--p3)', refund: 'var(--warn)' };
+const invState = (s) => pill(t('ist_' + s), ICOL[s]);
+const invLabel = (i) => (i.type === 'credit' ? t('credit_note') : t('invoice')) + ' ' + (i.status === 'final' ? i.number : '· ' + t('draft'));
+const countryOpts = (sel) => Object.entries(me.countries).map(([c, n]) => h('option', { value: c, selected: c === sel }, n[lang === 'da' ? 1 : 0]));
+const docUrl = (id) => `${BASE}doc.php?id=${id}`;
+function companyWarn() {
+  if (!me.company_missing || !me.company_missing.length) return null;
+  return h('div', { class: 'card warnbox' }, h('b', {}, '⚠ ' + t('company_missing_t')),
+    h('p', { style: 'margin:6px 0 10px' }, t('company_missing_x', me.company_missing.map((k) => t('co_' + (k === 'bank' ? 'iban' : k))).join(', '))),
+    h('a', { class: 'btn small', href: '#/settings' }, t('to_settings')));
+}
+
+const ifilt = { q: '', state: '', year: '' };
+route(/^\/invoices$/, async () => {
+  const list = h('div', { class: 'orders' });
+  const tiles = h('div', { class: 'tiles' });
+  const load = async () => {
+    const params = { q: ifilt.q };
+    if (ifilt.state) params.state = ifilt.state;
+    if (ifilt.year) params.year = ifilt.year;
+    const { invoices, summary } = await api('invoices', { params });
+    tiles.replaceChildren(
+      h('div', { class: 'tile' }, h('small', {}, t('sum_open')), h('b', {}, cents(summary.open_dkk, 'DKK'))),
+      h('div', { class: 'tile' + (summary.overdue ? ' bad' : '') }, h('small', {}, t('sum_overdue')), h('b', {}, cents(summary.overdue_dkk, 'DKK')), summary.overdue ? h('em', {}, `${summary.overdue}×`) : null),
+      h('div', { class: 'tile' }, h('small', {}, t('sum_drafts')), h('b', {}, String(summary.drafts))));
+    list.replaceChildren(...(invoices.length ? invoices.map((i) => h('a', { class: 'card order inv', href: `#/invoice/${i.id}`, style: `--sc:${ICOL[i.state]}` },
+      h('div', { class: 'o-top' }, h('div', { style: 'flex:1;min-width:0' },
+        h('div', { class: 'o-nr' }, invLabel(i) + (i.credit_of_number ? ' → ' + i.credit_of_number : '')),
+        h('div', { class: 'o-title' }, i.customer_company || i.customer_name),
+        h('div', { class: 'o-cust' }, `${dfmt(i.issue_date)}${i.type === 'invoice' && i.status === 'final' ? ' · ' + t('due_date') + ' ' + dfmt(i.due_date) : ''}`)),
+      h('div', { style: 'text-align:right' }, h('div', { class: 'inv-amt' }, (i.type === 'credit' ? '− ' : '') + cents(i.total, i.currency)), h('div', { style: 'margin-top:6px' }, invState(i.state)),
+        ['open', 'overdue'].includes(i.state) && i.paid ? h('small', { class: 'muted' }, `${t('open_amount')} ${cents(i.open, i.currency)}`) : null)))) : [h('div', { class: 'empty' }, t('no_invoices'))]));
+  };
+  let tm;
+  const y = new Date().getFullYear();
+  show(
+    h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('money_eyebrow')), h('h1', {}, t('inv_h1_a'), ' ', h('em', {}, t('inv_h1_b')))), h('a', { class: 'btn primary', href: '#/invoice/new' }, '+ ' + t('new_invoice'))),
+    companyWarn(), tiles,
+    h('div', { class: 'filters' },
+      h('input', { type: 'search', placeholder: t('search_ph'), value: ifilt.q, oninput: (e) => { ifilt.q = e.target.value; clearTimeout(tm); tm = setTimeout(load, 250); } }),
+      h('select', { onchange: (e) => { ifilt.state = e.target.value; load(); } }, h('option', { value: '' }, t('all_invoices')),
+        ['unpaid', 'overdue', 'draft', 'paid', 'credit', 'refund'].map((s) => h('option', { value: s, selected: ifilt.state === s }, t('ist_' + s)))),
+      h('select', { onchange: (e) => { ifilt.year = e.target.value; load(); } }, h('option', { value: '' }, t('all_years')), [y, y - 1, y - 2, y - 3, y - 4, y - 5].map((v) => h('option', { value: v, selected: String(v) === ifilt.year }, v)))),
+    list);
+  await load();
+});
+
+route(/^\/invoice\/new$/, () => invoiceEditor(null));
+route(/^\/invoice\/new\/customer\/(\d+)$/, async (cid) => invoiceEditor(null, { customer: (await api('customer', { params: { id: cid } })).customer }));
+route(/^\/invoice\/new\/order\/(\d+)$/, async (oid) => {
+  const { order: o } = await api('order', { params: { id: oid } });
+  const { customer } = await api('customer', { params: { id: o.customer_id } });
+  const price = Math.round(o.price * 100);
+  const even = o.qty > 0 && price % o.qty === 0;   // Einzelpreis nur, wenn er auf die Øre aufgeht
+  const desc = [o.title, o.article].filter(Boolean).join(' · ') + (even ? '' : ` (${o.qty} ${t('pcs')})`);
+  invoiceEditor(null, { customer, order_id: o.id, currency: o.currency, lines: [{ description: desc, qty: even ? o.qty : 1, unit: 'stk', unit_price: even ? price / o.qty : price, discount: 0, kind: 'goods' }] });
+});
+route(/^\/invoice\/(\d+)$/, async (id) => {
+  const { invoice } = await api('invoice', { params: { id } });
+  return invoice.status === 'draft' ? invoiceEditor(invoice) : invoiceView(invoice);
+});
+
+async function invoiceEditor(inv, preset = {}) {
+  const isNew = !inv;
+  const D = inv ? { ...inv } : { id: 0, type: 'invoice', customer_id: preset.customer ? preset.customer.id : 0, issue_date: today(), delivery_date: '', due_date: '', currency: preset.currency || (preset.customer ? preset.customer.currency : 'DKK'), rate: '', rate_date: '', rate_source: '', vat_scheme: '', scheme_manual: 0, prices_incl: 0, lang: '', note: '', order_id: preset.order_id || 0, lines: preset.lines || [] };
+  let cust = inv ? inv.customer : preset.customer || null;
+  const isCredit = D.type === 'credit';
+  const err = h('div', { class: 'err' });
+  if (!D.lines.length) D.lines.push({ description: '', qty: 1, unit: 'stk', unit_price: 0, discount: 0, kind: 'goods' });
+  if (!D.due_date) D.due_date = addDays(D.issue_date, +me.company.pay_days || 0);
+
+  // --- Kunde
+  const custName = h('input', { type: 'text', placeholder: t('customer_ph'), autocomplete: 'off', value: cust ? cust.name + (cust.company ? ' · ' + cust.company : '') : '', disabled: isCredit });
+  const sug = h('div', { class: 'suggest-list hidden' });
+  const custInfo = h('div', { class: 'muted', style: 'font-size:.85rem;margin-top:4px' });
+  const drawCustInfo = () => custInfo.replaceChildren(...(cust ? [me.countries[cust.country] ? me.countries[cust.country][lang === 'da' ? 1 : 0] : cust.country, cust.vat_id ? ' · ' + cust.vat_id : '', +cust.is_business ? ' · ' + t('business') : ' · ' + t('private'), ' · ', h('a', { href: `#/customer/${cust.id}` }, t('edit'))] : []));
+  let ct;
+  const pickCust = async (c) => {
+    cust = (await api('customer', { params: { id: c.id } })).customer; D.customer_id = cust.id;
+    custName.value = cust.name + (cust.company ? ' · ' + cust.company : ''); sug.classList.add('hidden');
+    if (isNew && !preset.currency) { curSel.value = cust.currency; onCur(); }
+    drawCustInfo(); drawScheme(); recalc();
+  };
+  custName.addEventListener('input', () => {
+    cust = null; D.customer_id = 0; clearTimeout(ct); drawCustInfo(); drawScheme();
+    ct = setTimeout(async () => {
+      const q = custName.value.trim();
+      const { customers } = await api('customers', { params: { q } });
+      sug.replaceChildren(...customers.slice(0, 8).map((c) => h('button', { type: 'button', onclick: () => pickCust(c) }, c.name + (c.company ? ' · ' + c.company : '') + (c.country && c.country !== 'DK' ? ` (${c.country})` : ''))),
+        q && h('a', { class: 'sug-new', href: '#/customer/new' }, '+ ' + t('new_customer')));
+      sug.classList.toggle('hidden', !sug.childNodes.length);
+    }, 200);
+  });
+
+  // --- Moms-Regel (automatisch, mit Erklaerung; von Hand nur bewusst)
+  const autoScheme = () => {
+    if (!cust) return 'dk';
+    if (!me.company.moms_registered) return 'novat';
+    if (cust.country === 'DK') return 'dk';
+    if (me.eu.includes(cust.country)) return +cust.is_business && cust.vat_id ? 'eu_rc' : 'eu_b2c';
+    return 'export';
+  };
+  const schSel = h('select', { disabled: isCredit, onchange: () => { drawScheme(); recalc(); } }, h('option', { value: '' }, t('auto')), ['dk', 'eu_rc', 'eu_b2c', 'export', 'novat'].map((s) => h('option', { value: s, selected: D.scheme_manual && D.vat_scheme === s }, t('sch_' + s))));
+  const schInfo = h('div', { class: 'schinfo' });
+  const scheme = () => schSel.value || (isCredit ? D.vat_scheme : autoScheme());
+  function drawScheme() {
+    const s = scheme();
+    schInfo.replaceChildren(...[h('b', {}, t('sch_' + s) + (schSel.value ? '' : ` (${t('auto')})`)), t('sch_hint_' + s) !== 'sch_hint_' + s ? h('div', { class: 'muted' }, t('sch_hint_' + s)) : null,
+      cust && me.eu.includes(cust.country) && cust.country !== 'DK' && +cust.is_business && !cust.vat_id ? h('div', { class: 'warn-t' }, '⚠ ' + t('vat_needed')) : null].filter(Boolean));
+    inclBox.classList.toggle('hidden', !['dk', 'eu_b2c'].includes(s));
+  }
+
+  // --- Daten, Waehrung, Kurs, Sprache
+  const issue = h('input', { type: 'date', value: D.issue_date, max: today(), onchange: () => { if (!dueTouched) due.value = addDays(issue.value, +me.company.pay_days || 0); } });
+  const delivery = h('input', { type: 'date', value: D.delivery_date || '' });
+  let dueTouched = !isNew;
+  const due = h('input', { type: 'date', value: D.due_date, onchange: () => { dueTouched = true; } });
+  const curSel = h('select', { disabled: isCredit, onchange: () => { onCur(); recalc(); } }, me.currencies.map((c) => h('option', { value: c, selected: c === D.currency }, c)));
+  const rateIn = h('input', { type: 'text', inputmode: 'decimal', value: D.rate && D.rate !== '0' && D.rate !== '1' ? String(D.rate).replace('.', ',') : '', disabled: isCredit, oninput: () => { rateMeta = { date: issue.value, source: 'manuel' }; rateNote.textContent = ''; recalc(); } });
+  let rateMeta = { date: D.rate_date || '', source: D.rate_source || '' };
+  const rateNote = h('small', { class: 'muted' }, D.rate_source ? t('rate_from', String(D.rate).replace('.', ','), dfmt(D.rate_date), D.rate_source) : '');
+  const fetchRate = async () => {
+    try { const r = await api('rate', { params: { cur: curSel.value } }); rateIn.value = r.rate.replace('.', ','); rateMeta = { date: r.date, source: r.source }; rateNote.textContent = t('rate_from', rateIn.value, dfmt(r.date), r.source); recalc(); } catch (e) { toast(e.message); }
+  };
+  const rateBox = h('div', { class: 'grid c2' }, h('div', {}, h('label', {}, t('rate', curSel.value)), rateIn, rateNote), h('div', { style: 'align-self:end' }, !isCredit && h('button', { type: 'button', class: 'btn', onclick: fetchRate }, '⟳ ' + t('get_rate'))));
+  function onCur() { rateBox.classList.toggle('hidden', curSel.value === 'DKK'); rateBox.querySelector('label').textContent = t('rate', curSel.value); if (curSel.value !== 'DKK' && !rateIn.value) fetchRate(); }
+  const langSel = h('select', {}, h('option', { value: '' }, t('lang_auto')), ['da', 'de', 'en'].map((l) => h('option', { value: l, selected: inv && inv.lang === l }, t('lang_' + l))));
+  const incl = h('input', { type: 'checkbox', checked: +D.prices_incl, disabled: isCredit, onchange: () => recalc(), style: 'width:22px;height:22px;min-height:0' });
+  const inclBox = h('label', { class: 'row', style: 'margin:0;gap:8px;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--text)' }, incl, t('prices_incl'));
+  const note = h('textarea', { rows: 2 }, D.note || '');
+
+  // --- Positionen
+  const linesBox = h('div', { class: 'ilines' });
+  const rows = [];
+  function addLine(l) {
+    const r = {};
+    r.desc = h('textarea', { rows: 1, placeholder: t('line_desc'), oninput: (e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; } }, l.description || '');
+    r.qty = h('input', { type: 'text', inputmode: 'decimal', value: String(+l.qty || 1).replace('.', ','), oninput: () => recalc() });
+    r.unit = h('select', {}, me.units.map((u) => h('option', { value: u, selected: u === (l.unit || 'stk') }, t('u_' + u))));
+    r.price = h('input', { type: 'text', inputmode: 'decimal', value: l.unit_price ? centsIn(l.unit_price) : '', placeholder: '0,00', oninput: () => recalc() });
+    r.disc = h('input', { type: 'text', inputmode: 'decimal', value: +l.discount ? String(+l.discount).replace('.', ',') : '', placeholder: '0', oninput: () => recalc() });
+    r.kind = l.kind || 'goods';
+    const kindBtn = h('button', { type: 'button', class: 'chip kindbtn', title: t('vat_rule'), onclick: () => { r.kind = r.kind === 'goods' ? 'services' : 'goods'; kindBtn.textContent = t(r.kind); } }, t(r.kind));
+    r.amt = h('b', { class: 'lamt' });
+    r.el = h('div', { class: 'iline' }, r.desc,
+      h('div', { class: 'ilrow' },
+        h('div', {}, h('label', {}, t('qty')), r.qty), h('div', {}, h('label', {}, t('unit')), r.unit), h('div', {}, h('label', {}, t('unit_price')), r.price), h('div', {}, h('label', {}, t('discount')), r.disc),
+        h('div', { class: 'ilend' }, kindBtn, r.amt, h('button', { type: 'button', class: 'btn small danger', 'aria-label': t('delete'), onclick: () => { rows.splice(rows.indexOf(r), 1); r.el.remove(); recalc(); } }, '✕'))));
+    rows.push(r); linesBox.append(r.el);
+    requestAnimationFrame(() => { r.desc.style.height = 'auto'; r.desc.style.height = r.desc.scrollHeight + 'px'; });
+  }
+  D.lines.forEach(addLine);
+  const linesData = () => rows.map((r) => ({ description: r.desc.value, qty: r.qty.value || '1', unit: r.unit.value, unit_price: r.price.value || '0', discount: r.disc.value || '0', kind: r.kind }));
+
+  // --- Summe (vom Server gerechnet: gleiche Regeln wie beim Festschreiben)
+  const sumBox = h('div', { class: 'sumbox invsum' });
+  let rt, seq = 0;
+  function recalc() {
+    clearTimeout(rt);
+    rt = setTimeout(async () => {
+      const my = ++seq;
+      try {
+        const { calc } = await api('invoice_calc', { body: { lines: linesData(), vat_scheme: scheme(), prices_incl: incl.checked && !incl.closest('.hidden') ? 1 : 0, currency: curSel.value, rate: rateIn.value } });
+        if (my !== seq) return;
+        const cur = curSel.value;
+        calc.amounts.forEach((a, k) => { if (rows[k]) rows[k].amt.textContent = cents(a, cur); });
+        sumBox.replaceChildren(...[
+          h('div', { class: 'sl' }, h('span', {}, t('net')), h('span', {}, cents(calc.net, cur))),
+          h('div', { class: 'sl' }, h('span', {}, `${t('vat')} ${calc.rate_pct} %`), h('span', {}, cents(calc.vat, cur))),
+          h('div', { class: 'sl g' }, h('span', {}, t('total')), h('b', {}, (isCredit ? '− ' : '') + cents(calc.total, cur))),
+          cur !== 'DKK' && calc.vat ? h('div', { class: 'sl muted' }, h('span', {}, t('vat_dkk')), h('span', {}, cents(calc.vat_dkk, 'DKK'))) : null].filter(Boolean));
+      } catch (e) { sumBox.replaceChildren(h('span', { class: 'err' }, e.message)); }
+    }, 250);
+  }
+
+  async function save(quiet) {
+    err.textContent = '';
+    if (!D.customer_id) throw new Error(t('err_bad_customer'));
+    const body = { id: D.id, customer_id: D.customer_id, issue_date: issue.value, delivery_date: delivery.value, due_date: due.value, currency: curSel.value, rate: rateIn.value, rate_date: rateMeta.date, rate_source: rateMeta.source,
+      vat_scheme: schSel.value, prices_incl: incl.checked && !inclBox.classList.contains('hidden') ? 1 : 0, lang: langSel.value, note: note.value, lines: linesData(), order_id: D.order_id || 0 };
+    const r = await api('invoice_save', { body });
+    D.id = r.id;
+    if (r.rate && r.rate !== '0' && r.rate !== '1' && !rateIn.value) rateIn.value = r.rate.replace('.', ',');
+    if (!quiet) toast(t('saved'));
+    if (isNew) history.replaceState(null, '', `#/invoice/${r.id}`);
+    return r;
+  }
+  const guard = (fn) => async () => { try { await fn(); } catch (e) { err.textContent = e.message; err.scrollIntoView({ block: 'center', behavior: 'smooth' }); } };
+
+  show(
+    h('a', { href: '#/invoices', class: 'muted' }, '← ' + t('nav_invoices')),
+    h('div', { class: 'page-head', style: 'margin-top:8px' }, h('div', {}, h('div', { class: 'eyebrow' }, (isCredit ? t('credit_note') : t('invoice')) + ' · ' + t('draft')),
+      h('h1', {}, isCredit ? t('credit_for', inv.credit_of_number) : isNew ? t('new_invoice') : t('invoice'), ' ', h('em', {}, t('draft'))))),
+    companyWarn(),
+    h('div', { class: 'card grid' },
+      h('div', {}, h('label', {}, t('customer')), h('div', { class: 'suggest' }, custName, sug), custInfo),
+      h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('issue_date')), issue), h('div', {}, h('label', {}, t('due_date')), due), h('div', {}, h('label', {}, t('delivery_date')), delivery)),
+      h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('currency')), curSel), h('div', {}, h('label', {}, t('doc_lang')), langSel), h('div', {}, h('label', {}, t('vat_rule')), schSel)),
+      rateBox, schInfo, inclBox),
+    h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:10px' }, t('lines')), linesBox,
+      h('button', { type: 'button', class: 'btn', style: 'margin-top:10px', onclick: () => { addLine({}); rows[rows.length - 1].desc.focus(); } }, t('add_line')),
+      h('div', { style: 'margin-top:14px' }, sumBox)),
+    h('div', { class: 'card' }, h('label', {}, t('note_on_doc')), note),
+    err,
+    h('div', { class: 'formbar' },
+      D.id ? h('button', { class: 'btn danger', onclick: guard(async () => { if (confirm(t('delete_draft_confirm'))) { await api('invoice_delete', { body: { id: D.id } }); location.hash = '#/invoices'; } }) }, '🗑') : null,
+      h('button', { class: 'btn', onclick: guard(async () => { const w = window.open('', '_blank'); try { await save(true); w.location = docUrl(D.id); } catch (e) { w.close(); throw e; } }) }, t('preview')),
+      h('button', { class: 'btn', onclick: guard(async () => { await save(); render(); }) }, t('save_draft')),
+      h('button', { class: 'btn primary', onclick: guard(async () => {
+        const r = await save(true);
+        if (!confirm(t('approve_confirm', custName.value, cents(r.calc.total, curSel.value)))) { render(); return; }
+        const a = await api('invoice_approve', { body: { id: D.id } });
+        toast(t('approved_as', a.number)); await reloadMe(); location.hash = `#/invoice/${D.id}`; render();
+      }) }, '🔒 ' + t('approve'))));
+  drawCustInfo(); onCur(); drawScheme(); recalc();
+}
+
+function invoiceView(i) {
+  const cur = i.currency, b = i.balance, isCredit = i.type === 'credit';
+  const C = i.customer_snap;
+  const amt = h('input', { type: 'text', inputmode: 'decimal', value: !isCredit && b.open > 0 ? centsIn(b.open) : '' });
+  const pdate = h('input', { type: 'date', value: today(), max: today() });
+  const meth = h('select', {}, ['bank', 'mobilepay', 'cash', 'card', 'other'].map((m) => h('option', { value: m }, t('pm_' + m))));
+  const pnote = h('input', { type: 'text', maxlength: 200, placeholder: t('notes') });
+  const err = h('div', { class: 'err' });
+  const reversed = new Set(i.payments.filter((p) => p.reverses).map((p) => +p.reverses));
+  const state = isCredit ? 'credit' : b.open > 0 ? (i.due_date < today() ? 'overdue' : 'open') : b.open < 0 ? 'refund' : 'paid';
+  show(
+    h('a', { href: '#/invoices', class: 'muted' }, '← ' + t('nav_invoices')),
+    h('div', { class: 'page-head', style: 'margin-top:8px' }, h('div', {}, h('div', { class: 'eyebrow' }, invLabel(i)), h('h1', {}, C.company || C.name), h('div', { style: 'margin-top:6px' }, invState(state))),
+      h('div', { class: 'row' },
+        h('a', { class: 'btn primary', href: docUrl(i.id), target: '_blank', rel: 'noopener', onclick: () => { if (!i.sent_at) api('invoice_sent', { body: { id: i.id } }).catch(() => {}); } }, '🖨 ' + t('print_pdf')),
+        !isCredit && h('button', { class: 'btn', onclick: async () => { const r = await api('invoice_copy', { body: { id: i.id } }); location.hash = `#/invoice/${r.id}`; } }, t('copy_inv')),
+        !isCredit && b.credited < +i.total && h('button', { class: 'btn', onclick: async () => { if (!confirm(t('credit_confirm'))) return; try { const r = await api('invoice_credit', { body: { id: i.id } }); location.hash = `#/invoice/${r.id}`; } catch (e) { toast(e.message); } } }, t('make_credit')))),
+    h('div', { class: 'card' },
+      h('dl', { class: 'kv' },
+        h('dt', {}, t('customer')), h('dd', {}, h('a', { href: `#/customer/${i.customer_id}` }, [C.company, C.name].filter(Boolean).join(' · ')), C.vat_id ? h('small', { class: 'muted' }, ' · ' + C.vat_id) : null),
+        h('dt', {}, t('issue_date')), h('dd', {}, dfmt(i.issue_date) + (i.delivery_date && i.delivery_date !== i.issue_date ? ` · ${t('delivery_date').split(' (')[0]} ${dfmt(i.delivery_date)}` : '')),
+        !isCredit && [h('dt', {}, t('due_date')), h('dd', { class: state === 'overdue' ? 'due late' : '' }, dfmt(i.due_date))],
+        isCredit && [h('dt', {}, t('invoice')), h('dd', {}, h('a', { href: `#/invoice/${i.credit_of}` }, String(i.credit_of_number)))],
+        h('dt', {}, t('vat_rule')), h('dd', {}, t('sch_' + i.vat_scheme)),
+        h('dt', {}, t('net')), h('dd', {}, cents(i.net, cur)),
+        h('dt', {}, t('vat')), h('dd', {}, cents(i.vat, cur) + (cur !== 'DKK' && +i.vat ? ` · ${cents(i.vat_dkk, 'DKK')} (${t('rate_from', String(i.rate).replace('.', ','), dfmt(i.rate_date), i.rate_source)})` : '')),
+        h('dt', {}, t('total')), h('dd', {}, h('b', {}, (isCredit ? '− ' : '') + cents(i.total, cur))),
+        !isCredit && [h('dt', {}, t('paid')), h('dd', {}, cents(b.paid, cur) + (b.credited ? ` · ${t('credits')} − ${cents(b.credited - b.refunded, cur)}` : ''))],
+        !isCredit && [h('dt', {}, t('open_amount')), h('dd', {}, h('b', { style: b.open > 0 ? 'color:var(--warn)' : 'color:var(--ok)' }, cents(b.open, cur)))],
+        i.credits.length ? [h('dt', {}, t('credits')), h('dd', {}, i.credits.map((c) => h('div', {}, h('a', { href: `#/invoice/${c.id}` }, c.status === 'final' ? `${t('credit_note')} ${c.number}` : t('draft')), ' · − ' + cents(c.total, cur))))] : null,
+        i.sent_at ? [h('dt', {}, '✉'), h('dd', {}, t('sent_at', i.sent_at.slice(0, 16)))] : null)),
+    h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:8px' }, t('lines')),
+      h('div', { class: 'tscroll' }, h('table', { class: 't' }, h('tr', {}, h('th', {}, t('line_desc')), h('th', { class: 'n' }, t('qty')), h('th', { class: 'n' }, t('unit_price')), h('th', { class: 'n' }, t('amount'))),
+        i.lines.map((l) => h('tr', {}, h('td', { style: 'white-space:pre-wrap' }, l.description, +l.discount ? h('small', { class: 'muted' }, ` −${String(+l.discount).replace('.', ',')} %`) : null), h('td', { class: 'n' }, `${String(+l.qty).replace('.', ',')} ${t('u_' + l.unit)}`), h('td', { class: 'n' }, cents(l.unit_price, cur)), h('td', { class: 'n' }, cents(l.amount, cur))))))),
+    h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:8px' }, t('payments')),
+      i.payments.length ? h('div', {}, i.payments.map((p) => h('div', { class: 'free' + (p.reverses || reversed.has(+p.id) ? ' struck' : '') },
+        h('span', {}, `${dfmt(p.date)} · ${t('pm_' + p.method)}${p.note ? ' · ' + p.note : ''}${reversed.has(+p.id) ? ' · ' + t('reversed') : ''}`),
+        h('span', { class: 'row', style: 'gap:8px' }, h('b', {}, cents(p.amount, cur)),
+          +p.amount > 0 && !reversed.has(+p.id) ? h('button', { class: 'btn small', onclick: async () => { if (confirm(t('reverse_confirm'))) { await api('invoice_pay_reverse', { body: { payment_id: p.id } }); render(); } } }, t('reverse')) : null)))) : h('p', { class: 'muted' }, t('no_payments')),
+      h('div', { class: 'grid c3', style: 'margin-top:12px' }, h('div', {}, h('label', {}, t('amount') + ' ' + cur), amt), h('div', {}, h('label', {}, t('date')), pdate), h('div', {}, h('label', {}, t('method')), meth)),
+      h('div', { style: 'margin-top:8px' }, pnote), err,
+      h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => {
+        err.textContent = '';
+        try { await api('invoice_pay', { body: { id: i.id, amount: amt.value, date: pdate.value, method: meth.value, note: pnote.value } }); toast(t('saved')); render(); } catch (e) { err.textContent = e.message; }
+      } }, isCredit ? t('refund') : t('add_payment')))),
+    h('p', { class: 'muted lockinfo' }, '🔒 ' + t('locked_info', (i.approved_at || '').slice(0, 16), i.approved_by || '', (i.hash || '').slice(0, 12))));
 }
 
 // ---------- Einstellungen ----------
@@ -671,11 +967,40 @@ route(/^\/settings$/, async () => {
   const blockedList = h('div', {}, me.blocked.length ? me.blocked.map((b) => h('div', { class: 'free' },
     h('span', {}, `${dfmt(b.date_from)}${b.date_to !== b.date_from ? ' – ' + dfmt(b.date_to) : ''}${b.time_from ? ' · ' + b.time_from + '–' + b.time_to : ' · ' + t('whole_day')}${b.reason ? ' · ' + b.reason : ''}`),
     h('button', { class: 'btn small danger', onclick: async () => { await api('blocked_delete', { body: { id: b.id } }); await reloadMe(); render(); } }, t('delete')))) : h('p', { class: 'muted' }, t('blocked_none')));
+  // Firmendaten fuer Rechnungen
+  const co = me.company;
+  const CO = {};
+  const coIn = (k, extra = {}) => { CO[k] = h('input', { type: 'text', value: co[k] ?? '', ...extra }); return h('div', {}, h('label', {}, t('co_' + k)), CO[k]); };
+  CO.moms_registered = h('input', { type: 'checkbox', checked: !!co.moms_registered, style: 'width:22px;height:22px;min-height:0' });
+  CO.moms_period = h('select', {}, ['half', 'quarter', 'month'].map((p) => h('option', { value: p, selected: co.moms_period === p }, t('per_' + p))));
+  const coErr = h('div', { class: 'err' });
+  const verifyOut = h('p', { class: 'muted', style: 'margin:8px 0 0' });
+  const companyCard = h('div', { class: 'card' + (me.company_missing.length ? ' warnbox' : ''), id: 'company' }, h('h3', {}, t('company_title')), h('p', { class: 'muted' }, t('company_text')),
+    h('div', { class: 'grid c2' }, coIn('name'), coIn('owner')),
+    h('div', { class: 'grid c3' }, coIn('street'), coIn('zip', { inputmode: 'numeric' }), coIn('city')),
+    h('div', { class: 'grid c3' }, coIn('cvr', { inputmode: 'numeric', maxlength: 8 }), coIn('phone', { type: 'tel' }), coIn('email', { type: 'email' })),
+    coIn('web'),
+    h('div', { class: 'grid c3', style: 'margin-top:10px' }, coIn('bank'), coIn('reg_no', { inputmode: 'numeric', maxlength: 4 }), coIn('account_no', { inputmode: 'numeric' })),
+    h('div', { class: 'grid c2' }, coIn('iban'), coIn('bic')),
+    h('label', { class: 'row', style: 'margin:12px 0 0;gap:8px;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--text)' }, CO.moms_registered, t('co_moms')),
+    h('div', { class: 'grid c3', style: 'margin-top:10px' }, h('div', {}, h('label', {}, t('co_period')), CO.moms_period), coIn('pay_days', { inputmode: 'numeric' }),
+      h('div', {}, coIn('invoice_start', { inputmode: 'numeric', disabled: me.invoices_final > 0 }), me.invoices_final > 0 ? h('small', { class: 'muted' }, t('co_start_locked')) : null)),
+    coErr,
+    h('div', { class: 'row end', style: 'margin-top:10px' },
+      h('button', { class: 'btn', onclick: async () => { const r = await api('journal_verify'); verifyOut.textContent = r.ok ? t('verify_ok', r.invoices, r.entries) : t('verify_bad', r.problems.join(', ')); verifyOut.style.color = r.ok ? 'var(--ok)' : 'var(--bad)'; } }, t('verify')),
+      h('button', { class: 'btn primary', onclick: async () => {
+        coErr.textContent = '';
+        try {
+          const body = Object.fromEntries(Object.entries(CO).map(([k, el]) => [k, el.type === 'checkbox' ? el.checked : el.value]));
+          await api('company_save', { body }); await reloadMe(); toast(t('saved')); render();
+        } catch (e) { coErr.textContent = e.message; }
+      } }, t('save'))), verifyOut);
   const tokOut = h('div');
   const tokList = h('div', {}, me.tokens.map((k) => h('div', { class: 'free' }, h('span', {}, `${k.label} · ${k.created_at.slice(0, 10)}${k.last_used_at ? ' · ' + t('last_seen') + ' ' + k.last_used_at.slice(0, 16) : ''}`),
     k.revoked_at ? h('span', { class: 'muted' }, t('revoked')) : h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('confirm_revoke'))) { await api('token_revoke', { body: { id: k.id } }); await reloadMe(); render(); } } }, t('revoke')))));
-  view().replaceChildren(
+  show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_settings')), h('h1', {}, t('settings_h1_a'), ' ', h('em', {}, t('settings_h1_b'))))),
+    companyCard,
     h('div', { class: 'card' }, h('h3', {}, t('display_title')), h('p', { class: 'muted' }, t('display_text')),
       h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: async () => {
         const r = await api('token_create', { body: { label: t('display_label') } });
@@ -713,8 +1038,8 @@ async function reloadMe() { me = await api('me'); }
 // ---------- Start ----------
 function buildChrome() {
   const nav = $('#nav');
-  const item = (r, ic, label, cls) => h('a', { href: '#' + r, 'data-r': r, class: cls || '' }, cls === 'add' ? h('span', { class: 'fab' }, icon(ic)) : icon(ic), cls === 'add' ? h('small', {}, label) : h('span', {}, label));
-  nav.replaceChildren(item('/', 'list', t('nav_orders')), item('/calendar', 'cal', t('nav_calendar')), item('/new', 'plus', t('new_order'), 'add'), item('/customers', 'users', t('nav_customers')), item('/settings', 'cog', t('nav_settings')));
+  const item = (r, ic, label, cls, short) => h('a', { href: '#' + r, 'data-r': r, class: cls || '' }, cls === 'add' ? h('span', { class: 'fab' }, icon(ic)) : icon(ic), cls === 'add' ? h('small', {}, label) : h('span', { 'data-s': short || label }, label));
+  nav.replaceChildren(item('/', 'list', t('nav_orders')), item('/calendar', 'cal', t('nav_calendar')), item('/new', 'plus', t('new_order'), 'add'), item('/customers', 'users', t('nav_customers')), item('/invoices', 'doc', t('nav_invoices'), '', t('nav_invoices_s')), item('/settings', 'cog', t('nav_settings'), '', t('nav_settings_s')));
   const l = $('#lang');
   l.replaceChildren(...[['de', '🇩🇪'], ['da', '🇩🇰']].map(([c, f]) => h('button', { class: lang === c ? 'on' : '', 'aria-label': c, onclick: () => { lang = c; try { localStorage.setItem('wf_lang', c); } catch (e) {} document.documentElement.lang = c; buildChrome(); render(); } }, f)));
   $('#who').textContent = me ? me.user.name : '';

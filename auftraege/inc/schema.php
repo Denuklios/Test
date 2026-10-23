@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 6) {
+    if ($v >= 7) {
         return;
     }
     if ($v < 1) {
@@ -23,7 +23,140 @@ function wf_migrate(PDO $db): void
     if ($v < 5) {
         wf_migrate_v5($db);
     }
-    wf_migrate_v6($db);
+    if ($v < 6) {
+        wf_migrate_v6($db);
+    }
+    wf_migrate_v7($db);
+}
+
+/**
+ * Version 7: Rechnungen und Gutschriften (Kreditnotas), rechtssicher:
+ * - customers: Land, USt-/CVR-Nummer, Firma/Privat, Belegsprache, VIES-Pruefung
+ * - invoices + invoice_lines: Entwurf frei aenderbar; festgeschrieben (status 'final') ist alles gesperrt (Trigger)
+ * - invoice_payments: nur anhaengen, Korrektur per Gegenbuchung
+ * - journal: Protokoll mit Hash-Kette, weder aenderbar noch loeschbar (Trigger)
+ */
+function wf_migrate_v7(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    ALTER TABLE customers ADD COLUMN country TEXT NOT NULL DEFAULT 'DK';
+    ALTER TABLE customers ADD COLUMN vat_id TEXT NOT NULL DEFAULT '';
+    ALTER TABLE customers ADD COLUMN is_business INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE customers ADD COLUMN doc_lang TEXT NOT NULL DEFAULT '';
+    ALTER TABLE customers ADD COLUMN vat_checked_at TEXT;
+    ALTER TABLE customers ADD COLUMN vat_checked_name TEXT NOT NULL DEFAULT '';
+    ALTER TABLE customers ADD COLUMN vat_valid INTEGER;
+
+    CREATE TABLE invoices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL DEFAULT 'invoice' CHECK (type IN ('invoice','credit')),
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','final')),
+      number INTEGER UNIQUE,
+      customer_id INTEGER NOT NULL REFERENCES customers(id),
+      order_id INTEGER,
+      credit_of INTEGER REFERENCES invoices(id),
+      issue_date TEXT NOT NULL,
+      delivery_date TEXT,
+      due_date TEXT NOT NULL,
+      currency TEXT NOT NULL DEFAULT 'DKK',
+      rate TEXT NOT NULL DEFAULT '1',
+      rate_date TEXT,
+      rate_source TEXT NOT NULL DEFAULT '',
+      vat_scheme TEXT NOT NULL DEFAULT 'dk',
+      scheme_manual INTEGER NOT NULL DEFAULT 0,
+      prices_incl INTEGER NOT NULL DEFAULT 0,
+      lang TEXT NOT NULL DEFAULT 'da',
+      customer_snap TEXT NOT NULL DEFAULT '{}',
+      seller_snap TEXT NOT NULL DEFAULT '{}',
+      note TEXT NOT NULL DEFAULT '',
+      net INTEGER NOT NULL DEFAULT 0,
+      vat INTEGER NOT NULL DEFAULT 0,
+      total INTEGER NOT NULL DEFAULT 0,
+      net_dkk INTEGER NOT NULL DEFAULT 0,
+      vat_dkk INTEGER NOT NULL DEFAULT 0,
+      total_dkk INTEGER NOT NULL DEFAULT 0,
+      hash TEXT,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by TEXT NOT NULL DEFAULT '',
+      approved_at TEXT,
+      approved_by TEXT,
+      sent_at TEXT
+    );
+    CREATE INDEX idx_inv_customer ON invoices(customer_id);
+    CREATE INDEX idx_inv_status ON invoices(status, issue_date);
+    CREATE TABLE invoice_lines (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_id INTEGER NOT NULL REFERENCES invoices(id) ON DELETE CASCADE,
+      pos INTEGER NOT NULL,
+      description TEXT NOT NULL,
+      qty REAL NOT NULL DEFAULT 1,
+      unit TEXT NOT NULL DEFAULT 'stk',
+      unit_price INTEGER NOT NULL DEFAULT 0,
+      discount REAL NOT NULL DEFAULT 0,
+      kind TEXT NOT NULL DEFAULT 'goods' CHECK (kind IN ('goods','services')),
+      amount INTEGER NOT NULL DEFAULT 0
+    );
+    CREATE INDEX idx_lines_inv ON invoice_lines(invoice_id, pos);
+    CREATE TABLE invoice_payments (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      invoice_id INTEGER NOT NULL REFERENCES invoices(id),
+      date TEXT NOT NULL,
+      amount INTEGER NOT NULL,
+      method TEXT NOT NULL DEFAULT '',
+      note TEXT NOT NULL DEFAULT '',
+      reverses INTEGER REFERENCES invoice_payments(id),
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by TEXT NOT NULL DEFAULT ''
+    );
+    CREATE INDEX idx_pay_inv ON invoice_payments(invoice_id);
+    CREATE TABLE journal (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      at TEXT NOT NULL DEFAULT (datetime('now')),
+      user_name TEXT NOT NULL,
+      kind TEXT NOT NULL,
+      ref_id INTEGER,
+      data TEXT NOT NULL,
+      prev_hash TEXT NOT NULL,
+      hash TEXT NOT NULL
+    );
+
+    -- Festgeschriebene Rechnungen: nur 'sent_at' darf sich noch aendern, loeschen unmoeglich.
+    CREATE TRIGGER inv_lock_update BEFORE UPDATE ON invoices
+    WHEN OLD.status = 'final' AND (
+      NEW.status IS NOT OLD.status OR NEW.type IS NOT OLD.type OR NEW.number IS NOT OLD.number OR NEW.customer_id IS NOT OLD.customer_id
+      OR NEW.order_id IS NOT OLD.order_id OR NEW.credit_of IS NOT OLD.credit_of OR NEW.issue_date IS NOT OLD.issue_date
+      OR NEW.delivery_date IS NOT OLD.delivery_date OR NEW.due_date IS NOT OLD.due_date OR NEW.currency IS NOT OLD.currency
+      OR NEW.rate IS NOT OLD.rate OR NEW.rate_date IS NOT OLD.rate_date OR NEW.rate_source IS NOT OLD.rate_source
+      OR NEW.vat_scheme IS NOT OLD.vat_scheme OR NEW.scheme_manual IS NOT OLD.scheme_manual OR NEW.prices_incl IS NOT OLD.prices_incl
+      OR NEW.lang IS NOT OLD.lang OR NEW.customer_snap IS NOT OLD.customer_snap OR NEW.seller_snap IS NOT OLD.seller_snap
+      OR NEW.note IS NOT OLD.note OR NEW.net IS NOT OLD.net OR NEW.vat IS NOT OLD.vat OR NEW.total IS NOT OLD.total
+      OR NEW.net_dkk IS NOT OLD.net_dkk OR NEW.vat_dkk IS NOT OLD.vat_dkk OR NEW.total_dkk IS NOT OLD.total_dkk
+      OR NEW.hash IS NOT OLD.hash OR NEW.created_at IS NOT OLD.created_at OR NEW.created_by IS NOT OLD.created_by
+      OR NEW.approved_at IS NOT OLD.approved_at OR NEW.approved_by IS NOT OLD.approved_by)
+    BEGIN SELECT RAISE(ABORT, 'invoice_locked'); END;
+    CREATE TRIGGER inv_lock_delete BEFORE DELETE ON invoices WHEN OLD.status = 'final'
+    BEGIN SELECT RAISE(ABORT, 'invoice_locked'); END;
+    CREATE TRIGGER line_lock_ins BEFORE INSERT ON invoice_lines
+    WHEN (SELECT status FROM invoices WHERE id = NEW.invoice_id) = 'final'
+    BEGIN SELECT RAISE(ABORT, 'invoice_locked'); END;
+    CREATE TRIGGER line_lock_upd BEFORE UPDATE ON invoice_lines
+    WHEN (SELECT status FROM invoices WHERE id = OLD.invoice_id) = 'final'
+    BEGIN SELECT RAISE(ABORT, 'invoice_locked'); END;
+    CREATE TRIGGER line_lock_del BEFORE DELETE ON invoice_lines
+    WHEN (SELECT status FROM invoices WHERE id = OLD.invoice_id) = 'final'
+    BEGIN SELECT RAISE(ABORT, 'invoice_locked'); END;
+    CREATE TRIGGER pay_lock_upd BEFORE UPDATE ON invoice_payments BEGIN SELECT RAISE(ABORT, 'payment_locked'); END;
+    CREATE TRIGGER pay_lock_del BEFORE DELETE ON invoice_payments BEGIN SELECT RAISE(ABORT, 'payment_locked'); END;
+    CREATE TRIGGER pay_only_final BEFORE INSERT ON invoice_payments
+    WHEN (SELECT status FROM invoices WHERE id = NEW.invoice_id) IS NOT 'final'
+    BEGIN SELECT RAISE(ABORT, 'invoice_not_final'); END;
+    CREATE TRIGGER journal_lock_upd BEFORE UPDATE ON journal BEGIN SELECT RAISE(ABORT, 'journal_locked'); END;
+    CREATE TRIGGER journal_lock_del BEFORE DELETE ON journal BEGIN SELECT RAISE(ABORT, 'journal_locked'); END;
+
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '7');
+    ");
+    $db->commit();
 }
 
 /**
