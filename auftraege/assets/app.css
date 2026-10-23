@@ -314,3 +314,19 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 .confok{display:flex;flex-direction:column;gap:6px;color:var(--ok)}
 .sigimg{background:#fff;border-radius:10px;height:80px;width:auto;max-width:100%;align-self:flex-start}
 @media(max-width:640px){.prow{grid-template-columns:1fr 1fr}.prow > input:first-child{grid-column:1/-1}.prow.head{display:none}}
+.mtabs{display:flex;gap:6px;margin:0 0 14px;padding:4px;border-radius:14px;background:var(--surface);border:1px solid var(--line);width:max-content;max-width:100%}
+.mtabs a{padding:8px 16px;border-radius:10px;text-decoration:none;color:var(--muted);font-size:.9rem;white-space:nowrap}
+.mtabs a.on{background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff}
+.receiptcard{background:linear-gradient(135deg,rgba(139,43,226,.16),var(--surface))}
+.aibox{border-color:rgba(168,85,247,.55);font-size:.92rem}
+.rrow{display:flex;gap:16px;align-items:flex-start;flex-wrap:wrap}
+.rprev{flex:none}.rprev img{width:120px;height:160px;object-fit:cover;border-radius:12px;border:1px solid var(--line-strong);background:#fff}
+.rprev .pdf{width:120px;height:160px;display:grid;place-items:center;border-radius:12px;border:1px solid var(--line-strong);font-weight:700;color:var(--p3)}
+.hint{display:block;margin-top:4px;font-size:.8rem;line-height:1.35}
+.btxs{display:flex;flex-direction:column;gap:10px}
+.btx{display:flex;flex-direction:column;gap:10px;padding:12px 14px}
+.btx.done{opacity:.75}
+.btop{display:flex;gap:12px;align-items:flex-start}
+.btext{font-size:.95rem;overflow-wrap:anywhere}
+.bamt{font-family:var(--head);font-size:1.3rem;white-space:nowrap}.bamt.in{color:var(--ok)}.bamt.out{color:var(--text)}
+@media(max-width:640px){.mtabs{width:100%}.mtabs a{flex:1;text-align:center;padding:8px 6px}}

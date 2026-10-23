@@ -75,6 +75,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $db->prepare("UPDATE order_confirmations SET signed_at = datetime('now'), signer_name = ?, signature = ?, sign_ip = ?, sign_ua = ? WHERE id = ? AND signed_at IS NULL")
         ->execute([$name, base64_encode($png), $ip, mb_substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 300), $c['id']]);
     $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([$c['order_id'], $name, 'confirmed:' . substr(hash('sha256', $c['snapshot']), 0, 12)]);
+    // Unterschrift = Freigabe: Auftrag rueckt von "Angefragt" auf "Freigabe" (spaetere Status bleiben unberuehrt)
+    $up = $db->prepare("UPDATE orders SET status = 'approval', updated_at = datetime('now') WHERE id = ? AND status = 'inquiry' AND deleted_at IS NULL");
+    $up->execute([$c['order_id']]);
+    if ($up->rowCount()) {
+        $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([$c['order_id'], $name, 'status:approval']);
+    }
     $db->commit();
     wf_touch();
     wf_json(['ok' => true]);

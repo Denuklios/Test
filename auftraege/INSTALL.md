@@ -61,6 +61,16 @@ Unter **Einstellungen**:
 - **Preisliste:** Einstellungen → „Preisliste“; im Rechnungseditor „Aus Preisliste“.
 - **Kunde:** „Daten holen (CVR/EU)“ füllt Firmenname und Adresse aus dem CVR-Register bzw. EU-Register (braucht Internet-Zugriff vom Server).
 
+**Ausgaben & Belege (Buchhaltung → Ausgaben):**
+- „📷 Beleg fotografieren“: Kassenbon oder Rechnung fotografieren (oder PDF wählen). Mit Claude-Schlüssel (Einstellungen → Belegerkennung) werden Lieferant, Datum, Betrag, Moms, Kategorie und „bezahlt“ automatisch ausgefüllt; ohne Schlüssel trägst du die Werte selbst ein.
+- Die **Kategorie** setzt den abziehbaren Moms-Anteil automatisch (z. B. Bewirtung 25 %, Versicherung 0 %, Telefon privat/geschäftlich nach dem Firmenanteil in den Firmendaten).
+- **Moms auf dem Beleg:** dänische Moms (Købsmoms), keine Moms, EU-Wareneinkauf ohne Moms bzw. Dienstleistung/Software aus dem Ausland (die App rechnet die 25 % Erwerbs-/Reverse-Charge-Moms selbst aus).
+- **Buchen:** Die Ausgabe bekommt die nächste Bilag-Nummer und ist mit dem Beleg-Foto unveränderbar gespeichert. Fehler korrigierst du per **Storno**. Ohne Foto geht Buchen nur mit Begründung.
+
+**Bank (Buchhaltung → Bank):** Lunar-Kontoauszug als CSV hochladen. Doppelte Zeilen werden erkannt. Zahlungseingänge mit Rechnungsnummer oder eindeutigem Betrag werden automatisch der Rechnung zugeordnet (Zahlung gebucht, Auftrag auf „bezahlt“). Abbuchungen werden den gebuchten Belegen mit gleichem Betrag zugeordnet. Der Rest: mit einem Tipp zuordnen, „+ Neue Ausgabe“ (Beleg nachfotografieren), Privatentnahme/-einlage oder Umbuchung.
+
+**Belegerkennung einrichten (optional):** Bei Anthropic (platform.claude.com) ein Konto anlegen, unter „API Keys“ einen Schlüssel erzeugen und unter Einstellungen → „Belegerkennung mit Claude“ eintragen. Kosten etwa 1–3 Cent pro Beleg. Der Server braucht dafür ausgehenden Zugriff auf api.anthropic.com.
+
 **Prüfkette:** Jede Festschreibung, Zahlung und Stornierung steht in einem Journal mit Hash-Kette. „Prüfkette kontrollieren“ (Einstellungen) zeigt, ob alles unverändert und lückenlos ist.
 
 **Internet-Zugriff vom Server:** Tageskurs, CVR-Abruf (cvrapi.dk) und VIES-Prüfung brauchen ausgehende Verbindungen von one.com (Nationalbank, EU-Kommission). Klappt das nicht, Kurs von Hand eintragen; die USt-IdNr. kann man dann unter ec.europa.eu/taxation_customs/vies prüfen.

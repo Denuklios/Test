@@ -210,10 +210,20 @@ try {
     assert.equal((await post({ name: 'Hans Hansen', accept: true, signature: png })).status, 200);
     assert.equal((await post({ name: 'Andere', accept: true, signature: png })).status, 409);
     const o = (await call('order', { params: { id: oid } })).j.order;
+    assert.equal(o.status, 'delivered', 'spaeterer Status bleibt');
     assert.equal(o.confirmation.signer_name, 'Hans Hansen'); assert.ok(o.log.some((l) => l.what.startsWith('confirmed:')));
     assert.match(sql(`UPDATE order_confirmations SET signer_name = 'X'`), /confirmation_locked/);
     const sig = await fetch(`${B}/api.php?a=confirm_signature&id=${o.confirmation.id}`, { headers: { cookie } }); assert.equal(sig.headers.get('content-type'), 'image/png');
     assert.match(await (await fetch(`${B}/bestaetigung.php?t=${tok}`)).text(), /bekræftet .* af Hans Hansen/);
+  });
+  await ok('Unterschrift setzt „Angefragt“ automatisch auf „Freigabe“', async () => {
+    const o = (await call('order_save', { body: { customer_id: dk, title: 'Freigabe-Test', qty: 1, price: '100', deposit: 0, currency: 'DKK', pay_status: 'open', processes: [] } })).j.order;
+    assert.equal(o.status, 'inquiry');
+    const tok = (await call('confirm_create', { body: { order_id: o.id } })).j.token;
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
+    await fetch(`${B}/bestaetigung.php?t=${tok}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Kunde', accept: true, signature: png }) });
+    const n = (await call('order', { params: { id: o.id } })).j.order;
+    assert.equal(n.status, 'approval'); assert.ok(n.log.some((l) => l.what === 'status:approval' && l.user_name === 'Kunde'));
   });
   await ok('Produkte anlegen, ändern, löschen', async () => {
     const id = (await call('product_save', { body: { name: 'Stick bis 10.000 Stiche', unit: 'stk', price: '45,00', kind: 'services' } })).j.id;

@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 8) {
+    if ($v >= 9) {
         return;
     }
     if ($v < 1) {
@@ -29,7 +29,92 @@ function wf_migrate(PDO $db): void
     if ($v < 7) {
         wf_migrate_v7($db);
     }
-    wf_migrate_v8($db);
+    if ($v < 8) {
+        wf_migrate_v8($db);
+    }
+    wf_migrate_v9($db);
+}
+
+/**
+ * Version 9: Ausgaben mit Beleg (Bilag) und Kontoauszug.
+ * - expenses: Entwurf frei, gebucht (status 'final') gesperrt; Korrektur nur per Storno-Gegenbuchung. Nur Zahlungsdaten bleiben aenderbar.
+ * - bank_tx: importierte Kontobewegungen (Lunar-CSV), je Bewegung einmal, mit Zuordnung zu Rechnung/Ausgabe/Privat
+ */
+function wf_migrate_v9(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    CREATE TABLE expenses (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      status TEXT NOT NULL DEFAULT 'draft' CHECK (status IN ('draft','final')),
+      number INTEGER UNIQUE,
+      date TEXT NOT NULL,
+      supplier TEXT NOT NULL DEFAULT '',
+      supplier_country TEXT NOT NULL DEFAULT 'DK',
+      supplier_vat TEXT NOT NULL DEFAULT '',
+      doc_no TEXT NOT NULL DEFAULT '',
+      description TEXT NOT NULL DEFAULT '',
+      category TEXT NOT NULL DEFAULT 'misc',
+      currency TEXT NOT NULL DEFAULT 'DKK',
+      rate TEXT NOT NULL DEFAULT '1',
+      rate_date TEXT,
+      gross INTEGER NOT NULL DEFAULT 0,
+      vat INTEGER NOT NULL DEFAULT 0,
+      vat_mode TEXT NOT NULL DEFAULT 'dk' CHECK (vat_mode IN ('dk','none','eu_goods','rc_services')),
+      vat_share INTEGER NOT NULL DEFAULT 100,
+      gross_dkk INTEGER NOT NULL DEFAULT 0,
+      net_dkk INTEGER NOT NULL DEFAULT 0,
+      vat_dkk INTEGER NOT NULL DEFAULT 0,
+      rc_vat_dkk INTEGER NOT NULL DEFAULT 0,
+      deduct_dkk INTEGER NOT NULL DEFAULT 0,
+      file_stored TEXT,
+      file_mime TEXT,
+      file_name TEXT,
+      no_receipt TEXT NOT NULL DEFAULT '',
+      note TEXT NOT NULL DEFAULT '',
+      reverses INTEGER REFERENCES expenses(id),
+      ai_model TEXT,
+      hash TEXT,
+      paid_date TEXT,
+      pay_method TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      created_by TEXT NOT NULL DEFAULT '',
+      approved_at TEXT,
+      approved_by TEXT
+    );
+    CREATE INDEX idx_exp_date ON expenses(status, date);
+    CREATE TRIGGER exp_lock_update BEFORE UPDATE ON expenses
+    WHEN OLD.status = 'final' AND (
+      NEW.status IS NOT OLD.status OR NEW.number IS NOT OLD.number OR NEW.date IS NOT OLD.date OR NEW.supplier IS NOT OLD.supplier
+      OR NEW.supplier_country IS NOT OLD.supplier_country OR NEW.supplier_vat IS NOT OLD.supplier_vat OR NEW.doc_no IS NOT OLD.doc_no
+      OR NEW.description IS NOT OLD.description OR NEW.category IS NOT OLD.category OR NEW.currency IS NOT OLD.currency
+      OR NEW.rate IS NOT OLD.rate OR NEW.rate_date IS NOT OLD.rate_date OR NEW.gross IS NOT OLD.gross OR NEW.vat IS NOT OLD.vat
+      OR NEW.vat_mode IS NOT OLD.vat_mode OR NEW.vat_share IS NOT OLD.vat_share OR NEW.gross_dkk IS NOT OLD.gross_dkk
+      OR NEW.net_dkk IS NOT OLD.net_dkk OR NEW.vat_dkk IS NOT OLD.vat_dkk OR NEW.rc_vat_dkk IS NOT OLD.rc_vat_dkk
+      OR NEW.deduct_dkk IS NOT OLD.deduct_dkk OR NEW.file_stored IS NOT OLD.file_stored OR NEW.no_receipt IS NOT OLD.no_receipt
+      OR NEW.note IS NOT OLD.note OR NEW.reverses IS NOT OLD.reverses OR NEW.hash IS NOT OLD.hash
+      OR NEW.approved_at IS NOT OLD.approved_at OR NEW.approved_by IS NOT OLD.approved_by OR NEW.created_at IS NOT OLD.created_at)
+    BEGIN SELECT RAISE(ABORT, 'expense_locked'); END;
+    CREATE TRIGGER exp_lock_delete BEFORE DELETE ON expenses WHEN OLD.status = 'final'
+    BEGIN SELECT RAISE(ABORT, 'expense_locked'); END;
+
+    CREATE TABLE bank_tx (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      uid TEXT NOT NULL UNIQUE,
+      date TEXT NOT NULL,
+      text TEXT NOT NULL DEFAULT '',
+      amount INTEGER NOT NULL,
+      imported_at TEXT NOT NULL DEFAULT (datetime('now')),
+      match_type TEXT,
+      match_id INTEGER,
+      match_note TEXT NOT NULL DEFAULT '',
+      matched_at TEXT,
+      matched_by TEXT
+    );
+    CREATE INDEX idx_bank_date ON bank_tx(date);
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '9');
+    ");
+    $db->commit();
 }
 
 /**

@@ -51,7 +51,7 @@ function wf_company_defaults(): array
         'name' => '', 'owner' => '', 'street' => '', 'zip' => '', 'city' => '', 'country' => 'DK',
         'cvr' => '', 'email' => '', 'phone' => '', 'web' => '',
         'bank' => '', 'reg_no' => '', 'account_no' => '', 'iban' => '', 'bic' => '',
-        'moms_registered' => true, 'moms_period' => 'half', 'invoice_start' => 1, 'pay_days' => 14,
+        'moms_registered' => true, 'moms_period' => 'half', 'invoice_start' => 1, 'pay_days' => 14, 'phone_share' => 50,
     ];
 }
 function wf_company(): array
@@ -302,6 +302,16 @@ function wf_journal_verify(PDO $db): array
         }
         $inv++;
     }
+    // gebuchte Ausgaben inkl. Prüfsumme der Belegdatei
+    $exp = 0;
+    if (function_exists('wf_exp_fingerprint')) {
+        foreach ($db->query("SELECT * FROM expenses WHERE status = 'final' ORDER BY number")->fetchAll() as $x) {
+            if (wf_exp_fingerprint($x) !== $x['hash']) {
+                $bad[] = 'bilag ' . $x['number'];
+            }
+            $exp++;
+        }
+    }
     // Lücken in der Nummernfolge
     $nums = $db->query("SELECT number FROM invoices WHERE status = 'final' ORDER BY number")->fetchAll(PDO::FETCH_COLUMN);
     for ($k = 1; $k < count($nums); $k++) {
@@ -309,7 +319,7 @@ function wf_journal_verify(PDO $db): array
             $bad[] = 'gap ' . $nums[$k - 1] . '-' . $nums[$k];
         }
     }
-    return ['ok' => !$bad, 'entries' => $n, 'invoices' => $inv, 'problems' => $bad];
+    return ['ok' => !$bad, 'entries' => $n, 'invoices' => $inv, 'expenses' => $exp, 'problems' => $bad];
 }
 
 // ---------- Laden, Offene Beträge ----------

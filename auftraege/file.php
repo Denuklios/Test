@@ -4,8 +4,14 @@ declare(strict_types=1);
 require __DIR__ . '/inc/bootstrap.php';
 require __DIR__ . '/inc/thumb.php';
 wf_require_user(false);
-$st = wf_db()->prepare('SELECT * FROM order_files WHERE id = ?');
-$st->execute([(int)($_GET['id'] ?? 0)]);
+if (isset($_GET['exp'])) {
+    // Beleg einer Ausgabe
+    $st = wf_db()->prepare('SELECT id, file_stored AS stored_name, file_mime AS mime, file_name AS original_name FROM expenses WHERE id = ? AND file_stored IS NOT NULL');
+    $st->execute([(int)$_GET['exp']]);
+} else {
+    $st = wf_db()->prepare('SELECT * FROM order_files WHERE id = ?');
+    $st->execute([(int)($_GET['id'] ?? 0)]);
+}
 $f = $st->fetch();
 $dir = rtrim((string)wf_cfg('data_dir'), '/') . '/uploads';
 $path = $f ? $dir . '/' . $f['stored_name'] : '';

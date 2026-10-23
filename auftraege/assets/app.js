@@ -143,7 +143,8 @@ const route = (re, fn) => routes.push([re, fn]);
 async function render() {
   if (!me) return;
   const hash = location.hash.replace(/^#/, '') || '/';
-  document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('on', a.dataset.r && (hash === a.dataset.r || (a.dataset.r !== '/' && hash.startsWith(a.dataset.r)))));
+  const navHash = /^\/(expense|bank|invoice)/.test(hash) ? '/invoices' : hash;
+  document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('on', a.dataset.r && (navHash === a.dataset.r || (a.dataset.r !== '/' && navHash.startsWith(a.dataset.r)))));
   for (const [re, fn] of routes) {
     const m = re.exec(hash);
     if (m) {
@@ -764,7 +765,7 @@ route(/^\/invoices$/, async () => {
   const y = new Date().getFullYear();
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('money_eyebrow')), h('h1', {}, t('inv_h1_a'), ' ', h('em', {}, t('inv_h1_b')))), h('a', { class: 'btn primary', href: '#/invoice/new' }, '+ ' + t('new_invoice'))),
-    companyWarn(), tiles,
+    moneyTabs('/invoices'), companyWarn(), tiles,
     h('div', { class: 'filters' },
       h('input', { type: 'search', placeholder: t('search_ph'), value: ifilt.q, oninput: (e) => { ifilt.q = e.target.value; clearTimeout(tm); tm = setTimeout(load, 250); } }),
       h('select', { onchange: (e) => { ifilt.state = e.target.value; load(); } }, h('option', { value: '' }, t('all_invoices')),
@@ -1002,6 +1003,223 @@ function invoiceView(i) {
     h('p', { class: 'muted lockinfo' }, '🔒 ' + t('locked_info', (i.approved_at || '').slice(0, 16), i.approved_by || '', (i.hash || '').slice(0, 12))));
 }
 
+// ---------- Ausgaben & Bank ----------
+const moneyTabs = (on) => h('div', { class: 'mtabs' }, [['/invoices', t('tab_invoices')], ['/expenses', t('tab_expenses')], ['/bank', t('tab_bank')]].map(([r, l]) => h('a', { href: '#' + r, class: r === on ? 'on' : '' }, l)));
+const catName = (k) => { const c = me.exp_categories[k] || me.exp_categories.misc; return lang === 'da' ? c[1] : c[0]; };
+const catInfo = (k) => { const c = me.exp_categories[k] || me.exp_categories.misc; return lang === 'da' ? c[5] : c[4]; };
+const catShare = (k) => { const c = me.exp_categories[k] || me.exp_categories.misc; return c[2] === 'phone' ? +(me.company.phone_share ?? 50) : +c[2]; };
+const toC = (v) => { let s = String(v || '0').replace(/\s/g, ''); if (s.includes(',')) s = s.replace(/\./g, '').replace(',', '.'); return Math.round((parseFloat(s) || 0) * 100); };
+
+// Beleg aufnehmen: Kamera/Datei -> Entwurf (Claude liest aus, wenn eingerichtet) -> Editor
+function receiptButtons(id) {
+  const send = async (files) => {
+    if (!files.length) return;
+    toast(me.ai_enabled && !id ? t('ai_reading') : t('uploading', 1, 1));
+    try {
+      const fd = new FormData(); if (id) fd.append('id', id); fd.append('scan', id ? '' : '1'); fd.append('file', await prepImage(files[0]));
+      const r = await api('expense_upload', { form: fd });
+      if (r.ai_error) toast(t('err_' + r.ai_error)); else if (r.ai && !r.ai.is_receipt) toast(t('ai_not_receipt')); else if (r.ai && !r.ai.confident) toast(t('ai_check'));
+      if (location.hash === `#/expense/${r.id}`) render(); else location.hash = `#/expense/${r.id}`;
+    } catch (e) { toast(e.message); }
+  };
+  const cam = h('input', { type: 'file', accept: 'image/*', capture: 'environment', class: 'hidden', onchange: (e) => { send([...e.target.files]); e.target.value = ''; } });
+  const gal = h('input', { type: 'file', accept: 'image/*,application/pdf', class: 'hidden', onchange: (e) => { send([...e.target.files]); e.target.value = ''; } });
+  return h('div', { class: 'row' }, h('button', { type: 'button', class: 'btn primary', onclick: () => cam.click() }, '📷 ' + t(id ? 'receipt_retake' : 'receipt_photo')), h('button', { type: 'button', class: 'btn', onclick: () => gal.click() }, '🖼 ' + t('pick_files')), cam, gal);
+}
+
+const efilt = { q: '', state: '', year: '' };
+route(/^\/expenses$/, async () => {
+  const list = h('div', { class: 'orders' });
+  const tiles = h('div', { class: 'tiles' });
+  const load = async () => {
+    const params = { q: efilt.q };
+    if (efilt.state) params.state = efilt.state;
+    if (efilt.year) params.year = efilt.year;
+    const { expenses, summary } = await api('expenses', { params });
+    tiles.replaceChildren(
+      h('div', { class: 'tile' }, h('small', {}, t('exp_year', new Date().getFullYear())), h('b', {}, cents(summary.g, 'DKK'))),
+      h('div', { class: 'tile' }, h('small', {}, t('exp_deduct')), h('b', {}, cents(summary.d, 'DKK'))),
+      h('a', { class: 'tile' + (summary.bank_open ? ' bad' : ''), href: '#/bank', style: 'text-decoration:none;color:inherit' }, h('small', {}, t('bank_open')), h('b', {}, String(summary.bank_open))));
+    list.replaceChildren(...(expenses.length ? expenses.map((e) => {
+      const st = e.status === 'draft' ? 'draft' : e.reverses ? 'credit' : e.reversed_by ? 'credit' : e.paid_date || e.gross < 0 ? 'paid' : 'open';
+      return h('a', { class: 'card order inv', href: `#/expense/${e.id}`, style: `--sc:${ICOL[st]}` },
+        h('div', { class: 'o-top' }, h('div', { style: 'flex:1;min-width:0' },
+          h('div', { class: 'o-nr' }, (e.status === 'final' ? t('bilag') + ' ' + e.number : t('draft')) + (e.has_file ? ' · 📎' : '')),
+          h('div', { class: 'o-title' }, e.supplier || '—'),
+          h('div', { class: 'o-cust' }, `${dfmt(e.date)} · ${catName(e.category)}${e.description ? ' · ' + e.description : ''}`)),
+        h('div', { style: 'text-align:right' }, h('div', { class: 'inv-amt' }, cents(e.gross, e.currency)),
+          h('div', { style: 'margin-top:6px' }, pill(e.reverses ? t('storno') : e.reversed_by ? t('reversed') : t('exp_st_' + st), ICOL[st])),
+          +e.deduct_dkk ? h('small', { class: 'muted' }, `${t('vat')} ${cents(e.deduct_dkk, 'DKK')}`) : null)));
+    }) : [h('div', { class: 'empty' }, t('no_expenses'))]));
+  };
+  let tm;
+  const y = new Date().getFullYear();
+  show(
+    h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('money_eyebrow')), h('h1', {}, t('exp_h1_a'), ' ', h('em', {}, t('exp_h1_b'))))),
+    moneyTabs('/expenses'),
+    h('div', { class: 'card receiptcard' }, h('p', { class: 'muted', style: 'margin:0 0 10px' }, me.ai_enabled ? t('receipt_hint_ai') : t('receipt_hint')), receiptButtons(),
+      h('a', { href: '#/expense/new', class: 'muted', style: 'display:inline-block;margin-top:10px;font-size:.9rem' }, '+ ' + t('exp_manual'))),
+    tiles,
+    h('div', { class: 'filters' },
+      h('input', { type: 'search', placeholder: t('search_ph'), value: efilt.q, oninput: (e) => { efilt.q = e.target.value; clearTimeout(tm); tm = setTimeout(load, 250); } }),
+      h('select', { onchange: (e) => { efilt.state = e.target.value; load(); } }, h('option', { value: '' }, t('all_invoices')), ['draft', 'unpaid', 'final'].map((s) => h('option', { value: s, selected: efilt.state === s }, t('exp_f_' + s)))),
+      h('select', { onchange: (e) => { efilt.year = e.target.value; load(); } }, h('option', { value: '' }, t('all_years')), [y, y - 1, y - 2, y - 3, y - 4, y - 5].map((v) => h('option', { value: v, selected: String(v) === efilt.year }, v)))),
+    list);
+  await load();
+});
+
+route(/^\/expense\/(new|\d+)$/, async (id) => {
+  const e = id === 'new' ? { id: 0, status: 'draft', date: today(), supplier: '', supplier_country: 'DK', supplier_vat: '', doc_no: '', description: '', category: 'material', currency: 'DKK', rate: '1', gross: 0, vat: 0, vat_mode: 'dk', vat_share: 100, no_receipt: '', note: '', paid_date: null, pay_method: '' } : (await api('expense', { params: { id } })).expense;
+  return e.status === 'draft' ? expenseEditor(e) : expenseView(e);
+});
+
+function receiptPreview(e) {
+  if (!e.file_stored) return null;
+  const url = `${BASE}file.php?exp=${e.id}`;
+  return h('a', { href: url, target: '_blank', rel: 'noopener', class: 'rprev' }, e.file_mime === 'application/pdf' ? h('div', { class: 'pdf' }, 'PDF') : h('img', { src: url, alt: '' }));
+}
+
+function expenseEditor(e) {
+  const err = h('div', { class: 'err' });
+  const F = {};
+  const inp = (k, extra = {}) => (F[k] = h('input', { type: 'text', value: e[k] ?? '', ...extra }));
+  const fld = (label, el, hint) => h('div', {}, h('label', {}, label), el, hint || null);
+  inp('date', { type: 'date', max: today() }); inp('supplier', { maxlength: 200 }); inp('supplier_vat'); inp('doc_no'); inp('description', { maxlength: 300 });
+  F.supplier_country = h('select', {}, countryOpts(e.supplier_country || 'DK'));
+  F.category = h('select', { onchange: () => { F.vat_share.value = catShare(F.category.value); if (+catShare(F.category.value) === 0 && F.vat_mode.value === 'dk' && ['insurance', 'bank', 'car', 'gifts'].includes(F.category.value)) F.vat_mode.value = 'none'; drawInfo(); calc(); } },
+    Object.keys(me.exp_categories).map((k) => h('option', { value: k, selected: k === e.category }, catName(k))));
+  const catHint = h('small', { class: 'muted hint' });
+  F.vat_mode = h('select', { onchange: () => { drawInfo(); calc(); } }, ['dk', 'none', 'eu_goods', 'rc_services'].map((m) => h('option', { value: m, selected: m === e.vat_mode }, t('vm_' + m))));
+  const modeHint = h('small', { class: 'muted hint' });
+  F.gross = h('input', { type: 'text', inputmode: 'decimal', value: e.gross ? centsIn(e.gross) : '', placeholder: '0,00', oninput: () => calc() });
+  F.vat = h('input', { type: 'text', inputmode: 'decimal', value: e.vat ? centsIn(e.vat) : '', placeholder: '0,00', oninput: () => calc() });
+  const vat20 = h('button', { type: 'button', class: 'btn small', onclick: () => { F.vat.value = centsIn(Math.round(toC(F.gross.value) * 0.2)); calc(); } }, t('vat_from_gross'));
+  F.vat_share = h('input', { type: 'number', min: 0, max: 100, value: e.vat_share ?? 100, oninput: () => calc(), style: 'width:90px' });
+  F.currency = h('select', { onchange: () => { rateWrap.classList.toggle('hidden', F.currency.value === 'DKK'); calc(); } }, me.currencies.map((c) => h('option', { value: c, selected: c === e.currency }, c)));
+  F.rate = h('input', { type: 'text', inputmode: 'decimal', value: e.currency !== 'DKK' && +e.rate ? String(e.rate).replace('.', ',') : '', oninput: () => calc() });
+  const rateWrap = h('div', { class: e.currency === 'DKK' ? 'hidden' : '' }, fld(t('rate', 'EUR'), F.rate), h('button', { type: 'button', class: 'btn small', style: 'margin-top:6px', onclick: async () => { try { const r = await api('rate', { params: { cur: F.currency.value } }); F.rate.value = r.rate.replace('.', ','); calc(); } catch (x) { toast(x.message); } } }, '⟳ ' + t('get_rate')));
+  const paidChk = h('input', { type: 'checkbox', checked: !!e.paid_date, style: 'width:22px;height:22px;min-height:0', onchange: () => { paidBox.classList.toggle('hidden', !paidChk.checked); if (paidChk.checked && !F.paid_date.value) F.paid_date.value = F.date.value; } });
+  F.paid_date = h('input', { type: 'date', value: e.paid_date || '', max: today() });
+  F.pay_method = h('select', {}, ['card', 'bank', 'mobilepay', 'cash', 'other'].map((m) => h('option', { value: m, selected: m === (e.pay_method || 'card') }, t('pm_' + m))));
+  const paidBox = h('div', { class: 'grid c2' + (e.paid_date ? '' : ' hidden') }, fld(t('paid_on'), F.paid_date), fld(t('method'), F.pay_method));
+  F.no_receipt = h('input', { type: 'text', value: e.no_receipt || '', maxlength: 300, placeholder: t('no_receipt_ph') });
+  F.note = h('textarea', { rows: 2 }, e.note || '');
+  const sumBox = h('div', { class: 'sumbox invsum' });
+  function drawInfo() { catHint.textContent = catInfo(F.category.value); modeHint.textContent = t('vm_hint_' + F.vat_mode.value); vatRow.classList.toggle('hidden', F.vat_mode.value !== 'dk'); }
+  function calc() {
+    const g = toC(F.gross.value), mode = F.vat_mode.value, share = Math.max(0, Math.min(100, +F.vat_share.value || 0));
+    const fx = F.currency.value === 'DKK' ? 1 : (parseFloat(F.rate.value.replace(',', '.')) || 0);
+    const v = mode === 'dk' ? toC(F.vat.value) : 0;
+    const gd = Math.round(g * fx), vd = Math.round(v * fx), nd = gd - vd, rc = ['eu_goods', 'rc_services'].includes(mode) ? Math.round(nd * 0.25) : 0;
+    const ded = Math.round((mode === 'dk' ? vd : rc) * share / 100);
+    sumBox.replaceChildren(...[
+      h('div', { class: 'sl' }, h('span', {}, t('net') + ' DKK'), h('span', {}, cents(nd, 'DKK'))),
+      rc ? h('div', { class: 'sl' }, h('span', {}, t('rc_vat')), h('span', {}, cents(rc, 'DKK'))) : null,
+      h('div', { class: 'sl g' }, h('span', {}, t('exp_deduct')), h('b', {}, cents(ded, 'DKK'))),
+      mode === 'dk' && v > g * 0.2 + 1 ? h('div', { class: 'warn-t' }, '⚠ ' + t('err_vat_too_high')) : null].filter(Boolean));
+  }
+  const vatRow = h('div', { class: 'grid c2' }, h('div', {}, h('label', {}, t('vat_on_receipt')), F.vat, h('div', { style: 'margin-top:6px' }, vat20)), fld(t('vat_share'), F.vat_share));
+  const body = () => ({ id: e.id, ...Object.fromEntries(Object.entries(F).map(([k, el]) => [k, el.value])), paid_date: paidChk.checked ? F.paid_date.value : '' });
+  const guard = (fn) => async () => { try { err.textContent = ''; await fn(); } catch (x) { err.textContent = x.message; err.scrollIntoView({ block: 'center', behavior: 'smooth' }); } };
+  const save = async () => { const r = await api('expense_save', { body: body() }); e.id = r.id; if (location.hash !== `#/expense/${r.id}`) history.replaceState(null, '', `#/expense/${r.id}`); return r; };
+  show(
+    h('a', { href: '#/expenses', class: 'muted' }, '← ' + t('tab_expenses')),
+    h('div', { class: 'page-head', style: 'margin-top:8px' }, h('div', {}, h('div', { class: 'eyebrow' }, t('draft')), h('h1', {}, e.supplier || t('exp_new')))),
+    e.ai_model ? h('div', { class: 'card aibox' }, '✨ ' + t('ai_filled')) : null,
+    h('div', { class: 'card' }, h('div', { class: 'rrow' }, receiptPreview(e), h('div', { style: 'flex:1' }, h('h3', { style: 'margin-bottom:8px' }, t('receipt')), e.id ? receiptButtons(e.id) : h('p', { class: 'muted' }, t('receipt_after_save')),
+      !e.file_stored ? h('div', { style: 'margin-top:10px' }, fld(t('no_receipt'), F.no_receipt)) : null))),
+    h('div', { class: 'card grid' },
+      h('div', { class: 'grid c2' }, fld(t('date'), F.date), fld(t('supplier'), F.supplier)),
+      fld(t('description'), F.description),
+      h('div', { class: 'grid c3' }, fld(t('country'), F.supplier_country), fld(t('vat_id'), F.supplier_vat), fld(t('doc_no'), F.doc_no)),
+      fld(t('category'), F.category, catHint),
+      h('div', { class: 'grid c3' }, fld(t('amount_total'), F.gross), fld(t('currency'), F.currency), rateWrap),
+      fld(t('vat_mode'), F.vat_mode, modeHint),
+      vatRow,
+      h('label', { class: 'row', style: 'margin:6px 0 0;gap:8px;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--text)' }, paidChk, t('already_paid')), paidBox,
+      fld(t('notes'), F.note), sumBox),
+    err,
+    h('div', { class: 'formbar' },
+      e.id ? h('button', { class: 'btn danger', onclick: guard(async () => { if (confirm(t('delete_draft_confirm'))) { await api('expense_delete', { body: { id: e.id } }); location.hash = '#/expenses'; } }) }, '🗑') : null,
+      h('button', { class: 'btn', onclick: guard(async () => { await save(); toast(t('saved')); render(); }) }, t('save_draft')),
+      h('button', { class: 'btn primary', onclick: guard(async () => {
+        await save();
+        if (!confirm(t('exp_approve_confirm', F.supplier.value, F.gross.value + ' ' + F.currency.value))) { render(); return; }
+        const r = await api('expense_approve', { body: { id: e.id } }); toast(t('booked_as', r.number)); location.hash = `#/expense/${e.id}`; render();
+      }) }, '🔒 ' + t('book'))));
+  drawInfo(); calc();
+}
+
+function expenseView(e) {
+  const pd = h('input', { type: 'date', value: e.paid_date || '', max: today() });
+  const pm = h('select', {}, ['bank', 'card', 'mobilepay', 'cash', 'other'].map((m) => h('option', { value: m, selected: m === (e.pay_method || 'bank') }, t('pm_' + m))));
+  const modeTxt = t('vm_' + e.vat_mode);
+  show(
+    h('a', { href: '#/expenses', class: 'muted' }, '← ' + t('tab_expenses')),
+    h('div', { class: 'page-head', style: 'margin-top:8px' }, h('div', {}, h('div', { class: 'eyebrow' }, `${t('bilag')} ${e.number}`), h('h1', {}, e.supplier),
+      h('div', { style: 'margin-top:6px' }, e.reverses ? pill(t('storno'), ICOL.credit) : e.reversed_by ? pill(t('reversed'), ICOL.credit) : pill(e.paid_date ? t('exp_st_paid') : t('exp_st_open'), e.paid_date ? ICOL.paid : ICOL.open))),
+      !e.reverses && !e.reversed_by ? h('button', { class: 'btn danger', onclick: async () => { const why = prompt(t('reverse_reason')); if (why === null) return; try { const r = await api('expense_reverse', { body: { id: e.id, reason: why } }); location.hash = `#/expense/${r.id}`; } catch (x) { toast(x.message); } } }, t('reverse')) : null),
+    h('div', { class: 'card' }, h('div', { class: 'rrow' }, receiptPreview(e) || h('div', { class: 'muted' }, '⚠ ' + t('no_receipt') + ': ' + e.no_receipt),
+      h('dl', { class: 'kv', style: 'flex:1' },
+        h('dt', {}, t('date')), h('dd', {}, dfmt(e.date) + (e.doc_no ? ' · ' + t('doc_no') + ' ' + e.doc_no : '')),
+        e.description ? [h('dt', {}, t('description')), h('dd', {}, e.description)] : null,
+        h('dt', {}, t('category')), h('dd', {}, catName(e.category)),
+        h('dt', {}, t('amount_total')), h('dd', {}, h('b', {}, cents(e.gross, e.currency)), e.currency !== 'DKK' ? ` · ${cents(e.gross_dkk, 'DKK')}` : ''),
+        h('dt', {}, t('vat_mode')), h('dd', {}, modeTxt + (e.vat_mode === 'dk' ? ` · ${cents(e.vat_dkk, 'DKK')} · ${e.vat_share} %` : '')),
+        +e.rc_vat_dkk ? [h('dt', {}, t('rc_vat')), h('dd', {}, cents(e.rc_vat_dkk, 'DKK'))] : null,
+        h('dt', {}, t('exp_deduct')), h('dd', {}, h('b', {}, cents(e.deduct_dkk, 'DKK'))),
+        e.reverses ? [h('dt', {}, t('storno')), h('dd', {}, h('a', { href: `#/expense/${e.reverses}` }, t('original')))] : null,
+        e.reversed_by ? [h('dt', {}, t('reversed')), h('dd', {}, h('a', { href: `#/expense/${e.reversed_by}` }, t('storno')))] : null,
+        e.note ? [h('dt', {}, t('notes')), h('dd', {}, e.note)] : null))),
+    !e.reverses && !e.reversed_by && h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:8px' }, t('payment')),
+      e.bank ? h('p', { class: 'muted', style: 'margin:0 0 8px' }, `🏦 ${dfmt(e.bank.date)} · ${e.bank.text}`) : null,
+      h('div', { class: 'grid c2' }, h('div', {}, h('label', {}, t('paid_on')), pd), h('div', {}, h('label', {}, t('method')), pm)),
+      h('div', { class: 'row end', style: 'margin-top:10px' },
+        e.paid_date ? h('button', { class: 'btn', onclick: async () => { await api('expense_paid', { body: { id: e.id, paid_date: '' } }); render(); } }, t('mark_unpaid')) : null,
+        h('button', { class: 'btn primary', onclick: async () => { await api('expense_paid', { body: { id: e.id, paid_date: pd.value || today(), pay_method: pm.value } }); toast(t('saved')); render(); } }, t('save')))),
+    h('p', { class: 'muted lockinfo' }, '🔒 ' + t('exp_locked', (e.approved_at || '').slice(0, 16), e.approved_by || '', (e.hash || '').slice(0, 12))));
+}
+
+// ---------- Bank (Kontoauszug) ----------
+let bankShow = 'open';
+route(/^\/bank$/, async () => {
+  const { tx, open } = await api('bank', { params: { show: bankShow } });
+  const openInv = (await api('invoices', { params: { state: 'unpaid' } })).invoices;
+  const csvIn = h('input', { type: 'file', accept: '.csv,text/csv,text/plain', class: 'hidden', onchange: async (ev) => {
+    const f = ev.target.files[0]; ev.target.value = ''; if (!f) return;
+    try { const fd = new FormData(); fd.append('file', f); const r = await api('bank_import', { form: fd }); toast(t('bank_imported', r.added, r.auto)); render(); } catch (x) { toast(x.message); }
+  } });
+  const act = async (body) => { try { await api('bank_match', { body }); render(); } catch (x) { toast(x.message); } };
+  const txCard = (x) => {
+    const inc = x.amount > 0;
+    let tools;
+    if (x.match_type) {
+      tools = h('div', { class: 'row', style: 'gap:8px' }, pill(t('bm_' + x.match_type) + (x.match_label ? ' ' + x.match_label : '') + (x.match_note ? ' · ' + x.match_note : ''), x.match_type === 'private' || x.match_type === 'transfer' ? 'var(--muted)' : 'var(--ok)'),
+        x.match_type === 'invoice' ? h('a', { class: 'btn small', href: `#/invoice/${x.match_id}` }, '→') : x.match_type === 'expense' ? h('a', { class: 'btn small', href: `#/expense/${x.match_id}` }, '→') : null,
+        h('button', { class: 'btn small', onclick: async () => { if (confirm(t('unmatch_confirm'))) { await api('bank_unmatch', { body: { tx_id: x.id } }); render(); } } }, t('unmatch')));
+    } else {
+      const sel = inc && openInv.length ? h('select', { class: 'prodsel', onchange: (ev) => { if (ev.target.value) act({ tx_id: x.id, type: 'invoice', id: +ev.target.value }); } },
+        h('option', { value: '' }, t('pick_invoice')), openInv.map((i) => h('option', { value: i.id }, `${i.number} · ${i.customer_company || i.customer_name} · ${cents(i.open, i.currency)}`))) : null;
+      tools = h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' },
+        (x.candidates || []).map((c) => h('button', { class: 'btn small primary', onclick: () => act({ tx_id: x.id, type: c.type, id: c.id }) }, '✓ ' + c.label)),
+        !inc ? h('button', { class: 'btn small', onclick: async () => { const r = await api('bank_to_expense', { body: { tx_id: x.id } }); location.hash = `#/expense/${r.id}`; } }, '+ ' + t('exp_new')) : h('a', { class: 'btn small', href: '#/invoice/new' }, '+ ' + t('invoice')),
+        sel,
+        h('button', { class: 'btn small', onclick: () => act({ tx_id: x.id, type: 'private' }) }, t(inc ? 'bm_private_in' : 'bm_private')),
+        h('button', { class: 'btn small', onclick: () => act({ tx_id: x.id, type: 'transfer' }) }, t('bm_transfer')));
+    }
+    return h('div', { class: 'card btx' + (x.match_type ? ' done' : '') },
+      h('div', { class: 'btop' }, h('div', { style: 'min-width:0;flex:1' }, h('div', { class: 'o-nr' }, dfmt(x.date)), h('div', { class: 'btext' }, x.text || '—')),
+        h('b', { class: 'bamt ' + (inc ? 'in' : 'out') }, cents(x.amount, 'DKK'))), tools);
+  };
+  show(
+    h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('money_eyebrow')), h('h1', {}, t('bank_h1_a'), ' ', h('em', {}, t('bank_h1_b'))))),
+    moneyTabs('/bank'),
+    h('div', { class: 'card' }, h('p', { class: 'muted', style: 'margin:0 0 10px' }, t('bank_hint')),
+      h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: () => csvIn.click() }, '⬆ ' + t('bank_import')), csvIn,
+        h('select', { onchange: (ev) => { bankShow = ev.target.value; render(); } }, [['open', t('bank_show_open', open)], ['all', t('bank_show_all')]].map(([v, l]) => h('option', { value: v, selected: bankShow === v }, l))))),
+    tx.length ? h('div', { class: 'btxs' }, tx.map(txCard)) : h('div', { class: 'empty' }, bankShow === 'open' ? t('bank_none_open') : t('bank_none')));
+});
+
 // ---------- Einstellungen ----------
 route(/^\/settings$/, async () => {
   const procRows = me.processes.map((p) => {
@@ -1042,7 +1260,8 @@ route(/^\/settings$/, async () => {
     h('div', { class: 'grid c3', style: 'margin-top:10px' }, coIn('bank'), coIn('reg_no', { inputmode: 'numeric', maxlength: 4 }), coIn('account_no', { inputmode: 'numeric' })),
     h('div', { class: 'grid c2' }, coIn('iban'), coIn('bic')),
     h('label', { class: 'row', style: 'margin:12px 0 0;gap:8px;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--text)' }, CO.moms_registered, t('co_moms')),
-    h('div', { class: 'grid c3', style: 'margin-top:10px' }, h('div', {}, h('label', {}, t('co_period')), CO.moms_period), coIn('pay_days', { inputmode: 'numeric' }),
+    h('div', { class: 'grid c3', style: 'margin-top:10px' }, h('div', {}, h('label', {}, t('co_period')), CO.moms_period), coIn('pay_days', { inputmode: 'numeric' }), coIn('phone_share', { inputmode: 'numeric' })),
+    h('div', { class: 'grid c3' },
       h('div', {}, coIn('invoice_start', { inputmode: 'numeric', disabled: me.invoices_final > 0 }), me.invoices_final > 0 ? h('small', { class: 'muted' }, t('co_start_locked')) : null)),
     coErr,
     h('div', { class: 'row end', style: 'margin-top:10px' },
@@ -1066,6 +1285,11 @@ route(/^\/settings$/, async () => {
       p.id ? h('button', { class: 'btn small danger', onclick: async () => { await api('product_delete', { body: { id: p.id } }); render(); } }, '✕') : null);
     return row;
   };
+  const aiIn = h('input', { type: 'password', autocomplete: 'off', placeholder: me.ai_enabled ? '••••••••••••' : 'sk-ant-…' });
+  const aiCard = h('div', { class: 'card' }, h('h3', {}, '✨ ' + t('ai_title')), h('p', { class: 'muted' }, t('ai_text')),
+    h('p', { style: 'margin:0 0 8px' }, me.ai_enabled ? '✓ ' + t('ai_on') : t('ai_off')),
+    h('div', { class: 'row' }, aiIn, h('button', { class: 'btn primary', onclick: async () => { try { await api('ai_key_save', { body: { key: aiIn.value } }); await reloadMe(); toast(t('saved')); render(); } catch (x) { toast(x.message); } } }, t('save')),
+      me.ai_enabled ? h('button', { class: 'btn danger', onclick: async () => { await api('ai_key_save', { body: { key: '' } }); await reloadMe(); render(); } }, t('delete')) : null));
   const prodCard = h('div', { class: 'card' }, h('h3', {}, t('products_title')), h('p', { class: 'muted' }, t('products_text')),
     h('div', { class: 'prow head' }, h('small', {}, t('prod_name')), h('small', {}, t('unit')), h('small', {}, t('unit_price') + ' DKK'), h('small', {}, t('vat_rule'))),
     products.map(prodRow), prodRow({}));
@@ -1076,6 +1300,7 @@ route(/^\/settings$/, async () => {
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_settings')), h('h1', {}, t('settings_h1_a'), ' ', h('em', {}, t('settings_h1_b'))))),
     companyCard,
     prodCard,
+    aiCard,
     h('div', { class: 'card' }, h('h3', {}, t('display_title')), h('p', { class: 'muted' }, t('display_text')),
       h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: async () => {
         const r = await api('token_create', { body: { label: t('display_label') } });

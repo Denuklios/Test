@@ -4,6 +4,7 @@ require __DIR__ . '/inc/bootstrap.php';
 require __DIR__ . '/inc/display.php';
 require_once __DIR__ . '/inc/invoice.php';
 require __DIR__ . '/inc/confirm.php';
+require_once __DIR__ . '/inc/expense.php';
 
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
@@ -91,6 +92,35 @@ function order_row(PDO $db, int $id): array
     return $o;
 }
 
+/** Hochgeladene Datei pruefen (Endung + echter Inhaltstyp) und unter Zufallsnamen ablegen. Gibt [stored, mime, name, size]. */
+function store_upload(string $field = 'file'): array
+{
+    $f = $_FILES[$field] ?? null;
+    if (!$f || $f['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp_name'])) {
+        wf_fail('upload_failed');
+    }
+    if ($f['size'] > wf_cfg('max_upload_bytes')) {
+        wf_fail('too_large');
+    }
+    $ext = strtolower(pathinfo((string)$f['name'], PATHINFO_EXTENSION));
+    if (!in_array($ext, wf_cfg('allowed_ext'), true)) {
+        wf_fail('bad_type');
+    }
+    $mime = (new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);
+    $okMime = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'gif' => 'image/gif', 'pdf' => 'application/pdf'];
+    if (($okMime[$ext] ?? '') !== $mime) {
+        wf_fail('bad_type');
+    }
+    $stored = bin2hex(random_bytes(16)) . '.dat';
+    $dest = rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/' . $stored;
+    if (!move_uploaded_file($f['tmp_name'], $dest)) {
+        wf_fail('upload_failed', 500);
+    }
+    @chmod($dest, 0640);
+    $orig = preg_replace('/[^\p{L}\p{N}._ -]/u', '_', basename((string)$f['name']));
+    return [$stored, $mime, mb_substr((string)$orig, 0, 200), (int)$f['size']];
+}
+
 /** Rechnungszeilen aus der Eingabe pruefen. */
 function inv_lines_in(array $in): array
 {
@@ -156,6 +186,8 @@ try {
                 'countries' => wf_countries(),
                 'eu' => WF_EU,
                 'units' => WF_UNITS,
+                'exp_categories' => wf_exp_categories(),
+                'ai_enabled' => wf_ai_key() !== '',
                 'invoices_final' => (int)$db->query("SELECT COUNT(*) FROM invoices WHERE status = 'final'")->fetchColumn(),
             ]);
         }
@@ -1002,6 +1034,7 @@ try {
             $c['moms_registered'] = !empty($in['moms_registered']);
             $c['moms_period'] = in_array($in['moms_period'] ?? '', ['half', 'quarter', 'month'], true) ? $in['moms_period'] : 'half';
             $c['pay_days'] = max(0, min(90, (int)($in['pay_days'] ?? 14)));
+            $c['phone_share'] = max(0, min(100, (int)($in['phone_share'] ?? ($c['phone_share'] ?? 50))));
             // Startnummer nur bis zur ersten festgeschriebenen Rechnung aenderbar (sonst Luecke)
             if ((int)$db->query("SELECT COUNT(*) FROM invoices WHERE status = 'final'")->fetchColumn() === 0) {
                 $c['invoice_start'] = max(1, min(99999999, (int)($in['invoice_start'] ?? 1)));
@@ -1292,6 +1325,302 @@ try {
             wf_json(['ok' => true]);
         }
 
+
+        // ---------- Ausgaben (Belege) ----------
+        case 'expenses': {
+            $w = ['1=1'];
+            $p = [];
+            $q = trim((string)($_GET['q'] ?? ''));
+            if ($q !== '') {
+                $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $q) . '%';
+                $w[] = "(e.supplier LIKE ? ESCAPE '\\' OR e.description LIKE ? ESCAPE '\\' OR CAST(e.number AS TEXT) = ?)";
+                array_push($p, $like, $like, $q);
+            }
+            if (!empty($_GET['year']) && preg_match('/^\d{4}$/', (string)$_GET['year'])) {
+                $w[] = 'substr(e.date,1,4) = ?';
+                $p[] = (string)$_GET['year'];
+            }
+            $f = (string)($_GET['state'] ?? '');
+            if ($f === 'draft') {
+                $w[] = "e.status = 'draft'";
+            } elseif ($f === 'unpaid') {
+                $w[] = "e.status = 'final' AND e.paid_date IS NULL AND e.reverses IS NULL AND e.gross > 0 AND NOT EXISTS (SELECT 1 FROM expenses r WHERE r.reverses = e.id)";
+            } elseif ($f === 'final') {
+                $w[] = "e.status = 'final'";
+            }
+            $st = $db->prepare('SELECT e.id, e.status, e.number, e.date, e.supplier, e.description, e.category, e.currency, e.gross, e.gross_dkk, e.deduct_dkk, e.vat_mode, e.paid_date,
+                                       e.reverses, e.file_stored IS NOT NULL AS has_file, e.file_mime, (SELECT r.id FROM expenses r WHERE r.reverses = e.id) AS reversed_by
+                                FROM expenses e WHERE ' . implode(' AND ', $w) . " ORDER BY e.status = 'final', e.date DESC, e.id DESC LIMIT 500");
+            $st->execute($p);
+            $y = date('Y');
+            $sum = $db->query("SELECT COALESCE(SUM(gross_dkk),0) AS g, COALESCE(SUM(deduct_dkk),0) AS d FROM expenses WHERE status = 'final' AND substr(date,1,4) = '$y'")->fetch();
+            $sum['drafts'] = (int)$db->query("SELECT COUNT(*) FROM expenses WHERE status = 'draft'")->fetchColumn();
+            $sum['bank_open'] = (int)$db->query('SELECT COUNT(*) FROM bank_tx WHERE match_type IS NULL')->fetchColumn();
+            wf_json(['ok' => true, 'expenses' => $st->fetchAll(), 'summary' => $sum]);
+        }
+
+        case 'expense': {
+            $e = wf_exp_load($db, (int)($_GET['id'] ?? 0));
+            if (!$e) {
+                wf_fail('not_found', 404);
+            }
+            $e['reversed_by'] = $db->query('SELECT id FROM expenses WHERE reverses = ' . (int)$e['id'])->fetchColumn() ?: null;
+            $e['bank'] = $db->query("SELECT id, date, text, amount FROM bank_tx WHERE match_type = 'expense' AND match_id = " . (int)$e['id'])->fetch() ?: null;
+            wf_json(['ok' => true, 'expense' => $e]);
+        }
+
+        // Beleg hochladen: neuer Entwurf (oder an Entwurf anhaengen); mit Schluessel liest Claude ihn gleich aus
+        case 'expense_upload': {
+            need_post();
+            $id = (int)($_POST['id'] ?? 0);
+            if ($id) {
+                $e = wf_exp_load($db, $id);
+                if (!$e || $e['status'] !== 'draft') {
+                    wf_fail('expense_locked', 409);
+                }
+            }
+            [$stored, $mime, $name] = store_upload();
+            $co = wf_company();
+            if ($id) {
+                $old = $e['file_stored'];
+                $db->prepare('UPDATE expenses SET file_stored = ?, file_mime = ?, file_name = ? WHERE id = ?')->execute([$stored, $mime, $name, $id]);
+                if ($old && !(int)$db->query("SELECT COUNT(*) FROM expenses WHERE file_stored = " . $db->quote($old))->fetchColumn()) {
+                    @unlink(rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/' . $old);
+                }
+            } else {
+                $db->prepare("INSERT INTO expenses (date, file_stored, file_mime, file_name, vat_share, created_by) VALUES (date('now','localtime'), ?, ?, ?, 100, ?)")->execute([$stored, $mime, $name, $user['name']]);
+                $id = (int)$db->lastInsertId();
+            }
+            $ai = null;
+            $aiErr = null;
+            if (!empty($_POST['scan']) && wf_ai_key() !== '' && $mime !== 'image/gif') {
+                try {
+                    $ai = wf_ai_scan(rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/' . $stored, $mime, $co);
+                    $cats = wf_exp_categories();
+                    $cat = isset($cats[$ai['category'] ?? '']) ? $ai['category'] : 'misc';
+                    $cur = in_array($ai['currency'] ?? '', ['DKK', 'EUR'], true) ? $ai['currency'] : 'DKK';
+                    $date = wf_csv_date((string)($ai['date'] ?? '')) ?: date('Y-m-d');
+                    $mode = in_array($ai['vat_mode'] ?? '', WF_VAT_MODES, true) ? $ai['vat_mode'] : 'dk';
+                    $rate = '1';
+                    $rd = null;
+                    if ($cur !== 'DKK' && ($r = wf_rate($cur))) {
+                        [$rate, $rd] = [$r['rate'], $r['date']];
+                    } elseif ($cur !== 'DKK') {
+                        $rate = '0';
+                    }
+                    $country = strtoupper(substr((string)($ai['supplier_country'] ?? 'DK'), 0, 2));
+                    $db->prepare('UPDATE expenses SET date=?, supplier=?, supplier_country=?, supplier_vat=?, doc_no=?, description=?, category=?, currency=?, rate=?, rate_date=?,
+                                  gross=?, vat=?, vat_mode=?, vat_share=?, paid_date=?, pay_method=?, ai_model=? WHERE id = ? AND status = \'draft\'')
+                        ->execute([$date > date('Y-m-d') ? date('Y-m-d') : $date, mb_substr((string)($ai['supplier'] ?? ''), 0, 200), isset(wf_countries()[$country]) ? $country : 'DK',
+                            mb_substr((string)($ai['supplier_vat'] ?? ''), 0, 30), mb_substr((string)($ai['doc_no'] ?? ''), 0, 60), mb_substr((string)($ai['description'] ?? ''), 0, 300),
+                            $cat, $cur, $rate, $rd, wf_to_cents((string)($ai['total'] ?? '0')) ?? 0, $mode === 'dk' ? (wf_to_cents((string)($ai['vat'] ?? '0')) ?? 0) : 0, $mode,
+                            wf_exp_share($cat, $co), !empty($ai['is_paid']) ? $date : null, !empty($ai['is_paid']) ? 'card' : '', $ai['model'], $id]);
+                } catch (RuntimeException $ex) {
+                    $aiErr = $ex->getMessage();
+                }
+            }
+            wf_json(['ok' => true, 'id' => $id, 'ai' => $ai ? ['confident' => (bool)($ai['confident'] ?? false), 'notes' => (string)($ai['notes'] ?? ''), 'is_receipt' => (bool)($ai['is_receipt'] ?? true)] : null, 'ai_error' => $aiErr]);
+        }
+
+        case 'expense_save': {
+            need_post();
+            $id = (int)($in['id'] ?? 0);
+            if ($id) {
+                $e = wf_exp_load($db, $id);
+                if (!$e) {
+                    wf_fail('not_found', 404);
+                }
+                if ($e['status'] !== 'draft') {
+                    wf_fail('expense_locked', 409);
+                }
+            }
+            $cats = wf_exp_categories();
+            $cat = isset($cats[$in['category'] ?? '']) ? $in['category'] : 'misc';
+            $mode = in_array($in['vat_mode'] ?? '', WF_VAT_MODES, true) ? $in['vat_mode'] : 'dk';
+            $cur = s($in, 'currency', 3) ?: 'DKK';
+            if (!in_array($cur, wf_cfg('currencies'), true)) {
+                wf_fail('bad_currency');
+            }
+            $gross = wf_to_cents($in['gross'] ?? '', true);
+            $vat = wf_to_cents($in['vat'] ?? '0', true);
+            if ($gross === null || $vat === null) {
+                wf_fail('bad_amount');
+            }
+            $date = date_or_null($in, 'date') ?? date('Y-m-d');
+            $rate = inv_rate_in($in, $cur);
+            $rd = $cur === 'DKK' ? null : (date_or_null($in, 'rate_date') ?? $date);
+            if ($cur !== 'DKK' && (float)$rate <= 0 && ($r = wf_rate($cur))) {
+                [$rate, $rd] = [$r['rate'], $r['date']];
+            }
+            $share = isset($in['vat_share']) && $in['vat_share'] !== '' ? max(0, min(100, (int)$in['vat_share'])) : wf_exp_share($cat, wf_company());
+            $country = s($in, 'supplier_country', 2) ?: 'DK';
+            if (!isset(wf_countries()[$country])) {
+                wf_fail('bad_country');
+            }
+            $paid = date_or_null($in, 'paid_date');
+            $vals = [$date, s($in, 'supplier', 200), $country, s($in, 'supplier_vat', 30), s($in, 'doc_no', 60), s($in, 'description', 300), $cat, $cur, $rate, $rd,
+                $gross, $mode === 'dk' ? $vat : 0, $mode, $share, s($in, 'no_receipt', 300), s($in, 'note', 2000), $paid, $paid ? (s($in, 'pay_method', 20) ?: 'bank') : ''];
+            if ($id) {
+                $db->prepare("UPDATE expenses SET date=?, supplier=?, supplier_country=?, supplier_vat=?, doc_no=?, description=?, category=?, currency=?, rate=?, rate_date=?,
+                              gross=?, vat=?, vat_mode=?, vat_share=?, no_receipt=?, note=?, paid_date=?, pay_method=? WHERE id = ? AND status = 'draft'")->execute([...$vals, $id]);
+            } else {
+                $db->prepare('INSERT INTO expenses (date, supplier, supplier_country, supplier_vat, doc_no, description, category, currency, rate, rate_date, gross, vat, vat_mode, vat_share,
+                              no_receipt, note, paid_date, pay_method, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute([...$vals, $user['name']]);
+                $id = (int)$db->lastInsertId();
+            }
+            $c = wf_exp_calc($gross, $mode === 'dk' ? $vat : 0, $mode, $share, $rate);
+            $db->prepare("UPDATE expenses SET gross_dkk=?, vat_dkk=?, net_dkk=?, rc_vat_dkk=?, deduct_dkk=? WHERE id = ? AND status = 'draft'")->execute([$c['gross_dkk'], $c['vat_dkk'], $c['net_dkk'], $c['rc_vat_dkk'], $c['deduct_dkk'], $id]);
+            wf_json(['ok' => true, 'id' => $id, 'calc' => $c + ['vat_share' => $share, 'rate' => $rate]]);
+        }
+
+        case 'expense_approve': {
+            need_post();
+            try {
+                $n = wf_exp_approve($db, (int)($in['id'] ?? 0), $user['name']);
+            } catch (RuntimeException $e) {
+                wf_fail($e->getMessage());
+            }
+            wf_json(['ok' => true, 'number' => $n]);
+        }
+
+        case 'expense_delete': {
+            need_post();
+            $e = wf_exp_load($db, (int)($in['id'] ?? 0));
+            if (!$e || $e['status'] !== 'draft') {
+                wf_fail('expense_locked', 409);
+            }
+            $db->prepare("DELETE FROM expenses WHERE id = ? AND status = 'draft'")->execute([$e['id']]);
+            $db->prepare("UPDATE bank_tx SET match_type = NULL, match_id = NULL, matched_at = NULL, matched_by = NULL WHERE match_type = 'expense' AND match_id = ?")->execute([$e['id']]);
+            if ($e['file_stored'] && !(int)$db->query('SELECT COUNT(*) FROM expenses WHERE file_stored = ' . $db->quote($e['file_stored']))->fetchColumn()) {
+                @unlink(rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/' . $e['file_stored']);
+            }
+            wf_json(['ok' => true]);
+        }
+
+        case 'expense_reverse': {
+            need_post();
+            try {
+                $nid = wf_exp_reverse($db, (int)($in['id'] ?? 0), $user['name'], s($in, 'reason', 300));
+            } catch (RuntimeException $e) {
+                wf_fail($e->getMessage());
+            }
+            wf_json(['ok' => true, 'id' => $nid]);
+        }
+
+        // Zahlungsdatum einer gebuchten Ausgabe setzen/entfernen (bleibt aenderbar)
+        case 'expense_paid': {
+            need_post();
+            $paid = date_or_null($in, 'paid_date');
+            $db->prepare("UPDATE expenses SET paid_date = ?, pay_method = ? WHERE id = ?")->execute([$paid, $paid ? (s($in, 'pay_method', 20) ?: 'bank') : '', (int)($in['id'] ?? 0)]);
+            wf_json(['ok' => true]);
+        }
+
+        case 'ai_key_save': {
+            need_post();
+            $k = trim((string)($in['key'] ?? ''));
+            if ($k !== '' && !preg_match('/^sk-ant-[A-Za-z0-9_\-]{20,}$/', $k)) {
+                wf_fail('ai_bad_key');
+            }
+            $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('anthropic_key', ?)")->execute([$k]);
+            wf_json(['ok' => true]);
+        }
+
+        // ---------- Kontoauszug ----------
+        case 'bank_import': {
+            need_post();
+            $f = $_FILES['file'] ?? null;
+            if (!$f || $f['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp_name']) || $f['size'] > 5000000) {
+                wf_fail('upload_failed');
+            }
+            try {
+                $rows = wf_csv_parse((string)file_get_contents($f['tmp_name']));
+            } catch (RuntimeException $e) {
+                wf_fail($e->getMessage());
+            }
+            $added = wf_bank_import($db, $rows);
+            $auto = wf_bank_automatch($db, $user['name']);
+            wf_journal($db, $user['name'], 'bank_import', null, ['rows' => count($rows), 'new' => $added, 'auto' => $auto]);
+            wf_json(['ok' => true, 'rows' => count($rows), 'added' => $added, 'auto' => $auto]);
+        }
+
+        case 'bank': {
+            $only = ($_GET['show'] ?? 'open') === 'open';
+            $rows = $db->query('SELECT * FROM bank_tx' . ($only ? ' WHERE match_type IS NULL' : '') . ' ORDER BY date DESC, id DESC LIMIT 500')->fetchAll();
+            foreach ($rows as &$r) {
+                if (!$r['match_type']) {
+                    $r['candidates'] = array_slice(wf_bank_candidates($db, $r), 0, 4);
+                } elseif ($r['match_type'] === 'invoice') {
+                    $r['match_label'] = (string)$db->query('SELECT number FROM invoices WHERE id = ' . (int)$r['match_id'])->fetchColumn();
+                } elseif ($r['match_type'] === 'expense') {
+                    $r['match_label'] = (string)$db->query('SELECT COALESCE(number, \'\') || \' · \' || supplier FROM expenses WHERE id = ' . (int)$r['match_id'])->fetchColumn();
+                }
+            }
+            unset($r);
+            wf_json(['ok' => true, 'tx' => $rows, 'open' => (int)$db->query('SELECT COUNT(*) FROM bank_tx WHERE match_type IS NULL')->fetchColumn()]);
+        }
+
+        case 'bank_match': {
+            need_post();
+            $type = (string)($in['type'] ?? '');
+            if (in_array($type, ['private', 'transfer', 'other'], true) && trim((string)($in['note'] ?? '')) === '' && $type === 'other') {
+                wf_fail('note_required');
+            }
+            try {
+                wf_bank_match($db, (int)($in['tx_id'] ?? 0), $type, (int)($in['id'] ?? 0), $user['name'], s($in, 'note', 200));
+            } catch (RuntimeException $e) {
+                wf_fail($e->getMessage());
+            }
+            wf_json(['ok' => true]);
+        }
+
+        // Zuordnung loesen; bei Rechnung wird die Zahlung per Gegenbuchung storniert
+        case 'bank_unmatch': {
+            need_post();
+            $st = $db->prepare('SELECT * FROM bank_tx WHERE id = ? AND match_type IS NOT NULL');
+            $st->execute([(int)($in['tx_id'] ?? 0)]);
+            $tx = $st->fetch();
+            if (!$tx) {
+                wf_fail('not_found', 404);
+            }
+            $db->beginTransaction();
+            if ($tx['match_type'] === 'invoice') {
+                $p = $db->prepare("SELECT p.* FROM invoice_payments p WHERE p.invoice_id = ? AND p.date = ? AND p.amount > 0 AND p.method = 'bank'
+                                   AND NOT EXISTS (SELECT 1 FROM invoice_payments r WHERE r.reverses = p.id) ORDER BY p.id DESC LIMIT 1");
+                $p->execute([$tx['match_id'], $tx['date']]);
+                if ($pay = $p->fetch()) {
+                    $db->prepare('INSERT INTO invoice_payments (invoice_id, date, amount, method, note, reverses, created_by) VALUES (?,?,?,?,?,?,?)')
+                        ->execute([$pay['invoice_id'], date('Y-m-d'), -(int)$pay['amount'], 'bank', 'Storno Bankzuordnung', $pay['id'], $user['name']]);
+                    wf_journal($db, $user['name'], 'payment_reversal', (int)$pay['invoice_id'], ['reverses' => (int)$pay['id'], 'amount' => -(int)$pay['amount'], 'bank_tx' => (int)$tx['id']]);
+                }
+            } elseif ($tx['match_type'] === 'expense') {
+                $db->prepare("UPDATE expenses SET paid_date = NULL, pay_method = '' WHERE id = ?")->execute([$tx['match_id']]);
+            }
+            $db->prepare('UPDATE bank_tx SET match_type = NULL, match_id = NULL, match_note = \'\', matched_at = NULL, matched_by = NULL WHERE id = ?')->execute([$tx['id']]);
+            $db->commit();
+            if ($tx['match_type'] === 'invoice') {
+                wf_order_sync_pay($db, (int)$db->query('SELECT order_id FROM invoices WHERE id = ' . (int)$tx['match_id'])->fetchColumn() ?: null);
+            }
+            wf_json(['ok' => true]);
+        }
+
+        // Ausgabe aus Kontobewegung anlegen (Beleg danach fotografieren/anhaengen)
+        case 'bank_to_expense': {
+            need_post();
+            $st = $db->prepare('SELECT * FROM bank_tx WHERE id = ? AND match_type IS NULL AND amount < 0');
+            $st->execute([(int)($in['tx_id'] ?? 0)]);
+            $tx = $st->fetch();
+            if (!$tx) {
+                wf_fail('not_found', 404);
+            }
+            $db->beginTransaction();
+            $db->prepare("INSERT INTO expenses (date, supplier, description, gross, gross_dkk, vat_share, paid_date, pay_method, created_by) VALUES (?,?,?,?,?,100,?,'bank',?)")
+                ->execute([$tx['date'], mb_substr($tx['text'], 0, 200), '', -(int)$tx['amount'], -(int)$tx['amount'], $tx['date'], $user['name']]);
+            $id = (int)$db->lastInsertId();
+            $db->prepare("UPDATE bank_tx SET match_type = 'expense', match_id = ?, matched_at = datetime('now'), matched_by = ? WHERE id = ?")->execute([$id, $user['name'], $tx['id']]);
+            $db->commit();
+            wf_json(['ok' => true, 'id' => $id]);
+        }
+
         case 'journal_verify':
             wf_json(['ok' => true] + wf_journal_verify($db));
 
@@ -1303,7 +1632,7 @@ try {
         $db->rollBack();
     }
     // Datenbank-Sperren (Trigger) als verstaendlicher Fehler statt Serverfehler
-    if (preg_match('/(invoice_locked|payment_locked|journal_locked|invoice_not_final)/', $e->getMessage(), $m)) {
+    if (preg_match('/(invoice_locked|payment_locked|journal_locked|invoice_not_final|expense_locked|confirmation_locked)/', $e->getMessage(), $m)) {
         wf_fail($m[1], 409);
     }
     error_log('auftraege api: ' . $e->getMessage());
