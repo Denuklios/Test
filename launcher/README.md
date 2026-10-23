@@ -5,8 +5,8 @@ Farben `#8B2BE2 / #A855F7 / #C9A0FF`, Schriften Cormorant Garamond (Uhr, Übersc
 WF-Logo als App-Symbol, unten eine Leiste mit dem runden violetten Knopf wie in der Auftrags-App.
 
 Fertige APKs – Android 6.0 oder neuer:
-- [`dist/WF-Launcher-1.3.apk`](dist/WF-Launcher-1.3.apk) – **normale Version**, direkt aufs Handy laden und installieren.
-- [`dist/WF-Launcher-1.3-voll.apk`](dist/WF-Launcher-1.3-voll.apk) – **Vollversion** mit Benachrichtigungen im
+- [`dist/WF-Launcher-2.0.apk`](dist/WF-Launcher-2.0.apk) – **normale Version**, direkt aufs Handy laden und installieren.
+- [`dist/WF-Launcher-2.0-voll.apk`](dist/WF-Launcher-2.0-voll.apk) – **Vollversion** mit Benachrichtigungen im
   WF-Schnellbereich. Google Play Protect blockiert Apps mit Benachrichtigungs-Zugriff, wenn man sie aus dem Browser
   oder Dateimanager installiert; daher per PC installieren (siehe unten).
 
@@ -25,6 +25,19 @@ Fertige APKs – Android 6.0 oder neuer:
 
 Apps aus dem Arbeitsprofil werden mit Aktentaschen-Symbol angezeigt. Neu installierte oder gelöschte Apps
 erscheinen bzw. verschwinden sofort.
+
+## Extras (ab 2.0)
+
+Alles unter Launcher-Einstellungen (lange auf eine freie Stelle tippen):
+
+| Extra | Was es macht |
+|---|---|
+| **Heute in der Werkstatt** | Karte unter der Suche mit den heute geplanten, heute abzugebenden und überfälligen Aufträgen: Uhrzeit, Menge, Titel, Kunde, Verfahren, Status, Foto. Einrichtung: in der Auftrags-App unter Einstellungen → Werkstatt-Anzeige einen neuen Link erzeugen (z. B. „Handy“) und im Launcher einfügen. Der Link am Werkstatt-PC bleibt gültig. Aktualisiert sich alle 5 Minuten, Antippen öffnet die Auftrags-App. |
+| **Termine** | Nächster Termin (heute/morgen) unter der Uhr; fragt einmal nach Kalender-Zugriff. Antippen öffnet den Termin. |
+| **Wetter** | Ort eintragen → aktuelle Temperatur, Wetter, Höchst-/Tiefstwert (Open-Meteo, ohne Konto). |
+| **Arbeit & Feierabend** | Arbeitszeit und -tage festlegen, Arbeits-Apps auswählen (oder lange auf eine App → „Als Arbeits-App markieren“). Zur Arbeitszeit stehen sie als eigene Reihe auf dem Startbildschirm, nach Feierabend sind sie ausgeblendet (Suche findet sie trotzdem). Optional schaltet sich nach Feierabend „Nicht stören“ ein und morgens wieder aus – auch wenn der Launcher nicht offen ist. Der Knopf unter der Uhr schaltet von Hand um, bis zum nächsten planmäßigen Wechsel. |
+| **Ordner** | Lange auf eine App → „In Ordner legen …“ → bestehender oder neuer Ordner. Ordner antippen öffnet ihn; lange auf den Ordner: umbenennen, verschieben, auflösen. Lange auf eine App im Ordner: herausnehmen. |
+| **Schnellnotiz** | Auf dem Startbildschirm nach links wischen. Notiz schreiben, speichern; antippen zum Bearbeiten, „Teilen“, „Löschen“. „→ Auftrag“ kopiert die Notiz und öffnet „Neuer Auftrag“ – dort lange tippen → Einfügen. Nach rechts wischen schließt. |
 
 ## Alles andere im WF-Look
 
@@ -73,7 +86,7 @@ Vollversion per PC (ADB) – Play Protect blockiert diesen Weg nicht:
 1. Am Handy: Einstellungen → Über das Telefon → 7× auf „Build-Nummer“ tippen → Entwickleroptionen →
    „USB-Debugging“ einschalten.
 2. Am PC die „SDK Platform-Tools“ von Google entpacken, Handy per USB anschließen, am Handy „Zulassen“ tippen.
-3. `adb install -r WF-Launcher-1.3-voll.apk` – ersetzt die normale Version, Einstellungen bleiben (gleicher Schlüssel).
+3. `adb install -r WF-Launcher-2.0-voll.apk` – ersetzt die normale Version, Einstellungen bleiben (gleicher Schlüssel).
 4. USB-Debugging danach wieder ausschalten.
 
 ## Selbst bauen
@@ -82,7 +95,7 @@ Ohne Gradle und ohne Google-SDK, nur mit Paketen aus Ubuntu/Debian:
 
 ```sh
 sudo apt install openjdk-17-jdk android-sdk-build-tools android-sdk-platform-23 dalvik-exchange apksigner zipalign
-./build.sh            # führt die Tests aus, Ergebnis: dist/WF-Launcher-1.3.apk und -voll.apk
+./build.sh            # führt die Tests aus, Ergebnis: dist/WF-Launcher-2.0.apk und -voll.apk
 ```
 
 `keystore/wf-launcher.jks` ist der Signierschlüssel (Passwort `wflauncher`). Für Updates immer denselben

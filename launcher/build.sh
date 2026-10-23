@@ -12,8 +12,8 @@ ZIPALIGN=$(tool zipalign)
 APKSIGNER=$(tool apksigner)
 JAR="$SDK/platforms/android-23/android.jar"
 OUT=build/apk
-VERSION_CODE=4
-VERSION_NAME=1.3
+VERSION_CODE=5
+VERSION_NAME=2.0
 KS=keystore/wf-launcher.jks
 KS_PASS=${KS_PASS:-wflauncher}
 
@@ -22,8 +22,10 @@ rm -f dist/*.apk
 
 echo "== Tests"
 mkdir -p build/test
-javac -nowarn -encoding UTF-8 -d build/test src/de/wunschfabrik/launcher/Search.java test/de/wunschfabrik/launcher/SearchTest.java
+javac -nowarn -encoding UTF-8 -d build/test src/de/wunschfabrik/launcher/Search.java src/de/wunschfabrik/launcher/Logic.java \
+    test/de/wunschfabrik/launcher/SearchTest.java test/de/wunschfabrik/launcher/LogicTest.java
 java -cp build/test de.wunschfabrik.launcher.SearchTest
+java -cp build/test de.wunschfabrik.launcher.LogicTest
 
 echo "== Ressourcen"
 "$AAPT2" compile --dir res -o "$OUT/res.zip"

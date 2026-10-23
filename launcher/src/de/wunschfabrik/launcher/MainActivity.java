@@ -84,6 +84,14 @@ public final class MainActivity extends Activity implements AppRepository.Listen
     private WfMenu openMenu;
     private QuickPanel panel;
     private TextView defaultBanner;
+    private NotesPanel notes;
+    private OrdersCard orders;
+    private InfoLine info;
+    private TextView workChip;
+    private LinearLayout workRow;
+    private Folders folders;
+    private android.content.BroadcastReceiver tick;
+    private int lastWorkMode = -1;
     private boolean askedDefault;
     private boolean drawerOpen;
     private float density;
@@ -92,6 +100,7 @@ public final class MainActivity extends Activity implements AppRepository.Listen
         super.onCreate(state);
         density = getResources().getDisplayMetrics().density;
         prefs = new Prefs(this);
+        folders = new Folders(prefs);
         setupWindow();
         buildUi();
         gestures = new GestureDetector(this, new Swipes());
@@ -104,6 +113,15 @@ public final class MainActivity extends Activity implements AppRepository.Listen
         super.onResume();
         // Zurück aus WLAN-Fenster, Einstellungen usw.: Schalter neu lesen.
         if (panel.isOpen()) panel.refresh();
+        orders.refresh(false);
+        info.refresh();
+        WorkMode.apply(this, prefs);
+        refreshWorkMode(true);
+        // Jede Minute: Arbeitsmodus-Anzeige aktualisieren (Wechsel um 16:00 usw.)
+        tick = new android.content.BroadcastReceiver() {
+            @Override public void onReceive(Context c, Intent i) { refreshWorkMode(false); }
+        };
+        registerReceiver(tick, new android.content.IntentFilter(Intent.ACTION_TIME_TICK));
         boolean isDefault = isDefaultHome();
         defaultBanner.setVisibility(isDefault ? View.GONE : View.VISIBLE);
         // Beim ersten Öffnen einmal direkt fragen, solange noch ein anderer Startbildschirm Standard ist.
@@ -111,6 +129,16 @@ public final class MainActivity extends Activity implements AppRepository.Listen
             askedDefault = true;
             root.postDelayed(new Runnable() { @Override public void run() { makeDefault(); } }, 600);
         }
+    }
+
+    @Override protected void onPause() {
+        super.onPause();
+        if (tick != null) { try { unregisterReceiver(tick); } catch (Exception ignored) { } tick = null; }
+    }
+
+    @Override public void onRequestPermissionsResult(int request, String[] perms, int[] results) {
+        super.onRequestPermissionsResult(request, perms, results);
+        if (request == 8) info.refresh();
     }
 
     private boolean isDefaultHome() {
@@ -205,6 +233,7 @@ public final class MainActivity extends Activity implements AppRepository.Listen
                 dock.setLayoutParams(dlp);
                 drawer.setPadding(dp(8) + l, in.getSystemWindowInsetTop() + dp(14), dp(8) + r, in.getSystemWindowInsetBottom());
                 panel.setInsets(l, in.getSystemWindowInsetTop(), r, in.getSystemWindowInsetBottom());
+                notes.setInsets(l, in.getSystemWindowInsetTop(), r, in.getSystemWindowInsetBottom());
                 return in.consumeSystemWindowInsets();
             }
         });
@@ -220,6 +249,10 @@ public final class MainActivity extends Activity implements AppRepository.Listen
             @Override public void run() { home.animate().alpha(1f).setDuration(200).start(); }
         });
         root.addView(panel.view(), new FrameLayout.LayoutParams(-1, -1));
+        notes = new NotesPanel(this, prefs, new Runnable() {
+            @Override public void run() { home.animate().alpha(1f).setDuration(200).start(); }
+        });
+        root.addView(notes.view(), new FrameLayout.LayoutParams(-1, -1));
         setContentView(root);
         applyLayoutPrefs();
     }
@@ -271,7 +304,25 @@ public final class MainActivity extends Activity implements AppRepository.Listen
             }
         });
         clockBox.addView(date);
+        info = new InfoLine(this, prefs);
+        clockBox.addView(info.view());
         homeContent.addView(clockBox);
+
+        workChip = text(13, WfStyle.TEXT);
+        workChip.setTypeface(WfStyle.bodyMedium(this));
+        workChip.setPadding(dp(14), dp(7), dp(14), dp(7));
+        workChip.setVisibility(View.GONE);
+        workChip.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) {
+                WorkMode.toggle(MainActivity.this, prefs);
+                refreshWorkMode(true);
+                Toast.makeText(MainActivity.this, "Umgeschaltet bis zum nächsten planmäßigen Wechsel", Toast.LENGTH_SHORT).show();
+            }
+        });
+        LinearLayout.LayoutParams wclp = new LinearLayout.LayoutParams(-2, -2);
+        wclp.topMargin = dp(12);
+        wclp.leftMargin = dp(4);
+        homeContent.addView(workChip, wclp);
 
         TextView bar = text(15, WfStyle.MUTED);
         bar.setText("Apps durchsuchen");
@@ -284,8 +335,13 @@ public final class MainActivity extends Activity implements AppRepository.Listen
             @Override public void onClick(View v) { openDrawer(true); }
         });
         LinearLayout.LayoutParams blp = new LinearLayout.LayoutParams(-1, dp(50));
-        blp.topMargin = dp(22);
+        blp.topMargin = dp(18);
         homeContent.addView(bar, blp);
+
+        orders = new OrdersCard(this, prefs);
+        LinearLayout.LayoutParams olp = new LinearLayout.LayoutParams(-1, -2);
+        olp.topMargin = dp(12);
+        homeContent.addView(orders.view(), olp);
 
         homeContent.addView(new View(this), new LinearLayout.LayoutParams(-1, 0, 1f));
 
@@ -310,6 +366,10 @@ public final class MainActivity extends Activity implements AppRepository.Listen
         favoritesHint.setText("Lange auf eine App tippen → „Zum Startbildschirm“");
         favoritesHint.setPadding(0, 0, 0, dp(16));
         homeContent.addView(favoritesHint);
+
+        workRow = new LinearLayout(this);
+        workRow.setOrientation(LinearLayout.VERTICAL);
+        homeContent.addView(workRow, new LinearLayout.LayoutParams(-1, -2));
 
         favoritesBox = new LinearLayout(this);
         favoritesBox.setOrientation(LinearLayout.VERTICAL);
@@ -440,6 +500,7 @@ public final class MainActivity extends Activity implements AppRepository.Listen
         root.setBackground(wf ? WfStyle.background(dm.widthPixels, dm.heightPixels) : null);
         drawer.setBackground(wf ? WfStyle.background(dm.widthPixels, dm.heightPixels) : new ColorDrawable(0xF2090909));
         panel.setBackground(wf ? WfStyle.background(dm.widthPixels, dm.heightPixels) : new ColorDrawable(0xF5090909));
+        notes.setBackground(wf ? WfStyle.background(dm.widthPixels, dm.heightPixels) : new ColorDrawable(0xF5090909));
         GradientDrawable nav = new GradientDrawable();
         nav.setColor(wf ? WfStyle.NAV : 0xB30D0B12);
         nav.setStroke(Math.max(1, dp(1)), WfStyle.LINE);
@@ -496,6 +557,7 @@ public final class MainActivity extends Activity implements AppRepository.Listen
 
     private List<AppEntry> visibleApps() {
         Set<String> hidden = prefs.hidden();
+        if (hideWorkNow()) hidden.addAll(prefs.workApps());
         List<AppEntry> out = new ArrayList<>();
         for (AppEntry e : allApps) if (!hidden.contains(e.key)) out.add(e);
         return out;
@@ -528,11 +590,44 @@ public final class MainActivity extends Activity implements AppRepository.Listen
         return cell;
     }
 
+    private boolean hideWorkNow() {
+        return WorkMode.current(this, prefs) == WorkMode.FREE && prefs.hideWorkAfterHours();
+    }
+
+    private View folderCell(final Folders.Folder f, int iconPx, boolean label) {
+        View cell = AppAdapter.createCell(this, iconPx);
+        List<Drawable> icons = new ArrayList<>();
+        for (String k : f.apps) { AppEntry e = byKey.get(k); if (e != null) icons.add(e.icon); }
+        android.widget.ImageView img = (android.widget.ImageView) ((LinearLayout) cell).getChildAt(0);
+        img.setImageDrawable(new Folders.Icon(this, icons));
+        TextView t = (TextView) ((LinearLayout) cell).getChildAt(1);
+        t.setText(f.name);
+        t.setVisibility(label ? View.VISIBLE : View.GONE);
+        cell.setContentDescription("Ordner " + f.name);
+        cell.setOnClickListener(new View.OnClickListener() {
+            @Override public void onClick(View v) { openFolder(f); }
+        });
+        cell.setOnLongClickListener(new View.OnLongClickListener() {
+            @Override public boolean onLongClick(View v) { showFolderMenu(v, f); return true; }
+        });
+        return cell;
+    }
+
+    private View homeCell(String key, int iconPx, boolean label) {
+        Folders.Folder f = folders.get(key);
+        if (f != null) return folderCell(f, iconPx, label);
+        return favoriteCell(byKey.get(key), iconPx, label);
+    }
+
     private void renderFavorites() {
         favoritesBox.removeAllViews();
         dock.removeAllViews();
-        List<AppEntry> favs = new ArrayList<>();
-        for (String k : prefs.favorites()) { AppEntry e = byKey.get(k); if (e != null) favs.add(e); }
+        workRow.removeAllViews();
+        Set<String> hideWork = hideWorkNow() ? prefs.workApps() : new java.util.HashSet<String>();
+        List<String> favs = new ArrayList<>();
+        for (String k : prefs.favorites()) {
+            if (folders.get(k) != null || (byKey.containsKey(k) && !hideWork.contains(k))) favs.add(k);
+        }
         favoritesHint.setVisibility(favs.isEmpty() && !allApps.isEmpty() ? View.VISIBLE : View.GONE);
 
         // Leiste unten: Favorit 1, 2 | Apps-Knopf | Favorit 3, 4
@@ -547,24 +642,421 @@ public final class MainActivity extends Activity implements AppRepository.Listen
                 continue;
             }
             int idx = slot < DOCK_SLOTS / 2 ? slot : slot - 1;
-            View v = idx < favs.size() ? favoriteCell(favs.get(idx), dockIcon, false) : new View(this);
+            View v = idx < favs.size() ? homeCell(favs.get(idx), dockIcon, false) : new View(this);
             dock.addView(v, new LinearLayout.LayoutParams(0, -2, 1f));
         }
 
         int cols = prefs.columns();
         int iconPx = dp(prefs.iconSizeDp());
+        addRows(favoritesBox, favs.subList(Math.min(DOCK_SLOTS, favs.size()), favs.size()), cols, iconPx);
+
+        // Arbeitszeit: Arbeits-Apps als eigene Reihe über den Favoriten
+        if (WorkMode.current(this, prefs) == WorkMode.WORK) {
+            List<String> work = new ArrayList<>();
+            for (AppEntry e : allApps) if (prefs.workApps().contains(e.key) && !favs.contains(e.key)) work.add(e.key);
+            if (!work.isEmpty()) {
+                TextView eb = eyebrow("Arbeit");
+                eb.setPadding(dp(8), 0, 0, dp(2));
+                workRow.addView(eb);
+                addRows(workRow, work, cols, iconPx);
+                View sp = new View(this);
+                workRow.addView(sp, new LinearLayout.LayoutParams(-1, dp(10)));
+            }
+        }
+    }
+
+    private void addRows(LinearLayout box, List<String> keys, int cols, int iconPx) {
         LinearLayout row = null;
-        int n = 0;
-        for (int i = DOCK_SLOTS; i < favs.size(); i++, n++) {
+        for (int n = 0; n < keys.size(); n++) {
             if (n % cols == 0) {
                 row = new LinearLayout(this);
-                favoritesBox.addView(row, new LinearLayout.LayoutParams(-1, -2));
+                box.addView(row, new LinearLayout.LayoutParams(-1, -2));
             }
-            row.addView(favoriteCell(favs.get(i), iconPx, prefs.showLabels()), new LinearLayout.LayoutParams(0, -2, 1f));
+            row.addView(homeCell(keys.get(n), iconPx, prefs.showLabels()), new LinearLayout.LayoutParams(0, -2, 1f));
         }
         if (row != null) {
             for (int i = row.getChildCount(); i < cols; i++) row.addView(new View(this), new LinearLayout.LayoutParams(0, 1, 1f));
         }
+    }
+
+    // ---------- Arbeits- und Feierabend-Modus ----------
+
+    private void refreshWorkMode(boolean force) {
+        int mode = WorkMode.current(this, prefs);
+        if (mode == WorkMode.OFF) {
+            workChip.setVisibility(View.GONE);
+        } else {
+            long next = prefs.workOverride() != 0 && prefs.workOverrideUntil() > System.currentTimeMillis()
+                    ? prefs.workOverrideUntil() : WorkMode.nextChange(prefs);
+            String at = next == 0 ? "" : android.text.format.DateFormat.getTimeFormat(this).format(new java.util.Date(next));
+            boolean work = mode == WorkMode.WORK;
+            workChip.setText(work ? "●  Arbeitszeit" + (at.isEmpty() ? "" : " · bis " + at)
+                    : "☾  Feierabend" + (at.isEmpty() ? "" : " · Arbeit ab " + at));
+            GradientDrawable g = work
+                    ? new GradientDrawable(GradientDrawable.Orientation.TL_BR, new int[]{WfStyle.P1, WfStyle.P2})
+                    : new GradientDrawable();
+            if (!work) { g.setColor(WfStyle.SURFACE3); g.setStroke(Math.max(1, dp(1)), WfStyle.LINE_STRONG); }
+            g.setCornerRadius(dp(16));
+            workChip.setBackground(g);
+            workChip.setTextColor(work ? Color.WHITE : WfStyle.P3);
+            workChip.setVisibility(View.VISIBLE);
+        }
+        if (force || mode != lastWorkMode) {
+            lastWorkMode = mode;
+            renderFavorites();
+            applyFilter();
+        }
+    }
+
+    private void showWorkSettings() {
+        String days = daysText(prefs.workDays());
+        String[] items = {
+                "Modus: " + (prefs.workModeEnabled() ? "an" : "aus"),
+                "Arbeitszeit: " + Logic.hhmm(prefs.workStart()) + "–" + Logic.hhmm(prefs.workEnd()) + " …",
+                "Arbeitstage: " + days + " …",
+                "Arbeits-Apps (" + prefs.workApps().size() + ") …",
+                "Feierabend: Arbeits-Apps ausblenden: " + (prefs.hideWorkAfterHours() ? "an" : "aus"),
+                "Feierabend: „Nicht stören“ einschalten: " + (prefs.dndAfterHours() ? "an" : "aus"),
+        };
+        new AlertDialog.Builder(this)
+                .setTitle("Arbeit & Feierabend")
+                .setItems(items, new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int which) {
+                        boolean reopen = true;
+                        switch (which) {
+                            case 0: prefs.setWorkModeEnabled(!prefs.workModeEnabled()); prefs.setWorkOverride(0, 0); break;
+                            case 1: reopen = false; editWorkTimes(); break;
+                            case 2: reopen = false; editWorkDays(); break;
+                            case 3: reopen = false; editWorkApps(); break;
+                            case 4: prefs.setHideWorkAfterHours(!prefs.hideWorkAfterHours()); break;
+                            case 5: {
+                                boolean on = !prefs.dndAfterHours();
+                                prefs.setDndAfterHours(on);
+                                android.app.NotificationManager nm = (android.app.NotificationManager) getSystemService(NOTIFICATION_SERVICE);
+                                if (on && !nm.isNotificationPolicyAccessGranted()) {
+                                    reopen = false;
+                                    Toast.makeText(MainActivity.this, "Bitte „WF Launcher“ den Zugriff auf „Bitte nicht stören“ erlauben",
+                                            Toast.LENGTH_LONG).show();
+                                    startSafe(new Intent(Settings.ACTION_NOTIFICATION_POLICY_ACCESS_SETTINGS));
+                                }
+                                break;
+                            }
+                        }
+                        WorkMode.apply(MainActivity.this, prefs);
+                        refreshWorkMode(true);
+                        if (reopen) showWorkSettings();
+                    }
+                })
+                .setNegativeButton("Fertig", null)
+                .show();
+    }
+
+    private static final String[] DAY_NAMES = {"Mo", "Di", "Mi", "Do", "Fr", "Sa", "So"};
+
+    private static String daysText(int mask) {
+        if (mask == 0x1F) return "Mo–Fr";
+        if (mask == 0x3F) return "Mo–Sa";
+        if (mask == 0x7F) return "täglich";
+        StringBuilder b = new StringBuilder();
+        for (int i = 0; i < 7; i++) if ((mask & (1 << i)) != 0) b.append(b.length() > 0 ? ", " : "").append(DAY_NAMES[i]);
+        return b.length() == 0 ? "keine" : b.toString();
+    }
+
+    private void editWorkTimes() {
+        LinearLayout box = new LinearLayout(this);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        final EditText from = new EditText(this), to = new EditText(this);
+        from.setText(Logic.hhmm(prefs.workStart()));
+        to.setText(Logic.hhmm(prefs.workEnd()));
+        for (EditText e : new EditText[]{from, to}) {
+            e.setInputType(InputType.TYPE_CLASS_DATETIME | InputType.TYPE_DATETIME_VARIATION_TIME);
+            e.setSelectAllOnFocus(true);
+            e.setGravity(Gravity.CENTER);
+        }
+        box.addView(from, new LinearLayout.LayoutParams(0, -2, 1f));
+        TextView dash = text(18, WfStyle.MUTED);
+        dash.setText("  bis  ");
+        box.addView(dash);
+        box.addView(to, new LinearLayout.LayoutParams(0, -2, 1f));
+        new AlertDialog.Builder(this)
+                .setTitle("Arbeitszeit")
+                .setView(box)
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) {
+                        int a = Logic.parseHhmm(from.getText().toString()), b = Logic.parseHhmm(to.getText().toString());
+                        if (a < 0 || b < 0 || a == b) {
+                            Toast.makeText(MainActivity.this, "Bitte Uhrzeiten wie 08:00 und 16:00 eingeben", Toast.LENGTH_LONG).show();
+                        } else {
+                            prefs.setWorkTimes(a, b);
+                            prefs.setWorkOverride(0, 0);
+                            WorkMode.apply(MainActivity.this, prefs);
+                            refreshWorkMode(true);
+                        }
+                        showWorkSettings();
+                    }
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+    }
+
+    private void editWorkDays() {
+        final boolean[] on = new boolean[7];
+        for (int i = 0; i < 7; i++) on[i] = (prefs.workDays() & (1 << i)) != 0;
+        String[] names = {"Montag", "Dienstag", "Mittwoch", "Donnerstag", "Freitag", "Samstag", "Sonntag"};
+        new AlertDialog.Builder(this)
+                .setTitle("Arbeitstage")
+                .setMultiChoiceItems(names, on, new DialogInterface.OnMultiChoiceClickListener() {
+                    @Override public void onClick(DialogInterface d, int which, boolean v) { on[which] = v; }
+                })
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) {
+                        int mask = 0;
+                        for (int i = 0; i < 7; i++) if (on[i]) mask |= 1 << i;
+                        prefs.setWorkDays(mask);
+                        prefs.setWorkOverride(0, 0);
+                        WorkMode.apply(MainActivity.this, prefs);
+                        refreshWorkMode(true);
+                        showWorkSettings();
+                    }
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+    }
+
+    private void editWorkApps() {
+        final List<AppEntry> list = new ArrayList<>(allApps);
+        final Set<String> chosen = prefs.workApps();
+        String[] names = new String[list.size()];
+        final boolean[] on = new boolean[list.size()];
+        for (int i = 0; i < list.size(); i++) { names[i] = list.get(i).label(); on[i] = chosen.contains(list.get(i).key); }
+        new AlertDialog.Builder(this)
+                .setTitle("Arbeits-Apps")
+                .setMultiChoiceItems(names, on, new DialogInterface.OnMultiChoiceClickListener() {
+                    @Override public void onClick(DialogInterface d, int which, boolean v) { on[which] = v; }
+                })
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) {
+                        Set<String> s = new java.util.HashSet<>();
+                        for (int i = 0; i < list.size(); i++) if (on[i]) s.add(list.get(i).key);
+                        prefs.setWorkApps(s);
+                        refreshWorkMode(true);
+                        showWorkSettings();
+                    }
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+    }
+
+    // ---------- Ordner ----------
+
+    private void openFolder(final Folders.Folder f) {
+        final android.app.Dialog dlg = new android.app.Dialog(this, android.R.style.Theme_Material_Dialog_NoActionBar);
+        LinearLayout box = new LinearLayout(this);
+        box.setOrientation(LinearLayout.VERTICAL);
+        box.setBackground(WfStyle.card(dp(22), density));
+        box.setPadding(dp(14), dp(16), dp(14), dp(14));
+        TextView title = text(26, WfStyle.TEXT);
+        title.setTypeface(WfStyle.head(this));
+        title.setText(f.name);
+        title.setPadding(dp(8), 0, 0, dp(8));
+        box.addView(title);
+        final List<AppEntry> apps = new ArrayList<>();
+        for (String k : f.apps) { AppEntry e = byKey.get(k); if (e != null) apps.add(e); }
+        final AppAdapter a = new AppAdapter(this);
+        a.iconPx = dp(prefs.iconSizeDp());
+        a.showLabels = true;
+        a.setItems(apps, false);
+        GridView g = new GridView(this);
+        g.setNumColumns(Math.min(4, Math.max(3, apps.size())));
+        g.setAdapter(a);
+        g.setSelector(new ColorDrawable(Color.TRANSPARENT));
+        g.setVerticalSpacing(dp(6));
+        g.setOnItemClickListener(new AdapterView.OnItemClickListener() {
+            @Override public void onItemClick(AdapterView<?> p, View v, int pos, long id) { dlg.dismiss(); launch(apps.get(pos), v); }
+        });
+        g.setOnItemLongClickListener(new AdapterView.OnItemLongClickListener() {
+            @Override public boolean onItemLongClick(AdapterView<?> p, View v, int pos, long id) {
+                final AppEntry e = apps.get(pos);
+                new WfMenu(MainActivity.this).add(1, "Aus Ordner nehmen").add(2, "App-Info")
+                        .show(v, new WfMenu.OnPick() {
+                            @Override public void onPick(int which) {
+                                if (which == 2) { try { repo.showAppInfo(e); } catch (Exception ignored) { } return; }
+                                dlg.dismiss();
+                                removeFromFolder(f, e.key);
+                            }
+                        });
+                return true;
+            }
+        });
+        int rows = (apps.size() + 3) / 4;
+        box.addView(g, new LinearLayout.LayoutParams(-1, Math.min(rows, 4) * (a.iconPx + dp(44))));
+        dlg.setContentView(box);
+        if (dlg.getWindow() != null) {
+            dlg.getWindow().setBackgroundDrawable(new ColorDrawable(Color.TRANSPARENT));
+            dlg.getWindow().setLayout(getResources().getDisplayMetrics().widthPixels - dp(40), -2);
+        }
+        dlg.show();
+    }
+
+    private void removeFromFolder(Folders.Folder f, String appKey) {
+        f.apps.remove(appKey);
+        List<String> favs = prefs.favorites();
+        int at = favs.indexOf(f.key());
+        if (!favs.contains(appKey)) favs.add(at >= 0 ? at + 1 : favs.size(), appKey);
+        if (f.apps.isEmpty()) { favs.remove(f.key()); folders.delete(f); } else folders.save();
+        prefs.setFavorites(favs);
+        renderFavorites();
+    }
+
+    private void showFolderMenu(View anchor, final Folders.Folder f) {
+        final List<String> favs = prefs.favorites();
+        final int idx = favs.indexOf(f.key());
+        WfMenu m = new WfMenu(this).add(1, "Umbenennen");
+        if (idx > 0) m.add(2, "← Nach vorne");
+        if (idx >= 0 && idx < favs.size() - 1) m.add(3, "Nach hinten →");
+        m.add(4, "Ordner auflösen");
+        m.show(anchor, new WfMenu.OnPick() {
+            @Override public void onPick(int id) {
+                switch (id) {
+                    case 1: askName("Ordner umbenennen", f.name, new NameResult() {
+                        @Override public void done(String name) { f.name = name; folders.save(); renderFavorites(); }
+                    }); break;
+                    case 2: Search.move(favs, f.key(), -1); prefs.setFavorites(favs); renderFavorites(); break;
+                    case 3: Search.move(favs, f.key(), 1); prefs.setFavorites(favs); renderFavorites(); break;
+                    case 4: {
+                        // Apps kommen an die Stelle des Ordners zurück auf den Startbildschirm.
+                        int at = Math.max(0, favs.indexOf(f.key()));
+                        favs.remove(f.key());
+                        for (String k : f.apps) if (!favs.contains(k)) favs.add(Math.min(at++, favs.size()), k);
+                        folders.delete(f);
+                        prefs.setFavorites(favs);
+                        renderFavorites();
+                        break;
+                    }
+                }
+            }
+        });
+    }
+
+    private interface NameResult { void done(String name); }
+
+    private void askName(String title, String preset, final NameResult r) {
+        final EditText in = new EditText(this);
+        in.setSingleLine(true);
+        in.setText(preset);
+        in.setSelectAllOnFocus(true);
+        in.setInputType(InputType.TYPE_CLASS_TEXT | InputType.TYPE_TEXT_FLAG_CAP_WORDS);
+        FrameLayout box = new FrameLayout(this);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        box.addView(in);
+        new AlertDialog.Builder(this)
+                .setTitle(title)
+                .setView(box)
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) {
+                        String v = in.getText().toString().trim();
+                        r.done(v.isEmpty() ? "Ordner" : v);
+                    }
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+    }
+
+    /** App in einen bestehenden oder neuen Ordner legen. */
+    private void addToFolder(View anchor, final AppEntry e) {
+        final List<Folders.Folder> all = folders.all();
+        WfMenu m = new WfMenu(this);
+        for (int i = 0; i < all.size(); i++) m.add(100 + i, "📁  " + all.get(i).name);
+        m.add(1, "＋  Neuer Ordner …");
+        m.show(anchor, new WfMenu.OnPick() {
+            @Override public void onPick(int id) {
+                if (id == 1) {
+                    askName("Neuer Ordner", "Werkstatt", new NameResult() {
+                        @Override public void done(String name) {
+                            Folders.Folder f = folders.create(name);
+                            f.apps.add(e.key);
+                            folders.save();
+                            List<String> favs = prefs.favorites();
+                            int at = favs.indexOf(e.key);
+                            if (at >= 0) favs.set(at, f.key()); else favs.add(f.key());
+                            prefs.setFavorites(favs);
+                            renderFavorites();
+                        }
+                    });
+                    return;
+                }
+                Folders.Folder f = all.get(id - 100);
+                if (!f.apps.contains(e.key)) f.apps.add(e.key);
+                folders.save();
+                List<String> favs = prefs.favorites();
+                favs.remove(e.key);
+                prefs.setFavorites(favs);
+                renderFavorites();
+                Toast.makeText(MainActivity.this, "In „" + f.name + "“ gelegt", Toast.LENGTH_SHORT).show();
+            }
+        });
+    }
+
+    // ---------- Startbildschirm-Inhalte ----------
+
+    private void editDisplayLink() {
+        final EditText in = new EditText(this);
+        in.setHint("https://wunsch-fabrik.dk/auftraege/werkstatt/?t=…");
+        in.setText(prefs.displayLink());
+        in.setSelectAllOnFocus(true);
+        FrameLayout box = new FrameLayout(this);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        box.addView(in);
+        new AlertDialog.Builder(this)
+                .setTitle("Heute in der Werkstatt")
+                .setMessage("In der Auftrags-App: Einstellungen → Werkstatt-Anzeige → „Neuen Link erzeugen“ (z. B. als „Handy“), "
+                        + "Link kopieren und hier einfügen. Der Link am Werkstatt-PC bleibt gültig.\n\nLeer lassen = Karte ausblenden.")
+                .setView(box)
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) {
+                        String v = in.getText().toString().trim();
+                        if (!v.isEmpty() && Logic.displayToken(v) == null) {
+                            Toast.makeText(MainActivity.this, "Link unvollständig – bitte den ganzen Link kopieren", Toast.LENGTH_LONG).show();
+                            return;
+                        }
+                        prefs.setDisplayLink(v);
+                        orders.refresh(true);
+                    }
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+    }
+
+    private void editWeatherCity() {
+        final EditText in = new EditText(this);
+        in.setHint("z. B. Sønderborg");
+        in.setText(prefs.weatherCity());
+        in.setSingleLine(true);
+        in.setSelectAllOnFocus(true);
+        FrameLayout box = new FrameLayout(this);
+        box.setPadding(dp(20), dp(8), dp(20), 0);
+        box.addView(in);
+        new AlertDialog.Builder(this)
+                .setTitle("Ort fürs Wetter")
+                .setMessage("Leer lassen = kein Wetter anzeigen.")
+                .setView(box)
+                .setPositiveButton("OK", new DialogInterface.OnClickListener() {
+                    @Override public void onClick(DialogInterface d, int w) {
+                        prefs.setWeatherCity(in.getText().toString());
+                        info.refreshWeather(true);
+                    }
+                })
+                .setNegativeButton("Abbrechen", null)
+                .show();
+    }
+
+    private void toggleEvents() {
+        boolean on = !prefs.showEvents();
+        prefs.setShowEvents(on);
+        if (on && !InfoLine.hasCalendarPermission(this)) {
+            requestPermissions(new String[]{android.Manifest.permission.READ_CALENDAR}, 8);
+        }
+        info.refresh();
     }
 
     // ---------- Aktionen ----------
@@ -618,6 +1110,8 @@ public final class MainActivity extends Activity implements AppRepository.Listen
         } else {
             m.add(4, "Zum Startbildschirm");
         }
+        m.add(9, "In Ordner legen …");
+        if (prefs.workModeEnabled()) m.add(10, prefs.workApps().contains(e.key) ? "Keine Arbeits-App mehr" : "Als Arbeits-App markieren");
         m.add(5, "Umbenennen");
         m.add(6, isHidden ? "Wieder anzeigen" : "In App-Liste ausblenden");
         m.add(7, "App-Info");
@@ -650,10 +1144,23 @@ public final class MainActivity extends Activity implements AppRepository.Listen
                     }
                     case 7: try { repo.showAppInfo(e); } catch (Exception ex) { /* ignorieren */ } break;
                     case 8: uninstall(e); break;
+                    case 9: addToFolder(anchorFor(e), e); break;
+                    case 10: {
+                        Set<String> w = prefs.workApps();
+                        if (!w.remove(e.key)) w.add(e.key);
+                        prefs.setWorkApps(w);
+                        refreshWorkMode(true);
+                        break;
+                    }
                 }
             }
         });
     }
+
+    /** Das Menü schließt sich vor dem Ordner-Menü; als Anker reicht dann ein fester Punkt oben. */
+    private View anchorFor(AppEntry e) { return drawerOpen ? search : menuAnchor(); }
+
+    private View menuAnchor() { return clockBox.getVisibility() == View.VISIBLE ? clockBox : homeContent; }
 
     private void uninstall(AppEntry e) {
         if (e.workProfile) {
@@ -690,12 +1197,14 @@ public final class MainActivity extends Activity implements AppRepository.Listen
     private void showHomeMenu(View anchor) {
         new WfMenu(this)
                 .add(4, "WF-Schnellbereich")
+                .add(5, "Schnellnotiz")
                 .add(1, "Hintergrundbild")
                 .add(2, "Launcher-Einstellungen")
                 .add(3, "Android-Einstellungen")
-                .show(clockBox, new WfMenu.OnPick() {
+                .show(menuAnchor(), new WfMenu.OnPick() {
                     @Override public void onPick(int id) {
                         if (id == 4) openPanel();
+                        else if (id == 5) openNotes();
                         else if (id == 1) pickWallpaper();
                         else if (id == 2) showSettings();
                         else startSafe(new Intent(Settings.ACTION_SETTINGS));
@@ -715,6 +1224,10 @@ public final class MainActivity extends Activity implements AppRepository.Listen
         final int[] sizeDp = {44, 52, 60};
         final int sizeIdx = prefs.iconSizeDp() <= 44 ? 0 : prefs.iconSizeDp() >= 60 ? 2 : 1;
         String[] items = {
+                "Heute in der Werkstatt: " + (Logic.displayToken(prefs.displayLink()) != null ? "Link eingetragen" : "aus") + " …",
+                "Termine unter der Uhr: " + (prefs.showEvents() ? "an" : "aus"),
+                "Wetter: " + (prefs.weatherCity().isEmpty() ? "aus" : prefs.weatherCity()) + " …",
+                "Arbeit & Feierabend: " + (prefs.workModeEnabled() ? "an" : "aus") + " …",
                 "Hintergrund: " + (prefs.wfBackground() ? "Wunsch-Fabrik" : "eigenes Hintergrundbild"),
                 "Spalten: " + prefs.columns(),
                 "Symbolgröße: " + sizes[sizeIdx],
@@ -735,19 +1248,23 @@ public final class MainActivity extends Activity implements AppRepository.Listen
                     @Override public void onClick(DialogInterface d, int which) {
                         boolean reopen = true;
                         switch (which) {
-                            case 0: prefs.setWfBackground(!prefs.wfBackground()); break;
-                            case 1: prefs.setColumns(prefs.columns() >= 6 ? 3 : prefs.columns() + 1); break;
-                            case 2: prefs.setIconSizeDp(sizeDp[(sizeIdx + 1) % 3]); break;
-                            case 3: prefs.setShowClock(!prefs.showClock()); break;
-                            case 4: prefs.setShowLabels(!prefs.showLabels()); break;
-                            case 5: prefs.setKeyboardOnDrawer(!prefs.keyboardOnDrawer()); break;
-                            case 6: prefs.setSwipeDown((prefs.swipeDown() + 1) % SWIPE_NAMES.length); break;
-                            case 7: reopen = false; showHidden(); break;
-                            case 8: reopen = false; pickWallpaper(); break;
-                            case 9: reopen = false; makeDefault(); break;
-                            case 10: reopen = false; confirmSystemWallpaper(); break;
-                            case 11: reopen = false; addTiles(); break;
-                            case 12: reopen = false; startSafe(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); break;
+                            case 0: reopen = false; editDisplayLink(); break;
+                            case 1: toggleEvents(); break;
+                            case 2: reopen = false; editWeatherCity(); break;
+                            case 3: reopen = false; showWorkSettings(); break;
+                            case 4: prefs.setWfBackground(!prefs.wfBackground()); break;
+                            case 5: prefs.setColumns(prefs.columns() >= 6 ? 3 : prefs.columns() + 1); break;
+                            case 6: prefs.setIconSizeDp(sizeDp[(sizeIdx + 1) % 3]); break;
+                            case 7: prefs.setShowClock(!prefs.showClock()); break;
+                            case 8: prefs.setShowLabels(!prefs.showLabels()); break;
+                            case 9: prefs.setKeyboardOnDrawer(!prefs.keyboardOnDrawer()); break;
+                            case 10: prefs.setSwipeDown((prefs.swipeDown() + 1) % SWIPE_NAMES.length); break;
+                            case 11: reopen = false; showHidden(); break;
+                            case 12: reopen = false; pickWallpaper(); break;
+                            case 13: reopen = false; makeDefault(); break;
+                            case 14: reopen = false; confirmSystemWallpaper(); break;
+                            case 15: reopen = false; addTiles(); break;
+                            case 16: reopen = false; startSafe(new Intent("android.settings.ACTION_NOTIFICATION_LISTENER_SETTINGS")); break;
                         }
                         applyLayoutPrefs();
                         if (reopen) showSettings();
@@ -758,6 +1275,15 @@ public final class MainActivity extends Activity implements AppRepository.Listen
     }
 
     private static final String[] SWIPE_NAMES = {"WF-Schnellbereich", "Android-Bereich", "nichts"};
+
+    private void openNotes() {
+        if (notes.isOpen()) return;
+        if (drawerOpen) closeDrawer(false);
+        if (panel.isOpen()) panel.close(false);
+        if (openMenu != null) openMenu.dismiss();
+        home.animate().alpha(0f).setDuration(150).start();
+        notes.open();
+    }
 
     private void openPanel() {
         if (panel.isOpen()) return;
@@ -916,6 +1442,7 @@ public final class MainActivity extends Activity implements AppRepository.Listen
 
     @Override public void onBackPressed() {
         if (panel.isOpen()) panel.close(true);
+        else if (notes.isOpen()) notes.close(true);
         else if (drawerOpen) closeDrawer(true);
         // Auf dem Startbildschirm macht Zurück nichts.
     }
@@ -928,6 +1455,7 @@ public final class MainActivity extends Activity implements AppRepository.Listen
             openDrawer(false);
         } else if (Intent.ACTION_MAIN.equals(intent.getAction())) {
             panel.close(hasWindowFocus());
+            notes.close(hasWindowFocus());
             closeDrawer(hasWindowFocus());
         }
     }
@@ -936,6 +1464,7 @@ public final class MainActivity extends Activity implements AppRepository.Listen
         super.onStop();
         closeDrawer(false);
         panel.close(false);
+        notes.close(false);
     }
 
     @Override public boolean dispatchTouchEvent(MotionEvent ev) {
@@ -948,6 +1477,13 @@ public final class MainActivity extends Activity implements AppRepository.Listen
             if (a == null || b == null) return false;
             float dy = b.getY() - a.getY();
             float dx = b.getX() - a.getX();
+            // Waagerecht: nach links = Notizen öffnen, nach rechts = Notizen schließen
+            if (Math.abs(dx) > dp(80) && Math.abs(dx) > Math.abs(dy) * 1.5f && Math.abs(vx) > dp(400)) {
+                if (notes.isOpen()) { if (dx > 0) { notes.close(true); return true; } return false; }
+                if (!drawerOpen && !panel.isOpen() && dx < 0) { openNotes(); return true; }
+                return false;
+            }
+            if (notes.isOpen()) return false;
             if (Math.abs(dy) < dp(60) || Math.abs(dy) < Math.abs(dx) * 1.5f || Math.abs(vy) < dp(400)) return false;
             if (panel.isOpen()) {
                 if (dy < 0 && panel.atBottom()) { panel.close(true); return true; }

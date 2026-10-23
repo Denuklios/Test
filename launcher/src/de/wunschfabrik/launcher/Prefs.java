@@ -64,4 +64,69 @@ public final class Prefs {
     /** Nach unten wischen: 0 = WF-Schnellbereich, 1 = Android-Bereich, 2 = nichts. */
     public int swipeDown() { return sp.getInt("swipe_down", SWIPE_WF_PANEL); }
     public void setSwipeDown(int m) { sp.edit().putInt("swipe_down", m).apply(); }
+
+    // ---------- Aufträge heute (Link der Werkstatt-Anzeige) ----------
+
+    public String displayLink() { return sp.getString("display_link", ""); }
+    public void setDisplayLink(String s) { sp.edit().putString("display_link", s == null ? "" : s.trim()).apply(); }
+
+    // ---------- Termine und Wetter ----------
+
+    public boolean showEvents() { return sp.getBoolean("show_events", false); }
+    public void setShowEvents(boolean b) { sp.edit().putBoolean("show_events", b).apply(); }
+
+    public String weatherCity() { return sp.getString("weather_city", ""); }
+    public void setWeatherCity(String s) {
+        sp.edit().putString("weather_city", s == null ? "" : s.trim()).remove("weather_coords")
+                .remove("weather_cache").apply();
+    }
+    public String weatherCache() { return sp.getString("weather_cache", ""); }
+    public long weatherCacheTime() { return sp.getLong("weather_cache_at", 0); }
+    public void setWeatherCache(String s) {
+        sp.edit().putString("weather_cache", s).putLong("weather_cache_at", System.currentTimeMillis()).apply();
+    }
+    public String weatherCoords() { return sp.getString("weather_coords", ""); }
+    public void setWeatherCoords(String s) { sp.edit().putString("weather_coords", s).apply(); }
+
+    // ---------- Arbeits- und Feierabend-Modus ----------
+
+    public boolean workModeEnabled() { return sp.getBoolean("work_enabled", false); }
+    public void setWorkModeEnabled(boolean b) { sp.edit().putBoolean("work_enabled", b).apply(); }
+
+    /** Minuten seit Mitternacht. */
+    public int workStart() { return sp.getInt("work_start", 8 * 60); }
+    public int workEnd() { return sp.getInt("work_end", 16 * 60); }
+    public void setWorkTimes(int start, int end) { sp.edit().putInt("work_start", start).putInt("work_end", end).apply(); }
+
+    /** Bit 0 = Montag … Bit 6 = Sonntag. Standard Mo–Fr. */
+    public int workDays() { return sp.getInt("work_days", 0x1F); }
+    public void setWorkDays(int mask) { sp.edit().putInt("work_days", mask).apply(); }
+
+    public Set<String> workApps() { return new HashSet<>(sp.getStringSet("work_apps", new HashSet<String>())); }
+    public void setWorkApps(Set<String> keys) { sp.edit().putStringSet("work_apps", new HashSet<>(keys)).apply(); }
+
+    public boolean hideWorkAfterHours() { return sp.getBoolean("work_hide", true); }
+    public void setHideWorkAfterHours(boolean b) { sp.edit().putBoolean("work_hide", b).apply(); }
+
+    public boolean dndAfterHours() { return sp.getBoolean("work_dnd", false); }
+    public void setDndAfterHours(boolean b) { sp.edit().putBoolean("work_dnd", b).apply(); }
+
+    /** Von Hand umgeschaltet: gilt bis zum nächsten planmäßigen Wechsel. 0 = keine, 1 = Arbeit, 2 = Feierabend. */
+    public int workOverride() { return sp.getInt("work_override", 0); }
+    public long workOverrideUntil() { return sp.getLong("work_override_until", 0); }
+    public void setWorkOverride(int mode, long until) {
+        sp.edit().putInt("work_override", mode).putLong("work_override_until", until).apply();
+    }
+
+    /** Hat der Launcher „Nicht stören“ selbst eingeschaltet? Dann darf er es morgens auch wieder ausschalten. */
+    public boolean dndSetByUs() { return sp.getBoolean("work_dnd_ours", false); }
+    public void setDndSetByUs(boolean b) { sp.edit().putBoolean("work_dnd_ours", b).apply(); }
+
+    // ---------- Ordner und Notizen (JSON) ----------
+
+    public String foldersJson() { return sp.getString("folders", "{}"); }
+    public void setFoldersJson(String s) { sp.edit().putString("folders", s).apply(); }
+
+    public String notesJson() { return sp.getString("notes", "[]"); }
+    public void setNotesJson(String s) { sp.edit().putString("notes", s).apply(); }
 }
