@@ -12,8 +12,8 @@ ZIPALIGN=$(tool zipalign)
 APKSIGNER=$(tool apksigner)
 JAR="$SDK/platforms/android-23/android.jar"
 OUT=build/apk
-VERSION_CODE=6
-VERSION_NAME=2.1
+VERSION_CODE=7
+VERSION_NAME=2.2
 KS=keystore/wf-launcher.jks
 KS_PASS=${KS_PASS:-wflauncher}
 

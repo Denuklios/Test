@@ -87,12 +87,13 @@ public final class Logic {
         return fallback;
     }
 
-    /** Link „Neuer Auftrag“ mit der Notiz: die Auftrags-App verteilt sie auf Kunde, Menge, Artikel, Verfahren, Termin, Preis. */
+    /** Link „Neuer Auftrag“ mit der Notiz: die Auftrags-App findet/legt den Kunden an und speichert den Auftrag. */
     public static String noteOrderUrl(String base, String note) {
         String n = note == null ? "" : note.trim();
         if (n.length() > 4000) n = n.substring(0, 4000);
         try {
-            return base + "index.php#/new?note=" + java.net.URLEncoder.encode(n, "UTF-8");
+            // als Abfrage-Parameter (nicht hinter #): kommt in jedem Browser an; die App legt daraus den Auftrag an
+            return base + "index.php?note=" + java.net.URLEncoder.encode(n, "UTF-8") + "#/new";
         } catch (java.io.UnsupportedEncodingException e) {
             return base + "index.php#/new";
         }
