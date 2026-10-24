@@ -264,14 +264,14 @@ public final class NotesPanel {
         return c;
     }
 
-    /** Notiz in die Zwischenablage, dann „Neuer Auftrag“ in der Auftrags-App öffnen. */
+    /** „Neuer Auftrag“ mit der Notiz im Link öffnen: die Auftrags-App füllt die Felder selbst. Zusätzlich in der Zwischenablage (Rückfall). */
     private void toOrder(String txt) {
         ClipboardManager cm = (ClipboardManager) act.getSystemService(Context.CLIPBOARD_SERVICE);
         cm.setPrimaryClip(ClipData.newPlainText("Notiz", txt));
-        Toast.makeText(act, "Notiz kopiert – im Auftrag lange tippen → Einfügen", Toast.LENGTH_LONG).show();
+        Toast.makeText(act, "Notiz wird in den neuen Auftrag übernommen", Toast.LENGTH_SHORT).show();
         String base = Logic.displayBase(prefs.displayLink(), Tiles.AUFTRAEGE_URL);
         try {
-            act.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(base + "index.php#/new")).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
+            act.startActivity(new Intent(Intent.ACTION_VIEW, Uri.parse(Logic.noteOrderUrl(base, txt))).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK));
         } catch (Exception ignored) { }
     }
 

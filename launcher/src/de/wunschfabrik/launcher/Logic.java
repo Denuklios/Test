@@ -87,6 +87,17 @@ public final class Logic {
         return fallback;
     }
 
+    /** Link „Neuer Auftrag“ mit der Notiz: die Auftrags-App verteilt sie auf Kunde, Menge, Artikel, Verfahren, Termin, Preis. */
+    public static String noteOrderUrl(String base, String note) {
+        String n = note == null ? "" : note.trim();
+        if (n.length() > 4000) n = n.substring(0, 4000);
+        try {
+            return base + "index.php#/new?note=" + java.net.URLEncoder.encode(n, "UTF-8");
+        } catch (java.io.UnsupportedEncodingException e) {
+            return base + "index.php#/new";
+        }
+    }
+
     // ---------- Wetter (WMO-Codes von Open-Meteo) ----------
 
     public static String weatherIcon(int code) {

@@ -32,6 +32,8 @@ public class LogicTest {
         check(tok.equals(Logic.displayToken(link + "&l=da")), "Link mit Sprache");
         check(Logic.displayToken(link.substring(0, link.length() - 3)) == null, "abgeschnittener Link");
         check(Logic.displayBase(link, "x").equals("https://wunsch-fabrik.dk/auftraege/"), "Basisadresse");
+        check(Logic.noteOrderUrl("https://wunsch-fabrik.dk/auftraege/", " Verein SIF: 25 Hoodies + Stick\nbis 14.11. ")
+                .equals("https://wunsch-fabrik.dk/auftraege/index.php#/new?note=Verein+SIF%3A+25+Hoodies+%2B+Stick%0Abis+14.11."), "Notiz-Link");
         check(Logic.displayBase(tok, "x").equals("x"), "Basisadresse ohne Link");
 
         check(Logic.weatherIcon(0).equals("☀") && Logic.weatherText(63).equals("Regen"), "Wetter-Codes");
