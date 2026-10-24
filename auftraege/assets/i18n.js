@@ -1,5 +1,6 @@
 window.WF_I18N = {
 de: {
+  note_used: 'Aus der Notiz übernommen – bitte kurz prüfen.', note_used_ai: 'Claude hat die Notiz auf die Felder verteilt – bitte kurz prüfen.', note_original: 'Original-Notiz', note_from_clip: 'Aus Notiz ausfüllen (Zwischenablage)', note_paste_ph: 'Notiz hier einfügen (lange tippen → Einfügen)', note_apply: 'Übernehmen',
   alert_tax: '{0} Punkte in der Buchhaltung brauchen dich (Fristen, Belege, Backup)', tab_tax: 'Moms', tax_h1_a: 'Moms &', tax_h1_b: 'Fristen', todo_title: 'Was zu tun ist', todo_none: 'Alles erledigt – nichts offen.',
   per_q: '{0}. Quartal {1}', per_h: '{0}. Halbjahr {1}', periods_title: 'Momsperioden ({0})', deadline: 'Frist',
   ps_reported: 'Gemeldet', ps_running: 'Läuft', ps_due: 'Fällig in {0} Tagen', ps_overdue: 'Überfällig!', ps_future: 'Später',
@@ -155,6 +156,7 @@ de: {
   err_duplicate_admin_id: 'Admin-ID doppelt vergeben.', err_unknown_action: 'Unbekannte Aktion.', err_bad_json: 'Ungültige Daten.', err_bad_date: 'Datum ungültig.', err_range_too_large: 'Zeitraum zu groß.', err_nothing: 'Nichts zu ändern.', err_post_required: 'Ungültige Anfrage.'
 },
 da: {
+  note_used: 'Overtaget fra noten – kontrollér kort.', note_used_ai: 'Claude har fordelt noten på felterne – kontrollér kort.', note_original: 'Original note', note_from_clip: 'Udfyld fra note (udklipsholder)', note_paste_ph: 'Indsæt noten her (tryk længe → Indsæt)', note_apply: 'Overtag',
   alert_tax: '{0} punkter i regnskabet kræver din opmærksomhed (frister, bilag, backup)', tab_tax: 'Moms', tax_h1_a: 'Moms &', tax_h1_b: 'frister', todo_title: 'Det skal gøres', todo_none: 'Alt er klaret – intet udestående.',
   per_q: '{0}. kvartal {1}', per_h: '{0}. halvår {1}', periods_title: 'Momsperioder ({0})', deadline: 'Frist',
   ps_reported: 'Indberettet', ps_running: 'Løber', ps_due: 'Frist om {0} dage', ps_overdue: 'Overskredet!', ps_future: 'Senere',

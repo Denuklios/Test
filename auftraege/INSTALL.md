@@ -85,6 +85,12 @@ Unter **Einstellungen**:
 
 **Aufbewahrung:** Bogføringsloven verlangt 5 Jahre Aufbewahrung. Backup (unten) regelmäßig ziehen und außerhalb des Servers speichern. Vor der ersten echten Rechnung einmal vom Revisor/Buchhalter anschauen lassen.
 
+## 5b. Auftrag aus einer Notiz (z. B. WF-Launcher)
+- Im neuen Auftrag „📋 Aus Notiz ausfüllen“ tippen: die App holt die kopierte Notiz aus der Zwischenablage (beim ersten Mal fragt der Browser nach Erlaubnis; sonst Notiz ins Feld einfügen).
+- Oder per Link: `…/auftraege/index.php#/new?note=TEXT`.
+- Die Notiz wird auf die Felder verteilt: Kunde (bestehender Kunde wird über Telefon, E-Mail oder Namen erkannt, sonst ein Knopf zum Anlegen), Titel, Menge, Artikel, Verfahren (inkl. „10 min pro Stück“), Abgabetermin (z. B. 14.11., „Ende November“, „KW 47“, „Freitag“ – nie am Wochenende), Preis (Stückpreis × Menge), Beschreibung. Die Original-Notiz steht immer unter „Notizen“.
+- Mit Claude-Schlüssel (Einstellungen → Belegerkennung) liest Claude die Notiz, auch frei formuliert auf Deutsch oder Dänisch; ohne Schlüssel arbeiten feste Regeln.
+
 ## 6. Als App auf dem Handy
 Seite im Handy-Browser öffnen → Menü → „Zur Startseite hinzufügen“ (Android/Chrome: „App installieren“).
 

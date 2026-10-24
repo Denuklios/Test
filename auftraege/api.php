@@ -6,6 +6,7 @@ require_once __DIR__ . '/inc/invoice.php';
 require __DIR__ . '/inc/confirm.php';
 require_once __DIR__ . '/inc/expense.php';
 require_once __DIR__ . '/inc/tax.php';
+require_once __DIR__ . '/inc/note.php';
 
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
@@ -1708,6 +1709,16 @@ try {
             readfile($f);
             @unlink($f);
             exit;
+        }
+
+        // Notiz (z. B. aus dem WF-Launcher) in Auftragsfelder verteilen
+        case 'note_parse': {
+            need_post();
+            $txt = s($in, 'text', 5000);
+            if ($txt === '') {
+                wf_fail('nothing');
+            }
+            wf_json(['ok' => true, 'note' => wf_note_parse($db, $txt)]);
         }
 
         case 'journal_verify':

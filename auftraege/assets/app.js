@@ -368,13 +368,40 @@ route(/^\/new\?(.*)$/, (qs) => orderForm(null, 0, new URLSearchParams(qs).get('n
 route(/^\/new\/customer\/(\d+)$/, (cid) => orderForm(null, +cid));
 route(/^\/order\/(\d+)\/edit$/, async (id) => orderForm((await api('order', { params: { id } })).order));
 
+// Notiz aus der Zwischenablage (z. B. vom WF-Launcher kopiert) oder eingefügt übernehmen
+function noteCard() {
+  const ta = h('textarea', { rows: 3, placeholder: t('note_paste_ph') });
+  const box = h('div', { class: 'hidden', style: 'margin-top:8px' }, ta, h('div', { class: 'row end', style: 'margin-top:6px' }, h('button', { type: 'button', class: 'btn primary small', onclick: () => { if (ta.value.trim()) location.hash = '#/new?note=' + encodeURIComponent(ta.value.trim()); } }, t('note_apply'))));
+  return h('div', { class: 'card' }, h('button', { type: 'button', class: 'btn', onclick: async () => {
+    try { const txt = (await navigator.clipboard.readText()).trim(); if (txt) { location.hash = '#/new?note=' + encodeURIComponent(txt); return; } } catch (e) { /* kein Zugriff: zum Einfügen anbieten */ }
+    box.classList.remove('hidden'); ta.focus();
+  } }, '📋 ' + t('note_from_clip')), box);
+}
+
 async function orderForm(o, presetCustomer, note = '') {
   const isNew = !o;
   note = note.trim();
-  const D = o || { id: 0, customer_id: presetCustomer || 0, title: note.split('\n')[0].slice(0, 200), description: note.includes('\n') ? note : '', article: '', qty: 1, price: 0, deposit: 0, currency: 'DKK', pay_status: 'open', status: 'inquiry', due_date: '', plan_date: '', start_time: '', finish_date: '', worker_id: 1, notes: '', processes: [], files: [] };
+  // Notiz auswerten (Claude, wenn eingerichtet, sonst feste Regeln) und Felder vorbelegen
+  let NP = null;
+  if (isNew && note) { try { NP = (await api('note_parse', { body: { text: note } })).note; } catch (e) { toast(e.message); } }
+  const D = o || { id: 0, customer_id: presetCustomer || 0, title: '', description: '', article: '', qty: 1, price: 0, deposit: 0, currency: 'DKK', pay_status: 'open', status: 'inquiry', due_date: '', plan_date: '', start_time: '', finish_date: '', worker_id: 1, notes: '', processes: [], files: [] };
+  if (isNew && note) {
+    D.title = (NP && NP.title) || note.split('\n')[0].slice(0, 200);
+    D.notes = note;
+    if (NP) {
+      if (NP.qty) D.qty = NP.qty;
+      if (NP.article) D.article = NP.article;
+      if (NP.price) D.price = NP.price;
+      if (NP.currency) D.currency = NP.currency;
+      if (NP.due_date) D.due_date = NP.due_date;
+      D.description = NP.description || '';
+      D.processes = (NP.processes || []).map((p) => ({ process_id: p.process_id, per_piece: p.per_piece || 10 }));
+      if (NP.customer && NP.customer.id) D.customer_id = NP.customer.id;
+    }
+  }
   let cust = null;
   if (D.customer_id) cust = (await api('customer', { params: { id: D.customer_id } })).customer;
-  if (isNew && cust) D.currency = cust.currency;
+  if (isNew && cust && !(NP && NP.currency)) D.currency = cust.currency;
   const F = {};
   const err = h('div', { class: 'err' });
   const field = (k, label, el) => { F[k] = el; return h('div', {}, h('label', {}, label), el); };
@@ -401,6 +428,19 @@ async function orderForm(o, presetCustomer, note = '') {
     }, 200);
   });
   custBox.append(custName, sug);
+  // Kunde aus der Notiz noch nicht vorhanden: mit einem Tipp anlegen (Name, Firma, Telefon, E-Mail)
+  const nc = NP && NP.customer;
+  if (nc && !nc.id && (nc.name || nc.company)) {
+    const label = [nc.company, nc.name].filter(Boolean).join(' · ');
+    custName.value = label;
+    const addBtn = h('button', { type: 'button', class: 'btn small primary', style: 'margin-top:6px', onclick: async () => {
+      try {
+        const r = await api('customer_save', { body: { name: nc.name || nc.company, company: nc.name ? nc.company : '', phone: nc.phone, email: nc.email, currency: F.currency.value } });
+        pickCust({ id: r.id, name: nc.name || nc.company, company: nc.name ? nc.company : '', currency: F.currency.value }); addBtn.remove(); toast(t('saved'));
+      } catch (e) { toast(e.message); }
+    } }, '+ ' + t('create_customer', label) + (nc.phone ? ' · ' + nc.phone : ''));
+    custBox.append(addBtn);
+  }
 
   // --- Person (nur sichtbar, wenn es Mitarbeiter gibt)
   let wid = workerById(D.worker_id) && workerById(D.worker_id).active ? +D.worker_id : 1;
@@ -457,7 +497,7 @@ async function orderForm(o, presetCustomer, note = '') {
 
   // --- Produktionstag: Vorschlaege oben, danach Tageswahl, Uhrzeit, Abgabetermin
   let finish = D.finish_date || '';
-  let dueTouched = !isNew;
+  let dueTouched = !isNew || !!D.due_date;
   let dueAuto = false;
   const planPicker = dayPicker(D.plan_date, async () => {
     const total = totalMin();
@@ -564,6 +604,9 @@ async function orderForm(o, presetCustomer, note = '') {
   const sec = (title, ...kids) => h('div', { class: 'card grid' }, h('h3', { class: 'sechead' }, title), ...kids);
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, isNew ? t('new_order') : D.nr), h('h1', {}, isNew ? t('capture_a') : t('edit'), ' ', isNew && h('em', {}, t('capture_b'))))),
+    isNew && note ? h('div', { class: 'card aibox' }, '✨ ' + t(NP && NP.source === 'ai' ? 'note_used_ai' : 'note_used'),
+      h('details', { style: 'margin-top:6px' }, h('summary', { class: 'muted' }, t('note_original')), h('pre', { class: 'notepre' }, note))) : null,
+    isNew && !note ? noteCard() : null,
     sec(t('form_order'),
       h('div', {}, h('label', {}, t('customer')), custBox),
       field('title', t('title'), inp('title', 'text', { placeholder: t('title_ph'), maxlength: 200 })),

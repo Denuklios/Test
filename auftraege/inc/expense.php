@@ -209,9 +209,19 @@ function wf_ai_scan(string $path, string $mime, array $co): array
     $src = $mime === 'application/pdf'
         ? ['type' => 'document', 'source' => ['type' => 'base64', 'media_type' => 'application/pdf', 'data' => $data]]
         : ['type' => 'image', 'source' => ['type' => 'base64', 'media_type' => $mime, 'data' => $data]];
+    return wf_ai_json([$src, ['type' => 'text', 'text' => $prompt]], $schema);
+}
+
+/** Ein Aufruf der Messages-API mit strukturierter JSON-Antwort (Schema). Direkter HTTPS-Aufruf, kein SDK auf dem Webhosting. */
+function wf_ai_json(array $content, array $schema): array
+{
+    $key = wf_ai_key();
+    if ($key === '') {
+        throw new RuntimeException('ai_no_key');
+    }
     $body = ['model' => 'claude-opus-5-5', 'max_tokens' => 16000, 'fallbacks' => 'default',
         'output_config' => ['effort' => 'low', 'format' => ['type' => 'json_schema', 'schema' => $schema]],
-        'messages' => [['role' => 'user', 'content' => [$src, ['type' => 'text', 'text' => $prompt]]]]];
+        'messages' => [['role' => 'user', 'content' => $content]]];
     $url = getenv('WF_AI_URL') ?: 'https://api.anthropic.com/v1/messages';   // nur Tests setzen WF_AI_URL
     if (getenv('WF_OFFLINE') && !getenv('WF_AI_URL')) {
         throw new RuntimeException('ai_unreachable');
