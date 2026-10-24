@@ -1,5 +1,6 @@
 window.WF_I18N = {
 de: {
+  note_working: 'Notiz wird gelesen und als Auftrag angelegt …', note_exists: 'Diese Notiz ist schon als Auftrag angelegt.', note_no_customer: 'Kein Kunde in der Notiz erkannt – bitte Kunde wählen, Rest ist ausgefüllt.', note_due_dropped: 'Termin aus der Notiz passte nicht in die Planung – bitte Abgabetermin prüfen.', note_done: '✓ Auftrag {0} aus Notiz angelegt ({1})', note_done_new: '✓ Auftrag {0} angelegt, neuer Kunde „{1}“',
   note_used: 'Aus der Notiz übernommen – bitte kurz prüfen.', note_used_ai: 'Claude hat die Notiz auf die Felder verteilt – bitte kurz prüfen.', note_original: 'Original-Notiz', note_from_clip: 'Aus Notiz ausfüllen (Zwischenablage)', note_paste_ph: 'Notiz hier einfügen (lange tippen → Einfügen)', note_apply: 'Übernehmen',
   alert_tax: '{0} Punkte in der Buchhaltung brauchen dich (Fristen, Belege, Backup)', tab_tax: 'Moms', tax_h1_a: 'Moms &', tax_h1_b: 'Fristen', todo_title: 'Was zu tun ist', todo_none: 'Alles erledigt – nichts offen.',
   per_q: '{0}. Quartal {1}', per_h: '{0}. Halbjahr {1}', periods_title: 'Momsperioden ({0})', deadline: 'Frist',
@@ -156,6 +157,7 @@ de: {
   err_duplicate_admin_id: 'Admin-ID doppelt vergeben.', err_unknown_action: 'Unbekannte Aktion.', err_bad_json: 'Ungültige Daten.', err_bad_date: 'Datum ungültig.', err_range_too_large: 'Zeitraum zu groß.', err_nothing: 'Nichts zu ändern.', err_post_required: 'Ungültige Anfrage.'
 },
 da: {
+  note_working: 'Noten læses og oprettes som ordre …', note_exists: 'Denne note er allerede oprettet som ordre.', note_no_customer: 'Ingen kunde fundet i noten – vælg kunde, resten er udfyldt.', note_due_dropped: 'Datoen fra noten passede ikke i planen – kontrollér afleveringsdato.', note_done: '✓ Ordre {0} oprettet fra note ({1})', note_done_new: '✓ Ordre {0} oprettet, ny kunde „{1}“',
   note_used: 'Overtaget fra noten – kontrollér kort.', note_used_ai: 'Claude har fordelt noten på felterne – kontrollér kort.', note_original: 'Original note', note_from_clip: 'Udfyld fra note (udklipsholder)', note_paste_ph: 'Indsæt noten her (tryk længe → Indsæt)', note_apply: 'Overtag',
   alert_tax: '{0} punkter i regnskabet kræver din opmærksomhed (frister, bilag, backup)', tab_tax: 'Moms', tax_h1_a: 'Moms &', tax_h1_b: 'frister', todo_title: 'Det skal gøres', todo_none: 'Alt er klaret – intet udestående.',
   per_q: '{0}. kvartal {1}', per_h: '{0}. halvår {1}', periods_title: 'Momsperioder ({0})', deadline: 'Frist',

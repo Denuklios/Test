@@ -2,6 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
+const APP_VERSION = '2026-10-24 · Notiz→Auftrag';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -364,7 +365,42 @@ function slotModal(title, day, r, current, onPick) {
 // ---------- Auftrag Formular (neu / bearbeiten) ----------
 route(/^\/new$/, () => orderForm(null));
 // Aus einer Notiz (z. B. WF-Launcher): #/new?note=Text -> erste Zeile = Titel, ganzer Text = Beschreibung
-route(/^\/new\?(.*)$/, (qs) => orderForm(null, 0, new URLSearchParams(qs).get('note') || ''));
+route(/^\/new\?([\s\S]*)$/, (qs) => noteToOrder(new URLSearchParams(qs).get('note') || ''));
+route(/^\/note-form\?([\s\S]*)$/, (qs) => orderForm(null, 0, new URLSearchParams(qs).get('note') || ''));
+
+// Notiz -> fertiger Auftrag: Kunde finden oder anlegen, Auftrag speichern, öffnen. Nur ohne erkennbaren Kunden: ausgefülltes Formular.
+async function noteToOrder(note) {
+  note = note.trim();
+  if (!note) { location.hash = '#/new'; return; }
+  show(h('div', { class: 'card' }, h('p', { class: 'muted', style: 'margin:0' }, '✨ ' + t('note_working'))));
+  // Doppelt getippt? Dann den schon angelegten Auftrag öffnen
+  const key = 'wf_note_' + [...note].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7);
+  try { const prev = localStorage.getItem(key); if (prev) { location.hash = `#/order/${prev}`; toast(t('note_exists')); return; } } catch (e) { /* kein Speicher */ }
+  const toForm = (msg) => { if (msg) toast(msg); history.replaceState(null, '', '#/note-form?note=' + encodeURIComponent(note)); render(); };
+  let NP;
+  try { NP = (await api('note_parse', { body: { text: note } })).note; } catch (e) { return toForm(e.message); }
+  const c = NP.customer || {};
+  let cid = c.id, newCust = false;
+  if (!cid && (c.name || c.company || c.phone)) {
+    try {
+      const r = await api('customer_save', { body: { name: c.name || c.company || c.phone, company: c.name ? c.company : '', phone: c.phone, email: c.email, currency: NP.currency || 'DKK' } });
+      cid = r.id; newCust = true;
+    } catch (e) { return toForm(e.message); }
+  }
+  if (!cid) return toForm(t('note_no_customer'));
+  const body = { id: 0, customer_id: cid, worker_id: 1, title: NP.title || note.split('\n')[0].slice(0, 200), qty: NP.qty || 1, article: NP.article || '',
+    price: NP.price || 0, currency: NP.currency || 'DKK', pay_status: 'open', deposit: 0, status: 'inquiry', due_date: NP.due_date || '', plan_date: '', start_time: '',
+    description: NP.description || '', notes: note, processes: (NP.processes || []).map((p) => ({ process_id: p.process_id, per_piece: p.per_piece || 10 })) };
+  let r;
+  try { r = await api('order_save', { body }); }
+  catch (e) {
+    // Termin passt nicht (z. B. vor Produktionsende oder gesperrt): ohne Termin speichern, die App plant selbst
+    try { r = await api('order_save', { body: { ...body, due_date: '' } }); toast(t('note_due_dropped')); } catch (e2) { return toForm(e2.message); }
+  }
+  try { localStorage.setItem(key, String(r.order.id)); } catch (e) { /* egal */ }
+  toast(t(newCust ? 'note_done_new' : 'note_done', r.order.nr, c.company || c.name || ''));
+  location.hash = `#/order/${r.order.id}`;
+}
 route(/^\/new\/customer\/(\d+)$/, (cid) => orderForm(null, +cid));
 route(/^\/order\/(\d+)\/edit$/, async (id) => orderForm((await api('order', { params: { id } })).order));
 
@@ -1477,6 +1513,7 @@ route(/^\/settings$/, async () => {
     h('div', { class: 'card' }, h('h3', {}, t('users')), h('p', { class: 'muted' }, t('users_text', me.user.name)),
       h('div', { class: 'tscroll' }, h('table', { class: 't' }, h('tr', {}, h('th', {}, t('name')), h('th', {}, 'Admin-ID'), h('th', {}, t('active'))), userRows.map((r) => r.row))),
       h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { try { await api('users_save', { body: { users: userRows.map((r) => ({ id: r.u.id, name: r.name.value, wf_admin_id: r.wid.value, active: r.act.checked })) } }); await reloadMe(); toast(t('saved')); } catch (e) { toast(e.message); } } }, t('save')))),
+    h('p', { class: 'muted', style: 'text-align:center;font-size:.8rem' }, 'Version ' + APP_VERSION),
     h('div', { class: 'card' }, h('h3', {}, t('data')), h('div', { class: 'row' },
       h('a', { class: 'btn', href: `${BASE}api.php?a=backup` }, t('backup')),
       h('button', { class: 'btn', onclick: async () => { const r = await api('purge', { body: {} }); toast(t('purged', r.purged)); } }, t('purge')))));
@@ -1497,6 +1534,8 @@ function buildChrome() {
 (async () => {
   document.documentElement.lang = lang;
   try { me = await api('me'); } catch (e) { return; }
+  const qNote = new URLSearchParams(location.search).get('note');
+  if (qNote) history.replaceState(null, '', location.pathname + '#/new?note=' + encodeURIComponent(qNote));
   buildChrome();
   if ('serviceWorker' in navigator) navigator.serviceWorker.register(`${BASE}sw.js`).catch(() => {});
   render();
