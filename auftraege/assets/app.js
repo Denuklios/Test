@@ -363,12 +363,15 @@ function slotModal(title, day, r, current, onPick) {
 
 // ---------- Auftrag Formular (neu / bearbeiten) ----------
 route(/^\/new$/, () => orderForm(null));
+// Aus einer Notiz (z. B. WF-Launcher): #/new?note=Text -> erste Zeile = Titel, ganzer Text = Beschreibung
+route(/^\/new\?(.*)$/, (qs) => orderForm(null, 0, new URLSearchParams(qs).get('note') || ''));
 route(/^\/new\/customer\/(\d+)$/, (cid) => orderForm(null, +cid));
 route(/^\/order\/(\d+)\/edit$/, async (id) => orderForm((await api('order', { params: { id } })).order));
 
-async function orderForm(o, presetCustomer) {
+async function orderForm(o, presetCustomer, note = '') {
   const isNew = !o;
-  const D = o || { id: 0, customer_id: presetCustomer || 0, title: '', description: '', article: '', qty: 1, price: 0, deposit: 0, currency: 'DKK', pay_status: 'open', status: 'inquiry', due_date: '', plan_date: '', start_time: '', finish_date: '', worker_id: 1, notes: '', processes: [], files: [] };
+  note = note.trim();
+  const D = o || { id: 0, customer_id: presetCustomer || 0, title: note.split('\n')[0].slice(0, 200), description: note.includes('\n') ? note : '', article: '', qty: 1, price: 0, deposit: 0, currency: 'DKK', pay_status: 'open', status: 'inquiry', due_date: '', plan_date: '', start_time: '', finish_date: '', worker_id: 1, notes: '', processes: [], files: [] };
   let cust = null;
   if (D.customer_id) cust = (await api('customer', { params: { id: D.customer_id } })).customer;
   if (isNew && cust) D.currency = cust.currency;
@@ -539,8 +542,8 @@ async function orderForm(o, presetCustomer) {
     payRow, field('deposit', t('deposit'), inp('deposit', 'number', { step: '0.01', min: 0, inputmode: 'decimal' })),
     field('description', t('description'), h('textarea', {}, D.description)),
     field('notes', t('notes'), h('textarea', {}, D.notes)));
-  const moreCard = h('div', { class: 'card hidden' }, more);
-  const moreBtn = h('button', { class: 'btn', type: 'button', onclick: () => { moreCard.classList.toggle('hidden'); moreBtn.textContent = moreCard.classList.contains('hidden') ? t('more_details') : t('less_details'); } }, t('more_details'));
+  const moreCard = h('div', { class: 'card' + (isNew && D.description ? '' : ' hidden') }, more);
+  const moreBtn = h('button', { class: 'btn', type: 'button', onclick: () => { moreCard.classList.toggle('hidden'); moreBtn.textContent = moreCard.classList.contains('hidden') ? t('more_details') : t('less_details'); } }, moreCard.classList.contains('hidden') ? t('more_details') : t('less_details'));
 
   const save = async (btn) => {
     err.textContent = '';
