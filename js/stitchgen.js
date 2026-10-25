@@ -171,7 +171,7 @@
   function smoothRail(rail) {
     const n = rail.length;
     if (n < 4) return rail;
-    for (let i = 1; i < n; i++) if (G.dist(rail[i - 1], rail[i]) > 1.2) return rail;
+    for (let i = 1; i < n; i++) if (G.dist(rail[i - 1], rail[i]) > 0.9) return rail;
     const sharp = rail.map((p, i) => {
       if (i === 0 || i === n - 1) return true;
       const a = rail[i - 1], b = rail[i + 1];
@@ -180,7 +180,7 @@
       return l1 > 1e-9 && l2 > 1e-9 && (v1x * v2x + v1y * v2y) / (l1 * l2) < 0.42; // Knick über ca. 65°
     });
     let cur = rail.map((p) => ({ x: p.x, y: p.y }));
-    for (let it = 0; it < 3; it++) {
+    for (let it = 0; it < 2; it++) {
       const nx = cur.map((p) => ({ x: p.x, y: p.y }));
       for (let i = 1; i < n - 1; i++) {
         if (sharp[i] || sharp[i - 1] && sharp[i + 1]) continue;

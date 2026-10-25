@@ -119,4 +119,48 @@
     [/^(\d+): Neue Farbe – (.+)$/, '$1: New color – $2'],
     [/^Testversion: noch (\d+) (Tag|Tage) \(bis (.+)\)\.$/, (m, n, x, d) => `Trial: ${n} day${n === '1' ? '' : 's'} left (until ${d}).`],
   );
+
+  Object.assign(E.exact, {
+    "Automatisch einstellen": "Set automatically",
+    "Analysiert das Bild (Farben, Strichbreite) und setzt passende Werte.": "Analyzes the image (colors, stroke width) and sets suitable values.",
+    "Bild &amp; Farben": "Image &amp; colors",
+    "Präzisions-Scan (Kanten)": "Precision scan (edges)",
+    "Stichart": "Stitch type",
+    "Aufräumen": "Cleanup",
+    "Scan-Auflösung (Pixel pro mm)": "Scan resolution (pixels per mm)",
+    "Kanten glätten (0 = roh … 0,5 = sehr weich)": "Edge smoothing (0 = raw … 0.5 = very soft)",
+    "Bild-Weichzeichnung vor dem Scan (px)": "Image blur before the scan (px)",
+    "Ecken erhalten ab Winkel (°)": "Keep corners from angle (°)",
+    "Genauigkeit der Kurve (mm Toleranz)": "Curve accuracy (mm tolerance)",
+    "Dünner als … mm = Laufstich (0 = aus)": "Thinner than … mm = running stitch (0 = off)",
+    "Satin: Stützpunkt-Abstand (mm, kleiner = runder)": "Satin: support point spacing (mm, smaller = rounder)",
+    "Satin: Knickwinkel für Stützpunkt (°)": "Satin: bend angle for support point (°)",
+    "Satin-Dichte (Abstand mm, 0 = Standard)": "Satin density (spacing mm, 0 = default)",
+    "Tatami-Dichte (Abstand mm, 0 = Standard)": "Tatami density (spacing mm, 0 = default)",
+    "Überlappungen entfernen": "Remove overlaps",
+    "Überstand an Übergängen (mm)": "Overlap at transitions (mm)",
+    "Automatisch: schmale Formen = Satin, breite = Tatami": "Automatic: narrow shapes = satin, wide = tatami",
+  });
+
+  Object.assign(E.exact, {
+    "Automatisch einstellen": "Set automatically",
+    "Analysiert das Bild (Farben, Strichbreite) und setzt passende Werte.": "Analyzes the image (colors, stroke width) and sets suitable values.",
+    "Bild & Farben": "Image & colors",
+    "Präzisions-Scan (Kanten)": "Precision scan (edges)",
+    "Stichart": "Stitch type",
+    "Aufräumen": "Cleanup",
+    "Scan-Auflösung (Pixel pro mm)": "Scan resolution (pixels per mm)",
+    "Kanten glätten (0 = roh … 0,5 = sehr weich)": "Edge smoothing (0 = raw … 0.5 = very soft)",
+    "Bild-Weichzeichnung vor dem Scan (px)": "Image blur before the scan (px)",
+    "Ecken erhalten ab Winkel (°)": "Keep corners from angle (°)",
+    "Genauigkeit der Kurve (mm Toleranz)": "Curve accuracy (mm tolerance)",
+    "Dünner als … mm = Laufstich (0 = aus)": "Thinner than … mm = running stitch (0 = off)",
+    "Satin: Stützpunkt-Abstand (mm, kleiner = runder)": "Satin: support point spacing (mm, smaller = rounder)",
+    "Satin: Knickwinkel für Stützpunkt (°)": "Satin: bend angle for support point (°)",
+    "Satin-Dichte (Abstand mm, 0 = Standard)": "Satin density (spacing mm, 0 = default)",
+    "Tatami-Dichte (Abstand mm, 0 = Standard)": "Tatami density (spacing mm, 0 = default)",
+    "Überlappungen entfernen": "Remove overlaps",
+    "Überstand an Übergängen (mm)": "Overlap at transitions (mm)",
+    "Automatisch: schmale Formen = Satin, breite = Tatami": "Automatic: narrow shapes = satin, wide = tatami",
+  });
 })(typeof window !== 'undefined' ? window : globalThis);

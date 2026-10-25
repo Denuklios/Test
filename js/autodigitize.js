@@ -236,10 +236,14 @@
     const mode = opts.mode || 'auto';
     const satinMax = opts.satinMax ?? 7;
     let cursor = null;
+    const SC = HW.scan;
+    const precise = opts.precise !== false && !!SC;
     for (const lab of order) {
       const colorKey = palette[used.indexOf(lab)];
       const items = [];
       const comps = list.filter((c) => c.label === lab);
+      // Präzisions-Scan: weiches Feld dieser Farbe (0,5 = genau auf der Kante)
+      const field = precise ? SC.blur(SC.membership(data, w, h, q.centers, lab), w, h, opts.edgeBlur ?? 0.7) : null;
       for (const c of comps) {
         // auf die Region zuschneiden (schneller)
         let x0 = w, y0 = h, x1 = 0, y1 = 0;
@@ -249,19 +253,47 @@
         const mask = new Uint8Array(cw * ch);
         for (const p of c.pixels) mask[(((p / w) | 0) - y0) * cw + (p % w) - x0] = 1;
         const toMMc = (p) => ({ x: opts.originX + (p.x + x0) * mm, y: opts.originY + (p.y + y0) * mm, c: p.c });
-        const rings = traceMask(mask, cw, ch)
-          .map((r) => smoothRing(r, opts.simplify ?? 0.7))
-          .filter((r) => r.length >= 3);
-        if (!rings.length) continue;
-        rings.sort((a, b) => Math.abs(G.signedArea(b)) - Math.abs(G.signedArea(a)));
-        const outer = rings[0].map(toMMc);
-        const allRings = rings.map((r) => r.map(toMMc));
-        const holes = rings.slice(1).filter((r) => Math.abs(G.signedArea(r)) * mm * mm >= (opts.minAreaMM2 || 2)).map((r) => r.map(toMMc));
+        let rings, outer, allRings, holes;
+        if (precise) {
+          // Feld auf die Region begrenzen (Nachbarn gleicher Farbe nicht mitnehmen) und mit der bereinigten Maske mischen
+          const m = new Float32Array(cw * ch), dil = new Uint8Array(cw * ch);
+          for (let i = 0; i < cw * ch; i++) m[i] = mask[i];
+          for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+            if (!mask[y * cw + x]) continue;
+            for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < cw && yy < ch) dil[yy * cw + xx] = 1; }
+          }
+          const mb = SC.blur(m, cw, ch, 1.0);
+          const fc = new Float32Array(cw * ch);
+          for (let y = 1; y < ch - 1; y++) for (let x = 1; x < cw - 1; x++) {
+            const i = y * cw + x;
+            fc[i] = dil[i] ? 0.6 * field[(y + y0) * w + (x + x0)] + 0.4 * mb[i] : 0;
+          }
+          const cr = SC.contours(fc, cw, ch, 0.5);
+          const co = { mm, ox: opts.originX + x0 * mm, oy: opts.originY + y0 * mm, sigma: opts.smooth ?? 0.18, corner: opts.corner ?? 55, step: 0.1 };
+          const cleaned = cr.map((r) => SC.cleanRing(r, co)).filter((c) => c.dense.length >= 8);
+          if (!cleaned.length) continue;
+          cleaned.sort((a, b) => Math.abs(G.signedArea(b.dense)) - Math.abs(G.signedArea(a.dense)));
+          const sgn = Math.sign(G.signedArea(cleaned[0].dense));
+          const keep = cleaned.filter((c, i) => i === 0 || Math.sign(G.signedArea(c.dense)) !== sgn);
+          const tol = opts.tol ?? 0.04;
+          outer = SC.toControlPoints(keep[0], tol);
+          allRings = keep.map((c) => c.dense);
+          holes = keep.slice(1).filter((c) => Math.abs(G.signedArea(c.dense)) >= (opts.minAreaMM2 || 2)).map((c) => SC.toControlPoints(c, tol));
+        } else {
+          rings = traceMask(mask, cw, ch)
+            .map((r) => smoothRing(r, opts.simplify ?? 0.7))
+            .filter((r) => r.length >= 3);
+          if (!rings.length) continue;
+          rings.sort((a, b) => Math.abs(G.signedArea(b)) - Math.abs(G.signedArea(a)));
+          outer = rings[0].map(toMMc);
+          allRings = rings.map((r) => r.map(toMMc));
+          holes = rings.slice(1).filter((r) => Math.abs(G.signedArea(r)) * mm * mm >= (opts.minAreaMM2 || 2)).map((r) => r.map(toMMc));
+        }
         const area = c.pixels.length * mm * mm;
         // Schmale Formen (Schrift, Linien, Bögen) -> drehende Satinsäulen
         let cols = null;
         if (mode !== 'tatami') {
-          const res = SA.shapeToColumns(mask, cw, ch, mm, { x: opts.originX + x0 * mm, y: opts.originY + y0 * mm }, allRings);
+          const res = SA.shapeToColumns(mask, cw, ch, mm, { x: opts.originX + x0 * mm, y: opts.originY + y0 * mm }, allRings, { station: opts.station, turnDeg: opts.turnDeg });
           if (res) {
             const ws = res.widths.slice().sort((a, b) => a - b);
             const p90 = ws[Math.floor(ws.length * 0.9)] || 0;
@@ -277,10 +309,22 @@
           const med = cols.widths.slice().sort((a, b) => a - b)[Math.floor(cols.widths.length / 2)];
           const ul = med < 1.4 ? 'none' : med < 3 ? 'center' : 'edge+zigzag';
           for (const col of cols.columns) {
+            const ws = [];
+            for (let k = 0; k + 1 < col.length; k += 2) ws.push(G.dist(col[k], col[k + 1]));
+            ws.sort((x, y) => x - y);
+            const cw0 = ws[Math.floor(ws.length / 2)] || 0;
+            const sP = G.lerp(col[0], col[1], 0.5), eP = G.lerp(col[col.length - 2], col[col.length - 1], 0.5);
+            if (opts.lineMax && cw0 < opts.lineMax) {
+              // sehr dünne Striche: Laufstich entlang der Mittellinie statt schmalem Satin
+              const mid = [];
+              for (let k = 0; k + 1 < col.length; k += 2) mid.push({ x: (col[k].x + col[k + 1].x) / 2, y: (col[k].y + col[k + 1].y) / 2, c: k > 0 && k + 2 < col.length });
+              items.push({ type: 'run', colorKey, points: mid, params: { ...HW.stitch.DEFAULTS.run, len: 2.0, style: cw0 < 0.6 ? 'triple' : 'single' }, s: sP, e: eP });
+              continue;
+            }
             items.push({
               type: 'colA', colorKey, points: col,
-              params: { ...HW.stitch.DEFAULTS.satin, underlay: ul, pull: med < 1.5 ? 0.1 : 0.2 },
-              s: G.lerp(col[0], col[1], 0.5), e: G.lerp(col[col.length - 2], col[col.length - 1], 0.5),
+              params: { ...HW.stitch.DEFAULTS.satin, underlay: ul, pull: med < 1.5 ? 0.1 : 0.2, ...(opts.satinSpacing ? { spacing: opts.satinSpacing } : {}) },
+              s: sP, e: eP,
             });
           }
           continue;
@@ -296,6 +340,7 @@
           type: 'fill', colorKey, points: outer, holes,
           params: {
             ...HW.stitch.DEFAULTS.fill,
+            ...(opts.fillSpacing ? { spacing: opts.fillSpacing } : {}),
             fillType: satin ? 'satin' : 'tatami',
             angle: satin ? Math.round(ang) : opts.angle ?? 45,
             underlay: satin ? 'none' : area > 40 ? 'edge+tatami' : 'edge',
@@ -321,8 +366,68 @@
         objects.push(it);
       }
     }
-    return { objects, palette };
+    let res = objects;
+    if (opts.overlap !== false && HW.boolean) { try { res = trimOverlaps(objects, opts.keepMM ?? 0.4); } catch (e) { res = objects; } }
+    return { objects: res, palette };
   }
 
-  HW.auto = { autoDigitize, quantize, traceMask, smoothRing, components };
+  // Verdeckte Teile entfernen: spätere Objekte liegen oben; frühere Säulen/Flächen werden darunter gekürzt
+  function trimOverlaps(objs, keep) {
+    const B = HW.boolean;
+    const isShape = (o) => o.type === 'fill' || o.type === 'colA';
+    const bb = objs.map((o) => { try { const r = isShape(o) ? B.ringsOf(o) : null; return r ? G.bbox(r.flat()) : null; } catch (e) { return null; } });
+    const hit = (a, b) => a && b && a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+    const out = [];
+    objs.forEach((o, i) => {
+      if (!isShape(o) || !bb[i]) { out.push(o); return; }
+      const cutters = [];
+      for (let j = i + 1; j < objs.length; j++) if (isShape(objs[j]) && hit(bb[i], bb[j])) cutters.push(objs[j]);
+      if (!cutters.length) { out.push(o); return; }
+      if (o.type === 'fill') {
+        const r = B.subtract(o, cutters, keep);
+        if (!r) { out.push(o); return; }
+        r.forEach((sh) => out.push({ ...o, points: sh.outer, holes: sh.holes }));
+      } else {
+        const r = B.trimColumn(o, cutters, keep);
+        if (!r) { out.push(o); return; }
+        r.forEach((pts) => out.push({ ...o, points: pts }));
+      }
+    });
+    return out;
+  }
+
+
+  // Automatische Einstellung: Farbanzahl (Ellbogen der Quantisierungsfehler), typische Strichbreite, Rauschen.
+  function analyze(img, widthMM) {
+    const { data, width: w, height: h } = img;
+    const mm = widthMM / w;
+    const err = (q) => {
+      let e = 0, n = 0;
+      for (let i = 0; i < q.labels.length; i += 3) {
+        const l = q.labels[i]; if (l < 0) continue;
+        const c = q.centers[l];
+        e += (data[i * 4] - c[0]) ** 2 + (data[i * 4 + 1] - c[1]) ** 2 + (data[i * 4 + 2] - c[2]) ** 2; n++;
+      }
+      return n ? e / n : 0;
+    };
+    const errs = [];
+    for (let k = 1; k <= 8; k++) errs[k] = err(quantize(data, w, h, k));
+    let k = 1;
+    for (let i = 2; i <= 8; i++) { if (errs[i - 1] > 150 && errs[i] < errs[i - 1] * 0.55) k = i; else if (errs[i - 1] <= 150) break; }
+    const q = quantize(data, w, h, k);
+    // Hintergrund = häufigste Farbe am Bildrand
+    const edge = new Map();
+    for (let x = 0; x < w; x++) for (const y of [0, h - 1]) { const l = q.labels[y * w + x]; edge.set(l, (edge.get(l) || 0) + 1); }
+    let bg = -1, bn = 0; edge.forEach((n, l) => { if (n > bn) { bn = n; bg = l; } });
+    // Laufbreiten der Vordergrundpixel (horizontal + vertikal)
+    const runs = [];
+    for (let y = 0; y < h; y += 2) { let r = 0; for (let x = 0; x <= w; x++) { const fg = x < w && q.labels[y * w + x] >= 0 && q.labels[y * w + x] !== bg; if (fg) r++; else { if (r > 1) runs.push(r); r = 0; } } }
+    for (let x = 0; x < w; x += 2) { let r = 0; for (let y = 0; y <= h; y++) { const fg = y < h && q.labels[y * w + x] >= 0 && q.labels[y * w + x] !== bg; if (fg) r++; else { if (r > 1) runs.push(r); r = 0; } } }
+    runs.sort((a, b) => a - b);
+    const med = (runs[Math.floor(runs.length * 0.5)] || 4) * mm;
+    const p90 = (runs[Math.floor(runs.length * 0.9)] || 6) * mm;
+    return { colors: Math.max(1, Math.min(8, k - (bg >= 0 ? 0 : 0))), strokeMed: med, strokeP90: p90, satinMax: Math.max(3, Math.min(12, Math.round(p90 * 0.8))), minArea: Math.max(0.25, +(med * med * 0.15).toFixed(2)), lineMax: med < 0.9 ? 0.8 : 0 };
+  }
+
+  HW.auto = { autoDigitize, analyze, quantize, traceMask, smoothRing, components };
 })(typeof window !== 'undefined' ? window : globalThis);

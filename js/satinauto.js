@@ -421,8 +421,8 @@
           acc += G.dist(P[i - 1], P[i]);
           const turn = Math.acos(Math.max(-1, Math.min(1, T[i].x * lastT.x + T[i].y * lastT.y)));
           const wi = W[i].wl + W[i].wr;
-          if (acc >= (opts.station || 2.2) || turn > (12 * Math.PI) / 180 || Math.abs(wi - lastW) > Math.max(0.35, lastW * 0.3)) {
-            if (acc >= 0.6) { st.push(i); acc = 0; lastT = T[i]; lastW = wi; }
+          if (acc >= (opts.station || 1.4) || turn > ((opts.turnDeg || 8) * Math.PI) / 180 || Math.abs(wi - lastW) > Math.max(0.3, lastW * 0.22)) {
+            if (acc >= 0.5) { st.push(i); acc = 0; lastT = T[i]; lastW = wi; }
           }
         }
         st.push(P.length - 1);

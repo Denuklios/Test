@@ -3363,18 +3363,35 @@
       return;
     }
     const b = st.bg;
+    const sec = (t, inner) => `<fieldset class="aSec"><legend>${t}</legend>${inner}</fieldset>`;
     modal('Auto-Digitalisieren',
-      field('Anzahl Farben', '<input id="aK" type="number" min="1" max="15" value="4">') +
-      field('Breite Stickmotiv (mm)', `<input id="aW" type="number" value="${Math.round(b.w)}">`) +
-      field('Detailstufe (Pixel pro mm)', '<input id="aR" type="number" min="2" max="16" value="8">') +
-      field('Kleinste Fläche (mm²)', '<input id="aMin" type="number" step="0.25" value="1">') +
-      field('Stichart', '<select id="aMode"><option value="auto">Automatisch: Schrift &amp; schmale Formen = Satin, breite = Tatami</option><option value="tatami">Nur Tatami</option></select>') +
-      field('Satin bis Strichbreite (mm)', '<input id="aSat" type="number" step="0.5" value="7">') +
-      field('Tatami-Winkel (°)', '<input id="aAng" type="number" value="45">') +
-      field('Hintergrund weglassen', '<input type="checkbox" id="aBg" checked>') +
-      field('Konturen (Laufstich)', '<input type="checkbox" id="aOut">') +
-      field('Vorhandene Objekte ersetzen', '<input type="checkbox" id="aRep">') +
-      '<canvas id="aPrev" width="480" height="300"></canvas><p style="color:#6a7480">Vorschau zeigt die erkannten Farbflächen. Danach kann jedes Objekt einzeln umgeformt, umgefärbt und mit anderen Sticheigenschaften versehen werden.</p>',
+      '<p style="margin:0 0 6px"><button id="aAuto" type="button">Automatisch einstellen</button> <span style="color:#6a7480">Analysiert das Bild (Farben, Strichbreite) und setzt passende Werte.</span></p>' +
+      sec('Bild &amp; Farben',
+        field('Anzahl Farben', '<input id="aK" type="number" min="1" max="15" value="4">') +
+        field('Breite Stickmotiv (mm)', `<input id="aW" type="number" value="${Math.round(b.w)}">`) +
+        field('Hintergrund weglassen', '<input type="checkbox" id="aBg" checked>') +
+        field('Kleinste Fläche (mm²)', '<input id="aMin" type="number" step="0.25" value="1">')) +
+      sec('Präzisions-Scan (Kanten)',
+        field('Scan-Auflösung (Pixel pro mm)', '<input id="aR" type="number" min="2" max="16" value="8">') +
+        field('Kanten glätten (0 = roh … 0,5 = sehr weich)', '<input id="aSm" type="number" step="0.02" min="0" max="0.6" value="0.18">') +
+        field('Bild-Weichzeichnung vor dem Scan (px)', '<input id="aBl" type="number" step="0.1" min="0" max="3" value="0.7">') +
+        field('Ecken erhalten ab Winkel (°)', '<input id="aCo" type="number" min="20" max="120" value="55">') +
+        field('Genauigkeit der Kurve (mm Toleranz)', '<input id="aTol" type="number" step="0.01" min="0.01" max="0.3" value="0.04">')) +
+      sec('Stichart',
+        field('Stichart', '<select id="aMode"><option value="auto">Automatisch: schmale Formen = Satin, breite = Tatami</option><option value="tatami">Nur Tatami</option></select>') +
+        field('Satin bis Strichbreite (mm)', '<input id="aSat" type="number" step="0.5" value="7">') +
+        field('Dünner als … mm = Laufstich (0 = aus)', '<input id="aLine" type="number" step="0.1" min="0" max="2" value="0">') +
+        field('Satin: Stützpunkt-Abstand (mm, kleiner = runder)', '<input id="aSt" type="number" step="0.1" min="0.5" max="4" value="1.4">') +
+        field('Satin: Knickwinkel für Stützpunkt (°)', '<input id="aTu" type="number" min="2" max="30" value="8">') +
+        field('Satin-Dichte (Abstand mm, 0 = Standard)', '<input id="aSS" type="number" step="0.05" min="0" max="1" value="0">') +
+        field('Tatami-Dichte (Abstand mm, 0 = Standard)', '<input id="aFS" type="number" step="0.05" min="0" max="1" value="0">') +
+        field('Tatami-Winkel (°)', '<input id="aAng" type="number" value="45">')) +
+      sec('Aufräumen',
+        field('Überlappungen entfernen', '<input type="checkbox" id="aOv" checked>') +
+        field('Überstand an Übergängen (mm)', '<input id="aKeep" type="number" step="0.1" min="0" max="1" value="0.4">') +
+        field('Konturen (Laufstich)', '<input type="checkbox" id="aOut">') +
+        field('Vorhandene Objekte ersetzen', '<input type="checkbox" id="aRep">')) +
+      '<canvas id="aPrev" width="480" height="300"></canvas><p id="aInfo" style="color:#6a7480">„Vorschau“ rechnet die echten Stickobjekte (Kanten dunkel, Säulenrichtung als Linien) mit den aktuellen Einstellungen. Danach kann jedes Objekt einzeln umgeformt, umgefärbt und bearbeitet werden.</p>',
       [{ label: 'Vorschau', action: () => { preview(); return false; } }, { label: 'Abbrechen' },
         { label: 'Digitalisieren', primary: true, action: () => { doAuto(); } }]);
     const sample = () => {
@@ -3385,34 +3402,74 @@
       const x = c.getContext('2d'); x.drawImage(b._img, 0, 0, w, h);
       return x.getImageData(0, 0, w, h);
     };
+    const options = () => {
+      const wmm = num('aW') || b.w;
+      const o = {
+        colors: Math.max(1, Math.min(15, num('aK') || 4)), widthMM: wmm, originX: b.x, originY: b.y,
+        minAreaMM2: num('aMin') || 1, removeBg: $('#aBg').checked, satinMax: num('aSat') || 7, mode: val('aMode'), outline: $('#aOut').checked, angle: num('aAng') || 45,
+        smooth: num('aSm'), edgeBlur: num('aBl'), corner: num('aCo') || 55, tol: num('aTol') || 0.04,
+        lineMax: num('aLine') || 0, station: num('aSt') || 1.4, turnDeg: num('aTu') || 8,
+        satinSpacing: num('aSS') || 0, fillSpacing: num('aFS') || 0,
+        overlap: $('#aOv').checked, keepMM: num('aKeep'),
+      };
+      return o;
+    };
+    const set = (id, v) => { const e = $('#' + id); if (e) e.value = v; };
+    $('#aAuto').onclick = () => {
+      const img = sample();
+      const a = HW.auto.analyze(img, num('aW') || b.w);
+      set('aK', a.colors); set('aSat', a.satinMax); set('aMin', a.minArea); set('aLine', a.lineMax);
+      set('aSm', a.strokeMed < 1.5 ? 0.12 : 0.2); set('aSt', a.strokeMed < 1.5 ? 1.0 : 1.4);
+      $('#aInfo').textContent = `Erkannt: ${a.colors} Farben, typische Strichbreite ${a.strokeMed.toFixed(1)} mm. Werte wurden gesetzt.`;
+      preview();
+    };
     const preview = () => {
       const img = sample();
-      const q = HW.auto.quantize(img.data, img.width, img.height, Math.max(1, Math.min(15, num('aK') || 4)));
       const c = $('#aPrev'); c.width = img.width; c.height = img.height;
-      const x = c.getContext('2d'); const out = x.createImageData(img.width, img.height);
-      for (let i = 0; i < q.labels.length; i++) {
-        const l = q.labels[i]; if (l < 0) continue;
-        out.data.set([...q.centers[l], 255], i * 4);
+      const x = c.getContext('2d');
+      x.putImageData(img, 0, 0);
+      x.fillStyle = 'rgba(255,255,255,.7)'; x.fillRect(0, 0, c.width, c.height);
+      let r;
+      try { r = HW.auto.autoDigitize(img, options()); } catch (e) { $('#aInfo').textContent = 'Vorschau fehlgeschlagen: ' + e.message; return; }
+      const o = options(), s = img.width / o.widthMM;
+      const P = (p) => [(p.x - b.x) * s, (p.y - b.y) * s];
+      let n = 0;
+      for (const ob of r.objects) {
+        n++;
+        x.strokeStyle = ob.colorKey; x.fillStyle = ob.colorKey; x.lineWidth = 1;
+        if (ob.type === 'colA') {
+          x.globalAlpha = 0.55; x.beginPath();
+          for (let i = 0; i + 1 < ob.points.length; i += 2) { const a = P(ob.points[i]), d = P(ob.points[i + 1]); x.moveTo(a[0], a[1]); x.lineTo(d[0], d[1]); }
+          x.stroke(); x.globalAlpha = 1;
+          x.strokeStyle = '#000'; x.lineWidth = 1.2;
+          for (const side of [0, 1]) { x.beginPath(); for (let i = side; i < ob.points.length; i += 2) { const a = P(ob.points[i]); i === side ? x.moveTo(a[0], a[1]) : x.lineTo(a[0], a[1]); } x.stroke(); }
+        } else if (ob.type === 'fill') {
+          x.globalAlpha = 0.6; x.beginPath();
+          [ob.points, ...(ob.holes || [])].forEach((ring) => { ring.forEach((p, i) => { const a = P(p); i ? x.lineTo(a[0], a[1]) : x.moveTo(a[0], a[1]); }); x.closePath(); });
+          x.fill('evenodd'); x.globalAlpha = 1; x.strokeStyle = '#000'; x.stroke();
+        } else {
+          x.strokeStyle = '#000'; x.lineWidth = 1.5; x.beginPath();
+          ob.points.forEach((p, i) => { const a = P(p); i ? x.lineTo(a[0], a[1]) : x.moveTo(a[0], a[1]); });
+          x.stroke();
+        }
       }
-      x.putImageData(out, 0, 0);
+      $('#aInfo').textContent = `${n} Objekte (Satin-Säulen, Flächen, Linien). Zu zackig? „Kanten glätten“ erhöhen. Ecken verrundet? Ecken-Winkel senken.`;
     };
     const doAuto = () => {
       const img = sample();
-      const wmm = num('aW') || b.w;
-      const r = HW.auto.autoDigitize(img, {
-        colors: Math.max(1, Math.min(15, num('aK') || 4)), widthMM: wmm, originX: b.x, originY: b.y,
-        minAreaMM2: num('aMin') || 1, removeBg: $('#aBg').checked, satinMax: num('aSat') || 7, mode: val('aMode'), outline: $('#aOut').checked, angle: num('aAng') || 45,
-      });
+      const o = options(), wmm = o.widthMM;
+      const r = HW.auto.autoDigitize(img, o);
       if (wmm !== b.w) { b.h = (b.h / b.w) * wmm; b.w = wmm; }
       pushUndo();
       if ($('#aRep').checked) st.objects = [];
       const ids = [];
-      r.objects.forEach((o) => {
-        let ci = st.palette.findIndex((c) => c.hex.toLowerCase() === o.colorKey.toLowerCase());
-        if (ci < 0) ci = addPaletteColor(o.colorKey, 'Auto');
-        const ob = makeObj(o.type, { points: o.points, holes: o.holes, color: ci });
-        ob.params = { ...(o.type === 'fill' ? st.defaults.fill : st.defaults.colA), ...o.params };
-        st.objects.push(ob); ids.push(ob.id);
+      r.objects.forEach((ob) => {
+        let ci = st.palette.findIndex((c) => c.hex.toLowerCase() === ob.colorKey.toLowerCase());
+        if (ci < 0) ci = addPaletteColor(ob.colorKey, 'Auto');
+        const base = ob.type === 'fill' ? st.defaults.fill : ob.type === 'run' ? st.defaults.run : st.defaults.colA;
+        const nob = makeObj(ob.type, { points: ob.points, holes: ob.holes, color: ci });
+        nob.params = { ...base, ...ob.params };
+        st.objects.push(nob); ids.push(nob.id);
       });
       sel = new Set(ids);
       b.opacity = 0.25;

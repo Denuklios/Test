@@ -212,7 +212,8 @@
         run.forEach((c, i) => {
           const m = mids[i];
           if (i === 0 || i === run.length - 1 || G.dist(m, last) >= 1.0) {
-            pts.push({ x: c.a.x, y: c.a.y, c: false }, { x: c.b.x, y: c.b.y, c: false });
+            const edge = i === 0 || i === run.length - 1;
+            pts.push({ x: c.a.x, y: c.a.y, c: !edge }, { x: c.b.x, y: c.b.y, c: !edge });
             last = m;
           }
         });
