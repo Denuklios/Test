@@ -302,7 +302,9 @@
               const L = col.filter((_, i) => i % 2 === 0), R = col.filter((_, i) => i % 2 === 1).reverse();
               cover += Math.abs(G.signedArea(L.concat(R)));
             }
-            if (mode === 'satin' || (p90 <= satinMax && cover / area > 0.75)) cols = res;
+            const junction = (res.columns.length > 1 || holes.length) && !opts.junctionSatin;
+            // Kreuzungen/Verzweigungen (A, N, R, Ringe mit Bögen) liefern überlappende Säulen mit Fächern -> exakte Fläche stickt sauberer
+            if (mode === 'satin' || (p90 <= satinMax && cover / area > 0.75 && !junction)) cols = res;
           }
         }
         if (cols) {
