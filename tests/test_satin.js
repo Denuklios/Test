@@ -7,7 +7,7 @@ const res = 10; // Pixel pro mm
 function run(name, w, h, inside, expect) {
   const data = new Uint8ClampedArray(w * h * 4);
   for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) data.set(inside(x / res, y / res) ? [0, 0, 0, 255] : [0, 0, 0, 0], (y * w + x) * 4);
-  const r = HW.auto.autoDigitize({ width: w, height: h, data }, { colors: 1, widthMM: w / res, originX: 0, originY: 0, minAreaMM2: 0.5, removeBg: false });
+  const r = HW.auto.autoDigitize({ width: w, height: h, data }, { colors: 1, widthMM: w / res, originX: 0, originY: 0, minAreaMM2: 0.5, removeBg: false, junctionSatin: true });
   const types = r.objects.map((o) => o.type);
   const cols = r.objects.filter((o) => o.type === 'colA');
   ok(expect(types, cols), `${name}: ${types.join(',')}`);
@@ -37,3 +37,10 @@ run('T', 220, 240, (x, y) => (x > 2 && x < 20 && y > 2 && y < 5) || (x > 9.5 && 
 // breite Fläche bleibt Tatami
 run('Fläche', 200, 200, (x, y) => x > 2 && x < 18 && y > 2 && y < 18, (t) => t.length === 1 && t[0] === 'fill');
 process.exit(fails ? 1 : 0);
+// Standard: Ring (Loch) und T (Kreuzung) werden als exakte Fläche statt Säulen gestickt
+{
+  const res = 20, w = 220, h = 240, data = new Uint8ClampedArray(w * h * 4);
+  for (let i = 0; i < w * h; i++) { const x = (i % w) / 10, y = Math.floor(i / w) / 10; const on = (x > 2 && x < 20 && y > 2 && y < 5) || (x > 9.5 && x < 12.5 && y > 2 && y < 22); data.set(on ? [0, 0, 0, 255] : [255, 255, 255, 255], i * 4); }
+  const r = HW.auto.autoDigitize({ width: w, height: h, data }, { colors: 1, widthMM: 22, originX: 0, originY: 0, minAreaMM2: 0.5, removeBg: false });
+  ok(r.objects.length === 1 && r.objects[0].type === 'fill', 'T ohne junctionSatin: eine Fläche');
+}
