@@ -115,7 +115,23 @@ a { color: inherit; }
 @keyframes flick { 0%, 62%, 100% { opacity: 1; } 64% { opacity: .55; } 66% { opacity: 1; } 80% { opacity: .8; } }
 #snow { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
 .hero::after { content: ""; position: absolute; inset: auto 0 0; height: 140px; z-index: 2; background: linear-gradient(180deg, transparent, var(--night)); pointer-events: none; }
-.hero-inner { position: relative; z-index: 4; width: 100%; padding-block: 130px 210px; }
+.hero-inner { position: relative; z-index: 4; width: 100%; padding-block: 130px 230px; }
+.hero-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: clamp(30px, 5vw, 80px); align-items: center; }
+/* the logo as a Christmas seal (julemærke), snow settling on its top edge */
+.stamp-wrap { justify-self: end; width: min(340px, 100%); margin-top: 40px; }
+.stamp-tilt { position: relative; transform: rotate(-4deg); }
+#stamp-snow { position: absolute; left: -6px; bottom: 100%; width: calc(100% + 12px); height: 44px; margin-bottom: -12px; z-index: 2; pointer-events: none; }
+.stamp-shadow { filter: drop-shadow(0 26px 30px rgba(0,0,0,.55)) drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
+.stamp {
+  --r: 6px; padding: calc(var(--r) * 2.6); background: #f6efe1; display: grid; gap: 10px;
+  -webkit-mask: radial-gradient(var(--r), #0000 97%, #000) round calc(var(--r) * -1.5) calc(var(--r) * -1.5) / calc(var(--r) * 3) calc(var(--r) * 3), linear-gradient(#000 0 0) no-repeat 50% / calc(100% - var(--r) * 3) calc(100% - var(--r) * 3);
+          mask: radial-gradient(var(--r), #0000 97%, #000) round calc(var(--r) * -1.5) calc(var(--r) * -1.5) / calc(var(--r) * 3) calc(var(--r) * 3), linear-gradient(#000 0 0) no-repeat 50% / calc(100% - var(--r) * 3) calc(100% - var(--r) * 3);
+}
+.stamp img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; max-width: 100%; outline: 1px solid rgba(125,26,32,.35); outline-offset: 3px; }
+.stamp-foot { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--f-display); color: var(--wine); padding: 2px 2px 0; }
+.stamp-foot span:first-child { font-size: .72rem; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; white-space: nowrap; }
+@media (max-width: 860px) { .stamp-foot span:first-child { font-size: .6rem; letter-spacing: .14em; } }
+.stamp-foot span:last-child { font-size: 1.15rem; font-style: italic; font-weight: 600; }
 .hero h1 { font-size: var(--step-4); font-weight: 500; line-height: .92; letter-spacing: -.025em; color: var(--cream); max-width: 15ch; text-shadow: 0 2px 40px rgba(6,11,19,.7); }
 .hero h1 em { font-style: italic; font-weight: 400; color: var(--glow); display: block; }
 .hero .lede { max-width: 40ch; color: #d9d2c6; margin-top: 1.6rem; text-shadow: 0 1px 20px rgba(6,11,19,.8); }
@@ -133,7 +149,8 @@ a { color: inherit; }
   .halo { animation: halo 3s ease-in-out infinite; }
 }
 @keyframes flame { 0%,100% { transform: scale(1,1) skewX(0); } 25% { transform: scale(.92,1.06) skewX(3deg); } 55% { transform: scale(1.05,.94) skewX(-3deg); } 80% { transform: scale(.97,1.03) skewX(1deg); } }
-@media (max-width: 700px) { .hero-inner { padding-block: 112px 330px; } .advent { bottom: 16px; } .advent .num { font-size: 2.5rem; } .advent svg { width: 104px; height: 50px; } .hero .lede { font-size: 1.15rem; } }
+@media (max-width: 860px) { .hero-grid { grid-template-columns: minmax(0, 1fr); } .stamp-wrap { justify-self: start; width: min(250px, 72%); margin: 26px 0 0 6px; } }
+@media (max-width: 700px) { .hero-inner { padding-block: 112px 250px; } .advent { bottom: 16px; } .advent svg { width: 104px; height: 50px; } .hero .lede { font-size: 1.15rem; } }
 @keyframes halo { 0%,100% { opacity: .85; } 50% { opacity: .6; } }
 
 /* page-load sequence: words of the headline rise out of the dark */
@@ -151,20 +168,31 @@ a { color: inherit; }
 /* ---------- the shop window (wipe the frost) ---------- */
 .window-sec { position: relative; padding-block: clamp(70px, 9vw, 130px) clamp(80px, 10vw, 150px); background: radial-gradient(80% 60% at 70% 50%, rgba(231,162,74,.10), transparent 70%), var(--night); }
 .window-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: clamp(36px, 6vw, 90px); align-items: center; }
-.window-copy { display: grid; gap: 1.3rem; max-width: 30rem; }
+.window-copy { display: grid; gap: 1.2rem; max-width: 26rem; }
 .window-copy h2 { font-size: var(--step-3); color: var(--cream); }
 .window-copy h2 em { font-style: italic; color: var(--glow); font-weight: 400; }
 .window-copy p { color: var(--on-night-soft); }
-.window-copy .hint { display: flex; align-items: center; gap: .7rem; font-size: .9rem; color: var(--on-night-soft); }
-.window-copy .hint svg { width: 34px; height: 34px; color: var(--brass); flex: none; }
+.window-copy .hint { display: flex; align-items: center; gap: .6rem; font-family: var(--f-script); font-size: 1.7rem; color: var(--brass); line-height: 1; }
+.window-copy .hint svg { width: 30px; height: 30px; flex: none; opacity: .8; }
 .shopwin { position: relative; border-radius: 6px; padding: clamp(12px, 1.8vw, 22px); background: linear-gradient(145deg, #2d4436, #17271f 60%, #10201a); box-shadow: inset 0 0 0 1px rgba(255,255,255,.06), inset 0 2px 0 rgba(255,255,255,.08), 0 50px 90px -40px rgba(231,162,74,.45), 0 30px 60px -30px rgba(0,0,0,.8); }
 .shopwin::after { content: ""; position: absolute; left: -3%; right: -3%; bottom: -18px; height: 24px; border-radius: 4px; background: linear-gradient(180deg, #f7f4ee, #cfd7de); box-shadow: 0 10px 20px -10px rgba(0,0,0,.8); }
 .glass { position: relative; aspect-ratio: 3 / 2; max-width: 100%; overflow: hidden; border-radius: 2px; background: #2a1a12; }
-.glass img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; filter: saturate(1.05) brightness(.96); }
+.glass { container-type: inline-size; }
+.room { position: absolute; inset: 0; width: 100%; height: 100%; }
+.bokeh circle { mix-blend-mode: screen; }
+@media (prefers-reduced-motion: no-preference) { .bokeh circle:nth-child(3n) { animation: tw 5s ease-in-out infinite; } .bokeh circle:nth-child(3n+1) { animation: tw 7s ease-in-out infinite -2s; } }
+.cd { position: absolute; inset: 0; display: grid; place-content: center; justify-items: center; text-align: center; padding-top: 15cqw; pointer-events: none; }
+.cd-pre { font-family: var(--f-script); font-size: 6.2cqw; color: var(--glow); line-height: 1; margin-bottom: -1.6cqw; }
+.cd-num { font-family: var(--f-display); font-weight: 500; font-size: 19cqw; line-height: .9; letter-spacing: -.02em; font-variant-numeric: lining-nums;
+  background: linear-gradient(180deg, #fff3cf 10%, #f0c472 50%, #b47c2c 95%); -webkit-background-clip: text; background-clip: text; color: transparent;
+  filter: drop-shadow(0 0 2.4cqw rgba(255,190,90,.35)); }
+.cd-post { font-family: var(--f-display); font-size: max(9px, 2.2cqw); font-weight: 600; letter-spacing: .2em; text-transform: uppercase; color: #f1e2c4; margin-top: 1.2cqw; }
+.cd-sub { font-family: var(--f-display); font-style: italic; font-size: max(11px, 2.3cqw); color: rgba(241,226,196,.7); margin-top: 1.4cqw; }
 .glass .warm { position: absolute; inset: 0; background: radial-gradient(70% 60% at 50% 55%, rgba(255,200,120,.18), transparent 70%); mix-blend-mode: screen; pointer-events: none; }
 #frost { position: absolute; inset: 0; width: 100%; height: 100%; cursor: grab; touch-action: pan-y; }
 #frost:active { cursor: grabbing; }
-.mullions { position: absolute; inset: 0; pointer-events: none; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(2, 1fr); }
+.mullions { position: absolute; inset: 0; pointer-events: none; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 3.2fr; }
+.mullions i:last-child { grid-column: 1 / -1; }
 .mullions i { box-shadow: inset 0 0 0 clamp(4px, .55vw, 7px) #1c2f25, inset 0 0 0 calc(clamp(4px, .55vw, 7px) + 1px) rgba(255,255,255,.05); }
 .signplate { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); background: var(--wine); color: var(--cream); font-family: var(--f-display); font-style: italic; font-size: 1.05rem; padding: .25em 1.2em; border-radius: 2px; box-shadow: 0 6px 16px -6px rgba(0,0,0,.6); white-space: nowrap; border: 1px solid rgba(199,156,85,.5); }
 
@@ -393,14 +421,14 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
   <section class="hero" aria-labelledby="hero-title">
     <svg class="scene" id="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
       <g class="layer" data-depth="0.02" id="sky">
-        <circle cx="1260" cy="190" r="260" fill="url(#moonGlow)"/>
-        <circle cx="1260" cy="190" r="46" fill="#f3ead8"/>
-        <circle cx="1246" cy="180" r="9" fill="#e2d6bf" opacity=".6"/><circle cx="1275" cy="205" r="6" fill="#e2d6bf" opacity=".5"/>
+        <circle cx="1000" cy="150" r="240" fill="url(#moonGlow)"/>
+        <circle cx="1000" cy="150" r="38" fill="#f3ead8"/>
+        <circle cx="989" cy="142" r="7" fill="#e2d6bf" opacity=".6"/><circle cx="1013" cy="162" r="5" fill="#e2d6bf" opacity=".5"/>
       </g>
       <g class="layer" data-depth="0.05" id="far"></g>
-      <rect x="-100" y="560" width="1800" height="340" fill="url(#fog)"/>
+      <rect x="-100" y="640" width="1800" height="260" fill="url(#fog)"/>
       <g class="layer" data-depth="0.1" id="mid"></g>
-      <rect x="-100" y="640" width="1800" height="260" fill="url(#fog)" opacity=".7"/>
+      <rect x="-100" y="700" width="1800" height="200" fill="url(#fog)" opacity=".7"/>
       <g class="layer" data-depth="0.18" id="near">
         <g id="near-houses"></g>
         <rect x="-200" y="852" width="2000" height="60" fill="#e9eef3"/>
@@ -428,7 +456,8 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
     <canvas id="snow" aria-hidden="true"></canvas>
 
     <div class="hero-inner">
-      <div class="wrap">
+      <div class="wrap hero-grid">
+       <div>
         <span class="eyebrow reveal" data-i18n="heroEyebrow">Danmarks gammeldags julebutik</span>
         <h1 id="hero-title" style="margin-top:1.4rem"><span class="reveal d1" style="display:block" data-i18n="heroT1">Hvor julen</span><em class="reveal d2" data-i18n="heroT2">stadig bor.</em></h1>
         <p class="lede reveal d3" data-i18n="heroLede">En gammeldags julebutik med nisser, glaskugler, flettede hjerter og kalenderlys. Her går tiden lidt langsommere, og julen bliver, som du husker den.</p>
@@ -439,6 +468,16 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
           </button>
           <a class="btn btn-line" href="#vinduet" data-i18n="ctaWindow">Kig ind ad vinduet</a>
         </div>
+       </div>
+       <div class="stamp-wrap reveal d3">
+        <div class="stamp-tilt">
+          <canvas id="stamp-snow" aria-hidden="true"></canvas>
+          <div class="stamp-shadow"><div class="stamp" id="stamp">
+            <img src="img/logo.webp" width="1200" height="800" alt="Julekontor – Danmarks gammeldags julebutik. En rød veteran-varevogn med juletræ og gaver på taget kører gennem sneen." fetchpriority="high">
+            <div class="stamp-foot"><span>Julekontor · Danmark</span><span id="stamp-year">2026</span></div>
+          </div></div>
+        </div>
+       </div>
       </div>
     </div>
 
@@ -450,10 +489,7 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
           <g fill="#b3262c"><circle cx="20" cy="52" r="2.4"/><circle cx="48" cy="58" r="2.4"/><circle cx="92" cy="58" r="2.4"/><circle cx="118" cy="52" r="2.4"/><circle cx="69" cy="61" r="2.2"/></g>
           <g id="advent-candles"></g>
         </svg>
-        <div>
-          <div class="num" id="days">–</div>
-        </div>
-        <div class="txt"><b id="days-label">dage til juleaften</b><span id="advent-label"></span></div>
+        <div class="txt"><span id="advent-label"></span></div>
       </div>
     </div>
   </section>
@@ -464,19 +500,58 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
       <div class="window-copy">
         <span class="eyebrow" data-i18n="winEyebrow">Butiksvinduet</span>
         <h2 id="win-title" data-i18n-html="winTitle">Tør duggen <em>af ruden.</em></h2>
-        <p data-i18n="winText">Udenfor er det frostvejr, og ruden er dugget til. Træk fingeren hen over glasset og kig ind i varmen. Lad den stå lidt, så fryser den langsomt til igen.</p>
         <p class="hint">
           <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21V9a2.5 2.5 0 0 1 5 0v9"/><path d="M20 17v-2a2.5 2.5 0 0 1 5 0v3"/><path d="M25 17a2.5 2.5 0 0 1 5 0v6c0 7-4 12-10 12h-1c-4 0-6-2-8-5l-4-7a2.4 2.4 0 0 1 4-2.6L15 23"/><path d="M4 8c3-2 6-2 8 0" opacity=".6"/></svg>
-          <span data-i18n="winHint">Mus eller finger – begge dele virker.</span>
+          <span data-i18n="winHint">tør den af …</span>
         </p>
-        <div><button class="btn btn-line" type="button" id="wipe-all" data-i18n="winWipe">Tør hele ruden</button></div>
       </div>
       <div class="shopwin">
         <div class="glass">
-          <img src="img/logo.webp" width="1200" height="800" alt="Julekontor – Danmarks gammeldags julebutik. En rød veteran-varevogn med juletræ og gaver på taget kører gennem sneen." loading="lazy">
-          <div class="warm"></div>
-          <canvas id="frost" aria-label="Dugget rude. Træk for at tørre den af." role="img"></canvas>
-          <div class="mullions" aria-hidden="true"><i></i><i></i><i></i><i></i><i></i><i></i></div>
+          <svg class="room" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+            <defs>
+              <radialGradient id="roomBg" cx=".5" cy=".55" r=".75"><stop offset="0" stop-color="#7c3c19"/><stop offset=".5" stop-color="#3f1d0d"/><stop offset="1" stop-color="#170a05"/></radialGradient>
+              <radialGradient id="velvet" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#5a141b"/><stop offset="1" stop-color="#22070a"/></radialGradient>
+              <linearGradient id="gilt" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#f6dc9c"/><stop offset=".5" stop-color="#b98634"/><stop offset="1" stop-color="#f0cf86"/></linearGradient>
+              <filter id="soft" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="6"/></filter>
+            </defs>
+            <rect width="600" height="400" fill="url(#roomBg)"/>
+            <g opacity=".06" stroke="#f6dc9c"><path d="M30 0V400M90 0V400M150 0V400M210 0V400M270 0V400M330 0V400M390 0V400M450 0V400M510 0V400M570 0V400"/></g>
+            <g class="bokeh" filter="url(#soft)">
+              <circle cx="60" cy="70" r="16" fill="#ffcf7a" opacity=".35"/><circle cx="520" cy="60" r="20" fill="#ffb35c" opacity=".3"/><circle cx="470" cy="300" r="22" fill="#ffd28a" opacity=".22"/>
+              <circle cx="120" cy="320" r="18" fill="#ff9c5a" opacity=".2"/><circle cx="560" cy="210" r="14" fill="#ffe1a0" opacity=".3"/><circle cx="30" cy="200" r="12" fill="#ffd28a" opacity=".28"/>
+            </g>
+            <!-- garland with lights -->
+            <path d="M-10 26 Q 150 92 300 40 Q 450 92 610 26" fill="none" stroke="#173a26" stroke-width="12" stroke-linecap="round"/>
+            <path d="M-10 26 Q 150 92 300 40 Q 450 92 610 26" fill="none" stroke="#24502f" stroke-width="5" stroke-dasharray="3 6" stroke-linecap="round"/>
+            <g class="bokeh"><circle cx="40" cy="42" r="3.5" fill="#ffe3a6"/><circle cx="100" cy="58" r="3.5" fill="#ffe3a6"/><circle cx="160" cy="63" r="3.5" fill="#ffe3a6"/><circle cx="220" cy="56" r="3.5" fill="#ffe3a6"/><circle cx="280" cy="43" r="3.5" fill="#ffe3a6"/><circle cx="340" cy="45" r="3.5" fill="#ffe3a6"/><circle cx="400" cy="58" r="3.5" fill="#ffe3a6"/><circle cx="460" cy="63" r="3.5" fill="#ffe3a6"/><circle cx="520" cy="55" r="3.5" fill="#ffe3a6"/><circle cx="575" cy="40" r="3.5" fill="#ffe3a6"/></g>
+            <g filter="url(#soft)" opacity=".55"><circle cx="100" cy="58" r="10" fill="#ffd27a"/><circle cx="220" cy="56" r="10" fill="#ffd27a"/><circle cx="340" cy="45" r="10" fill="#ffd27a"/><circle cx="460" cy="63" r="10" fill="#ffd27a"/></g>
+            <!-- a tree with real candles, left -->
+            <path d="M95 390 L 20 390 L 62 320 L 34 320 L 72 250 L 48 250 L 95 160 L 142 250 L 118 250 L 156 320 L 128 320 L 170 390 Z" fill="#0d2015"/>
+            <g fill="#fff6e0"><rect x="52" y="303" width="3" height="12"/><rect x="132" y="303" width="3" height="12"/><rect x="66" y="236" width="3" height="11"/><rect x="118" y="236" width="3" height="11"/><rect x="93" y="190" width="3" height="10"/><rect x="40" y="372" width="3" height="12"/><rect x="146" y="372" width="3" height="12"/><rect x="92" y="280" width="3" height="11"/></g>
+            <g fill="#ffd27a"><circle cx="53.5" cy="299" r="2.2"/><circle cx="133.5" cy="299" r="2.2"/><circle cx="67.5" cy="232" r="2.2"/><circle cx="119.5" cy="232" r="2.2"/><circle cx="94.5" cy="186" r="2.2"/><circle cx="41.5" cy="368" r="2.2"/><circle cx="147.5" cy="368" r="2.2"/><circle cx="93.5" cy="276" r="2.2"/></g>
+            <g filter="url(#soft)" fill="#ffc35c" opacity=".7"><circle cx="53.5" cy="299" r="9"/><circle cx="133.5" cy="299" r="9"/><circle cx="67.5" cy="232" r="9"/><circle cx="119.5" cy="232" r="9"/><circle cx="94.5" cy="186" r="9"/><circle cx="41.5" cy="368" r="9"/><circle cx="147.5" cy="368" r="9"/><circle cx="93.5" cy="276" r="9"/></g>
+            <path d="M95 148 l3 8 8 1 -6 5 2 8 -7 -4 -7 4 2 -8 -6 -5 8 -1 Z" fill="#f0cf86"/>
+            <!-- shelf with nisser, right -->
+            <g fill="#1d0c06"><rect x="455" y="300" width="160" height="8"/><path d="M470 300 l12 -40 l12 40 Z M505 300 l9 -30 l9 30 Z"/><circle cx="548" cy="286" r="14"/><rect x="545" y="268" width="6" height="5"/><path d="M572 300 l14 -48 l14 48 Z"/></g>
+            <rect x="0" y="384" width="600" height="16" fill="#140804"/>
+            <!-- gilt oval frame around the count -->
+            <ellipse cx="300" cy="250" rx="150" ry="120" fill="url(#velvet)"/>
+            <ellipse cx="300" cy="250" rx="150" ry="120" fill="none" stroke="url(#gilt)" stroke-width="7"/>
+            <ellipse cx="300" cy="250" rx="139" ry="109" fill="none" stroke="url(#gilt)" stroke-width="1.2" opacity=".8"/>
+            <path d="M300 130 c -10 -14 -26 -10 -22 0 c 3 6 14 4 22 0 c 8 4 19 6 22 0 c 4 -10 -12 -14 -22 0 Z" fill="#a8282e"/>
+            <path d="M300 130 l -8 18 M300 130 l 8 18" stroke="#a8282e" stroke-width="4" stroke-linecap="round"/>
+            <circle cx="300" cy="130" r="4" fill="#7d1a20"/>
+            <path d="M300 348 l4 6 -4 6 -4 -6 Z" fill="#f0cf86" opacity=".8"/>
+          </svg>
+          <div class="cd" aria-live="polite">
+            <span class="cd-pre" id="cd-pre">om</span>
+            <span class="cd-num" id="cd-num">–</span>
+            <span class="cd-post" id="cd-post">dage er det juleaften</span>
+            <span class="cd-sub" id="cd-sub"></span>
+          </div>
+          
+          <canvas id="frost" aria-hidden="true"></canvas>
+          <div class="mullions" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
         </div>
         <span class="signplate">Julekontor</span>
       </div>
@@ -489,7 +564,7 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
       <div class="story-head">
         <span class="eyebrow" data-i18n="storyEyebrow">Julen hos os</span>
         <h2 id="story-title" data-i18n-html="storyTitle">Fra første frost <em>til juleaften.</em></h2>
-        <p class="lede" data-i18n="storyLede">Et kalenderlys brænder ét mærke ned om dagen. Rul ned, så brænder det her på siden også.</p>
+        <p class="lede" data-i18n="storyLede">Et kalenderlys brænder ét mærke ned om dagen.</p>
       </div>
       <div class="story-grid">
         <div class="candle-col" aria-hidden="true">
@@ -548,7 +623,7 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
       <div class="head">
         <span class="eyebrow" data-i18n="caseEyebrow">Vitrinen</span>
         <h2 id="case-title" data-i18n-html="caseTitle">Seks ting, vi <em>aldrig løber tør for.</em></h2>
-        <p data-i18n="caseLede">Resten skifter med årstiden og med det, vi finder på vores rejser. Før musen hen over dem, så svinger de.</p>
+        <p data-i18n="caseLede">Resten skifter med årstiden og med det, vi finder på vores rejser.</p>
       </div>
       <div class="rail" aria-hidden="true"></div>
       <div class="case" id="case">
@@ -782,15 +857,15 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
       ctaSanta: "Skriv til Julemanden", ctaWindow: "Kig ind ad vinduet",
       days: "dage til juleaften", day: "dag til juleaften", eve: "Glædelig jul – det er juleaften i dag", after: "Glædelig jul og godt nytår",
       adv: n => `${n}. søndag i advent`, advIn: (n, d) => `${n}. søndag i advent om ${d} ${d === 1 ? "dag" : "dage"}`, advToday: n => `I dag tænder vi ${n === 1 ? "det første lys" : n + " lys"}`, advLit: n => `${n} af 4 lys er tændt`,
-      winEyebrow: "Butiksvinduet", winTitle: "Tør duggen <em>af ruden.</em>",
-      winText: "Udenfor er det frostvejr, og ruden er dugget til. Træk fingeren hen over glasset og kig ind i varmen. Lad den stå lidt, så fryser den langsomt til igen.",
-      winHint: "Mus eller finger – begge dele virker.", winWipe: "Tør hele ruden", frostWord: "kig ind",
-      storyEyebrow: "Julen hos os", storyTitle: "Fra første frost <em>til juleaften.</em>", storyLede: "Et kalenderlys brænder ét mærke ned om dagen. Rul ned, så brænder det her på siden også.", candleDay: "december",
+      winEyebrow: "Butiksvinduet", winTitle: "Ruden er <em>dugget til.</em>",
+      winHint: "tør den af …", frostWord: "kig ind",
+      cdPre: "om", cdPost: n => n === 1 ? "dag er det juleaften" : "dage er det juleaften", cdEvePre: "i aften er det", cdEve: "juleaften", cdAfter: "glædelig jul", locale: "da-DK",
+      storyEyebrow: "Julen hos os", storyTitle: "Fra første frost <em>til juleaften.</em>", storyLede: "Et kalenderlys brænder ét mærke ned om dagen.", candleDay: "december",
       c1w: "November", c1t: "Kasserne kommer ned fra loftet", c1p: "Når de første frostnætter kommer, pakker vi ud: nisser, der har sovet i et år, glaskugler i silkepapir og æsker med kalenderlys. Det dufter af gran og bivoks, og julemusikken må endelig spille igen.",
       c2w: "Første søndag i advent", c2t: "Det første lys bliver tændt", c2p: "Adventskransen hænger i røde silkebånd, og det første af fire lys bliver tændt. Fra nu af tæller vi søndage, og hver morgen brænder kalenderlyset et mærke ned.",
       c3w: "December", c3t: "Hjerter, pebernødder og gløgg", c3p: "Ved køkkenbordet klippes og flettes hjerter i rødt og hvidt. Det lugter af pebernødder og varm gløgg, og vinduerne i hele gaden bliver gule af lys.",
       c4w: "24. december", c4t: "Juleaften", c4p: "Træet er pyntet, lysene er tændt, og nissen på loftet har fået sin risengrød med en klat smør. Så tager alle hinanden i hænderne og går rundt om juletræet. Det er det, hele kontoret arbejder hen imod.",
-      caseEyebrow: "Vitrinen", caseTitle: "Seks ting, vi <em>aldrig løber tør for.</em>", caseLede: "Resten skifter med årstiden og med det, vi finder på vores rejser. Før musen hen over dem, så svinger de.",
+      caseEyebrow: "Vitrinen", caseTitle: "Seks ting, vi <em>aldrig løber tør for.</em>", caseLede: "Resten skifter med årstiden og med det, vi finder på vores rejser.",
       r1t: "Nisser", r1p: "Store og små, i uld, filt og træ. Nogle står på hylden, andre gemmer sig.",
       r2t: "Glaskugler", r2p: "Mundblæste og håndmalede. De klinger let, når man rører ved dem.",
       r3t: "Flettede hjerter", r3p: "Færdige hjerter og ark til at flette selv, i rødt og hvidt og i guld.",
@@ -818,15 +893,15 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
       ctaSanta: "Dem Weihnachtsmann schreiben", ctaWindow: "Durchs Fenster schauen",
       days: "Tage bis Heiligabend", day: "Tag bis Heiligabend", eve: "Frohe Weihnachten – heute ist Heiligabend", after: "Frohe Weihnachten und ein gutes neues Jahr",
       adv: n => `${n}. Advent`, advIn: (n, d) => `${n}. Advent in ${d} ${d === 1 ? "Tag" : "Tagen"}`, advToday: n => `Heute brennt ${n === 1 ? "die erste Kerze" : n + " Kerzen"}`, advLit: n => `${n} von 4 Kerzen brennen`,
-      winEyebrow: "Das Schaufenster", winTitle: "Wisch die Scheibe <em>frei.</em>",
-      winText: "Draußen friert es, und die Scheibe ist beschlagen. Fahr mit dem Finger über das Glas und schau hinein ins Warme. Lässt du sie in Ruhe, friert sie langsam wieder zu.",
-      winHint: "Mit Maus oder Finger.", winWipe: "Ganze Scheibe freiwischen", frostWord: "schau hinein",
-      storyEyebrow: "Weihnachten bei uns", storyTitle: "Vom ersten Frost <em>bis Heiligabend.</em>", storyLede: "Eine Kalenderkerze brennt jeden Tag eine Markierung herunter. Scroll weiter, dann brennt sie auch hier.", candleDay: "Dezember",
+      winEyebrow: "Das Schaufenster", winTitle: "Die Scheibe ist <em>beschlagen.</em>",
+      winHint: "wisch sie frei …", frostWord: "schau hinein",
+      cdPre: "noch", cdPost: n => n === 1 ? "Tag bis Heiligabend" : "Tage bis Heiligabend", cdEvePre: "heute ist", cdEve: "Heiligabend", cdAfter: "frohe Weihnachten", locale: "de-DE",
+      storyEyebrow: "Weihnachten bei uns", storyTitle: "Vom ersten Frost <em>bis Heiligabend.</em>", storyLede: "Eine Kalenderkerze brennt jeden Tag eine Markierung herunter.", candleDay: "Dezember",
       c1w: "November", c1t: "Die Kisten kommen vom Dachboden", c1p: "Wenn die ersten Frostnächte kommen, packen wir aus: Wichtel, die ein Jahr lang geschlafen haben, Glaskugeln in Seidenpapier und Schachteln voller Kalenderkerzen. Es duftet nach Tanne und Bienenwachs, und endlich darf wieder Weihnachtsmusik laufen.",
       c2w: "Erster Advent", c2t: "Die erste Kerze brennt", c2p: "Der Adventskranz hängt an roten Seidenbändern, und die erste von vier Kerzen wird angezündet. Ab jetzt zählen wir Sonntage, und jeden Morgen brennt die Kalenderkerze eine Markierung herunter.",
       c3w: "Dezember", c3t: "Herzen, Pfeffernüsse und Glögg", c3p: "Am Küchentisch werden Herzen in Rot und Weiß geschnitten und geflochten. Es riecht nach Pfeffernüssen und warmem Glögg, und die Fenster der ganzen Straße leuchten gelb.",
       c4w: "24. Dezember", c4t: "Heiligabend", c4p: "Der Baum ist geschmückt, die Kerzen brennen, und der Wichtel auf dem Dachboden hat seinen Milchreis mit einem Klecks Butter bekommen. Dann nehmen sich alle an den Händen und gehen um den Weihnachtsbaum. Darauf arbeitet das ganze Kontor hin.",
-      caseEyebrow: "Die Vitrine", caseTitle: "Sechs Dinge, die uns <em>nie ausgehen.</em>", caseLede: "Der Rest wechselt mit der Jahreszeit und mit dem, was wir auf unseren Reisen finden. Fahr mit der Maus darüber, dann schwingen sie.",
+      caseEyebrow: "Die Vitrine", caseTitle: "Sechs Dinge, die uns <em>nie ausgehen.</em>", caseLede: "Der Rest wechselt mit der Jahreszeit und mit dem, was wir auf unseren Reisen finden.",
       r1t: "Wichtel (Nisser)", r1p: "Groß und klein, aus Wolle, Filz und Holz. Manche stehen im Regal, andere verstecken sich.",
       r2t: "Glaskugeln", r2p: "Mundgeblasen und handbemalt. Sie klingen leise, wenn man sie berührt.",
       r3t: "Geflochtene Herzen", r3p: "Fertige Herzen und Bögen zum Selberflechten, in Rot-Weiß und in Gold.",
@@ -854,15 +929,15 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
       ctaSanta: "Write to Santa", ctaWindow: "Look through the window",
       days: "days until Christmas Eve", day: "day until Christmas Eve", eve: "Merry Christmas – it's Christmas Eve today", after: "Merry Christmas and a happy New Year",
       adv: n => `${["First", "Second", "Third", "Fourth"][n - 1]} Sunday of Advent`, advIn: (n, d) => `${["First", "Second", "Third", "Fourth"][n - 1]} Sunday of Advent in ${d} ${d === 1 ? "day" : "days"}`, advToday: n => `Today we light ${n === 1 ? "the first candle" : n + " candles"}`, advLit: n => `${n} of 4 candles lit`,
-      winEyebrow: "The shop window", winTitle: "Wipe the frost <em>off the glass.</em>",
-      winText: "It's freezing outside and the window has misted over. Run your finger across the glass and look into the warmth. Leave it be and it slowly frosts over again.",
-      winHint: "Mouse or finger, either works.", winWipe: "Wipe the whole window", frostWord: "look inside",
-      storyEyebrow: "Christmas with us", storyTitle: "From the first frost <em>to Christmas Eve.</em>", storyLede: "A calendar candle burns down one mark a day. Keep scrolling and it burns here too.", candleDay: "December",
+      winEyebrow: "The shop window", winTitle: "The glass has <em>misted over.</em>",
+      winHint: "wipe it clear …", frostWord: "look inside",
+      cdPre: "just", cdPost: n => n === 1 ? "day until Christmas Eve" : "days until Christmas Eve", cdEvePre: "tonight it's", cdEve: "Christmas Eve", cdAfter: "merry Christmas", locale: "en-GB",
+      storyEyebrow: "Christmas with us", storyTitle: "From the first frost <em>to Christmas Eve.</em>", storyLede: "A calendar candle burns down one mark a day.", candleDay: "December",
       c1w: "November", c1t: "The boxes come down from the attic", c1p: "When the first frosty nights arrive, we unpack: nisser who have slept for a year, glass baubles in tissue paper and boxes of calendar candles. The shop smells of fir and beeswax, and the Christmas music is finally allowed back on.",
       c2w: "First Sunday of Advent", c2t: "The first candle is lit", c2p: "The Advent wreath hangs from red silk ribbons, and the first of four candles is lit. From now on we count Sundays, and every morning the calendar candle burns down one more mark.",
       c3w: "December", c3t: "Hearts, pepper nuts and gløgg", c3p: "At the kitchen table, hearts are cut and woven in red and white. It smells of pebernødder and warm mulled gløgg, and every window on the street turns gold.",
       c4w: "24 December", c4t: "Christmas Eve", c4p: "The tree is decorated, the candles are lit, and the nisse in the attic has had his rice pudding with a knob of butter. Then everyone holds hands and walks around the Christmas tree. That's what the whole office works towards.",
-      caseEyebrow: "Display case", caseTitle: "Six things we <em>never run out of.</em>", caseLede: "Everything else changes with the season and with what we find on our travels. Move your mouse over them and they swing.",
+      caseEyebrow: "Display case", caseTitle: "Six things we <em>never run out of.</em>", caseLede: "Everything else changes with the season and with what we find on our travels.",
       r1t: "Nisser", r1p: "Danish Christmas elves, big and small, in wool, felt and wood. Some stand on the shelf, others hide.",
       r2t: "Glass baubles", r2p: "Mouth-blown and hand-painted. They ring softly when you touch them.",
       r3t: "Woven hearts", r3p: "Finished hearts and paper to weave your own, in red and white and in gold.",
@@ -968,8 +1043,8 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
       x += w + pick(0, 8) * s;
     }
   }
-  town($("far"), { seed: 7, base: 760, scale: .55, minW: 60, maxW: 120, minH: 50, maxH: 110, fill: "#24344a", snow: "#6f8199", win: "#c79a63", lit: .35, tower: true });
-  town($("mid"), { seed: 21, base: 812, scale: .78, minW: 70, maxW: 130, minH: 60, maxH: 125, fill: "#162337", snow: "#b9c6d4", win: "#eab26a", lit: .45, tower: true, glow: true });
+  town($("far"), { seed: 7, base: 846, scale: .62, minW: 60, maxW: 120, minH: 120, maxH: 220, fill: "#24344a", snow: "#6f8199", win: "#c79a63", lit: .35, tower: true });
+  town($("mid"), { seed: 21, base: 852, scale: .8, minW: 70, maxW: 130, minH: 100, maxH: 175, fill: "#162337", snow: "#b9c6d4", win: "#eab26a", lit: .45, tower: true, glow: true });
   town($("near-houses"), { seed: 88, base: 856, scale: 1.05, minW: 80, maxW: 150, minH: 80, maxH: 140, fill: "#0a121c", snow: "#e9eef3", win: "#ffd593", lit: .5, glow: true });
   // stars
   (function stars() {
@@ -1002,9 +1077,45 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
     function step() {
       raf = 0; tx += (mx - tx) * .08; ty += (my - ty) * .08;
       const sc = Math.min(scrollY, 900);
-      for (const l of layers) { const d = +l.dataset.depth; l.style.transform = `translate(${(-tx * d * 400).toFixed(1)}px, ${(-ty * d * 120 + sc * d * 1.6).toFixed(1)}px)`; }
+      for (const l of layers) { const d = +l.dataset.depth; l.style.transform = `translate(${(-tx * d * 400).toFixed(1)}px, ${(-ty * d * 120 + sc * (.32 - d) * .9).toFixed(1)}px)`; }
       if (Math.abs(mx - tx) > .002 || Math.abs(my - ty) > .002) raf = requestAnimationFrame(step);
     }
+  })();
+
+  /* ================= snow settling on the stamp ================= */
+  const Pile = (() => {
+    const c = $("stamp-snow"), ctx = c.getContext("2d"), N = 90, h = new Float32Array(N), cap = new Float32Array(N);
+    let W = 0, H = 0, dpr = Math.min(devicePixelRatio || 1, 2);
+    for (let i = 0; i < N; i++) {
+      const edge = Math.min(1, i / 7, (N - 1 - i) / 7);
+      cap[i] = (11 + 4 * Math.sin(i * .21) + 2 * Math.sin(i * .67)) * Math.pow(edge, .7);
+      h[i] = cap[i] * (.38 + .12 * Math.sin(i * .5 + 1));
+    }
+    function size() { W = c.clientWidth; H = c.clientHeight; c.width = W * dpr; c.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); draw(); }
+    function draw() {
+      if (!W) return;
+      ctx.clearRect(0, 0, W, H);
+      const base = H - 9, x = i => 6 + i / (N - 1) * (W - 12);
+      ctx.beginPath(); ctx.moveTo(x(0), H);
+      ctx.lineTo(x(0), base - h[0]);
+      for (let i = 1; i < N; i++) { const xm = (x(i - 1) + x(i)) / 2, ym = base - (h[i - 1] + h[i]) / 2; ctx.quadraticCurveTo(x(i - 1), base - h[i - 1], xm, ym); }
+      ctx.lineTo(x(N - 1), base - h[N - 1]); ctx.lineTo(x(N - 1), H); ctx.closePath();
+      const g = ctx.createLinearGradient(0, base - 16, 0, H); g.addColorStop(0, "#ffffff"); g.addColorStop(.7, "#eef3f8"); g.addColorStop(1, "#cfd9e4");
+      ctx.fillStyle = g; ctx.shadowColor = "rgba(150,170,195,.6)"; ctx.shadowBlur = 3; ctx.shadowOffsetY = 1; ctx.fill(); ctx.shadowColor = "transparent";
+      ctx.fillStyle = "rgba(255,255,255,.9)";
+      for (let i = 3; i < N - 3; i += 7) { ctx.beginPath(); ctx.arc(x(i), base - h[i] + 2, .8, 0, 6.283); ctx.fill(); }
+    }
+    function add(frac, amount) {
+      const ci = frac * (N - 1);
+      for (let i = Math.max(0, Math.floor(ci - 5)); i <= Math.min(N - 1, Math.ceil(ci + 5)); i++) {
+        const k = Math.exp(-((i - ci) ** 2) / 6);
+        h[i] = Math.min(cap[i], h[i] + amount * k);
+      }
+      for (let i = 1; i < N - 1; i++) h[i] = h[i] * .9 + (h[i - 1] + h[i + 1]) * .05; // let it settle smoothly
+      draw();
+    }
+    addEventListener("resize", size); requestAnimationFrame(size);
+    return { add, el: $("stamp") };
   })();
 
   /* ================= snow with bokeh ================= */
@@ -1031,8 +1142,14 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
     function tick() {
       if (visible) {
         windT += .003; wind = Math.sin(windT) * .5 + Math.sin(windT * 2.7) * .2;
+        const cr = c.getBoundingClientRect(), sr = Pile.el.getBoundingClientRect();
+        const sTop = sr.top - cr.top + 6, sL = sr.left - cr.left, sR = sr.right - cr.left;
         for (const f of flakes) {
+          const py = f.y;
           f.d += .012; f.y += f.s; f.x += Math.sin(f.d) * .3 * (f.z + .3) + wind * f.z;
+          if (f.r < 5 && f.z > .25 && py < sTop && f.y >= sTop && f.x > sL && f.x < sR && Math.random() < .6) {
+            Pile.add((f.x - sL) / (sR - sL), f.r * .28); Object.assign(f, make(false)); continue;
+          }
           if (f.y > h + 20 || f.x < -30 || f.x > w + 30) Object.assign(f, make(false), { x: Math.random() * w });
         }
         draw();
@@ -1052,11 +1169,14 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
     const sundays = adventSundays(y);
     const daysTo = Math.round((eve - today) / 864e5);
     const lit = sundays.filter(s => s <= today).length;
-    const num = $("days"), lbl = $("days-label"), adv = $("advent-label");
-    if (daysTo < 0) { num.textContent = "✶"; lbl.textContent = t("after"); adv.textContent = ""; }
-    else if (daysTo === 0) { num.textContent = "24"; lbl.textContent = t("eve"); adv.textContent = t("advLit")(4); }
+    const adv = $("advent-label"), cdPre = $("cd-pre"), cdNum = $("cd-num"), cdPost = $("cd-post"), cdSub = $("cd-sub");
+    let eveName = ""; try { eveName = eve.toLocaleDateString(t("locale"), { weekday: "long", day: "numeric", month: "long" }); } catch {}
+    cdSub.textContent = eveName;
+    $("stamp-year").textContent = y;
+    if (daysTo < 0) { adv.textContent = t("after"); cdPre.textContent = ""; cdNum.textContent = "✶"; cdPost.textContent = t("cdAfter"); cdSub.textContent = ""; }
+    else if (daysTo === 0) { adv.textContent = t("eve"); cdPre.textContent = t("cdEvePre"); cdNum.textContent = "24"; cdPost.textContent = t("cdEve"); }
     else {
-      num.textContent = String(daysTo); lbl.textContent = daysTo === 1 ? t("day") : t("days");
+      cdPre.textContent = t("cdPre"); cdNum.textContent = String(daysTo); cdPost.textContent = t("cdPost")(daysTo);
       const next = sundays.findIndex(s => s > today);
       if (sundays.some(s => +s === +today)) adv.textContent = t("advToday")(lit);
       else if (lit === 0) adv.textContent = t("advIn")(1, Math.round((sundays[0] - today) / 864e5));
@@ -1112,8 +1232,8 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
     }
     function writeHint() {
       ctx.save(); ctx.globalCompositeOperation = "destination-out";
-      ctx.font = `${Math.round(Math.min(w / 6, 96))}px "Pinyon Script", cursive`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
-      ctx.fillStyle = "rgba(0,0,0,.85)"; ctx.fillText(t("frostWord"), w / 2, h / 2);
+      ctx.font = `${Math.round(Math.min(w / 11, 54))}px "Pinyon Script", cursive`; ctx.textAlign = "center"; ctx.textBaseline = "middle";
+      ctx.fillStyle = "rgba(0,0,0,.42)"; ctx.fillText(t("frostWord"), w * .5, h * .82);
       ctx.restore();
     }
     function wipe(x, y) {
@@ -1132,10 +1252,6 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
     c.addEventListener("pointerdown", e => { touched = true; last = null; wipe(...pos(e)); });
     c.addEventListener("pointerleave", () => last = null);
     c.addEventListener("pointerup", () => last = null);
-    $("wipe-all").addEventListener("click", () => {
-      touched = true; let y = -40; const step = () => { last = null; for (let x = -20; x < w + 40; x += 18) { wipe(x, y + Math.sin(x / 40) * 12); last = null; } y += 26; if (y < h + 40) requestAnimationFrame(step); };
-      requestAnimationFrame(step);
-    });
     // slowly freeze over again, and let wipe-drops run down
     let lastFreeze = 0;
     function loop(ts) {
