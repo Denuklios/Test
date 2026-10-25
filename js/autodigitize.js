@@ -204,6 +204,24 @@
     return 0.5 * Math.atan2(2 * sxy, sxx - syy);
   }
 
+  // Ringe (mm, Even-Odd) in eine Pixelmaske zeichnen -> glatte Maske ohne Rasterrauschen
+  function fillRings(rings, cw, ch, mm, ox, oy) {
+    const m = new Uint8Array(cw * ch);
+    for (let y = 0; y < ch; y++) {
+      const py = oy + (y + 0.5) * mm, xs = [];
+      for (const r of rings) for (let i = 0, j = r.length - 1; i < r.length; j = i++) {
+        const a = r[j], b = r[i];
+        if ((a.y > py) !== (b.y > py)) xs.push(a.x + ((py - a.y) / (b.y - a.y)) * (b.x - a.x));
+      }
+      xs.sort((p, q) => p - q);
+      for (let k = 0; k + 1 < xs.length; k += 2) {
+        const xa = Math.max(0, Math.ceil((xs[k] - ox) / mm - 0.5)), xb = Math.min(cw - 1, Math.floor((xs[k + 1] - ox) / mm - 0.5));
+        for (let x = xa; x <= xb; x++) m[y * cw + x] = 1;
+      }
+    }
+    return m;
+  }
+
   /**
    * imageData: ImageData-ähnlich {data,width,height}
    * opts: {colors, widthMM, originX, originY, minAreaMM2, removeBg, satinMax, outline}
@@ -293,7 +311,8 @@
         // Schmale Formen (Schrift, Linien, Bögen) -> drehende Satinsäulen
         let cols = null;
         if (mode !== 'tatami') {
-          const res = SA.shapeToColumns(mask, cw, ch, mm, { x: opts.originX + x0 * mm, y: opts.originY + y0 * mm }, allRings, { station: opts.station, turnDeg: opts.turnDeg });
+          const cmask = precise ? fillRings(allRings, cw, ch, mm, opts.originX + x0 * mm, opts.originY + y0 * mm) : mask;
+          const res = SA.shapeToColumns(cmask, cw, ch, mm, { x: opts.originX + x0 * mm, y: opts.originY + y0 * mm }, allRings, { station: opts.station, turnDeg: opts.turnDeg });
           if (res) {
             const ws = res.widths.slice().sort((a, b) => a - b);
             const p90 = ws[Math.floor(ws.length * 0.9)] || 0;
@@ -302,12 +321,8 @@
               const L = col.filter((_, i) => i % 2 === 0), R = col.filter((_, i) => i % 2 === 1).reverse();
               cover += Math.abs(G.signedArea(L.concat(R)));
             }
-            let colLen = 0;
-            for (const col of res.columns) for (let k = 2; k + 1 < col.length; k += 2) colLen += G.dist(G.lerp(col[k - 2], col[k - 1], 0.5), G.lerp(col[k], col[k + 1], 0.5));
-            // kurze Buchstaben mit Verzweigung/Loch -> Fläche; lange fließende Striche (Ring, Nähte) bleiben Satin
-            const junction = (res.columns.length > 1 || holes.length) && !opts.junctionSatin && colLen < (opts.junctionLen ?? 80);
             // Kreuzungen/Verzweigungen (A, N, R, Ringe mit Bögen) liefern überlappende Säulen mit Fächern -> exakte Fläche stickt sauberer
-            if (mode === 'satin' || (p90 <= satinMax && cover / area > 0.75 && !junction)) cols = res;
+            if (mode === 'satin' || (p90 <= satinMax && cover / area > 0.75)) cols = res;
           }
         }
         if (cols) {

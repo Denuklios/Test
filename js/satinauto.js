@@ -302,6 +302,64 @@
    * mask/w/h: Pixelmaske der Region, mm: mm pro Pixel, org: {x,y} Ursprung in mm, rings: Umriss+Löcher in mm.
    * Rückgabe: {columns: [[{x,y,c},...]], widths: [mm...]} oder null, wenn die Form dafür ungeeignet ist.
    */
+  /* ---------- Bereiche: jedem Strich gehört der Teil der Fläche, der ihm am nächsten liegt ---------- */
+  function regionLabels(mask, w, h, seeds) {
+    const n = w * h, INF = 1e9;
+    const dist = new Float64Array(n).fill(INF), lab = new Int16Array(n).fill(-1);
+    let hk = [], hv = [];
+    const push = (k, v) => {
+      let i = hk.length; hk.push(k); hv.push(v);
+      while (i > 0) { const p = (i - 1) >> 1; if (hk[p] <= k) break; hk[i] = hk[p]; hv[i] = hv[p]; i = p; }
+      hk[i] = k; hv[i] = v;
+    };
+    const pop = () => {
+      const rk = hk[0], rv = hv[0], k = hk.pop(), v = hv.pop(), n2 = hk.length;
+      if (n2) {
+        let i = 0;
+        for (;;) {
+          let c = 2 * i + 1; if (c >= n2) break;
+          if (c + 1 < n2 && hk[c + 1] < hk[c]) c++;
+          if (hk[c] >= k) break;
+          hk[i] = hk[c]; hv[i] = hv[c]; i = c;
+        }
+        hk[i] = k; hv[i] = v;
+      }
+      return [rk, rv];
+    };
+    seeds.forEach((px, li) => { for (const i of px) if (mask[i] && dist[i] > 0) { dist[i] = 0; lab[i] = li; push(0, i); } });
+    const D = 1.41421356;
+    while (hk.length) {
+      const [d, i] = pop();
+      if (d > dist[i]) continue;
+      const x = i % w, y = (i / w) | 0;
+      for (const [dx, dy] of OFF8) {
+        const xx = x + dx, yy = y + dy;
+        if (xx < 0 || yy < 0 || xx >= w || yy >= h) continue;
+        const j = yy * w + xx;
+        if (!mask[j]) continue;
+        const nd = d + (dx && dy ? D : 1);
+        if (nd < dist[j]) { dist[j] = nd; lab[j] = lab[i]; push(nd, j); }
+      }
+    }
+    return lab;
+  }
+
+  // Umriss eines Bereichs (mm) aus der Labelkarte
+  function regionRings(lab, li, w, h, mm, org) {
+    const SC = HW.scan;
+    if (!SC) return null;
+    let x0 = w, y0 = h, x1 = -1, y1 = -1;
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) if (lab[y * w + x] === li) { if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
+    if (x1 < 0) return null;
+    x0 = Math.max(0, x0 - 3); y0 = Math.max(0, y0 - 3); x1 = Math.min(w - 1, x1 + 3); y1 = Math.min(h - 1, y1 + 3);
+    const cw = x1 - x0 + 1, ch = y1 - y0 + 1, f = new Float32Array(cw * ch);
+    for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) f[y * cw + x] = lab[(y + y0) * w + x + x0] === li ? 1 : 0;
+    const fb = SC.blur(f, cw, ch, 0.7);
+    const co = { mm, ox: org.x + x0 * mm, oy: org.y + y0 * mm, sigma: 0.06, corner: 55, step: 0.1 };
+    const rs = SC.contours(fb, cw, ch, 0.5).map((r) => SC.cleanRing(r, co).dense).filter((r) => r.length >= 4);
+    return rs.length ? rs : null;
+  }
+
   function shapeToColumns(mask, w, h, mm, org, rings, opts = {}) {
     const dt = distanceTransform(mask, w, h);
     const sk = thin(mask, w, h);
@@ -313,7 +371,17 @@
     const toMM = (i) => ({ x: org.x + ((i % w) + 0.5) * mm, y: org.y + (((i / w) | 0) + 0.5) * mm });
     const step = 0.4;
     const columns = [], widths = [];
-    const inside = (p) => G.pointInRings(p, rings);
+    const jobs = [];
+    const rAt = (p) => {
+      const x = Math.max(0, Math.min(w - 1, Math.floor((p.x - org.x) / mm))), y = Math.max(0, Math.min(h - 1, Math.floor((p.y - org.y) / mm)));
+      return Math.max(0.3, dt[y * w + x] * mm);
+    };
+    const tangents = (arr) => arr.map((p, i) => {
+      const k = 2;
+      const a = arr[Math.max(0, i - k)], c = arr[Math.min(arr.length - 1, i + k)];
+      const l = Math.hypot(c.x - a.x, c.y - a.y) || 1;
+      return { x: (c.x - a.x) / l, y: (c.y - a.y) / l };
+    });
     for (const b of branches) {
       if (b.px.length < 2) continue;
       const closed = !!b.closed;
@@ -322,17 +390,6 @@
       if (closed) pts = pts.concat([pts[0]]);
       pts = G.resample(pts, step, 181);
       if (pts.length < 2) continue;
-      const rAt = (p) => {
-        const x = Math.max(0, Math.min(w - 1, Math.floor((p.x - org.x) / mm))), y = Math.max(0, Math.min(h - 1, Math.floor((p.y - org.y) / mm)));
-        return Math.max(0.3, dt[y * w + x] * mm);
-      };
-      // Abschnitte an scharfen Ecken trennen
-      const tangents = (arr) => arr.map((p, i) => {
-        const k = 2;
-        const a = arr[Math.max(0, i - k)], c = arr[Math.min(arr.length - 1, i + k)];
-        const l = Math.hypot(c.x - a.x, c.y - a.y) || 1;
-        return { x: (c.x - a.x) / l, y: (c.y - a.y) / l };
-      });
       const pieces = [];
       {
         const T = tangents(pts);
@@ -370,10 +427,42 @@
         }
       }
       for (const pc of pieces) {
-        let P = pc.pts;
-        if (P.length < 2) continue;
-        const extendA = pc.sa === 'split' || (pc.sa === 'orig' && !closed && freeEnd(b.a));
-        const extendB = pc.sb === 'split' || (pc.sb === 'orig' && !closed && freeEnd(b.b));
+        if (pc.pts.length < 2) continue;
+        jobs.push({ P: pc.pts, closed: closed && pieces.length === 1 });
+      }
+    }
+    if (jobs.length > 1) {
+      // kurze Stummel (Skelettgabeln an Ecken) gehören zum Nachbarn: Fläche wird von dessen Säule mit abgedeckt
+      const lens = jobs.map((jb) => { let L = 0; for (let k = 1; k < jb.P.length; k++) L += G.dist(jb.P[k - 1], jb.P[k]); return L; });
+      const rM = jobs.map((jb) => { const rs = jb.P.map(rAt).sort((x, y) => x - y); return rs[Math.floor(rs.length / 2)]; });
+      const keepJ = jobs.filter((jb, i) => jb.closed || lens[i] >= rM[i] * 2.2);
+      if (keepJ.length && keepJ.length < jobs.length) { jobs.length = 0; keepJ.forEach((j) => jobs.push(j)); }
+    }
+    // Phase 2: Bereiche bestimmen (jeder Strich bekommt nur „seine“ Fläche -> keine Überlappungen)
+    let labs = null;
+    if (opts.regions !== false && HW.scan && jobs.length > 1) {
+      const seeds = jobs.map((jb) => {
+        const px = [];
+        const P = jb.P;
+        for (let k = 0; k < P.length; k++) {
+          const q = k ? P[k - 1] : P[k], n = Math.max(1, Math.ceil(G.dist(q, P[k]) / (mm * 0.5)));
+          for (let t = 1; t <= n; t++) {
+            const x = Math.floor(((q.x + (P[k].x - q.x) * (t / n)) - org.x) / mm), y = Math.floor(((q.y + (P[k].y - q.y) * (t / n)) - org.y) / mm);
+            if (x >= 0 && y >= 0 && x < w && y < h) px.push(y * w + x);
+          }
+        }
+        return px;
+      });
+      labs = regionLabels(mask, w, h, seeds);
+    }
+    for (let ji = 0; ji < jobs.length; ji++) {
+      const { closed } = jobs[ji];
+      let P = jobs[ji].P;
+      const jr = labs ? regionRings(labs, ji, w, h, mm, org) : null;
+      const rg = jr || rings;
+      const inside = (p) => G.pointInRings(p, rg);
+      {
+        const extendA = !closed, extendB = !closed;
         const extend = (arr, atStart) => {
           const T = tangents(arr);
           const i = atStart ? 0 : arr.length - 1;
@@ -387,16 +476,6 @@
           if (d > 0.25) add.push({ x: p0.x + t.x * (d - 0.12), y: p0.y + t.y * (d - 0.12) });
           return atStart ? add.reverse().concat(arr) : arr.concat(add);
         };
-        // An Verzweigungen enden: dort kürzen, wo der Strich in den anderen übergeht
-        const juncA = !extendA && pc.sa === 'orig' && !closed, juncB = !extendB && pc.sb === 'orig' && !closed;
-        if ((juncA || juncB) && P.length > 6) {
-          const rs = P.map(rAt), med = rs.slice().sort((x, y) => x - y)[Math.floor(rs.length / 2)];
-          const back = Math.max(1, Math.round((med * 0.7) / step));
-          let i0 = 0, i1 = P.length - 1;
-          if (juncA) { while (i0 < P.length - 3 && rs[i0] > med * 1.25) i0++; i0 = Math.max(0, i0 - back); }
-          if (juncB) { while (i1 > i0 + 3 && rs[i1] > med * 1.25) i1--; i1 = Math.min(P.length - 1, i1 + back); }
-          P = P.slice(i0, i1 + 1);
-        }
         const rRef = (() => { const rs = P.map(rAt).sort((x, y) => x - y); return rs[Math.floor(rs.length / 2)]; })();
         if (extendA) P = extend(P, true);
         if (extendB) P = extend(P, false);
@@ -406,7 +485,7 @@
         let W = P.map((p, i) => {
           const n = { x: -T[i].y, y: T[i].x };
           const r = rAt(p), lim = Math.max(r, rRef) * 1.35 + 0.2;
-          const wl = rayDist(p, n, rings, lim), wr = rayDist(p, { x: -n.x, y: -n.y }, rings, lim);
+          const wl = rayDist(p, n, rg, lim), wr = rayDist(p, { x: -n.x, y: -n.y }, rg, lim);
           return { wl: wl >= lim ? r : wl, wr: wr >= lim ? r : wr, n };
         });
         W = W.map((x, i) => {
@@ -433,6 +512,21 @@
           col.push({ x: p.x + ww.n.x * ww.wl, y: p.y + ww.n.y * ww.wl, c }, { x: p.x - ww.n.x * ww.wr, y: p.y - ww.n.y * ww.wr, c });
           widths.push(ww.wl + ww.wr);
         });
+        if (!closed && col.length >= 6 && opts.endCut !== false) {
+          const reach = Math.max(rRef * 3, 1);
+          const fix = (iPrev, iEnd, tdir) => {
+            for (const side of [0, 1]) {
+              const q = col[iPrev * 2 + side], nrm = W[st[iPrev]].n, sg = side ? 1 : -1;
+              // minimal ins Innere versetzt starten, dann entlang der Tangente bis zur Bereichsgrenze
+              const o = { x: q.x + nrm.x * sg * 0.03, y: q.y + nrm.y * sg * 0.03 };
+              const d = rayDist(o, tdir, rg, reach);
+              if (d < reach && d > 0.02) col[iEnd * 2 + side] = { x: q.x + tdir.x * d, y: q.y + tdir.y * d, c: false };
+            }
+          };
+          const m = st.length - 1;
+          fix(m - 1, m, T[P.length - 1]);
+          fix(1, 0, { x: -T[0].x, y: -T[0].y });
+        }
         if (col.length >= 4) columns.push(col);
       }
     }
