@@ -302,7 +302,10 @@
               const L = col.filter((_, i) => i % 2 === 0), R = col.filter((_, i) => i % 2 === 1).reverse();
               cover += Math.abs(G.signedArea(L.concat(R)));
             }
-            const junction = (res.columns.length > 1 || holes.length) && !opts.junctionSatin;
+            let colLen = 0;
+            for (const col of res.columns) for (let k = 2; k + 1 < col.length; k += 2) colLen += G.dist(G.lerp(col[k - 2], col[k - 1], 0.5), G.lerp(col[k], col[k + 1], 0.5));
+            // kurze Buchstaben mit Verzweigung/Loch -> Fläche; lange fließende Striche (Ring, Nähte) bleiben Satin
+            const junction = (res.columns.length > 1 || holes.length) && !opts.junctionSatin && colLen < (opts.junctionLen ?? 80);
             // Kreuzungen/Verzweigungen (A, N, R, Ringe mit Bögen) liefern überlappende Säulen mit Fächern -> exakte Fläche stickt sauberer
             if (mode === 'satin' || (p90 <= satinMax && cover / area > 0.75 && !junction)) cols = res;
           }
