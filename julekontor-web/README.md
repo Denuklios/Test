@@ -1,10 +1,17 @@
 # Julekontor – One-Page mit Weihnachtsmann-Chat
 
-One-Page für **Julekontor – Danmarks gammeldags julebutik** im Stil des Logos (Oldtimer-Lieferwagen, Creme/Rot/Gold).
+One-Page für **Julekontor – Danmarks gammeldags julebutik** rund um das Julekontor-Logo.
 
 - Sprachen der Seite: Dänisch, Deutsch, Englisch (Umschalter oben, sonst nach Browsersprache).
-- Animationen: Schneefall, fahrender Julekontor-Lieferwagen durch eine dänische Stadtsilhouette, brennende Kalenderkerze mit Countdown bis Heiligabend, winkender Weihnachtsmann, blinzelndes Gesicht.
-- **Weihnachtsmann-Chat** unten rechts: antwortet in der Sprache, in der man ihm schreibt (Dänisch, Deutsch, Polnisch, Schwedisch, Arabisch …). Die Antworten kommen live von Claude (Anthropic) und werden Wort für Wort eingeblendet. Der Mund bewegt sich, während er schreibt.
+- Stimmung: ein Winterabend in einer alten dänischen Stadt. Alles ist selbst gezeichnet und animiert:
+  - Startbild: Nachthimmel mit Mond und Sternen, drei Ebenen Häuser mit Treppengiebeln und warmem Licht in den Fenstern, Straßenlaternen, Schneefall mit unscharfen Flocken im Vordergrund, der Julekontor-Lieferwagen fährt durch. Bewegt sich leicht mit der Maus (Parallaxe).
+  - Adventskranz mit Countdown: zeigt die Tage bis Heiligabend und zündet an jedem Adventssonntag eine Kerze mehr an.
+  - Beschlagenes Schaufenster: Man wischt die Scheibe mit Maus oder Finger frei, dahinter das Logo. Sie friert langsam wieder zu, Wassertropfen laufen herunter.
+  - Kalenderkerze 1–24, die beim Scrollen durch „Weihnachten bei uns“ herunterbrennt.
+  - Vitrine mit sechs hängenden Ornamenten (Glaskugel, geflochtenes Herz, Nisse, Holzstern, Kalenderkerze, Geschenk in braunem Papier), die bei Mausbewegung schwingen.
+  - Erleuchtetes Fenster mit dem Weihnachtsmann als Silhouette, der mit der Feder schreibt; daneben „Lieber Weihnachtsmann“ in wechselnden Sprachen in Handschrift.
+  - Spieluhr: spielt „Glade jul“ (Stille Nacht, Gruber 1818, gemeinfrei) direkt im Browser erzeugt, nur auf Knopfdruck.
+- **Weihnachtsmann-Chat** unten rechts: antwortet in der Sprache, in der man ihm schreibt (Dänisch, Deutsch, Polnisch, Schwedisch, Arabisch …). Die Antworten kommen live von Claude (Anthropic) und werden Wort für Wort eingeblendet. Während er schreibt, zeigt der Chat eine schreibende Feder.
 - Kinderschutz ist im Weihnachtsmann fest eingebaut: Er fragt nie nach Name, Adresse, Schule oder Telefonnummer, verspricht keine bestimmten Geschenke und verweist bei Sorgen an eine Vertrauensperson bzw. BørneTelefonen 116 111.
 - Ohne Server bzw. ohne API-Schlüssel antwortet der Weihnachtsmann mit vorgeschriebenen Antworten in 10 Sprachen (mit Hinweis „Vorschau“).
 
