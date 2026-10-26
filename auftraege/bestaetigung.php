@@ -21,12 +21,19 @@ $limited = (int)$cnt->fetchColumn() >= 30;
 
 $token = (string)($_GET['t'] ?? '');
 $c = false;
-if (!$limited && preg_match('/^[0-9a-f]{48}$/', $token)) {
+$admin = false;
+if (isset($_GET['id']) && wf_user()) {
+    // Ansicht für den Inhaber (angemeldet): jede Bestätigung per ID, auch unterschriebene zum Drucken
+    $st = $db->prepare('SELECT * FROM order_confirmations WHERE id = ?');
+    $st->execute([(int)$_GET['id']]);
+    $c = $st->fetch();
+    $admin = (bool)$c;
+} elseif (!$limited && preg_match('/^[0-9a-f]{48}$/', $token)) {
     $st = $db->prepare("SELECT * FROM order_confirmations WHERE token_hash = ? AND revoked_at IS NULL AND (signed_at IS NOT NULL OR expires_at > datetime('now'))");
     $st->execute([hash('sha256', $token)]);
     $c = $st->fetch();
 }
-if (!$c && !$limited) {
+if (!$c && !$limited && !isset($_GET['id'])) {
     $db->prepare('INSERT INTO rate_limit (ip, at) VALUES (?, ?)')->execute([$ip, time()]);
 }
 $snap = $c ? json_decode($c['snapshot'], true) : null;
@@ -54,7 +61,7 @@ if ($c && isset($_GET['file'])) {
 
 // Unterschreiben
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (!$c) {
+    if (!$c || $admin) {
         wf_fail('invalid', 403);
     }
     if ($c['signed_at']) {
@@ -85,13 +92,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     wf_touch();
     wf_json(['ok' => true]);
 }
-if ($c && !$c['viewed_at']) {
+if ($c && !$admin && !$c['viewed_at']) {
     $db->prepare("UPDATE order_confirmations SET viewed_at = datetime('now') WHERE id = ? AND signed_at IS NULL")->execute([$c['id']]);
 }
 
 $e = fn($s) => htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8');
 $money = fn(float $v, string $cur) => number_format($v, 2, $lang === 'en' ? '.' : ',', $lang === 'en' ? ',' : '.') . ' ' . $cur;
 $S = $snap['seller'] ?? [];
+$signed = $c && $c['signed_at'];
+$pageTitle = $signed || !isset($T['offer']) ? $T['title'] : $T['offer'];
+$C = $snap['customer'] ?? [];
+$thumbSrc = fn(int $fid) => $admin ? 'file.php?id=' . $fid . '&thumb=1' : '?t=' . rawurlencode($token) . '&file=' . $fid;
 ?><!doctype html>
 <html lang="<?= $e($lang) ?>">
 <head>
@@ -99,7 +110,7 @@ $S = $snap['seller'] ?? [];
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
 <meta name="theme-color" content="#090909">
-<title><?= $e($T['title']) ?></title>
+<title><?= $e($pageTitle . ($snap ? ' ' . $snap['nr'] : '')) ?></title>
 <link rel="icon" href="icons/icon-192.png">
 <link rel="stylesheet" href="assets/app.css">
 <style>
@@ -113,17 +124,32 @@ body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
 .done{border-color:rgba(52,211,153,.6);background:linear-gradient(180deg,rgba(52,211,153,.12),var(--surface))}
 .sigimg{background:#fff;border-radius:10px;max-width:100%;height:90px;margin-top:8px}
 .small{font-size:.8rem;color:var(--muted);margin-top:18px;text-align:center}
+.terms ol{margin:0;padding-left:20px}.terms li{margin:0 0 6px;font-size:.9rem}
+.wdr{margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.08);font-size:.9rem}
+.valid{font-size:.9rem;color:var(--p3);margin:-4px 0 12px}
+.cust{white-space:pre-line}
+@media print{
+  body,html{background:#fff!important;color:#000}main{max-width:none;padding:0}
+  .card{background:#fff!important;border:1px solid #bbb!important;box-shadow:none!important;color:#000;break-inside:avoid}
+  .muted,.small,.kv dt{color:#444!important}h1,h2,.eyebrow,.valid{color:#000!important}.noprint{display:none!important}
+  .head .b{color:#000}.head .b b{color:#6d1fc0}.wdr{background:#fff;border-color:#999}
+}
 </style>
 </head>
 <body>
 <main>
-  <div class="head"><img src="assets/logo.png" alt=""><div class="b">WUNSCH-<b>FABRIK</b>.DK</div></div>
+  <div class="head"><img src="assets/logo-bg.png" alt=""><div class="b">WUNSCH-<b>FABRIK</b>.DK</div></div>
 <?php if (!$snap): ?>
   <div class="card"><h2><?= $e($T['title']) ?></h2><p class="muted"><?= $e($T['invalid']) ?></p></div>
 <?php else: ?>
-  <div class="eyebrow"><?= $e($T['order']) ?> <?= $e($snap['nr']) ?></div>
-  <h1><?= $e($T['title']) ?></h1>
-  <p class="muted"><?= $e($T['intro']) ?></p>
+  <div class="eyebrow"><?= $e($signed ? $T['order'] : ($T['offer_nr'] ?? $T['order'])) ?> <?= $e($snap['nr']) ?> · <?= $e(wf_doc_date($snap['created'] ?? null, $lang)) ?></div>
+  <h1><?= $e($pageTitle) ?></h1>
+  <p class="muted"><?= $e($signed ? ($T['intro_done'] ?? '') : ($T['intro_offer'] ?? $T['intro'])) ?></p>
+  <?php if (!$signed && !empty($snap['valid_until']) && isset($T['valid'])): ?><p class="valid"><?= $e(strtr($T['valid'], ['{d}' => wf_doc_date($snap['valid_until'], $lang)])) ?></p><?php endif; ?>
+  <?php if (!empty($C['name']) || !empty($C['company'])): ?>
+  <div class="card"><label><?= $e($T['customer'] ?? 'Kunde') ?></label>
+    <div class="cust"><?= $e(implode("\n", array_filter([$C['company'] ?? '', $C['name'] ?? '', str_replace(', ', "\n", (string)($C['address'] ?? '')), $C['phone'] ?? '', $C['email'] ?? '']))) ?></div></div>
+  <?php endif; ?>
   <div class="card">
     <h2 style="margin-bottom:8px"><?= $e($snap['title']) ?></h2>
     <?php if ($snap['description']): ?><p style="white-space:pre-wrap;margin:0 0 10px"><?= $e($snap['description']) ?></p><?php endif; ?>
@@ -134,10 +160,19 @@ body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
       <?php if ($snap['price'] > 0): ?><dt><?= $e($T['price']) ?></dt><dd><b><?= $e($money($snap['price'], $snap['currency'])) ?></b> <?= $e($T['vat_' . $snap['vat']]) ?></dd><?php endif; ?>
       <?php if ($snap['deposit'] > 0): ?><dt><?= $e($T['deposit']) ?></dt><dd><?= $e($money($snap['deposit'], $snap['currency'])) ?></dd><?php endif; ?>
     </dl>
-    <?php if ($snap['files']): ?><div style="margin-top:12px"><label><?= $e($T['files']) ?></label><div class="thumbs"><?php foreach ($snap['files'] as $fid): ?><img src="?t=<?= $e($token) ?>&amp;file=<?= (int)$fid ?>" alt=""><?php endforeach; ?></div></div><?php endif; ?>
+    <?php if ($snap['files']): ?><div style="margin-top:12px"><label><?= $e($T['files']) ?></label><div class="thumbs"><?php foreach ($snap['files'] as $fid): ?><img src="<?= $e($thumbSrc((int)$fid)) ?>" alt=""><?php endforeach; ?></div></div><?php endif; ?>
   </div>
-  <?php if ($c['signed_at']): ?>
-  <div class="card done"><b><?= $e(strtr($T['done'], ['{d}' => wf_doc_date(substr($c['signed_at'], 0, 10), $lang), '{n}' => $c['signer_name']])) ?></b><br><img class="sigimg" src="data:image/png;base64,<?= $e($c['signature']) ?>" alt=""></div>
+  <?php if (!empty($snap['terms'])): ?>
+  <div class="card terms"><label><?= $e($T['terms'] ?? '') ?></label><ol><?php foreach ($snap['terms'] as $tl): ?><li><?= $e($tl) ?></li><?php endforeach; ?></ol>
+    <?php if (!empty($snap['consumer']) && isset($T['withdrawal'])): ?><div class="wdr"><?= $e($T['withdrawal']) ?></div><?php endif; ?>
+  </div>
+  <?php endif; ?>
+  <?php if ($signed): ?>
+  <div class="card done"><b><?= $e(strtr($T['done'], ['{d}' => wf_doc_date(substr($c['signed_at'], 0, 10), $lang), '{n}' => $c['signer_name']])) ?></b><br><img class="sigimg" src="data:image/png;base64,<?= $e($c['signature']) ?>" alt="">
+    <div class="muted" style="font-size:.8rem;margin-top:6px"><?= $e(($T['signed_by'] ?? '') . ': ' . $c['signed_at'] . ' UTC') ?><?= $admin ? $e(' · IP ' . $c['sign_ip']) : '' ?></div></div>
+  <div class="row noprint" style="justify-content:center"><button type="button" class="btn primary" id="prt"><?= $e($T['print'] ?? 'Print') ?></button></div>
+  <?php elseif ($admin): ?>
+  <div class="card noprint"><p class="muted" style="margin:0">⏳ <?= $e($c['revoked_at'] ? 'Link gesperrt' : 'Noch nicht unterschrieben' . ($c['viewed_at'] ? ' · vom Kunden geöffnet ' . $c['viewed_at'] . ' UTC' : '')) ?></p></div>
   <?php else: ?>
   <div class="card" id="form">
     <label for="nm"><?= $e($T['name']) ?></label>
@@ -153,7 +188,10 @@ body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
   <p class="small"><?= $e(implode(' · ', array_filter([$S['name'] ?? '', trim(($S['street'] ?? '') . ', ' . ($S['zip'] ?? '') . ' ' . ($S['city'] ?? ''), ', '), ($S['cvr'] ?? '') ? 'CVR ' . $S['cvr'] : '', $S['email'] ?? '', $S['phone'] ?? '']))) ?></p>
 <?php endif; ?>
 </main>
-<?php if ($snap && !$c['signed_at']): ?>
+<?php if ($signed): ?>
+<script nonce="<?= $e($nonce) ?>">document.getElementById('prt').onclick = () => print();</script>
+<?php endif; ?>
+<?php if ($snap && !$signed && !$admin): ?>
 <script nonce="<?= $e($nonce) ?>">
 (() => {
   const T = <?= json_encode(['need_name' => $T['need_name'], 'need_sig' => $T['need_sig'], 'need_accept' => $T['need_accept'], 'error' => $T['error']], JSON_UNESCAPED_UNICODE | JSON_HEX_TAG) ?>;

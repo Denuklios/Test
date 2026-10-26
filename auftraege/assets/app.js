@@ -265,11 +265,12 @@ function orderMoneyCard(o, reload) {
   };
   const send = async () => { const r = await api('confirm_create', { body: { order_id: o.id } }); showLink(r.token); };
   let conf;
+  const viewBtn = c ? h('a', { class: 'btn small', href: `${BASE}bestaetigung.php?id=${c.id}`, target: '_blank', rel: 'noopener' }, '📄 ' + t('confirm_view')) : null;
   if (c && c.signed_at) {
-    conf = h('div', { class: 'confok' }, h('b', {}, '✓ ' + t('confirm_signed', c.signer_name, c.signed_at.slice(0, 16))), h('img', { src: `${BASE}api.php?a=confirm_signature&id=${c.id}`, alt: '', class: 'sigimg' }));
+    conf = h('div', { class: 'confok' }, h('b', {}, '✓ ' + t('confirm_signed', c.signer_name, c.signed_at.slice(0, 16))), h('img', { src: `${BASE}api.php?a=confirm_signature&id=${c.id}`, alt: '', class: 'sigimg' }), h('div', {}, viewBtn));
   } else if (c && !c.revoked_at && c.expires_at > new Date().toISOString().slice(0, 19).replace('T', ' ')) {
     conf = h('div', {}, h('p', { class: 'muted', style: 'margin:0 0 8px' }, t('confirm_open', c.created_at.slice(0, 10)) + (c.viewed_at ? ' · ' + t('confirm_viewed', c.viewed_at.slice(0, 16)) : '')),
-      h('div', { class: 'row' }, h('button', { class: 'btn small', onclick: send }, t('confirm_new_link')), h('button', { class: 'btn small danger', onclick: async () => { await api('confirm_revoke', { body: { order_id: o.id } }); reload(); } }, t('revoke'))), linkBox);
+      h('div', { class: 'row' }, viewBtn, h('button', { class: 'btn small', onclick: send }, t('confirm_new_link')), h('button', { class: 'btn small danger', onclick: async () => { await api('confirm_revoke', { body: { order_id: o.id } }); reload(); } }, t('revoke'))), linkBox);
   } else {
     conf = h('div', {}, h('p', { class: 'muted', style: 'margin:0 0 8px' }, t('confirm_text')), h('button', { class: 'btn', onclick: send }, '✍ ' + t('confirm_send')), linkBox);
   }
@@ -1470,6 +1471,21 @@ route(/^\/settings$/, async () => {
       p.id ? h('button', { class: 'btn small danger', onclick: async () => { await api('product_delete', { body: { id: p.id } }); render(); } }, '✕') : null);
     return row;
   };
+  // Bedingungen fürs Angebot (je Sprache); leer = Standardtext
+  const TA = {};
+  const termsCard = h('div', { class: 'card' }, h('h3', {}, t('terms_title')), h('p', { class: 'muted' }, t('terms_text')),
+    ['de', 'da', 'en'].map((l) => {
+      TA[l] = h('textarea', { rows: 9, style: 'font-size:.85rem' }, me.company['terms_' + l] || me.terms_default[l]);
+      return h('div', { style: 'margin-bottom:10px' }, h('div', { class: 'row', style: 'justify-content:space-between' }, h('label', {}, t('lang_' + l)),
+        h('button', { type: 'button', class: 'btn small', onclick: () => { TA[l].value = me.terms_default[l]; } }, t('terms_reset'))), TA[l]);
+    }),
+    h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: async () => {
+      try {
+        const body = { ...me.company };
+        for (const l of ['de', 'da', 'en']) body['terms_' + l] = TA[l].value.trim() === me.terms_default[l].trim() ? '' : TA[l].value;
+        await api('company_save', { body }); await reloadMe(); toast(t('saved'));
+      } catch (e) { toast(e.message); }
+    } }, t('save'))));
   const aiIn = h('input', { type: 'password', autocomplete: 'off', placeholder: me.ai_enabled ? '••••••••••••' : 'sk-ant-…' });
   const aiCard = h('div', { class: 'card' }, h('h3', {}, '✨ ' + t('ai_title')), h('p', { class: 'muted' }, t('ai_text')),
     h('p', { style: 'margin:0 0 8px' }, me.ai_enabled ? '✓ ' + t('ai_on') : t('ai_off')),
@@ -1484,6 +1500,7 @@ route(/^\/settings$/, async () => {
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_settings')), h('h1', {}, t('settings_h1_a'), ' ', h('em', {}, t('settings_h1_b'))))),
     companyCard,
+    termsCard,
     prodCard,
     aiCard,
     h('div', { class: 'card' }, h('h3', {}, t('display_title')), h('p', { class: 'muted' }, t('display_text')),

@@ -201,7 +201,9 @@ try {
   await ok('Auftragsbestätigung: Link, Ansicht, Unterschrift, danach gesperrt', async () => {
     const r = await call('confirm_create', { body: { order_id: oid } }); const tok = r.j.token; assert.match(tok, /^[0-9a-f]{48}$/);
     const page = await (await fetch(`${B}/bestaetigung.php?t=${tok}`)).text();
-    assert.match(page, /Ordrebekræftelse/); assert.match(page, /20 Hoodies/); assert.match(page, /5\.000,00 DKK/); assert.match(page, /inkl\. 25 % moms/);
+    assert.match(page, /<h1>Tilbud<\/h1>/); assert.match(page, /Tilbuddet gælder til \d\d\.\d\d\.\d{4}/); assert.match(page, /20 Hoodies/); assert.match(page, /5\.000,00 DKK/); assert.match(page, /inkl\. 25 % moms/);
+    assert.match(page, /fortrydelsesretten ikke/, 'Privatkunde: Hinweis Widerrufsrecht'); assert.match(page, /betales inden 8 dage/); assert.match(page, /Købelovens regler/); assert.doesNotMatch(page, /inden 8 dage efter modtagelse/, 'keine verkürzte Reklamationsfrist für Privatkunden');
+    assert.match(page, /Accepter tilbuddet bindende/);
     assert.match(await (await fetch(`${B}/bestaetigung.php?t=${'0'.repeat(48)}`)).text(), /ugyldigt eller udløbet/);
     const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==';
     const post = (body) => fetch(`${B}/bestaetigung.php?t=${tok}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(body) });
@@ -214,7 +216,10 @@ try {
     assert.equal(o.confirmation.signer_name, 'Hans Hansen'); assert.ok(o.log.some((l) => l.what.startsWith('confirmed:')));
     assert.match(sql(`UPDATE order_confirmations SET signer_name = 'X'`), /confirmation_locked/);
     const sig = await fetch(`${B}/api.php?a=confirm_signature&id=${o.confirmation.id}`, { headers: { cookie } }); assert.equal(sig.headers.get('content-type'), 'image/png');
-    assert.match(await (await fetch(`${B}/bestaetigung.php?t=${tok}`)).text(), /bekræftet .* af Hans Hansen/);
+    const after = await (await fetch(`${B}/bestaetigung.php?t=${tok}`)).text();
+    assert.match(after, /bekræftet .* af Hans Hansen/); assert.match(after, /<h1>Ordrebekræftelse<\/h1>/); assert.match(after, /Udskriv \/ gem som PDF/); assert.match(after, /fortrydelsesretten ikke/);
+    assert.match(await (await fetch(`${B}/bestaetigung.php?id=${o.confirmation.id}`, { headers: { cookie } })).text(), /IP 127\.0\.0\.1/, 'Inhaber-Ansicht');
+    assert.match(await (await fetch(`${B}/bestaetigung.php?id=${o.confirmation.id}`)).text(), /ugyldigt eller udløbet/, 'ohne Login keine Ansicht per ID');
   });
   await ok('Unterschrift setzt „Angefragt“ automatisch auf „Freigabe“', async () => {
     const o = (await call('order_save', { body: { customer_id: dk, title: 'Freigabe-Test', qty: 1, price: '100', deposit: 0, currency: 'DKK', pay_status: 'open', processes: [] } })).j.order;
@@ -224,6 +229,18 @@ try {
     await fetch(`${B}/bestaetigung.php?t=${tok}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Kunde', accept: true, signature: png }) });
     const n = (await call('order', { params: { id: o.id } })).j.order;
     assert.equal(n.status, 'approval'); assert.ok(n.log.some((l) => l.what === 'status:approval' && l.user_name === 'Kunde'));
+  });
+  await ok('Angebot an Firmenkunden: Firmen-Bedingungen, kein Widerrufshinweis, eigene Bedingungen aus den Firmendaten', async () => {
+    const o = (await call('order_save', { body: { customer_id: de, title: 'Firmen-Test', qty: 50, price: '9000', deposit: 0, currency: 'DKK', pay_status: 'open', processes: [] } })).j.order;
+    let tok = (await call('confirm_create', { body: { order_id: o.id } })).j.token;
+    let page = await (await fetch(`${B}/bestaetigung.php?t=${tok}`)).text();
+    assert.match(page, /<h1>Angebot<\/h1>/); assert.match(page, /Reklamationen bitte innerhalb von 8 Tagen/); assert.doesNotMatch(page, /Widerrufsrecht/); assert.doesNotMatch(page, /gesetzlichen Reklamationsrechte/);
+    const co = (await call('me')).j.company;
+    await call('company_save', { body: { ...co, terms_de: 'Eigene Zeile für alle\n[Firma] Nur Firma\n[Privat] Nur privat' } });
+    tok = (await call('confirm_create', { body: { order_id: o.id } })).j.token;
+    page = await (await fetch(`${B}/bestaetigung.php?t=${tok}`)).text();
+    assert.match(page, /Eigene Zeile für alle/); assert.match(page, /Nur Firma/); assert.doesNotMatch(page, /Nur privat/);
+    await call('company_save', { body: { ...co, terms_de: '' } });
   });
   await ok('Produkte anlegen, ändern, löschen', async () => {
     const id = (await call('product_save', { body: { name: 'Stick bis 10.000 Stiche', unit: 'stk', price: '45,00', kind: 'services' } })).j.id;

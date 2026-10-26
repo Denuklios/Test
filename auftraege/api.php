@@ -189,6 +189,7 @@ try {
                 'eu' => WF_EU,
                 'units' => WF_UNITS,
                 'exp_categories' => wf_exp_categories(),
+                'terms_default' => ['de' => wf_terms_default('de'), 'da' => wf_terms_default('da'), 'en' => wf_terms_default('en')],
                 'ai_enabled' => wf_ai_key() !== '',
                 'invoices_final' => (int)$db->query("SELECT COUNT(*) FROM invoices WHERE status = 'final'")->fetchColumn(),
             ]);
@@ -515,7 +516,7 @@ try {
             $lang = in_array($in['lang'] ?? '', WF_DOC_LANGS, true) ? $in['lang'] : wf_doc_lang_for($cust);
             $db->prepare("UPDATE order_confirmations SET revoked_at = datetime('now') WHERE order_id = ? AND signed_at IS NULL AND revoked_at IS NULL")->execute([$o['id']]);
             $db->prepare("INSERT INTO order_confirmations (order_id, token_hash, lang, snapshot, created_by, expires_at) VALUES (?,?,?,?,?, datetime('now', '+30 days'))")
-                ->execute([$o['id'], hash('sha256', $token), $lang, json_encode(wf_confirm_snapshot($db, $o, $cust), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $user['name']]);
+                ->execute([$o['id'], hash('sha256', $token), $lang, json_encode(wf_confirm_snapshot($db, $o, $cust, $lang, 30), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $user['name']]);
             log_order($db, $o['id'], $user, 'confirm_sent');
             wf_json(['ok' => true, 'token' => $token]);
         }
@@ -1038,6 +1039,11 @@ try {
             $c['moms_period'] = in_array($in['moms_period'] ?? '', ['half', 'quarter', 'month'], true) ? $in['moms_period'] : 'half';
             $c['pay_days'] = max(0, min(90, (int)($in['pay_days'] ?? 14)));
             $c['phone_share'] = max(0, min(100, (int)($in['phone_share'] ?? ($c['phone_share'] ?? 50))));
+            foreach (['de', 'da', 'en'] as $tl) {
+                if (array_key_exists('terms_' . $tl, $in)) {
+                    $c['terms_' . $tl] = mb_substr(trim((string)$in['terms_' . $tl]), 0, 6000);
+                }
+            }
             // Startnummer nur bis zur ersten festgeschriebenen Rechnung aenderbar (sonst Luecke)
             if ((int)$db->query("SELECT COUNT(*) FROM invoices WHERE status = 'final'")->fetchColumn() === 0) {
                 $c['invoice_start'] = max(1, min(99999999, (int)($in['invoice_start'] ?? 1)));
