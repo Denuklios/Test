@@ -1,237 +1,241 @@
 <title>Julekontor</title>
 <meta name="claude:viewport-fit-sides" content="cover">
-<meta name="description" content="Julekontor – Danmarks gammeldags julebutik. Nisser, glaskugler, flettede hjerter og kalenderlys. Skriv til Julemanden direkte på siden – han svarer på dit sprog.">
+<meta name="description" content="Julekontor – Danmarks gammeldags julebutik. Julekalender, pynt juletræet, skriv en ønskeseddel og chat med Julemanden – han svarer på dit sprog.">
 <meta property="og:title" content="Julekontor – Danmarks gammeldags julebutik">
 <meta property="og:image" content="img/logo.webp">
-<meta name="theme-color" content="#1c3326">
+<meta name="theme-color" content="#a8101a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Hanken+Grotesk:wght@400;500;600;700&family=Pinyon+Script&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,500;1,600;1,700&family=Nunito:wght@400;600;700;800&family=Pinyon+Script&display=swap">
 <style>
-/* Layout: a classic Christmas shop front page, the way the big Christmas houses build theirs —
-   announcement bar, a centred logo plaque, one red hero banner, a category grid, a feature block,
-   the story with the full logo artwork, store details, footer. Light paper ground taken from the logo. */
+/* Layout: the Julekontor logo comes to life. The page is the logo's paper, red lettering, gold flourishes and
+   holly corners; the van from the logo drives in and parks. Below it, the things a child would want:
+   an advent calendar to open, a tree to decorate, a wish list to send, and Santa to talk to. */
 :root {
-  --paper: #f7f1e6;
-  --paper-2: #efe5d2;
-  --card: #fffdf8;
-  --ink: #2a1a14;
-  --ink-soft: #6b5548;
-  --red: #9e1b22;
-  --red-deep: #7c1218;
-  --green: #1c3326;
-  --green-2: #27462f;
-  --gold: #b88a3b;
-  --gold-soft: #e2c58a;
-  --line: #e1d3b8;
-  --on-dark: #f7efe0;
-  /* names used by the chat styles */
-  --cream: #f7f1e6; --night: #1c3326; --on-night: #f7efe0; --on-night-soft: #c9d3c8; --brass: #e2c58a; --rule: rgba(42,26,20,.14);
-  --wine: #7c1218; --wine-2: #9e1b22; --ember: #b88a3b; --glow: #f2d28f;
-  --f-display: "Playfair Display", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
-  --f-body: "Hanken Grotesk", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
-  --f-script: "Pinyon Script", "Snell Roundhand", "Apple Chancery", cursive;
-  --ease: cubic-bezier(.2, .7, .2, 1);
-  --wrap: 1200px;
+  --paper: #f3e8d2; --paper-2: #e9dabc; --card: #fbf5e8; --ink: #2b1a12; --ink-soft: #6a5242;
+  --red: #b0121c; --red-deep: #860c14; --green: #1f4d2e; --green-2: #2c6a40; --gold: #c3923e; --gold-soft: #e7c886; --line: #dcc8a2; --on-dark: #fff7ea;
+  --cream: #f3e8d2; --night: #1f4d2e; --on-night: #fff7ea; --on-night-soft: #d3e2d6; --brass: #e7c886; --rule: rgba(43,26,18,.14);
+  --wine: #860c14; --wine-2: #b0121c; --ember: #c3923e; --glow: #f2d28f;
+  --f-display: "Playfair Display", "Iowan Old Style", Georgia, serif;
+  --f-body: "Nunito", "Segoe UI", system-ui, sans-serif;
+  --f-script: "Pinyon Script", "Snell Roundhand", cursive;
+  --ease: cubic-bezier(.2, .7, .2, 1); --bounce: cubic-bezier(.3, 1.5, .5, 1);
+  --wrap: 1180px;
   color-scheme: light;
 }
 *, *::before, *::after { box-sizing: border-box; }
 [hidden] { display: none !important; }
-html { scroll-behavior: smooth; scroll-padding-top: 120px; }
-body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 1.05rem; line-height: 1.65; -webkit-font-smoothing: antialiased; overflow-x: hidden; }
-body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 90; background: var(--green); }
-h1, h2, h3 { font-family: var(--f-display); font-weight: 600; line-height: 1.12; margin: 0; text-wrap: balance; }
+html { scroll-behavior: smooth; scroll-padding-top: 80px; }
+body { margin: 0; background: var(--paper); color: var(--ink); font-family: var(--f-body); font-size: 1.06rem; line-height: 1.6; -webkit-font-smoothing: antialiased; overflow-x: hidden;
+  background-image: radial-gradient(circle at 20% 10%, rgba(255,255,255,.55), transparent 40%), radial-gradient(circle at 80% 60%, rgba(255,255,255,.4), transparent 45%); }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 90; background: var(--red); }
+h1, h2, h3 { font-family: var(--f-display); margin: 0; line-height: 1.1; text-wrap: balance; }
 p { margin: 0; }
 a { color: inherit; }
-:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 3px; }
-.wrap { max-width: var(--wrap); margin-inline: auto; padding-left: max(20px, env(safe-area-inset-left, 0px)); padding-right: max(20px, env(safe-area-inset-right, 0px)); }
-.kicker { font-family: var(--f-script); font-size: clamp(1.6rem, 1.3rem + 1.2vw, 2.3rem); color: var(--gold); line-height: 1; }
-.rule { display: flex; align-items: center; gap: 14px; color: var(--gold); justify-content: center; }
-.rule::before, .rule::after { content: ""; height: 1px; width: 70px; background: currentColor; opacity: .7; }
-.rule svg { width: 16px; height: 16px; }
-.sec-head { text-align: center; display: grid; justify-items: center; gap: 12px; max-width: 40rem; margin: 0 auto clamp(36px, 5vw, 56px); }
-.sec-head h2 { font-size: clamp(2rem, 1.6rem + 1.8vw, 3rem); color: var(--ink); }
-.sec-head p { color: var(--ink-soft); font-size: 1.12rem; }
-.btn { display: inline-flex; align-items: center; justify-content: center; gap: .6em; font: 600 .98rem/1 var(--f-body); letter-spacing: .03em; padding: 1em 1.7em; border-radius: 3px; border: 1.5px solid transparent; cursor: pointer; text-decoration: none; transition: background-color .25s, color .25s, border-color .25s, transform .25s var(--ease); }
-.btn svg { width: 1.15em; height: 1.15em; }
-.btn:hover { transform: translateY(-1px); }
-.btn-cream { background: var(--on-dark); color: var(--red-deep); }
-.btn-cream:hover { background: #fff; }
-.btn-outline-light { background: rgba(16,24,90,.45); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); border-color: rgba(247,239,224,.7); color: var(--on-dark); }
-.btn-outline-light:hover { background: rgba(247,239,224,.12); border-color: var(--on-dark); }
-.btn-red { background: var(--red); color: var(--on-dark); }
-.btn-red:hover { background: var(--red-deep); }
-.btn-green { background: var(--green); color: var(--on-dark); }
-.btn-green:hover { background: var(--green-2); }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; border-radius: 4px; }
+.wrap { max-width: var(--wrap); margin-inline: auto; padding-left: max(18px, env(safe-area-inset-left, 0px)); padding-right: max(18px, env(safe-area-inset-right, 0px)); }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .55em; font: 800 1rem/1 var(--f-body); padding: .95em 1.6em; border-radius: 999px; border: 0; cursor: pointer; text-decoration: none; transition: transform .25s var(--bounce), box-shadow .25s, background-color .25s; }
+.btn svg { width: 1.2em; height: 1.2em; }
+.btn:hover { transform: translateY(-2px) scale(1.03); }
+.btn:active { transform: scale(.97); }
+.btn-red { background: var(--red); color: #fff; box-shadow: 0 6px 0 var(--red-deep), 0 14px 24px -10px rgba(134,12,20,.6); }
+.btn-green { background: var(--green); color: #fff; box-shadow: 0 6px 0 #133520, 0 14px 24px -10px rgba(19,53,32,.6); }
+.btn-cream { background: var(--card); color: var(--red-deep); box-shadow: 0 6px 0 var(--line), 0 14px 24px -12px rgba(60,30,10,.4); }
 
-/* ---------- announcement bar + header with the logo plaque ---------- */
-.announce { background: var(--green); color: var(--on-dark); font-size: .86rem; letter-spacing: .02em; }
-.announce .wrap { display: flex; justify-content: center; align-items: center; gap: .6rem; min-height: 38px; padding-block: 6px; text-align: center; }
-.announce button { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-weight: 500; }
+/* section titles in the logo's manner: red display serif between gold flourishes */
+.title { display: grid; justify-items: center; text-align: center; gap: 8px; margin: 0 auto clamp(26px, 4vw, 44px); max-width: 44rem; }
+.title .script { font-family: var(--f-script); font-size: clamp(1.7rem, 1.4rem + 1.2vw, 2.4rem); color: var(--gold); line-height: 1; }
+.title h2 { font-size: clamp(2.1rem, 1.6rem + 2.4vw, 3.5rem); font-weight: 800; color: var(--red); letter-spacing: -.01em; text-shadow: 0 1px 0 #fff, 0 2px 0 rgba(195,146,62,.35); }
+.title p { color: var(--ink-soft); font-size: 1.1rem; }
+.flourish { width: min(280px, 70%); height: 26px; color: var(--gold); }
+
+/* the logo's holly corners on framed boards */
+.board { position: relative; background: var(--card); border-radius: 18px; padding: clamp(26px, 4vw, 54px) clamp(16px, 3.5vw, 48px); box-shadow: 0 0 0 1px var(--line), 0 0 0 7px var(--card), 0 0 0 8px var(--gold-soft), 0 30px 60px -36px rgba(80,40,10,.5); }
+.board > .corner { position: absolute; width: clamp(90px, 13vw, 150px); aspect-ratio: 250 / 240; background-size: cover; pointer-events: none; z-index: 1; }
+.corner.tl { left: -8px; top: -8px; background-image: url("img/corner-tl.webp"); -webkit-mask: radial-gradient(circle at 0 0, #000 50%, transparent 74%); mask: radial-gradient(circle at 0 0, #000 50%, transparent 74%); }
+.corner.tr { right: -8px; top: -8px; background-image: url("img/corner-tr.webp"); -webkit-mask: radial-gradient(circle at 100% 0, #000 50%, transparent 74%); mask: radial-gradient(circle at 100% 0, #000 50%, transparent 74%); }
+.corner.bl { left: -8px; bottom: -8px; background-image: url("img/corner-bl.webp"); -webkit-mask: radial-gradient(circle at 0 100%, #000 50%, transparent 74%); mask: radial-gradient(circle at 0 100%, #000 50%, transparent 74%); }
+.corner.br { right: -8px; bottom: -8px; background-image: url("img/corner-br.webp"); -webkit-mask: radial-gradient(circle at 100% 100%, #000 50%, transparent 74%); mask: radial-gradient(circle at 100% 100%, #000 50%, transparent 74%); }
+.board > :not(.corner) { position: relative; z-index: 2; }
+section.block { padding-block: clamp(56px, 8vw, 100px); }
+
+/* ---------- top ---------- */
+.announce { background: var(--red); color: #fff; font-size: .9rem; font-weight: 700; }
+.announce .wrap { display: flex; justify-content: center; min-height: 38px; align-items: center; }
+.announce button { all: unset; cursor: pointer; display: inline-flex; gap: 8px; align-items: center; white-space: nowrap; }
 .announce button:hover span { text-decoration: underline; text-underline-offset: 3px; }
+.announce svg { width: 16px; height: 16px; color: var(--gold-soft); }
 .announce .short { display: none; }
 @media (max-width: 600px) { .announce .long { display: none; } .announce .short { display: inline; } }
-.announce svg { width: 16px; height: 16px; color: var(--gold-soft); flex: none; }
-@media (max-width: 600px) { .lang button { padding: .5em .55em; } .site-head .wrap { gap: 8px; } }
-.site-head { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 60; background: var(--paper); border-bottom: 1px solid var(--line); transition: box-shadow .3s; }
-.site-head.scrolled { box-shadow: 0 10px 30px -22px rgba(60,30,10,.55); }
-.site-head .wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; min-height: 76px; }
-.navl, .navr { display: flex; gap: clamp(14px, 2.2vw, 32px); align-items: center; font-weight: 500; font-size: .95rem; }
-.navr { justify-content: flex-end; }
-.navl a, .navr a { text-decoration: none; position: relative; padding-block: 6px; }
-.navl a::after, .navr a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 1.5px; background: var(--red); transform: scaleX(0); transition: transform .25s var(--ease); }
-.navl a:hover::after, .navr a:hover::after { transform: scaleX(1); }
-.plaque { position: relative; display: block; width: 210px; height: 76px; }
-.plaque a { position: absolute; left: 0; top: 6px; width: 210px; display: block; padding: 6px; background: var(--card); border-radius: 4px; box-shadow: 0 0 0 1px var(--line), 0 18px 34px -18px rgba(60,30,10,.55); transition: transform .35s var(--ease), width .35s var(--ease), top .35s var(--ease); }
-.plaque img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; border-radius: 2px; }
-.site-head.scrolled .plaque a { width: 120px; top: 4px; left: 45px; }
-.tools { display: flex; gap: 8px; align-items: center; }
-.iconbtn { display: inline-grid; place-items: center; width: 38px; height: 38px; border-radius: 50%; border: 1px solid var(--line); background: transparent; color: var(--ink); cursor: pointer; }
-.iconbtn:hover, .iconbtn[aria-pressed="true"] { border-color: var(--gold); color: var(--red); }
-.iconbtn svg { width: 17px; height: 17px; }
+.site-head { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 60; background: rgba(243,232,210,.94); backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid var(--line); }
+.site-head .wrap { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 64px; }
+.brand { display: flex; align-items: center; gap: 10px; text-decoration: none; }
+.brand img { height: 46px; width: auto; aspect-ratio: 3 / 2; border-radius: 6px; box-shadow: 0 0 0 1px var(--line), 0 4px 10px -4px rgba(0,0,0,.3); }
+.nav { display: flex; gap: clamp(10px, 1.8vw, 24px); font-weight: 700; font-size: .95rem; }
+.nav a { text-decoration: none; padding: 6px 2px; border-bottom: 2px solid transparent; }
+.nav a:hover { color: var(--red); border-color: var(--red); }
+.tools { display: flex; align-items: center; gap: 8px; }
+.iconbtn { width: 40px; height: 40px; display: inline-grid; place-items: center; border-radius: 50%; border: 1.5px solid var(--line); background: var(--card); color: var(--ink); cursor: pointer; }
+.iconbtn:hover, .iconbtn[aria-pressed="true"] { border-color: var(--red); color: var(--red); }
+.iconbtn svg { width: 18px; height: 18px; }
 .eq { display: none; gap: 2px; align-items: flex-end; height: 12px; }
 .eq i { width: 2px; height: 4px; background: currentColor; border-radius: 1px; animation: eq .9s ease-in-out infinite; }
 .eq i:nth-child(2) { animation-delay: -.3s; } .eq i:nth-child(3) { animation-delay: -.6s; }
 #music[aria-pressed="true"] .eq { display: inline-flex; } #music[aria-pressed="true"] .note { display: none; }
 @keyframes eq { 0%, 100% { height: 3px; } 50% { height: 12px; } }
-.lang { display: flex; gap: 2px; border: 1px solid var(--line); border-radius: 999px; padding: 3px; }
-.lang button { font: 600 .7rem/1 var(--f-body); letter-spacing: .1em; padding: .55em .7em; border: 0; border-radius: 999px; background: transparent; color: var(--ink-soft); cursor: pointer; }
-.lang button[aria-pressed="true"] { background: var(--green); color: var(--on-dark); }
+.lang { display: flex; gap: 2px; border: 1.5px solid var(--line); border-radius: 999px; padding: 3px; background: var(--card); }
+.lang button { font: 800 .72rem/1 var(--f-body); letter-spacing: .06em; padding: .55em .65em; border: 0; border-radius: 999px; background: transparent; color: var(--ink-soft); cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--red); color: #fff; }
 .menubtn { display: none; }
-@media (max-width: 900px) {
-  .navl a, .navr a { display: none; }
-  .menubtn { display: inline-grid; }
-  .plaque { width: 150px; } .plaque a { width: 150px; }
-  .site-head.scrolled .plaque a { width: 96px; left: 27px; }
-}
-.drawer { position: fixed; z-index: 85; inset: 0; background: rgba(28,51,38,.35); }
-.drawer nav { position: absolute; left: 0; top: 0; bottom: 0; width: min(300px, 82vw); background: var(--paper); padding: calc(24px + env(safe-area-inset-top, 0px)) 24px 24px max(24px, env(safe-area-inset-left, 0px)); display: grid; align-content: start; gap: 4px; box-shadow: 20px 0 40px -20px rgba(0,0,0,.4); }
-.drawer a { font-family: var(--f-display); font-size: 1.4rem; text-decoration: none; padding: 10px 0; border-bottom: 1px solid var(--line); }
+@media (max-width: 980px) { .nav { display: none; } .menubtn { display: inline-grid; } }
+.drawer { position: fixed; z-index: 85; inset: 0; background: rgba(43,26,18,.35); }
+.drawer nav { position: absolute; right: 0; top: 0; bottom: 0; width: min(300px, 84vw); background: var(--paper); padding: calc(24px + env(safe-area-inset-top, 0px)) max(24px, env(safe-area-inset-right, 0px)) 24px 24px; display: grid; align-content: start; gap: 2px; }
+.drawer a { font-family: var(--f-display); font-weight: 700; font-size: 1.35rem; color: var(--red); text-decoration: none; padding: 12px 0; border-bottom: 1px solid var(--line); }
 
-/* ---------- hero banner ---------- */
-.hero { position: relative; overflow: hidden; isolation: isolate; color: #fff; text-align: center; background: #10185a; min-height: calc(100svh - 114px); display: grid; align-items: center; }
-.night { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
-.night .tw { animation: tw 3.6s ease-in-out infinite; }
-@keyframes tw { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
-.countdown { position: relative; margin-top: 6px; width: min(460px, 100%); background: rgba(255,255,255,.95); color: var(--ink); border-radius: 16px; padding: 18px 14px 10px; box-shadow: 0 34px 60px -26px rgba(8,12,60,.85); }
-.cd-snow { position: absolute; left: -8px; right: -8px; top: -14px; width: calc(100% + 16px); height: 26px; filter: drop-shadow(0 3px 2px rgba(60,70,140,.25)); }
-.cd-bells { position: absolute; right: -30px; top: -40px; width: 92px; height: auto; transform-origin: 40% 30%; filter: drop-shadow(0 6px 6px rgba(0,0,0,.3)); cursor: pointer; }
-.cd-bells.ring { animation: wobble .9s var(--ease); }
-.cd-cells { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-.cd-cells div { display: grid; justify-items: center; padding: 2px 6px; }
-.cd-cells div + div { border-left: 1px solid var(--line); }
-.cd-cells b { font-family: var(--f-display); font-weight: 600; font-size: clamp(2rem, 1.5rem + 2.2vw, 3.1rem); line-height: 1.05; color: var(--red); font-variant-numeric: lining-nums tabular-nums; }
-.cd-cells span { font-size: .68rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); margin-top: 4px; }
-.cd-note { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--line); font-family: var(--f-script); font-size: 1.55rem; line-height: 1.2; color: var(--green); }
-.scrolldown { display: inline-grid; place-items: center; width: 44px; height: 44px; color: rgba(255,255,255,.85); margin-top: 8px; }
-.scrolldown svg { width: 36px; height: 36px; }
-@media (prefers-reduced-motion: no-preference) { .scrolldown { animation: bob 2.2s ease-in-out infinite; } }
-@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(7px); } }
-@media (max-width: 520px) { .cd-bells { right: -12px; width: 72px; top: -34px; } }
-.hero::before { content: none; position: absolute; inset: 0; z-index: -1; opacity: .16; pointer-events: none;
-  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23f2d28f' stroke-width='1'%3E%3Cpath d='M36 22v28M22 36h28M26 26l20 20M46 26L26 46'/%3E%3Ccircle cx='36' cy='36' r='3'/%3E%3C/g%3E%3Ccircle cx='0' cy='0' r='1.5' fill='%23f2d28f'/%3E%3Ccircle cx='72' cy='72' r='1.5' fill='%23f2d28f'/%3E%3Ccircle cx='72' cy='0' r='1.5' fill='%23f2d28f'/%3E%3Ccircle cx='0' cy='72' r='1.5' fill='%23f2d28f'/%3E%3C/svg%3E"); }
-#garland { position: absolute; left: 0; right: 0; top: 0; width: 100%; height: 130px; z-index: 2; pointer-events: none; }
-#snow { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
-.hero-inner { position: relative; z-index: 3; display: grid; justify-items: center; gap: 16px; padding-block: clamp(140px, 14vw, 170px) clamp(60px, 7vw, 90px); }
-.hero h1 { font-size: clamp(2.4rem, 1.7rem + 3.4vw, 4.6rem); font-weight: 600; font-style: italic; letter-spacing: -.01em; max-width: 15ch; color: #ffffff; text-shadow: 0 3px 30px rgba(8,12,60,.7); margin-bottom: 18px; }
-.hero .lede { max-width: 36rem; font-size: clamp(1rem, .96rem + .3vw, 1.18rem); color: rgba(255,255,255,.9); text-shadow: 0 1px 14px rgba(8,12,60,.8); margin-top: 6px; }
-.hero .kicker { color: var(--gold-soft); }
-.hero-cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 10px; }
-.count { display: inline-flex; align-items: center; gap: 12px; margin-top: 14px; padding: 10px 18px; border: 1px solid rgba(242,210,143,.45); border-radius: 999px; font-size: .95rem; color: rgba(255,244,228,.9); }
-.count b { font-family: var(--f-display); font-size: 1.5rem; font-weight: 600; color: var(--gold-soft); font-variant-numeric: lining-nums tabular-nums; line-height: 1; }
-.count svg { width: 18px; height: 26px; flex: none; }
-.flame { transform-box: fill-box; transform-origin: 50% 100%; animation: flame 2.4s ease-in-out infinite; }
-@keyframes flame { 0%,100% { transform: scale(1,1) skewX(0); } 30% { transform: scale(.92,1.07) skewX(3deg); } 60% { transform: scale(1.05,.94) skewX(-3deg); } }
-.hero .scallop { position: absolute; left: 0; right: 0; bottom: -1px; height: 22px; z-index: 3; display: block; width: 100%; }
-@media (prefers-reduced-motion: no-preference) {
-  .rise { animation: rise 1s var(--ease) both; }
-  .rise.d1 { animation-delay: .1s; } .rise.d2 { animation-delay: .22s; } .rise.d3 { animation-delay: .34s; } .rise.d4 { animation-delay: .46s; }
-  @keyframes rise { from { opacity: .01; transform: translateY(14px); } to { opacity: 1; transform: none; } }
-}
-@media (prefers-reduced-motion: reduce) { .flame, .eq i { animation: none; } }
+/* ---------- hero: the logo scene with the van driving in ---------- */
+.hero { position: relative; overflow: hidden; padding-block: clamp(18px, 3vw, 36px) clamp(30px, 4vw, 50px); }
+.scene { position: relative; width: min(1180px, 100%); margin-inline: auto; aspect-ratio: 3 / 2; border-radius: clamp(10px, 1.6vw, 22px); overflow: hidden; background: #e8dbbf url("img/logo-scene.webp") center / cover no-repeat; box-shadow: 0 2px 0 #fff inset, 0 40px 80px -40px rgba(80,40,10,.6), 0 0 0 1px var(--line); cursor: pointer; }
+.scene canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
+.van { position: absolute; left: 2.5%; top: 24.75%; width: 50.83%; z-index: 2; transform-origin: 60% 100%; cursor: pointer; }
+.van img { display: block; width: 100%; height: auto; user-select: none; -webkit-user-drag: none; }
+.van .bulb { position: absolute; width: 1.6%; aspect-ratio: 1; margin: -.8% 0 0 -.8%; border-radius: 50%; background: radial-gradient(circle, #fffbe8 0 30%, rgba(255,214,120,.8) 45%, rgba(255,190,90,0) 70%); transform: scale(2.4); animation: bulb 1.6s ease-in-out infinite; pointer-events: none; mix-blend-mode: screen; }
+@keyframes bulb { 0%, 100% { opacity: .95; } 50% { opacity: .35; } }
+.van .beam { position: absolute; left: 84%; top: 52%; width: 70%; height: 30%; background: radial-gradient(ellipse at 0 50%, rgba(255,240,190,.55), rgba(255,240,190,0) 70%); pointer-events: none; mix-blend-mode: screen; opacity: 0; transition: opacity .8s; }
+.van.lightson .beam { opacity: 1; }
+.puff { position: absolute; z-index: 1; width: 3%; aspect-ratio: 1; border-radius: 50%; background: rgba(255,255,255,.85); filter: blur(4px); pointer-events: none; }
+.sleeps { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 10px 18px; margin-top: clamp(18px, 3vw, 30px); text-align: center; }
+.sleeps .moon { width: 54px; height: 54px; flex: none; }
+.sleeps .txt { font-family: var(--f-display); font-weight: 700; font-size: clamp(1.4rem, 1.1rem + 1.4vw, 2.2rem); color: var(--ink); }
+.sleeps .txt b { display: inline-block; min-width: 1.6ch; color: var(--red); font-size: 1.35em; font-variant-numeric: lining-nums tabular-nums; animation: beat 2.4s ease-in-out infinite; }
+@keyframes beat { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.08); } }
+.hero-cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; margin-top: 18px; }
 
-/* ---------- promises strip ---------- */
-.promises { border-bottom: 1px solid var(--line); }
-.promises ul { list-style: none; margin: 0; padding: 22px 0; display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 16px; }
-.promises li { display: flex; align-items: center; justify-content: center; gap: 12px; font-weight: 500; color: var(--ink); text-align: left; }
-.promises svg { width: 30px; height: 30px; color: var(--red); flex: none; }
-@media (max-width: 760px) { .promises ul { grid-template-columns: minmax(0, 1fr); gap: 10px; } .promises li { justify-content: flex-start; } }
+/* ---------- advent calendar ---------- */
+.cal { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(8px, 1.4vw, 16px); }
+@media (max-width: 760px) { .cal { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.door { position: relative; aspect-ratio: 1; perspective: 700px; }
+.door button { all: unset; position: absolute; inset: 0; cursor: pointer; border-radius: 12px; }
+.door .back { position: absolute; inset: 0; border-radius: 12px; background: #fff8ec; box-shadow: inset 0 0 0 2px var(--gold-soft); display: grid; place-items: center; padding: 8%; text-align: center; overflow: hidden; }
+.door .back svg { width: 54%; height: auto; }
+.door .front { position: absolute; inset: 0; border-radius: 12px; transform-origin: 0 50%; transition: transform .9s var(--ease); display: grid; place-items: center; backface-visibility: hidden;
+  box-shadow: inset 0 0 0 2px rgba(255,255,255,.25), inset 0 0 0 5px rgba(0,0,0,.08), 0 6px 12px -6px rgba(0,0,0,.4); }
+.door:nth-child(3n+1) .front { background: radial-gradient(circle at 30% 25%, #d22a33, var(--red) 55%, var(--red-deep)); }
+.door:nth-child(3n+2) .front { background: radial-gradient(circle at 30% 25%, #3b8a55, var(--green) 60%, #143522); }
+.door:nth-child(3n) .front { background: radial-gradient(circle at 30% 25%, #e8c47a, #c3923e 55%, #8f6623); }
+.door .front b { font-family: var(--f-display); font-weight: 800; font-size: clamp(1.4rem, 1rem + 2vw, 2.4rem); color: #fff; text-shadow: 0 2px 0 rgba(0,0,0,.25); }
+.door .front::after { content: ""; position: absolute; right: 10%; top: 46%; width: 7%; aspect-ratio: 1; border-radius: 50%; background: #f7e3b3; box-shadow: 0 1px 2px rgba(0,0,0,.4); }
+.door.open .front { transform: rotateY(-108deg); }
+.door.today .front { box-shadow: inset 0 0 0 3px #fff, 0 0 0 4px var(--gold), 0 0 24px 4px rgba(242,210,143,.8); animation: nudge 2.4s ease-in-out infinite; }
+@keyframes nudge { 0%, 85%, 100% { transform: rotate(0); } 90% { transform: rotate(-3deg); } 95% { transform: rotate(3deg); } }
+.door.shake .front { animation: shake .5s; }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-5px) rotate(-2deg); } 40% { transform: translateX(5px) rotate(2deg); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+.cal-note { text-align: center; margin-top: 18px; color: var(--ink-soft); font-weight: 600; }
+.dlg { position: fixed; z-index: 97; inset: 0; display: grid; place-items: center; background: rgba(43,26,18,.45); padding: 20px; }
+.dlg .card { position: relative; width: min(420px, 100%); background: var(--card); border-radius: 22px; padding: 34px 26px 26px; text-align: center; display: grid; gap: 14px; justify-items: center; box-shadow: 0 0 0 6px var(--card), 0 0 0 7px var(--gold-soft), 0 40px 80px -30px rgba(0,0,0,.6); animation: pop .5s var(--bounce) both; }
+.dlg .card .num { font-family: var(--f-display); font-weight: 800; font-size: 3.4rem; line-height: 1; color: var(--red); }
+.dlg .card .art svg { width: 110px; height: 110px; }
+.dlg .card p { font-size: 1.15rem; font-weight: 600; }
+@keyframes pop { from { transform: scale(.6) rotate(-6deg); opacity: 0; } to { transform: none; opacity: 1; } }
 
-/* ---------- categories ---------- */
-.block { padding-block: clamp(70px, 9vw, 120px); }
-.cats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 2vw, 26px); }
-.cat { background: var(--card); border: 1px solid var(--line); border-radius: 4px; overflow: hidden; display: grid; grid-template-rows: auto 1fr; transition: transform .35s var(--ease), box-shadow .35s var(--ease); }
-.cat:hover { transform: translateY(-4px); box-shadow: 0 26px 40px -30px rgba(60,30,10,.6); }
-.cat .art { position: relative; aspect-ratio: 4 / 3; display: grid; place-items: center; overflow: hidden; }
-.cat:nth-child(odd) .art { background: radial-gradient(70% 70% at 50% 40%, #2f5a3c, var(--green)); }
-.cat:nth-child(even) .art { background: radial-gradient(70% 70% at 50% 40%, #b8242c, var(--red-deep)); }
-.cat .art::after { content: ""; position: absolute; inset: 10px; border: 1px solid rgba(242,210,143,.45); border-radius: 2px; pointer-events: none; }
-.cat .art svg { width: 44%; max-width: 150px; height: auto; overflow: visible; filter: drop-shadow(0 18px 16px rgba(0,0,0,.35)); transition: transform .6s var(--ease); }
-.cat:hover .art svg { transform: rotate(-4deg) scale(1.04); }
-.cat .body { padding: 20px 22px 24px; display: grid; gap: 6px; align-content: start; }
-.cat h3 { font-size: 1.35rem; }
-.cat p { color: var(--ink-soft); font-size: .98rem; }
-@media (max-width: 900px) { .cats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
-@media (max-width: 520px) { .cats { grid-template-columns: minmax(0, 1fr); } .cat .art { aspect-ratio: 16 / 9; } .cat .art svg { width: 30%; } }
+/* ---------- decorate the tree ---------- */
+.treebox { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: clamp(20px, 4vw, 50px); align-items: center; }
+@media (max-width: 860px) { .treebox { grid-template-columns: minmax(0, 1fr); } }
+.tree { position: relative; width: min(460px, 100%); aspect-ratio: 5 / 6; margin-inline: auto; touch-action: none; }
+.tree svg.fir { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tree .placed { position: absolute; width: 11%; aspect-ratio: 1; margin: -5.5% 0 0 -5.5%; cursor: pointer; animation: placed .5s var(--bounce); }
+.tree .placed svg { width: 100%; height: 100%; display: block; overflow: visible; filter: drop-shadow(0 4px 3px rgba(0,0,0,.3)); }
+.tree .placed.drop { animation: fall .8s ease-in forwards; }
+@keyframes placed { from { transform: scale(.2) translateY(-30px); } to { transform: none; } }
+@keyframes fall { to { transform: translateY(160px) rotate(120deg); opacity: 0; } }
+.tree .flame-on { opacity: 0; transition: opacity .4s; }
+.tree.lit .flame-on { opacity: 1; }
+.tree .lamp { opacity: .25; transition: opacity .4s; }
+.tree.lit .lamp { opacity: 1; animation: bulb 1.8s ease-in-out infinite; }
+.tray { display: grid; gap: 16px; justify-items: start; }
+.tray p { color: var(--ink-soft); font-weight: 600; }
+.tray .items { display: flex; flex-wrap: wrap; gap: 10px; }
+.tray .items button { width: 64px; height: 64px; border-radius: 16px; border: 2px solid var(--line); background: var(--card); cursor: grab; padding: 9px; touch-action: none; transition: transform .2s var(--bounce), border-color .2s; }
+.tray .items button:hover { transform: translateY(-3px) rotate(-4deg); border-color: var(--red); }
+.tray .items svg { width: 100%; height: 100%; display: block; overflow: visible; pointer-events: none; }
+.tray .row { display: flex; flex-wrap: wrap; gap: 10px; }
+.dragging { position: fixed; z-index: 99; width: 52px; height: 52px; margin: -26px 0 0 -26px; pointer-events: none; filter: drop-shadow(0 8px 6px rgba(0,0,0,.35)); }
+.dragging svg { width: 100%; height: 100%; }
 
-/* ---------- Santa's letterbox ---------- */
-.letterbox { background: var(--green); color: var(--on-dark); position: relative; overflow: hidden; }
-.letterbox::before { content: ""; position: absolute; inset: 0; opacity: .1; pointer-events: none; background-image: radial-gradient(circle at 20% 30%, #fff 1px, transparent 1.5px), radial-gradient(circle at 70% 60%, #fff 1px, transparent 1.5px); background-size: 46px 46px, 62px 62px; }
-.lb-grid { position: relative; display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: clamp(30px, 6vw, 90px); align-items: center; }
-.lb-art { position: relative; justify-self: center; width: min(380px, 100%); aspect-ratio: 1; }
-.lb-art .ring { position: absolute; inset: 0; border-radius: 50%; background: radial-gradient(circle at 50% 45%, #fbf4e6, #ead9b8); box-shadow: 0 0 0 10px rgba(247,239,224,.08), 0 0 0 1px var(--gold-soft), 0 40px 70px -30px rgba(0,0,0,.6); }
-.lb-art svg.head { position: absolute; inset: 6% 4% 2% 4%; width: 92%; height: 92%; }
-.lb-art .stamp { position: absolute; right: -4%; bottom: 6%; width: 32%; transform: rotate(8deg); filter: drop-shadow(0 10px 14px rgba(0,0,0,.35)); }
-.lb-copy { display: grid; gap: 18px; max-width: 34rem; }
-.lb-copy h2 { font-size: clamp(2rem, 1.6rem + 1.8vw, 3rem); color: #fff8ec; }
-.lb-copy p { color: rgba(247,239,224,.82); font-size: 1.1rem; }
-.lb-copy .kicker { color: var(--gold-soft); }
+/* ---------- wish list ---------- */
+.wish { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(20px, 4vw, 50px); align-items: center; }
+@media (max-width: 860px) { .wish { grid-template-columns: minmax(0, 1fr); } }
+.letter { position: relative; background: #fffdf6; border-radius: 6px; padding: 30px 26px 24px; box-shadow: 0 1px 0 #fff inset, 0 24px 40px -24px rgba(60,30,10,.5); transform: rotate(-1.2deg); transform-origin: 50% 0;
+  background-image: repeating-linear-gradient(to bottom, transparent 0 37px, rgba(176,18,28,.18) 37px 38px); background-position: 0 72px; }
+.letter .dear { font-family: var(--f-script); font-size: 2.1rem; color: var(--red); line-height: 1.1; margin-bottom: 10px; }
+.letter label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
+.letter input { display: block; width: 100%; border: 0; background: transparent; font: 600 1.15rem/38px var(--f-body); color: #24306e; padding: 0 4px; height: 38px; }
+.letter input:focus { outline: none; background: rgba(242,210,143,.25); border-radius: 4px; }
+.letter input::placeholder { color: rgba(43,26,18,.32); font-style: italic; }
+.letter .sign { margin-top: 12px; font-family: var(--f-script); font-size: 1.6rem; color: var(--ink-soft); }
+.letter .seal { position: absolute; right: -14px; bottom: -14px; width: 70px; height: 70px; }
+.letter.fly { animation: fold 1.6s var(--ease) forwards; }
+@keyframes fold { 0% { transform: rotate(-1.2deg); } 30% { transform: rotate(0) scaleY(.08); } 55% { transform: scale(.3, .08); } 100% { transform: translate(40vw, -70vh) scale(.1, .03) rotate(-30deg); opacity: 0; } }
+.wish-copy { display: grid; gap: 16px; }
+.wish-copy p { color: var(--ink-soft); font-size: 1.12rem; }
+.wish-done { font-family: var(--f-display); font-weight: 700; font-size: 1.4rem; color: var(--green); }
+
+/* ---------- Santa ---------- */
+.santa-sec { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: clamp(20px, 5vw, 60px); align-items: center; }
+@media (max-width: 860px) { .santa-sec { grid-template-columns: minmax(0, 1fr); } }
+.santa-sec .face { position: relative; width: min(340px, 80%); aspect-ratio: 1; justify-self: center; border-radius: 50%; background: radial-gradient(circle at 50% 42%, #fffaf0, #f0dfbd); box-shadow: 0 0 0 8px var(--card), 0 0 0 10px var(--gold-soft), 0 30px 50px -24px rgba(60,30,10,.5); cursor: pointer; }
+.santa-sec .face svg { position: absolute; inset: 4% 2% 0 6%; width: 92%; height: 92%; }
+.santa-sec .face.hohoho svg { animation: hohoho .9s var(--ease); }
+@keyframes hohoho { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-6deg) translateY(-5px); } 45% { transform: rotate(5deg); } 70% { transform: rotate(-2deg) translateY(-2px); } }
+.santa-sec .copy { display: grid; gap: 16px; }
+.santa-sec .copy p { font-size: 1.12rem; color: var(--ink-soft); }
 .hellos { display: flex; flex-wrap: wrap; gap: 8px; }
-.hellos span { font-family: var(--f-display); font-style: italic; font-size: .98rem; padding: .35em .85em; border: 1px solid rgba(242,210,143,.4); border-radius: 999px; color: var(--gold-soft); }
-.lb-copy ul { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; color: rgba(247,239,224,.9); }
-.lb-copy li { display: grid; grid-template-columns: 20px 1fr; gap: 10px; }
-.lb-copy li svg { width: 18px; height: 18px; color: var(--gold-soft); margin-top: .3em; }
-@media (max-width: 860px) { .lb-grid { grid-template-columns: minmax(0, 1fr); } .lb-art { width: min(300px, 80%); } }
+.hellos span { font-family: var(--f-display); font-style: italic; font-weight: 600; font-size: 1rem; padding: .35em .9em; border-radius: 999px; background: var(--card); box-shadow: 0 0 0 1.5px var(--line); color: var(--red-deep); }
 
-/* ---------- about, with the full logo artwork ---------- */
-.about { display: grid; grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr); gap: clamp(30px, 6vw, 90px); align-items: center; }
-.about figure { margin: 0; position: relative; }
-.about figure img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; max-width: 100%; border-radius: 3px; box-shadow: 0 0 0 1px var(--line), 0 0 0 10px var(--card), 0 0 0 11px var(--line), 0 40px 60px -36px rgba(60,30,10,.6); }
-.about .copy { display: grid; gap: 16px; }
-.about h2 { font-size: clamp(2rem, 1.6rem + 1.8vw, 3rem); }
-.about p { color: var(--ink-soft); }
-.about .sig { font-family: var(--f-script); font-size: 2rem; color: var(--red); line-height: 1; }
-@media (max-width: 860px) { .about { grid-template-columns: minmax(0, 1fr); } .about figure { margin: 10px; } }
+/* ---------- shop ---------- */
+.cats { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(12px, 2vw, 22px); }
+@media (max-width: 860px) { .cats { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.cat { background: var(--card); border-radius: 16px; overflow: hidden; box-shadow: 0 0 0 1px var(--line), 0 18px 30px -24px rgba(60,30,10,.5); }
+.cat .art { aspect-ratio: 4 / 3; display: grid; place-items: center; cursor: pointer; }
+.cat:nth-child(odd) .art { background: radial-gradient(circle at 50% 40%, #3b8a55, var(--green)); }
+.cat:nth-child(even) .art { background: radial-gradient(circle at 50% 40%, #d22a33, var(--red-deep)); }
+.cat .art svg { width: 42%; max-width: 140px; height: auto; overflow: visible; filter: drop-shadow(0 14px 12px rgba(0,0,0,.35)); }
+.cat .art.wobble svg { animation: wobble .9s var(--ease); } .cat .art.flip svg { animation: flipy 1s var(--ease); } .cat .art.spin svg { animation: spin 1.1s var(--ease); } .cat .art.hop svg { animation: hop .8s var(--ease); } .cat .art.duck svg { animation: duck 1.6s var(--ease); }
+.cat .art.out svg .flame, .cat .art.out svg circle[fill="url(#candleGlow)"] { opacity: 0; }
+.cat .body { padding: 16px 18px 20px; } .cat h3 { font-size: 1.25rem; color: var(--red-deep); } .cat p { color: var(--ink-soft); font-size: .98rem; }
+@keyframes wobble { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-12deg); } 40% { transform: rotate(9deg); } 60% { transform: rotate(-5deg); } 80% { transform: rotate(2deg); } }
+@keyframes flipy { from { transform: perspective(400px) rotateY(0); } to { transform: perspective(400px) rotateY(360deg); } }
+@keyframes spin { to { transform: rotate(360deg); } }
+@keyframes hop { 0%,100% { transform: translateY(0); } 30% { transform: translateY(-24px) rotate(-6deg); } 55% { transform: scale(1.06,.94); } 75% { transform: translateY(-8px); } }
+@keyframes duck { 0% { transform: translateY(0); } 25%, 60% { transform: translateY(85%); } 100% { transform: translateY(0); } }
 
-/* ---------- visit ---------- */
-.visit { background: var(--paper-2); }
-.visit-grid { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(24px, 4vw, 48px); align-items: stretch; }
-.visit .intro { display: grid; gap: 14px; align-content: center; }
-.visit h2 { font-size: clamp(2rem, 1.6rem + 1.8vw, 3rem); }
-.visit .intro p { color: var(--ink-soft); }
-.card { background: var(--card); border: 1px solid var(--line); border-radius: 4px; padding: clamp(24px, 3.4vw, 40px); display: grid; gap: 14px; position: relative; }
-.card::before { content: ""; position: absolute; inset: 8px; border: 1px solid var(--line); border-radius: 2px; pointer-events: none; }
-.card h3 { font-size: 1.5rem; }
-.card .addr { font-family: var(--f-display); font-size: 1.2rem; }
-.card .empty { color: var(--ink-soft); font-family: var(--f-display); font-style: italic; font-size: 1.15rem; }
-.card dl { margin: 0; display: grid; }
-.card dl div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1rem; padding: .55rem 0; border-bottom: 1px solid var(--line); }
-.card dd { margin: 0; font-weight: 600; font-variant-numeric: tabular-nums; }
-.copyrow { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
-.copyrow code { font-family: var(--f-body); font-size: 1rem; font-weight: 600; user-select: all; word-break: break-all; }
-.copyrow button { font: 600 .78rem var(--f-body); border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: .45em .9em; cursor: pointer; }
-.linkrow a { font-weight: 600; color: var(--red); text-decoration: none; border-bottom: 1px solid currentColor; margin-right: 1.2rem; }
-@media (max-width: 860px) { .visit-grid { grid-template-columns: minmax(0, 1fr); } }
+/* ---------- visit + footer ---------- */
+.visit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(20px, 4vw, 48px); align-items: center; }
+@media (max-width: 860px) { .visit { grid-template-columns: minmax(0, 1fr); } }
+.visit figure { margin: 0; } .visit figure img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; max-width: 100%; border-radius: 14px; box-shadow: 0 30px 50px -30px rgba(60,30,10,.6); }
+.info { display: grid; gap: 12px; }
+.info .addr { font-family: var(--f-display); font-size: 1.25rem; font-weight: 600; }
+.info .empty { font-family: var(--f-display); font-style: italic; font-size: 1.15rem; color: var(--ink-soft); }
+.info dl { margin: 0; display: grid; } .info dl div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1rem; padding: .5rem 0; border-bottom: 1px dashed var(--line); } .info dd { margin: 0; font-weight: 800; }
+.copyrow { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; } .copyrow code { font: 800 1rem var(--f-body); user-select: all; } .copyrow button { font: 700 .8rem var(--f-body); border: 1.5px solid var(--line); background: transparent; border-radius: 999px; padding: .4em .9em; cursor: pointer; }
+.linkrow a { font-weight: 800; color: var(--red); margin-right: 1rem; }
+footer { position: relative; background: var(--red); color: #fff; margin-top: 40px; }
+footer::before { content: ""; position: absolute; left: 0; right: 0; top: -22px; height: 24px; background: radial-gradient(circle at 12px 24px, var(--red) 12px, transparent 12.5px) 0 0 / 24px 24px repeat-x; }
+footer .inner { display: grid; justify-items: center; gap: 12px; text-align: center; padding-block: 44px calc(34px + env(safe-area-inset-bottom, 0px)); }
+footer .gj { font-family: var(--f-script); font-size: clamp(2.4rem, 1.8rem + 2.4vw, 3.6rem); line-height: 1.1; color: var(--gold-soft); cursor: pointer; }
+footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 20px; font-weight: 700; } footer nav a { text-decoration: none; opacity: .9; }
+footer small { opacity: .75; font-size: .82rem; }
 
-/* ---------- footer ---------- */
-footer { background: var(--green); color: var(--on-dark); }
-footer .inner { display: grid; justify-items: center; text-align: center; gap: 14px; padding-block: 56px calc(40px + env(safe-area-inset-bottom, 0px)); }
-footer .badge { width: 170px; padding: 6px; background: var(--card); border-radius: 4px; box-shadow: 0 0 0 1px rgba(242,210,143,.5); }
-footer .badge img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; border-radius: 2px; }
-footer .gj { font-family: var(--f-script); font-size: clamp(2.2rem, 1.8rem + 2vw, 3.4rem); color: var(--gold-soft); line-height: 1.1; }
-footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 24px; font-size: .95rem; }
-footer nav a { text-decoration: none; opacity: .85; } footer nav a:hover { opacity: 1; text-decoration: underline; }
-footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
+/* ---------- little things ---------- */
+.sparkle { position: fixed; z-index: 98; pointer-events: none; width: 16px; height: 16px; margin: -8px 0 0 -8px; }
+.sparkle svg { width: 100%; height: 100%; display: block; }
+.eggbubble { position: fixed; z-index: 98; pointer-events: none; max-width: 240px; background: #fffdf6; color: var(--ink); font-weight: 700; font-size: 1rem; line-height: 1.3; padding: .6em .95em; border-radius: 16px; box-shadow: 0 0 0 2px var(--gold-soft), 0 16px 30px -14px rgba(0,0,0,.5); transform: translate(-50%, -100%); animation: pop .4s var(--bounce) both; }
+.eggbubble.out { opacity: 0; transition: opacity .4s; }
+.hidden-nisse { position: absolute; z-index: 4; width: 34px; height: 48px; padding: 0; border: 0; background: none; cursor: pointer; transform-origin: 50% 100%; animation: peek 4s ease-in-out infinite; }
+.hidden-nisse svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.hidden-nisse.poof { animation: poof .45s ease-in forwards; }
+@keyframes poof { to { transform: scale(.2) translateY(20px); opacity: 0; } }
+@keyframes peek { 0%, 70%, 100% { transform: rotate(0); } 78% { transform: rotate(-8deg); } 86% { transform: rotate(6deg); } }
+@media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; } }
 
 /* ---------- Santa chat ---------- */
 .seal-fab {
@@ -299,56 +303,14 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
 .chat-form button:disabled { opacity: .45; cursor: default; transform: none; }
 .chat-form button svg { width: 100%; height: 100%; display: block; }
 
-.seal-fab { width: 72px; height: 72px; }
-.chat-head .who b { font-family: var(--f-display); font-style: normal; }
 
-/* ---------- little things to find ---------- */
-.baubles { position: absolute; left: 0; right: 0; top: 0; height: 0; z-index: 4; }
-.bauble { position: absolute; width: 28px; height: 46px; margin-left: -14px; padding: 0; border: 0; background: none; cursor: pointer; transform-origin: 50% 0; transition: transform .4s var(--ease); }
-.bauble::before { content: ""; position: absolute; left: 50%; top: 0; width: 1px; height: var(--len, 14px); background: #e2c58a; }
-.bauble i { position: absolute; left: 3px; top: var(--len, 14px); width: 22px; height: 22px; border-radius: 50%; box-shadow: 0 7px 10px -3px rgba(0,0,0,.35);
-  background: radial-gradient(circle at 34% 30%, var(--hi), var(--mid) 46%, var(--lo)); }
-.bauble i::before { content: ""; position: absolute; left: 8px; top: -4px; width: 6px; height: 5px; border-radius: 1px; background: #e2c58a; }
-.bauble i::after { content: ""; position: absolute; left: 5px; top: 4px; width: 6px; height: 4px; border-radius: 50%; background: rgba(255,255,255,.7); transform: rotate(-30deg); }
-.bauble:hover { transform: rotate(7deg); }
-.bauble.swing { animation: swing 1.8s ease-out; }
-@keyframes swing { 0% { transform: rotate(0); } 12% { transform: rotate(30deg); } 30% { transform: rotate(-22deg); } 50% { transform: rotate(13deg); } 70% { transform: rotate(-6deg); } 100% { transform: rotate(0); } }
-.sparkle { position: fixed; z-index: 95; pointer-events: none; width: 16px; height: 16px; margin: -8px 0 0 -8px; color: var(--gold-soft); }
-.sparkle svg { width: 100%; height: 100%; display: block; }
-.eggbubble { position: fixed; z-index: 96; pointer-events: none; max-width: 230px; background: var(--card); color: var(--ink); font-family: var(--f-display); font-style: italic; font-size: 1.02rem; line-height: 1.3;
-  padding: .6em .9em; border-radius: 14px; box-shadow: 0 0 0 1px var(--line), 0 18px 30px -16px rgba(0,0,0,.5); transform: translate(-50%, -100%); animation: pop .4s var(--ease) both; }
-.eggbubble.out { opacity: 0; transition: opacity .4s; }
-.cat .art { cursor: pointer; }
-.cat .art.wobble svg { animation: wobble .9s var(--ease); }
-.cat .art.flip svg { animation: flip 1s var(--ease); }
-.cat .art.spin svg { animation: spin 1.1s var(--ease); }
-.cat .art.hop svg { animation: hop .8s var(--ease); }
-.cat .art.duck svg { animation: duck 1.8s var(--ease); }
-.cat .art.out svg .flame, .cat .art.out svg circle[fill="url(#candleGlow)"] { opacity: 0; transition: opacity .25s; }
-@keyframes wobble { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-12deg); } 40% { transform: rotate(9deg); } 60% { transform: rotate(-5deg); } 80% { transform: rotate(2deg); } }
-@keyframes flip { from { transform: perspective(400px) rotateY(0); } to { transform: perspective(400px) rotateY(360deg); } }
-@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
-@keyframes hop { 0%,100% { transform: translateY(0); } 30% { transform: translateY(-26px) rotate(-6deg); } 55% { transform: translateY(0) scale(1.06,.94); } 75% { transform: translateY(-8px); } }
-@keyframes duck { 0% { transform: translateY(0); } 25%, 60% { transform: translateY(85%); } 75% { transform: translateY(-6%); } 100% { transform: translateY(0); } }
-.smoke { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.55); filter: blur(3px); pointer-events: none; animation: smoke 1.6s ease-out forwards; }
-@keyframes smoke { to { transform: translate(var(--dx, 6px), -60px) scale(3); opacity: 0; } }
-.lb-art svg.head { cursor: pointer; transform-origin: 50% 80%; }
-.lb-art.hohoho svg.head { animation: hohoho .9s var(--ease); }
-@keyframes hohoho { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-5deg) translateY(-4px); } 45% { transform: rotate(4deg); } 70% { transform: rotate(-2deg) translateY(-2px); } }
-.hidden-nisse { position: absolute; z-index: 2; width: 38px; height: 54px; padding: 0; border: 0; background: none; cursor: pointer; transform-origin: 50% 100%; }
-.hidden-nisse svg { width: 100%; height: 100%; display: block; overflow: visible; }
-.hidden-nisse.poof { animation: poof .45s ease-in forwards; }
-@keyframes poof { to { transform: scale(.2) translateY(20px); opacity: 0; } }
-@media (prefers-reduced-motion: no-preference) { .hidden-nisse { animation: peek 4s ease-in-out infinite; } }
-@keyframes peek { 0%, 70%, 100% { transform: rotate(0); } 78% { transform: rotate(-8deg); } 86% { transform: rotate(6deg); } }
-.egg-host { position: relative; isolation: isolate; }
-.truck-run { position: absolute; bottom: 26px; left: 0; width: 170px; z-index: 3; pointer-events: none; }
-.truck-run .wheel { transform-box: fill-box; transform-origin: center; animation: spin .7s linear infinite; }
+.seal-fab { width: 74px; height: 74px; }
+.chat-head .who b { font-style: normal; }
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
-    <symbol id="santa-head" viewBox="0 0 200 200">
+<symbol id="santa-head" viewBox="0 0 200 200">
   <defs>
     
     <radialGradient id="skinG" cx=".7" cy=".4" r=".8"><stop offset="0" stop-color="#f6d2b0"/><stop offset="1" stop-color="#e2ad86"/></radialGradient>
@@ -401,142 +363,166 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
       <text x="50" y="66" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-weight="700" font-size="44" fill="#f6d9c8" opacity=".9">J</text>
       <ellipse cx="34" cy="26" rx="12" ry="6" fill="#fff" opacity=".18" transform="rotate(-30 34 26)"/>
     </symbol>
-    <radialGradient id="lampGlow"><stop offset="0" stop-color="#ffd593" stop-opacity=".55"/><stop offset=".35" stop-color="#ffb25c" stop-opacity=".18"/><stop offset="1" stop-color="#ffb25c" stop-opacity="0"/></radialGradient>
-
+    
     <radialGradient id="candleGlow"><stop offset="0" stop-color="#ffe2a6" stop-opacity=".9"/><stop offset=".3" stop-color="#ffb24f" stop-opacity=".35"/><stop offset="1" stop-color="#ff9a3c" stop-opacity="0"/></radialGradient>
     <linearGradient id="wax-g" x1="0" x2="1"><stop offset="0" stop-color="#e9e1d1"/><stop offset=".35" stop-color="#fffdf7"/><stop offset=".7" stop-color="#f4ede0"/><stop offset="1" stop-color="#d9cfbd"/></linearGradient>
     <symbol id="star8" viewBox="0 0 24 24"><path d="M12 1l2.2 6.3L20.5 5l-2.3 6.5L23 12l-4.8 1.2 2.3 6.3-6.3-2.3L12 23l-1.2-5.8L4.5 19.5l2.3-6.3L1 12l5.8-.5L4.5 5l6.3 2.3Z" fill="currentColor"/></symbol>
+    <symbol id="flourish" viewBox="0 0 280 26"><g fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round">
+      <path d="M140 13 C 120 13 110 3 96 5 C 84 7 84 20 95 20 C 103 20 104 11 97 10 M140 13 C 160 13 170 3 184 5 C 196 7 196 20 185 20 C 177 20 176 11 183 10"/>
+      <path d="M92 13 C 70 13 54 20 30 14 C 20 11 12 13 4 16 M188 13 C 210 13 226 20 250 14 C 260 11 268 13 276 16"/>
+      <path d="M140 6 L 144 13 L 140 20 L 136 13 Z" fill="currentColor"/></g></symbol>
+    <!-- ornaments for the tree -->
+    <radialGradient id="o-red" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#ff8a86"/><stop offset=".4" stop-color="#d0202b"/><stop offset="1" stop-color="#6e0a10"/></radialGradient>
+    <radialGradient id="o-gold" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#fff2c2"/><stop offset=".4" stop-color="#e2b04f"/><stop offset="1" stop-color="#7d5612"/></radialGradient>
+    <radialGradient id="o-green" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#bff0c9"/><stop offset=".4" stop-color="#2f8a4c"/><stop offset="1" stop-color="#0f3a1f"/></radialGradient>
+    <radialGradient id="o-blue" cx=".35" cy=".3" r=".8"><stop offset="0" stop-color="#e3ecff"/><stop offset=".4" stop-color="#5b7fd4"/><stop offset="1" stop-color="#1c2f6e"/></radialGradient>
+    <symbol id="orn-ball" viewBox="0 0 40 40"><rect x="16" y="1" width="8" height="6" rx="1" fill="#e2c58a"/><circle cx="20" cy="23" r="16"/><ellipse cx="14" cy="16" rx="5" ry="3" fill="#fff" opacity=".6" transform="rotate(-35 14 16)"/></symbol>
+    <symbol id="orn-star" viewBox="0 0 40 40"><path d="M20 2 L25 15 L39 15 L28 24 L32 38 L20 30 L8 38 L12 24 L1 15 L15 15 Z" fill="url(#o-gold)" stroke="#9a6c16" stroke-width="1"/></symbol>
+    <symbol id="orn-candle" viewBox="0 0 40 40"><rect x="15" y="14" width="10" height="24" rx="1.5" fill="url(#wax-g)"/><rect x="12" y="35" width="16" height="4" rx="1" fill="#c3923e"/><path class="flame-on" d="M20 2 C 24 7 24 10 20 13 C 16 10 16 7 20 2 Z" fill="#ffb73a"/><circle class="flame-on" cx="20" cy="8" r="8" fill="url(#candleGlow)"/></symbol>
+    <symbol id="orn-heart" viewBox="0 0 40 40"><g transform="translate(20 22) scale(.62) rotate(45) translate(-20 -20)"><path d="M0 40 V0 A20 20 0 0 1 40 0 V40 Z" fill="#c8202b"/><path d="M40 0 H0 A20 20 0 0 0 0 40 H40 Z" fill="#fff4e2"/><rect width="40" height="40" fill="#fff4e2"/><g fill="#c8202b"><rect width="10" height="10"/><rect x="20" width="10" height="10"/><rect x="10" y="10" width="10" height="10"/><rect x="30" y="10" width="10" height="10"/><rect y="20" width="10" height="10"/><rect x="20" y="20" width="10" height="10"/><rect x="10" y="30" width="10" height="10"/><rect x="30" y="30" width="10" height="10"/></g></g></symbol>
+    <symbol id="orn-nisse" viewBox="0 0 40 40"><path d="M10 39 C 9 30 13 24 20 23 C 27 24 31 30 30 39 Z" fill="#7a828c"/><path d="M14 25 C 13 31 16 36 20 38 C 24 36 27 31 26 25 C 23 27 17 27 14 25 Z" fill="#fbf5ea"/><circle cx="20" cy="24.5" r="2.4" fill="#e1a588"/><path d="M11 24 C 10 14 15 5 21 1 C 24 6 29 13 29 24 C 24 26 16 26 11 24 Z" fill="#c8202b"/><circle cx="21" cy="1.5" r="2.4" fill="#fbf5ea"/></symbol>
+    <symbol id="orn-cone" viewBox="0 0 40 40"><path d="M20 3 C 28 9 30 22 20 38 C 10 22 12 9 20 3 Z" fill="#8a5a2b"/><path d="M14 12 h12 M12 18 h16 M12 24 h16 M14 30 h12 M20 4 v33" stroke="#5e3a17" stroke-width="1.2"/><path d="M15 6 C 18 3 22 3 25 6" stroke="#fbf5ea" stroke-width="3" stroke-linecap="round" fill="none"/></symbol>
   </defs>
 </svg>
 
-<div class="announce">
-  <div class="wrap">
-    <button type="button" data-open-chat>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#star8"/></svg>
-      <span class="long" data-i18n="announce">Julemanden svarer på alle sprog – skriv til ham her</span><span class="short" data-i18n="announceShort">Skriv til Julemanden</span> ›
-    </button>
-  </div>
-</div>
+<div class="announce"><div class="wrap">
+  <button type="button" data-open-chat><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#star8"/></svg><span class="long" data-i18n="announce">Julemanden svarer på alle sprog – skriv til ham her</span><span class="short" data-i18n="announceShort">Skriv til Julemanden</span> ›</button>
+</div></div>
 
-<header class="site-head" id="site-head">
+<header class="site-head">
   <div class="wrap">
-    <nav class="navl" aria-label="Menu">
-      <button class="iconbtn menubtn" type="button" id="menu-open" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
-      <a href="#sortiment" data-i18n="navRange">Sortiment</a>
+    <a class="brand" href="#start" aria-label="Julekontor"><img src="img/logo.webp" width="1200" height="800" alt="Julekontor"></a>
+    <nav class="nav" aria-label="Menu">
+      <a href="#kalender" data-i18n="navCal">Julekalender</a>
+      <a href="#traeet" data-i18n="navTree">Pynt træet</a>
+      <a href="#oenskeseddel" data-i18n="navWish">Ønskeseddel</a>
       <a href="#julemanden" data-i18n="navSanta">Julemanden</a>
+      <a href="#butikken" data-i18n="navShop">Butikken</a>
     </nav>
-    <div class="plaque"><a href="#start" aria-label="Julekontor"><img src="img/logo.webp" width="1200" height="800" alt="Julekontor – Danmarks gammeldags julebutik"></a></div>
-    <div class="navr">
-      <a href="#om" data-i18n="navAbout">Om os</a>
-      <a href="#besog" data-i18n="navVisit">Besøg</a>
-      <div class="tools">
-        <button class="iconbtn" type="button" id="music" aria-pressed="false" data-i18n-aria="music" aria-label="Spilledåse">
-          <svg class="note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>
-          <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
-        </button>
-        <div class="lang" role="group" aria-label="Sprog · Sprache · Language">
-          <button type="button" data-lang="da" aria-pressed="true">DA</button>
-          <button type="button" data-lang="de" aria-pressed="false">DE</button>
-          <button type="button" data-lang="en" aria-pressed="false">EN</button>
-        </div>
+    <div class="tools">
+      <button class="iconbtn" type="button" id="music" aria-pressed="false" data-i18n-aria="music" aria-label="Spilledåse">
+        <svg class="note" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l11-2v13"/><circle cx="6.5" cy="18" r="2.5"/><circle cx="17.5" cy="16" r="2.5"/></svg>
+        <span class="eq" aria-hidden="true"><i></i><i></i><i></i></span>
+      </button>
+      <div class="lang" role="group" aria-label="Sprog · Sprache · Language">
+        <button type="button" data-lang="da" aria-pressed="true">DA</button><button type="button" data-lang="de" aria-pressed="false">DE</button><button type="button" data-lang="en" aria-pressed="false">EN</button>
       </div>
+      <button class="iconbtn menubtn" type="button" id="menu-open" aria-label="Menu"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
     </div>
   </div>
 </header>
-<div class="drawer" id="drawer" hidden>
-  <nav aria-label="Menu">
-    <a href="#sortiment" data-i18n="navRange">Sortiment</a>
-    <a href="#julemanden" data-i18n="navSanta">Julemanden</a>
-    <a href="#om" data-i18n="navAbout">Om os</a>
-    <a href="#besog" data-i18n="navVisit">Besøg</a>
-  </nav>
-</div>
+<div class="drawer" id="drawer" hidden><nav aria-label="Menu">
+  <a href="#kalender" data-i18n="navCal">Julekalender</a><a href="#traeet" data-i18n="navTree">Pynt træet</a><a href="#oenskeseddel" data-i18n="navWish">Ønskeseddel</a><a href="#julemanden" data-i18n="navSanta">Julemanden</a><a href="#butikken" data-i18n="navShop">Butikken</a><a href="#besog" data-i18n="navVisit">Besøg</a>
+</nav></div>
 
 <main id="start">
-  <section class="hero" aria-labelledby="hero-title">
-    <svg class="night" id="night" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
-      <defs>
-        <linearGradient id="skyG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#070c2a"/><stop offset=".35" stop-color="#17206a"/><stop offset=".62" stop-color="#3a46a0"/><stop offset=".82" stop-color="#8a90d8"/><stop offset="1" stop-color="#c9c6ef"/></linearGradient>
-        <radialGradient id="haloG"><stop offset="0" stop-color="#ffffff" stop-opacity=".45"/><stop offset=".35" stop-color="#cfd2ff" stop-opacity=".18"/><stop offset="1" stop-color="#cfd2ff" stop-opacity="0"/></radialGradient>
-        <radialGradient id="moonG" cx=".42" cy=".4" r=".7"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#eae8fb"/><stop offset="1" stop-color="#c4c1ec"/></radialGradient>
-        <linearGradient id="rayG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".22"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
-        <linearGradient id="groundG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#eef1ff"/><stop offset=".45" stop-color="#b9c1f1"/><stop offset="1" stop-color="#6c78c4"/></linearGradient>
-        <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="16"/></filter>
-        <filter id="glow" x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="3"/></filter>
-      </defs>
-      <rect width="1600" height="1000" fill="url(#skyG)"/>
-      <g filter="url(#soft)" opacity=".7">
-        <path d="M760 -60 L700 -60 L430 720 L600 720 Z" fill="url(#rayG)"/><path d="M820 -60 L780 -60 L700 720 L820 720 Z" fill="url(#rayG)"/>
-        <path d="M880 -60 L840 -60 L980 720 L1120 720 Z" fill="url(#rayG)"/><path d="M940 -60 L900 -60 L1300 720 L1420 720 Z" fill="url(#rayG)"/>
-      </g>
-      <g id="stars"></g>
-      <circle cx="1010" cy="250" r="430" fill="url(#haloG)"/>
-      <circle cx="1010" cy="250" r="165" fill="url(#moonG)"/>
-      <g fill="#b6b2e2" opacity=".35"><circle cx="960" cy="210" r="26"/><circle cx="1060" cy="300" r="18"/><circle cx="1050" cy="190" r="11"/><circle cx="975" cy="315" r="13"/><circle cx="1105" cy="235" r="8"/></g>
-      <g id="sleigh"></g>
-      <path d="M0 640 L120 560 L240 610 L380 520 L520 600 L660 540 L820 610 L980 530 L1120 600 L1260 520 L1400 590 L1600 540 V780 H0 Z" fill="#4c58ad" opacity=".9"/>
-      <path d="M380 520 L350 548 L372 540 L392 552 L410 538 Z M980 530 L952 556 L975 548 L992 560 L1010 546 Z M1260 520 L1234 546 L1256 538 L1272 550 L1290 538 Z" fill="#dfe4ff" opacity=".7"/>
-      <path d="M0 700 C 200 640 380 690 560 660 C 760 625 940 690 1140 655 C 1320 625 1460 670 1600 650 V840 H0 Z" fill="#34408c"/>
-      <g id="lights"></g>
-      <g id="forest"></g>
-      <path d="M0 800 C 300 770 600 820 900 790 C 1200 765 1400 800 1600 785 V1000 H0 Z" fill="url(#groundG)"/>
-      <g id="bigtree"></g>
-    </svg>
-    <canvas id="snow" aria-hidden="true"></canvas>
-    <canvas id="garland" aria-hidden="true"></canvas>
-    <div class="baubles" id="baubles"></div>
-    <div class="wrap hero-inner">
-      <span class="kicker rise" data-i18n="heroKicker">Velkommen til Julekontor</span>
-      <h1 id="hero-title" class="rise d1" data-i18n="heroTitle">Jul som i gamle dage</h1>
-      <div class="countdown rise d2" role="timer" aria-live="off">
-        <svg class="cd-snow" viewBox="0 0 400 30" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C 0 14 10 10 22 14 C 30 2 50 2 58 12 C 70 4 86 6 92 16 C 104 6 124 8 128 18 C 140 8 160 6 170 14 C 182 4 202 6 208 16 C 222 6 240 8 246 18 C 258 8 276 6 286 14 C 298 2 320 4 326 16 C 338 8 356 8 362 18 C 372 10 392 12 400 22 V30 Z" fill="#ffffff"/></svg>
-        <svg class="cd-bells" viewBox="0 0 90 80" aria-hidden="true">
-          <defs><linearGradient id="bellG" x1="0" x2="1"><stop offset="0" stop-color="#a87a1e"/><stop offset=".45" stop-color="#f6d77a"/><stop offset="1" stop-color="#9a6c16"/></linearGradient></defs>
-          <path d="M30 34 C 22 26 12 30 8 40 C 18 40 24 38 30 34 Z M30 34 C 26 24 30 14 40 10 C 42 20 38 28 30 34 Z" fill="#2f7a48"/>
-          <g transform="translate(16 30) rotate(-18)"><path d="M15 2 C 8 2 6 9 6 15 C 6 20 3 22 2 25 L28 25 C 27 22 24 20 24 15 C 24 9 22 2 15 2 Z" fill="url(#bellG)"/><circle cx="15" cy="27.5" r="3.5" fill="#8a5d12"/></g>
-          <g transform="translate(42 30) rotate(16)"><path d="M15 2 C 8 2 6 9 6 15 C 6 20 3 22 2 25 L28 25 C 27 22 24 20 24 15 C 24 9 22 2 15 2 Z" fill="url(#bellG)"/><circle cx="15" cy="27.5" r="3.5" fill="#8a5d12"/></g>
-          <path d="M45 30 C 34 18 22 22 28 30 C 32 34 40 32 45 30 C 50 32 58 34 62 30 C 68 22 56 18 45 30 Z" fill="#c8323a"/><circle cx="45" cy="30" r="4.5" fill="#8c1c22"/>
-          <circle cx="52" cy="22" r="3.4" fill="#d22a33"/><circle cx="57" cy="26" r="3.4" fill="#d22a33"/>
-        </svg>
-        <div class="cd-cells">
-          <div><b id="cd-d">00</b><span data-i18n="cdDays">Dage</span></div>
-          <div><b id="cd-h">00</b><span data-i18n="cdHours">Timer</span></div>
-          <div><b id="cd-m">00</b><span data-i18n="cdMinutes">Minutter</span></div>
-          <div><b id="cd-s">00</b><span data-i18n="cdSeconds">Sekunder</span></div>
+  <!-- the logo comes to life -->
+  <section class="hero" aria-label="Julekontor – Danmarks gammeldags julebutik">
+    <div class="wrap">
+      <div class="scene" id="scene" role="img" aria-label="Julekontor – Danmarks gammeldags julebutik. Den røde varevogn med juletræ og gaver på taget kører ind gennem sneen.">
+        <div class="van" id="van">
+          <img src="img/truck.webp" width="610" height="496" alt="">
+          <span class="beam"></span>
         </div>
-        <p class="cd-note" id="cd-note">til juleaften</p>
+        <canvas id="snow" aria-hidden="true"></canvas>
       </div>
-      <p class="lede rise d3" data-i18n="heroLede">Nisser, glaskugler, flettede hjerter og kalenderlys – julepynt, som vi husker den fra barndommen, samlet under ét tag.</p>
-      <div class="hero-cta rise d4">
-        <a class="btn btn-cream" href="#sortiment" data-i18n="ctaRange">Se sortimentet</a>
-        <button class="btn btn-outline-light" type="button" data-open-chat>
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5h18v11H3z"/><path d="m3 7 9 6.5L21 7"/></svg>
-          <span data-i18n="ctaSanta">Skriv til Julemanden</span>
-        </button>
+      <div class="sleeps" aria-live="polite">
+        <svg class="moon" viewBox="0 0 54 54" aria-hidden="true"><path d="M34 6 A 22 22 0 1 0 48 38 A 18 18 0 1 1 34 6 Z" fill="#e7c886"/><text x="34" y="20" font-family="Nunito, sans-serif" font-weight="800" font-size="10" fill="#b0121c">z</text><text x="41" y="12" font-family="Nunito, sans-serif" font-weight="800" font-size="8" fill="#b0121c">z</text></svg>
+        <span class="txt" id="sleeps"></span>
       </div>
-      <a class="scrolldown" href="#sortiment" aria-label="↓"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7v10m-4-4 4 4 4-4"/></svg></a>
-    </div>
-    <svg class="scallop" viewBox="0 0 1200 22" preserveAspectRatio="none" aria-hidden="true"><path d="M0 22 V10 Q 15 -2 30 10 T 60 10 T 90 10 T 120 10 T 150 10 T 180 10 T 210 10 T 240 10 T 270 10 T 300 10 T 330 10 T 360 10 T 390 10 T 420 10 T 450 10 T 480 10 T 510 10 T 540 10 T 570 10 T 600 10 T 630 10 T 660 10 T 690 10 T 720 10 T 750 10 T 780 10 T 810 10 T 840 10 T 870 10 T 900 10 T 930 10 T 960 10 T 990 10 T 1020 10 T 1050 10 T 1080 10 T 1110 10 T 1140 10 T 1170 10 T 1200 10 V22 Z" fill="#f7f1e6"/></svg>
-  </section>
-
-  <section class="promises" aria-label="Julekontor">
-    <div class="wrap">
-      <ul>
-        <li><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="16" cy="19" r="10"/><path d="M13 8h6v3h-6zM16 5v3"/></svg><span data-i18n="p1">Gammeldags julepynt, udvalgt med omhu</span></li>
-        <li><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="5" y="12" width="22" height="15" rx="1"/><path d="M3 8h26v4H3zM16 8v19M16 8c-3-5-9-4-7-1 1 2 5 1 7 1 2 0 6 1 7-1 2-3-4-4-7 1"/></svg><span data-i18n="p2">Gaver til hele familien</span></li>
-        <li><svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h24v16H4z"/><path d="m4 9 12 9 12-9"/></svg><span data-i18n="p3">Julemanden svarer på alle sprog</span></li>
-      </ul>
+      <div class="hero-cta">
+        <a class="btn btn-red" href="#kalender" data-i18n="ctaCal">Åbn julekalenderen</a>
+        <button class="btn btn-green" type="button" data-open-chat><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5h18v11H3z"/><path d="m3 7 9 6.5L21 7"/></svg><span data-i18n="ctaSanta">Skriv til Julemanden</span></button>
+      </div>
     </div>
   </section>
 
-  <section class="block" id="sortiment" aria-labelledby="range-title">
+  <!-- advent calendar -->
+  <section class="block" id="kalender" aria-labelledby="cal-title">
     <div class="wrap">
-      <div class="sec-head">
-        <span class="kicker" data-i18n="rangeKicker">I butikken</span>
-        <h2 id="range-title" data-i18n="rangeTitle">Vores sortiment</h2>
-        <div class="rule" aria-hidden="true"><svg viewBox="0 0 24 24"><use href="#star8"/></svg></div>
-        <p data-i18n="rangeLede">Seks ting, vi aldrig løber tør for. Resten skifter med årstiden.</p>
+      <div class="title"><span class="script" data-i18n="calScript">24 små overraskelser</span><h2 id="cal-title" data-i18n="calTitle">Julekalenderen</h2><svg class="flourish" aria-hidden="true"><use href="#flourish"/></svg><p data-i18n="calLede">Én låge om dagen fra 1. december. Hvad mon der gemmer sig bag dagens låge?</p></div>
+      <div class="board">
+        <span class="corner tl"></span><span class="corner tr"></span><span class="corner bl"></span><span class="corner br"></span>
+        <div class="cal" id="cal"></div>
+        <p class="cal-note" id="cal-note"></p>
       </div>
+    </div>
+  </section>
+
+  <!-- decorate the tree -->
+  <section class="block" id="traeet" aria-labelledby="tree-title" style="padding-top:0">
+    <div class="wrap">
+      <div class="title"><span class="script" data-i18n="treeScript">Hjælp nisserne</span><h2 id="tree-title" data-i18n="treeTitle">Pynt juletræet</h2><svg class="flourish" aria-hidden="true"><use href="#flourish"/></svg></div>
+      <div class="board treebox">
+        <span class="corner tl"></span><span class="corner br"></span>
+        <div class="tree" id="tree">
+          <svg class="fir" viewBox="0 0 500 600" aria-hidden="true">
+            <defs><linearGradient id="firG" x1="0" x2="1"><stop offset="0" stop-color="#174a2a"/><stop offset=".5" stop-color="#2a6e40"/><stop offset="1" stop-color="#143e23"/></linearGradient></defs>
+            <ellipse cx="250" cy="575" rx="170" ry="18" fill="#000" opacity=".12"/>
+            <rect x="228" y="500" width="44" height="70" rx="4" fill="#6b4425"/>
+            <path d="M190 560 h120 l-14 34 h-92 Z" fill="#b0121c"/><path d="M190 560 h120" stroke="#e7c886" stroke-width="5"/>
+            <path d="M250 40 L340 170 L300 170 L390 300 L340 300 L440 440 L380 440 L470 520 L30 520 L120 440 L60 440 L160 300 L110 300 L200 170 L160 170 Z" fill="url(#firG)"/>
+            <path d="M250 40 L340 170 L300 170 L250 120 L200 170 L160 170 Z M300 170 L390 300 L340 300 L250 230 L160 300 L110 300 L200 170 Z M340 300 L440 440 L380 440 L250 360 L120 440 L60 440 L160 300 Z" fill="#fff" opacity=".06"/>
+            <g fill="none" stroke="#e7c886" stroke-width="2.5" opacity=".9"><path d="M182 180 Q 250 214 318 180"/><path d="M142 312 Q 250 360 358 312"/><path d="M98 452 Q 250 506 402 452"/></g>
+            <g id="lamps"></g>
+          </svg>
+        </div>
+        <div class="tray">
+          <p data-i18n="treeLede">Træk pynten op på træet – eller tryk på den. Tryk på en kugle på træet for at tage den af igen.</p>
+          <div class="items" id="tray"></div>
+          <div class="row">
+            <button class="btn btn-red" type="button" id="tree-light" data-i18n="treeLight">Tænd lysene</button>
+            <button class="btn btn-cream" type="button" id="tree-clear" data-i18n="treeClear">Start forfra</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- wish list -->
+  <section class="block" id="oenskeseddel" aria-labelledby="wish-title" style="padding-top:0">
+    <div class="wrap">
+      <div class="title"><span class="script" data-i18n="wishScript">Til Nordpolen</span><h2 id="wish-title" data-i18n="wishTitle">Din ønskeseddel</h2><svg class="flourish" aria-hidden="true"><use href="#flourish"/></svg></div>
+      <div class="wish">
+        <form class="letter" id="letter" autocomplete="off">
+          <div class="dear" data-i18n="wishDear">Kære Julemand,</div>
+          <label for="w1" data-i18n="wishLabel">Ønske</label><input id="w1" maxlength="80" data-i18n-ph="wishPh1" placeholder="Jeg ønsker mig …">
+          <label for="w2" data-i18n="wishLabel">Ønske</label><input id="w2" maxlength="80" data-i18n-ph="wishPh2" placeholder="… og måske …">
+          <label for="w3" data-i18n="wishLabel">Ønske</label><input id="w3" maxlength="80" data-i18n-ph="wishPh3" placeholder="… og en overraskelse!">
+          <div class="sign" data-i18n="wishSign">Mange julehilsner</div>
+          <svg class="seal" viewBox="0 0 100 100" aria-hidden="true"><use href="#seal"/></svg>
+        </form>
+        <div class="wish-copy">
+          <p data-i18n="wishLede">Skriv dine ønsker, og send brevet direkte til Julemanden. Han læser det og svarer dig her på siden – på dit eget sprog.</p>
+          <p style="font-size:.95rem" data-i18n="wishSafe">Du behøver ikke skrive dit navn eller din adresse. Julemanden ved godt, hvor du bor.</p>
+          <div><button class="btn btn-red" type="button" id="wish-send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 12 20 4l-6 16-3-7-7-1Z"/></svg><span data-i18n="wishSend">Send til Julemanden</span></button></div>
+          <p class="wish-done" id="wish-done" hidden></p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- Santa -->
+  <section class="block" id="julemanden" aria-labelledby="santa-title" style="padding-top:0">
+    <div class="wrap">
+      <div class="board santa-sec">
+        <span class="corner tr"></span><span class="corner bl"></span>
+        <div class="face" id="santa-face"><svg viewBox="0 0 200 200" aria-hidden="true"><use href="#santa-head" width="200" height="200"/></svg></div>
+        <div class="copy">
+          <span class="title" style="justify-items:start;text-align:left;margin:0"><span class="script" data-i18n="santaScript">Julemandens brevkasse</span></span>
+          <h2 id="santa-title" style="font-size:clamp(2rem,1.6rem + 2vw,3.1rem);font-weight:800;color:var(--red)" data-i18n="santaTitle">Snak med Julemanden</h2>
+          <p data-i18n="santaLede">Spørg ham om rensdyrene, om nisserne i værkstedet, eller hvad han spiser til morgenmad. Han svarer på dit eget sprog – dansk, tysk, engelsk, polsk eller et helt andet.</p>
+          <div class="hellos" aria-hidden="true"><span>Kære Julemand</span><span>Lieber Weihnachtsmann</span><span>Dear Santa</span><span>Drogi Mikołaju</span><span>Kära Tomten</span></div>
+          <div><button class="btn btn-green" type="button" data-open-chat data-i18n="ctaLetter">Skriv til Julemanden</button></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- the shop -->
+  <section class="block" id="butikken" aria-labelledby="shop-title" style="padding-top:0">
+    <div class="wrap">
+      <div class="title"><span class="script" data-i18n="shopScript">For de voksne</span><h2 id="shop-title" data-i18n="shopTitle">I butikken</h2><svg class="flourish" aria-hidden="true"><use href="#flourish"/></svg><p data-i18n="rangeLede">Seks ting, vi aldrig løber tør for. Resten skifter med årstiden.</p></div>
       <div class="cats">
         <article class="cat">
           <div class="art"><svg viewBox="0 0 120 150" aria-hidden="true">
@@ -624,60 +610,29 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
             </svg></div>
           <div class="body"><h3 data-i18n="r6t"></h3><p data-i18n="r6p"></p></div>
         </article>
+
       </div>
     </div>
   </section>
 
-  <section class="block letterbox" id="julemanden" aria-labelledby="santa-title">
-    <div class="wrap lb-grid">
-      <div class="lb-art" aria-hidden="true">
-        <div class="ring"></div>
-        <svg class="head" viewBox="0 0 200 200"><use href="#santa-head" x="4" y="0" width="200" height="200"/></svg>
-        <svg class="stamp" viewBox="0 0 100 100"><use href="#seal"/></svg>
-      </div>
-      <div class="lb-copy">
-        <span class="kicker" data-i18n="santaKicker">Julemandens brevkasse</span>
-        <h2 id="santa-title" data-i18n="santaTitle">Skriv til Julemanden – han svarer på dit sprog</h2>
-        <p data-i18n="santaLede">Fortæl ham om dine ønsker, spørg til rensdyrene, eller hør, hvad nisserne laver i værkstedet. Skriver du på dansk, svarer han på dansk. Skriver du på tysk, polsk eller et helt andet sprog, svarer han på det.</p>
-        <div class="hellos" aria-hidden="true"><span>Kære Julemand</span><span>Lieber Weihnachtsmann</span><span>Dear Santa</span><span>Drogi Mikołaju</span><span>Kära Tomten</span></div>
-        <ul>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="s1">Direkte her på siden – uden login og uden app</span></li>
-          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="s2">Han spørger aldrig om navn, adresse eller telefonnummer</span></li>
-        </ul>
-        <div><button class="btn btn-cream" type="button" data-open-chat data-i18n="ctaLetter">Skriv et brev</button></div>
-      </div>
-    </div>
-  </section>
-
-  <section class="block" id="om" aria-labelledby="about-title">
-    <div class="wrap about">
-      <figure><img src="img/logo.webp" width="1200" height="800" alt="Julekontor – Danmarks gammeldags julebutik. En rød veteran-varevogn med juletræ og gaver på taget kører gennem sneen." loading="lazy"></figure>
-      <div class="copy">
-        <span class="kicker" data-i18n="aboutKicker">Om os</span>
-        <h2 id="about-title" data-i18n="aboutTitle">Et lille kontor med én opgave: julen</h2>
-        <p data-i18n="aboutP1">Hos Julekontor finder du den jul, mange af os husker fra barndommen: røde nisser med uldhuer, tynde glaskugler, der fanger lyset fra stearinlysene, og kalenderlys, der brænder ned dag for dag frem mod juleaften.</p>
-        <p data-i18n="aboutP2">Vi vælger varerne én for én og foretrækker det, der holder i mange år. Kig ind, rør ved tingene, og tag dig god tid.</p>
-        <span class="sig" data-i18n="aboutSig">Glædelig jul</span>
-      </div>
-    </div>
-  </section>
-
-  <section class="block visit" id="besog" aria-labelledby="visit-title">
-    <div class="wrap visit-grid">
-      <div class="intro">
-        <span class="kicker" data-i18n="visitKicker">Besøg os</span>
-        <h2 id="visit-title" data-i18n="visitTitle">Kom ind fra kulden</h2>
-        <p data-i18n="visitLede">Julepynt skal ses i virkeligheden. Tag dig god tid, og spørg endelig.</p>
-      </div>
-      <div class="card">
-        <h3>Julekontor</h3>
-        <div class="addr" id="v-addr" hidden></div>
-        <p id="v-season" hidden></p>
-        <dl id="v-hours" hidden></dl>
-        <p class="empty" id="v-empty" data-i18n="visitEmpty">Åbningstider og adresse for sæsonen kommer her snart.</p>
-        <div class="copyrow" id="v-mail" hidden><code id="v-mail-text"></code><button type="button" id="v-copy" data-i18n="copy">Kopiér</button></div>
-        <div class="copyrow" id="v-phone" hidden><code id="v-phone-text"></code></div>
-        <div class="linkrow" id="v-links" hidden></div>
+  <!-- visit -->
+  <section class="block" id="besog" aria-labelledby="visit-title" style="padding-top:0">
+    <div class="wrap">
+      <div class="board visit">
+        <span class="corner tl"></span><span class="corner br"></span>
+        <figure><img src="img/logo.webp" width="1200" height="800" alt="Julekontor – Danmarks gammeldags julebutik" loading="lazy"></figure>
+        <div class="info">
+          <span class="title" style="justify-items:start;text-align:left;margin:0"><span class="script" data-i18n="visitKicker">Besøg os</span></span>
+          <h2 id="visit-title" style="font-size:clamp(1.9rem,1.5rem + 1.8vw,2.8rem);font-weight:800;color:var(--red)" data-i18n="visitTitle">Kom ind fra kulden</h2>
+          <p data-i18n="aboutP1" style="color:var(--ink-soft)"></p>
+          <div class="addr" id="v-addr" hidden></div>
+          <p id="v-season" hidden></p>
+          <dl id="v-hours" hidden></dl>
+          <p class="empty" id="v-empty" data-i18n="visitEmpty">Åbningstider og adresse for sæsonen kommer her snart.</p>
+          <div class="copyrow" id="v-mail" hidden><code id="v-mail-text"></code><button type="button" id="v-copy" data-i18n="copy">Kopiér</button></div>
+          <div class="copyrow" id="v-phone" hidden><code id="v-phone-text"></code></div>
+          <div class="linkrow" id="v-links" hidden></div>
+        </div>
       </div>
     </div>
   </section>
@@ -685,14 +640,9 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
 
 <footer>
   <div class="wrap inner">
-    <div class="badge"><img src="img/logo.webp" width="1200" height="800" alt="Julekontor" loading="lazy"></div>
-    <div class="gj" data-i18n="gj">Glædelig jul</div>
-    <nav aria-label="Footer">
-      <a href="#sortiment" data-i18n="navRange">Sortiment</a>
-      <a href="#julemanden" data-i18n="navSanta">Julemanden</a>
-      <a href="#om" data-i18n="navAbout">Om os</a>
-      <a href="#besog" data-i18n="navVisit">Besøg</a>
-    </nav>
+    <div class="gj" id="gj" data-i18n="gj">Glædelig jul</div>
+    <nav aria-label="Footer"><a href="#kalender" data-i18n="navCal">Julekalender</a><a href="#traeet" data-i18n="navTree">Pynt træet</a><a href="#oenskeseddel" data-i18n="navWish">Ønskeseddel</a><a href="#julemanden" data-i18n="navSanta">Julemanden</a><a href="#butikken" data-i18n="navShop">Butikken</a></nav>
+    <small><a href="versionen/index.html" style="color:inherit">Tidligere versioner</a></small>
     <small>© <span id="year">2026</span> Julekontor · <span data-i18n="credit">Spilledåsen spiller »Glade jul« af Franz Xaver Gruber, 1818.</span></small>
   </div>
 </footer>
@@ -718,6 +668,8 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
     <button type="submit" id="chat-send" data-i18n-aria="send" aria-label="Send"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#seal"/></svg></button>
   </form>
 </section>
+
+
 
 
 
@@ -827,6 +779,61 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
     }
   };
 
+  const MORE = {
+    da: { navCal: "Julekalender", navTree: "Pynt træet", navWish: "Ønskeseddel", navShop: "Butikken",
+      sleeps: n => `Sov <b>${n}</b> gange, så er det juleaften!`, sleepsOne: "Sov <b>1</b> gang mere, så er det juleaften!", sleepsEve: "Det er juleaften i dag!", sleepsAfter: "Glædelig jul!",
+      ctaCal: "Åbn julekalenderen", calScript: "24 små overraskelser", calTitle: "Julekalenderen", calLede: "Én låge om dagen fra 1. december. Hvad mon der gemmer sig bag dagens låge?",
+      calLocked: d => `Psst! Låge ${d} må først åbnes den ${d}. december.`, calNoteBefore: d => `Den første låge kan åbnes om ${d} ${d === 1 ? "dag" : "dage"}. Prøv alligevel at banke på …`, calNoteOn: "Find dagens låge – den glimter.", calClose: "Luk lågen",
+      treeScript: "Hjælp nisserne", treeTitle: "Pynt juletræet", treeLede: "Træk pynten op på træet – eller tryk på den. Tryk på pynten på træet for at tage den af igen.", treeLight: "Tænd lysene", treeOff: "Sluk lysene", treeClear: "Start forfra", treeWow: ["Hvor flot!", "Det er det smukkeste træ i hele Danmark!", "Nisserne klapper!"],
+      wishScript: "Til Nordpolen", wishTitle: "Din ønskeseddel", wishDear: "Kære Julemand,", wishLabel: "Ønske", wishPh1: "Jeg ønsker mig …", wishPh2: "… og måske …", wishPh3: "… og en overraskelse!", wishSign: "Mange julehilsner",
+      wishLede: "Skriv dine ønsker, og send brevet direkte til Julemanden. Han læser det og svarer dig her på siden – på dit eget sprog.", wishSafe: "Du behøver ikke skrive dit navn eller din adresse. Julemanden ved godt, hvor du bor.",
+      wishSend: "Send til Julemanden", wishEmpty: "Skriv mindst ét ønske først.", wishDone: "Brevet er på vej til Nordpolen!", wishMsg: w => `Her er min ønskeseddel: ${w}`,
+      santaScript: "Julemandens brevkasse", santaTitle: "Snak med Julemanden", santaLede: "Spørg ham om rensdyrene, om nisserne i værkstedet, eller hvad han spiser til morgenmad. Han svarer på dit eget sprog – dansk, tysk, engelsk, polsk eller et helt andet.", ctaLetter: "Skriv til Julemanden",
+      shopScript: "For de voksne", shopTitle: "I butikken", vanHonk: ["Dyt dyt! Pas på, her kommer julegaverne!", "Hov – der faldt næsten en gave af!", "Julekontorets vogn er fyldt med gaver."],
+      days: [
+        "Tegn en stjerne, og hæng den i vinduet.", "Hvad får man, hvis man krydser en snemand med en vampyr? Frostbid!", "Syng en julesang for én, du holder af.", "Flet et julehjerte af rødt og hvidt papir.",
+        "Sæt en skål risengrød til nissen i aften. Er den tom i morgen?", "Hvorfor er Rudolfs næse rød? Den fryser!", "Byg en snemand – eller en lille én af vat.", "Giv en stor krammer til én, du holder af.",
+        "Tæl alle julestjerner, du ser på vej hjem.", "Hvad kalder man en snemand i solskin? En vandpyt!", "Bag pebernødder sammen med en voksen.", "Skriv din ønskeseddel her på siden.",
+        "Lucia! Tænd et lys, og syng med.", "Find den lille nisse, der gemmer sig på siden.", "Lav en sne-engel – i sneen eller på gulvtæppet.", "Hvad siger julemanden, når han går baglæns? Oh oh oh!",
+        "Pynt juletræet her på siden. Hvor mange kugler kan du hænge op?", "Drik varm kakao, og fortæl en julehistorie.", "Tegn Julemandens kane med alle rensdyrene.", "Hvad spiser snemænd til morgenmad? Snefnug med mælk!",
+        "Vintersolhverv: I dag er dagen kortest. Fra i morgen bliver den længere!", "Pak en gave ind – helt selv.", "Lillejuleaften. Nu er der kun én gang at sove!", "Glædelig jul! I aften kommer Julemanden." ] },
+    de: { navCal: "Adventskalender", navTree: "Baum schmücken", navWish: "Wunschzettel", navShop: "Der Laden",
+      sleeps: n => `Noch <b>${n}</b> Mal schlafen, dann ist Heiligabend!`, sleepsOne: "Noch <b>1</b> Mal schlafen, dann ist Heiligabend!", sleepsEve: "Heute ist Heiligabend!", sleepsAfter: "Frohe Weihnachten!",
+      ctaCal: "Adventskalender öffnen", calScript: "24 kleine Überraschungen", calTitle: "Der Adventskalender", calLede: "Ein Türchen pro Tag ab dem 1. Dezember. Was wohl hinter dem heutigen Türchen steckt?",
+      calLocked: d => `Psst! Türchen ${d} darf erst am ${d}. Dezember aufgemacht werden.`, calNoteBefore: d => `Das erste Türchen geht in ${d} ${d === 1 ? "Tag" : "Tagen"} auf. Klopf trotzdem mal an …`, calNoteOn: "Such das Türchen von heute – es funkelt.", calClose: "Türchen schließen",
+      treeScript: "Hilf den Wichteln", treeTitle: "Schmück den Weihnachtsbaum", treeLede: "Zieh den Schmuck auf den Baum – oder tipp ihn an. Tipp auf den Schmuck am Baum, um ihn wieder abzunehmen.", treeLight: "Lichter an", treeOff: "Lichter aus", treeClear: "Von vorn", treeWow: ["Wie schön!", "Das ist der schönste Baum in ganz Dänemark!", "Die Wichtel klatschen!"],
+      wishScript: "An den Nordpol", wishTitle: "Dein Wunschzettel", wishDear: "Lieber Weihnachtsmann,", wishLabel: "Wunsch", wishPh1: "Ich wünsche mir …", wishPh2: "… und vielleicht …", wishPh3: "… und eine Überraschung!", wishSign: "Viele Weihnachtsgrüße",
+      wishLede: "Schreib deine Wünsche auf und schick den Brief direkt an den Weihnachtsmann. Er liest ihn und antwortet dir hier auf der Seite – in deiner Sprache.", wishSafe: "Du musst deinen Namen und deine Adresse nicht aufschreiben. Der Weihnachtsmann weiß, wo du wohnst.",
+      wishSend: "An den Weihnachtsmann schicken", wishEmpty: "Schreib zuerst mindestens einen Wunsch.", wishDone: "Der Brief ist auf dem Weg zum Nordpol!", wishMsg: w => `Hier ist mein Wunschzettel: ${w}`,
+      santaScript: "Der Briefkasten des Weihnachtsmanns", santaTitle: "Sprich mit dem Weihnachtsmann", santaLede: "Frag ihn nach den Rentieren, nach den Wichteln in der Werkstatt oder was er zum Frühstück isst. Er antwortet in deiner Sprache – Deutsch, Dänisch, Englisch, Polnisch oder einer ganz anderen.", ctaLetter: "Dem Weihnachtsmann schreiben",
+      shopScript: "Für die Großen", shopTitle: "Im Laden", vanHonk: ["Tut tut! Achtung, hier kommen die Geschenke!", "Huch – fast wäre ein Geschenk heruntergefallen!", "Der Wagen vom Julekontor ist voller Geschenke."],
+      days: [
+        "Mal einen Stern und häng ihn ins Fenster.", "Was bekommt man, wenn man einen Schneemann mit einem Vampir kreuzt? Frostbiss!", "Sing ein Weihnachtslied für jemanden, den du lieb hast.", "Flecht ein Weihnachtsherz aus rotem und weißem Papier.",
+        "Stell heute Abend eine Schale Milchreis für den Wichtel hin. Ist sie morgen leer?", "Warum ist Rudolphs Nase rot? Sie friert!", "Bau einen Schneemann – oder einen kleinen aus Watte.", "Gib jemandem, den du lieb hast, eine große Umarmung.",
+        "Zähl alle Weihnachtssterne, die du auf dem Heimweg siehst.", "Wie nennt man einen Schneemann in der Sonne? Eine Pfütze!", "Back mit einem Erwachsenen Pfeffernüsse.", "Schreib deinen Wunschzettel hier auf der Seite.",
+        "Luciatag! Zünde eine Kerze an und sing mit.", "Such den kleinen Wichtel, der sich auf der Seite versteckt.", "Mach einen Schneeengel – im Schnee oder auf dem Teppich.", "Was sagt der Weihnachtsmann, wenn er rückwärts geht? Oh oh oh!",
+        "Schmück den Baum hier auf der Seite. Wie viele Kugeln passen dran?", "Trink warmen Kakao und erzähl eine Weihnachtsgeschichte.", "Mal den Schlitten des Weihnachtsmanns mit allen Rentieren.", "Was essen Schneemänner zum Frühstück? Schneeflocken mit Milch!",
+        "Wintersonnenwende: Heute ist der kürzeste Tag. Ab morgen werden die Tage länger!", "Pack ein Geschenk ein – ganz allein.", "Morgen ist Heiligabend! Nur noch einmal schlafen!", "Frohe Weihnachten! Heute Abend kommt der Weihnachtsmann." ] },
+    en: { navCal: "Advent calendar", navTree: "Decorate the tree", navWish: "Wish list", navShop: "The shop",
+      sleeps: n => `<b>${n}</b> more sleeps until Christmas Eve!`, sleepsOne: "Just <b>1</b> more sleep until Christmas Eve!", sleepsEve: "It's Christmas Eve today!", sleepsAfter: "Merry Christmas!",
+      ctaCal: "Open the advent calendar", calScript: "24 little surprises", calTitle: "The advent calendar", calLede: "One door a day from 1 December. What could be hiding behind today's door?",
+      calLocked: d => `Psst! Door ${d} can't be opened until ${d} December.`, calNoteBefore: d => `The first door opens in ${d} ${d === 1 ? "day" : "days"}. Try knocking anyway …`, calNoteOn: "Find today's door – it's sparkling.", calClose: "Close the door",
+      treeScript: "Help the elves", treeTitle: "Decorate the tree", treeLede: "Drag the decorations onto the tree – or just tap them. Tap a decoration on the tree to take it off again.", treeLight: "Lights on", treeOff: "Lights off", treeClear: "Start again", treeWow: ["How beautiful!", "That's the prettiest tree in all of Denmark!", "The elves are clapping!"],
+      wishScript: "To the North Pole", wishTitle: "Your wish list", wishDear: "Dear Santa,", wishLabel: "Wish", wishPh1: "I would like …", wishPh2: "… and maybe …", wishPh3: "… and a surprise!", wishSign: "Lots of Christmas love",
+      wishLede: "Write your wishes and send the letter straight to Santa. He'll read it and answer you here on the page – in your own language.", wishSafe: "You don't need to write your name or address. Santa knows where you live.",
+      wishSend: "Send to Santa", wishEmpty: "Write at least one wish first.", wishDone: "Your letter is on its way to the North Pole!", wishMsg: w => `Here is my wish list: ${w}`,
+      santaScript: "Santa's letterbox", santaTitle: "Talk to Santa", santaLede: "Ask him about the reindeer, the elves in the workshop, or what he has for breakfast. He answers in your own language – English, Danish, German, Polish or any other.", ctaLetter: "Write to Santa",
+      shopScript: "For the grown-ups", shopTitle: "In the shop", vanHonk: ["Beep beep! Here come the presents!", "Whoops – a present nearly fell off!", "The Julekontor van is full of presents."],
+      days: [
+        "Draw a star and hang it in the window.", "What do you get if you cross a snowman with a vampire? Frostbite!", "Sing a Christmas song for someone you love.", "Weave a Christmas heart from red and white paper.",
+        "Leave a bowl of rice pudding for the nisse tonight. Is it empty in the morning?", "Why is Rudolph's nose red? He's freezing!", "Build a snowman – or a little one out of cotton wool.", "Give someone you love a big hug.",
+        "Count all the Christmas stars you see on the way home.", "What do you call a snowman in the sun? A puddle!", "Bake pepper nuts with a grown-up.", "Write your wish list here on the page.",
+        "Lucia day! Light a candle and sing along.", "Find the little nisse hiding on this page.", "Make a snow angel – in the snow or on the carpet.", "What does Santa say when he walks backwards? Oh oh oh!",
+        "Decorate the tree here on the page. How many baubles fit?", "Drink hot cocoa and tell a Christmas story.", "Draw Santa's sleigh with all the reindeer.", "What do snowmen eat for breakfast? Snowflakes with milk!",
+        "Winter solstice: today is the shortest day. From tomorrow the days get longer!", "Wrap a present – all by yourself.", "Tomorrow is Christmas Eve! Just one more sleep!", "Merry Christmas! Santa comes tonight." ] }
+  };
+  for (const l in MORE) Object.assign(T[l], MORE[l]);
+
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
     set(k, v) { try { localStorage.setItem(k, v); } catch {} },
@@ -849,256 +856,212 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
 
 
 
-  /* ================= little things to find ================= */
-  const Eggs = (() => {
-    let ac = null;
-    const audio = () => { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); return ac; } catch { return null; } };
-    function bell(freq, vol = .18, len = 1.6) {
-      const a = audio(); if (!a) return; const t = a.currentTime;
-      [[1, vol], [2.76, vol * .35], [5.4, vol * .15]].forEach(([m, v]) => {
-        const o = a.createOscillator(), g = a.createGain(); o.type = "sine"; o.frequency.value = freq * m;
-        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .005); g.gain.exponentialRampToValueAtTime(.0005, t + len / m);
-        o.connect(g).connect(a.destination); o.start(t); o.stop(t + len);
-      });
+
+  const pick = arr => arr[(Math.random() * arr.length) | 0];
+
+  /* ================= sounds and sparkles (every tap makes a little noise) ================= */
+  let ac = null;
+  const audio = () => { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); return ac; } catch { return null; } };
+  function bell(freq, vol = .16, len = 1.5) {
+    const a = audio(); if (!a) return; const t0 = a.currentTime;
+    [[1, vol], [2.76, vol * .35], [5.4, vol * .15]].forEach(([m, v]) => { const o = a.createOscillator(), g = a.createGain(); o.frequency.value = freq * m; g.gain.setValueAtTime(0, t0); g.gain.linearRampToValueAtTime(v, t0 + .005); g.gain.exponentialRampToValueAtTime(.0005, t0 + len / m); o.connect(g).connect(a.destination); o.start(t0); o.stop(t0 + len); });
+  }
+  function honk() {
+    const a = audio(); if (!a) return; const t0 = a.currentTime;
+    [[0, .16], [.22, .3]].forEach(([d, l]) => [392, 494].forEach(f => { const o = a.createOscillator(), g = a.createGain(), lp = a.createBiquadFilter(); o.type = "square"; o.frequency.value = f; lp.type = "lowpass"; lp.frequency.value = 1400; g.gain.setValueAtTime(0, t0 + d); g.gain.linearRampToValueAtTime(.06, t0 + d + .02); g.gain.setValueAtTime(.06, t0 + d + l - .03); g.gain.linearRampToValueAtTime(0, t0 + d + l); o.connect(lp).connect(g).connect(a.destination); o.start(t0 + d); o.stop(t0 + d + l + .02); }));
+  }
+  function jingle(n = 8, gap = 110) { for (let i = 0; i < n; i++) setTimeout(() => bell(1800 + Math.random() * 900, .05, .35), i * gap + Math.random() * 40); }
+  const NOTES = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
+  function sparkles(x, y, n = 12, spread = 90, colors = ["#e7c886", "#ffffff", "#b0121c", "#2c6a40"]) {
+    for (let i = 0; i < (reduceMotion ? Math.min(n, 4) : n); i++) {
+      const sp = document.createElement("span"); sp.className = "sparkle"; sp.style.left = x + "px"; sp.style.top = y + "px"; sp.style.color = colors[i % colors.length];
+      sp.innerHTML = '<svg viewBox="0 0 24 24"><use href="#star8"/></svg>'; document.body.append(sp);
+      const a = Math.random() * Math.PI * 2, d = spread * (.4 + Math.random() * .8);
+      sp.animate([{ transform: "translate(0,0) scale(.2)", opacity: 1 }, { transform: `translate(${Math.cos(a) * d}px, ${Math.sin(a) * d + 30}px) scale(${.5 + Math.random() * .8}) rotate(${(Math.random() - .5) * 360}deg)`, opacity: 0 }], { duration: 900 + Math.random() * 700, easing: "cubic-bezier(.2,.7,.2,1)" }).onfinish = () => sp.remove();
     }
-    const NOTES = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
-    function sparkles(x, y, n = 12, spread = 90, colors = ["#f2d28f", "#ffffff", "#e2c58a"]) {
-      const k = reduceMotion ? Math.min(n, 4) : n;
-      for (let i = 0; i < k; i++) {
-        const sp = document.createElement("span"); sp.className = "sparkle"; sp.style.left = x + "px"; sp.style.top = y + "px";
-        sp.style.color = colors[i % colors.length]; sp.innerHTML = '<svg viewBox="0 0 24 24"><use href="#star8"/></svg>';
-        document.body.append(sp);
-        const a = Math.random() * Math.PI * 2, d = spread * (.4 + Math.random() * .8), s = .5 + Math.random() * .8;
-        sp.animate([{ transform: "translate(0,0) scale(.2) rotate(0)", opacity: 1 }, { transform: `translate(${Math.cos(a) * d}px, ${Math.sin(a) * d + 30}px) scale(${s}) rotate(${(Math.random() - .5) * 360}deg)`, opacity: 0 }],
-          { duration: 900 + Math.random() * 700, easing: "cubic-bezier(.2,.7,.2,1)" }).onfinish = () => sp.remove();
-      }
-    }
-    function say(x, y, text, ms = 2600) {
-      const b = document.createElement("div"); b.className = "eggbubble"; b.textContent = text;
-      b.style.left = Math.max(130, Math.min(innerWidth - 130, x)) + "px"; b.style.top = Math.max(70, y - 10) + "px";
-      document.body.append(b); setTimeout(() => { b.classList.add("out"); setTimeout(() => b.remove(), 450); }, ms);
-    }
-    const pick = arr => arr[(Math.random() * arr.length) | 0];
-    addEventListener("scroll", () => document.querySelectorAll(".eggbubble:not(.out)").forEach(b => { b.classList.add("out"); setTimeout(() => b.remove(), 450); }), { passive: true });
-
-    // 1. the baubles on the garland ring like little bells
-    const box = $("baubles"), COLORS = [["#ffd3cf", "#c8323a", "#5a0c11"], ["#ffe9b0", "#d9a441", "#7a5418"], ["#d8f0dc", "#2f7a48", "#123a22"], ["#e6ecff", "#7d8fb8", "#2b3554"]];
-    function placeBaubles(hooks) {
-      box.innerHTML = "";
-      hooks.forEach(([x, y], i) => {
-        const b = document.createElement("button"); b.type = "button"; b.className = "bauble"; b.setAttribute("aria-label", "♪");
-        const c = COLORS[i % COLORS.length]; b.style.cssText = `left:${x}px;top:${y}px;--hi:${c[0]};--mid:${c[1]};--lo:${c[2]};--len:${12 + (i % 3) * 7}px`;
-        b.append(document.createElement("i"));
-        b.addEventListener("click", e => { e.stopPropagation(); b.classList.remove("swing"); void b.offsetWidth; b.classList.add("swing"); bell(NOTES[i % NOTES.length]); const r = b.getBoundingClientRect(); sparkles(r.left + r.width / 2, r.bottom - 10, 6, 40); });
-        box.append(b);
-      });
-    }
-
-    // 2. a click into the red sky sends up a few stars
-    document.querySelector(".hero").addEventListener("click", e => {
-      if (e.target.closest("a, button")) return;
-      sparkles(e.clientX, e.clientY, 10, 70); bell(pick(NOTES) * 2, .06, .8);
-    });
-
-    // 3. click the logo plaque three times and the Julekontor van drives through
-    let clicks = [], driving = false;
-    document.querySelector(".plaque a").addEventListener("click", () => {
-      const now = Date.now(); clicks = clicks.filter(c => now - c < 1600); clicks.push(now);
-      if (clicks.length >= 3 && !driving) { clicks = []; driveTruck(); }
-    });
-    function driveTruck() {
-      driving = true; const hero = document.querySelector(".hero"), w = hero.clientWidth;
-      const wrap = document.createElement("div"); wrap.className = "truck-run";
-      wrap.innerHTML = `<svg viewBox="-4 -22 130 76"><path d="M18 4 l12 -20 l12 20 Z M34 4 l11 -17 l11 17 Z" fill="#1f4a2e"/><rect x="12" y="2" width="14" height="8" fill="#e2c58a"/><rect x="40" y="2" width="14" height="8" fill="#f7efe0"/><rect x="0" y="8" width="76" height="34" rx="5" fill="#f7efe0"/><rect x="0" y="6" width="76" height="5" rx="2.5" fill="#ffffff"/><path d="M76 16 h20 c4 0 7 2 9 5 l9 13 v8 H76 Z" fill="#f7efe0"/><path d="M80 19 h14 l8 11 h-22 Z" fill="#9fc3d8"/><rect x="0" y="38" width="118" height="5" rx="2" fill="#5a0c11"/><text x="38" y="30" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-weight="700" font-size="13" fill="#9e1b22">Julekontor</text><circle cx="116" cy="33" r="3.4" fill="#fff1c9"/><g class="wheel"><circle cx="22" cy="44" r="9" fill="#120c0a"/><circle cx="22" cy="44" r="4" fill="#e9e0cf"/><rect x="21" y="36" width="2" height="16" fill="#120c0a"/></g><g class="wheel"><circle cx="94" cy="44" r="9" fill="#120c0a"/><circle cx="94" cy="44" r="4" fill="#e9e0cf"/><rect x="93" y="36" width="2" height="16" fill="#120c0a"/></g></svg>`;
-      hero.append(wrap);
-      [0, 180, 360, 540, 900, 1080].forEach((d, i) => setTimeout(() => bell(NOTES[(i * 2) % NOTES.length] * 2, .07, .6), d));
-      wrap.animate([{ transform: "translateX(-200px)" }, { transform: `translateX(${w + 40}px)` }], { duration: reduceMotion ? 1500 : 6500, easing: "linear" }).onfinish = () => { wrap.remove(); driving = false; };
-    }
-
-    // 4. the six things in the shop each do something when tapped
-    const ACTIONS = ["duck", "wobble", "flip", "candle", "spin", "hop"];
-    document.querySelectorAll(".cat .art").forEach((art, i) => {
-      const act = ACTIONS[i];
-      art.addEventListener("click", () => {
-        const r = art.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
-        if (act === "candle") {
-          art.classList.toggle("out");
-          if (art.classList.contains("out")) {
-            for (let k = 0; k < 3; k++) { const p = document.createElement("span"); p.className = "smoke"; p.style.left = "50%"; p.style.top = "30%"; p.style.setProperty("--dx", (k - 1) * 8 + "px"); p.style.animationDelay = k * .15 + "s"; art.append(p); setTimeout(() => p.remove(), 2000); }
-          } else { sparkles(cx, r.top + r.height * .3, 6, 30); bell(NOTES[5], .08, .9); }
-          return;
-        }
-        art.classList.remove(act); void art.offsetWidth; art.classList.add(act);
-        if (act === "wobble") bell(NOTES[7], .12, 1.2);
-        if (act === "hop") sparkles(cx, cy, 16, 110, ["#f2d28f", "#c8323a", "#ffffff", "#2f7a48"]);
-        if (act === "spin") sparkles(cx, cy, 8, 60);
-        if (act === "flip") bell(NOTES[3], .08, .8);
-        if (act === "duck") setTimeout(() => say(cx, r.top + 20, pick(t("eggNisseCard"))), 900);
-      });
-    });
-
-    // 5. Santa answers a poke on the nose
-    const lb = document.querySelector(".lb-art");
-    lb.querySelector("svg.head").addEventListener("click", e => {
-      lb.classList.remove("hohoho"); void lb.offsetWidth; lb.classList.add("hohoho");
-      [0, 220, 440].forEach(d => setTimeout(() => bell(392, .07, .5), d));
-      const r = lb.getBoundingClientRect(); say(r.left + r.width * .5, r.top + 10, pick(t("eggSanta")));
-    });
-
-    // 6. a nisse hides somewhere on the page and moves on when you find him
-    const SPOTS = [
-      () => { const h = document.querySelector("#om figure"); h.classList.add("egg-host"); return [h, "right:18px;top:-50px;z-index:-1"]; },
-      () => { const h = document.querySelector(".visit .card"); h.classList.add("egg-host"); return [h, "left:26px;top:-52px"]; },
-      () => { const h = document.querySelector(".cats"); h.classList.add("egg-host"); return [h, "right:22px;top:-52px"]; },
-      () => { const h = document.querySelector("footer .badge"); h.classList.add("egg-host"); return [h, "left:-30px;bottom:2px;z-index:-1;transform:rotate(-14deg)"]; }
-    ];
-    let spot = +(store.get("jk-nisse-spot") || 0) % SPOTS.length, found = +(store.get("jk-nisse-found") || 0);
-    const nisse = document.createElement("button"); nisse.type = "button"; nisse.className = "hidden-nisse"; nisse.setAttribute("aria-label", "Nisse");
-    nisse.innerHTML = `<svg viewBox="30 4 60 144"><path d="M34 146 C 30 120 40 96 60 92 C 80 96 90 120 86 146 Z" fill="#6f7782"/><path d="M44 98 C 40 112 46 132 60 140 C 74 132 80 112 76 98 C 70 102 50 102 44 98 Z" fill="#f6f1e8"/><circle cx="60" cy="96" r="7" fill="#e1a588"/><path d="M36 96 C 34 60 46 22 62 8 C 70 22 84 46 84 96 C 70 102 50 102 36 96 Z" fill="#a8282e"/><circle cx="62" cy="8" r="6" fill="#f6f1e8"/><path d="M36 92 C 50 98 70 98 84 92" stroke="#f6f1e8" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
-    function hide() { const [host, css] = SPOTS[spot](); nisse.className = "hidden-nisse"; nisse.style.cssText = css; host.append(nisse); }
-    nisse.addEventListener("click", e => {
-      e.stopPropagation(); found++; store.set("jk-nisse-found", found);
-      const r = nisse.getBoundingClientRect(), lines = t("eggNisse");
-      say(r.left + r.width / 2, r.top, found >= SPOTS.length && found % SPOTS.length === 0 ? t("eggNisseAll") : lines[(found - 1) % lines.length]);
-      bell(NOTES[(found * 3) % NOTES.length], .12, 1.2);
-      sparkles(r.left + r.width / 2, r.top + r.height / 2, found % SPOTS.length === 0 ? 30 : 8, found % SPOTS.length === 0 ? 160 : 50);
-      nisse.classList.add("poof");
-      setTimeout(() => { spot = (spot + 1) % SPOTS.length; store.set("jk-nisse-spot", spot); hide(); }, 500);
-    });
-    hide();
-
-    // 7. "Glædelig jul" in the footer lets it rain stars
-    document.querySelector("footer .gj").addEventListener("click", () => {
-      for (let i = 0; i < (reduceMotion ? 6 : 26); i++) setTimeout(() => sparkles(Math.random() * innerWidth, innerHeight * (.2 + Math.random() * .5), 3, 120), i * 60);
-      [0, 150, 300, 450].forEach((d, i) => setTimeout(() => bell(NOTES[[0, 2, 4, 5][i]], .1, 1.2), d));
-    });
-    document.querySelector("footer .gj").style.cursor = "pointer";
-
-    return { placeBaubles, bell };
-  })();
+  }
+  function say(x, y, text, ms = 2800) {
+    const b = document.createElement("div"); b.className = "eggbubble"; b.textContent = text;
+    b.style.left = Math.max(130, Math.min(innerWidth - 130, x)) + "px"; b.style.top = Math.max(80, y - 8) + "px";
+    document.body.append(b); setTimeout(() => { b.classList.add("out"); setTimeout(() => b.remove(), 450); }, ms);
+  }
+  addEventListener("scroll", () => document.querySelectorAll(".eggbubble:not(.out)").forEach(b => { b.classList.add("out"); setTimeout(() => b.remove(), 450); }), { passive: true });
+  const Eggs = { bell };
 
   /* ================= header ================= */
-  const head = $("site-head");
-  const onScroll = () => head.classList.toggle("scrolled", scrollY > 60);
-  addEventListener("scroll", onScroll, { passive: true }); onScroll();
   const drawer = $("drawer");
-  $("menu-open").addEventListener("click", () => { drawer.hidden = false; });
+  $("menu-open").addEventListener("click", () => { drawer.hidden = false; bell(NOTES[4], .06, .5); });
   drawer.addEventListener("click", e => { if (e.target === drawer || e.target.tagName === "A") drawer.hidden = true; });
 
-  /* ================= countdown ================= */
-  function renderCount() {
-    const now = new Date(), eve = new Date(now.getFullYear(), 11, 24);
-    let ms = eve - now; const pad = n => String(n).padStart(2, "0");
-    if (ms <= 0) { ms = 0; $("cd-note").textContent = t("cdDone"); } else $("cd-note").textContent = t("cdNote");
-    const s = Math.floor(ms / 1000);
-    $("cd-d").textContent = String(Math.floor(s / 86400)); $("cd-h").textContent = pad(Math.floor(s / 3600) % 24);
-    $("cd-m").textContent = pad(Math.floor(s / 60) % 60); $("cd-s").textContent = pad(s % 60);
+  /* ================= the van drives in and parks in the logo ================= */
+  const scene = $("scene"), van = $("van");
+  const BULBS = [[4,31],[9,30.6],[14,30.2],[19,30],[24,30],[29,30.4],[34,31],[73,53.5],[78,54.5],[83,55.6],[88,56.4],[93,56.8],[66,52.5],[61,51.8]];
+  BULBS.forEach(([x, y], i) => { const b = document.createElement("span"); b.className = "bulb"; b.style.left = x + "%"; b.style.top = y + "%"; b.style.animationDelay = (-i * .23) + "s"; van.append(b); });
+  let vanBusy = false;
+  function puffs(ms) {
+    const t0 = performance.now();
+    (function tick() {
+      if (performance.now() - t0 > ms) return;
+      const r = van.getBoundingClientRect(), s = scene.getBoundingClientRect();
+      const p = document.createElement("span"); p.className = "puff"; p.style.left = ((r.left - s.left) / s.width * 100 + 1) + "%"; p.style.top = ((r.bottom - s.top) / s.height * 100 - 9) + "%"; scene.append(p);
+      p.animate([{ transform: "scale(.4)", opacity: .9 }, { transform: "translate(-40px,-30px) scale(2.4)", opacity: 0 }], { duration: 1200, easing: "ease-out" }).onfinish = () => p.remove();
+      setTimeout(tick, 140);
+    })();
   }
-  setInterval(renderCount, 1000);
-  $("night") && (function night() {
-    const NS = "http://www.w3.org/2000/svg", mk = (tag, a, p) => { const n = document.createElementNS(NS, tag); for (const k in a) n.setAttribute(k, a[k]); p.appendChild(n); return n; };
-    let seed = 5; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-    const stars = $("stars");
-    for (let i = 0; i < 160; i++) { const c = mk("circle", { cx: r() * 1600, cy: r() * 560, r: (r() * 1.4 + .3).toFixed(2), fill: "#ffffff", opacity: (r() * .6 + .3).toFixed(2) }, stars); if (r() < .35) { c.setAttribute("class", "tw"); c.style.animationDelay = (-r() * 4).toFixed(2) + "s"; } }
-    const lights = $("lights");
-    for (let i = 0; i < 70; i++) { const x = 260 + r() * 1120, y = 690 + r() * 60; mk("circle", { cx: x, cy: y, r: 7, fill: "#ffcf7a", opacity: .25, filter: "url(#glow)" }, lights); const c = mk("circle", { cx: x, cy: y, r: (r() * 1.4 + 1).toFixed(1), fill: "#ffe2a0" }, lights); if (r() < .3) { c.setAttribute("class", "tw"); c.style.animationDelay = (-r() * 4).toFixed(2) + "s"; } }
-    const forest = $("forest");
-    for (let x = -20; x < 1640; x += 14 + r() * 22) { const h = 40 + r() * 70, w = h * .42, b = 790 + r() * 18; mk("path", { d: `M${x} ${b} L${x + w / 2} ${b - h} L${x + w} ${b} Z`, fill: "#1d2766" }, forest); mk("path", { d: `M${x + w * .3} ${b - h * .62} L${x + w / 2} ${b - h} L${x + w * .7} ${b - h * .62} Z`, fill: "#c9d0ff", opacity: .55 }, forest); }
-    // the big snowy tree with lights and a star
-    function tree(g, cx, base, H, lit) {
-      const n = 9, top = base - H;
-      mk("rect", { x: cx - H * .025, y: base - H * .06, width: H * .05, height: H * .08, fill: "#1a1440" }, g);
-      for (let i = 0; i < n; i++) {
-        const t0 = top + i * H * .095, t1 = t0 + H * .17, w = H * (.06 + i * .035);
-        let d = `M${cx} ${t0} L${cx - w} ${t1}`, sd = `M${cx} ${t0} L${cx - w * .78} ${t0 + (t1 - t0) * .62}`;
-        const k = 5; for (let j = 0; j < k; j++) { const x0 = cx - w + 2 * w * j / k, x1 = cx - w + 2 * w * (j + 1) / k; d += ` Q${(x0 + x1) / 2} ${t1 + 9} ${x1} ${t1}`; }
-        d += " Z";
-        for (let j = 0; j < k; j++) { const x0 = cx - w * .78 + 1.56 * w * j / k, x1 = cx - w * .78 + 1.56 * w * (j + 1) / k; sd += ` Q${(x0 + x1) / 2} ${t0 + (t1 - t0) * .62 + 10} ${x1} ${t0 + (t1 - t0) * .62}`; }
-        sd += " Z";
-        mk("path", { d, fill: "#1c2a62" }, g); mk("path", { d: sd, fill: "#e4e9ff", opacity: .92 }, g);
-        if (lit) for (let j = 0; j < 2 + i; j++) { const lx = cx + (r() * 2 - 1) * w * .8, ly = t0 + (t1 - t0) * (.55 + r() * .4); mk("circle", { cx: lx, cy: ly, r: 7, fill: "#ffe7b0", opacity: .35, filter: "url(#glow)" }, g); const c = mk("circle", { cx: lx, cy: ly, r: 2.6, fill: "#fff6dc", class: "tw" }, g); c.style.animationDelay = (-r() * 4).toFixed(2) + "s"; }
-      }
-      if (lit) {
-        let d = ""; for (let i = 0; i < 16; i++) { const a = -Math.PI / 2 + i * Math.PI / 8, rr = i % 2 ? H * .018 : H * .045; d += (i ? "L" : "M") + (cx + Math.cos(a) * rr).toFixed(1) + " " + (top - H * .01 + Math.sin(a) * rr).toFixed(1); }
-        mk("circle", { cx, cy: top - H * .01, r: H * .06, fill: "#fff3c4", opacity: .3, filter: "url(#glow)" }, g);
-        mk("path", { d: d + "Z", fill: "#ffffff" }, g);
-      }
-    }
-    tree($("bigtree"), 230, 985, 780, true);
-    tree($("bigtree"), 1470, 975, 380, false);
-    // Santa's sleigh crossing the moon
-    const sl = $("sleigh"); const ink = "#141a46";
-    let svg = "";
-    [[0, 0], [36, -4], [72, 0], [108, -4]].forEach(([x, y]) => {
-      svg += `<g transform="translate(${x} ${y})"><ellipse cx="0" cy="0" rx="15" ry="6.5"/><path d="M-12 -3 L-20 -14 L-15 -16 L-8 -5 Z"/><ellipse cx="-21" cy="-15" rx="5.5" ry="3.2" transform="rotate(-15 -21 -15)"/><path d="M-19 -18 l-3 -8 m1.5 4 l-5 -2 M-17 -18 l2 -8 m-1 4 l4 -3" fill="none" stroke="${ink}" stroke-width="1.4" stroke-linecap="round"/><path d="M-11 3 l-7 6 l-4 -2 M-8 4 l-5 9 M10 3 l9 5 l4 4 M12 2 l11 3" fill="none" stroke="${ink}" stroke-width="2.2" stroke-linecap="round"/></g>`;
-    });
-    svg += `<path d="M-14 -10 L 128 -6" fill="none" stroke="${ink}" stroke-width="1"/>`;
-    svg += `<g transform="translate(10 0)"><path d="M120 14 C 150 19 190 19 205 10 C 210 6 214 8 212 12" fill="none" stroke="${ink}" stroke-width="2.4" stroke-linecap="round"/><path d="M130 -2 C 128 10 140 12 175 12 C 195 12 205 4 205 -8 C 196 -4 185 -6 180 -14 L 150 -14 C 150 -6 140 -2 130 -2 Z"/><ellipse cx="166" cy="-17" rx="9" ry="8"/><circle cx="163" cy="-27" r="5.5"/><path d="M158 -30 L 170 -31 L 176 -40 Z"/><ellipse cx="190" cy="-17" rx="10" ry="10"/></g>`;
-    sl.innerHTML = `<g fill="${ink}" opacity=".9">${svg}</g>`;
-    if (!reduceMotion && sl.animate) {
-      sl.animate([{ transform: "translate(1750px, 120px) scale(.9)" }, { transform: "translate(1250px, 200px) scale(.9)", offset: .35 }, { transform: "translate(900px, 250px) scale(.9)", offset: .6 }, { transform: "translate(300px, 300px) scale(.9)" }],
-        { duration: 26000, iterations: Infinity, easing: "linear", delay: -11000 });
-    } else sl.setAttribute("transform", "translate(940 240) scale(.9)");
-    // the bells on the countdown ring when tapped
-    const bells = document.querySelector(".cd-bells");
-    bells.addEventListener("click", e => { e.stopPropagation(); bells.classList.remove("ring"); void bells.getBoundingClientRect(); bells.classList.add("ring"); [0, 160, 320].forEach((d, i) => setTimeout(() => Eggs.bell([1318.5, 1567.98, 1318.5][i], .1, 1), d)); });
-  })();
+  function driveIn(fromRight) {
+    vanBusy = true; van.classList.remove("lightson");
+    const w = scene.clientWidth, dur = reduceMotion ? 10 : 3800;
+    const from = fromRight ? `translateX(${w * 1.1}px) scaleX(1)` : `translateX(${-w * .62}px)`;
+    van.animate([{ transform: from }, { transform: "translateX(1.5%) rotate(-.6deg)", offset: .86 }, { transform: "translateX(-.4%) rotate(.3deg)", offset: .94 }, { transform: "translateX(0) rotate(0)" }], { duration: dur, easing: "cubic-bezier(.22,.8,.3,1)" })
+      .onfinish = () => { van.classList.add("lightson"); vanBusy = false; };
+    if (!reduceMotion) { puffs(dur * .8); van.animate([{ transform: "translateY(0)" }, { transform: "translateY(-.6%)" }, { transform: "translateY(0)" }], { duration: 260, iterations: Math.round(dur / 260), composite: "add" }); }
+  }
+  function driveOff() {
+    vanBusy = true; const w = scene.clientWidth;
+    van.animate([{ transform: "translateX(0)" }, { transform: `translateX(${w * 1.1}px)` }], { duration: reduceMotion ? 10 : 2600, easing: "cubic-bezier(.6,0,.8,.4)" }).onfinish = () => setTimeout(() => driveIn(false), 500);
+    if (!reduceMotion) puffs(1600);
+  }
+  new IntersectionObserver(([e], obs) => { if (e.isIntersecting) { obs.disconnect(); driveIn(false); } }, { threshold: .3 }).observe(scene);
+  let vanClicks = 0, vanTimer = 0;
+  van.addEventListener("click", e => {
+    e.stopPropagation(); if (vanBusy) return;
+    honk(); vanClicks++; clearTimeout(vanTimer); vanTimer = setTimeout(() => vanClicks = 0, 900);
+    van.animate([{ transform: "translateY(0) rotate(0)" }, { transform: "translateY(-2.5%) rotate(-1deg)" }, { transform: "translateY(0) rotate(.5deg)" }, { transform: "none" }], { duration: 500, easing: "ease-out" });
+    const r = van.getBoundingClientRect(); sparkles(r.left + r.width * .3, r.top + r.height * .12, 10, 80);
+    if (vanClicks >= 3) { vanClicks = 0; jingle(14); driveOff(); } else say(r.left + r.width * .5, r.top, pick(t("vanHonk")));
+  });
+  scene.addEventListener("click", e => { sparkles(e.clientX, e.clientY, 10, 70); bell(pick(NOTES) * 2, .06, .8); });
 
-  /* ================= garland across the top of the hero ================= */
-  (function garland() {
-    const c = $("garland"), ctx = c.getContext("2d");
-    function draw() {
-      const dpr = Math.min(devicePixelRatio || 1, 2), W = c.clientWidth, H = c.clientHeight;
-      c.width = W * dpr; c.height = H * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.clearRect(0, 0, W, H);
-      let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
-      const span = W < 600 ? W / 2 : W / 4, sag = Math.min(46, span * .16), top = 14;
-      const anchors = []; for (let x = 0; x <= W + 1; x += span) anchors.push(x);
-      const greens = ["#0f2a1a", "#173b25", "#1f4a2e", "#2a5c39", "#356b44"], hooks = [];
-      for (let i = 0; i < anchors.length - 1; i++) {
-        const x0 = anchors[i], x1 = anchors[i + 1];
-        for (let s = 0; s <= 1.0001; s += 4 / span) {
-          const x = x0 + (x1 - x0) * s, y = top + sag * 4 * s * (1 - s);
-          for (let k = 0; k < 7; k++) {
-            const a = rnd() * Math.PI * 2, len = 9 + rnd() * 13;
-            ctx.strokeStyle = greens[(rnd() * greens.length) | 0]; ctx.lineWidth = 1.6; ctx.lineCap = "round";
-            ctx.beginPath(); ctx.moveTo(x + (rnd() - .5) * 6, y + (rnd() - .5) * 6); ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len * .8); ctx.stroke();
-          }
-        }
-        hooks.push([(x0 + x1) / 2, top + sag + 3]);
-        if (W >= 900) { hooks.push([x0 + (x1 - x0) * .25, top + sag * .75 + 3]); hooks.push([x0 + (x1 - x0) * .75, top + sag * .75 + 3]); }
-      }
-      Eggs.placeBaubles(hooks);
-      // bows at the anchors
-      anchors.forEach(x => {
-        ctx.fillStyle = "#b8242c";
-        ctx.beginPath(); ctx.ellipse(x - 10, top + 2, 11, 7, -.4, 0, Math.PI * 2); ctx.ellipse(x + 10, top + 2, 11, 7, .4, 0, Math.PI * 2); ctx.fill();
-        ctx.beginPath(); ctx.moveTo(x - 2, top + 4); ctx.lineTo(x - 9, top + 26); ctx.lineTo(x - 4, top + 24); ctx.lineTo(x, top + 6); ctx.lineTo(x + 4, top + 24); ctx.lineTo(x + 9, top + 26); ctx.lineTo(x + 2, top + 4); ctx.fill();
-        ctx.fillStyle = "#7c1218"; ctx.beginPath(); ctx.arc(x, top + 3, 4.5, 0, Math.PI * 2); ctx.fill();
-      });
-    }
-    draw(); let rt; addEventListener("resize", () => { clearTimeout(rt); rt = setTimeout(draw, 150); });
-  })();
-
-  /* ================= snow over the red banner ================= */
+  /* ================= snow over the scene ================= */
   (function snow() {
-    const c = $("snow"), ctx = c.getContext("2d");
-    let w, h, flakes = [], dpr = Math.min(devicePixelRatio || 1, 2), visible = true;
-    function size() {
-      w = c.clientWidth; h = c.clientHeight; c.width = w * dpr; c.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      flakes = Array.from({ length: Math.round(Math.min(150, w * h / 7000)) }, () => ({ x: Math.random() * w, y: Math.random() * h, z: Math.random(), d: Math.random() * 6.28 }));
-    }
-    function draw() {
-      ctx.clearRect(0, 0, w, h);
-      for (const f of flakes) { ctx.fillStyle = `rgba(255,255,255,${.25 + f.z * .55})`; ctx.beginPath(); ctx.arc(f.x, f.y, .7 + f.z * 2.2, 0, 6.283); ctx.fill(); }
-    }
-    function tick() {
-      if (visible) { for (const f of flakes) { f.d += .01; f.y += .25 + f.z * .9; f.x += Math.sin(f.d) * .35; if (f.y > h + 5) { f.y = -5; f.x = Math.random() * w; } } draw(); }
-      requestAnimationFrame(tick);
-    }
-    size(); addEventListener("resize", size);
-    new IntersectionObserver(([e]) => visible = e.isIntersecting).observe(c);
+    const c = $("snow"), ctx = c.getContext("2d"); let w, h, flakes = [], dpr = Math.min(devicePixelRatio || 1, 2), visible = true;
+    function size() { w = c.clientWidth; h = c.clientHeight; c.width = w * dpr; c.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0); flakes = Array.from({ length: Math.round(Math.min(140, w * h / 6000)) }, () => ({ x: Math.random() * w, y: Math.random() * h, z: Math.random(), d: Math.random() * 6.28 })); }
+    function draw() { ctx.clearRect(0, 0, w, h); for (const f of flakes) { ctx.fillStyle = `rgba(255,255,255,${.5 + f.z * .5})`; ctx.shadowColor = "rgba(120,100,70,.35)"; ctx.shadowBlur = 2; ctx.beginPath(); ctx.arc(f.x, f.y, .8 + f.z * 2.2, 0, 6.283); ctx.fill(); } }
+    function tick() { if (visible) { for (const f of flakes) { f.d += .01; f.y += .3 + f.z * .8; f.x += Math.sin(f.d) * .35; if (f.y > h + 5) { f.y = -5; f.x = Math.random() * w; } } draw(); } requestAnimationFrame(tick); }
+    size(); addEventListener("resize", size); new IntersectionObserver(([e]) => visible = e.isIntersecting).observe(c);
     if (reduceMotion) draw(); else tick();
   })();
+
+  /* ================= sleeps until Christmas Eve ================= */
+  function daysToEve() { const n = new Date(), today = new Date(n.getFullYear(), n.getMonth(), n.getDate()); return Math.round((new Date(n.getFullYear(), 11, 24) - today) / 864e5); }
+  function renderSleeps() { const d = daysToEve(); $("sleeps").innerHTML = d > 1 ? t("sleeps")(d) : d === 1 ? t("sleepsOne") : d === 0 ? t("sleepsEve") : t("sleepsAfter"); }
+
+  /* ================= advent calendar ================= */
+  const ICONS = ["orn-star", "orn-ball:o-red", "orn-heart", "orn-candle", "orn-nisse", "orn-ball:o-gold", "orn-cone", "orn-ball:o-green", "orn-star", "orn-ball:o-blue", "orn-cone", "orn-heart"];
+  const ORDER = [7, 15, 1, 22, 10, 18, 3, 12, 20, 5, 24, 9, 14, 2, 17, 11, 21, 6, 13, 19, 4, 23, 8, 16];
+  const opened = new Set(JSON.parse(store.get("jk-cal") || "[]"));
+  const iconSvg = k => { const [id, fill] = k.split(":"); return `<svg viewBox="0 0 40 40"${fill ? ` fill="url(#${fill})"` : ""}><use href="#${id}"/></svg>`; };
+  function canOpen(d) { const n = new Date(); return n.getMonth() === 11 && n.getDate() >= d || (n.getMonth() === 0 && n.getDate() <= 6); }
+  function buildCal() {
+    const cal = $("cal"); cal.innerHTML = ""; const n = new Date();
+    ORDER.forEach(d => {
+      const door = document.createElement("div"); door.className = "door"; if (opened.has(d) && canOpen(d)) door.classList.add("open");
+      if (n.getMonth() === 11 && n.getDate() === d && !opened.has(d)) door.classList.add("today");
+      door.innerHTML = `<div class="back">${iconSvg(ICONS[d % ICONS.length])}</div><div class="front"><b>${d}</b></div><button type="button" aria-label="${d}"></button>`;
+      door.querySelector("button").addEventListener("click", () => openDoor(door, d));
+      cal.append(door);
+    });
+    const dd = daysToEve() - 23; $("cal-note").textContent = n.getMonth() === 11 ? t("calNoteOn") : t("calNoteBefore")(Math.max(1, dd));
+  }
+  function openDoor(door, d) {
+    const r = door.getBoundingClientRect();
+    if (!canOpen(d)) { door.classList.remove("shake"); void door.offsetWidth; door.classList.add("shake"); bell(220, .08, .4); say(r.left + r.width / 2, r.top, t("calLocked")(d)); return; }
+    door.classList.add("open"); door.classList.remove("today"); opened.add(d); store.set("jk-cal", JSON.stringify([...opened]));
+    bell(NOTES[d % NOTES.length], .14, 1.4); sparkles(r.left + r.width / 2, r.top + r.height / 2, 14, 80);
+    setTimeout(() => showDay(d), 650);
+  }
+  function showDay(d) {
+    const dlg = document.createElement("div"); dlg.className = "dlg";
+    dlg.innerHTML = `<div class="card" role="dialog" aria-modal="true"><div class="num">${d}</div><div class="art">${iconSvg(ICONS[d % ICONS.length])}</div><p></p><button class="btn btn-red" type="button"></button></div>`;
+    dlg.querySelector("p").textContent = t("days")[d - 1]; const b = dlg.querySelector("button"); b.textContent = t("calClose");
+    const close = () => dlg.remove(); b.addEventListener("click", close); dlg.addEventListener("click", e => { if (e.target === dlg) close(); });
+    document.body.append(dlg); b.focus();
+  }
+
+  /* ================= decorate the tree ================= */
+  const TREE_ITEMS = ["orn-ball:o-red", "orn-ball:o-gold", "orn-ball:o-green", "orn-ball:o-blue", "orn-heart", "orn-candle", "orn-cone", "orn-nisse", "orn-star"];
+  const tree = $("tree"), tray = $("tray");
+  let deco = JSON.parse(store.get("jk-tree") || "[]");
+  const inTree = (x, y) => y > .1 && y < .86 && Math.abs(x - .5) < (y - .06) * .5;
+  function addOrn(item, x, y, save = true) {
+    if (item === "orn-star") { x = .5; y = .075; tree.querySelectorAll(".placed[data-item='orn-star']").forEach(n => n.remove()); }
+    const el = document.createElement("span"); el.className = "placed"; el.dataset.item = item; el.style.left = (x * 100) + "%"; el.style.top = (y * 100) + "%";
+    if (item === "orn-star") { el.style.width = "16%"; el.style.margin = "-8% 0 0 -8%"; }
+    el.innerHTML = iconSvg(item); tree.append(el);
+    el.addEventListener("click", ev => { ev.stopPropagation(); el.classList.add("drop"); bell(330, .07, .4); setTimeout(() => { el.remove(); saveTree(); }, 700); });
+    if (save) { saveTree(); bell(NOTES[deco.length % NOTES.length], .14, 1.2); const r = el.getBoundingClientRect(); sparkles(r.left + r.width / 2, r.top + r.height / 2, 6, 40);
+      if (deco.length > 0 && deco.length % 10 === 0) { const b = tree.getBoundingClientRect(); say(b.left + b.width / 2, b.top + b.height * .2, pick(t("treeWow"))); jingle(10); } }
+  }
+  function saveTree() { deco = [...tree.querySelectorAll(".placed:not(.drop)")].map(n => [n.dataset.item, parseFloat(n.style.left) / 100, parseFloat(n.style.top) / 100]); store.set("jk-tree", JSON.stringify(deco)); }
+  function randomSpot() { for (let i = 0; i < 40; i++) { const y = .16 + Math.random() * .66, x = .5 + (Math.random() * 2 - 1) * (y - .06) * .45; if (inTree(x, y)) return [x, y]; } return [.5, .5]; }
+  TREE_ITEMS.forEach(item => {
+    const b = document.createElement("button"); b.type = "button"; b.innerHTML = iconSvg(item); b.setAttribute("aria-label", item.replace("orn-", ""));
+    let drag = null, moved = false, sx = 0, sy = 0;
+    b.addEventListener("pointerdown", e => { e.preventDefault(); b.setPointerCapture(e.pointerId); moved = false; sx = e.clientX; sy = e.clientY; drag = document.createElement("div"); drag.className = "dragging"; drag.innerHTML = iconSvg(item); drag.style.left = e.clientX + "px"; drag.style.top = e.clientY + "px"; drag.hidden = true; document.body.append(drag); });
+    b.addEventListener("pointermove", e => { if (!drag) return; if (Math.hypot(e.clientX - sx, e.clientY - sy) > 6) { moved = true; drag.hidden = false; } drag.style.left = e.clientX + "px"; drag.style.top = e.clientY + "px"; });
+    b.addEventListener("pointerup", e => {
+      if (!drag) return; drag.remove(); drag = null;
+      if (!moved) { const [x, y] = randomSpot(); addOrn(item, x, y); return; }
+      const r = tree.getBoundingClientRect(), x = (e.clientX - r.left) / r.width, y = (e.clientY - r.top) / r.height;
+      if (item === "orn-star" ? (y < .3 && Math.abs(x - .5) < .2) : inTree(x, y)) addOrn(item, x, y); else bell(196, .05, .3);
+    });
+    b.addEventListener("pointercancel", () => { drag && drag.remove(); drag = null; });
+    tray.append(b);
+  });
+  deco.forEach(([i, x, y]) => addOrn(i, x, y, false));
+  // fairy lights along the garlands
+  (function lamps() { const g = $("lamps"), NS = "http://www.w3.org/2000/svg"; [[182, 180, 318, 214], [142, 312, 358, 360], [98, 452, 402, 506]].forEach(([x0, y0, x1, yc]) => { for (let k = 1; k < 8; k++) { const s = k / 8, x = x0 + (x1 - x0) * s, y = (1 - s) * (1 - s) * y0 + 2 * (1 - s) * s * yc + s * s * y0; const c = document.createElementNS(NS, "circle"); c.setAttribute("cx", x); c.setAttribute("cy", y); c.setAttribute("r", 6); c.setAttribute("class", "lamp"); c.setAttribute("fill", ["#ffd76b", "#ff6b6b", "#8fd3ff", "#b6f5a8"][k % 4]); c.style.animationDelay = (-k * .3) + "s"; g.append(c); } }); })();
+  $("tree-light").addEventListener("click", e => { tree.classList.toggle("lit"); e.currentTarget.textContent = tree.classList.contains("lit") ? t("treeOff") : t("treeLight"); if (tree.classList.contains("lit")) { jingle(8); const r = tree.getBoundingClientRect(); sparkles(r.left + r.width / 2, r.top + r.height * .1, 16, 120); } else bell(262, .06, .5); });
+  $("tree-clear").addEventListener("click", () => { tree.querySelectorAll(".placed").forEach((n, i) => setTimeout(() => n.classList.add("drop"), i * 40)); setTimeout(() => { tree.querySelectorAll(".placed").forEach(n => n.remove()); saveTree(); }, 900); bell(196, .06, .5); });
+
+  /* ================= wish list ================= */
+  $("wish-send").addEventListener("click", () => {
+    const wishes = ["w1", "w2", "w3"].map(id => $(id).value.trim()).filter(Boolean);
+    const btn = $("wish-send"), r = btn.getBoundingClientRect();
+    if (!wishes.length) { say(r.left + r.width / 2, r.top, t("wishEmpty")); bell(220, .07, .4); $("w1").focus(); return; }
+    const letter = $("letter"), lr = letter.getBoundingClientRect();
+    letter.classList.add("fly"); jingle(10); sparkles(lr.left + lr.width / 2, lr.top + lr.height / 2, 20, 160);
+    setTimeout(() => {
+      letter.classList.remove("fly"); ["w1", "w2", "w3"].forEach(id => $(id).value = "");
+      $("wish-done").textContent = t("wishDone"); $("wish-done").hidden = false;
+      openChat(); send(t("wishMsg")(wishes.join(", ")));
+    }, 1700);
+  });
+
+  /* ================= Santa ================= */
+  $("santa-face").addEventListener("click", e => { const f = e.currentTarget; f.classList.remove("hohoho"); void f.offsetWidth; f.classList.add("hohoho"); [0, 220, 440].forEach(d => setTimeout(() => bell(392, .08, .5), d)); const r = f.getBoundingClientRect(); say(r.left + r.width / 2, r.top + 10, pick(t("eggSanta"))); });
+
+  /* ================= shop cards do a little trick ================= */
+  const ACTIONS = ["duck", "wobble", "flip", "candle", "spin", "hop"];
+  document.querySelectorAll(".cat .art").forEach((art, i) => {
+    const act = ACTIONS[i];
+    art.addEventListener("click", () => {
+      const r = art.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+      if (act === "candle") { art.classList.toggle("out"); bell(art.classList.contains("out") ? 300 : NOTES[5], .08, .8); return; }
+      art.classList.remove(act); void art.offsetWidth; art.classList.add(act); bell(NOTES[i + 1], .1, 1);
+      if (act === "hop") sparkles(cx, cy, 16, 110); if (act === "duck") setTimeout(() => say(cx, r.top + 20, pick(t("eggNisseCard"))), 900);
+    });
+  });
+
+  /* ================= the hidden nisse ================= */
+  const SPOTS = [
+    () => [document.querySelector("#kalender .board"), "right:46px;top:-44px"],
+    () => [document.querySelector("#traeet .tree"), "left:4%;bottom:6%"],
+    () => [document.querySelector(".letter"), "right:40px;top:-42px"],
+    () => [document.querySelector("#besog figure"), "left:-6px;top:-40px"],
+    () => [document.querySelector(".cats"), "right:12px;top:-46px"]
+  ];
+  let spot = +(store.get("jk-nisse-spot") || 0) % SPOTS.length, found = +(store.get("jk-nisse-found") || 0);
+  const nisse = document.createElement("button"); nisse.type = "button"; nisse.className = "hidden-nisse"; nisse.setAttribute("aria-label", "Nisse"); nisse.innerHTML = '<svg viewBox="0 0 40 40"><use href="#orn-nisse"/></svg>';
+  function hideNisse() { const [host, css] = SPOTS[spot](); if (getComputedStyle(host).position === "static") host.style.position = "relative"; nisse.className = "hidden-nisse"; nisse.style.cssText = css; host.append(nisse); }
+  nisse.addEventListener("click", e => {
+    e.stopPropagation(); found++; store.set("jk-nisse-found", found); const r = nisse.getBoundingClientRect(), all = found % SPOTS.length === 0;
+    say(r.left + r.width / 2, r.top, all ? t("eggNisseAll") : t("eggNisse")[(found - 1) % t("eggNisse").length]); bell(NOTES[(found * 3) % NOTES.length], .12, 1.2);
+    sparkles(r.left + r.width / 2, r.top + r.height / 2, all ? 30 : 8, all ? 160 : 50); if (all) jingle(16);
+    nisse.classList.add("poof"); setTimeout(() => { spot = (spot + 1) % SPOTS.length; store.set("jk-nisse-spot", spot); hideNisse(); }, 500);
+  });
+  hideNisse();
+  $("gj").addEventListener("click", () => { for (let i = 0; i < (reduceMotion ? 6 : 26); i++) setTimeout(() => sparkles(Math.random() * innerWidth, innerHeight * (.2 + Math.random() * .5), 3, 120), i * 60); [0, 150, 300, 450].forEach((d, i) => setTimeout(() => bell(NOTES[[0, 2, 4, 5][i]], .1, 1.2), d)); });
 
   /* ================= music box: Silent Night (Gruber, 1818) ================= */
   const MusicBox = (() => {
@@ -1370,19 +1333,21 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
 
 
 
+
+
   /* ================= language ================= */
   function applyLang() {
     document.documentElement.lang = lang;
-    document.querySelectorAll("[data-i18n]").forEach(n => { n.textContent = t(n.dataset.i18n); });
+    document.querySelectorAll("[data-i18n]").forEach(n => { const v = t(n.dataset.i18n); if (typeof v === "string") n.textContent = v; });
     document.querySelectorAll("[data-i18n-ph]").forEach(n => { n.placeholder = t(n.dataset.i18nPh); });
     document.querySelectorAll("[data-i18n-aria]").forEach(n => { n.setAttribute("aria-label", t(n.dataset.i18nAria)); });
     document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
-    fab.setAttribute("aria-label", t("ctaSanta"));
-    $("santa-hint-text").textContent = t("hint");
-    renderCount(); renderVisit(); renderChips();
+    fab.setAttribute("aria-label", t("ctaSanta")); $("santa-hint-text").textContent = t("hint");
+    $("tree-light").textContent = tree.classList.contains("lit") ? t("treeOff") : t("treeLight");
+    renderSleeps(); buildCal(); renderVisit(); renderChips();
     if (!chatOpened) { history.length = 0; renderLog(); }
   }
-  document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => { lang = b.dataset.lang; store.set("jk-lang", lang); applyLang(); }));
+  document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => { lang = b.dataset.lang; store.set("jk-lang", lang); bell(NOTES[3], .06, .5); applyLang(); }));
   applyLang();
   if (chatOpened) renderLog();
 })();

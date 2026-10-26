@@ -1,19 +1,17 @@
 # Julekontor – One-Page mit Weihnachtsmann-Chat
 
-One-Page für **Julekontor – Danmarks gammeldags julebutik**, aufgebaut wie die Startseiten großer Weihnachtsläden.
+One-Page für **Julekontor – Danmarks gammeldags julebutik**. Das Logo wird lebendig, und die Seite ist so gebaut, wie ein Kind sie sich wünschen würde.
 
 - Sprachen der Seite: Dänisch, Deutsch, Englisch (Umschalter oben, sonst nach Browsersprache).
-- Aufbau: grüne Hinweisleiste („Julemanden svarer på alle sprog“) → Kopfzeile mit dem vollständigen Logo als Plakette in der Mitte → Startbereich als Winternacht über den ganzen Bildschirm (Mond, davor der Schlitten des Weihnachtsmanns mit Rentieren, verschneiter Tannenbaum mit Lichtern und Stern, Berge, Dorflichter, Schneefall, Tannengirlande) mit live laufendem Countdown bis Heiligabend (Tage, Stunden, Minuten, Sekunden; Kasten mit Schnee und Glöckchen, die beim Antippen klingen) → drei Kurzversprechen → Sortiment in sechs Kacheln (gezeichnete Ornamente) → Julemandens brevkasse → Über uns mit dem großen Logo → Besuch (Daten aus `shop.json`) → Fußzeile.
-- Das Logo wird nirgends beschnitten oder freigestellt, sondern immer vollständig gezeigt.
-- Kleine Überraschungen, die nirgends erklärt sind:
-  - Die Kugeln an der Girlande schwingen und klingen wie Glöckchen, wenn man sie antippt.
-  - Ein Klick in den roten Himmel lässt Sterne aufsteigen.
-  - Dreimal schnell aufs Logo oben tippen: Der Julekontor-Lieferwagen fährt mit Schellengeläut durchs Bild.
-  - Die Sortiment-Kacheln: Der Nisse duckt sich und sagt etwas, die Glaskugel klingt, das Herz dreht sich, die Kerze lässt sich auspusten und wieder anzünden, der Stern dreht sich, das Geschenk hüpft und sprüht Sterne.
-  - Dem Weihnachtsmann auf die Nase tippen: Er lacht und sagt einen Satz.
-  - Ein kleiner Nisse versteckt sich auf der Seite (z. B. hinter dem Logo-Bild bei „Om os“). Wer ihn findet, bekommt einen Spruch, und er zieht an ein neues Versteck. Wer ihn an allen vier Stellen gefunden hat, bekommt einen Sternenregen.
-  - „Glædelig jul“ unten antippen: Sternenregen mit Glockenspiel.
-- Spieluhr (Notensymbol oben): spielt „Glade jul“ (Stille Nacht, Gruber 1818, gemeinfrei), im Browser erzeugt, nur auf Knopfdruck.
+- **Startbild = das Logo selbst:** `img/logo-scene.webp` ist das Logo ohne Auto, `img/truck.webp` das Auto aus dem Logo. Das Auto fährt herein (mit Abgaswölkchen) und parkt genau an seiner Stelle; danach blinken die Lichterketten und die Scheinwerfer gehen an. Antippen: Hupe und ein Spruch. Dreimal schnell: Es fährt mit Schellengeläut davon und kommt zurück. Schnee fällt über das Bild.
+- **Zweige aus den Logo-Ecken** (`img/corner-*.webp`) schmücken die Rahmen der Abschnitte.
+- „Noch 59 Mal schlafen“ statt eines Countdowns.
+- **Adventskalender** mit 24 Türchen (Aufgaben, Witze, Ideen in DA/DE/EN). Ein Türchen geht erst an seinem Tag auf; vorher wackelt es und ein Hinweis erscheint. Geöffnete Türchen bleiben offen.
+- **Baum schmücken:** Kugeln, Herz, Kerze, Zapfen, Nisse und Stern auf den Baum ziehen oder antippen; „Lichter an“ lässt Lichterkette und Kerzen leuchten. Der Baum bleibt im Browser gespeichert.
+- **Wunschzettel:** Wünsche eintragen und abschicken. Der Brief faltet sich und fliegt davon, dann öffnet sich der Chat und der Weihnachtsmann antwortet auf die Wünsche.
+- Jeder Klick macht ein kleines Geräusch (Glöckchen, Hupe, Schellen). Dazu: versteckter Nisse mit fünf Verstecken, Weihnachtsmann mit Spruch beim Antippen, Sortiment-Kacheln mit kleinen Tricks, Sternenregen bei „Glædelig jul“.
+- Spieluhr (Notensymbol oben): „Glade jul“ (Stille Nacht, Gruber 1818, gemeinfrei), nur auf Knopfdruck.
+- **Frühere Versionen** liegen unter `public/versionen/` (Übersicht: `versionen/index.html`, Link unten in der Fußzeile).
 - **Weihnachtsmann-Chat** unten rechts: antwortet in der Sprache, in der man ihm schreibt (Dänisch, Deutsch, Polnisch, Schwedisch, Arabisch …). Die Antworten kommen live von Claude (Anthropic) und werden Wort für Wort eingeblendet. Während er schreibt, zeigt der Chat eine schreibende Feder.
 - Kinderschutz ist im Weihnachtsmann fest eingebaut: Er fragt nie nach Name, Adresse, Schule oder Telefonnummer, verspricht keine bestimmten Geschenke und verweist bei Sorgen an eine Vertrauensperson bzw. BørneTelefonen 116 111.
 - Ohne Server bzw. ohne API-Schlüssel antwortet der Weihnachtsmann mit vorgeschriebenen Antworten in 10 Sprachen (mit Hinweis „Vorschau“).

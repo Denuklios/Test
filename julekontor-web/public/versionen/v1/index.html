@@ -1,0 +1,1127 @@
+<!doctype html>
+<html lang="da">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Ccircle cx='32' cy='32' r='30' fill='%239e1f22'/%3E%3Ctext x='32' y='44' text-anchor='middle' font-family='Georgia,serif' font-style='italic' font-weight='700' font-size='34' fill='%23f2d48a'%3EJ%3C/text%3E%3C/svg%3E">
+<title>Julekontor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Julekontor – Danmarks gammeldags julebutik. Nisser, glaskugler, flettede hjerter og kalenderlys. Skriv til Julemanden direkte på siden.">
+<meta property="og:title" content="Julekontor – Danmarks gammeldags julebutik">
+<meta property="og:image" content="img/logo.webp">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght,SOFT@0,9..144,400..800,50;1,9..144,400..700,50&family=Alegreya+Sans:ital,wght@0,400;0,500;0,700;1,400&family=Courier+Prime:wght@400;700&display=swap">
+<style>
+/* Layout: a shop window at dusk. Paper-and-brass storefront, one wide hero "window", then a quiet run of
+   sections like shelves; the Santa chat sits as a letter on the counter (fixed bottom-right). */
+:root {
+  --paper: #f5eddc;
+  --paper-2: #ece0c6;
+  --card: #fbf6ea;
+  --ink: #2b1a14;
+  --muted: #6c5446;
+  --red: #9e1f22;
+  --red-deep: #761417;
+  --on-red: #fff6e6;
+  --pine: #1f3b2c;
+  --on-pine: #f4ecd9;
+  --gold: #a87a2f;
+  --gold-soft: #d9b977;
+  --line: #d9c8a6;
+  --window: #2a1712;
+  --glow: #ffd88a;
+  --skin: #f0c6a0;
+  --beard: #fffdf6;
+  --shadow: 0 1px 0 rgba(255,255,255,.6) inset, 0 18px 40px -22px rgba(60,25,10,.45);
+  --f-display: "Fraunces", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --f-body: "Alegreya Sans", "Gill Sans", "Segoe UI", system-ui, sans-serif;
+  --f-type: "Courier Prime", "Courier New", ui-monospace, monospace;
+  --step--1: clamp(.82rem, .8rem + .1vw, .9rem);
+  --step-0: clamp(1rem, .97rem + .18vw, 1.12rem);
+  --step-1: clamp(1.2rem, 1.1rem + .45vw, 1.45rem);
+  --step-2: clamp(1.5rem, 1.3rem + 1vw, 2.1rem);
+  --step-3: clamp(2rem, 1.6rem + 2vw, 3.2rem);
+  --step-4: clamp(2.6rem, 1.9rem + 3.6vw, 5rem);
+  --radius: 6px;
+  --wrap: 1180px;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    --paper: #0f1d17; --paper-2: #152820; --card: #182e24; --ink: #f2e8d4; --muted: #b6a68c;
+    --red: #d8463f; --red-deep: #b5302a; --on-red: #fff6e6; --pine: #2f5a43; --on-pine: #f4ecd9;
+    --gold: #d6aa5c; --gold-soft: #8a6a33; --line: #2c4537; --window: #08110d; --glow: #ffd27a;
+    --skin: #e9bc94; --beard: #fffaf0;
+    --shadow: 0 18px 40px -22px rgba(0,0,0,.7);
+    color-scheme: dark;
+  }
+}
+:root[data-theme="dark"] {
+  --paper: #0f1d17; --paper-2: #152820; --card: #182e24; --ink: #f2e8d4; --muted: #b6a68c;
+  --red: #d8463f; --red-deep: #b5302a; --on-red: #fff6e6; --pine: #2f5a43; --on-pine: #f4ecd9;
+  --gold: #d6aa5c; --gold-soft: #8a6a33; --line: #2c4537; --window: #08110d; --glow: #ffd27a;
+  --skin: #e9bc94; --beard: #fffaf0;
+  --shadow: 0 18px 40px -22px rgba(0,0,0,.7);
+  color-scheme: dark;
+}
+
+*, *::before, *::after { box-sizing: border-box; }
+[hidden] { display: none !important; }
+html { scroll-behavior: smooth; scroll-padding-top: 84px; }
+body {
+  margin: 0; background: var(--paper); color: var(--ink);
+  font-family: var(--f-body); font-size: var(--step-0); line-height: 1.6;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 60; background: var(--paper); }
+/* subtle paper grain */
+body::after {
+  content: ""; position: fixed; inset: 0; pointer-events: none; z-index: 1; opacity: .35; mix-blend-mode: multiply;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .45 0 0 0 0 .32 0 0 0 0 .2 0 0 0 .09 0'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) body::after { mix-blend-mode: screen; opacity: .12; } }
+:root[data-theme="dark"] body::after { mix-blend-mode: screen; opacity: .12; }
+
+h1, h2, h3 { font-family: var(--f-display); font-weight: 600; line-height: 1.08; margin: 0; text-wrap: balance; font-variation-settings: "SOFT" 50; }
+p { margin: 0; }
+a { color: inherit; }
+:focus-visible { outline: 2px solid var(--gold); outline-offset: 3px; border-radius: 3px; }
+.wrap {
+  max-width: var(--wrap); margin-inline: auto;
+  padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px));
+}
+.eyebrow { font-family: var(--f-type); font-size: var(--step--1); letter-spacing: .14em; text-transform: uppercase; color: var(--red); }
+.btn {
+  display: inline-flex; align-items: center; gap: .6em; font: 600 1rem/1 var(--f-body); letter-spacing: .02em;
+  padding: .95em 1.4em; border-radius: 999px; border: 1.5px solid transparent; cursor: pointer; text-decoration: none;
+  transition: transform .2s ease, background-color .2s ease, box-shadow .2s ease;
+}
+.btn-red { background: var(--red); color: var(--on-red); box-shadow: 0 10px 24px -12px var(--red); }
+.btn-red:hover { background: var(--red-deep); transform: translateY(-1px); }
+.btn-ghost { border-color: var(--ink); color: var(--ink); background: transparent; }
+.btn-ghost:hover { background: var(--ink); color: var(--paper); }
+.btn svg { width: 1.15em; height: 1.15em; }
+
+/* ---------- header ---------- */
+.top {
+  position: sticky; top: env(safe-area-inset-top, 0px); z-index: 50; background: color-mix(in srgb, var(--paper) 92%, transparent);
+  backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); border-bottom: 1px solid var(--line);
+}
+.top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 12px; }
+.brand { display: flex; align-items: baseline; gap: .55rem; text-decoration: none; }
+.brand b { font-family: var(--f-display); font-style: italic; font-weight: 700; font-size: 1.6rem; color: var(--red); letter-spacing: -.01em; }
+.brand small { font-family: var(--f-type); font-size: .72rem; letter-spacing: .12em; text-transform: uppercase; color: var(--muted); }
+.nav { display: flex; gap: 1.6rem; align-items: center; }
+.nav a { text-decoration: none; font-weight: 500; position: relative; }
+.nav a::after { content: ""; position: absolute; left: 0; right: 0; bottom: -4px; height: 1.5px; background: var(--gold); transform: scaleX(0); transform-origin: left; transition: transform .25s ease; }
+.nav a:hover::after { transform: scaleX(1); }
+.lang { display: flex; border: 1px solid var(--line); border-radius: 999px; padding: 3px; gap: 2px; }
+.lang button { font: 700 .75rem/1 var(--f-type); letter-spacing: .08em; padding: .5em .7em; border: 0; border-radius: 999px; background: transparent; color: var(--muted); cursor: pointer; }
+.lang button[aria-pressed="true"] { background: var(--ink); color: var(--paper); }
+@media (max-width: 860px) { .nav .nav-link { display: none; } .brand small { display: none; } }
+
+/* ---------- hero ---------- */
+.hero { position: relative; overflow: hidden; }
+.hero .wrap { position: relative; z-index: 2; display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.05fr); gap: clamp(28px, 5vw, 72px); align-items: center; padding-block: clamp(36px, 6vw, 84px) clamp(28px, 4vw, 56px); }
+.hero-copy { display: grid; gap: 1.4rem; min-width: 0; }
+.hero h1 { font-size: var(--step-4); font-weight: 700; letter-spacing: -.02em; }
+.hero h1 em { font-style: italic; color: var(--red); font-weight: 600; }
+.hero .lede { font-size: var(--step-1); color: var(--muted); max-width: 32ch; line-height: 1.45; }
+.hero-cta { display: flex; flex-wrap: wrap; gap: .8rem; }
+.countdown { display: flex; align-items: center; gap: 1rem; padding-top: .4rem; }
+.countdown svg { width: 34px; height: 92px; flex: none; overflow: visible; }
+.countdown .num { font-family: var(--f-display); font-size: var(--step-3); font-weight: 700; color: var(--red); line-height: 1; font-variant-numeric: tabular-nums; }
+.countdown .lbl { font-family: var(--f-type); font-size: var(--step--1); letter-spacing: .06em; color: var(--muted); max-width: 22ch; line-height: 1.35; }
+.flame { transform-origin: 17px 14px; animation: flicker 2.6s ease-in-out infinite; }
+@keyframes flicker { 0%,100% { transform: scale(1, 1) rotate(-1deg); } 30% { transform: scale(.94, 1.06) rotate(2deg); } 60% { transform: scale(1.04, .95) rotate(-2deg); } }
+
+.postcard { position: relative; min-width: 0; }
+.postcard figure {
+  margin: 0; background: var(--card); padding: clamp(8px, 1.2vw, 14px); border-radius: 4px;
+  box-shadow: var(--shadow), 0 0 0 1px var(--line); transform: rotate(1.6deg);
+}
+.postcard img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; border-radius: 2px; max-width: 100%; }
+.postmark { position: absolute; left: -22px; bottom: -26px; width: clamp(96px, 12vw, 132px); transform: rotate(-14deg); color: var(--red); opacity: .85; }
+.stamp { position: absolute; right: -10px; top: -18px; width: clamp(64px, 8vw, 86px); transform: rotate(6deg); filter: drop-shadow(0 6px 10px rgba(40,15,5,.25)); }
+#snow { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+
+/* page-load sequence */
+@media (prefers-reduced-motion: no-preference) {
+  .rise { animation: rise .9s cubic-bezier(.2,.7,.2,1) both; }
+  .rise.d1 { animation-delay: .08s; } .rise.d2 { animation-delay: .18s; } .rise.d3 { animation-delay: .3s; } .rise.d4 { animation-delay: .42s; }
+  .postcard figure { animation: settle 1.2s cubic-bezier(.2,.7,.2,1) .15s both; }
+  @keyframes rise { from { transform: translateY(16px); opacity: .01; } to { transform: none; opacity: 1; } }
+  @keyframes settle { from { transform: rotate(5deg) translateY(24px); } to { transform: rotate(1.6deg); } }
+}
+
+/* ---------- town strip with the truck ---------- */
+.town { position: relative; z-index: 2; line-height: 0; color: var(--pine); margin-top: -8px; }
+.town svg { width: 100%; height: clamp(90px, 13vw, 150px); display: block; }
+.town .ground { fill: var(--pine); }
+.town .house { fill: var(--pine); }
+.town .win { fill: var(--glow); }
+.town .win.off { fill: color-mix(in srgb, var(--pine) 70%, #000); }
+.truck { animation: drive 26s linear infinite; }
+@keyframes drive { from { transform: translateX(-220px); } to { transform: translateX(1420px); } }
+.truck .wheel { transform-box: fill-box; transform-origin: center; animation: spin .6s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+@media (prefers-reduced-motion: reduce) { .truck { animation: none; transform: translateX(860px); } .truck .wheel { animation: none; } .flame { animation: none; } }
+
+/* ---------- sections ---------- */
+section.block { padding-block: clamp(64px, 9vw, 120px); }
+.band-pine { background: var(--pine); color: var(--on-pine); }
+.band-pine .eyebrow { color: var(--gold-soft); }
+.sec-head { display: grid; gap: .9rem; max-width: 46rem; margin-bottom: clamp(32px, 5vw, 56px); }
+.sec-head h2 { font-size: var(--step-3); }
+.sec-head p { font-size: var(--step-1); color: var(--muted); line-height: 1.5; }
+.band-pine .sec-head p { color: color-mix(in srgb, var(--on-pine) 78%, transparent); }
+
+/* about */
+.about { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr); gap: clamp(32px, 6vw, 96px); align-items: start; }
+.about .text { display: grid; gap: 1.2rem; max-width: 62ch; }
+.about .text p { font-size: var(--step-0); }
+.about .text p:first-of-type::first-letter { font-family: var(--f-display); float: left; font-size: 3.6em; line-height: .82; padding: .06em .1em 0 0; color: var(--red); font-weight: 700; }
+.ledger { border-top: 2px solid var(--ink); font-family: var(--f-type); font-size: .95rem; }
+.ledger div { display: grid; grid-template-columns: 1fr auto; gap: 1rem; padding: .85rem 0; border-bottom: 1px dashed var(--line); }
+.ledger dt { color: var(--muted); }
+.ledger dd { margin: 0; text-align: right; font-weight: 700; }
+.ledger caption, .ledger .cap { display: block; padding: .7rem 0 .2rem; font-size: .78rem; letter-spacing: .12em; text-transform: uppercase; color: var(--red); }
+
+/* assortment */
+.shelf { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 0; border-top: 1px solid color-mix(in srgb, var(--on-pine) 25%, transparent); }
+.item { padding: clamp(22px, 3vw, 36px) clamp(16px, 2.4vw, 32px) clamp(26px, 3vw, 40px) 0; border-bottom: 1px solid color-mix(in srgb, var(--on-pine) 25%, transparent); display: grid; gap: .7rem; align-content: start; }
+.item:not(:nth-child(3n+1)) { padding-left: clamp(16px, 2.4vw, 32px); border-left: 1px solid color-mix(in srgb, var(--on-pine) 25%, transparent); }
+.item svg { width: 56px; height: 56px; color: var(--gold-soft); transition: transform .5s cubic-bezier(.3,1.6,.5,1); }
+.item:hover svg { transform: rotate(-6deg) translateY(-3px); }
+.item h3 { font-size: var(--step-1); font-weight: 600; }
+.item p { color: color-mix(in srgb, var(--on-pine) 78%, transparent); font-size: .98rem; max-width: 34ch; }
+@media (max-width: 900px) {
+  .shelf { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .item:not(:nth-child(3n+1)) { padding-left: 0; border-left: 0; }
+  .item:nth-child(2n) { padding-left: clamp(16px, 2.4vw, 32px); border-left: 1px solid color-mix(in srgb, var(--on-pine) 25%, transparent); }
+}
+@media (max-width: 560px) {
+  .shelf { grid-template-columns: minmax(0, 1fr); }
+  .item:nth-child(2n) { padding-left: 0; border-left: 0; }
+}
+
+/* santa section */
+.santa-sec { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: clamp(28px, 6vw, 90px); align-items: center; }
+.santa-stage { position: relative; aspect-ratio: 1 / 1; max-width: 460px; width: 100%; justify-self: center; }
+.santa-stage .disc { position: absolute; inset: 6%; border-radius: 50%; background: radial-gradient(circle at 50% 40%, var(--card), var(--paper-2)); box-shadow: 0 0 0 1px var(--line), 0 0 0 10px var(--paper), 0 0 0 11px var(--line); }
+.santa-stage svg.big { position: absolute; inset: 0; width: 100%; height: 100%; }
+.bubbles { position: absolute; inset: 0; pointer-events: none; }
+.bubbles span {
+  position: absolute; font-family: var(--f-display); font-style: italic; font-size: clamp(.82rem, .75rem + .3vw, 1rem);
+  background: var(--card); color: var(--ink); padding: .35em .8em; border-radius: 14px; box-shadow: 0 0 0 1px var(--line), 0 8px 18px -12px rgba(40,15,5,.5);
+  white-space: nowrap; animation: bob 6s ease-in-out infinite;
+}
+.bubbles span small { font-family: var(--f-type); font-style: normal; font-size: .68em; color: var(--red); margin-right: .45em; letter-spacing: .08em; }
+.bubbles span:nth-child(1) { left: -2%; top: 10%; }
+.bubbles span:nth-child(2) { right: -4%; top: 4%; animation-delay: -1.5s; }
+.bubbles span:nth-child(3) { right: -8%; top: 46%; animation-delay: -3s; }
+.bubbles span:nth-child(4) { left: -6%; top: 58%; animation-delay: -4.5s; }
+.bubbles span:nth-child(5) { left: 22%; bottom: 0; animation-delay: -2.2s; }
+@keyframes bob { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+.santa-copy { display: grid; gap: 1.3rem; max-width: 36rem; }
+.santa-copy h2 { font-size: var(--step-3); }
+.santa-copy p { color: var(--muted); font-size: var(--step-1); line-height: 1.5; }
+.santa-copy ul { list-style: none; margin: 0; padding: 0; display: grid; gap: .55rem; }
+.santa-copy li { display: grid; grid-template-columns: 22px 1fr; gap: .7rem; align-items: start; }
+.santa-copy li svg { width: 22px; height: 22px; color: var(--red); margin-top: .15em; }
+.wave-arm { transform-origin: 152px 238px; animation: wave 3.4s ease-in-out infinite; }
+@keyframes wave { 0%, 55%, 100% { transform: rotate(0); } 62% { transform: rotate(-14deg); } 70% { transform: rotate(6deg); } 78% { transform: rotate(-12deg); } 86% { transform: rotate(4deg); } }
+.blink { transform-box: fill-box; transform-origin: center; animation: blink 5s infinite; }
+@keyframes blink { 0%, 94%, 100% { transform: scaleY(1); } 96% { transform: scaleY(.1); } }
+@media (prefers-reduced-motion: reduce) { .wave-arm, .blink, .bubbles span { animation: none; } }
+
+/* visit */
+.visit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(28px, 5vw, 72px); align-items: start; }
+.ticket { background: var(--card); border-radius: var(--radius); box-shadow: var(--shadow), 0 0 0 1px var(--line); padding: clamp(22px, 3vw, 36px); display: grid; gap: 1.2rem; position: relative; }
+.ticket::before, .ticket::after { content: ""; position: absolute; top: 50%; width: 22px; height: 22px; border-radius: 50%; background: var(--paper); box-shadow: inset 0 0 0 1px var(--line); transform: translateY(-50%); }
+.ticket::before { left: -11px; } .ticket::after { right: -11px; }
+.ticket h3 { font-size: var(--step-2); }
+.ticket dl { margin: 0; display: grid; gap: .1rem; font-family: var(--f-type); }
+.ticket dl div { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 1rem; padding: .55rem 0; border-bottom: 1px dashed var(--line); }
+.ticket dd { margin: 0; font-weight: 700; font-variant-numeric: tabular-nums; }
+.ticket .addr { font-size: var(--step-1); font-family: var(--f-display); }
+.ticket .empty { color: var(--muted); font-style: italic; }
+.copyrow { display: flex; gap: .6rem; flex-wrap: wrap; align-items: center; }
+.copyrow code { font-family: var(--f-type); font-size: 1rem; background: var(--paper-2); padding: .4em .7em; border-radius: 4px; user-select: all; word-break: break-all; }
+.copyrow button { font: 600 .85rem var(--f-body); border: 1px solid var(--line); background: transparent; color: var(--ink); border-radius: 999px; padding: .45em .9em; cursor: pointer; }
+
+footer { border-top: 1px solid var(--line); }
+footer .wrap { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 1rem; padding-block: 28px calc(28px + env(safe-area-inset-bottom, 0px)); font-size: .9rem; color: var(--muted); }
+footer b { font-family: var(--f-display); font-style: italic; color: var(--red); font-size: 1.1rem; }
+
+@media (max-width: 860px) {
+  .hero .wrap, .about, .santa-sec, .visit { grid-template-columns: minmax(0, 1fr); }
+  .postcard { max-width: 560px; margin: 8px 18px 20px; }
+  .santa-stage { max-width: 340px; }
+  .bubbles span:nth-child(3) { right: -2%; } .bubbles span:nth-child(4) { left: -2%; }
+}
+
+/* ---------- Santa chat ---------- */
+.santa-fab {
+  position: fixed; z-index: 70; right: calc(18px + env(safe-area-inset-right, 0px)); bottom: calc(18px + env(safe-area-inset-bottom, 0px));
+  width: 74px; height: 74px; border-radius: 50%; border: 0; padding: 0; cursor: pointer; background: var(--red);
+  box-shadow: 0 0 0 3px var(--gold-soft), 0 16px 30px -10px rgba(80,10,10,.55); transition: transform .25s cubic-bezier(.3,1.6,.5,1);
+}
+.santa-fab:hover { transform: scale(1.06) rotate(-4deg); }
+.santa-fab svg { width: 100%; height: 100%; display: block; }
+.santa-fab .dot { position: absolute; top: 2px; right: 2px; width: 16px; height: 16px; border-radius: 50%; background: var(--glow); box-shadow: 0 0 0 3px var(--paper); }
+.santa-fab[aria-expanded="true"] .dot { display: none; }
+.santa-hint {
+  position: fixed; z-index: 69; right: calc(102px + env(safe-area-inset-right, 0px)); bottom: calc(34px + env(safe-area-inset-bottom, 0px));
+  background: var(--card); color: var(--ink); padding: .7em 1em; border-radius: 14px 14px 4px 14px; max-width: min(240px, calc(100vw - 140px));
+  font-family: var(--f-display); font-style: italic; box-shadow: 0 0 0 1px var(--line), 0 14px 28px -14px rgba(40,15,5,.5);
+  transform-origin: right bottom; animation: pop .45s cubic-bezier(.3,1.6,.5,1) both;
+}
+.santa-hint button { all: unset; cursor: pointer; margin-left: .4em; color: var(--muted); font-style: normal; }
+@keyframes pop { from { transform: scale(.6); opacity: 0; } to { transform: none; opacity: 1; } }
+
+.chat {
+  position: fixed; z-index: 80; right: calc(18px + env(safe-area-inset-right, 0px)); bottom: calc(104px + env(safe-area-inset-bottom, 0px));
+  width: min(400px, calc(100vw - 24px - env(safe-area-inset-left, 0px) - env(safe-area-inset-right, 0px)));
+  height: min(600px, calc(100dvh - 140px - env(safe-area-inset-top, 0px) - env(safe-area-inset-bottom, 0px)));
+  display: flex; flex-direction: column; background: var(--card); border-radius: 14px; overflow: hidden;
+  box-shadow: 0 0 0 1px var(--line), 0 30px 60px -20px rgba(40,10,5,.55);
+  transform-origin: right bottom; animation: open .35s cubic-bezier(.2,.8,.2,1) both;
+}
+@keyframes open { from { transform: translateY(14px) scale(.96); opacity: 0; } to { transform: none; opacity: 1; } }
+@media (max-width: 520px) {
+  .chat { right: 0; left: 0; bottom: 0; width: auto; height: calc(100dvh - 60px - env(safe-area-inset-top, 0px)); border-radius: 16px 16px 0 0; }
+  .santa-fab[aria-expanded="true"] { display: none; }
+}
+.chat-head { background: var(--red); color: var(--on-red); display: flex; align-items: center; gap: .8rem; padding: 12px 12px 12px 14px; border-bottom: 3px double var(--gold-soft); }
+.chat-head .av { width: 52px; height: 52px; flex: none; border-radius: 50%; background: var(--on-red); box-shadow: 0 0 0 2px var(--gold-soft); overflow: hidden; }
+.chat-head .av svg { width: 100%; height: 100%; display: block; }
+.chat-head .who { flex: 1; min-width: 0; line-height: 1.2; }
+.chat-head .who b { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--f-display); font-size: 1.25rem; font-style: italic; font-weight: 600; display: block; }
+.chat-head .who span { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; font-family: var(--f-type); font-size: .72rem; letter-spacing: .06em; opacity: .9; }
+.chat-head .who span::before { content: ""; display: inline-block; width: 7px; height: 7px; border-radius: 50%; background: #9be38f; margin-right: .45em; vertical-align: .05em; }
+.chat-head button { background: transparent; border: 0; color: var(--on-red); width: 38px; height: 38px; border-radius: 50%; cursor: pointer; display: grid; place-items: center; }
+.chat-head button:hover { background: rgba(0,0,0,.15); }
+.chat-head button svg { width: 20px; height: 20px; }
+
+.chat-log {
+  flex: 1; overflow-y: auto; padding: 18px 14px 10px; display: flex; flex-direction: column; gap: 12px; overscroll-behavior: contain;
+  background-color: var(--card);
+  background-image: repeating-linear-gradient(to bottom, transparent 0 27px, color-mix(in srgb, var(--line) 55%, transparent) 27px 28px);
+}
+.msg { max-width: 86%; padding: .65em .95em; border-radius: 14px; line-height: 1.45; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 1rem; }
+.msg.santa { align-self: flex-start; background: var(--paper); border: 1px solid var(--line); border-bottom-left-radius: 4px; color: var(--ink); }
+.msg.santa::before { content: attr(data-from); display: block; font-family: var(--f-type); font-size: .68rem; letter-spacing: .1em; text-transform: uppercase; color: var(--red); margin-bottom: .2em; }
+.msg.user { align-self: flex-end; background: var(--pine); color: var(--on-pine); border-bottom-right-radius: 4px; }
+.msg.typing { display: inline-flex; gap: 5px; align-items: center; min-height: 2.6em; }
+.msg.typing i { width: 7px; height: 7px; border-radius: 50%; background: var(--muted); animation: dots 1.2s infinite ease-in-out; }
+.msg.typing i:nth-child(2) { animation-delay: .15s; } .msg.typing i:nth-child(3) { animation-delay: .3s; }
+@keyframes dots { 0%, 80%, 100% { transform: translateY(0); opacity: .4; } 40% { transform: translateY(-4px); opacity: 1; } }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; padding: 0 14px 10px; background: var(--card); }
+.chips button { font: 500 .88rem var(--f-body); background: transparent; border: 1px solid var(--line); color: var(--ink); padding: .4em .85em; border-radius: 999px; cursor: pointer; }
+.chips button:hover { border-color: var(--red); color: var(--red); }
+.chat-form { display: flex; gap: 8px; padding: 10px 10px calc(10px + env(safe-area-inset-bottom, 0px)); border-top: 1px solid var(--line); background: var(--card); }
+.chat-form textarea {
+  flex: 1; min-width: 0; resize: none; font: 1rem/1.4 var(--f-body); color: var(--ink); background: var(--paper);
+  border: 1px solid var(--line); border-radius: 12px; padding: .65em .85em; max-height: 120px;
+}
+.chat-form textarea:focus { outline: 2px solid var(--gold); outline-offset: 0; }
+.chat-form button { flex: none; width: 46px; height: 46px; align-self: end; border-radius: 50%; border: 0; background: var(--red); color: var(--on-red); cursor: pointer; display: grid; place-items: center; }
+.chat-form button:disabled { opacity: .5; cursor: default; }
+.chat-form button svg { width: 20px; height: 20px; }
+.chat-note { font-family: var(--f-type); font-size: .7rem; color: var(--muted); padding: 0 14px 8px; background: var(--card); line-height: 1.35; }
+
+/* santa face states */
+.mouth { transform-box: fill-box; transform-origin: center top; }
+.talking .mouth { animation: talk .22s ease-in-out infinite alternate; }
+@keyframes talk { from { transform: scaleY(.35); } to { transform: scaleY(1.15); } }
+@media (prefers-reduced-motion: reduce) { .talking .mouth { animation: none; } }
+</style>
+</head>
+<body>
+
+
+<!-- Reusable Santa face (used in the chat button, chat header) -->
+<svg width="0" height="0" style="position:absolute" aria-hidden="true">
+  <defs>
+    <symbol id="santa-face" viewBox="0 0 120 120">
+      <path d="M22 50 C 26 18, 70 6, 96 30 C 104 38, 108 50, 104 58 L 22 58 Z" fill="#b3201f"/>
+      <path d="M86 26 C 98 30, 108 44, 106 62" fill="none" stroke="#8c1717" stroke-width="2" opacity=".5"/>
+      <circle cx="104" cy="64" r="9" fill="#fffdf6"/>
+      <circle cx="60" cy="70" r="27" fill="#f0c6a0"/>
+      <path d="M30 76 C 26 98, 44 116, 60 116 C 76 116, 94 98, 90 76 C 84 86, 74 90, 60 90 C 46 90, 36 86, 30 76 Z" fill="#fffdf6"/>
+      <circle cx="40" cy="96" r="9" fill="#fffdf6"/><circle cx="80" cy="96" r="9" fill="#fffdf6"/>
+      <circle cx="49" cy="108" r="8" fill="#fffdf6"/><circle cx="71" cy="108" r="8" fill="#fffdf6"/>
+      <rect x="18" y="50" width="84" height="16" rx="8" fill="#fffdf6"/>
+      <ellipse class="blink" cx="49" cy="73" rx="3.2" ry="4" fill="#2b1a14"/>
+      <ellipse class="blink" cx="71" cy="73" rx="3.2" ry="4" fill="#2b1a14"/>
+      <path d="M43 66 q6 -4 12 0 M65 66 q6 -4 12 0" stroke="#fffdf6" stroke-width="3" fill="none" stroke-linecap="round"/>
+      <circle cx="40" cy="82" r="5" fill="#e98b7c" opacity=".55"/><circle cx="80" cy="82" r="5" fill="#e98b7c" opacity=".55"/>
+      <ellipse class="mouth" cx="60" cy="92" rx="5.5" ry="4" fill="#7a1a17"/>
+      <path d="M60 86 C 52 80, 40 82, 36 90 C 44 92, 52 91, 60 88 C 68 91, 76 92, 84 90 C 80 82, 68 80, 60 86 Z" fill="#fffdf6" stroke="#e9e1d0" stroke-width=".8"/>
+      <circle cx="60" cy="81" r="5" fill="#e4917f"/>
+    </symbol>
+  </defs>
+</svg>
+
+<header class="top">
+  <div class="wrap">
+    <a class="brand" href="#top" aria-label="Julekontor"><b>Julekontor</b><small data-i18n="brandTag">Gammeldags julebutik</small></a>
+    <nav class="nav" aria-label="Hovedmenu">
+      <a class="nav-link" href="#butikken" data-i18n="navShop">Butikken</a>
+      <a class="nav-link" href="#sortiment" data-i18n="navRange">Sortiment</a>
+      <a class="nav-link" href="#julemanden" data-i18n="navSanta">Julemanden</a>
+      <a class="nav-link" href="#besog" data-i18n="navVisit">Besøg os</a>
+      <div class="lang" role="group" aria-label="Sprog / Sprache / Language">
+        <button type="button" data-lang="da" aria-pressed="true">DA</button>
+        <button type="button" data-lang="de" aria-pressed="false">DE</button>
+        <button type="button" data-lang="en" aria-pressed="false">EN</button>
+      </div>
+    </nav>
+  </div>
+</header>
+
+<main id="top">
+  <section class="hero">
+    <canvas id="snow" aria-hidden="true"></canvas>
+    <div class="wrap">
+      <div class="hero-copy">
+        <span class="eyebrow rise" data-i18n="heroEyebrow">Danmarks gammeldags julebutik</span>
+        <h1 class="rise d1" data-i18n-html="heroTitle">Julen, som den <em>var engang.</em></h1>
+        <p class="lede rise d2" data-i18n="heroLede">Nisser, glaskugler, flettede hjerter og kalenderlys – udvalgt med omhu og pakket ind i brunt papir, som hos bedstemor.</p>
+        <div class="hero-cta rise d3">
+          <button class="btn btn-red" type="button" data-open-chat>
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5h18v11H3z"/><path d="m3 7 9 6 9-6"/></svg>
+            <span data-i18n="ctaSanta">Skriv til Julemanden</span>
+          </button>
+          <a class="btn btn-ghost" href="#sortiment" data-i18n="ctaRange">Se sortimentet</a>
+        </div>
+        <div class="countdown rise d4" aria-live="polite">
+          <svg viewBox="0 0 34 92" aria-hidden="true">
+            <path class="flame" d="M17 2 C 22 9, 23 14, 17 18 C 11 14, 12 9, 17 2 Z" fill="#f2b23c"/>
+            <path class="flame" d="M17 7 C 19.5 11, 20 13.5, 17 16 C 14 13.5, 14.5 11, 17 7 Z" fill="#fff1c2"/>
+            <line x1="17" y1="18" x2="17" y2="22" stroke="currentColor" stroke-width="1.4"/>
+            <rect id="candle" x="9" y="22" width="16" height="66" rx="2" fill="#fbf6ea" stroke="#d9c8a6"/>
+            <g id="candle-ticks" stroke="#9e1f22" stroke-width="1"></g>
+            <rect x="5" y="86" width="24" height="5" rx="2.5" fill="#a87a2f"/>
+          </svg>
+          <div>
+            <div class="num" id="days">–</div>
+            <div class="lbl" id="days-label" data-i18n="daysLabel">dage til juleaften</div>
+          </div>
+        </div>
+      </div>
+
+      <div class="postcard">
+        <figure>
+          <img src="img/logo.webp" width="1200" height="800" alt="Julekontor – Danmarks gammeldags julebutik. En rød veteran-varevogn med juletræ og gaver på taget kører gennem sneen." fetchpriority="high">
+        </figure>
+        <svg class="stamp" viewBox="0 0 86 100" aria-hidden="true">
+          <path d="M4 4h78v92H4z" fill="#fbf6ea" stroke="#d9c8a6" stroke-dasharray="3 3"/>
+          <rect x="11" y="11" width="64" height="62" fill="#1f3b2c"/>
+          <path d="M43 18 L60 50 H50 L62 66 H24 L36 50 H26 Z" fill="#2f6a47"/>
+          <circle cx="43" cy="18" r="3" fill="#f2c14e"/>
+          <circle cx="36" cy="46" r="2" fill="#d8463f"/><circle cx="51" cy="56" r="2" fill="#f2c14e"/><circle cx="40" cy="60" r="2" fill="#d8463f"/>
+          <text x="43" y="88" text-anchor="middle" font-family="Courier Prime, monospace" font-size="11" font-weight="700" fill="#9e1f22">JUL · 24</text>
+        </svg>
+        <svg class="postmark" viewBox="0 0 130 130" aria-hidden="true">
+          <defs><path id="pm-arc" d="M65 65 m-44 0 a44 44 0 1 1 88 0 a44 44 0 1 1 -88 0"/></defs>
+          <circle cx="65" cy="65" r="56" fill="none" stroke="currentColor" stroke-width="2.4"/>
+          <circle cx="65" cy="65" r="34" fill="none" stroke="currentColor" stroke-width="1.4"/>
+          <text font-family="Courier Prime, monospace" font-size="11.5" font-weight="700" letter-spacing="2.4" fill="currentColor"><textPath href="#pm-arc">JULEKONTOR · NORDPOLEN · DANMARK ·</textPath></text>
+          <text x="65" y="62" text-anchor="middle" font-family="Courier Prime, monospace" font-size="13" font-weight="700" fill="currentColor">24·12</text>
+          <text x="65" y="77" text-anchor="middle" font-family="Courier Prime, monospace" font-size="9" fill="currentColor">KL. 17</text>
+        </svg>
+      </div>
+    </div>
+
+    <div class="town" aria-hidden="true">
+      <svg viewBox="0 0 1200 150" preserveAspectRatio="xMidYMax slice">
+        <g class="houses">
+          <path class="house" d="M0 150 V96 h40 v-10 h8 v-8 h8 v-8 h8 v8 h8 v8 h8 v10 h18 V150 Z"/>
+          <path class="house" d="M120 150 V82 l34 -26 l34 26 V150 Z"/>
+          <path class="house" d="M200 150 V104 h70 V150 Z"/>
+          <path class="house" d="M282 150 V70 h10 v-10 h10 v-10 h10 v-10 h10 v10 h10 v10 h10 v10 h10 V150 Z"/>
+          <path class="house" d="M392 150 V100 l26 -18 l26 18 V150 Z"/>
+          <path class="house" d="M540 150 V88 h24 V40 l12 -30 l12 30 V88 h24 V150 Z"/>
+          <path class="house" d="M630 150 V92 l40 -30 l40 30 V150 Z"/>
+          <path class="house" d="M724 150 V78 h10 v-9 h10 v-9 h10 v-9 h10 v9 h10 v9 h10 v9 h10 V150 Z"/>
+          <path class="house" d="M842 150 V104 h60 V150 Z"/>
+          <path class="house" d="M912 150 V86 l30 -24 l30 24 V150 Z"/>
+          <path class="house" d="M1010 150 V74 h10 v-10 h10 v-10 h10 v-10 h10 v10 h10 v10 h10 v10 h10 V150 Z"/>
+          <path class="house" d="M1110 150 V98 l45 -30 l45 30 V150 Z"/>
+          <path class="house" d="M466 150 l24 -60 l24 60 Z M480 150 l10 -30 l10 30Z"/>
+          <path class="house" d="M1086 150 l14 -44 l14 44 Z"/>
+          <path class="house" d="M178 150 l12 -36 l12 36 Z"/>
+        </g>
+        <g>
+          <rect class="win" x="18" y="108" width="9" height="12"/><rect class="win off" x="56" y="108" width="9" height="12"/><rect class="win" x="56" y="84" width="8" height="10"/>
+          <rect class="win" x="140" y="96" width="10" height="12"/><rect class="win" x="160" y="96" width="10" height="12"/><rect class="win off" x="150" y="122" width="10" height="28"/>
+          <rect class="win off" x="214" y="116" width="10" height="12"/><rect class="win" x="246" y="116" width="10" height="12"/>
+          <rect class="win" x="300" y="80" width="10" height="12"/><rect class="win off" x="322" y="80" width="10" height="12"/><rect class="win" x="300" y="108" width="10" height="12"/><rect class="win" x="322" y="108" width="10" height="12"/>
+          <rect class="win" x="412" y="112" width="12" height="12"/>
+          <circle class="win" cx="576" cy="62" r="5"/><rect class="win" x="566" y="104" width="20" height="46" rx="10"/>
+          <rect class="win" x="650" y="104" width="10" height="12"/><rect class="win off" x="680" y="104" width="10" height="12"/>
+          <rect class="win" x="742" y="90" width="10" height="12"/><rect class="win" x="768" y="90" width="10" height="12"/><rect class="win off" x="742" y="118" width="10" height="12"/>
+          <rect class="win" x="864" y="116" width="16" height="12"/>
+          <rect class="win off" x="928" y="100" width="10" height="12"/><rect class="win" x="948" y="100" width="10" height="12"/>
+          <rect class="win" x="1028" y="86" width="10" height="12"/><rect class="win" x="1052" y="86" width="10" height="12"/><rect class="win off" x="1040" y="116" width="10" height="12"/>
+          <rect class="win" x="1140" y="110" width="10" height="12"/><rect class="win" x="1164" y="110" width="10" height="12"/>
+        </g>
+        <!-- the Julekontor van -->
+        <g class="truck">
+          <g transform="translate(0 104)">
+            <path d="M14 2 l10 -16 l10 16 Z M28 2 l9 -14 l9 14 Z" fill="#2f6a47"/>
+            <rect x="10" y="0" width="12" height="7" fill="#d8b04a"/><rect x="34" y="0" width="12" height="7" fill="#b3201f"/>
+            <rect x="0" y="6" width="70" height="28" rx="4" fill="#b3201f"/>
+            <path d="M70 12 h18 l12 12 v10 H70 Z" fill="#b3201f"/>
+            <path d="M74 15 h12 l8 8 h-20 Z" fill="#cfe3f2" opacity=".85"/>
+            <rect x="0" y="30" width="104" height="4" fill="#7a1517"/>
+            <text x="35" y="24" text-anchor="middle" font-family="Fraunces, Georgia, serif" font-style="italic" font-weight="700" font-size="11" fill="#f2d48a">Julekontor</text>
+            <circle cx="102" cy="27" r="3" fill="#ffe7a3"/>
+            <path d="M104 25 l40 -8 v20 Z" fill="#ffe7a3" opacity=".22"/>
+            <g class="wheel"><circle cx="20" cy="36" r="8" fill="#1a1210"/><circle cx="20" cy="36" r="3.5" fill="#efe3c8"/><rect x="19" y="29" width="2" height="14" fill="#1a1210"/></g>
+            <g class="wheel"><circle cx="84" cy="36" r="8" fill="#1a1210"/><circle cx="84" cy="36" r="3.5" fill="#efe3c8"/><rect x="83" y="29" width="2" height="14" fill="#1a1210"/></g>
+          </g>
+        </g>
+        <rect class="ground" x="0" y="146" width="1200" height="4"/>
+      </svg>
+    </div>
+  </section>
+
+  <section class="block" id="butikken">
+    <div class="wrap about">
+      <div class="text">
+        <span class="eyebrow" data-i18n="aboutEyebrow">Om Julekontor</span>
+        <h2 style="font-size: var(--step-3)" data-i18n="aboutTitle">Et lille kontor, der kun har én opgave: julen.</h2>
+        <p data-i18n="aboutP1">Hos Julekontor finder du den jul, mange af os husker fra barndommen. Røde nisser med uldhuer, tynde glaskugler, der fanger lyset fra stearinlysene, og kalenderlys, der brænder ned dag for dag frem mod juleaften.</p>
+        <p data-i18n="aboutP2">Vi vælger varerne én for én og foretrækker det, der holder i mange år frem for det, der er moderne én sæson. Kig ind, rør ved tingene, og tag dig god tid. Julemanden har også fået et skrivebord her – og han svarer gerne, når du skriver til ham.</p>
+      </div>
+      <dl class="ledger" aria-label="Julekontorets regnskab">
+        <span class="cap" data-i18n="ledgerCap">Kontorets faste regler</span>
+        <div><dt data-i18n="l1k">Julemusik i butikken</dt><dd data-i18n="l1v">Fra 1. november</dd></div>
+        <div><dt data-i18n="l2k">Gaveindpakning</dt><dd data-i18n="l2v">Brunt papir og rødt bånd</dd></div>
+        <div><dt data-i18n="l3k">Julemandens postkasse</dt><dd data-i18n="l3v">Åben hele året</dd></div>
+        <div><dt data-i18n="l4k">Sprog, Julemanden taler</dt><dd data-i18n="l4v">Alle</dd></div>
+        <div><dt data-i18n="l5k">Risengrød til nissen</dt><dd data-i18n="l5v">Med smørklat</dd></div>
+      </dl>
+    </div>
+  </section>
+
+  <section class="block band-pine" id="sortiment">
+    <div class="wrap">
+      <div class="sec-head">
+        <span class="eyebrow" data-i18n="rangeEyebrow">Sortiment</span>
+        <h2 data-i18n="rangeTitle">Hylderne er fyldt op til jul</h2>
+        <p data-i18n="rangeLede">Seks ting, vi aldrig løber tør for. Resten skifter med årstiden og med det, vi finder på vores rejser.</p>
+      </div>
+      <div class="shelf">
+        <article class="item">
+          <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M14 34 C 16 18, 26 8, 38 6 C 36 14, 38 24, 42 34"/><circle cx="38" cy="6" r="3"/><path d="M12 34 h32"/>
+            <path d="M16 34 c0 8 5 16 12 16 s12 -8 12 -16"/><path d="M20 40 c4 3 12 3 16 0"/><circle cx="28" cy="38" r="2"/>
+          </svg>
+          <h3 data-i18n="r1t">Nisser</h3>
+          <p data-i18n="r1p">Store og små, i uld, filt og træ. Nogle står på hylden, andre gemmer sig.</p>
+        </article>
+        <article class="item">
+          <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M28 2 v8"/><rect x="23" y="10" width="10" height="6" rx="1"/><circle cx="28" cy="34" r="18"/>
+            <path d="M18 26 a12 12 0 0 1 8 -6"/><path d="M10 34 h36" stroke-dasharray="2 4"/><path d="M14 44 c8 -4 20 -4 28 0"/>
+          </svg>
+          <h3 data-i18n="r2t">Glaskugler</h3>
+          <p data-i18n="r2p">Mundblæste og håndmalede kugler, der klinger let, når man rører ved dem.</p>
+        </article>
+        <article class="item">
+          <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M28 50 L10 32 a10 10 0 0 1 0 -14 a10 10 0 0 1 14 0 L28 22"/><path d="M28 50 L46 32 a10 10 0 0 0 0 -14 a10 10 0 0 0 -14 0 L28 22"/>
+            <path d="M19 41 l18 -18 M23 45 l18 -18 M15 37 l18 -18"/><path d="M37 41 l-18 -18 M33 45 l-18 -18 M41 37 l-18 -18" opacity=".55"/>
+            <path d="M28 22 V8 c0 -3 4 -3 4 0"/>
+          </svg>
+          <h3 data-i18n="r3t">Flettede hjerter</h3>
+          <p data-i18n="r3p">Færdige hjerter og ark til at flette selv – i klassisk rød og hvid og i guld.</p>
+        </article>
+        <article class="item">
+          <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M28 2 c4 5 4 8 0 11 c-4 -3 -4 -6 0 -11 Z"/><rect x="21" y="16" width="14" height="34" rx="1.5"/>
+            <path d="M21 22 h5 M21 28 h7 M21 34 h5 M21 40 h7 M21 46 h5"/><path d="M14 52 h28"/>
+          </svg>
+          <h3 data-i18n="r4t">Kalenderlys</h3>
+          <p data-i18n="r4p">Med tal fra 1 til 24. Ét mærke om dagen, til morgenmaden eller ved aftenkaffen.</p>
+        </article>
+        <article class="item">
+          <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M28 4 l6 14 h15 l-12 9 l5 15 l-14 -9 l-14 9 l5 -15 l-12 -9 h15 Z"/><path d="M22 24 c4 2 8 2 12 0 M24 31 c3 1 5 1 8 0" opacity=".6"/><path d="M28 42 v10"/>
+          </svg>
+          <h3 data-i18n="r5t">Træpynt</h3>
+          <p data-i18n="r5p">Stjerner, figurer og ophæng i træ, der dufter svagt af værksted.</p>
+        </article>
+        <article class="item">
+          <svg viewBox="0 0 56 56" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="8" y="22" width="40" height="28" rx="1.5"/><rect x="5" y="15" width="46" height="8" rx="1.5"/><path d="M28 15 v35"/>
+            <path d="M28 15 c-6 -10 -16 -8 -12 -2 c2 3 8 2 12 2 c4 0 10 1 12 -2 c4 -6 -6 -8 -12 2"/>
+          </svg>
+          <h3 data-i18n="r6t">Julepapir &amp; bånd</h3>
+          <p data-i18n="r6p">Mønstret papir, snor, mærkater og lak. Vi pakker også gerne ind for dig.</p>
+        </article>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="julemanden">
+    <div class="wrap santa-sec">
+      <div class="santa-stage">
+        <div class="disc"></div>
+        <svg class="big" viewBox="0 0 320 320" aria-hidden="true">
+          <!-- body -->
+          <path d="M84 300 C 80 240, 100 200, 160 196 C 220 200, 240 240, 236 300 Z" fill="#b3201f"/>
+          <rect x="84" y="262" width="152" height="18" fill="#2b1a14"/><rect x="146" y="258" width="28" height="26" rx="3" fill="none" stroke="#d8b04a" stroke-width="4"/>
+          <path d="M160 200 V 300" stroke="#fffdf6" stroke-width="14"/>
+          <rect x="80" y="296" width="160" height="12" rx="6" fill="#fffdf6"/>
+          <!-- left arm holding letter -->
+          <path d="M98 220 C 76 236, 72 262, 92 276" stroke="#b3201f" stroke-width="26" stroke-linecap="round" fill="none"/>
+          <g transform="rotate(-10 104 270)">
+            <rect x="86" y="252" width="56" height="38" rx="2" fill="#fbf6ea" stroke="#d9c8a6"/>
+            <path d="M86 253 l28 20 l28 -20" fill="none" stroke="#d9c8a6"/>
+            <circle cx="114" cy="276" r="5" fill="#b3201f"/>
+          </g>
+          <circle cx="92" cy="276" r="11" fill="#fffdf6"/>
+          <!-- waving right arm -->
+          <g class="wave-arm">
+            <path d="M210 222 C 236 210, 248 186, 246 160" stroke="#b3201f" stroke-width="26" stroke-linecap="round" fill="none"/>
+            <rect x="232" y="160" width="28" height="12" rx="6" fill="#fffdf6" transform="rotate(-8 246 166)"/>
+            <path d="M234 156 c-4 -14 2 -22 8 -22 c2 -8 10 -8 12 0 c6 -2 10 4 8 10 c4 4 2 12 -4 14 Z" fill="#2f6a47"/>
+          </g>
+          <!-- head -->
+          <g transform="translate(64 20) scale(1.6)"><use href="#santa-face" width="120" height="120"/></g>
+        </svg>
+        <div class="bubbles" aria-hidden="true">
+          <span><small>DA</small>Hej Julemand!</span>
+          <span><small>DE</small>Hallo Weihnachtsmann!</span>
+          <span><small>EN</small>Dear Santa…</span>
+          <span><small>PL</small>Cześć Mikołaju!</span>
+          <span><small>SV</small>Hej Tomten!</span>
+        </div>
+      </div>
+      <div class="santa-copy">
+        <span class="eyebrow" data-i18n="santaEyebrow">Julemandens skrivebord</span>
+        <h2 data-i18n="santaTitle">Skriv til Julemanden. Han svarer på dit sprog.</h2>
+        <p data-i18n="santaLede">Fortæl ham om dine ønsker, spørg til rensdyrene, eller hør, hvad nisserne laver i værkstedet. Skriver du på dansk, svarer han på dansk. Skriver du på tysk, engelsk, polsk eller et helt andet sprog, svarer han på det.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="s1">Direkte her på siden, uden login</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="s2">Han spørger aldrig om navn, adresse eller telefonnummer</span></li>
+          <li><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg><span data-i18n="s3">God for børn – og for voksne, der stadig tror lidt</span></li>
+        </ul>
+        <div><button class="btn btn-red" type="button" data-open-chat><span data-i18n="ctaSanta2">Åbn Julemandens brevkasse</span></button></div>
+      </div>
+    </div>
+  </section>
+
+  <section class="block" id="besog" style="padding-top: 0">
+    <div class="wrap visit">
+      <div class="sec-head" style="margin-bottom: 0">
+        <span class="eyebrow" data-i18n="visitEyebrow">Besøg os</span>
+        <h2 data-i18n="visitTitle">Kig forbi butikken</h2>
+        <p data-i18n="visitLede">Det er nu engang bedst at se julepynten i virkeligheden. Kom ind fra kulden, så finder vi det, du leder efter.</p>
+      </div>
+      <div class="ticket">
+        <h3 data-i18n="ticketTitle">Julekontor</h3>
+        <div class="addr" id="v-addr" hidden></div>
+        <p class="empty" id="v-season" hidden></p>
+        <dl id="v-hours" hidden></dl>
+        <p class="empty" id="v-empty" data-i18n="visitEmpty">Åbningstider og adresse for sæsonen kommer her snart.</p>
+        <div class="copyrow" id="v-mail" hidden><code id="v-mail-text"></code><button type="button" id="v-copy" data-i18n="copy">Kopiér</button></div>
+        <div class="copyrow" id="v-phone" hidden><code id="v-phone-text"></code></div>
+        <div id="v-links" class="copyrow" hidden></div>
+      </div>
+    </div>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <span><b>Julekontor</b> · <span data-i18n="footerTag">Danmarks gammeldags julebutik</span></span>
+    <span>© <span id="year">2026</span> Julekontor</span>
+  </div>
+</footer>
+
+<!-- Santa chat -->
+<div class="santa-hint" id="santa-hint" hidden><span id="santa-hint-text">Ho ho ho! Skriv til mig.</span><button type="button" id="santa-hint-close" aria-label="Luk">✕</button></div>
+<button class="santa-fab" id="santa-fab" type="button" aria-expanded="false" aria-controls="chat" aria-label="Skriv til Julemanden">
+  <svg viewBox="0 0 120 120" aria-hidden="true"><use href="#santa-face"/></svg>
+  <span class="dot"></span>
+</button>
+<section class="chat" id="chat" role="dialog" aria-modal="false" aria-labelledby="chat-title" hidden>
+  <div class="chat-head">
+    <div class="av" id="chat-av"><svg viewBox="0 0 120 120" aria-hidden="true"><use href="#santa-face"/></svg></div>
+    <div class="who"><b id="chat-title" data-i18n="chatName">Julemanden</b><span data-i18n="chatStatus">På Julekontoret · svarer på alle sprog</span></div>
+    <button type="button" id="chat-reset" aria-label="Nyt brev" data-i18n-aria="chatReset"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
+    <button type="button" id="chat-close" aria-label="Luk" data-i18n-aria="close"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
+  </div>
+  <div class="chat-log" id="chat-log" aria-live="polite"></div>
+  <div class="chips" id="chips"></div>
+  <p class="chat-note" id="chat-note" hidden></p>
+  <form class="chat-form" id="chat-form" autocomplete="off">
+    <label for="chat-input" class="sr" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)" data-i18n="inputLabel">Dit brev til Julemanden</label>
+    <textarea id="chat-input" rows="1" maxlength="600" placeholder="Kære Julemand …" data-i18n-ph="placeholder"></textarea>
+    <button type="submit" id="chat-send" aria-label="Send" data-i18n-aria="send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 20 4l-6 16-3-7-7-1Z"/></svg></button>
+  </form>
+</section>
+
+<script>
+(() => {
+  "use strict";
+
+  /* ---------- texts ---------- */
+  const T = {
+    da: {
+      brandTag: "Gammeldags julebutik", navShop: "Butikken", navRange: "Sortiment", navSanta: "Julemanden", navVisit: "Besøg os",
+      heroEyebrow: "Danmarks gammeldags julebutik", heroTitle: "Julen, som den <em>var engang.</em>",
+      heroLede: "Nisser, glaskugler, flettede hjerter og kalenderlys – udvalgt med omhu og pakket ind i brunt papir, som hos bedstemor.",
+      ctaSanta: "Skriv til Julemanden", ctaRange: "Se sortimentet",
+      daysLabel: "dage til juleaften", daysOne: "dag til juleaften", daysToday: "Glædelig jul! Det er juleaften i dag.", daysDone: "Glædelig jul og godt nytår!",
+      aboutEyebrow: "Om Julekontor", aboutTitle: "Et lille kontor, der kun har én opgave: julen.",
+      aboutP1: "Hos Julekontor finder du den jul, mange af os husker fra barndommen. Røde nisser med uldhuer, tynde glaskugler, der fanger lyset fra stearinlysene, og kalenderlys, der brænder ned dag for dag frem mod juleaften.",
+      aboutP2: "Vi vælger varerne én for én og foretrækker det, der holder i mange år frem for det, der er moderne én sæson. Kig ind, rør ved tingene, og tag dig god tid. Julemanden har også fået et skrivebord her – og han svarer gerne, når du skriver til ham.",
+      ledgerCap: "Kontorets faste regler", l1k: "Julemusik i butikken", l1v: "Fra 1. november", l2k: "Gaveindpakning", l2v: "Brunt papir og rødt bånd",
+      l3k: "Julemandens postkasse", l3v: "Åben hele året", l4k: "Sprog, Julemanden taler", l4v: "Alle", l5k: "Risengrød til nissen", l5v: "Med smørklat",
+      rangeEyebrow: "Sortiment", rangeTitle: "Hylderne er fyldt op til jul", rangeLede: "Seks ting, vi aldrig løber tør for. Resten skifter med årstiden og med det, vi finder på vores rejser.",
+      r1t: "Nisser", r1p: "Store og små, i uld, filt og træ. Nogle står på hylden, andre gemmer sig.",
+      r2t: "Glaskugler", r2p: "Mundblæste og håndmalede kugler, der klinger let, når man rører ved dem.",
+      r3t: "Flettede hjerter", r3p: "Færdige hjerter og ark til at flette selv – i klassisk rød og hvid og i guld.",
+      r4t: "Kalenderlys", r4p: "Med tal fra 1 til 24. Ét mærke om dagen, til morgenmaden eller ved aftenkaffen.",
+      r5t: "Træpynt", r5p: "Stjerner, figurer og ophæng i træ, der dufter svagt af værksted.",
+      r6t: "Julepapir & bånd", r6p: "Mønstret papir, snor, mærkater og lak. Vi pakker også gerne ind for dig.",
+      santaEyebrow: "Julemandens skrivebord", santaTitle: "Skriv til Julemanden. Han svarer på dit sprog.",
+      santaLede: "Fortæl ham om dine ønsker, spørg til rensdyrene, eller hør, hvad nisserne laver i værkstedet. Skriver du på dansk, svarer han på dansk. Skriver du på tysk, engelsk, polsk eller et helt andet sprog, svarer han på det.",
+      s1: "Direkte her på siden, uden login", s2: "Han spørger aldrig om navn, adresse eller telefonnummer", s3: "God for børn – og for voksne, der stadig tror lidt",
+      ctaSanta2: "Åbn Julemandens brevkasse",
+      visitEyebrow: "Besøg os", visitTitle: "Kig forbi butikken", visitLede: "Det er nu engang bedst at se julepynten i virkeligheden. Kom ind fra kulden, så finder vi det, du leder efter.",
+      ticketTitle: "Julekontor", visitEmpty: "Åbningstider og adresse for sæsonen kommer her snart.", copy: "Kopiér", copied: "Kopieret", maps: "Vis på kort",
+      footerTag: "Danmarks gammeldags julebutik",
+      chatName: "Julemanden", chatStatus: "På Julekontoret · svarer på alle sprog", chatReset: "Nyt brev", close: "Luk", send: "Send",
+      inputLabel: "Dit brev til Julemanden", placeholder: "Kære Julemand …", from: "Julemanden",
+      hint: "Ho ho ho! Skriv til mig – på dit eget sprog.",
+      greet: "Ho ho ho, goddag! Her er Julemanden, ved mit skrivebord på Julekontoret. Skriv til mig på det sprog, du har lyst til – så svarer jeg på samme sprog. Hvad går du og tænker på her op til jul?",
+      chips: ["Hvad ønsker du dig?", "Hvordan har rensdyrene det?", "Hvad laver nisserne nu?"],
+      offline: "Forhåndsvisning: Julemanden svarer her med færdigskrevne svar. På den rigtige hjemmeside skriver han frit.",
+      error: "Åh, min pen er løbet tør for blæk. Prøv igen om et øjeblik."
+    },
+    de: {
+      brandTag: "Altmodischer Weihnachtsladen", navShop: "Der Laden", navRange: "Sortiment", navSanta: "Weihnachtsmann", navVisit: "Besuch",
+      heroEyebrow: "Dänemarks altmodischer Weihnachtsladen", heroTitle: "Weihnachten, wie es <em>früher war.</em>",
+      heroLede: "Wichtel, Glaskugeln, geflochtene Herzen und Kalenderkerzen – mit Sorgfalt ausgewählt und in braunes Papier gepackt, wie bei Oma.",
+      ctaSanta: "Dem Weihnachtsmann schreiben", ctaRange: "Zum Sortiment",
+      daysLabel: "Tage bis Heiligabend", daysOne: "Tag bis Heiligabend", daysToday: "Frohe Weihnachten! Heute ist Heiligabend.", daysDone: "Frohe Weihnachten und ein gutes neues Jahr!",
+      aboutEyebrow: "Über Julekontor", aboutTitle: "Ein kleines Büro mit nur einer Aufgabe: Weihnachten.",
+      aboutP1: "Bei Julekontor findest du das Weihnachten, an das sich viele von uns aus der Kindheit erinnern. Rote Wichtel mit Wollmützen, dünne Glaskugeln, die das Kerzenlicht einfangen, und Kalenderkerzen, die Tag für Tag bis Heiligabend herunterbrennen.",
+      aboutP2: "Wir wählen jedes Stück einzeln aus und nehmen lieber, was viele Jahre hält, als was eine Saison lang modern ist. Schau herein, nimm die Dinge in die Hand und lass dir Zeit. Auch der Weihnachtsmann hat hier einen Schreibtisch – und er antwortet gern, wenn du ihm schreibst.",
+      ledgerCap: "Die festen Regeln im Kontor", l1k: "Weihnachtsmusik im Laden", l1v: "Ab 1. November", l2k: "Geschenkverpackung", l2v: "Braunes Papier, rotes Band",
+      l3k: "Briefkasten des Weihnachtsmanns", l3v: "Das ganze Jahr offen", l4k: "Sprachen des Weihnachtsmanns", l4v: "Alle", l5k: "Milchreis für den Wichtel", l5v: "Mit Butterklecks",
+      rangeEyebrow: "Sortiment", rangeTitle: "Die Regale sind voll für Weihnachten", rangeLede: "Sechs Dinge, die uns nie ausgehen. Der Rest wechselt mit der Jahreszeit und mit dem, was wir auf unseren Reisen finden.",
+      r1t: "Wichtel (Nisser)", r1p: "Groß und klein, aus Wolle, Filz und Holz. Manche stehen im Regal, andere verstecken sich.",
+      r2t: "Glaskugeln", r2p: "Mundgeblasen und handbemalt. Sie klingen leise, wenn man sie berührt.",
+      r3t: "Geflochtene Herzen", r3p: "Fertige Herzen und Bögen zum Selberflechten – klassisch rot-weiß und in Gold.",
+      r4t: "Kalenderkerzen", r4p: "Mit den Zahlen 1 bis 24. Eine Markierung pro Tag, zum Frühstück oder zum Abendkaffee.",
+      r5t: "Holzschmuck", r5p: "Sterne, Figuren und Anhänger aus Holz, die leicht nach Werkstatt duften.",
+      r6t: "Geschenkpapier & Bänder", r6p: "Gemustertes Papier, Kordel, Anhänger und Siegellack. Wir packen auch gern für dich ein.",
+      santaEyebrow: "Der Schreibtisch des Weihnachtsmanns", santaTitle: "Schreib dem Weihnachtsmann. Er antwortet in deiner Sprache.",
+      santaLede: "Erzähl ihm von deinen Wünschen, frag nach den Rentieren oder hör, was die Wichtel gerade in der Werkstatt machen. Schreibst du auf Deutsch, antwortet er auf Deutsch. Schreibst du auf Dänisch, Englisch, Polnisch oder in einer ganz anderen Sprache, antwortet er in dieser.",
+      s1: "Direkt hier auf der Seite, ohne Anmeldung", s2: "Er fragt nie nach Name, Adresse oder Telefonnummer", s3: "Für Kinder gemacht – und für Erwachsene, die noch ein bisschen glauben",
+      ctaSanta2: "Briefkasten des Weihnachtsmanns öffnen",
+      visitEyebrow: "Besuch", visitTitle: "Komm im Laden vorbei", visitLede: "Weihnachtsschmuck sieht man am besten in echt. Komm aus der Kälte herein, wir finden, was du suchst.",
+      ticketTitle: "Julekontor", visitEmpty: "Öffnungszeiten und Adresse für die Saison folgen hier in Kürze.", copy: "Kopieren", copied: "Kopiert", maps: "Auf der Karte zeigen",
+      footerTag: "Dänemarks altmodischer Weihnachtsladen",
+      chatName: "Der Weihnachtsmann", chatStatus: "Im Julekontor · antwortet in jeder Sprache", chatReset: "Neuer Brief", close: "Schließen", send: "Senden",
+      inputLabel: "Dein Brief an den Weihnachtsmann", placeholder: "Lieber Weihnachtsmann …", from: "Weihnachtsmann",
+      hint: "Ho ho ho! Schreib mir – in deiner Sprache.",
+      greet: "Ho ho ho, hallo! Hier ist der Weihnachtsmann, an meinem Schreibtisch im Julekontor. Schreib mir in der Sprache, die dir gefällt – ich antworte in derselben. Was geht dir so kurz vor Weihnachten durch den Kopf?",
+      chips: ["Was wünschst du dir?", "Wie geht es den Rentieren?", "Was machen die Wichtel gerade?"],
+      offline: "Vorschau: Hier antwortet der Weihnachtsmann mit vorgeschriebenen Antworten. Auf der echten Website schreibt er frei.",
+      error: "Oh, meiner Feder ist die Tinte ausgegangen. Versuch es gleich noch einmal."
+    },
+    en: {
+      brandTag: "Old-fashioned Christmas shop", navShop: "The shop", navRange: "What we sell", navSanta: "Santa", navVisit: "Visit",
+      heroEyebrow: "Denmark's old-fashioned Christmas shop", heroTitle: "Christmas the way <em>it used to be.</em>",
+      heroLede: "Nisse elves, glass baubles, woven paper hearts and calendar candles – chosen with care and wrapped in brown paper, the way grandma did it.",
+      ctaSanta: "Write to Santa", ctaRange: "See what we sell",
+      daysLabel: "days until Christmas Eve", daysOne: "day until Christmas Eve", daysToday: "Merry Christmas! It's Christmas Eve today.", daysDone: "Merry Christmas and a happy New Year!",
+      aboutEyebrow: "About Julekontor", aboutTitle: "A small office with a single job: Christmas.",
+      aboutP1: "At Julekontor you'll find the Christmas many of us remember from childhood. Red nisser in woollen caps, thin glass baubles that catch the candlelight, and calendar candles that burn down day by day towards Christmas Eve.",
+      aboutP2: "We pick every item one by one and prefer things that last for years over things that are fashionable for one season. Come in, pick things up and take your time. Santa has a desk here too – and he's happy to answer when you write to him.",
+      ledgerCap: "House rules of the office", l1k: "Christmas music in the shop", l1v: "From 1 November", l2k: "Gift wrapping", l2v: "Brown paper, red ribbon",
+      l3k: "Santa's letterbox", l3v: "Open all year", l4k: "Languages Santa speaks", l4v: "All of them", l5k: "Rice pudding for the nisse", l5v: "With a knob of butter",
+      rangeEyebrow: "What we sell", rangeTitle: "The shelves are stocked for Christmas", rangeLede: "Six things we never run out of. Everything else changes with the season and with what we find on our travels.",
+      r1t: "Nisser", r1p: "The Danish Christmas elves. Big and small, in wool, felt and wood. Some stand on the shelf, others hide.",
+      r2t: "Glass baubles", r2p: "Mouth-blown and hand-painted. They ring softly when you touch them.",
+      r3t: "Woven hearts", r3p: "Finished hearts and paper sheets to weave yourself – classic red and white, and gold.",
+      r4t: "Calendar candles", r4p: "Marked 1 to 24. One mark a day, at breakfast or with the evening coffee.",
+      r5t: "Wooden ornaments", r5p: "Stars, figures and hangings in wood that still smell faintly of the workshop.",
+      r6t: "Wrapping paper & ribbon", r6p: "Patterned paper, string, tags and sealing wax. We'll happily wrap for you too.",
+      santaEyebrow: "Santa's desk", santaTitle: "Write to Santa. He answers in your language.",
+      santaLede: "Tell him your wishes, ask about the reindeer, or hear what the elves are up to in the workshop. Write in English and he answers in English. Write in Danish, German, Polish or any other language, and he answers in that one.",
+      s1: "Right here on the page, no sign-up", s2: "He never asks for your name, address or phone number", s3: "Made for children – and for grown-ups who still believe a little",
+      ctaSanta2: "Open Santa's letterbox",
+      visitEyebrow: "Visit", visitTitle: "Drop by the shop", visitLede: "Christmas decorations are best seen in person. Come in from the cold and we'll help you find what you're looking for.",
+      ticketTitle: "Julekontor", visitEmpty: "Opening hours and address for the season will appear here soon.", copy: "Copy", copied: "Copied", maps: "Show on map",
+      footerTag: "Denmark's old-fashioned Christmas shop",
+      chatName: "Santa Claus", chatStatus: "At Julekontor · answers in any language", chatReset: "New letter", close: "Close", send: "Send",
+      inputLabel: "Your letter to Santa", placeholder: "Dear Santa …", from: "Santa",
+      hint: "Ho ho ho! Write to me – in your own language.",
+      greet: "Ho ho ho, hello there! This is Santa, at my desk in the Julekontor. Write to me in whatever language you like and I'll answer in the same one. What's on your mind this close to Christmas?",
+      chips: ["What do you wish for?", "How are the reindeer?", "What are the elves doing?"],
+      offline: "Preview: here Santa answers with pre-written replies. On the live website he writes freely.",
+      error: "Oh dear, my pen has run out of ink. Please try again in a moment."
+    }
+  };
+
+  const store = {
+    get(k) { try { return localStorage.getItem(k); } catch { return null; } },
+    set(k, v) { try { localStorage.setItem(k, v); } catch {} },
+    sget(k) { try { return sessionStorage.getItem(k); } catch { return null; } },
+    sset(k, v) { try { sessionStorage.setItem(k, v); } catch {} },
+    sdel(k) { try { sessionStorage.removeItem(k); } catch {} }
+  };
+
+  const pickLang = () => {
+    const saved = store.get("jk-lang");
+    if (saved && T[saved]) return saved;
+    const nav = (navigator.languages || [navigator.language || "da"]).map(l => l.slice(0, 2).toLowerCase());
+    for (const l of nav) { if (l === "da" || l === "nb" || l === "no" || l === "sv") return "da"; if (T[l]) return l; }
+    return "en";
+  };
+  let lang = pickLang();
+  const t = k => (T[lang] && T[lang][k]) ?? T.da[k] ?? "";
+
+  function applyLang() {
+    document.documentElement.lang = lang;
+    document.querySelectorAll("[data-i18n]").forEach(el => { el.textContent = t(el.dataset.i18n); });
+    document.querySelectorAll("[data-i18n-html]").forEach(el => { el.innerHTML = t(el.dataset.i18nHtml); });
+    document.querySelectorAll("[data-i18n-ph]").forEach(el => { el.placeholder = t(el.dataset.i18nPh); });
+    document.querySelectorAll("[data-i18n-aria]").forEach(el => { el.setAttribute("aria-label", t(el.dataset.i18nAria)); });
+    document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", String(b.dataset.lang === lang)));
+    fab.setAttribute("aria-label", t("ctaSanta"));
+    document.getElementById("santa-hint-text").textContent = t("hint");
+    renderCountdown(); renderVisit(); renderChips();
+    if (!chatOpened) { history.length = 0; renderLog(); }
+  }
+  document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => { lang = b.dataset.lang; store.set("jk-lang", lang); applyLang(); }));
+
+  /* ---------- countdown + calendar candle ---------- */
+  function renderCountdown() {
+    const now = new Date();
+    const y = now.getFullYear();
+    const today = new Date(y, now.getMonth(), now.getDate());
+    let eve = new Date(y, 11, 24);
+    const num = document.getElementById("days"), lbl = document.getElementById("days-label");
+    if (today > eve && now.getMonth() === 11) {
+      num.textContent = "★"; lbl.textContent = t("daysDone");
+    } else {
+      const d = Math.round((eve - today) / 864e5);
+      if (d === 0) { num.textContent = "24"; lbl.textContent = t("daysToday"); }
+      else { num.textContent = String(d); lbl.textContent = d === 1 ? t("daysOne") : t("daysLabel"); }
+    }
+    // candle burns down through December, one mark per day
+    const burned = now.getMonth() === 11 ? Math.min(now.getDate() - 1, 24) : 0;
+    const top = 22, h = 66, step = h / 25;
+    const cut = burned * step;
+    const candle = document.getElementById("candle");
+    candle.setAttribute("y", String(top + cut)); candle.setAttribute("height", String(h - cut));
+    document.querySelectorAll(".countdown .flame").forEach(f => f.setAttribute("transform", `translate(0 ${cut})`));
+    document.querySelector(".countdown line").setAttribute("transform", `translate(0 ${cut})`);
+    const g = document.getElementById("candle-ticks"); g.innerHTML = "";
+    for (let i = burned + 1; i <= 24; i++) {
+      const yy = top + (i) * step;
+      const l = document.createElementNS("http://www.w3.org/2000/svg", "line");
+      l.setAttribute("x1", "9"); l.setAttribute("x2", i % 6 === 0 ? "19" : "14"); l.setAttribute("y1", yy); l.setAttribute("y2", yy);
+      g.appendChild(l);
+    }
+  }
+
+  /* ---------- visit info from shop.json ---------- */
+  let shop = null;
+  fetch("shop.json", { cache: "no-store" }).then(r => r.ok ? r.json() : null).then(j => { shop = j; renderVisit(); }).catch(() => {});
+  function renderVisit() {
+    const $ = id => document.getElementById(id);
+    if (!shop) return;
+    let any = false;
+    const addr = (shop.address || "").trim();
+    $("v-addr").hidden = !addr; $("v-addr").textContent = addr; any ||= !!addr;
+    const season = shop.season && (shop.season[lang] || shop.season.da);
+    $("v-season").hidden = !season; $("v-season").textContent = season || ""; any ||= !!season;
+    const rows = (shop.hours || []).filter(r => r && r.time && (r[lang] || r.da));
+    const dl = $("v-hours"); dl.innerHTML = "";
+    rows.forEach(r => { const d = document.createElement("div"); const dt = document.createElement("dt"); const dd = document.createElement("dd"); dt.textContent = r[lang] || r.da; dd.textContent = r.time; d.append(dt, dd); dl.append(d); });
+    dl.hidden = !rows.length; any ||= rows.length > 0;
+    const mail = (shop.email || "").trim();
+    $("v-mail").hidden = !mail; $("v-mail-text").textContent = mail; any ||= !!mail;
+    const phone = (shop.phone || "").trim();
+    $("v-phone").hidden = !phone; $("v-phone-text").textContent = phone; any ||= !!phone;
+    const links = $("v-links"); links.innerHTML = "";
+    [["mapsUrl", t("maps")], ["facebook", "Facebook"], ["instagram", "Instagram"]].forEach(([k, label]) => {
+      if (shop[k] && /^https:\/\//.test(shop[k])) { const a = document.createElement("a"); a.href = shop[k]; a.textContent = label; a.target = "_blank"; a.rel = "noopener"; a.className = "btn btn-ghost"; a.style.padding = ".55em 1em"; links.append(a); }
+    });
+    links.hidden = !links.children.length; any ||= links.children.length > 0;
+    $("v-empty").hidden = any;
+  }
+  document.getElementById("v-copy").addEventListener("click", e => {
+    const txt = document.getElementById("v-mail-text").textContent, btn = e.currentTarget;
+    const done = () => { btn.textContent = t("copied"); setTimeout(() => btn.textContent = t("copy"), 1600); };
+    navigator.clipboard?.writeText(txt).then(done).catch(() => { const r = document.createRange(); r.selectNodeContents(document.getElementById("v-mail-text")); const s = getSelection(); s.removeAllRanges(); s.addRange(r); });
+  });
+  document.getElementById("year").textContent = new Date().getFullYear();
+
+  /* ---------- snow ---------- */
+  (function snow() {
+    const c = document.getElementById("snow"); const ctx = c.getContext("2d");
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let w, h, flakes = [], dpr = Math.min(devicePixelRatio || 1, 2), visible = true;
+    const color = () => getComputedStyle(document.documentElement).getPropertyValue("--beard").trim() || "#fff";
+    let fill = color();
+    function size() {
+      w = c.clientWidth; h = c.clientHeight; c.width = w * dpr; c.height = h * dpr; ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+      const n = Math.round(Math.min(160, (w * h) / 9000));
+      flakes = Array.from({ length: n }, () => ({ x: Math.random() * w, y: Math.random() * h, r: Math.random() * 2.2 + .6, s: Math.random() * .5 + .25, d: Math.random() * Math.PI * 2 }));
+    }
+    function draw() {
+      ctx.clearRect(0, 0, w, h);
+      for (const f of flakes) {
+        ctx.globalAlpha = .35 + f.r / 5; ctx.fillStyle = fill;
+        ctx.beginPath(); ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    function tick() {
+      if (visible) {
+        for (const f of flakes) { f.d += .01; f.y += f.s; f.x += Math.sin(f.d) * .35; if (f.y > h + 4) { f.y = -4; f.x = Math.random() * w; } }
+        draw();
+      }
+      requestAnimationFrame(tick);
+    }
+    size(); addEventListener("resize", size);
+    matchMedia("(prefers-color-scheme: dark)").addEventListener?.("change", () => fill = color());
+    new MutationObserver(() => fill = color()).observe(document.documentElement, { attributes: true, attributeFilter: ["data-theme"] });
+    new IntersectionObserver(([e]) => visible = e.isIntersecting).observe(c);
+    if (reduce) draw(); else tick();
+  })();
+
+  /* ---------- Santa chat ---------- */
+  const fab = document.getElementById("santa-fab"), chat = document.getElementById("chat"), log = document.getElementById("chat-log");
+  const form = document.getElementById("chat-form"), input = document.getElementById("chat-input"), sendBtn = document.getElementById("chat-send");
+  const av = document.getElementById("chat-av"), chipsEl = document.getElementById("chips"), note = document.getElementById("chat-note");
+  const hint = document.getElementById("santa-hint");
+  const history = []; // {role: "user"|"assistant", content}
+  let chatOpened = false, busy = false, offline = false;
+
+  try { const saved = JSON.parse(store.sget("jk-chat") || "null"); if (Array.isArray(saved) && saved.length) { history.push(...saved); chatOpened = true; } } catch {}
+  const persist = () => store.sset("jk-chat", JSON.stringify(history.slice(-30)));
+
+  function bubble(role, text) {
+    const d = document.createElement("div");
+    d.className = "msg " + (role === "user" ? "user" : "santa");
+    if (role !== "user") d.dataset.from = t("from");
+    d.textContent = text; log.append(d); log.scrollTop = log.scrollHeight; return d;
+  }
+  function renderLog() {
+    log.innerHTML = "";
+    bubble("assistant", t("greet"));
+    history.forEach(m => bubble(m.role, m.content));
+  }
+  function renderChips() {
+    chipsEl.innerHTML = "";
+    if (history.some(m => m.role === "user")) { chipsEl.hidden = true; return; }
+    chipsEl.hidden = false;
+    t("chips").forEach(c => { const b = document.createElement("button"); b.type = "button"; b.textContent = c; b.addEventListener("click", () => send(c)); chipsEl.append(b); });
+  }
+  function openChat() {
+    chat.hidden = false; fab.setAttribute("aria-expanded", "true"); hint.hidden = true; store.set("jk-hint", "1");
+    if (!log.children.length) renderLog();
+    renderChips(); setTimeout(() => input.focus({ preventScroll: true }), 60);
+  }
+  function closeChat() { chat.hidden = true; fab.setAttribute("aria-expanded", "false"); fab.focus(); }
+  fab.addEventListener("click", () => chat.hidden ? openChat() : closeChat());
+  document.querySelectorAll("[data-open-chat]").forEach(b => b.addEventListener("click", openChat));
+  document.getElementById("chat-close").addEventListener("click", closeChat);
+  document.getElementById("chat-reset").addEventListener("click", () => { history.length = 0; store.sdel("jk-chat"); renderLog(); renderChips(); input.focus(); });
+  document.addEventListener("keydown", e => { if (e.key === "Escape" && !chat.hidden) closeChat(); });
+  document.getElementById("santa-hint-close").addEventListener("click", () => { hint.hidden = true; store.set("jk-hint", "1"); });
+  if (!store.get("jk-hint")) setTimeout(() => { if (chat.hidden) hint.hidden = false; }, 3500);
+
+  input.addEventListener("input", () => { input.style.height = "auto"; input.style.height = Math.min(input.scrollHeight, 120) + "px"; });
+  input.addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); form.requestSubmit(); } });
+  form.addEventListener("submit", e => { e.preventDefault(); send(input.value); });
+
+  async function send(raw) {
+    const text = (raw || "").trim().slice(0, 600);
+    if (!text || busy) return;
+    busy = true; sendBtn.disabled = true; input.value = ""; input.style.height = "auto";
+    chatOpened = true; chipsEl.hidden = true;
+    history.push({ role: "user", content: text }); bubble("user", text); persist();
+    const typing = document.createElement("div"); typing.className = "msg santa typing"; typing.dataset.from = t("from"); typing.innerHTML = "<i></i><i></i><i></i>"; log.append(typing); log.scrollTop = log.scrollHeight;
+    av.classList.add("talking");
+    let reply = "";
+    try {
+      if (offline) throw new Error("offline");
+      const res = await fetch("api/santa", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ lang, messages: history.slice(-16) }) });
+      if (!res.ok || !res.body || !(res.headers.get("content-type") || "").includes("text/plain")) {
+        if (res.status === 429) { const msg = await res.text(); throw Object.assign(new Error("limit"), { santa: msg }); }
+        throw new Error("no-api");
+      }
+      const reader = res.body.getReader(), dec = new TextDecoder();
+      let el = null;
+      for (;;) {
+        const { value, done } = await reader.read(); if (done) break;
+        reply += dec.decode(value, { stream: true });
+        if (!el && reply.trim()) { typing.remove(); el = bubble("assistant", ""); }
+        if (el) { el.textContent = reply.trimStart(); log.scrollTop = log.scrollHeight; }
+      }
+      if (!reply.trim()) throw new Error("empty");
+    } catch (err) {
+      if (err.santa) { reply = err.santa; }
+      else if (err.message === "offline" || err.message === "no-api") {
+        offline = true; note.textContent = t("offline"); note.hidden = false;
+        await new Promise(r => setTimeout(r, 700 + Math.random() * 700));
+        reply = SantaOffline.reply(text, lang);
+      } else { reply = t("error"); }
+      typing.remove(); await typeOut(bubble("assistant", ""), reply);
+    } finally {
+      typing.remove(); av.classList.remove("talking");
+      history.push({ role: "assistant", content: reply.trim() }); persist();
+      busy = false; sendBtn.disabled = false;
+    }
+  }
+  async function typeOut(el, text) {
+    const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+    if (reduce) { el.textContent = text; return; }
+    const words = text.split(/(\s+)/);
+    for (let i = 0; i < words.length; i++) { el.textContent += words[i]; if (i % 2 === 0) { log.scrollTop = log.scrollHeight; await new Promise(r => setTimeout(r, 28)); } }
+  }
+
+  /* ---------- offline Santa (preview / fallback when the server is unreachable) ---------- */
+  const SantaOffline = (() => {
+    const words = {
+      da: "hej jeg du er og ikke til hvad hvor hvordan mig godt glædelig jul julemand julemanden ønsker ønske tak har vil kan det min mit nisse nisserne rensdyr rensdyrene meget også bor gammel gaver",
+      no: "hei jeg du er og ikke til hva hvor hvordan meg god jul julenissen nissen ønsker takk har vil kan det min mitt reinsdyr reinsdyrene veldig også bor gammel gaver",
+      sv: "hej jag du är och inte till vad var hur mig god jul tomten jultomten önskar önskan tack har vill kan det min mitt renar renarna mycket också bor gammal julklappar",
+      de: "hallo ich du bist und nicht zu was wo wie mich mir frohe weihnachten weihnachtsmann wünsche wunsch danke habe will kann das mein meine ist ein eine rentiere wichtel sehr auch wohnst alt geschenk",
+      en: "hi hello i you are and not to what where how me merry christmas santa wish wishes thanks thank have want can the my is a reindeer elves very also live old present presents",
+      nl: "hallo ik jij je ben en niet wat waar hoe mij vrolijk kerstmis kerstman wens dank bedankt heb wil kan het mijn is een rendieren heel ook woon oud cadeau",
+      fr: "bonjour salut je tu es et pas quoi où comment moi joyeux noël père souhaite merci ai veux peux le la mon ma est un une rennes lutins très aussi habites cadeau",
+      es: "hola yo tú eres y no qué dónde cómo me feliz navidad papá noel deseo gracias tengo quiero puedo el la mi es un una renos duendes muy también vives regalo",
+      it: "ciao io tu sei e non cosa dove come mi buon natale babbo desidero grazie ho voglio posso il la mio è un una renne elfi molto anche vivi regalo",
+      pl: "cześć ja ty jesteś i nie co gdzie jak mnie wesołych świąt mikołaj mikołaju chcę dziękuję mam mogę to mój moja jest renifery elfy bardzo też mieszkasz prezent"
+    };
+    const lex = Object.fromEntries(Object.entries(words).map(([k, v]) => [k, new Set(v.split(" "))]));
+    function detect(text, fallback) {
+      const s = text.toLowerCase();
+      const tokens = s.normalize("NFC").split(/[^\p{L}]+/u).filter(Boolean);
+      const score = {}; for (const k in lex) score[k] = 0;
+      for (const w of tokens) for (const k in lex) if (lex[k].has(w)) score[k] += 1;
+      if (/[æø]/.test(s)) { score.da += 1.5; score.no += 1.5; }
+      if (/[ß]|ü/.test(s)) score.de += 2;
+      if (/ä|ö/.test(s)) { score.de += .8; score.sv += .8; }
+      if (/[ąęłńśźż]/.test(s)) score.pl += 3;
+      if (/[ñ¿¡]/.test(s)) score.es += 3;
+      if (/[çèêàù]/.test(s)) score.fr += 2;
+      let best = null, top = 0;
+      for (const k in score) if (score[k] > top) { top = score[k]; best = k; }
+      return best || fallback;
+    }
+    const R = {
+      da: {
+        greeting: ["Ho ho ho, hej med dig! Hvor er det dejligt, at du skriver. Hvad har du på hjertet?", "Goddag, goddag! Jeg sidder her med en kop varm kakao. Fortæl mig lidt om din jul."],
+        wish: ["Et ønske! Jeg skriver det ned på min lange liste med min fineste pen. Nisserne gør altid deres bedste – og husk at fortælle dine forældre det også, så vi kan hjælpe hinanden.", "Hvor spændende! Jeg kan ikke love noget, men jeg lover, at nisserne får det at vide. Hvad glæder du dig ellers mest til i julen?"],
+        reindeer: ["Rensdyrene har det strålende! Rudolf øver sig i at flyve i mørke, og Komet har spist alt for mange gulerødder. De glæder sig til den store tur juleaften."],
+        good: ["Det tror jeg bestemt du har været! Alle laver små fejl, men det vigtigste er at være sød ved andre. Det ser jeg mange gode tegn på."],
+        where: ["Jeg bor langt mod nord, hvor sneen ligger hele året. Men i julen har jeg også et skrivebord her på Julekontoret, hvor jeg læser alle breve."],
+        elves: ["Nisserne har travlt! Nogle maler glaskugler, andre fletter hjerter, og en enkelt sover vist i risengrøden. Husk at sætte en skål grød ud til jeres nisse juleaften."],
+        age: ["Hvor gammel jeg er? Ho ho, så gammel, at jeg har glemt det. Men mit skæg bliver længere for hver jul!"],
+        shop: ["Det må du spørge de søde folk i butikken om – jeg holder mig til breve og gaver. Kig under »Besøg os« her på siden, så finder du det, du har brug for."],
+        thanks: ["Selv tak! Det var hyggeligt at høre fra dig. Skriv endelig igen, hvis du kommer i tanke om noget."],
+        ai: ["Det er et godt spørgsmål! Det her er Julekontorets lille brevkasse, hvor et computerprogram hjælper mig med at svare. Men nisserne og jeg læser med."],
+        fallback: ["Ho ho ho, det lyder spændende! Fortæl mig lidt mere. Jeg har god tid, mens kakaoen er varm.", "Det må jeg lige skrive ned i min store bog. Hvad glæder du dig mest til her i julen?"]
+      },
+      no: {
+        greeting: ["Ho ho ho, hei på deg! Så hyggelig at du skriver. Hva har du på hjertet?"],
+        wish: ["Et ønske! Jeg skriver det på den lange lista mi. Nissene gjør alltid sitt beste – og husk å fortelle det til foreldrene dine også."],
+        reindeer: ["Reinsdyrene har det fint! Rudolf øver seg på å fly i mørket, og alle gleder seg til den store turen på julaften."],
+        good: ["Det tror jeg sikkert du har vært! Det viktigste er å være snill mot andre."],
+        where: ["Jeg bor langt mot nord, der snøen ligger hele året. Men i jula har jeg også en skrivepult her på Julekontoret."],
+        elves: ["Nissene har det travelt! De maler julekuler og fletter hjerter. Husk å sette ut grøt til nissen på julaften!"],
+        thanks: ["Bare hyggelig! Skriv gjerne igjen."],
+        fallback: ["Ho ho ho, det høres spennende ut! Fortell meg litt mer."]
+      },
+      sv: {
+        greeting: ["Ho ho ho, hej på dig! Vad roligt att du skriver. Vad har du på hjärtat?"],
+        wish: ["En önskan! Jag skriver upp den på min långa lista. Tomtenissarna gör alltid sitt bästa – och berätta gärna för dina föräldrar också."],
+        reindeer: ["Renarna mår toppen! Rudolf övar på att flyga i mörkret, och alla längtar till den stora resan på julafton."],
+        good: ["Det tror jag säkert att du har varit! Det viktigaste är att vara snäll mot andra."],
+        where: ["Jag bor långt upp i norr där snön ligger hela året. Men till jul har jag också ett skrivbord här på Julekontoret."],
+        elves: ["Nissarna har fullt upp! De målar julgranskulor och flätar hjärtan. Glöm inte att ställa ut gröt till tomten på julafton!"],
+        thanks: ["Varsågod! Skriv gärna igen."],
+        fallback: ["Ho ho ho, det låter spännande! Berätta lite mer."]
+      },
+      de: {
+        greeting: ["Ho ho ho, hallo du! Wie schön, dass du mir schreibst. Was liegt dir auf dem Herzen?", "Guten Tag, guten Tag! Ich sitze hier mit einer Tasse heißem Kakao. Erzähl mir ein bisschen von deinem Weihnachten."],
+        wish: ["Ein Wunsch! Den schreibe ich mit meiner schönsten Feder auf meine lange Liste. Die Wichtel geben immer ihr Bestes – und erzähl es auch deinen Eltern, dann helfen wir alle zusammen.", "Wie spannend! Versprechen kann ich nichts, aber die Wichtel erfahren davon. Worauf freust du dich sonst am meisten?"],
+        reindeer: ["Den Rentieren geht es prächtig! Rudolph übt das Fliegen im Dunkeln, und Komet hat viel zu viele Möhren gegessen. Alle freuen sich auf die große Reise an Heiligabend."],
+        good: ["Bestimmt warst du das! Jeder macht mal kleine Fehler, aber am wichtigsten ist, lieb zu anderen zu sein. Da sehe ich viele gute Zeichen."],
+        where: ["Ich wohne weit oben im Norden, wo das ganze Jahr Schnee liegt. Aber zur Weihnachtszeit habe ich auch einen Schreibtisch hier im Julekontor, wo ich alle Briefe lese."],
+        elves: ["Die Wichtel haben viel zu tun! Einige bemalen Glaskugeln, andere flechten Herzen, und einer schläft, glaube ich, im Milchreis. In Dänemark stellt man dem Wichtel an Heiligabend eine Schale Milchreis hin."],
+        age: ["Wie alt ich bin? Ho ho, so alt, dass ich es vergessen habe. Aber mein Bart wird jedes Jahr ein Stückchen länger!"],
+        shop: ["Das fragst du am besten die netten Leute im Laden – ich kümmere mich um Briefe und Geschenke. Schau unter »Besuch« hier auf der Seite nach."],
+        thanks: ["Gern geschehen! Es war schön, von dir zu hören. Schreib mir gern wieder."],
+        ai: ["Gute Frage! Das hier ist der kleine Briefkasten des Julekontors, bei dem mir ein Computerprogramm beim Antworten hilft. Aber die Wichtel und ich lesen mit."],
+        fallback: ["Ho ho ho, das klingt spannend! Erzähl mir mehr davon. Ich habe Zeit, solange der Kakao warm ist.", "Das muss ich gleich in mein großes Buch schreiben. Worauf freust du dich an Weihnachten am meisten?"]
+      },
+      en: {
+        greeting: ["Ho ho ho, hello there! How lovely of you to write. What's on your mind?", "Good day, good day! I'm sitting here with a cup of hot cocoa. Tell me a little about your Christmas."],
+        wish: ["A wish! I'll write it on my long list with my very best pen. The elves always do their best – and do tell your parents too, so we can all help each other.", "How exciting! I can't promise anything, but the elves will hear about it. What else are you looking forward to this Christmas?"],
+        reindeer: ["The reindeer are splendid! Rudolph is practising flying in the dark, and Comet has eaten far too many carrots. They can't wait for the big trip on Christmas Eve."],
+        good: ["I'm sure you have! Everyone makes little mistakes, but being kind to others is what matters most. I see lots of good signs."],
+        where: ["I live far up north, where the snow stays all year. But at Christmas I also have a desk here at the Julekontor, where I read every letter."],
+        elves: ["The elves are busy! Some are painting glass baubles, others are weaving paper hearts, and one, I think, has fallen asleep in the rice pudding. In Denmark you leave a bowl of it out for the nisse on Christmas Eve."],
+        age: ["How old am I? Ho ho, so old I've forgotten. But my beard grows a little longer every Christmas!"],
+        shop: ["Best ask the kind people in the shop about that – I stick to letters and presents. Have a look under “Visit” on this page."],
+        thanks: ["You're very welcome! It was lovely to hear from you. Do write again."],
+        ai: ["Good question! This is the Julekontor's little letterbox, where a computer program helps me answer. But the elves and I read along."],
+        fallback: ["Ho ho ho, that sounds exciting! Tell me more. I've got time while the cocoa is warm.", "I must write that down in my big book. What are you looking forward to most this Christmas?"]
+      },
+      nl: { greeting: ["Ho ho ho, hallo! Wat fijn dat je me schrijft. Wat wil je me vertellen?"], wish: ["Een wens! Ik schrijf hem op mijn lange lijst. De elfjes doen altijd hun best – vertel het ook aan je ouders."], thanks: ["Graag gedaan! Schrijf me gerust nog eens."], fallback: ["Ho ho ho, dat klinkt spannend! Vertel me er meer over."] },
+      fr: { greeting: ["Ho ho ho, bonjour ! Quel plaisir de recevoir ta lettre. Qu'as-tu à me raconter ?"], wish: ["Un souhait ! Je l'écris sur ma longue liste. Les lutins font toujours de leur mieux – parles-en aussi à tes parents."], thanks: ["Avec plaisir ! Écris-moi encore quand tu veux."], fallback: ["Ho ho ho, comme c'est intéressant ! Raconte-m'en un peu plus."] },
+      es: { greeting: ["¡Jo jo jo, hola! Qué alegría recibir tu carta. ¿Qué me quieres contar?"], wish: ["¡Un deseo! Lo apunto en mi larga lista. Los duendes siempre hacen lo que pueden; cuéntaselo también a tus padres."], thanks: ["¡De nada! Escríbeme cuando quieras."], fallback: ["¡Jo jo jo, qué interesante! Cuéntame un poco más."] },
+      it: { greeting: ["Oh oh oh, ciao! Che bello ricevere la tua lettera. Cosa mi vuoi raccontare?"], wish: ["Un desiderio! Lo scrivo sulla mia lunga lista. Gli elfi fanno sempre del loro meglio: dillo anche ai tuoi genitori."], thanks: ["Prego! Scrivimi quando vuoi."], fallback: ["Oh oh oh, che bello! Raccontami qualcosa di più."] },
+      pl: { greeting: ["Ho ho ho, cześć! Jak miło, że do mnie piszesz. Co chcesz mi opowiedzieć?"], wish: ["Życzenie! Zapisuję je na mojej długiej liście. Elfy zawsze robią, co mogą – powiedz o nim też rodzicom."], thanks: ["Proszę bardzo! Napisz do mnie znowu."], fallback: ["Ho ho ho, to brzmi ciekawie! Opowiedz mi coś więcej."] }
+    };
+    const intents = [
+      ["ai", /\b(robot|computer|ki|ai|chatbot|bot|künstliche|kunstig)\b/],
+      ["thanks", /\b(tak|tusind tak|danke|thanks?|thank you|takk|tack|dank|bedankt|merci|gracias|dziękuję|dzięki|grazie)\b/],
+      ["reindeer", /(rensdyr|rentier|reindeer|reinsdyr|renar|rendier|renne|renos|renifer|rudolf|rudolph)/],
+      ["elves", /(nisse|elf|elves|elfen|wichtel|tomte|kabouter|lutin|duende|elfy)/],
+      ["age", /(hvor gammel|wie alt|how old|hur gammal|hvor gammel)/],
+      ["where", /(nordpol|north pole|bor du|wohnst|where do you live|var bor|hvor bor|waar woon|où habites|dónde vives|gdzie mieszkasz|dove vivi)/],
+      ["good", /(artig|brav|sød|been good|naughty|nice list|snäll|snill|lief|sage|buen[oa]|grzeczn|buon[oa]|unartig|frech)/],
+      ["shop", /(åben|åbning|open|öffnung|geöffnet|adresse|address|pris|preis|price|kaufen|købe|buy|butik|laden|shop)/],
+      ["wish", /(ønske|ønsker|wunsch|wünsch|wish|i want|önsk|wens|souhait|deseo|quiero|chcę|vorrei|gave|geschenk|present|gift|cadeau|regalo|prezent|julklapp)/],
+      ["greeting", /^(hej|hi|hello|hallo|hei|moin|servus|bonjour|salut|hola|ciao|cześć|dav|goddag|guten tag|hey|god dag)\b/]
+    ];
+    const seen = {};
+    function reply(text, pageLang) {
+      const l = detect(text, pageLang);
+      const s = text.toLowerCase();
+      const bank = R[l] || R.en;
+      let intent = "fallback";
+      for (const [name, re] of intents) if (re.test(s)) { intent = name; break; }
+      const list = bank[intent] || bank.fallback;
+      const key = l + intent; seen[key] = (seen[key] || 0) + 1;
+      return list[(seen[key] - 1) % list.length];
+    }
+    return { reply, detect };
+  })();
+
+  applyLang();
+  if (chatOpened) { renderLog(); }
+})();
+</script>
+
+</body>
+</html>
