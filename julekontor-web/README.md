@@ -5,9 +5,8 @@ One-Page für **Julekontor – Danmarks gammeldags julebutik** rund um das Julek
 - Sprachen der Seite: Dänisch, Deutsch, Englisch (Umschalter oben, sonst nach Browsersprache).
 - Stimmung: ein Winterabend in einer alten dänischen Stadt. Alles ist selbst gezeichnet und animiert:
   - Startbild: Nachthimmel mit Mond und Sternen, drei Ebenen Häuser mit Treppengiebeln und warmem Licht in den Fenstern, Straßenlaternen, Schneefall mit unscharfen Flocken im Vordergrund, der Julekontor-Lieferwagen fährt durch. Bewegt sich leicht mit der Maus (Parallaxe).
-  - Adventskranz: zündet an jedem Adventssonntag eine Kerze mehr an.
   - Logo als Briefmarke (Julemærke) im Startbild; fallende Schneeflocken bleiben oben auf der Marke liegen.
-  - Beschlagenes Schaufenster: Man wischt die Scheibe frei, dahinter steht im goldgerahmten Oval, wie viele Tage es noch bis Heiligabend sind – mit Juletræ und echten Kerzen. Die Scheibe friert langsam wieder zu.
+  - Beschlagenes Schaufenster direkt unter den Häusern, ohne Erklärtext: Wer die Scheibe freiwischt, findet dahinter im goldgerahmten Oval, wie viele Tage es noch bis Heiligabend sind – mit Juletræ und echten Kerzen. Die Scheibe friert langsam wieder zu.
   - Kalenderkerze 1–24, die beim Scrollen durch „Weihnachten bei uns“ herunterbrennt.
   - Vitrine mit sechs hängenden Ornamenten (Glaskugel, geflochtenes Herz, Nisse, Holzstern, Kalenderkerze, Geschenk in braunem Papier), die bei Mausbewegung schwingen.
   - Erleuchtetes Fenster mit dem Weihnachtsmann als Silhouette, der mit der Feder schreibt; daneben „Lieber Weihnachtsmann“ in wechselnden Sprachen in Handschrift.

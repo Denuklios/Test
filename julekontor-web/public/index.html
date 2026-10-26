@@ -120,7 +120,7 @@ a { color: inherit; }
 .win.flick { animation: flick 7s steps(1) infinite; }
 @keyframes flick { 0%, 62%, 100% { opacity: 1; } 64% { opacity: .55; } 66% { opacity: 1; } 80% { opacity: .8; } }
 #snow { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
-.hero::after { content: ""; position: absolute; inset: auto 0 0; height: 140px; z-index: 2; background: linear-gradient(180deg, transparent, var(--night)); pointer-events: none; }
+.hero::after { content: ""; position: absolute; inset: auto 0 0; height: 70px; z-index: 2; background: linear-gradient(180deg, transparent, var(--night)); pointer-events: none; }
 .hero-inner { position: relative; z-index: 4; width: 100%; padding-block: 130px 230px; }
 .hero-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: clamp(30px, 5vw, 80px); align-items: center; }
 /* the logo as a Christmas seal (julemærke), snow settling on its top edge */
@@ -129,14 +129,14 @@ a { color: inherit; }
 #stamp-snow { position: absolute; left: -6px; bottom: 100%; width: calc(100% + 12px); height: 44px; margin-bottom: -12px; z-index: 2; pointer-events: none; }
 .stamp-shadow { filter: drop-shadow(0 26px 30px rgba(0,0,0,.55)) drop-shadow(0 2px 3px rgba(0,0,0,.35)); }
 .stamp {
-  --r: 6px; padding: calc(var(--r) * 2.6); background: #f6efe1; display: grid; gap: 10px;
+  --r: 6px; padding: calc(var(--r) * 2.6); background: #f6efe1; display: grid; grid-template-columns: minmax(0, 1fr); gap: 10px;
   -webkit-mask: radial-gradient(var(--r), #0000 97%, #000) round calc(var(--r) * -1.5) calc(var(--r) * -1.5) / calc(var(--r) * 3) calc(var(--r) * 3), linear-gradient(#000 0 0) no-repeat 50% / calc(100% - var(--r) * 3) calc(100% - var(--r) * 3);
           mask: radial-gradient(var(--r), #0000 97%, #000) round calc(var(--r) * -1.5) calc(var(--r) * -1.5) / calc(var(--r) * 3) calc(var(--r) * 3), linear-gradient(#000 0 0) no-repeat 50% / calc(100% - var(--r) * 3) calc(100% - var(--r) * 3);
 }
 .stamp img { display: block; width: 100%; height: auto; aspect-ratio: 3 / 2; max-width: 100%; outline: 1px solid rgba(125,26,32,.35); outline-offset: 3px; }
-.stamp-foot { display: flex; justify-content: space-between; align-items: baseline; font-family: var(--f-display); color: var(--wine); padding: 2px 2px 0; }
-.stamp-foot span:first-child { font-size: .72rem; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; white-space: nowrap; }
-@media (max-width: 860px) { .stamp-foot span:first-child { font-size: .6rem; letter-spacing: .14em; } }
+.stamp-foot { min-width: 0; display: flex; gap: 8px; justify-content: space-between; align-items: baseline; font-family: var(--f-display); color: var(--wine); padding: 2px 2px 0; }
+.stamp-foot span:first-child { font-size: .72rem; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
+@media (max-width: 860px) { .stamp-foot span:first-child { font-size: .58rem; letter-spacing: .12em; } .stamp-foot span:last-child { font-size: .95rem; } }
 .stamp-foot span:last-child { font-size: 1.15rem; font-style: italic; font-weight: 600; }
 .hero h1 { font-size: var(--step-4); font-weight: 500; line-height: .92; letter-spacing: -.025em; color: var(--cream); max-width: 15ch; text-shadow: 0 2px 40px rgba(6,11,19,.7); }
 .hero h1 em { font-style: italic; font-weight: 400; color: var(--glow); display: block; }
@@ -172,8 +172,9 @@ a { color: inherit; }
 @media (prefers-reduced-motion: reduce) { .truck { animation: none; transform: translateX(1080px); } .wheel, .win.flick { animation: none; } }
 
 /* ---------- the shop window (wipe the frost) ---------- */
-.window-sec { position: relative; padding-block: clamp(70px, 9vw, 130px) clamp(80px, 10vw, 150px); background: radial-gradient(80% 60% at 70% 50%, rgba(231,162,74,.10), transparent 70%), var(--night); }
-.window-grid { display: grid; grid-template-columns: minmax(0, .8fr) minmax(0, 1.2fr); gap: clamp(36px, 6vw, 90px); align-items: center; }
+.window-sec { position: relative; padding-block: 0 clamp(80px, 10vw, 140px); margin-top: -40px; z-index: 5; background: radial-gradient(80% 60% at 70% 50%, rgba(231,162,74,.10), transparent 70%), var(--night); }
+.window-grid { display: grid; justify-items: center; }
+.window-grid .shopwin { width: min(860px, 100%); }
 .window-copy { display: grid; gap: 1.2rem; max-width: 26rem; }
 .window-copy h2 { font-size: var(--step-3); color: var(--cream); }
 .window-copy h2 em { font-style: italic; color: var(--glow); font-weight: 400; }
@@ -490,30 +491,11 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
       </div>
     </div>
 
-    <div class="advent reveal d5" aria-live="polite">
-      <div class="wrap">
-        <svg viewBox="0 0 138 66" aria-hidden="true" id="wreath">
-          <ellipse cx="69" cy="52" rx="64" ry="12" fill="#163222"/>
-          <ellipse cx="69" cy="50" rx="58" ry="9" fill="#21462f"/>
-          <g fill="#b3262c"><circle cx="20" cy="52" r="2.4"/><circle cx="48" cy="58" r="2.4"/><circle cx="92" cy="58" r="2.4"/><circle cx="118" cy="52" r="2.4"/><circle cx="69" cy="61" r="2.2"/></g>
-          <g id="advent-candles"></g>
-        </svg>
-        <div class="txt"><span id="advent-label"></span></div>
-      </div>
-    </div>
   </section>
 
   <!-- ===== The shop window ===== -->
-  <section class="window-sec" id="vinduet" aria-labelledby="win-title">
+  <section class="window-sec" id="vinduet" aria-label="Julekontor">
     <div class="wrap window-grid">
-      <div class="window-copy">
-        <span class="eyebrow" data-i18n="winEyebrow">Butiksvinduet</span>
-        <h2 id="win-title" data-i18n-html="winTitle">Tør duggen <em>af ruden.</em></h2>
-        <p class="hint">
-          <svg viewBox="0 0 40 40" fill="none" stroke="currentColor" stroke-width="1.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 21V9a2.5 2.5 0 0 1 5 0v9"/><path d="M20 17v-2a2.5 2.5 0 0 1 5 0v3"/><path d="M25 17a2.5 2.5 0 0 1 5 0v6c0 7-4 12-10 12h-1c-4 0-6-2-8-5l-4-7a2.4 2.4 0 0 1 4-2.6L15 23"/><path d="M4 8c3-2 6-2 8 0" opacity=".6"/></svg>
-          <span data-i18n="winHint">tør den af …</span>
-        </p>
-      </div>
       <div class="shopwin">
         <div class="glass">
           <svg class="room" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
@@ -1178,7 +1160,7 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
     const sundays = adventSundays(y);
     const daysTo = Math.round((eve - today) / 864e5);
     const lit = sundays.filter(s => s <= today).length;
-    const adv = $("advent-label"), cdPre = $("cd-pre"), cdNum = $("cd-num"), cdPost = $("cd-post"), cdSub = $("cd-sub");
+    const adv = { set textContent(v) {} }, cdPre = $("cd-pre"), cdNum = $("cd-num"), cdPost = $("cd-post"), cdSub = $("cd-sub");
     let eveName = ""; try { eveName = eve.toLocaleDateString(t("locale"), { weekday: "long", day: "numeric", month: "long" }); } catch {}
     cdSub.textContent = eveName;
     $("stamp-year").textContent = y;
@@ -1192,20 +1174,6 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
       else if (next > -1) adv.textContent = t("advLit")(lit) + " · " + t("advIn")(next + 1, Math.round((sundays[next] - today) / 864e5));
       else adv.textContent = t("advLit")(lit);
     }
-    const g = $("advent-candles"); g.innerHTML = "";
-    const xs = [30, 56, 82, 108], heights = [30, 34, 34, 30];
-    xs.forEach((x, i) => {
-      const on = daysTo < 0 ? true : i < lit || daysTo === 0;
-      const top = 50 - heights[i];
-      el("rect", { x: x - 5, y: top, width: 10, height: heights[i], rx: 1.5, fill: "#f3ead8" }, g);
-      el("rect", { x: x - 5, y: top, width: 3, height: heights[i], fill: "#fff", opacity: .5 }, g);
-      el("line", { x1: x, y1: top, x2: x, y2: top - 3, stroke: "#2b1a14", "stroke-width": 1 }, g);
-      if (on) {
-        el("circle", { cx: x, cy: top - 8, r: 16, fill: "url(#candleGlow)", class: "halo" }, g);
-        const f = el("path", { d: `M${x} ${top - 14} C ${x + 4} ${top - 8} ${x + 4} ${top - 5} ${x} ${top - 2} C ${x - 4} ${top - 5} ${x - 4} ${top - 8} ${x} ${top - 14} Z`, fill: "#f6b54a", class: "flame" }, g);
-        f.style.animationDelay = (-i * .7) + "s";
-      }
-    });
   }
 
   /* ================= frosted shop window ================= */
