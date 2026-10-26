@@ -1,0 +1,17 @@
+{
+  "_hinweis": "Hier die echten Daten eintragen. Leere Felder werden auf der Seite ausgeblendet. Der Weihnachtsmann im Chat kennt nur, was hier steht.",
+  "email": "",
+  "phone": "",
+  "address": "",
+  "mapsUrl": "",
+  "season": {
+    "da": "",
+    "de": "",
+    "en": ""
+  },
+  "hours": [
+    { "da": "", "de": "", "en": "", "time": "" }
+  ],
+  "facebook": "",
+  "instagram": ""
+}

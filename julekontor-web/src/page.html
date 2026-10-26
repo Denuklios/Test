@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#a8101a">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,500;1,600;1,700&family=Nunito:wght@400;600;700;800&family=Pinyon+Script&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,600;0,700;0,800;1,500;1,600;1,700&family=Nunito:wght@400;600;700;800&family=Pinyon+Script&family=Playball&display=swap">
 <style>
 /* Layout: the Julekontor logo comes to life. The page is the logo's paper, red lettering, gold flourishes and
    holly corners; the van from the logo drives in and parks. Below it, the things a child would want:
@@ -307,112 +307,125 @@ footer small { opacity: .75; font-size: .82rem; }
 .seal-fab { width: 74px; height: 74px; }
 .chat-head .who b { font-style: normal; }
 
-/* ================= v10: Christmas night (images made with Canva) =================
-   The page sits in a dark pine-green winter night; cream boards with the logo's holly corners float on it.
-   Hero: the street in front of the shop, the van from the logo drives in and parks. */
-:root { --night-1: #0c1d19; --night-2: #12302a; --night-3: #0a1714; --cream-t: #f6ead2; --cream-soft: #cdbf9f; --gold-l: #f0cf8a; }
-body { background: var(--night-1); color: var(--ink);
-  background-image: radial-gradient(1200px 600px at 50% 0, #163a32 0, transparent 70%), radial-gradient(circle at 15% 40%, rgba(240,207,138,.05), transparent 30%), radial-gradient(circle at 85% 70%, rgba(240,207,138,.05), transparent 30%); }
-.announce { background: var(--red-deep); }
-.site-head { background: rgba(10,23,20,.82); border-bottom: 1px solid rgba(240,207,138,.18); }
-.nav a { color: var(--cream-t); } .nav a:hover { color: var(--gold-l); border-color: var(--gold-l); }
-.iconbtn, .lang { background: rgba(255,255,255,.05); border-color: rgba(240,207,138,.3); color: var(--cream-t); }
-.iconbtn:hover, .iconbtn[aria-pressed="true"] { border-color: var(--gold-l); color: var(--gold-l); }
-.lang button { color: var(--cream-soft); }
-.brand img { box-shadow: 0 0 0 1px rgba(240,207,138,.35), 0 4px 12px -4px #000; }
+/* ================= v11: the red Christmas world =================
+   Classic holiday-advertising mood: deep Christmas red, white script, painted vintage pictures,
+   glowing trucks in the snow, a jolly Santa and a polar bear cub who peeks over the snow. */
+:root { --xred: #c8102e; --xred-d: #8f0b1f; --xred-l: #e2384f; --snow: #fbf4ea; --navy: #0e1b33; --gold-l: #f3d28b;
+  --f-hand: "Playball", "Pinyon Script", cursive; }
+body { background: var(--snow); color: var(--ink);
+  background-image: radial-gradient(circle at 10% 20%, rgba(200,16,46,.05), transparent 30%), radial-gradient(circle at 90% 60%, rgba(200,16,46,.05), transparent 30%); }
+.announce { background: var(--xred-d); }
+.site-head { background: rgba(200,16,46,.96); border-bottom: 0; box-shadow: 0 6px 20px -10px rgba(80,0,10,.6); }
+.nav a { color: #fff; } .nav a:hover { color: #fff; border-color: #fff; }
+.iconbtn, .lang { background: rgba(255,255,255,.12); border-color: rgba(255,255,255,.45); color: #fff; }
+.iconbtn:hover, .iconbtn[aria-pressed="true"] { border-color: #fff; color: #fff; background: rgba(255,255,255,.22); }
+.lang button { color: rgba(255,255,255,.85); } .lang button[aria-pressed="true"] { background: #fff; color: var(--xred); }
+.brand img { box-shadow: 0 0 0 2px #fff, 0 4px 12px -4px rgba(0,0,0,.5); }
+.btn-white { background: #fff; color: var(--xred); box-shadow: 0 6px 0 #e4d6c4, 0 14px 24px -10px rgba(0,0,0,.45); }
+.btn-red { background: var(--xred); box-shadow: 0 6px 0 var(--xred-d), 0 14px 24px -10px rgba(143,11,31,.6); }
 
-/* hero */
-.hero { --h: clamp(620px, 100svh, 1000px); position: relative; height: calc(var(--h) - 102px); min-height: 560px; overflow: hidden; padding: 0; background: #0b1917; }
+/* hero: the trucks in the snow */
+.hero { --h: clamp(640px, 100svh, 1000px); position: relative; height: calc(var(--h) - 102px); min-height: 580px; overflow: hidden; padding: 0; background: #0b1630; }
 .stage { position: absolute; left: 50%; bottom: 0; width: max(100%, calc((var(--h) - 102px) * 16 / 9)); aspect-ratio: 16 / 9; transform: translateX(-50%); container-type: inline-size; cursor: pointer; }
-.stage > img.bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; }
-.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 3; }
-.stage::after { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(180deg, rgba(8,18,16,.75) 0, rgba(8,18,16,.25) 22%, transparent 40%), radial-gradient(ellipse at 50% 120%, transparent 60%, rgba(0,0,0,.35)); }
-.stage > img.shopsign { position: absolute; left: 61.6%; top: 46.4%; width: 8.6%; height: 4.4%; object-fit: contain; z-index: 1; pointer-events: none; filter: drop-shadow(0 0 1px rgba(255,236,200,.95)) drop-shadow(0 0 .4cqw rgba(255,205,120,.55)); }
-.door .back img { width: 58%; height: 70%; object-fit: contain; display: block; }
-.dlg .card .art img { width: 110px; height: 120px; object-fit: contain; display: block; }
-.tree .placed img { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 4px 3px rgba(0,0,0,.35)); pointer-events: none; }
-.tray .items img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
-.dragging img { width: 100%; height: 100%; object-fit: contain; display: block; }
-.tree .placed { width: 9%; aspect-ratio: 3 / 4; margin: -6% 0 0 -4.5%; }
-.stage > img.fg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; z-index: 3; pointer-events: none; user-select: none; }
-.stage canvas { z-index: 4; }
-.van .wheel { position: absolute; aspect-ratio: 1; pointer-events: none; }
-.van .wheel.front { left: 45.889%; top: 72.156%; width: 20%; transform: scaleX(.633); }
-.van .wheel.rear { left: 3%; top: 68.862%; width: 15.111%; transform: scaleX(.515); }
-.van .wheel img { display: block; width: 100%; height: 100%; filter: none; }
-.win { position: absolute; z-index: 1; border-radius: 3px; pointer-events: none; background: radial-gradient(ellipse, rgba(255,214,140,.55), transparent 70%); mix-blend-mode: screen; animation: glow 4s ease-in-out infinite; }
-.win.w1 { left: 55.5%; top: 55%; width: 8%; height: 14%; } .win.w2 { left: 71.5%; top: 54%; width: 9%; height: 15%; animation-delay: -1.3s; } .win.w3 { left: 64.5%; top: 41%; width: 4%; height: 6%; animation-delay: -2.4s; }
-@keyframes glow { 0%, 100% { opacity: .45; } 50% { opacity: 1; } }
-.van { left: 25.5%; top: auto; bottom: 14%; width: 33%; z-index: 2; }
-.van::before { content: ""; position: absolute; left: 6%; right: 2%; bottom: -2%; height: 9%; border-radius: 50%; background: radial-gradient(ellipse, rgba(0,0,0,.55), transparent 70%); z-index: -1; }
-.van img { filter: drop-shadow(0 .4cqw .6cqw rgba(0,0,0,.35)); }
-.van .beam { left: 84%; top: 46%; width: 80%; height: 40%; background: radial-gradient(ellipse 100% 50% at 0 50%, rgba(255,236,180,.5), rgba(255,236,180,0) 75%); -webkit-mask: linear-gradient(90deg, transparent, #000 18%); mask: linear-gradient(90deg, transparent, #000 18%); }.puff { width: 2.2%; }
-.hero-copy { position: absolute; z-index: 4; left: max(24px, calc(50% - 640px)); top: clamp(14px, 3vh, 34px); width: clamp(280px, 26vw, 420px); display: grid; justify-items: center; gap: 6px; text-align: center; pointer-events: none; }
+.stage > img.bg { position: absolute; inset: 0; width: 100%; height: 100%; display: block; user-select: none; animation: push 40s ease-in-out infinite alternate; transform-origin: 30% 70%; }
+@keyframes push { from { transform: scale(1); } to { transform: scale(1.06); } }
+.stage canvas { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 4; }
+.stage::after { content: ""; position: absolute; inset: 0; z-index: 2; pointer-events: none; background: linear-gradient(180deg, rgba(6,14,32,.8) 0, rgba(6,14,32,.35) 24%, transparent 42%), radial-gradient(ellipse at 50% 120%, transparent 60%, rgba(0,0,0,.3)); }
+.glint { position: absolute; z-index: 3; width: 1.4cqw; aspect-ratio: 1; margin: -.7cqw 0 0 -.7cqw; pointer-events: none; border-radius: 50%; background: radial-gradient(circle, #fff 0 12%, rgba(255,222,150,.85) 30%, rgba(255,200,110,0) 70%); mix-blend-mode: screen; animation: twinkle 2.6s ease-in-out infinite; }
+.glint:nth-child(2n) { animation-delay: -.9s; } .glint:nth-child(3n) { animation-delay: -1.7s; }
+@keyframes twinkle { 0%, 100% { opacity: .15; transform: scale(.6); } 50% { opacity: 1; transform: scale(1.4); } }
+.stage.flash .glint { animation: flash .25s steps(2) 8; }
+@keyframes flash { 0% { opacity: 1; transform: scale(2.4); } 100% { opacity: .1; transform: scale(.6); } }
+.truck-hit { position: absolute; z-index: 3; background: none; border: 0; padding: 0; cursor: pointer; border-radius: 30px; }
+.truck-hit:focus-visible { outline: 3px solid #fff; }
+.hero-copy { position: absolute; z-index: 5; left: 50%; transform: translateX(-50%); top: clamp(10px, 2.5vh, 28px); width: min(92%, 640px); display: grid; justify-items: center; gap: 4px; text-align: center; pointer-events: none; }
 .hero-copy > * { pointer-events: auto; }
-.wordmark { margin: 0; width: 100%; }
-.wordmark img { display: block; width: 100%; height: auto; filter: drop-shadow(0 0 1px rgba(255,236,200,.9)) drop-shadow(0 0 1.5px rgba(255,236,200,.7)) drop-shadow(0 0 22px rgba(255,210,140,.28)); animation: rise 1.4s var(--ease) both; }
+.wordmark { margin: 0; width: clamp(200px, 19vw, 300px); }
+.wordmark img { display: block; width: 100%; height: auto; filter: drop-shadow(0 0 1px #fff) drop-shadow(0 0 2px #fff) drop-shadow(0 0 18px rgba(255,255,255,.35)); animation: rise 1.4s var(--ease) both; }
 @keyframes rise { from { opacity: 0; transform: translateY(14px) scale(.98); } to { opacity: 1; transform: none; } }
-.sleeps { margin: 0; } .sleeps .txt { color: var(--cream-t); font-size: clamp(1.05rem, .85rem + .6vw, 1.35rem); font-weight: 600; text-shadow: 0 2px 12px rgba(0,0,0,.6); }
+.hero-head { margin: 0; font-family: var(--f-hand); font-size: clamp(2.6rem, 1.6rem + 3.6vw, 5rem); line-height: 1; color: #fff; text-shadow: 0 3px 0 rgba(143,11,31,.55), 0 0 30px rgba(255,220,160,.45); animation: rise 1.6s .2s var(--ease) both; }
+.sleeps { margin: 2px 0 0; } .sleeps .moon { display: none; }
+.sleeps .txt { color: #fff; font-size: clamp(1.05rem, .85rem + .6vw, 1.35rem); font-weight: 600; text-shadow: 0 2px 12px rgba(0,0,0,.7); }
 .sleeps .txt b { color: var(--gold-l); }
-.hero-cta { margin-top: 4px; gap: 10px; } .hero-cta .btn { padding: .8em 1.3em; font-size: .95rem; }
-.btn-ghost { background: rgba(10,23,20,.55); color: var(--cream-t); box-shadow: inset 0 0 0 1.5px rgba(240,207,138,.6), 0 14px 24px -12px rgba(0,0,0,.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
-.btn-ghost:hover { color: var(--gold-l); }
-.hills { position: absolute; left: 0; right: 0; bottom: -1px; width: 100%; height: 46px; z-index: 4; pointer-events: none; }
+.hero-cta { margin-top: 6px; gap: 12px; } .hero-cta .btn { padding: .85em 1.4em; font-size: .98rem; }
+.btn-ghost { background: rgba(10,18,40,.45); color: #fff; box-shadow: inset 0 0 0 2px rgba(255,255,255,.8), 0 14px 24px -12px rgba(0,0,0,.6); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); }
+.drift { position: absolute; left: 0; right: 0; bottom: -1px; width: 100%; height: clamp(34px, 5vw, 70px); z-index: 6; pointer-events: none; }
+.bear { position: absolute; z-index: 5; right: 6%; bottom: clamp(18px, 3vw, 44px); width: clamp(110px, 12vw, 190px); padding: 0; border: 0; background: none; cursor: pointer; transform: translateY(70%); transition: transform .9s var(--bounce); }
+.bear img { display: block; width: 100%; height: auto; filter: drop-shadow(0 6px 8px rgba(0,0,0,.35)); }
+.bear.up, .bear:focus-visible { transform: translateY(8%); }
 @media (max-width: 760px) {
-  .hero { height: auto; min-height: 0; display: flex; flex-direction: column; }
-  .hero-copy { position: relative; left: auto; top: auto; width: auto; padding: 18px 18px 0; order: 0; }
-  .wordmark { width: min(78%, 330px); }
+  .hero { height: auto; min-height: 0; display: flex; flex-direction: column; background: #0a1530; }
+  .hero-copy { position: relative; left: auto; top: auto; transform: none; width: auto; padding: 16px 16px 0; order: 0; }
+  .wordmark { width: min(56%, 220px); }
   .hero-cta .btn { font-size: .88rem; padding: .75em 1.1em; }
-  .stage { position: relative; left: auto; bottom: auto; transform: none; width: 200%; margin: -150px 0 0 -55%; order: 1; z-index: 0; }
-  .stage::after { background: linear-gradient(180deg, #0b1917 0, rgba(11,25,23,.6) 24%, transparent 42%); }
+  .stage { position: relative; left: auto; bottom: auto; transform: none; width: 210%; margin: -110px 0 0 -40%; order: 1; z-index: 0; }
+  .stage::after { background: linear-gradient(180deg, #0a1530 0, rgba(10,21,48,.55) 22%, transparent 40%); }
+  .bear { right: 4%; bottom: 26px; }
 }
 
-/* section titles on the night */
-.title .script { color: var(--gold-l); }
-.title h2 { color: var(--cream-t); text-shadow: 0 2px 0 rgba(0,0,0,.35), 0 0 30px rgba(240,207,138,.18); }
-.title p { color: var(--cream-soft); }
-.flourish { color: var(--gold-l); }
-.board { background: var(--card); box-shadow: 0 0 0 1px rgba(240,207,138,.35), 0 0 0 7px var(--card), 0 0 0 8px rgba(240,207,138,.55), 0 40px 80px -30px rgba(0,0,0,.8); }
+/* Santa on a big red band */
+.redband { position: relative; background: var(--xred); color: #fff; padding: clamp(40px, 6vw, 80px) 0 clamp(70px, 9vw, 120px); overflow: hidden;
+  background-image: radial-gradient(ellipse at 30% 40%, var(--xred-l), var(--xred) 55%, var(--xred-d)); }
+.redband::before { content: ""; position: absolute; inset: 0; pointer-events: none; opacity: .18;
+  background-image: radial-gradient(circle, #fff 1.4px, transparent 2px), radial-gradient(circle, #fff 1px, transparent 1.6px); background-size: 46px 46px, 29px 29px; background-position: 0 0, 13px 17px; }
+.santa-big { position: relative; display: grid; grid-template-columns: minmax(0, .95fr) minmax(0, 1.05fr); gap: clamp(20px, 4vw, 60px); align-items: center; }
+@media (max-width: 860px) { .santa-big { grid-template-columns: minmax(0, 1fr); text-align: center; } .santa-big .hellos { justify-content: center; } }
+.santa-pic { position: relative; cursor: pointer; justify-self: center; width: min(460px, 100%); }
+.santa-pic::before { content: ""; position: absolute; left: 8%; right: 8%; top: 10%; bottom: 0; border-radius: 50%; background: radial-gradient(circle, rgba(255,255,255,.35), transparent 65%); }
+.santa-pic img { position: relative; display: block; width: 100%; height: auto; -webkit-mask: linear-gradient(90deg, transparent 0, #000 9%), linear-gradient(0deg, transparent 0, #000 10%); -webkit-mask-composite: source-in; mask: linear-gradient(90deg, transparent 0, #000 9%) intersect, linear-gradient(0deg, transparent 0, #000 10%); filter: drop-shadow(0 26px 30px rgba(60,0,10,.45)); transform-origin: 50% 90%; }
+.santa-pic.hohoho img { animation: hohoho .9s var(--ease); }
+.santa-big .copy { display: grid; gap: 16px; }
+.santa-big .copy .ho { margin: 0; font-family: var(--f-hand); font-size: clamp(3rem, 2rem + 4vw, 5.6rem); line-height: .9; color: #fff; text-shadow: 0 4px 0 rgba(90,0,15,.35); }
+.santa-big h2 { font-size: clamp(1.9rem, 1.4rem + 2vw, 3rem); font-weight: 800; color: #fff; }
+.santa-big .copy p { font-size: 1.15rem; color: rgba(255,255,255,.92); }
+.santa-big .hellos span { background: transparent; color: #fff; box-shadow: inset 0 0 0 1.5px rgba(255,255,255,.7); }
+.drift.down { height: clamp(34px, 5vw, 70px); }
 
+/* section titles on snow-white paper */
+.title .script { color: var(--xred); font-family: var(--f-hand); font-size: clamp(1.6rem, 1.3rem + 1.2vw, 2.3rem); }
+.title h2 { color: var(--xred); text-shadow: none; }
+.title p { color: var(--ink-soft); }
+.flourish { color: var(--xred); }
+.board { background: #fff; box-shadow: 0 0 0 1px rgba(200,16,46,.15), 0 0 0 7px #fff, 0 0 0 9px var(--xred), 0 40px 80px -36px rgba(80,0,10,.45); }
 
-/* calendar doors on the board stay as they are */
 /* tree */
 .tree { aspect-ratio: 3 / 4; width: min(440px, 100%); }
-.treebox.board { background: radial-gradient(ellipse at 30% 45%, #0f2a23, #08211a 70%); box-shadow: 0 0 0 1px rgba(240,207,138,.35), 0 0 0 7px #08211a, 0 0 0 8px rgba(240,207,138,.55), 0 40px 80px -30px rgba(0,0,0,.8); }
-.treebox .tray p { color: var(--cream-soft); }
-.treebox .tray .items button { background: rgba(255,255,255,.06); border-color: rgba(240,207,138,.3); }
-.treebox .tray .items button:hover { border-color: var(--gold-l); }
-.tree img.fir { -webkit-mask: radial-gradient(ellipse 72% 66% at 50% 52%, #000 70%, transparent 100%); mask: radial-gradient(ellipse 72% 66% at 50% 52%, #000 70%, transparent 100%); }
-.tree img.fir { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 18px; user-select: none; -webkit-user-drag: none; }
+.treebox.board { background: radial-gradient(ellipse at 30% 45%, #0f2a23, #08211a 70%); box-shadow: 0 0 0 7px #08211a, 0 0 0 9px var(--xred), 0 40px 80px -30px rgba(0,0,0,.6); }
+.treebox .tray p { color: #e9ddc6; }
+.treebox .tray .items button { background: rgba(255,255,255,.08); border-color: rgba(255,255,255,.3); }
+.treebox .tray .items button:hover { border-color: #fff; }
+.tree img.fir { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: 18px; user-select: none; -webkit-user-drag: none; -webkit-mask: radial-gradient(ellipse 72% 66% at 50% 52%, #000 70%, transparent 100%); mask: radial-gradient(ellipse 72% 66% at 50% 52%, #000 70%, transparent 100%); }
 .tree .lights { position: absolute; inset: 0; pointer-events: none; }
 .tree .lights i { position: absolute; width: 2.4%; aspect-ratio: 1; margin: -1.2% 0 0 -1.2%; border-radius: 50%; background: currentColor; opacity: .18; transition: opacity .5s; }
 .tree.lit .lights i { opacity: 1; box-shadow: 0 0 10px 3px currentColor; animation: bulb 1.8s ease-in-out infinite; }
 .tree.lit img.fir { filter: brightness(1.08) saturate(1.05); }
+.tree .placed { width: 9%; aspect-ratio: 3 / 4; margin: -6% 0 0 -4.5%; }
+.tree .placed img { width: 100%; height: 100%; object-fit: contain; display: block; filter: drop-shadow(0 4px 3px rgba(0,0,0,.35)); pointer-events: none; }
+.tray .items img, .dragging img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
+.door .back img { width: 58%; height: 70%; object-fit: contain; display: block; }
+.dlg .card .art img { width: 110px; height: 120px; object-fit: contain; display: block; }
 
-/* wish list on a board */
-.wish.board { padding-block: clamp(30px, 4vw, 54px); }
+/* wish list: the children at the red letterbox */
+.wish { grid-template-columns: minmax(0, 1.05fr) minmax(0, .95fr); grid-template-areas: "pic letter" "pic copy"; gap: 22px clamp(20px, 4vw, 50px); align-items: start; }
+.wish .mailbox { grid-area: pic; margin: 0; align-self: center; }
+.wish .mailbox img { display: block; width: 100%; height: auto; border-radius: 6px; border: 10px solid #fff; box-shadow: 0 0 0 2px var(--xred), 0 30px 50px -26px rgba(80,0,10,.55); transform: rotate(-2deg); }
+.wish .letter { grid-area: letter; } .wish .wish-copy { grid-area: copy; }
+@media (max-width: 860px) { .wish { grid-template-columns: minmax(0, 1fr); grid-template-areas: "pic" "letter" "copy"; } }
 
-/* Santa portrait */
-.santa-sec .face { background: none; overflow: hidden; box-shadow: 0 0 0 8px var(--card), 0 0 0 10px var(--gold-soft), 0 30px 50px -24px rgba(60,30,10,.5); }
-.santa-sec .face img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; display: block; }
-.santa-sec .face.hohoho img { animation: hohoho .9s var(--ease); }
-
-/* shop: photos made with Canva */
-.cat { background: #13302a; box-shadow: 0 0 0 1px rgba(240,207,138,.28), 0 30px 50px -30px #000; }
+/* shop */
+.cat { background: #fff; box-shadow: 0 0 0 1px rgba(200,16,46,.18), 0 30px 50px -34px rgba(80,0,10,.6); }
 .cat .art { aspect-ratio: 1; overflow: hidden; background: #13302a !important; }
 .cat .art img { width: 100%; height: 100%; object-fit: cover; display: block; transition: transform .8s var(--ease), filter .5s; }
 .cat:hover .art img { transform: scale(1.04); }
 .cat .art.wobble img { animation: wobble .9s var(--ease); } .cat .art.flip img { animation: flipy 1s var(--ease); } .cat .art.spin img { animation: wobble 1.1s var(--ease); } .cat .art.hop img { animation: hop .8s var(--ease); } .cat .art.duck img { animation: duck 1.6s var(--ease); }
 .cat .art.out img { filter: brightness(.4) saturate(.7); }
-.cat .body { padding: 16px 18px 20px; } .cat h3 { color: var(--gold-l); } .cat p { color: var(--cream-soft); }
+.cat .body { padding: 16px 18px 20px; border-top: 6px solid var(--xred); } .cat h3 { color: var(--xred); } .cat p { color: var(--ink-soft); }
 @keyframes duck { 0% { transform: translateY(0); } 25%, 60% { transform: translateY(30%); } 100% { transform: translateY(0); } }
 
-/* visit */
 .visit figure img { border-radius: 14px; }
-
-/* footer meets the night */
-footer { background: var(--red-deep); }
-footer::before { background: radial-gradient(circle at 12px 24px, var(--red-deep) 12px, transparent 12.5px) 0 0 / 24px 24px repeat-x; }
+footer { background: var(--xred); }
+footer::before { background: radial-gradient(circle at 12px 24px, var(--xred) 12px, transparent 12.5px) 0 0 / 24px 24px repeat-x; }
+footer .gj { font-family: var(--f-hand); color: #fff; }
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
@@ -523,30 +536,43 @@ footer::before { background: radial-gradient(circle at 12px 24px, var(--red-deep
 </nav></div>
 
 <main id="start">
-  <!-- the logo comes to life -->
+  <!-- the Christmas trucks roll through the snow -->
   <section class="hero" aria-label="Julekontor – Danmarks gammeldags julebutik">
-    <div class="stage" id="scene" role="img" aria-label="Julekontor – Danmarks gammeldags julebutik. Den røde varevogn kører gennem sneen og parkerer foran butikken.">
-      <img class="bg" src="img/c/scene.webp" srcset="img/c/scene-960.webp 960w, img/c/scene.webp 1920w" sizes="(max-width: 700px) 1100px, 100vw" width="1920" height="1080" alt="" fetchpriority="high">
-      <img class="shopsign" src="img/c/signword.webp" width="1053" height="454" alt="">
-      <span class="win w1"></span><span class="win w2"></span><span class="win w3"></span>
-      <div class="van" id="van">
-        <img src="img/c/truck.webp" width="900" height="668" alt="">
-        <span class="wheel rear"><img src="img/c/wheel-r.webp" width="136" height="136" alt=""></span>
-        <span class="wheel front"><img src="img/c/wheel-f.webp" width="180" height="180" alt=""></span>
-        <span class="beam"></span>
-      </div>
-      <img class="fg" src="img/c/scene-fg.webp" srcset="img/c/scene-fg-960.webp 960w, img/c/scene-fg.webp 1920w" sizes="(max-width: 700px) 1100px, 100vw" width="1920" height="1080" alt="">
+    <div class="stage" id="scene" role="img" aria-label="Lysende julevogne kører gennem sneen mod en lille by.">
+      <img class="bg" src="img/w/caravan.webp" srcset="img/w/caravan-960.webp 960w, img/w/caravan.webp 1920w" sizes="(max-width: 700px) 1200px, 100vw" width="1920" height="1080" alt="" fetchpriority="high">
+      <span class="glint" style="left:15%;top:52%"></span><span class="glint" style="left:22%;top:66%"></span><span class="glint" style="left:30%;top:48%"></span><span class="glint" style="left:37%;top:64%"></span>
+      <span class="glint" style="left:48%;top:53%"></span><span class="glint" style="left:56%;top:64%"></span><span class="glint" style="left:67%;top:58%"></span><span class="glint" style="left:79%;top:64%"></span>
+      <button class="truck-hit" type="button" style="left:9%;top:38%;width:40%;height:52%" aria-label="Dyt"></button>
+      <button class="truck-hit" type="button" style="left:44%;top:50%;width:18%;height:34%" aria-label="Dyt"></button>
+      <button class="truck-hit" type="button" style="left:64%;top:56%;width:22%;height:24%" aria-label="Dyt"></button>
       <canvas id="snow" aria-hidden="true"></canvas>
     </div>
     <div class="hero-copy">
       <h1 class="wordmark"><img src="img/c/wordmark.webp" width="1100" height="789" alt="Julekontor – Danmarks gammeldags julebutik"></h1>
+      <p class="hero-head" data-i18n="heroHead">Julen er på vej</p>
       <div class="sleeps" aria-live="polite"><span class="txt" id="sleeps"></span></div>
       <div class="hero-cta">
-        <a class="btn btn-red" href="#kalender" data-i18n="ctaCal">Åbn julekalenderen</a>
+        <a class="btn btn-white" href="#kalender" data-i18n="ctaCal">Åbn julekalenderen</a>
         <button class="btn btn-ghost" type="button" data-open-chat><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5h18v11H3z"/><path d="m3 7 9 6.5L21 7"/></svg><span data-i18n="ctaSanta">Skriv til Julemanden</span></button>
       </div>
     </div>
-    <svg class="hills" viewBox="0 0 1440 120" preserveAspectRatio="none" aria-hidden="true"><path d="M0 70 C 180 30 340 30 520 62 C 700 94 860 40 1040 46 C 1220 52 1330 80 1440 64 V120 H0 Z" fill="#0d211c"/></svg>
+    <button class="bear" id="bear" type="button" aria-label="Isbjørn"><img src="img/w/bear.webp" width="600" height="490" alt=""></button>
+    <svg class="drift" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0 40 C 120 10 240 10 360 34 C 480 58 600 20 720 22 C 840 24 960 60 1080 50 C 1200 40 1320 14 1440 30 V90 H0 Z" fill="#c8102e"/></svg>
+  </section>
+
+  <!-- Santa, big and red -->
+  <section class="redband" id="julemanden" aria-labelledby="santa-title">
+    <div class="wrap santa-big">
+      <div class="santa-pic" id="santa-face"><img src="img/w/santa.webp" width="900" height="1100" alt="" loading="lazy"></div>
+      <div class="copy">
+        <p class="ho" data-i18n="santaHo">Ho ho ho!</p>
+        <h2 id="santa-title" data-i18n="santaTitle">Snak med Julemanden</h2>
+        <p data-i18n="santaLede">Spørg ham om rensdyrene, om nisserne i værkstedet, eller hvad han spiser til morgenmad. Han svarer på dit eget sprog – dansk, tysk, engelsk, polsk eller et helt andet.</p>
+        <div class="hellos" aria-hidden="true"><span>Kære Julemand</span><span>Lieber Weihnachtsmann</span><span>Dear Santa</span><span>Drogi Mikołaju</span><span>Kära Tomten</span></div>
+        <div><button class="btn btn-white" type="button" data-open-chat data-i18n="ctaLetter">Skriv til Julemanden</button></div>
+      </div>
+    </div>
+    <svg class="drift down" viewBox="0 0 1440 90" preserveAspectRatio="none" aria-hidden="true"><path d="M0 40 C 120 10 240 10 360 34 C 480 58 600 20 720 22 C 840 24 960 60 1080 50 C 1200 40 1320 14 1440 30 V90 H0 Z" fill="#fbf4ea"/></svg>
   </section>
 
   <!-- advent calendar -->
@@ -586,8 +612,8 @@ footer::before { background: radial-gradient(circle at 12px 24px, var(--red-deep
   <section class="block" id="oenskeseddel" aria-labelledby="wish-title" style="padding-top:0">
     <div class="wrap">
       <div class="title"><span class="script" data-i18n="wishScript">Til Nordpolen</span><h2 id="wish-title" data-i18n="wishTitle">Din ønskeseddel</h2><svg class="flourish" aria-hidden="true"><use href="#flourish"/></svg></div>
-      <div class="board wish">
-        <span class="corner tr"></span><span class="corner bl"></span>
+      <div class="wish">
+        <figure class="mailbox"><img src="img/w/mailbox.webp" width="1200" height="900" alt="" loading="lazy"></figure>
         <form class="letter" id="letter" autocomplete="off">
           <div class="dear" data-i18n="wishDear">Kære Julemand,</div>
           <label for="w1" data-i18n="wishLabel">Ønske</label><input id="w1" maxlength="80" data-i18n-ph="wishPh1" placeholder="Jeg ønsker mig …">
@@ -606,22 +632,6 @@ footer::before { background: radial-gradient(circle at 12px 24px, var(--red-deep
     </div>
   </section>
 
-  <!-- Santa -->
-  <section class="block" id="julemanden" aria-labelledby="santa-title" style="padding-top:0">
-    <div class="wrap">
-      <div class="board santa-sec">
-        <span class="corner tr"></span><span class="corner bl"></span>
-        <div class="face" id="santa-face"><img src="img/c/santa.webp" width="900" height="900" alt="" loading="lazy"></div>
-        <div class="copy">
-          <span class="title" style="justify-items:start;text-align:left;margin:0"><span class="script" data-i18n="santaScript">Julemandens brevkasse</span></span>
-          <h2 id="santa-title" style="font-size:clamp(2rem,1.6rem + 2vw,3.1rem);font-weight:800;color:var(--red)" data-i18n="santaTitle">Snak med Julemanden</h2>
-          <p data-i18n="santaLede">Spørg ham om rensdyrene, om nisserne i værkstedet, eller hvad han spiser til morgenmad. Han svarer på dit eget sprog – dansk, tysk, engelsk, polsk eller et helt andet.</p>
-          <div class="hellos" aria-hidden="true"><span>Kære Julemand</span><span>Lieber Weihnachtsmann</span><span>Dear Santa</span><span>Drogi Mikołaju</span><span>Kära Tomten</span></div>
-          <div><button class="btn btn-green" type="button" data-open-chat data-i18n="ctaLetter">Skriv til Julemanden</button></div>
-        </div>
-      </div>
-    </div>
-  </section>
 
   <!-- the shop -->
   <section class="block" id="butikken" aria-labelledby="shop-title" style="padding-top:0">
@@ -875,6 +885,19 @@ footer::before { background: radial-gradient(circle at 12px 24px, var(--red-deep
         "Winter solstice: today is the shortest day. From tomorrow the days get longer!", "Wrap a present – all by yourself.", "Tomorrow is Christmas Eve! Just one more sleep!", "Merry Christmas! Santa comes tonight." ] }
   };
   for (const l in MORE) Object.assign(T[l], MORE[l]);
+  // v11: the red Christmas world
+  const RED = {
+    da: { heroHead: "Julen er på vej", heroSub: "Lysende juletog med gaver på vej gennem sneen – lige til Julekontor.", santaHo: "Ho ho ho!",
+      wishHead: "Skriv til Nordpolen", truckHonk: ["Dyt dyt! Julen er på vej!", "Kan du se lysene? Vi er snart fremme!", "Alle vognene er fulde af gaver."],
+      bear: ["Brrr! Hej med dig!", "Jeg er bare en lille isbjørn. Har du set Julemanden?", "Puha, det er koldt i dag!", "Du fandt mig igen!"] },
+    de: { heroHead: "Weihnachten kommt", heroSub: "Leuchtende Weihnachtswagen voller Geschenke fahren durch den Schnee – direkt zum Julekontor.", santaHo: "Ho ho ho!",
+      wishHead: "Schreib zum Nordpol", truckHonk: ["Tut tut! Weihnachten kommt!", "Siehst du die Lichter? Wir sind gleich da!", "Alle Wagen sind voller Geschenke."],
+      bear: ["Brrr! Hallo du!", "Ich bin nur ein kleiner Eisbär. Hast du den Weihnachtsmann gesehen?", "Puh, ist das heute kalt!", "Du hast mich schon wieder gefunden!"] },
+    en: { heroHead: "Christmas is coming", heroSub: "Glowing Christmas trucks full of presents roll through the snow – all the way to Julekontor.", santaHo: "Ho ho ho!",
+      wishHead: "Write to the North Pole", truckHonk: ["Beep beep! Christmas is coming!", "Can you see the lights? We're nearly there!", "Every truck is full of presents."],
+      bear: ["Brrr! Hello there!", "I'm just a little polar bear. Have you seen Santa?", "Phew, it's cold today!", "You found me again!"] }
+  };
+  for (const l in RED) Object.assign(T[l], RED[l]);
 
   const store = {
     get(k) { try { return localStorage.getItem(k); } catch { return null; } },
@@ -935,50 +958,26 @@ footer::before { background: radial-gradient(circle at 12px 24px, var(--red-deep
   $("menu-open").addEventListener("click", () => { drawer.hidden = false; bell(NOTES[4], .06, .5); });
   drawer.addEventListener("click", e => { if (e.target === drawer || e.target.tagName === "A") drawer.hidden = true; });
 
-  /* ================= the van drives in and parks in the logo ================= */
-  const scene = $("scene"), van = $("van");
-  let vanBusy = false;
-  function puffs(ms) {
-    const t0 = performance.now();
-    (function tick() {
-      if (performance.now() - t0 > ms) return;
-      const r = van.getBoundingClientRect(), s = scene.getBoundingClientRect();
-      const p = document.createElement("span"); p.className = "puff"; p.style.left = ((r.left - s.left) / s.width * 100 + 1) + "%"; p.style.top = ((r.bottom - s.top) / s.height * 100 - 9) + "%"; scene.append(p);
-      p.animate([{ transform: "scale(.4)", opacity: .9 }, { transform: "translate(-40px,-30px) scale(2.4)", opacity: 0 }], { duration: 1200, easing: "ease-out" }).onfinish = () => p.remove();
-      setTimeout(tick, 140);
-    })();
-  }
-  // the wheels turn as far as the van rolls: angle = distance / radius (radii are fractions of the van's width)
-  const WHEELS = [[".wheel.front img", .1], [".wheel.rear img", 68 / 900]];
-  function roll(dist, dur, easing) {
-    if (reduceMotion) return;
-    WHEELS.forEach(([sel, r]) => { const deg = dist / (r * van.offsetWidth) * 57.3; van.querySelector(sel).animate([{ transform: `rotate(${dist > 0 ? 0 : deg}deg)` }, { transform: `rotate(${dist > 0 ? deg : 0}deg)` }], { duration: dur, easing }); });
-  }
-  function driveIn(fromRight) {
-    vanBusy = true; van.classList.remove("lightson");
-    const w = scene.clientWidth, dur = reduceMotion ? 10 : 3800, easing = "cubic-bezier(.22,.8,.3,1)";
-    const from = fromRight ? `translateX(${w * 1.1}px) scaleX(1)` : `translateX(${-w * .62}px)`;
-    van.animate([{ transform: from }, { transform: "translateX(1.5%) rotate(-.6deg)", offset: .86 }, { transform: "translateX(-.4%) rotate(.3deg)", offset: .94 }, { transform: "translateX(0) rotate(0)" }], { duration: dur, easing })
-      .onfinish = () => { van.classList.add("lightson"); vanBusy = false; };
-    roll(-w * .62, dur, easing);
-    if (!reduceMotion) { puffs(dur * .8); van.animate([{ transform: "translateY(0)" }, { transform: "translateY(-.6%)" }, { transform: "translateY(0)" }], { duration: 260, iterations: Math.round(dur / 260), composite: "add" }); }
-  }
-  function driveOff() {
-    vanBusy = true; const w = scene.clientWidth, dur = reduceMotion ? 10 : 2600, easing = "cubic-bezier(.6,0,.8,.4)";
-    van.animate([{ transform: "translateX(0)" }, { transform: `translateX(${w * 1.1}px)` }], { duration: dur, easing }).onfinish = () => setTimeout(() => driveIn(false), 500);
-    roll(w * 1.1, dur, easing);
-    if (!reduceMotion) puffs(1600);
-  }
-  new IntersectionObserver(([e], obs) => { if (e.isIntersecting) { obs.disconnect(); driveIn(false); } }, { threshold: .3 }).observe(scene);
-  let vanClicks = 0, vanTimer = 0;
-  van.addEventListener("click", e => {
-    e.stopPropagation(); if (vanBusy) return;
-    honk(); vanClicks++; clearTimeout(vanTimer); vanTimer = setTimeout(() => vanClicks = 0, 900);
-    van.animate([{ transform: "translateY(0) rotate(0)" }, { transform: "translateY(-2.5%) rotate(-1deg)" }, { transform: "translateY(0) rotate(.5deg)" }, { transform: "none" }], { duration: 500, easing: "ease-out" });
-    const r = van.getBoundingClientRect(); sparkles(r.left + r.width * .3, r.top + r.height * .12, 10, 80);
-    if (vanClicks >= 3) { vanClicks = 0; jingle(14); driveOff(); } else say(r.left + r.width * .5, r.top, pick(t("vanHonk")));
-  });
+  /* ================= the Christmas trucks: tap one and it honks; three taps and every truck flashes its lights ================= */
+  const scene = $("scene");
+  let truckClicks = 0, truckTimer = 0;
+  scene.querySelectorAll(".truck-hit").forEach(b => b.addEventListener("click", e => {
+    e.stopPropagation(); honk(); truckClicks++; clearTimeout(truckTimer); truckTimer = setTimeout(() => truckClicks = 0, 900);
+    const r = b.getBoundingClientRect(); sparkles(r.left + r.width * .5, r.top + r.height * .3, 12, 90);
+    if (truckClicks >= 3) { truckClicks = 0; jingle(16); scene.classList.remove("flash"); void scene.offsetWidth; scene.classList.add("flash"); }
+    else say(r.left + r.width * .5, r.top + r.height * .2, pick(t("truckHonk")));
+  }));
   scene.addEventListener("click", e => { sparkles(e.clientX, e.clientY, 10, 70); bell(pick(NOTES) * 2, .06, .8); });
+
+  /* ================= the little polar bear peeks over the snow now and then ================= */
+  const bear = $("bear"); let bearHits = 0;
+  function bearPeek() { if (!reduceMotion && !document.hidden) { bear.classList.add("up"); setTimeout(() => bear.classList.remove("up"), 4200); } setTimeout(bearPeek, 9000 + Math.random() * 9000); }
+  setTimeout(bearPeek, 3500);
+  bear.addEventListener("click", () => {
+    const r = bear.getBoundingClientRect(); bear.classList.add("up");
+    say(r.left + r.width / 2, r.top + 10, t("bear")[bearHits++ % t("bear").length]); bell(NOTES[(bearHits * 2) % NOTES.length], .1, 1); sparkles(r.left + r.width / 2, r.top + r.height / 3, 12, 80, ["#ffffff", "#d7ecff", "#c8102e"]);
+    bear.animate([{ transform: "translateY(0) rotate(0)" }, { transform: "translateY(-8%) rotate(-4deg)" }, { transform: "translateY(0) rotate(3deg)" }, { transform: "none" }], { duration: 700, easing: "ease-out", composite: "add" });
+  });
 
   /* ================= snow over the scene ================= */
   (function snow() {
