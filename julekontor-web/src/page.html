@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#0b1420">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Hanken+Grotesk:wght@400;500;600&family=Pinyon+Script&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500;1,600&family=Hanken+Grotesk:wght@400;500;600&family=Pinyon+Script&display=swap">
 <style>
 /* Layout: a winter evening in an old Danish town. The page walks from the dark street (hero), to the frosted
    shop window, into the warm paper of the shop's story, past a velvet display case, to Santa's lit window.
@@ -30,15 +30,15 @@
   --pine: #10251c;
   --rule: rgba(29, 20, 15, .16);
   --rule-night: rgba(239, 230, 214, .14);
-  --f-display: "Cormorant Garamond", "Cormorant", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
+  --f-display: "Playfair Display", "Iowan Old Style", "Palatino Linotype", Georgia, serif;
   --f-body: "Hanken Grotesk", "Helvetica Neue", "Segoe UI", system-ui, sans-serif;
   --f-script: "Pinyon Script", "Snell Roundhand", "Apple Chancery", cursive;
   --step--1: clamp(.78rem, .76rem + .1vw, .86rem);
   --step-0: clamp(1rem, .97rem + .16vw, 1.1rem);
   --step-1: clamp(1.2rem, 1.1rem + .5vw, 1.5rem);
   --step-2: clamp(1.6rem, 1.35rem + 1.1vw, 2.3rem);
-  --step-3: clamp(2.3rem, 1.8rem + 2.4vw, 3.9rem);
-  --step-4: clamp(3rem, 2rem + 4.4vw, 6.3rem);
+  --step-3: clamp(2rem, 1.6rem + 2vw, 3.3rem);
+  --step-4: clamp(2.6rem, 1.8rem + 3.7vw, 5.3rem);
   --wrap: 1240px;
   --ease: cubic-bezier(.2, .7, .2, 1);
   color-scheme: dark;
@@ -61,7 +61,7 @@ a { color: inherit; }
 .eyebrow { font-family: var(--f-body); font-size: var(--step--1); font-weight: 600; letter-spacing: .22em; text-transform: uppercase; color: var(--brass); display: inline-flex; align-items: center; gap: .9em; }
 .eyebrow::before { content: ""; width: 28px; height: 1px; background: currentColor; opacity: .7; }
 .paper .eyebrow { color: var(--wine-2); }
-.lede { font-size: var(--step-1); line-height: 1.5; font-family: var(--f-display); font-weight: 400; }
+.lede { font-size: var(--step-1); line-height: 1.55; font-family: var(--f-body); font-weight: 400; }
 
 .btn {
   --b: var(--ember); display: inline-flex; align-items: center; gap: .7em; font: 600 .95rem/1 var(--f-body); letter-spacing: .04em;
@@ -81,7 +81,9 @@ a { color: inherit; }
 .top { position: fixed; z-index: 60; left: 0; right: 0; top: env(safe-area-inset-top, 0px); transition: background-color .5s ease, border-color .5s ease, backdrop-filter .5s; border-bottom: 1px solid transparent; }
 .top.solid { background: rgba(11, 20, 32, .82); backdrop-filter: blur(14px) saturate(1.2); -webkit-backdrop-filter: blur(14px) saturate(1.2); border-bottom-color: var(--rule-night); }
 .top .wrap { display: flex; align-items: center; justify-content: space-between; gap: 16px; padding-block: 16px; }
-.brand { display: flex; align-items: baseline; gap: .7rem; text-decoration: none; }
+.brand { display: flex; align-items: center; text-decoration: none; }
+.brand img { height: 54px; width: auto; display: block; filter: drop-shadow(0 2px 10px rgba(0,0,0,.5)); }
+@media (max-width: 560px) { .brand img { height: 38px; } }
 .brand b { font-family: var(--f-display); font-style: italic; font-weight: 600; font-size: 1.85rem; color: var(--cream); letter-spacing: -.01em; line-height: 1; }
 .brand small { font-size: .66rem; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; color: var(--brass); }
 .nav { display: flex; gap: 1.8rem; align-items: center; }
@@ -106,7 +108,8 @@ a { color: inherit; }
 /* ---------- hero: the street at night ---------- */
 .hero { position: relative; min-height: clamp(640px, 92vh, 940px); overflow: hidden; isolation: isolate; display: grid; align-items: center;
   background: linear-gradient(180deg, #060b13 0%, #0b1626 34%, #18273d 62%, #3a2f3e 84%, #5a3d3a 100%); }
-.scene { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.sky { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.scene { position: absolute; left: 0; right: 0; bottom: 0; width: 100%; height: clamp(250px, 29vw, 440px); z-index: 1; }
 .scene .layer { will-change: transform; }
 .star { fill: #f6efe2; }
 @media (prefers-reduced-motion: no-preference) { .star.tw { animation: tw 4s ease-in-out infinite; } }
@@ -115,7 +118,7 @@ a { color: inherit; }
 @keyframes flick { 0%, 62%, 100% { opacity: 1; } 64% { opacity: .55; } 66% { opacity: 1; } 80% { opacity: .8; } }
 #snow { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 3; pointer-events: none; }
 .hero::after { content: ""; position: absolute; inset: auto 0 0; height: 70px; z-index: 2; background: linear-gradient(180deg, transparent, var(--night)); pointer-events: none; }
-.hero-inner { position: relative; z-index: 4; width: 100%; padding-block: 130px 230px; }
+.hero-inner { position: relative; z-index: 4; width: 100%; padding-block: 130px clamp(220px, 25vw, 380px); }
 .hero-grid { display: grid; grid-template-columns: minmax(0, 1.2fr) minmax(0, .8fr); gap: clamp(30px, 5vw, 80px); align-items: center; }
 /* the logo as a Christmas seal (julemærke), snow settling on its top edge */
 .stamp-wrap { justify-self: end; width: min(340px, 100%); margin-top: 40px; }
@@ -132,7 +135,7 @@ a { color: inherit; }
 .stamp-foot span:first-child { font-size: .72rem; font-weight: 600; letter-spacing: .24em; text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-width: 0; }
 @media (max-width: 860px) { .stamp-foot span:first-child { font-size: .58rem; letter-spacing: .12em; } .stamp-foot span:last-child { font-size: .95rem; } }
 .stamp-foot span:last-child { font-size: 1.15rem; font-style: italic; font-weight: 600; }
-.hero h1 { font-size: var(--step-4); font-weight: 500; line-height: .92; letter-spacing: -.025em; color: var(--cream); max-width: 15ch; text-shadow: 0 2px 40px rgba(6,11,19,.7); }
+.hero h1 { font-size: var(--step-4); font-weight: 500; line-height: 1.02; letter-spacing: -.025em; color: var(--cream); max-width: 15ch; text-shadow: 0 2px 40px rgba(6,11,19,.7); }
 .hero h1 em { font-style: italic; font-weight: 400; color: var(--glow); display: block; }
 .hero .lede { max-width: 40ch; color: #d9d2c6; margin-top: 1.6rem; text-shadow: 0 1px 20px rgba(6,11,19,.8); }
 .hero-cta { display: flex; flex-wrap: wrap; gap: .8rem; margin-top: 2.2rem; }
@@ -150,7 +153,7 @@ a { color: inherit; }
 }
 @keyframes flame { 0%,100% { transform: scale(1,1) skewX(0); } 25% { transform: scale(.92,1.06) skewX(3deg); } 55% { transform: scale(1.05,.94) skewX(-3deg); } 80% { transform: scale(.97,1.03) skewX(1deg); } }
 @media (max-width: 860px) { .hero-grid { grid-template-columns: minmax(0, 1fr); } .stamp-wrap { justify-self: start; width: min(250px, 72%); margin: 26px 0 0 6px; } }
-@media (max-width: 700px) { .hero-inner { padding-block: 112px 250px; } .advent { bottom: 16px; } .advent svg { width: 104px; height: 50px; } .hero .lede { font-size: 1.15rem; } }
+@media (max-width: 700px) { .hero-inner { padding-block: 104px 220px; } .advent { bottom: 16px; } .advent svg { width: 104px; height: 50px; } .hero .lede { font-size: 1.15rem; } }
 @keyframes halo { 0%,100% { opacity: .85; } 50% { opacity: .6; } }
 
 /* page-load sequence: words of the headline rise out of the dark */
@@ -195,7 +198,11 @@ a { color: inherit; }
 .mullions { position: absolute; inset: 0; pointer-events: none; display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: 1fr 3.2fr; }
 .mullions i:last-child { grid-column: 1 / -1; }
 .mullions i { box-shadow: inset 0 0 0 clamp(4px, .55vw, 7px) #1c2f25, inset 0 0 0 calc(clamp(4px, .55vw, 7px) + 1px) rgba(255,255,255,.05); }
-.signplate { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); background: var(--wine); color: var(--cream); font-family: var(--f-display); font-style: italic; font-size: 1.05rem; padding: .25em 1.2em; border-radius: 2px; box-shadow: 0 6px 16px -6px rgba(0,0,0,.6); white-space: nowrap; border: 1px solid rgba(199,156,85,.5); }
+.fascia { position: relative; display: grid; place-items: center; margin-bottom: clamp(10px, 1.4vw, 16px); padding: clamp(8px, 1.4vw, 16px) 20px; border-radius: 3px;
+  background: linear-gradient(180deg, #f8f1e2, #ebdfc5); box-shadow: inset 0 0 0 4px #f8f1e2, inset 0 0 0 5px rgba(168,122,47,.7), inset 0 0 0 8px #f8f1e2, inset 0 0 0 9px rgba(168,122,47,.35), 0 10px 20px -12px rgba(0,0,0,.7); }
+.fascia::before { content: ""; position: absolute; left: -6px; right: -6px; top: -9px; height: 14px; border-radius: 10px 12px 6px 8px; background: linear-gradient(180deg, #ffffff, #dfe7ef); box-shadow: 0 2px 3px rgba(0,0,0,.25); }
+.fascia img { width: min(400px, 74%); height: auto; display: block; }
+.signplate-old { position: absolute; top: -16px; left: 50%; transform: translateX(-50%); background: var(--wine); color: var(--cream); font-family: var(--f-display); font-style: italic; font-size: 1.05rem; padding: .25em 1.2em; border-radius: 2px; box-shadow: 0 6px 16px -6px rgba(0,0,0,.6); white-space: nowrap; border: 1px solid rgba(199,156,85,.5); }
 
 /* ---------- paper sections ---------- */
 .paper { background: var(--cream); color: var(--ink); position: relative; }
@@ -295,6 +302,7 @@ a { color: inherit; }
 footer { position: relative; background: var(--night); overflow: hidden; }
 footer .snowline { display: block; width: 100%; height: 70px; }
 footer .inner { display: grid; justify-items: center; text-align: center; gap: .8rem; padding-block: 50px calc(40px + env(safe-area-inset-bottom, 0px)); }
+footer .fwm { width: min(300px, 70%); height: auto; filter: drop-shadow(0 0 18px rgba(255,214,150,.18)); }
 footer .gj { font-family: var(--f-script); font-size: clamp(2.6rem, 2rem + 3vw, 4.6rem); color: var(--glow); line-height: 1.1; }
 footer small { color: var(--on-night-soft); font-size: .85rem; }
 footer small b { font-family: var(--f-display); font-style: italic; font-weight: 600; font-size: 1.1rem; color: var(--cream); }
@@ -346,7 +354,7 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
 .chat-head button svg { width: 19px; height: 19px; }
 .chat-log { flex: 1; overflow-y: auto; padding: 22px 18px 12px; display: flex; flex-direction: column; gap: 16px; overscroll-behavior: contain; background: var(--cream); }
 .msg { max-width: 88%; line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; font-size: 1rem; }
-.msg.santa { align-self: flex-start; padding: .1em 0 .1em 1rem; border-left: 2px solid var(--wine-2); color: var(--ink); font-family: var(--f-display); font-size: 1.16rem; line-height: 1.45; }
+.msg.santa { align-self: flex-start; padding: .1em 0 .1em 1rem; border-left: 2px solid var(--wine-2); color: var(--ink); font-family: var(--f-display); font-size: 1.02rem; line-height: 1.55; }
 .msg.santa::before { content: attr(data-from); display: block; font-family: var(--f-script); font-size: 1.45rem; line-height: 1.2; color: var(--wine); margin-bottom: .1em; }
 .msg.user { align-self: flex-end; background: var(--night); color: var(--on-night); padding: .7em 1em; border-radius: 16px 16px 4px 16px; }
 .msg.typing { display: flex; align-items: center; gap: .6rem; font-family: var(--f-body); font-size: .85rem; color: var(--ink-soft); }
@@ -368,13 +376,38 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
-    <!-- Santa in profile, facing right: used as a cameo in wax seals and as the silhouette in his window -->
-    <symbol id="santa-profile" viewBox="0 0 100 100">
-      <path d="M31 44 C 32 30 40 18 54 14 C 64 11 73 17 76 27 L 78 44 Z"/>
-      <path d="M54 14 C 40 10 26 16 19 31 L 15 37 L 22 39 C 28 28 38 21 52 21 Z"/>
-      <circle cx="16" cy="40" r="7"/>
-      <rect x="27" y="39" width="54" height="10" rx="5"/>
-      <path d="M74 49 C 76 52 78 54 81 57 C 82.5 59 80.5 61 77 61.5 C 80 63 83.5 66 81 69 C 85 76 81 88 71 94 C 61 99 47 96 41 88 C 37 82 35 74 35 66 C 34 60 34 54 35 49 Z"/>
+    <!-- Santa, three-quarter profile facing right -->
+    <symbol id="santa-head" viewBox="0 0 200 200">
+      <defs>
+        <linearGradient id="hatG" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#c3313a"/><stop offset="1" stop-color="#8c1c22"/></linearGradient>
+        <radialGradient id="skinG" cx=".7" cy=".4" r=".8"><stop offset="0" stop-color="#f6d2b0"/><stop offset="1" stop-color="#e2ad86"/></radialGradient>
+        <linearGradient id="furG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fffdf7"/><stop offset="1" stop-color="#e8dfcf"/></linearGradient>
+      </defs>
+      <!-- hat: crown and the tail drooping behind the head -->
+      <path d="M118 30 C 96 18 60 22 42 48 C 34 60 32 76 34 92 L 47 92 C 47 74 53 60 65 52 C 81 42 99 40 113 46 Z" fill="#8c1c22"/>
+      <path d="M60 84 C 64 54 88 30 112 28 C 130 27 138 42 136 66 L 134 74 Z" fill="url(#hatG)"/>
+      <path d="M84 70 C 92 52 104 40 118 36" fill="none" stroke="#6d1218" stroke-width="2" opacity=".45" stroke-linecap="round"/>
+      <circle cx="40" cy="100" r="12" fill="url(#furG)"/>
+      <!-- face -->
+      <path d="M64 98 C 70 90 100 86 136 86 C 140 91 142 95 141 99 C 148 101 152 105 151 110 C 150 115 144 116 140 114 L 132 118 C 110 122 80 118 66 114 Z" fill="url(#skinG)"/>
+      <circle cx="146" cy="108" r="6.5" fill="#e6a083"/>
+      <circle cx="112" cy="108" r="7" fill="#e88a78" opacity=".45"/>
+      <path d="M113 100 q5 -4.5 10 0" fill="none" stroke="#3a2016" stroke-width="2.4" stroke-linecap="round"/>
+      <!-- beard -->
+      <path d="M64 104 C 76 118 104 124 140 118 C 149 128 149 146 143 158 C 139 168 131 177 119 183 C 111 187 101 183 95 177 C 87 177 79 171 75 163 C 67 155 62 141 62 127 C 61 117 61 110 64 104 Z" fill="url(#furG)"/>
+      <path d="M84 140 c 6 8 14 10 22 6 M100 160 c 6 6 14 6 20 0 M78 124 c 4 6 10 8 16 6" fill="none" stroke="#d8cbb4" stroke-width="1.6" stroke-linecap="round"/>
+      <!-- moustache -->
+      <path d="M140 113 C 151 113 159 117 158 124 C 153 128 145 127 139 123 C 132 126 123 126 118 121 C 122 115 131 113 140 113 Z" fill="#fffdf7" stroke="#e1d7c4" stroke-width="1"/>
+      <!-- brow + brim -->
+      <path d="M112 93 c 5 -4 12 -4 16 0" fill="none" stroke="#fffdf7" stroke-width="4.5" stroke-linecap="round"/>
+      <path d="M54 88 C 66 72 106 64 133 66 C 142 67 144 78 139 84 C 114 82 82 88 63 100 C 53 102 48 94 54 88 Z" fill="url(#furG)"/>
+      <path d="M66 86 c 3 -2 6 -2 9 0 M86 79 c 3 -2 6 -2 9 0 M108 74 c 3 -2 6 -2 9 0 M126 72 c 3 -2 6 -2 8 0" fill="none" stroke="#d8cbb4" stroke-width="1.2" stroke-linecap="round"/>
+    </symbol>
+    <clipPath id="cameo-clip"><circle cx="50" cy="50" r="47"/></clipPath>
+    <symbol id="santa-cameo" viewBox="0 0 100 100">
+      <circle cx="50" cy="50" r="49" fill="#f4ecdd"/>
+      <g clip-path="url(#cameo-clip)"><use href="#santa-head" x="-6" y="2" width="112" height="112"/></g>
+      <circle cx="50" cy="50" r="47.5" fill="none" stroke="#c79c55" stroke-width="3"/>
     </symbol>
     <radialGradient id="wax" cx=".38" cy=".32" r=".8">
       <stop offset="0" stop-color="#c8383c"/><stop offset=".55" stop-color="#8c1c22"/><stop offset="1" stop-color="#4f0b10"/>
@@ -383,7 +416,7 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
       <path fill="url(#wax)" d="M50 3 C 58 2 62 7 69 8 C 77 9 82 13 85 20 C 89 26 96 30 96 39 C 97 46 93 51 95 58 C 97 66 93 73 88 78 C 83 84 80 90 71 92 C 63 95 58 98 50 97 C 42 98 37 94 29 92 C 21 90 16 85 12 78 C 7 72 3 66 5 58 C 7 51 3 45 4 38 C 5 30 11 26 15 20 C 19 13 24 9 31 8 C 38 7 42 2 50 3 Z"/>
       <circle cx="50" cy="50" r="33" fill="none" stroke="#5a0e13" stroke-width="2" opacity=".55"/>
       <circle cx="50" cy="50" r="31" fill="none" stroke="#e6807a" stroke-width=".8" opacity=".45"/>
-      <g color="#f6d9c8" fill="#f6d9c8" opacity=".92"><use href="#santa-profile" x="23" y="21" width="54" height="54"/></g>
+      <text x="50" y="66" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-weight="700" font-size="44" fill="#f6d9c8" opacity=".9">J</text>
       <ellipse cx="34" cy="26" rx="12" ry="6" fill="#fff" opacity=".18" transform="rotate(-30 34 26)"/>
     </symbol>
     <radialGradient id="lampGlow"><stop offset="0" stop-color="#ffd593" stop-opacity=".55"/><stop offset=".35" stop-color="#ffb25c" stop-opacity=".18"/><stop offset="1" stop-color="#ffb25c" stop-opacity="0"/></radialGradient>
@@ -396,7 +429,7 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
 
 <header class="top" id="top-bar">
   <div class="wrap">
-    <a class="brand" href="#start" aria-label="Julekontor"><b>Julekontor</b><small data-i18n="brandTag">Gammeldags julebutik</small></a>
+    <a class="brand" href="#start"><img src="img/wordmark-gold.webp" width="1373" height="517" alt="Julekontor"></a>
     <div class="nav">
       <a href="#vinduet" data-i18n="navWindow">Vinduet</a>
       <a href="#julen" data-i18n="navStory">Julen hos os</a>
@@ -420,12 +453,14 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
 <main id="start">
   <!-- ===== The street at night ===== -->
   <section class="hero" aria-labelledby="hero-title">
-    <svg class="scene" id="scene" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
+    <svg class="sky" viewBox="0 0 1600 900" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
       <g class="layer" data-depth="0.02" id="sky">
         <circle cx="1000" cy="150" r="240" fill="url(#moonGlow)"/>
         <circle cx="1000" cy="150" r="38" fill="#f3ead8"/>
         <circle cx="989" cy="142" r="7" fill="#e2d6bf" opacity=".6"/><circle cx="1013" cy="162" r="5" fill="#e2d6bf" opacity=".5"/>
       </g>
+    </svg>
+    <svg class="scene" id="scene" viewBox="0 500 1600 400" preserveAspectRatio="xMidYMax slice" aria-hidden="true">
       <g class="layer" data-depth="0.05" id="far"></g>
       <rect x="-100" y="640" width="1800" height="260" fill="url(#fog)"/>
       <g class="layer" data-depth="0.1" id="mid"></g>
@@ -488,6 +523,7 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
   <section class="window-sec" id="vinduet" aria-label="Julekontor">
     <div class="wrap window-grid">
       <div class="shopwin">
+        <div class="fascia"><img src="img/wordmark.webp" width="1373" height="517" alt="Julekontor" loading="lazy"></div>
         <div class="glass">
           <svg class="room" viewBox="0 0 600 400" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
             <defs>
@@ -535,7 +571,6 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
           <canvas id="frost" aria-hidden="true"></canvas>
           <div class="mullions" aria-hidden="true"><i></i><i></i><i></i><i></i></div>
         </div>
-        <span class="signplate">Julekontor</span>
       </div>
     </div>
   </section>
@@ -731,13 +766,16 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
             <rect x="80" y="80" width="240" height="400" fill="url(#room)"/>
             <g fill="#6b3416" opacity=".35"><rect x="96" y="150" width="70" height="8"/><rect x="100" y="120" width="10" height="30"/><rect x="113" y="126" width="8" height="24"/><rect x="124" y="118" width="12" height="32"/><rect x="140" y="130" width="9" height="20"/></g>
             <!-- Santa at his desk -->
-            <g fill="#2a160e" color="#2a160e">
-              <path d="M96 470 C 92 380 112 330 160 322 C 200 316 226 340 236 372 L 250 470 Z"/>
-              <use href="#santa-profile" x="96" y="196" width="150" height="150"/>
-              <path d="M214 352 C 240 360 256 380 262 398" stroke="#2a160e" stroke-width="30" stroke-linecap="round" fill="none"/>
-              <rect x="80" y="404" width="240" height="70" fill="#22120b"/>
-            </g>
-            <path d="M226 400 l 70 -8 l 6 14 l -70 8 Z" fill="#f6ecd7" opacity=".95"/>
+            <defs><linearGradient id="coatG" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#c3313a"/><stop offset="1" stop-color="#6e1218"/></linearGradient></defs>
+            <path d="M88 474 C 86 394 106 344 152 334 C 194 326 230 346 242 384 L 254 474 Z" fill="url(#coatG)"/>
+            <path d="M150 336 C 156 384 158 432 156 474" stroke="#fbf5ea" stroke-width="16" fill="none"/>
+            <use href="#santa-head" x="76" y="160" width="200" height="200"/>
+            <path d="M212 366 C 236 376 252 390 262 402" stroke="url(#coatG)" stroke-width="30" stroke-linecap="round" fill="none"/>
+            <circle cx="262" cy="400" r="12" fill="#fbf5ea"/>
+            <circle cx="271" cy="404" r="8.5" fill="#efc29c"/>
+            <rect x="80" y="408" width="240" height="70" fill="#2a160d"/>
+            <rect x="80" y="408" width="240" height="4" fill="#4a2a18"/>
+            <path d="M222 404 l 72 -8 l 6 14 l -72 8 Z" fill="#f6ecd7" opacity=".95"/>
             <path d="M236 404 h40 M238 409 h30" stroke="#8a6a50" stroke-width=".8" opacity=".6"/>
             <g class="quill"><path d="M262 400 C 270 380 288 352 312 330 C 306 350 290 376 266 398 Z" fill="#f8f1e2" opacity=".95"/><path d="M262 401 L 310 333" stroke="#b89f78" stroke-width="1"/></g>
             <rect x="298" y="362" width="12" height="40" fill="#fbf4e6"/>
@@ -746,7 +784,7 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
           </g>
           <!-- frame -->
           <path d="M80 470 V210 A120 120 0 0 1 320 210 V470 Z" fill="none" stroke="#3a2618" stroke-width="12"/>
-          <path d="M200 90 V470 M80 300 H320" stroke="#3a2618" stroke-width="7"/>
+          
                     <rect x="60" y="466" width="280" height="20" rx="3" fill="#2b1d14"/>
           <path d="M58 466 C 80 452 120 458 150 462 C 200 454 260 456 342 466 Z" fill="#eef2f6"/>
           <g class="fall" fill="#fff">
@@ -797,8 +835,9 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
 <footer>
   <svg class="snowline" viewBox="0 0 1600 70" preserveAspectRatio="none" aria-hidden="true"><path d="M0 0 H1600 V30 C 1500 50 1420 22 1320 36 C 1200 54 1120 26 1000 40 C 880 56 800 24 680 38 C 560 54 480 22 360 36 C 240 52 140 26 0 40 Z" fill="#ece1cb"/></svg>
   <div class="inner">
+    <img class="fwm" src="img/wordmark-gold.webp" width="1373" height="517" alt="Julekontor" loading="lazy">
     <div class="gj" data-i18n="gj">Glædelig jul</div>
-    <small><b>Julekontor</b> · <span data-i18n="footerTag">Danmarks gammeldags julebutik</span> · © <span id="year">2026</span></small>
+    <small><span data-i18n="footerTag">Danmarks gammeldags julebutik</span> · © <span id="year">2026</span></small>
     <small id="music-credit" data-i18n="credit">Spilledåsen spiller »Glade jul« af Franz Xaver Gruber, 1818.</small>
   </div>
 </footer>
@@ -806,11 +845,11 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
 <!-- ===== Santa chat ===== -->
 <div class="santa-hint" id="santa-hint" hidden><span id="santa-hint-text"></span><button type="button" id="santa-hint-close" aria-label="Luk">✕</button></div>
 <button class="seal-fab" id="santa-fab" type="button" aria-expanded="false" aria-controls="chat" aria-label="Skriv til Julemanden">
-  <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#seal"/></svg>
+  <svg viewBox="0 0 100 100" aria-hidden="true"><use href="#santa-cameo"/></svg>
 </button>
 <section class="chat" id="chat" role="dialog" aria-modal="false" aria-labelledby="chat-title" hidden>
   <div class="chat-head">
-    <div class="av" id="chat-av"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#seal"/></svg></div>
+    <div class="av" id="chat-av"><svg viewBox="0 0 100 100" aria-hidden="true"><use href="#santa-cameo"/></svg></div>
     <div class="who"><b id="chat-title" data-i18n="chatName">Julemanden</b><span data-i18n="chatStatus">Julekontoret · svarer på alle sprog</span></div>
     <button type="button" id="chat-reset" data-i18n-aria="chatReset" aria-label="Nyt brev"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><path d="M3 3v5h5"/></svg></button>
     <button type="button" id="chat-close" data-i18n-aria="close" aria-label="Luk"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M6 6l12 12M18 6 6 18"/></svg></button>
@@ -970,6 +1009,19 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
 
   /* ================= hero town (procedural) ================= */
   function rng(seed) { return () => { seed |= 0; seed = seed + 0x6D2B79F5 | 0; let x = Math.imul(seed ^ seed >>> 15, 1 | seed); x = x + Math.imul(x ^ x >>> 7, 61 | x) ^ x; return ((x ^ x >>> 14) >>> 0) / 4294967296; }; }
+  function snowCap(g, pts, t, color, r) {
+    for (let i = 1; i < pts.length; i++) {
+      const [x1, y1] = pts[i - 1], [x2, y2] = pts[i];
+      if (Math.abs(x2 - x1) < .5) continue;
+      const th = t * (.75 + r() * .5), mx = (x1 + x2) / 2, my = (y1 + y2) / 2, dx = x2 - x1;
+      el("path", { d: `M${x1} ${y1} L${x2} ${y2} C${x2} ${y2 - th * .9} ${x2 - dx * .25} ${y2 - th} ${mx} ${my - th} C${x1 + dx * .25} ${y1 - th} ${x1} ${y1 - th * .9} ${x1} ${y1} Z`, fill: color }, g);
+    }
+  }
+  function paperStar(g, cx, cy, R) {
+    let d = ""; for (let i = 0; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? R * .42 : R; d += (i ? "L" : "M") + (cx + Math.cos(a) * rr).toFixed(1) + " " + (cy + Math.sin(a) * rr).toFixed(1); }
+    el("circle", { cx, cy, r: R * 3, fill: "url(#lampGlow)" }, g);
+    el("path", { d: d + "Z", fill: "#fff1c4" }, g);
+  }
   function town(g, o) {
     const r = rng(o.seed), base = o.base, s = o.scale;
     const pick = (a, b) => a + r() * (b - a);
@@ -987,30 +1039,30 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
       if (kind < .2 && o.tower) { // church tower with spire
         const tw = 34 * s, th = h * 1.7;
         d = `M${x} ${base} V${base - th} L${x + tw / 2} ${base - th - 90 * s} L${x + tw} ${base - th} V${base} Z`;
-        roof = `M${x} ${base - th} L${x + tw / 2} ${base - th - 90 * s} L${x + tw} ${base - th}`;
-        el("path", { d, fill: o.fill }, g); el("path", { d: roof, fill: "none", stroke: o.snow, "stroke-width": 2.4 * s, "stroke-linecap": "round", opacity: .9 }, g);
+        el("path", { d, fill: o.fill }, g);
+        snowCap(g, [[x - 1, base - th], [x + tw / 2, base - th - 90 * s], [x + tw + 1, base - th]], 3 * s, o.snow, r);
         el("circle", { cx: x + tw / 2, cy: base - th + 22 * s, r: 6 * s, fill: o.win, opacity: .9 }, g);
         el("path", { d: `M${x + tw / 2} ${base - th - 90 * s} v-14 m-6 6 h12`, stroke: o.fill, "stroke-width": 2 * s }, g);
         x += tw + pick(4, 14) * s; continue;
       } else if (kind < .55) { // stepped gable (kamtakket gavl)
         const n = 4, sw = w / (2 * n + 1), sh = (w * .55) / n;
-        let p = `M${x} ${base} V${top}`, rl = `M${x} ${top}`, cx = x, cy = top;
-        for (let i = 0; i < n; i++) { cy -= sh; p += ` V${cy} H${cx + sw}`; rl += ` V${cy} H${cx + sw}`; cx += sw; }
-        p += ` H${cx + sw}`; rl += ` H${cx + sw}`; cx += sw;
-        for (let i = 0; i < n; i++) { p += ` V${cy + sh} H${cx + sw}`; rl += ` V${cy + sh} H${cx + sw}`; cy += sh; cx += sw; }
-        p += ` V${base} Z`; d = p; roof = rl;
+        let p = `M${x} ${base} V${top}`, cx = x, cy = top; roof = [[x, top]];
+        for (let i = 0; i < n; i++) { cy -= sh; p += ` V${cy} H${cx + sw}`; roof.push([cx, cy], [cx + sw, cy]); cx += sw; }
+        p += ` H${cx + sw}`; roof.push([cx + sw, cy]); cx += sw;
+        for (let i = 0; i < n; i++) { p += ` V${cy + sh} H${cx + sw}`; roof.push([cx, cy + sh], [cx + sw, cy + sh]); cy += sh; cx += sw; }
+        p += ` V${base} Z`; d = p;
       } else if (kind < .85) { // pitched roof
         const rh = w * pick(.35, .55);
         d = `M${x} ${base} V${top} L${x + w / 2} ${top - rh} L${x + w} ${top} V${base} Z`;
-        roof = `M${x - 2 * s} ${top + 1} L${x + w / 2} ${top - rh} L${x + w + 2 * s} ${top + 1}`;
+        roof = [[x - 3 * s, top + 1], [x + w / 2, top - rh], [x + w + 3 * s, top + 1]];
         if (r() < .5) el("rect", { x: x + w * .68, y: top - rh * .7 - 14 * s, width: 8 * s, height: 20 * s, fill: o.fill }, g);
       } else { // flat townhouse with cornice
         d = `M${x} ${base} V${top} H${x + w} V${base} Z`;
-        roof = `M${x - 3 * s} ${top} H${x + w + 3 * s}`;
+        roof = [[x - 3 * s, top], [x + w + 3 * s, top]];
         el("rect", { x: x + w * .2, y: top - 16 * s, width: 9 * s, height: 16 * s, fill: o.fill }, g);
       }
       el("path", { d, fill: o.fill }, g);
-      el("path", { d: roof, fill: "none", stroke: o.snow, "stroke-width": 3 * s, "stroke-linecap": "round", "stroke-linejoin": "round", opacity: .9 }, g);
+      snowCap(g, roof, 4.2 * s, o.snow, r);
       // windows
       const ww = 9 * s, wh = 13 * s, gx = 20 * s, gy = 26 * s;
       const cols = Math.max(1, Math.floor((w - 12 * s) / gx)), rows = Math.max(1, Math.floor((h - 26 * s) / gy));
@@ -1020,14 +1072,16 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
         const wx = ox + cc * gx, wy = top + 14 * s + rr * gy;
         const w0 = el("rect", { x: wx, y: wy, width: ww, height: wh, fill: o.win, class: "win" + (r() < .12 ? " flick" : "") }, g);
         w0.style.animationDelay = (-r() * 7).toFixed(2) + "s";
+        el("path", { d: `M${wx + ww / 2} ${wy}v${wh}M${wx} ${wy + wh * .42}h${ww}`, stroke: o.fill, "stroke-width": Math.max(.8, 1.3 * s), opacity: .85 }, g);
+        if (o.stars && r() < .07) paperStar(g, wx + ww / 2, wy + wh * .5, 4.2 * s);
         if (o.glow && r() < .35) el("circle", { cx: wx + ww / 2, cy: wy + wh / 2, r: 20 * s, fill: "url(#lampGlow)", opacity: .5 }, g);
       }
       x += w + pick(0, 8) * s;
     }
   }
   town($("far"), { seed: 7, base: 846, scale: .62, minW: 60, maxW: 120, minH: 120, maxH: 220, fill: "#24344a", snow: "#6f8199", win: "#c79a63", lit: .35, tower: true });
-  town($("mid"), { seed: 21, base: 852, scale: .8, minW: 70, maxW: 130, minH: 100, maxH: 175, fill: "#162337", snow: "#b9c6d4", win: "#eab26a", lit: .45, tower: true, glow: true });
-  town($("near-houses"), { seed: 88, base: 856, scale: 1.05, minW: 80, maxW: 150, minH: 80, maxH: 140, fill: "#0a121c", snow: "#e9eef3", win: "#ffd593", lit: .5, glow: true });
+  town($("mid"), { seed: 21, base: 852, scale: .8, minW: 70, maxW: 130, minH: 100, maxH: 175, fill: "#162337", snow: "#b9c6d4", win: "#eab26a", lit: .45, tower: true, glow: true, stars: true });
+  town($("near-houses"), { seed: 88, base: 856, scale: 1.05, minW: 80, maxW: 150, minH: 80, maxH: 140, fill: "#0a121c", snow: "#e9eef3", win: "#ffd593", lit: .5, glow: true, stars: true });
   // stars
   (function stars() {
     const sky = $("sky"), r = rng(3);
@@ -1051,7 +1105,7 @@ footer small b { font-family: var(--f-display); font-style: italic; font-weight:
   // parallax
   (function parallax() {
     if (reduceMotion) return;
-    const layers = [...document.querySelectorAll(".scene .layer")];
+    const layers = [...document.querySelectorAll(".hero .layer")];
     let mx = 0, my = 0, tx = 0, ty = 0, raf = 0;
     const hero = document.querySelector(".hero");
     hero.addEventListener("pointermove", e => { const b = hero.getBoundingClientRect(); mx = (e.clientX - b.left) / b.width - .5; my = (e.clientY - b.top) / b.height - .5; if (!raf) raf = requestAnimationFrame(step); });

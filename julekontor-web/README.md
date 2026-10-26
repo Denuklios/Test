@@ -1,15 +1,15 @@
 # Julekontor – One-Page mit Weihnachtsmann-Chat
 
-One-Page für **Julekontor – Danmarks gammeldags julebutik** rund um das Julekontor-Logo.
+One-Page für **Julekontor – Danmarks gammeldags julebutik** rund um das Julekontor-Logo. Der Schriftzug „Julekontor“ ist aus dem Logo freigestellt (`public/img/wordmark.webp` in Rot/Gold, `wordmark-gold.webp` für dunklen Hintergrund) und steht im Kopf, auf dem Ladenschild über dem Schaufenster und im Fuß der Seite.
 
 - Sprachen der Seite: Dänisch, Deutsch, Englisch (Umschalter oben, sonst nach Browsersprache).
 - Stimmung: ein Winterabend in einer alten dänischen Stadt. Alles ist selbst gezeichnet und animiert:
-  - Startbild: Nachthimmel mit Mond und Sternen, drei Ebenen Häuser mit Treppengiebeln und warmem Licht in den Fenstern, Straßenlaternen, Schneefall mit unscharfen Flocken im Vordergrund, der Julekontor-Lieferwagen fährt durch. Bewegt sich leicht mit der Maus (Parallaxe).
+  - Startbild: Nachthimmel mit Mond und Sternen, drei Ebenen Häuser mit Treppengiebeln, Schnee auf den Dächern und warmem Licht in den Fenstern (manche mit Adventsstern), Straßenlaternen, Schneefall mit unscharfen Flocken im Vordergrund, der Julekontor-Lieferwagen fährt durch. Bewegt sich leicht mit der Maus (Parallaxe).
   - Logo als Briefmarke (Julemærke) im Startbild; fallende Schneeflocken bleiben oben auf der Marke liegen.
   - Beschlagenes Schaufenster direkt unter den Häusern, ohne Erklärtext: Wer die Scheibe freiwischt, findet dahinter im goldgerahmten Oval, wie viele Tage es noch bis Heiligabend sind – mit Juletræ und echten Kerzen. Die Scheibe friert langsam wieder zu.
   - Kalenderkerze 1–24, die beim Scrollen durch „Weihnachten bei uns“ herunterbrennt.
   - Vitrine mit sechs hängenden Ornamenten (Glaskugel, geflochtenes Herz, Nisse, Holzstern, Kalenderkerze, Geschenk in braunem Papier), die bei Mausbewegung schwingen.
-  - Erleuchtetes Fenster mit dem Weihnachtsmann als Silhouette, der mit der Feder schreibt; daneben „Lieber Weihnachtsmann“ in wechselnden Sprachen in Handschrift.
+  - Erleuchtetes Fenster, in dem der Weihnachtsmann (gezeichnet, mit Zipfelmütze) mit der Feder schreibt; daneben „Lieber Weihnachtsmann“ in wechselnden Sprachen in Handschrift.
   - Spieluhr: spielt „Glade jul“ (Stille Nacht, Gruber 1818, gemeinfrei) direkt im Browser erzeugt, nur auf Knopfdruck.
 - **Weihnachtsmann-Chat** unten rechts: antwortet in der Sprache, in der man ihm schreibt (Dänisch, Deutsch, Polnisch, Schwedisch, Arabisch …). Die Antworten kommen live von Claude (Anthropic) und werden Wort für Wort eingeblendet. Während er schreibt, zeigt der Chat eine schreibende Feder.
 - Kinderschutz ist im Weihnachtsmann fest eingebaut: Er fragt nie nach Name, Adresse, Schule oder Telefonnummer, verspricht keine bestimmten Geschenke und verweist bei Sorgen an eine Vertrauensperson bzw. BørneTelefonen 116 111.
