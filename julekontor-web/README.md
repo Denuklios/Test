@@ -5,6 +5,14 @@ One-Page für **Julekontor – Danmarks gammeldags julebutik**, aufgebaut wie di
 - Sprachen der Seite: Dänisch, Deutsch, Englisch (Umschalter oben, sonst nach Browsersprache).
 - Aufbau: grüne Hinweisleiste („Julemanden svarer på alle sprog“) → Kopfzeile mit dem vollständigen Logo als Plakette in der Mitte → roter Startbereich mit Tannengirlande, Kugeln, Schneefall und Tagen bis Heiligabend → drei Kurzversprechen → Sortiment in sechs Kacheln (gezeichnete Ornamente) → Julemandens brevkasse → Über uns mit dem großen Logo → Besuch (Daten aus `shop.json`) → Fußzeile.
 - Das Logo wird nirgends beschnitten oder freigestellt, sondern immer vollständig gezeigt.
+- Kleine Überraschungen, die nirgends erklärt sind:
+  - Die Kugeln an der Girlande schwingen und klingen wie Glöckchen, wenn man sie antippt.
+  - Ein Klick in den roten Himmel lässt Sterne aufsteigen.
+  - Dreimal schnell aufs Logo oben tippen: Der Julekontor-Lieferwagen fährt mit Schellengeläut durchs Bild.
+  - Die Sortiment-Kacheln: Der Nisse duckt sich und sagt etwas, die Glaskugel klingt, das Herz dreht sich, die Kerze lässt sich auspusten und wieder anzünden, der Stern dreht sich, das Geschenk hüpft und sprüht Sterne.
+  - Dem Weihnachtsmann auf die Nase tippen: Er lacht und sagt einen Satz.
+  - Ein kleiner Nisse versteckt sich auf der Seite (z. B. hinter dem Logo-Bild bei „Om os“). Wer ihn findet, bekommt einen Spruch, und er zieht an ein neues Versteck. Wer ihn an allen vier Stellen gefunden hat, bekommt einen Sternenregen.
+  - „Glædelig jul“ unten antippen: Sternenregen mit Glockenspiel.
 - Spieluhr (Notensymbol oben): spielt „Glade jul“ (Stille Nacht, Gruber 1818, gemeinfrei), im Browser erzeugt, nur auf Knopfdruck.
 - **Weihnachtsmann-Chat** unten rechts: antwortet in der Sprache, in der man ihm schreibt (Dänisch, Deutsch, Polnisch, Schwedisch, Arabisch …). Die Antworten kommen live von Claude (Anthropic) und werden Wort für Wort eingeblendet. Während er schreibt, zeigt der Chat eine schreibende Feder.
 - Kinderschutz ist im Weihnachtsmann fest eingebaut: Er fragt nie nach Name, Adresse, Schule oder Telefonnummer, verspricht keine bestimmten Geschenke und verweist bei Sorgen an eine Vertrauensperson bzw. BørneTelefonen 116 111.

@@ -67,10 +67,12 @@ a { color: inherit; }
 /* ---------- announcement bar + header with the logo plaque ---------- */
 .announce { background: var(--green); color: var(--on-dark); font-size: .86rem; letter-spacing: .02em; }
 .announce .wrap { display: flex; justify-content: center; align-items: center; gap: .6rem; min-height: 38px; padding-block: 6px; text-align: center; }
-.announce button { all: unset; cursor: pointer; text-decoration: underline; text-underline-offset: 3px; text-decoration-color: rgba(247,239,224,.5); font-weight: 600; }
-.announce button:hover { text-decoration-color: currentColor; }
+.announce button { all: unset; cursor: pointer; display: inline-flex; align-items: center; gap: 8px; white-space: nowrap; font-weight: 500; }
+.announce button:hover span { text-decoration: underline; text-underline-offset: 3px; }
+.announce .short { display: none; }
+@media (max-width: 600px) { .announce .long { display: none; } .announce .short { display: inline; } }
 .announce svg { width: 16px; height: 16px; color: var(--gold-soft); flex: none; }
-@media (max-width: 600px) { .announce { font-size: .8rem; } .announce svg { display: none; } .announce .wrap { flex-wrap: wrap; gap: 2px 8px; } .lang button { padding: .5em .55em; } .site-head .wrap { gap: 8px; } }
+@media (max-width: 600px) { .lang button { padding: .5em .55em; } .site-head .wrap { gap: 8px; } }
 .site-head { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 60; background: var(--paper); border-bottom: 1px solid var(--line); transition: box-shadow .3s; }
 .site-head.scrolled { box-shadow: 0 10px 30px -22px rgba(60,30,10,.55); }
 .site-head .wrap { display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 16px; min-height: 76px; }
@@ -282,36 +284,90 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
 
 .seal-fab { width: 72px; height: 72px; }
 .chat-head .who b { font-family: var(--f-display); font-style: normal; }
+
+/* ---------- little things to find ---------- */
+.baubles { position: absolute; left: 0; right: 0; top: 0; height: 0; z-index: 4; }
+.bauble { position: absolute; width: 28px; height: 46px; margin-left: -14px; padding: 0; border: 0; background: none; cursor: pointer; transform-origin: 50% 0; transition: transform .4s var(--ease); }
+.bauble::before { content: ""; position: absolute; left: 50%; top: 0; width: 1px; height: var(--len, 14px); background: #e2c58a; }
+.bauble i { position: absolute; left: 3px; top: var(--len, 14px); width: 22px; height: 22px; border-radius: 50%; box-shadow: 0 7px 10px -3px rgba(0,0,0,.35);
+  background: radial-gradient(circle at 34% 30%, var(--hi), var(--mid) 46%, var(--lo)); }
+.bauble i::before { content: ""; position: absolute; left: 8px; top: -4px; width: 6px; height: 5px; border-radius: 1px; background: #e2c58a; }
+.bauble i::after { content: ""; position: absolute; left: 5px; top: 4px; width: 6px; height: 4px; border-radius: 50%; background: rgba(255,255,255,.7); transform: rotate(-30deg); }
+.bauble:hover { transform: rotate(7deg); }
+.bauble.swing { animation: swing 1.8s ease-out; }
+@keyframes swing { 0% { transform: rotate(0); } 12% { transform: rotate(30deg); } 30% { transform: rotate(-22deg); } 50% { transform: rotate(13deg); } 70% { transform: rotate(-6deg); } 100% { transform: rotate(0); } }
+.sparkle { position: fixed; z-index: 95; pointer-events: none; width: 16px; height: 16px; margin: -8px 0 0 -8px; color: var(--gold-soft); }
+.sparkle svg { width: 100%; height: 100%; display: block; }
+.eggbubble { position: fixed; z-index: 96; pointer-events: none; max-width: 230px; background: var(--card); color: var(--ink); font-family: var(--f-display); font-style: italic; font-size: 1.02rem; line-height: 1.3;
+  padding: .6em .9em; border-radius: 14px; box-shadow: 0 0 0 1px var(--line), 0 18px 30px -16px rgba(0,0,0,.5); transform: translate(-50%, -100%); animation: pop .4s var(--ease) both; }
+.eggbubble.out { opacity: 0; transition: opacity .4s; }
+.cat .art { cursor: pointer; }
+.cat .art.wobble svg { animation: wobble .9s var(--ease); }
+.cat .art.flip svg { animation: flip 1s var(--ease); }
+.cat .art.spin svg { animation: spin 1.1s var(--ease); }
+.cat .art.hop svg { animation: hop .8s var(--ease); }
+.cat .art.duck svg { animation: duck 1.8s var(--ease); }
+.cat .art.out svg .flame, .cat .art.out svg circle[fill="url(#candleGlow)"] { opacity: 0; transition: opacity .25s; }
+@keyframes wobble { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-12deg); } 40% { transform: rotate(9deg); } 60% { transform: rotate(-5deg); } 80% { transform: rotate(2deg); } }
+@keyframes flip { from { transform: perspective(400px) rotateY(0); } to { transform: perspective(400px) rotateY(360deg); } }
+@keyframes spin { from { transform: rotate(0); } to { transform: rotate(360deg); } }
+@keyframes hop { 0%,100% { transform: translateY(0); } 30% { transform: translateY(-26px) rotate(-6deg); } 55% { transform: translateY(0) scale(1.06,.94); } 75% { transform: translateY(-8px); } }
+@keyframes duck { 0% { transform: translateY(0); } 25%, 60% { transform: translateY(85%); } 75% { transform: translateY(-6%); } 100% { transform: translateY(0); } }
+.smoke { position: absolute; width: 10px; height: 10px; border-radius: 50%; background: rgba(255,255,255,.55); filter: blur(3px); pointer-events: none; animation: smoke 1.6s ease-out forwards; }
+@keyframes smoke { to { transform: translate(var(--dx, 6px), -60px) scale(3); opacity: 0; } }
+.lb-art svg.head { cursor: pointer; transform-origin: 50% 80%; }
+.lb-art.hohoho svg.head { animation: hohoho .9s var(--ease); }
+@keyframes hohoho { 0%,100% { transform: rotate(0); } 20% { transform: rotate(-5deg) translateY(-4px); } 45% { transform: rotate(4deg); } 70% { transform: rotate(-2deg) translateY(-2px); } }
+.hidden-nisse { position: absolute; z-index: 2; width: 38px; height: 54px; padding: 0; border: 0; background: none; cursor: pointer; transform-origin: 50% 100%; }
+.hidden-nisse svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.hidden-nisse.poof { animation: poof .45s ease-in forwards; }
+@keyframes poof { to { transform: scale(.2) translateY(20px); opacity: 0; } }
+@media (prefers-reduced-motion: no-preference) { .hidden-nisse { animation: peek 4s ease-in-out infinite; } }
+@keyframes peek { 0%, 70%, 100% { transform: rotate(0); } 78% { transform: rotate(-8deg); } 86% { transform: rotate(6deg); } }
+.egg-host { position: relative; isolation: isolate; }
+.truck-run { position: absolute; bottom: 26px; left: 0; width: 170px; z-index: 3; pointer-events: none; }
+.truck-run .wheel { transform-box: fill-box; transform-origin: center; animation: spin .7s linear infinite; }
 </style>
 
 <svg width="0" height="0" style="position:absolute" aria-hidden="true">
   <defs>
     <symbol id="santa-head" viewBox="0 0 200 200">
-      <defs>
-        <linearGradient id="hatG" x1="0" x2="1" y1="0" y2="1"><stop offset="0" stop-color="#c3313a"/><stop offset="1" stop-color="#8c1c22"/></linearGradient>
-        <radialGradient id="skinG" cx=".7" cy=".4" r=".8"><stop offset="0" stop-color="#f6d2b0"/><stop offset="1" stop-color="#e2ad86"/></radialGradient>
-        <linearGradient id="furG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fffdf7"/><stop offset="1" stop-color="#e8dfcf"/></linearGradient>
-      </defs>
-      <!-- hat: crown and the tail drooping behind the head -->
-      <path d="M118 30 C 96 18 60 22 42 48 C 34 60 32 76 34 92 L 47 92 C 47 74 53 60 65 52 C 81 42 99 40 113 46 Z" fill="#8c1c22"/>
-      <path d="M60 84 C 64 54 88 30 112 28 C 130 27 138 42 136 66 L 134 74 Z" fill="url(#hatG)"/>
-      <path d="M84 70 C 92 52 104 40 118 36" fill="none" stroke="#6d1218" stroke-width="2" opacity=".45" stroke-linecap="round"/>
-      <circle cx="40" cy="100" r="12" fill="url(#furG)"/>
-      <!-- face -->
-      <path d="M64 98 C 70 90 100 86 136 86 C 140 91 142 95 141 99 C 148 101 152 105 151 110 C 150 115 144 116 140 114 L 132 118 C 110 122 80 118 66 114 Z" fill="url(#skinG)"/>
-      <circle cx="146" cy="108" r="6.5" fill="#e6a083"/>
-      <circle cx="112" cy="108" r="7" fill="#e88a78" opacity=".45"/>
-      <path d="M113 100 q5 -4.5 10 0" fill="none" stroke="#3a2016" stroke-width="2.4" stroke-linecap="round"/>
-      <!-- beard -->
-      <path d="M64 104 C 76 118 104 124 140 118 C 149 128 149 146 143 158 C 139 168 131 177 119 183 C 111 187 101 183 95 177 C 87 177 79 171 75 163 C 67 155 62 141 62 127 C 61 117 61 110 64 104 Z" fill="url(#furG)"/>
-      <path d="M84 140 c 6 8 14 10 22 6 M100 160 c 6 6 14 6 20 0 M78 124 c 4 6 10 8 16 6" fill="none" stroke="#d8cbb4" stroke-width="1.6" stroke-linecap="round"/>
-      <!-- moustache -->
-      <path d="M140 113 C 151 113 159 117 158 124 C 153 128 145 127 139 123 C 132 126 123 126 118 121 C 122 115 131 113 140 113 Z" fill="#fffdf7" stroke="#e1d7c4" stroke-width="1"/>
-      <!-- brow + brim -->
-      <path d="M112 93 c 5 -4 12 -4 16 0" fill="none" stroke="#fffdf7" stroke-width="4.5" stroke-linecap="round"/>
-      <path d="M54 88 C 66 72 106 64 133 66 C 142 67 144 78 139 84 C 114 82 82 88 63 100 C 53 102 48 94 54 88 Z" fill="url(#furG)"/>
-      <path d="M66 86 c 3 -2 6 -2 9 0 M86 79 c 3 -2 6 -2 9 0 M108 74 c 3 -2 6 -2 9 0 M126 72 c 3 -2 6 -2 8 0" fill="none" stroke="#d8cbb4" stroke-width="1.2" stroke-linecap="round"/>
-    </symbol>
+  <defs>
+    
+    <radialGradient id="skinG" cx=".7" cy=".4" r=".8"><stop offset="0" stop-color="#f6d2b0"/><stop offset="1" stop-color="#e2ad86"/></radialGradient>
+    <linearGradient id="furG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#fffdf7"/><stop offset="1" stop-color="#e8dfcf"/></linearGradient>
+  </defs>
+  <!-- face -->
+  <path d="M64 98 C 70 90 100 86 136 86 C 140 91 142 95 141 99 C 148 101 152 105 151 110 C 150 115 144 116 140 114 L 132 118 C 110 122 80 118 66 114 Z" fill="url(#skinG)"/>
+  <circle cx="146" cy="108" r="6.5" fill="#e6a083"/>
+  <circle cx="112" cy="108" r="7" fill="#e88a78" opacity=".45"/>
+  <path d="M113 100 q5 -4.5 10 0" fill="none" stroke="#3a2016" stroke-width="2.4" stroke-linecap="round"/>
+  <!-- beard -->
+  <path d="M64 104 C 76 118 104 124 140 118 C 149 128 149 146 143 158 C 139 168 131 177 119 183 C 111 187 101 183 95 177 C 87 177 79 171 75 163 C 67 155 62 141 62 127 C 61 117 61 110 64 104 Z" fill="url(#furG)"/>
+  <path d="M84 140 c 6 8 14 10 22 6 M100 160 c 6 6 14 6 20 0 M78 124 c 4 6 10 8 16 6" fill="none" stroke="#d8cbb4" stroke-width="1.6" stroke-linecap="round"/>
+  <!-- moustache -->
+  <path d="M140 113 C 151 113 159 117 158 124 C 153 128 145 127 139 123 C 132 126 123 126 118 121 C 122 115 131 113 140 113 Z" fill="#fffdf7" stroke="#e1d7c4" stroke-width="1"/>
+  <!-- brow + brim -->
+  <path d="M112 93 c 5 -4 12 -4 16 0" fill="none" stroke="#fffdf7" stroke-width="4.5" stroke-linecap="round"/>
+  <defs>
+    <filter id="fluff" x="-20%" y="-20%" width="140%" height="140%"><feTurbulence type="fractalNoise" baseFrequency=".9" numOctaves="2" seed="4" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="5" xChannelSelector="R" yChannelSelector="G"/></filter>
+    <filter id="plush" x="-10%" y="-10%" width="120%" height="120%"><feTurbulence type="fractalNoise" baseFrequency="1.4" numOctaves="2" seed="7" result="n"/><feDisplacementMap in="SourceGraphic" in2="n" scale="2.2" xChannelSelector="R" yChannelSelector="G" result="d"/><feTurbulence type="fractalNoise" baseFrequency="2.2" numOctaves="1" seed="2" result="g"/><feColorMatrix in="g" type="matrix" values="0 0 0 0 0  0 0 0 0 0  0 0 0 0 0  0 0 0 .22 0" result="ga"/><feComposite in="ga" in2="d" operator="in" result="gr"/><feMerge><feMergeNode in="d"/><feMergeNode in="gr"/></feMerge></filter>
+    <radialGradient id="hatLit" cx=".72" cy=".25" r=".9"><stop offset="0" stop-color="#e2353c"/><stop offset=".45" stop-color="#bd1f27"/><stop offset="1" stop-color="#7d1016"/></radialGradient>
+    <linearGradient id="hatTail" x1="1" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#a5161e"/><stop offset="1" stop-color="#6f0d13"/></linearGradient>
+    <radialGradient id="furW" cx=".45" cy=".3" r=".8"><stop offset="0" stop-color="#ffffff"/><stop offset=".6" stop-color="#f3efe8"/><stop offset="1" stop-color="#cfc8bd"/></radialGradient>
+    <linearGradient id="brimW" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#f1ede6"/><stop offset="1" stop-color="#c9c1b4"/></linearGradient>
+  </defs>
+  <!-- tail falling behind the head, then the pompom -->
+  <path filter="url(#plush)" d="M104 20 C 74 12 46 28 37 58 C 33 74 33 90 35 102 L 49 100 C 48 86 50 72 56 60 C 65 44 80 36 99 36 Z" fill="url(#hatTail)"/>
+  <!-- crown with its volume lit from the front -->
+  <path filter="url(#plush)" d="M58 86 C 56 54 70 24 100 16 C 126 10 146 26 148 54 L 150 76 Z" fill="url(#hatLit)"/>
+  <path d="M100 17 C 88 22 76 34 70 50" fill="none" stroke="#6d0c12" stroke-width="2.4" stroke-linecap="round" opacity=".55"/>
+  <path d="M120 22 C 132 30 138 44 139 62" fill="none" stroke="#ff8a86" stroke-width="3" stroke-linecap="round" opacity=".25"/>
+  <circle filter="url(#fluff)" cx="40" cy="108" r="15" fill="url(#furW)"/>
+  <!-- thick plush brim -->
+  <path filter="url(#fluff)" d="M50 94 C 46 84 52 76 64 73 C 90 66 122 60 144 62 C 156 63 160 74 156 84 C 152 92 146 94 138 94 C 112 94 86 98 66 106 C 58 108 52 102 50 94 Z" fill="url(#brimW)"/>
+
+</symbol>
     <clipPath id="cameo-clip"><circle cx="50" cy="50" r="47"/></clipPath>
     <symbol id="santa-cameo" viewBox="0 0 100 100">
       <circle cx="50" cy="50" r="49" fill="#f4ecdd"/>
@@ -338,9 +394,10 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
 
 <div class="announce">
   <div class="wrap">
-    <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#star8"/></svg>
-    <span data-i18n="announce">Julemanden svarer på alle sprog.</span>
-    <button type="button" data-open-chat data-i18n="announceCta">Skriv til ham her</button>
+    <button type="button" data-open-chat>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#star8"/></svg>
+      <span class="long" data-i18n="announce">Julemanden svarer på alle sprog – skriv til ham her</span><span class="short" data-i18n="announceShort">Skriv til Julemanden</span> ›
+    </button>
   </div>
 </div>
 
@@ -382,9 +439,10 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
   <section class="hero" aria-labelledby="hero-title">
     <canvas id="snow" aria-hidden="true"></canvas>
     <canvas id="garland" aria-hidden="true"></canvas>
+    <div class="baubles" id="baubles"></div>
     <div class="wrap hero-inner">
       <span class="kicker rise" data-i18n="heroKicker">Velkommen til Julekontor</span>
-      <h1 id="hero-title" class="rise d1" data-i18n="heroTitle">Danmarks gammeldags julebutik</h1>
+      <h1 id="hero-title" class="rise d1" data-i18n="heroTitle">Jul som i gamle dage</h1>
       <p class="lede rise d2" data-i18n="heroLede">Nisser, glaskugler, flettede hjerter og kalenderlys – julepynt, som vi husker den fra barndommen, samlet under ét tag.</p>
       <div class="hero-cta rise d3">
         <a class="btn btn-cream" href="#sortiment" data-i18n="ctaRange">Se sortimentet</a>
@@ -536,7 +594,7 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
       <figure><img src="img/logo.webp" width="1200" height="800" alt="Julekontor – Danmarks gammeldags julebutik. En rød veteran-varevogn med juletræ og gaver på taget kører gennem sneen." loading="lazy"></figure>
       <div class="copy">
         <span class="kicker" data-i18n="aboutKicker">Om os</span>
-        <h2 id="about-title" data-i18n="aboutTitle">Julen, som den var engang</h2>
+        <h2 id="about-title" data-i18n="aboutTitle">Et lille kontor med én opgave: julen</h2>
         <p data-i18n="aboutP1">Hos Julekontor finder du den jul, mange af os husker fra barndommen: røde nisser med uldhuer, tynde glaskugler, der fanger lyset fra stearinlysene, og kalenderlys, der brænder ned dag for dag frem mod juleaften.</p>
         <p data-i18n="aboutP2">Vi vælger varerne én for én og foretrækker det, der holder i mange år. Kig ind, rør ved tingene, og tag dig god tid.</p>
         <span class="sig" data-i18n="aboutSig">Glædelig jul</span>
@@ -609,9 +667,9 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
   const reduceMotion = matchMedia("(prefers-reduced-motion: reduce)").matches;
   const T = {
     da: {
-      announce: "Julemanden svarer på alle sprog.", announceCta: "Skriv til ham her",
+      announce: "Julemanden svarer på alle sprog – skriv til ham her", announceShort: "Skriv til Julemanden",
       navRange: "Sortiment", navSanta: "Julemanden", navAbout: "Om os", navVisit: "Besøg", music: "Spilledåse",
-      heroKicker: "Velkommen til Julekontor", heroTitle: "Danmarks gammeldags julebutik",
+      heroKicker: "Velkommen til Julekontor", heroTitle: "Jul som i gamle dage",
       heroLede: "Nisser, glaskugler, flettede hjerter og kalenderlys – julepynt, som vi husker den fra barndommen, samlet under ét tag.",
       ctaRange: "Se sortimentet", ctaSanta: "Skriv til Julemanden",
       cdMany: n => `<b>${n}</b> dage til juleaften`, cdOne: "<b>1</b> dag til juleaften", cdEve: "<b>24</b> I aften er det juleaften", cdAfter: "Glædelig jul og godt nytår",
@@ -623,7 +681,7 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
       santaKicker: "Julemandens brevkasse", santaTitle: "Skriv til Julemanden – han svarer på dit sprog",
       santaLede: "Fortæl ham om dine ønsker, spørg til rensdyrene, eller hør, hvad nisserne laver i værkstedet. Skriver du på dansk, svarer han på dansk. Skriver du på tysk, polsk eller et helt andet sprog, svarer han på det.",
       s1: "Direkte her på siden – uden login og uden app", s2: "Han spørger aldrig om navn, adresse eller telefonnummer", ctaLetter: "Skriv et brev",
-      aboutKicker: "Om os", aboutTitle: "Julen, som den var engang",
+      aboutKicker: "Om os", aboutTitle: "Et lille kontor med én opgave: julen",
       aboutP1: "Hos Julekontor finder du den jul, mange af os husker fra barndommen: røde nisser med uldhuer, tynde glaskugler, der fanger lyset fra stearinlysene, og kalenderlys, der brænder ned dag for dag frem mod juleaften.",
       aboutP2: "Vi vælger varerne én for én og foretrækker det, der holder i mange år. Kig ind, rør ved tingene, og tag dig god tid.", aboutSig: "Glædelig jul",
       visitKicker: "Besøg os", visitTitle: "Kom ind fra kulden", visitLede: "Julepynt skal ses i virkeligheden. Tag dig god tid, og spørg endelig.",
@@ -635,12 +693,16 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
       greet: "Goddag, og velkommen indenfor. Her er Julemanden, ved mit skrivebord på Julekontoret. Skriv til mig på det sprog, du har lyst til, så svarer jeg på samme sprog. Hvad går du og tænker på her op til jul?",
       chips: ["Hvad ønsker du dig?", "Hvordan har rensdyrene det?", "Hvad laver nisserne nu?"],
       offline: "Forhåndsvisning: Julemanden svarer med færdigskrevne svar. På den rigtige hjemmeside skriver han frit.",
-      error: "Min pen er løbet tør for blæk. Prøv igen om et øjeblik."
+      error: "Min pen er løbet tør for blæk. Prøv igen om et øjeblik.",
+      eggSanta: ["Ho ho ho! Det kilder på næsen.", "Har du været sød i år?", "Psst … nisserne har gemt sig på siden.", "Ho ho! Jeg skal lige finde mine briller."],
+      eggNisse: ["Hej! Du fandt mig.", "Nu gemmer jeg mig et andet sted …", "Igen? Du er god til det her.", "Hmm, jeg må finde et bedre skjul."],
+      eggNisseAll: "Du har fundet mig alle steder! Glædelig jul fra nissen.",
+      eggNisseCard: ["Ups – jeg troede, ingen kiggede.", "Jeg er bare lidt genert.", "Puh, det var tæt på!"]
     },
     de: {
-      announce: "Der Weihnachtsmann antwortet in jeder Sprache.", announceCta: "Hier schreiben",
+      announce: "Der Weihnachtsmann antwortet in jeder Sprache – schreib ihm hier", announceShort: "Dem Weihnachtsmann schreiben",
       navRange: "Sortiment", navSanta: "Weihnachtsmann", navAbout: "Über uns", navVisit: "Besuch", music: "Spieluhr",
-      heroKicker: "Willkommen im Julekontor", heroTitle: "Dänemarks altmodischer Weihnachtsladen",
+      heroKicker: "Willkommen im Julekontor", heroTitle: "Weihnachten wie früher",
       heroLede: "Wichtel, Glaskugeln, geflochtene Herzen und Kalenderkerzen – Weihnachtsschmuck, wie wir ihn aus der Kindheit kennen, unter einem Dach.",
       ctaRange: "Zum Sortiment", ctaSanta: "Dem Weihnachtsmann schreiben",
       cdMany: n => `noch <b>${n}</b> Tage bis Heiligabend`, cdOne: "noch <b>1</b> Tag bis Heiligabend", cdEve: "<b>24</b> Heute ist Heiligabend", cdAfter: "Frohe Weihnachten und ein gutes neues Jahr",
@@ -652,7 +714,7 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
       santaKicker: "Der Briefkasten des Weihnachtsmanns", santaTitle: "Schreib dem Weihnachtsmann – er antwortet in deiner Sprache",
       santaLede: "Erzähl ihm von deinen Wünschen, frag nach den Rentieren oder hör, was die Wichtel in der Werkstatt machen. Schreibst du auf Deutsch, antwortet er auf Deutsch. Schreibst du auf Dänisch, Polnisch oder in einer ganz anderen Sprache, antwortet er in dieser.",
       s1: "Direkt hier auf der Seite – ohne Anmeldung und ohne App", s2: "Er fragt nie nach Name, Adresse oder Telefonnummer", ctaLetter: "Einen Brief schreiben",
-      aboutKicker: "Über uns", aboutTitle: "Weihnachten, wie es früher war",
+      aboutKicker: "Über uns", aboutTitle: "Ein kleines Kontor mit einer Aufgabe: Weihnachten",
       aboutP1: "Im Julekontor findest du das Weihnachten, an das sich viele von uns aus der Kindheit erinnern: rote Wichtel mit Wollmützen, dünne Glaskugeln, die das Kerzenlicht einfangen, und Kalenderkerzen, die Tag für Tag bis Heiligabend herunterbrennen.",
       aboutP2: "Wir wählen jedes Stück einzeln aus und nehmen lieber, was viele Jahre hält. Schau herein, nimm die Dinge in die Hand und lass dir Zeit.", aboutSig: "Frohe Weihnachten",
       visitKicker: "Besuch", visitTitle: "Komm rein aus der Kälte", visitLede: "Weihnachtsschmuck muss man in echt sehen. Lass dir Zeit und frag ruhig.",
@@ -664,12 +726,16 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
       greet: "Guten Tag und herzlich willkommen. Hier ist der Weihnachtsmann, an meinem Schreibtisch im Julekontor. Schreib mir in der Sprache, die dir gefällt – ich antworte in derselben. Was geht dir so kurz vor Weihnachten durch den Kopf?",
       chips: ["Was wünschst du dir?", "Wie geht es den Rentieren?", "Was machen die Wichtel gerade?"],
       offline: "Vorschau: Der Weihnachtsmann antwortet mit vorgeschriebenen Antworten. Auf der echten Website schreibt er frei.",
-      error: "Meiner Feder ist die Tinte ausgegangen. Versuch es gleich noch einmal."
+      error: "Meiner Feder ist die Tinte ausgegangen. Versuch es gleich noch einmal.",
+      eggSanta: ["Ho ho ho! Das kitzelt an der Nase.", "Warst du dieses Jahr brav?", "Psst … die Wichtel haben sich auf der Seite versteckt.", "Ho ho! Wo ist denn nur meine Brille?"],
+      eggNisse: ["Hallo! Du hast mich gefunden.", "Jetzt verstecke ich mich woanders …", "Schon wieder? Du bist gut darin.", "Hm, ich brauche ein besseres Versteck."],
+      eggNisseAll: "Du hast mich überall gefunden! Frohe Weihnachten vom Wichtel.",
+      eggNisseCard: ["Huch – ich dachte, keiner guckt.", "Ich bin nur ein bisschen schüchtern.", "Puh, das war knapp!"]
     },
     en: {
-      announce: "Santa answers in every language.", announceCta: "Write to him here",
+      announce: "Santa answers in every language – write to him here", announceShort: "Write to Santa",
       navRange: "Shop", navSanta: "Santa", navAbout: "About", navVisit: "Visit", music: "Music box",
-      heroKicker: "Welcome to Julekontor", heroTitle: "Denmark's old-fashioned Christmas shop",
+      heroKicker: "Welcome to Julekontor", heroTitle: "Christmas the way it used to be",
       heroLede: "Nisse elves, glass baubles, woven hearts and calendar candles – Christmas decorations the way we remember them from childhood, under one roof.",
       ctaRange: "See what we sell", ctaSanta: "Write to Santa",
       cdMany: n => `<b>${n}</b> days until Christmas Eve`, cdOne: "<b>1</b> day until Christmas Eve", cdEve: "<b>24</b> It's Christmas Eve tonight", cdAfter: "Merry Christmas and a happy New Year",
@@ -681,7 +747,7 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
       santaKicker: "Santa's letterbox", santaTitle: "Write to Santa – he answers in your language",
       santaLede: "Tell him your wishes, ask about the reindeer, or hear what the elves are up to in the workshop. Write in English and he answers in English. Write in Danish, Polish or any other language, and he answers in that one.",
       s1: "Right here on the page – no sign-up, no app", s2: "He never asks for your name, address or phone number", ctaLetter: "Write a letter",
-      aboutKicker: "About us", aboutTitle: "Christmas the way it used to be",
+      aboutKicker: "About us", aboutTitle: "A small office with one job: Christmas",
       aboutP1: "At Julekontor you'll find the Christmas many of us remember from childhood: red nisser in woollen caps, thin glass baubles that catch the candlelight, and calendar candles that burn down day by day towards Christmas Eve.",
       aboutP2: "We pick every item one by one and prefer things that last for years. Come in, pick things up and take your time.", aboutSig: "Merry Christmas",
       visitKicker: "Visit us", visitTitle: "Come in from the cold", visitLede: "Christmas decorations should be seen for real. Take your time, and do ask.",
@@ -693,7 +759,11 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
       greet: "Good day, and welcome in. This is Santa, at my desk in the Julekontor. Write to me in whatever language you like and I'll answer in the same one. What's on your mind this close to Christmas?",
       chips: ["What do you wish for?", "How are the reindeer?", "What are the elves doing?"],
       offline: "Preview: Santa answers with pre-written replies here. On the live website he writes freely.",
-      error: "My pen has run out of ink. Please try again in a moment."
+      error: "My pen has run out of ink. Please try again in a moment.",
+      eggSanta: ["Ho ho ho! That tickles my nose.", "Have you been good this year?", "Psst … the elves are hiding on this page.", "Ho ho! Now where did I put my glasses?"],
+      eggNisse: ["Hello! You found me.", "Now I'll hide somewhere else …", "Again? You're good at this.", "Hmm, I need a better hiding place."],
+      eggNisseAll: "You found me everywhere! Merry Christmas from the nisse.",
+      eggNisseCard: ["Oops – I thought nobody was looking.", "I'm just a little shy.", "Phew, that was close!"]
     }
   };
 
@@ -719,6 +789,134 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
 
 
 
+  /* ================= little things to find ================= */
+  const Eggs = (() => {
+    let ac = null;
+    const audio = () => { try { ac = ac || new (window.AudioContext || window.webkitAudioContext)(); ac.resume(); return ac; } catch { return null; } };
+    function bell(freq, vol = .18, len = 1.6) {
+      const a = audio(); if (!a) return; const t = a.currentTime;
+      [[1, vol], [2.76, vol * .35], [5.4, vol * .15]].forEach(([m, v]) => {
+        const o = a.createOscillator(), g = a.createGain(); o.type = "sine"; o.frequency.value = freq * m;
+        g.gain.setValueAtTime(0, t); g.gain.linearRampToValueAtTime(v, t + .005); g.gain.exponentialRampToValueAtTime(.0005, t + len / m);
+        o.connect(g).connect(a.destination); o.start(t); o.stop(t + len);
+      });
+    }
+    const NOTES = [523.25, 587.33, 659.25, 783.99, 880, 1046.5, 1174.66, 1318.51];
+    function sparkles(x, y, n = 12, spread = 90, colors = ["#f2d28f", "#ffffff", "#e2c58a"]) {
+      const k = reduceMotion ? Math.min(n, 4) : n;
+      for (let i = 0; i < k; i++) {
+        const sp = document.createElement("span"); sp.className = "sparkle"; sp.style.left = x + "px"; sp.style.top = y + "px";
+        sp.style.color = colors[i % colors.length]; sp.innerHTML = '<svg viewBox="0 0 24 24"><use href="#star8"/></svg>';
+        document.body.append(sp);
+        const a = Math.random() * Math.PI * 2, d = spread * (.4 + Math.random() * .8), s = .5 + Math.random() * .8;
+        sp.animate([{ transform: "translate(0,0) scale(.2) rotate(0)", opacity: 1 }, { transform: `translate(${Math.cos(a) * d}px, ${Math.sin(a) * d + 30}px) scale(${s}) rotate(${(Math.random() - .5) * 360}deg)`, opacity: 0 }],
+          { duration: 900 + Math.random() * 700, easing: "cubic-bezier(.2,.7,.2,1)" }).onfinish = () => sp.remove();
+      }
+    }
+    function say(x, y, text, ms = 2600) {
+      const b = document.createElement("div"); b.className = "eggbubble"; b.textContent = text;
+      b.style.left = Math.max(130, Math.min(innerWidth - 130, x)) + "px"; b.style.top = Math.max(70, y - 10) + "px";
+      document.body.append(b); setTimeout(() => { b.classList.add("out"); setTimeout(() => b.remove(), 450); }, ms);
+    }
+    const pick = arr => arr[(Math.random() * arr.length) | 0];
+    addEventListener("scroll", () => document.querySelectorAll(".eggbubble:not(.out)").forEach(b => { b.classList.add("out"); setTimeout(() => b.remove(), 450); }), { passive: true });
+
+    // 1. the baubles on the garland ring like little bells
+    const box = $("baubles"), COLORS = [["#ffd3cf", "#c8323a", "#5a0c11"], ["#ffe9b0", "#d9a441", "#7a5418"], ["#d8f0dc", "#2f7a48", "#123a22"], ["#e6ecff", "#7d8fb8", "#2b3554"]];
+    function placeBaubles(hooks) {
+      box.innerHTML = "";
+      hooks.forEach(([x, y], i) => {
+        const b = document.createElement("button"); b.type = "button"; b.className = "bauble"; b.setAttribute("aria-label", "♪");
+        const c = COLORS[i % COLORS.length]; b.style.cssText = `left:${x}px;top:${y}px;--hi:${c[0]};--mid:${c[1]};--lo:${c[2]};--len:${12 + (i % 3) * 7}px`;
+        b.append(document.createElement("i"));
+        b.addEventListener("click", e => { e.stopPropagation(); b.classList.remove("swing"); void b.offsetWidth; b.classList.add("swing"); bell(NOTES[i % NOTES.length]); const r = b.getBoundingClientRect(); sparkles(r.left + r.width / 2, r.bottom - 10, 6, 40); });
+        box.append(b);
+      });
+    }
+
+    // 2. a click into the red sky sends up a few stars
+    document.querySelector(".hero").addEventListener("click", e => {
+      if (e.target.closest("a, button")) return;
+      sparkles(e.clientX, e.clientY, 10, 70); bell(pick(NOTES) * 2, .06, .8);
+    });
+
+    // 3. click the logo plaque three times and the Julekontor van drives through
+    let clicks = [], driving = false;
+    document.querySelector(".plaque a").addEventListener("click", () => {
+      const now = Date.now(); clicks = clicks.filter(c => now - c < 1600); clicks.push(now);
+      if (clicks.length >= 3 && !driving) { clicks = []; driveTruck(); }
+    });
+    function driveTruck() {
+      driving = true; const hero = document.querySelector(".hero"), w = hero.clientWidth;
+      const wrap = document.createElement("div"); wrap.className = "truck-run";
+      wrap.innerHTML = `<svg viewBox="-4 -22 130 76"><path d="M18 4 l12 -20 l12 20 Z M34 4 l11 -17 l11 17 Z" fill="#1f4a2e"/><rect x="12" y="2" width="14" height="8" fill="#e2c58a"/><rect x="40" y="2" width="14" height="8" fill="#f7efe0"/><rect x="0" y="8" width="76" height="34" rx="5" fill="#f7efe0"/><rect x="0" y="6" width="76" height="5" rx="2.5" fill="#ffffff"/><path d="M76 16 h20 c4 0 7 2 9 5 l9 13 v8 H76 Z" fill="#f7efe0"/><path d="M80 19 h14 l8 11 h-22 Z" fill="#9fc3d8"/><rect x="0" y="38" width="118" height="5" rx="2" fill="#5a0c11"/><text x="38" y="30" text-anchor="middle" font-family="Playfair Display, Georgia, serif" font-style="italic" font-weight="700" font-size="13" fill="#9e1b22">Julekontor</text><circle cx="116" cy="33" r="3.4" fill="#fff1c9"/><g class="wheel"><circle cx="22" cy="44" r="9" fill="#120c0a"/><circle cx="22" cy="44" r="4" fill="#e9e0cf"/><rect x="21" y="36" width="2" height="16" fill="#120c0a"/></g><g class="wheel"><circle cx="94" cy="44" r="9" fill="#120c0a"/><circle cx="94" cy="44" r="4" fill="#e9e0cf"/><rect x="93" y="36" width="2" height="16" fill="#120c0a"/></g></svg>`;
+      hero.append(wrap);
+      [0, 180, 360, 540, 900, 1080].forEach((d, i) => setTimeout(() => bell(NOTES[(i * 2) % NOTES.length] * 2, .07, .6), d));
+      wrap.animate([{ transform: "translateX(-200px)" }, { transform: `translateX(${w + 40}px)` }], { duration: reduceMotion ? 1500 : 6500, easing: "linear" }).onfinish = () => { wrap.remove(); driving = false; };
+    }
+
+    // 4. the six things in the shop each do something when tapped
+    const ACTIONS = ["duck", "wobble", "flip", "candle", "spin", "hop"];
+    document.querySelectorAll(".cat .art").forEach((art, i) => {
+      const act = ACTIONS[i];
+      art.addEventListener("click", () => {
+        const r = art.getBoundingClientRect(), cx = r.left + r.width / 2, cy = r.top + r.height / 2;
+        if (act === "candle") {
+          art.classList.toggle("out");
+          if (art.classList.contains("out")) {
+            for (let k = 0; k < 3; k++) { const p = document.createElement("span"); p.className = "smoke"; p.style.left = "50%"; p.style.top = "30%"; p.style.setProperty("--dx", (k - 1) * 8 + "px"); p.style.animationDelay = k * .15 + "s"; art.append(p); setTimeout(() => p.remove(), 2000); }
+          } else { sparkles(cx, r.top + r.height * .3, 6, 30); bell(NOTES[5], .08, .9); }
+          return;
+        }
+        art.classList.remove(act); void art.offsetWidth; art.classList.add(act);
+        if (act === "wobble") bell(NOTES[7], .12, 1.2);
+        if (act === "hop") sparkles(cx, cy, 16, 110, ["#f2d28f", "#c8323a", "#ffffff", "#2f7a48"]);
+        if (act === "spin") sparkles(cx, cy, 8, 60);
+        if (act === "flip") bell(NOTES[3], .08, .8);
+        if (act === "duck") setTimeout(() => say(cx, r.top + 20, pick(t("eggNisseCard"))), 900);
+      });
+    });
+
+    // 5. Santa answers a poke on the nose
+    const lb = document.querySelector(".lb-art");
+    lb.querySelector("svg.head").addEventListener("click", e => {
+      lb.classList.remove("hohoho"); void lb.offsetWidth; lb.classList.add("hohoho");
+      [0, 220, 440].forEach(d => setTimeout(() => bell(392, .07, .5), d));
+      const r = lb.getBoundingClientRect(); say(r.left + r.width * .5, r.top + 10, pick(t("eggSanta")));
+    });
+
+    // 6. a nisse hides somewhere on the page and moves on when you find him
+    const SPOTS = [
+      () => { const h = document.querySelector("#om figure"); h.classList.add("egg-host"); return [h, "right:18px;top:-50px;z-index:-1"]; },
+      () => { const h = document.querySelector(".visit .card"); h.classList.add("egg-host"); return [h, "left:26px;top:-52px"]; },
+      () => { const h = document.querySelector(".cats"); h.classList.add("egg-host"); return [h, "right:22px;top:-52px"]; },
+      () => { const h = document.querySelector("footer .badge"); h.classList.add("egg-host"); return [h, "left:-30px;bottom:2px;z-index:-1;transform:rotate(-14deg)"]; }
+    ];
+    let spot = +(store.get("jk-nisse-spot") || 0) % SPOTS.length, found = +(store.get("jk-nisse-found") || 0);
+    const nisse = document.createElement("button"); nisse.type = "button"; nisse.className = "hidden-nisse"; nisse.setAttribute("aria-label", "Nisse");
+    nisse.innerHTML = `<svg viewBox="30 4 60 144"><path d="M34 146 C 30 120 40 96 60 92 C 80 96 90 120 86 146 Z" fill="#6f7782"/><path d="M44 98 C 40 112 46 132 60 140 C 74 132 80 112 76 98 C 70 102 50 102 44 98 Z" fill="#f6f1e8"/><circle cx="60" cy="96" r="7" fill="#e1a588"/><path d="M36 96 C 34 60 46 22 62 8 C 70 22 84 46 84 96 C 70 102 50 102 36 96 Z" fill="#a8282e"/><circle cx="62" cy="8" r="6" fill="#f6f1e8"/><path d="M36 92 C 50 98 70 98 84 92" stroke="#f6f1e8" stroke-width="3" fill="none" stroke-linecap="round"/></svg>`;
+    function hide() { const [host, css] = SPOTS[spot](); nisse.className = "hidden-nisse"; nisse.style.cssText = css; host.append(nisse); }
+    nisse.addEventListener("click", e => {
+      e.stopPropagation(); found++; store.set("jk-nisse-found", found);
+      const r = nisse.getBoundingClientRect(), lines = t("eggNisse");
+      say(r.left + r.width / 2, r.top, found >= SPOTS.length && found % SPOTS.length === 0 ? t("eggNisseAll") : lines[(found - 1) % lines.length]);
+      bell(NOTES[(found * 3) % NOTES.length], .12, 1.2);
+      sparkles(r.left + r.width / 2, r.top + r.height / 2, found % SPOTS.length === 0 ? 30 : 8, found % SPOTS.length === 0 ? 160 : 50);
+      nisse.classList.add("poof");
+      setTimeout(() => { spot = (spot + 1) % SPOTS.length; store.set("jk-nisse-spot", spot); hide(); }, 500);
+    });
+    hide();
+
+    // 7. "Glædelig jul" in the footer lets it rain stars
+    document.querySelector("footer .gj").addEventListener("click", () => {
+      for (let i = 0; i < (reduceMotion ? 6 : 26); i++) setTimeout(() => sparkles(Math.random() * innerWidth, innerHeight * (.2 + Math.random() * .5), 3, 120), i * 60);
+      [0, 150, 300, 450].forEach((d, i) => setTimeout(() => bell(NOTES[[0, 2, 4, 5][i]], .1, 1.2), d));
+    });
+    document.querySelector("footer .gj").style.cursor = "pointer";
+
+    return { placeBaubles, bell };
+  })();
+
   /* ================= header ================= */
   const head = $("site-head");
   const onScroll = () => head.classList.toggle("scrolled", scrollY > 60);
@@ -743,7 +941,7 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
       let seed = 11; const rnd = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
       const span = W < 600 ? W / 2 : W / 4, sag = Math.min(46, span * .16), top = 14;
       const anchors = []; for (let x = 0; x <= W + 1; x += span) anchors.push(x);
-      const greens = ["#0f2a1a", "#173b25", "#1f4a2e", "#2a5c39", "#356b44"];
+      const greens = ["#0f2a1a", "#173b25", "#1f4a2e", "#2a5c39", "#356b44"], hooks = [];
       for (let i = 0; i < anchors.length - 1; i++) {
         const x0 = anchors[i], x1 = anchors[i + 1];
         for (let s = 0; s <= 1.0001; s += 4 / span) {
@@ -754,13 +952,10 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
             ctx.beginPath(); ctx.moveTo(x + (rnd() - .5) * 6, y + (rnd() - .5) * 6); ctx.lineTo(x + Math.cos(a) * len, y + Math.sin(a) * len * .8); ctx.stroke();
           }
         }
-        // a bauble at the low point of each swag
-        const bx = (x0 + x1) / 2, by = top + sag + 22;
-        ctx.strokeStyle = "#e2c58a"; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx, top + sag + 4); ctx.lineTo(bx, by - 10); ctx.stroke();
-        const g = ctx.createRadialGradient(bx - 4, by - 4, 1, bx, by, 12); g.addColorStop(0, i % 2 ? "#ffe9b0" : "#ffd3cf"); g.addColorStop(.35, i % 2 ? "#d9a441" : "#c8323a"); g.addColorStop(1, i % 2 ? "#7a5418" : "#5a0c11");
-        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(bx, by, 11, 0, Math.PI * 2); ctx.fill();
-        ctx.fillStyle = "#e2c58a"; ctx.fillRect(bx - 3, by - 14, 6, 4);
+        hooks.push([(x0 + x1) / 2, top + sag + 3]);
+        if (W >= 900) { hooks.push([x0 + (x1 - x0) * .25, top + sag * .75 + 3]); hooks.push([x0 + (x1 - x0) * .75, top + sag * .75 + 3]); }
       }
+      Eggs.placeBaubles(hooks);
       // bows at the anchors
       anchors.forEach(x => {
         ctx.fillStyle = "#b8242c";
