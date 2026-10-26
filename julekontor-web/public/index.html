@@ -63,7 +63,7 @@ a { color: inherit; }
 .btn:hover { transform: translateY(-1px); }
 .btn-cream { background: var(--on-dark); color: var(--red-deep); }
 .btn-cream:hover { background: #fff; }
-.btn-outline-light { background: transparent; border-color: rgba(247,239,224,.7); color: var(--on-dark); }
+.btn-outline-light { background: rgba(16,24,90,.45); backdrop-filter: blur(4px); -webkit-backdrop-filter: blur(4px); border-color: rgba(247,239,224,.7); color: var(--on-dark); }
 .btn-outline-light:hover { background: rgba(247,239,224,.12); border-color: var(--on-dark); }
 .btn-red { background: var(--red); color: var(--on-dark); }
 .btn-red:hover { background: var(--red-deep); }
@@ -115,15 +115,32 @@ a { color: inherit; }
 .drawer a { font-family: var(--f-display); font-size: 1.4rem; text-decoration: none; padding: 10px 0; border-bottom: 1px solid var(--line); }
 
 /* ---------- hero banner ---------- */
-.hero { position: relative; overflow: hidden; isolation: isolate; color: var(--on-dark); text-align: center;
-  background: radial-gradient(90% 120% at 50% 0%, #b8242c 0%, var(--red) 38%, var(--red-deep) 75%, #5a0c11 100%); }
-.hero::before { content: ""; position: absolute; inset: 0; z-index: -1; opacity: .16; pointer-events: none;
+.hero { position: relative; overflow: hidden; isolation: isolate; color: #fff; text-align: center; background: #10185a; min-height: calc(100svh - 114px); display: grid; align-items: center; }
+.night { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.night .tw { animation: tw 3.6s ease-in-out infinite; }
+@keyframes tw { 0%, 100% { opacity: 1; } 50% { opacity: .3; } }
+.countdown { position: relative; margin-top: 6px; width: min(460px, 100%); background: rgba(255,255,255,.95); color: var(--ink); border-radius: 16px; padding: 18px 14px 10px; box-shadow: 0 34px 60px -26px rgba(8,12,60,.85); }
+.cd-snow { position: absolute; left: -8px; right: -8px; top: -14px; width: calc(100% + 16px); height: 26px; filter: drop-shadow(0 3px 2px rgba(60,70,140,.25)); }
+.cd-bells { position: absolute; right: -30px; top: -40px; width: 92px; height: auto; transform-origin: 40% 30%; filter: drop-shadow(0 6px 6px rgba(0,0,0,.3)); cursor: pointer; }
+.cd-bells.ring { animation: wobble .9s var(--ease); }
+.cd-cells { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
+.cd-cells div { display: grid; justify-items: center; padding: 2px 6px; }
+.cd-cells div + div { border-left: 1px solid var(--line); }
+.cd-cells b { font-family: var(--f-display); font-weight: 600; font-size: clamp(2rem, 1.5rem + 2.2vw, 3.1rem); line-height: 1.05; color: var(--red); font-variant-numeric: lining-nums tabular-nums; }
+.cd-cells span { font-size: .68rem; font-weight: 600; letter-spacing: .14em; text-transform: uppercase; color: var(--ink-soft); margin-top: 4px; }
+.cd-note { margin-top: 8px; padding-top: 6px; border-top: 1px solid var(--line); font-family: var(--f-script); font-size: 1.55rem; line-height: 1.2; color: var(--green); }
+.scrolldown { display: inline-grid; place-items: center; width: 44px; height: 44px; color: rgba(255,255,255,.85); margin-top: 8px; }
+.scrolldown svg { width: 36px; height: 36px; }
+@media (prefers-reduced-motion: no-preference) { .scrolldown { animation: bob 2.2s ease-in-out infinite; } }
+@keyframes bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(7px); } }
+@media (max-width: 520px) { .cd-bells { right: -12px; width: 72px; top: -34px; } }
+.hero::before { content: none; position: absolute; inset: 0; z-index: -1; opacity: .16; pointer-events: none;
   background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='72' height='72' viewBox='0 0 72 72'%3E%3Cg fill='none' stroke='%23f2d28f' stroke-width='1'%3E%3Cpath d='M36 22v28M22 36h28M26 26l20 20M46 26L26 46'/%3E%3Ccircle cx='36' cy='36' r='3'/%3E%3C/g%3E%3Ccircle cx='0' cy='0' r='1.5' fill='%23f2d28f'/%3E%3Ccircle cx='72' cy='72' r='1.5' fill='%23f2d28f'/%3E%3Ccircle cx='72' cy='0' r='1.5' fill='%23f2d28f'/%3E%3Ccircle cx='0' cy='72' r='1.5' fill='%23f2d28f'/%3E%3C/svg%3E"); }
 #garland { position: absolute; left: 0; right: 0; top: 0; width: 100%; height: 130px; z-index: 2; pointer-events: none; }
 #snow { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
-.hero-inner { position: relative; z-index: 3; display: grid; justify-items: center; gap: 18px; padding-block: clamp(150px, 15vw, 190px) clamp(80px, 9vw, 120px); }
-.hero h1 { font-size: clamp(2.5rem, 1.8rem + 3.6vw, 4.9rem); font-weight: 600; letter-spacing: -.01em; max-width: 15ch; color: #fff8ec; text-shadow: 0 2px 30px rgba(60,0,0,.35); }
-.hero .lede { max-width: 38rem; font-size: clamp(1.05rem, 1rem + .3vw, 1.22rem); color: rgba(255,244,228,.88); }
+.hero-inner { position: relative; z-index: 3; display: grid; justify-items: center; gap: 16px; padding-block: clamp(140px, 14vw, 170px) clamp(60px, 7vw, 90px); }
+.hero h1 { font-size: clamp(2.4rem, 1.7rem + 3.4vw, 4.6rem); font-weight: 600; font-style: italic; letter-spacing: -.01em; max-width: 15ch; color: #ffffff; text-shadow: 0 3px 30px rgba(8,12,60,.7); margin-bottom: 18px; }
+.hero .lede { max-width: 36rem; font-size: clamp(1rem, .96rem + .3vw, 1.18rem); color: rgba(255,255,255,.9); text-shadow: 0 1px 14px rgba(8,12,60,.8); margin-top: 6px; }
 .hero .kicker { color: var(--gold-soft); }
 .hero-cta { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 10px; }
 .count { display: inline-flex; align-items: center; gap: 12px; margin-top: 14px; padding: 10px 18px; border: 1px solid rgba(242,210,143,.45); border-radius: 999px; font-size: .95rem; color: rgba(255,244,228,.9); }
@@ -446,24 +463,67 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
 
 <main id="start">
   <section class="hero" aria-labelledby="hero-title">
+    <svg class="night" id="night" viewBox="0 0 1600 1000" preserveAspectRatio="xMidYMid slice" aria-hidden="true">
+      <defs>
+        <linearGradient id="skyG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#070c2a"/><stop offset=".35" stop-color="#17206a"/><stop offset=".62" stop-color="#3a46a0"/><stop offset=".82" stop-color="#8a90d8"/><stop offset="1" stop-color="#c9c6ef"/></linearGradient>
+        <radialGradient id="haloG"><stop offset="0" stop-color="#ffffff" stop-opacity=".45"/><stop offset=".35" stop-color="#cfd2ff" stop-opacity=".18"/><stop offset="1" stop-color="#cfd2ff" stop-opacity="0"/></radialGradient>
+        <radialGradient id="moonG" cx=".42" cy=".4" r=".7"><stop offset="0" stop-color="#ffffff"/><stop offset=".55" stop-color="#eae8fb"/><stop offset="1" stop-color="#c4c1ec"/></radialGradient>
+        <linearGradient id="rayG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#ffffff" stop-opacity=".22"/><stop offset="1" stop-color="#ffffff" stop-opacity="0"/></linearGradient>
+        <linearGradient id="groundG" x1="0" x2="0" y1="0" y2="1"><stop offset="0" stop-color="#eef1ff"/><stop offset=".45" stop-color="#b9c1f1"/><stop offset="1" stop-color="#6c78c4"/></linearGradient>
+        <filter id="soft" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="16"/></filter>
+        <filter id="glow" x="-200%" y="-200%" width="500%" height="500%"><feGaussianBlur stdDeviation="3"/></filter>
+      </defs>
+      <rect width="1600" height="1000" fill="url(#skyG)"/>
+      <g filter="url(#soft)" opacity=".7">
+        <path d="M760 -60 L700 -60 L430 720 L600 720 Z" fill="url(#rayG)"/><path d="M820 -60 L780 -60 L700 720 L820 720 Z" fill="url(#rayG)"/>
+        <path d="M880 -60 L840 -60 L980 720 L1120 720 Z" fill="url(#rayG)"/><path d="M940 -60 L900 -60 L1300 720 L1420 720 Z" fill="url(#rayG)"/>
+      </g>
+      <g id="stars"></g>
+      <circle cx="1010" cy="250" r="430" fill="url(#haloG)"/>
+      <circle cx="1010" cy="250" r="165" fill="url(#moonG)"/>
+      <g fill="#b6b2e2" opacity=".35"><circle cx="960" cy="210" r="26"/><circle cx="1060" cy="300" r="18"/><circle cx="1050" cy="190" r="11"/><circle cx="975" cy="315" r="13"/><circle cx="1105" cy="235" r="8"/></g>
+      <g id="sleigh"></g>
+      <path d="M0 640 L120 560 L240 610 L380 520 L520 600 L660 540 L820 610 L980 530 L1120 600 L1260 520 L1400 590 L1600 540 V780 H0 Z" fill="#4c58ad" opacity=".9"/>
+      <path d="M380 520 L350 548 L372 540 L392 552 L410 538 Z M980 530 L952 556 L975 548 L992 560 L1010 546 Z M1260 520 L1234 546 L1256 538 L1272 550 L1290 538 Z" fill="#dfe4ff" opacity=".7"/>
+      <path d="M0 700 C 200 640 380 690 560 660 C 760 625 940 690 1140 655 C 1320 625 1460 670 1600 650 V840 H0 Z" fill="#34408c"/>
+      <g id="lights"></g>
+      <g id="forest"></g>
+      <path d="M0 800 C 300 770 600 820 900 790 C 1200 765 1400 800 1600 785 V1000 H0 Z" fill="url(#groundG)"/>
+      <g id="bigtree"></g>
+    </svg>
     <canvas id="snow" aria-hidden="true"></canvas>
     <canvas id="garland" aria-hidden="true"></canvas>
     <div class="baubles" id="baubles"></div>
     <div class="wrap hero-inner">
       <span class="kicker rise" data-i18n="heroKicker">Velkommen til Julekontor</span>
       <h1 id="hero-title" class="rise d1" data-i18n="heroTitle">Jul som i gamle dage</h1>
-      <p class="lede rise d2" data-i18n="heroLede">Nisser, glaskugler, flettede hjerter og kalenderlys – julepynt, som vi husker den fra barndommen, samlet under ét tag.</p>
-      <div class="hero-cta rise d3">
+      <div class="countdown rise d2" role="timer" aria-live="off">
+        <svg class="cd-snow" viewBox="0 0 400 30" preserveAspectRatio="none" aria-hidden="true"><path d="M0 30 C 0 14 10 10 22 14 C 30 2 50 2 58 12 C 70 4 86 6 92 16 C 104 6 124 8 128 18 C 140 8 160 6 170 14 C 182 4 202 6 208 16 C 222 6 240 8 246 18 C 258 8 276 6 286 14 C 298 2 320 4 326 16 C 338 8 356 8 362 18 C 372 10 392 12 400 22 V30 Z" fill="#ffffff"/></svg>
+        <svg class="cd-bells" viewBox="0 0 90 80" aria-hidden="true">
+          <defs><linearGradient id="bellG" x1="0" x2="1"><stop offset="0" stop-color="#a87a1e"/><stop offset=".45" stop-color="#f6d77a"/><stop offset="1" stop-color="#9a6c16"/></linearGradient></defs>
+          <path d="M30 34 C 22 26 12 30 8 40 C 18 40 24 38 30 34 Z M30 34 C 26 24 30 14 40 10 C 42 20 38 28 30 34 Z" fill="#2f7a48"/>
+          <g transform="translate(16 30) rotate(-18)"><path d="M15 2 C 8 2 6 9 6 15 C 6 20 3 22 2 25 L28 25 C 27 22 24 20 24 15 C 24 9 22 2 15 2 Z" fill="url(#bellG)"/><circle cx="15" cy="27.5" r="3.5" fill="#8a5d12"/></g>
+          <g transform="translate(42 30) rotate(16)"><path d="M15 2 C 8 2 6 9 6 15 C 6 20 3 22 2 25 L28 25 C 27 22 24 20 24 15 C 24 9 22 2 15 2 Z" fill="url(#bellG)"/><circle cx="15" cy="27.5" r="3.5" fill="#8a5d12"/></g>
+          <path d="M45 30 C 34 18 22 22 28 30 C 32 34 40 32 45 30 C 50 32 58 34 62 30 C 68 22 56 18 45 30 Z" fill="#c8323a"/><circle cx="45" cy="30" r="4.5" fill="#8c1c22"/>
+          <circle cx="52" cy="22" r="3.4" fill="#d22a33"/><circle cx="57" cy="26" r="3.4" fill="#d22a33"/>
+        </svg>
+        <div class="cd-cells">
+          <div><b id="cd-d">00</b><span data-i18n="cdDays">Dage</span></div>
+          <div><b id="cd-h">00</b><span data-i18n="cdHours">Timer</span></div>
+          <div><b id="cd-m">00</b><span data-i18n="cdMinutes">Minutter</span></div>
+          <div><b id="cd-s">00</b><span data-i18n="cdSeconds">Sekunder</span></div>
+        </div>
+        <p class="cd-note" id="cd-note">til juleaften</p>
+      </div>
+      <p class="lede rise d3" data-i18n="heroLede">Nisser, glaskugler, flettede hjerter og kalenderlys – julepynt, som vi husker den fra barndommen, samlet under ét tag.</p>
+      <div class="hero-cta rise d4">
         <a class="btn btn-cream" href="#sortiment" data-i18n="ctaRange">Se sortimentet</a>
         <button class="btn btn-outline-light" type="button" data-open-chat>
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6.5h18v11H3z"/><path d="m3 7 9 6.5L21 7"/></svg>
           <span data-i18n="ctaSanta">Skriv til Julemanden</span>
         </button>
       </div>
-      <div class="count rise d4" aria-live="polite">
-        <svg viewBox="0 0 18 26" aria-hidden="true"><path class="flame" d="M9 1 C 12 5 12.5 8 9 10.5 C 5.5 8 6 5 9 1 Z" fill="#f2b54a"/><rect x="5" y="11" width="8" height="14" rx="1" fill="#fbf4e6"/></svg>
-        <span id="count-text"></span>
-      </div>
+      <a class="scrolldown" href="#sortiment" aria-label="↓"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="M12 7v10m-4-4 4 4 4-4"/></svg></a>
     </div>
     <svg class="scallop" viewBox="0 0 1200 22" preserveAspectRatio="none" aria-hidden="true"><path d="M0 22 V10 Q 15 -2 30 10 T 60 10 T 90 10 T 120 10 T 150 10 T 180 10 T 210 10 T 240 10 T 270 10 T 300 10 T 330 10 T 360 10 T 390 10 T 420 10 T 450 10 T 480 10 T 510 10 T 540 10 T 570 10 T 600 10 T 630 10 T 660 10 T 690 10 T 720 10 T 750 10 T 780 10 T 810 10 T 840 10 T 870 10 T 900 10 T 930 10 T 960 10 T 990 10 T 1020 10 T 1050 10 T 1080 10 T 1110 10 T 1140 10 T 1170 10 T 1200 10 V22 Z" fill="#f7f1e6"/></svg>
   </section>
@@ -678,7 +738,7 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
     da: {
       announce: "Julemanden svarer på alle sprog – skriv til ham her", announceShort: "Skriv til Julemanden",
       navRange: "Sortiment", navSanta: "Julemanden", navAbout: "Om os", navVisit: "Besøg", music: "Spilledåse",
-      heroKicker: "Velkommen til Julekontor", heroTitle: "Jul som i gamle dage",
+      heroKicker: "Velkommen til Julekontor", cdDays: "Dage", cdHours: "Timer", cdMinutes: "Minutter", cdSeconds: "Sekunder", cdNote: "til juleaften", cdDone: "Glædelig jul!", heroTitle: "Jul som i gamle dage",
       heroLede: "Nisser, glaskugler, flettede hjerter og kalenderlys – julepynt, som vi husker den fra barndommen, samlet under ét tag.",
       ctaRange: "Se sortimentet", ctaSanta: "Skriv til Julemanden",
       cdMany: n => `<b>${n}</b> dage til juleaften`, cdOne: "<b>1</b> dag til juleaften", cdEve: "<b>24</b> I aften er det juleaften", cdAfter: "Glædelig jul og godt nytår",
@@ -711,7 +771,7 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
     de: {
       announce: "Der Weihnachtsmann antwortet in jeder Sprache – schreib ihm hier", announceShort: "Dem Weihnachtsmann schreiben",
       navRange: "Sortiment", navSanta: "Weihnachtsmann", navAbout: "Über uns", navVisit: "Besuch", music: "Spieluhr",
-      heroKicker: "Willkommen im Julekontor", heroTitle: "Weihnachten wie früher",
+      heroKicker: "Willkommen im Julekontor", cdDays: "Tage", cdHours: "Stunden", cdMinutes: "Minuten", cdSeconds: "Sekunden", cdNote: "bis Heiligabend", cdDone: "Frohe Weihnachten!", heroTitle: "Weihnachten wie früher",
       heroLede: "Wichtel, Glaskugeln, geflochtene Herzen und Kalenderkerzen – Weihnachtsschmuck, wie wir ihn aus der Kindheit kennen, unter einem Dach.",
       ctaRange: "Zum Sortiment", ctaSanta: "Dem Weihnachtsmann schreiben",
       cdMany: n => `noch <b>${n}</b> Tage bis Heiligabend`, cdOne: "noch <b>1</b> Tag bis Heiligabend", cdEve: "<b>24</b> Heute ist Heiligabend", cdAfter: "Frohe Weihnachten und ein gutes neues Jahr",
@@ -744,7 +804,7 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
     en: {
       announce: "Santa answers in every language – write to him here", announceShort: "Write to Santa",
       navRange: "Shop", navSanta: "Santa", navAbout: "About", navVisit: "Visit", music: "Music box",
-      heroKicker: "Welcome to Julekontor", heroTitle: "Christmas the way it used to be",
+      heroKicker: "Welcome to Julekontor", cdDays: "Days", cdHours: "Hours", cdMinutes: "Minutes", cdSeconds: "Seconds", cdNote: "until Christmas Eve", cdDone: "Merry Christmas!", heroTitle: "Christmas the way it used to be",
       heroLede: "Nisse elves, glass baubles, woven hearts and calendar candles – Christmas decorations the way we remember them from childhood, under one roof.",
       ctaRange: "See what we sell", ctaSanta: "Write to Santa",
       cdMany: n => `<b>${n}</b> days until Christmas Eve`, cdOne: "<b>1</b> day until Christmas Eve", cdEve: "<b>24</b> It's Christmas Eve tonight", cdAfter: "Merry Christmas and a happy New Year",
@@ -936,10 +996,62 @@ footer small { color: rgba(247,239,224,.65); font-size: .82rem; }
 
   /* ================= countdown ================= */
   function renderCount() {
-    const now = new Date(), today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const eve = new Date(today.getFullYear(), 11, 24), d = Math.round((eve - today) / 864e5);
-    $("count-text").innerHTML = d > 1 ? t("cdMany")(d) : d === 1 ? t("cdOne") : d === 0 ? t("cdEve") : t("cdAfter");
+    const now = new Date(), eve = new Date(now.getFullYear(), 11, 24);
+    let ms = eve - now; const pad = n => String(n).padStart(2, "0");
+    if (ms <= 0) { ms = 0; $("cd-note").textContent = t("cdDone"); } else $("cd-note").textContent = t("cdNote");
+    const s = Math.floor(ms / 1000);
+    $("cd-d").textContent = String(Math.floor(s / 86400)); $("cd-h").textContent = pad(Math.floor(s / 3600) % 24);
+    $("cd-m").textContent = pad(Math.floor(s / 60) % 60); $("cd-s").textContent = pad(s % 60);
   }
+  setInterval(renderCount, 1000);
+  $("night") && (function night() {
+    const NS = "http://www.w3.org/2000/svg", mk = (tag, a, p) => { const n = document.createElementNS(NS, tag); for (const k in a) n.setAttribute(k, a[k]); p.appendChild(n); return n; };
+    let seed = 5; const r = () => (seed = (seed * 16807) % 2147483647) / 2147483647;
+    const stars = $("stars");
+    for (let i = 0; i < 160; i++) { const c = mk("circle", { cx: r() * 1600, cy: r() * 560, r: (r() * 1.4 + .3).toFixed(2), fill: "#ffffff", opacity: (r() * .6 + .3).toFixed(2) }, stars); if (r() < .35) { c.setAttribute("class", "tw"); c.style.animationDelay = (-r() * 4).toFixed(2) + "s"; } }
+    const lights = $("lights");
+    for (let i = 0; i < 70; i++) { const x = 260 + r() * 1120, y = 690 + r() * 60; mk("circle", { cx: x, cy: y, r: 7, fill: "#ffcf7a", opacity: .25, filter: "url(#glow)" }, lights); const c = mk("circle", { cx: x, cy: y, r: (r() * 1.4 + 1).toFixed(1), fill: "#ffe2a0" }, lights); if (r() < .3) { c.setAttribute("class", "tw"); c.style.animationDelay = (-r() * 4).toFixed(2) + "s"; } }
+    const forest = $("forest");
+    for (let x = -20; x < 1640; x += 14 + r() * 22) { const h = 40 + r() * 70, w = h * .42, b = 790 + r() * 18; mk("path", { d: `M${x} ${b} L${x + w / 2} ${b - h} L${x + w} ${b} Z`, fill: "#1d2766" }, forest); mk("path", { d: `M${x + w * .3} ${b - h * .62} L${x + w / 2} ${b - h} L${x + w * .7} ${b - h * .62} Z`, fill: "#c9d0ff", opacity: .55 }, forest); }
+    // the big snowy tree with lights and a star
+    function tree(g, cx, base, H, lit) {
+      const n = 9, top = base - H;
+      mk("rect", { x: cx - H * .025, y: base - H * .06, width: H * .05, height: H * .08, fill: "#1a1440" }, g);
+      for (let i = 0; i < n; i++) {
+        const t0 = top + i * H * .095, t1 = t0 + H * .17, w = H * (.06 + i * .035);
+        let d = `M${cx} ${t0} L${cx - w} ${t1}`, sd = `M${cx} ${t0} L${cx - w * .78} ${t0 + (t1 - t0) * .62}`;
+        const k = 5; for (let j = 0; j < k; j++) { const x0 = cx - w + 2 * w * j / k, x1 = cx - w + 2 * w * (j + 1) / k; d += ` Q${(x0 + x1) / 2} ${t1 + 9} ${x1} ${t1}`; }
+        d += " Z";
+        for (let j = 0; j < k; j++) { const x0 = cx - w * .78 + 1.56 * w * j / k, x1 = cx - w * .78 + 1.56 * w * (j + 1) / k; sd += ` Q${(x0 + x1) / 2} ${t0 + (t1 - t0) * .62 + 10} ${x1} ${t0 + (t1 - t0) * .62}`; }
+        sd += " Z";
+        mk("path", { d, fill: "#1c2a62" }, g); mk("path", { d: sd, fill: "#e4e9ff", opacity: .92 }, g);
+        if (lit) for (let j = 0; j < 2 + i; j++) { const lx = cx + (r() * 2 - 1) * w * .8, ly = t0 + (t1 - t0) * (.55 + r() * .4); mk("circle", { cx: lx, cy: ly, r: 7, fill: "#ffe7b0", opacity: .35, filter: "url(#glow)" }, g); const c = mk("circle", { cx: lx, cy: ly, r: 2.6, fill: "#fff6dc", class: "tw" }, g); c.style.animationDelay = (-r() * 4).toFixed(2) + "s"; }
+      }
+      if (lit) {
+        let d = ""; for (let i = 0; i < 16; i++) { const a = -Math.PI / 2 + i * Math.PI / 8, rr = i % 2 ? H * .018 : H * .045; d += (i ? "L" : "M") + (cx + Math.cos(a) * rr).toFixed(1) + " " + (top - H * .01 + Math.sin(a) * rr).toFixed(1); }
+        mk("circle", { cx, cy: top - H * .01, r: H * .06, fill: "#fff3c4", opacity: .3, filter: "url(#glow)" }, g);
+        mk("path", { d: d + "Z", fill: "#ffffff" }, g);
+      }
+    }
+    tree($("bigtree"), 230, 985, 780, true);
+    tree($("bigtree"), 1470, 975, 380, false);
+    // Santa's sleigh crossing the moon
+    const sl = $("sleigh"); const ink = "#141a46";
+    let svg = "";
+    [[0, 0], [36, -4], [72, 0], [108, -4]].forEach(([x, y]) => {
+      svg += `<g transform="translate(${x} ${y})"><ellipse cx="0" cy="0" rx="15" ry="6.5"/><path d="M-12 -3 L-20 -14 L-15 -16 L-8 -5 Z"/><ellipse cx="-21" cy="-15" rx="5.5" ry="3.2" transform="rotate(-15 -21 -15)"/><path d="M-19 -18 l-3 -8 m1.5 4 l-5 -2 M-17 -18 l2 -8 m-1 4 l4 -3" fill="none" stroke="${ink}" stroke-width="1.4" stroke-linecap="round"/><path d="M-11 3 l-7 6 l-4 -2 M-8 4 l-5 9 M10 3 l9 5 l4 4 M12 2 l11 3" fill="none" stroke="${ink}" stroke-width="2.2" stroke-linecap="round"/></g>`;
+    });
+    svg += `<path d="M-14 -10 L 128 -6" fill="none" stroke="${ink}" stroke-width="1"/>`;
+    svg += `<g transform="translate(10 0)"><path d="M120 14 C 150 19 190 19 205 10 C 210 6 214 8 212 12" fill="none" stroke="${ink}" stroke-width="2.4" stroke-linecap="round"/><path d="M130 -2 C 128 10 140 12 175 12 C 195 12 205 4 205 -8 C 196 -4 185 -6 180 -14 L 150 -14 C 150 -6 140 -2 130 -2 Z"/><ellipse cx="166" cy="-17" rx="9" ry="8"/><circle cx="163" cy="-27" r="5.5"/><path d="M158 -30 L 170 -31 L 176 -40 Z"/><ellipse cx="190" cy="-17" rx="10" ry="10"/></g>`;
+    sl.innerHTML = `<g fill="${ink}" opacity=".9">${svg}</g>`;
+    if (!reduceMotion && sl.animate) {
+      sl.animate([{ transform: "translate(1750px, 120px) scale(.9)" }, { transform: "translate(1250px, 200px) scale(.9)", offset: .35 }, { transform: "translate(900px, 250px) scale(.9)", offset: .6 }, { transform: "translate(300px, 300px) scale(.9)" }],
+        { duration: 26000, iterations: Infinity, easing: "linear", delay: -11000 });
+    } else sl.setAttribute("transform", "translate(940 240) scale(.9)");
+    // the bells on the countdown ring when tapped
+    const bells = document.querySelector(".cd-bells");
+    bells.addEventListener("click", e => { e.stopPropagation(); bells.classList.remove("ring"); void bells.getBoundingClientRect(); bells.classList.add("ring"); [0, 160, 320].forEach((d, i) => setTimeout(() => Eggs.bell([1318.5, 1567.98, 1318.5][i], .1, 1), d)); });
+  })();
 
   /* ================= garland across the top of the hero ================= */
   (function garland() {

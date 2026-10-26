@@ -3,7 +3,7 @@
 One-Page für **Julekontor – Danmarks gammeldags julebutik**, aufgebaut wie die Startseiten großer Weihnachtsläden.
 
 - Sprachen der Seite: Dänisch, Deutsch, Englisch (Umschalter oben, sonst nach Browsersprache).
-- Aufbau: grüne Hinweisleiste („Julemanden svarer på alle sprog“) → Kopfzeile mit dem vollständigen Logo als Plakette in der Mitte → roter Startbereich mit Tannengirlande, Kugeln, Schneefall und Tagen bis Heiligabend → drei Kurzversprechen → Sortiment in sechs Kacheln (gezeichnete Ornamente) → Julemandens brevkasse → Über uns mit dem großen Logo → Besuch (Daten aus `shop.json`) → Fußzeile.
+- Aufbau: grüne Hinweisleiste („Julemanden svarer på alle sprog“) → Kopfzeile mit dem vollständigen Logo als Plakette in der Mitte → Startbereich als Winternacht über den ganzen Bildschirm (Mond, davor der Schlitten des Weihnachtsmanns mit Rentieren, verschneiter Tannenbaum mit Lichtern und Stern, Berge, Dorflichter, Schneefall, Tannengirlande) mit live laufendem Countdown bis Heiligabend (Tage, Stunden, Minuten, Sekunden; Kasten mit Schnee und Glöckchen, die beim Antippen klingen) → drei Kurzversprechen → Sortiment in sechs Kacheln (gezeichnete Ornamente) → Julemandens brevkasse → Über uns mit dem großen Logo → Besuch (Daten aus `shop.json`) → Fußzeile.
 - Das Logo wird nirgends beschnitten oder freigestellt, sondern immer vollständig gezeigt.
 - Kleine Überraschungen, die nirgends erklärt sind:
   - Die Kugeln an der Girlande schwingen und klingen wie Glöckchen, wenn man sie antippt.
