@@ -1,7 +1,8 @@
 # Julekontor – One-Page mit Weihnachtsmann-Chat
 
-One-Page für **Julekontor – Danmarks gammeldags julebutik**. Das Logo wird lebendig, und die Seite ist so gebaut, wie ein Kind sie sich wünschen würde.
+One-Page für **Julekontor – Danmarks gammeldags julebutik**. Eine Winternacht wie aus einem Weihnachtsfilm: Das Julekontor-Auto fährt durch den Schnee vor den Laden, darüber leuchtet der Schriftzug aus dem Logo.
 
+- **Bilder aus Canva** (`img/c/`): Straße mit Laden (`scene.webp`), das freigestellte Auto (`truck.webp`), der freigestellte Logo-Schriftzug (`wordmark.webp`), Weihnachtsmann, Baum, sechs Produktbilder und der Laden von innen. Alle im selben Stil (3D-Miniatur, Nacht, warmes Licht).
 - Sprachen der Seite: Dänisch, Deutsch, Englisch (Umschalter oben, sonst nach Browsersprache).
 - **Startbild = das Logo selbst:** `img/logo-scene.webp` ist das Logo ohne Auto, `img/truck.webp` das Auto aus dem Logo. Das Auto fährt herein (mit Abgaswölkchen) und parkt genau an seiner Stelle; danach blinken die Lichterketten und die Scheinwerfer gehen an. Antippen: Hupe und ein Spruch. Dreimal schnell: Es fährt mit Schellengeläut davon und kommt zurück. Schnee fällt über das Bild.
 - **Zweige aus den Logo-Ecken** (`img/corner-*.webp`) schmücken die Rahmen der Abschnitte.
