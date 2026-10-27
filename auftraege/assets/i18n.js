@@ -1,5 +1,8 @@
 window.WF_I18N = {
 de: {
+  cron_result: 'Ergebnis: {0}', cron_denied: 'Ein Aufruf kam an, aber mit falschem oder fehlendem Schlüssel ({0}). Adresse bei cron-job.org mit „Adresse kopieren“ neu einfügen.', cron_waiting: '{0} Nachfrage-Mail(s) warten – die nächste ist am {1} fällig.', cron_nothing: 'Zurzeit ist keine Nachfrage-Mail fällig. Sie gehen erst 7 Tage nach „Abgeholt/Versendet“ raus – ein Zeitplan-Lauf ohne fällige Mails verschickt nichts.',
+  mail_err: 'Letzter Mailversand fehlgeschlagen: {0}', mail_test: 'Probe-Mail senden', mail_test_to: 'An welche Adresse soll die Probe-Mail gehen?', mail_test_ok: 'Probe-Mail an {0} gesendet – bitte Posteingang und Spam-Ordner prüfen.', err_no_sender: 'Bitte zuerst in den Firmendaten eine E-Mail-Adresse deiner Domain eintragen (Absender).',
+  fold_open_all: 'Alle aufklappen', fold_close_all: 'Alle einklappen',
   cm_appr: 'Danke-Mail nach der Unterschrift', cm_appr_h: 'Sobald der Kunde unterschreibt: Dank für die Freigabe, Verfolgungslink und Link zur unterschriebenen Bestätigung.', log_mail_approved: 'Danke-Mail nach Freigabe gesendet',
   mail_no_address: 'Link erstellt – beim Kunden ist keine E-Mail-Adresse hinterlegt, bitte Link teilen.',
   cron_title: 'Automatisch versenden – auch wenn die App zu ist', cron_text: 'Ohne Zeitplan gehen Nachfrage-Mails und Archiv erst raus, wenn du die App öffnest. Mit einem kostenlosen Zeitplan läuft das stündlich von selbst. one.com bietet dafür keine eigenen Cronjobs, deshalb eine der zwei Möglichkeiten:', cron_last: 'Zeitplan läuft – letzter Aufruf {0}', cron_never: 'Noch kein Zeitplan eingerichtet.',
@@ -190,6 +193,9 @@ de: {
   err_duplicate_admin_id: 'Admin-ID doppelt vergeben.', err_unknown_action: 'Unbekannte Aktion.', err_bad_json: 'Ungültige Daten.', err_bad_date: 'Datum ungültig.', err_range_too_large: 'Zeitraum zu groß.', err_nothing: 'Nichts zu ändern.', err_post_required: 'Ungültige Anfrage.'
 },
 da: {
+  cron_result: 'Resultat: {0}', cron_denied: 'Et kald kom frem, men med forkert eller manglende nøgle ({0}). Indsæt adressen igen i cron-job.org med „Kopiér adresse“.', cron_waiting: '{0} opfølgningsmail(s) venter – den næste er klar den {1}.', cron_nothing: 'Der er ingen opfølgningsmail klar lige nu. De sendes først 7 dage efter „Afhentet/sendt“ – et kørsel uden klare mails sender intet.',
+  mail_err: 'Sidste mailafsendelse mislykkedes: {0}', mail_test: 'Send prøvemail', mail_test_to: 'Hvilken adresse skal prøvemailen sendes til?', mail_test_ok: 'Prøvemail sendt til {0} – tjek indbakke og spam.', err_no_sender: 'Indtast først en e-mailadresse på dit domæne i firmaoplysningerne (afsender).',
+  fold_open_all: 'Fold alle ud', fold_close_all: 'Fold alle sammen',
   cm_appr: 'Tak-mail efter underskrift', cm_appr_h: 'Så snart kunden underskriver: tak for godkendelsen, sporingslink og link til den underskrevne bekræftelse.', log_mail_approved: 'Tak-mail efter godkendelse sendt',
   mail_no_address: 'Link oprettet – kunden har ingen e-mailadresse, del venligst linket.',
   cron_title: 'Send automatisk – også når appen er lukket', cron_text: 'Uden tidsplan sendes opfølgningsmails og arkiv først, når du åbner appen. Med en gratis tidsplan kører det af sig selv hver time. one.com har ikke egne cronjobs, derfor en af to muligheder:', cron_last: 'Tidsplan kører – sidste kald {0}', cron_never: 'Ingen tidsplan sat op endnu.',

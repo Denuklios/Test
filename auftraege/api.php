@@ -1942,7 +1942,8 @@ try {
                 $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('cron_key', ?)")->execute([$k]);
             }
             $url = wf_public_base($db) . 'cron.php?key=' . $k;
-            $last = (string)($db->query("SELECT value FROM meta WHERE key = 'cron_last'")->fetchColumn() ?: '');
+            $mv = fn(string $k) => (string)($db->query("SELECT value FROM meta WHERE key = " . $db->quote($k))->fetchColumn() ?: '');
+            $last = $mv('cron_last');
             $script = "// Wunsch-Fabrik: stündlich Kundenmails + Archiv verschicken, auch wenn die App zu ist.\n"
                 . "// Einfügen unter script.google.com (z. B. im Projekt vom Drive-Archiv als neue Datei), speichern,\n"
                 . "// oben die Funktion „einrichten“ auswählen und einmal auf „Ausführen“ tippen (Zugriff erlauben).\n"
@@ -1950,7 +1951,30 @@ try {
                 . "function wunschFabrikPing() {\n  UrlFetchApp.fetch(WF_CRON_URL, { muteHttpExceptions: true });\n}\n\n"
                 . "function einrichten() {\n  ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === 'wunschFabrikPing'; })\n"
                 . "    .forEach(function (t) { ScriptApp.deleteTrigger(t); });\n  ScriptApp.newTrigger('wunschFabrikPing').timeBased().everyHours(1).create();\n  wunschFabrikPing();\n}\n";
-            wf_json(['ok' => true, 'url' => $url, 'last' => $last, 'script' => $script]);
+            $due = (int)$db->query("SELECT COUNT(*) FROM orders WHERE status = 'delivered' AND deleted_at IS NULL AND followup_at IS NULL AND shipped_at IS NOT NULL AND shipped_at >= datetime('now', '-30 days')")->fetchColumn();
+            $next = (string)($db->query("SELECT MIN(datetime(shipped_at, '+7 days')) FROM orders WHERE status = 'delivered' AND deleted_at IS NULL AND followup_at IS NULL AND shipped_at >= datetime('now', '-30 days')")->fetchColumn() ?: '');
+            wf_json(['ok' => true, 'url' => $url, 'last' => $last, 'result' => $mv('cron_result'), 'denied' => $mv('cron_denied'), 'mail_ok' => $mv('mail_last_ok'), 'mail_error' => $mv('mail_last_error'),
+                'waiting' => $due, 'next' => $next, 'script' => $script]);
+        }
+
+        // Probe-Mail an eine Adresse (Standard: eigene) – so sieht der Kunde die Mails, und man sieht, ob one.com zustellt
+        case 'mail_test': {
+            need_post();
+            $to = s($in, 'to', 200) ?: (string)wf_company()['email'];
+            if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
+                wf_fail('bad_email');
+            }
+            $s = wf_mail_settings();
+            if (!filter_var($s['from'], FILTER_VALIDATE_EMAIL)) {
+                wf_fail('no_sender');
+            }
+            $T = wf_cm_text('de');
+            $track = wf_public_base($db) . 'verfolgen.php?t=' . str_repeat('0', 48);
+            $text = "Hallo,\n\ndies ist eine Probe-Mail aus der Auftrags-App. So sehen Kundenmails aus – mit Knopf:\n\n$track\n\nKommt diese Mail an (auch den Spam-Ordner prüfen), funktioniert der Versand.\n\n" . strtr($T['regards'], ['{owner}' => (string)wf_company()['owner'], '{company}' => $s['name']]);
+            if (!wf_mail($to, $s['from'], 'Probe-Mail Wunsch-Fabrik Aufträge', $text, [], $s['name'], wf_cm_html($text, $T['buttons'], $track))) {
+                wf_fail('mail_failed', 502);
+            }
+            wf_json(['ok' => true, 'to' => $to]);
         }
 
         // Apps Script für Google Drive (Geheimwort wird einmalig erzeugt)

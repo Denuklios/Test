@@ -102,7 +102,16 @@ function wf_mail(string $to, string $from, string $subject, string $text, array 
         @mkdir($dir, 0775, true);
         return (bool)file_put_contents($dir . '/' . microtime(true) . '-' . preg_replace('/\W+/', '_', $subject) . '.eml', "To: $to\r\nSubject: " . $enc($subject) . "\r\n$headers\r\n\r\n$body");
     }
-    return @mail($to, $enc($subject), $body, $headers, '-f' . $from);
+    // Manche Server verbieten den Absender-Parameter (-f): dann ohne ihn versuchen. Fehler merken (Anzeige in den Einstellungen).
+    $ok = @mail($to, $enc($subject), $body, $headers, '-f' . $from) || @mail($to, $enc($subject), $body, $headers);
+    $db = wf_db();
+    if ($ok) {
+        $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('mail_last_ok', ?)")->execute([date('Y-m-d H:i:s')]);
+    } else {
+        $err = error_get_last();
+        $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('mail_last_error', ?)")->execute([date('Y-m-d H:i:s') . ' · ' . ($err['message'] ?? 'mail() abgelehnt') . ' · an ' . $to]);
+    }
+    return $ok;
 }
 
 /** Inhalt einer Archiv-Mail. */

@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Danke-Mail nach Unterschrift';
+const APP_VERSION = '2026-10-27 · Einklappen + Mail-Diagnose';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -1805,7 +1805,16 @@ route(/^\/settings$/, async () => {
     const scr = h('textarea', { readonly: true, rows: 9, class: 'hidden', style: 'font-family:monospace;font-size:.75rem;margin-top:6px' }, c.script);
     cronBox.replaceChildren(h('div', { class: 'sechead' }, '⏰ ' + t('cron_title')),
       h('p', { class: 'muted', style: 'margin:4px 0 8px' }, t('cron_text')),
-      h('p', { style: 'margin:0 0 8px;font-size:.9rem' }, c.last ? '✓ ' + t('cron_last', c.last.slice(0, 16)) : '⚠ ' + t('cron_never')),
+      h('p', { style: 'margin:0 0 4px;font-size:.9rem' }, c.last ? '✓ ' + t('cron_last', c.last.slice(0, 16)) + (c.result ? ' · ' + t('cron_result', c.result.replace(/^OK /, '')) : '') : '⚠ ' + t('cron_never')),
+      c.denied && (!c.last || c.denied > c.last) ? h('p', { class: 'warn-t', style: 'margin:0 0 4px;font-size:.9rem' }, '⚠ ' + t('cron_denied', c.denied)) : null,
+      h('p', { class: 'muted', style: 'margin:0 0 4px;font-size:.88rem' }, c.waiting ? t('cron_waiting', c.waiting, c.next ? dfmt(c.next.slice(0, 10)) : '—') : t('cron_nothing')),
+      c.mail_error && (!c.mail_ok || c.mail_error > c.mail_ok) ? h('p', { class: 'warn-t', style: 'margin:0 0 4px;font-size:.88rem' }, '⚠ ' + t('mail_err', c.mail_error)) : null,
+      h('div', { class: 'row', style: 'margin:6px 0 10px;flex-wrap:wrap' }, h('button', { class: 'btn small', onclick: async () => {
+        const to = prompt(t('mail_test_to'), me.company.email || '');
+        if (!to) return;
+        try { const r = await api('mail_test', { body: { to } }); toast(t('mail_test_ok', r.to)); } catch (e) { toast(e.message); }
+        drawCron(await api('cron_info'));
+      } }, '✉ ' + t('mail_test'))),
       h('b', {}, t('cron_a')), h('ol', { class: 'arsteps muted' }, h('li', {}, t('cron_a1')), h('li', {}, t('cron_a2')), h('li', {}, t('cron_a3'))),
       h('div', { class: 'token-box' }, c.url),
       h('div', { class: 'row', style: 'margin:6px 0 12px;flex-wrap:wrap' }, h('button', { class: 'btn small', onclick: () => copy(c.url) }, '📋 ' + t('cron_copy_url')),
@@ -1884,7 +1893,26 @@ route(/^\/settings$/, async () => {
     h('div', { class: 'card' }, h('h3', {}, t('data')), h('div', { class: 'row' },
       h('a', { class: 'btn', href: `${BASE}api.php?a=backup` }, t('backup')),
       h('button', { class: 'btn', onclick: async () => { const r = await api('purge', { body: {} }); toast(t('purged', r.purged)); } }, t('purge')))));
+  foldCards();
 });
+
+// Einstellungen: jede Karte über ihre Überschrift ein-/ausklappen; Zustand je Gerät gemerkt (Standard: eingeklappt)
+function foldCards() {
+  let open = {};
+  try { open = JSON.parse(localStorage.getItem('wf_open_cards') || '{}'); } catch (e) { /* Speicher gesperrt */ }
+  const cards = [...view().querySelectorAll(':scope > .card')].filter((c) => c.firstElementChild && c.firstElementChild.tagName === 'H3');
+  cards.forEach((c) => {
+    const h3 = c.firstElementChild, key = h3.textContent.replace(/^[^\p{L}]+/u, '').slice(0, 40);
+    c.classList.add('fold'); c.classList.toggle('closed', !open[key]);
+    h3.setAttribute('role', 'button'); h3.tabIndex = 0;
+    const tog = () => { c.classList.toggle('closed'); open[key] = !c.classList.contains('closed'); try { localStorage.setItem('wf_open_cards', JSON.stringify(open)); } catch (e) {} };
+    h3.addEventListener('click', tog);
+    h3.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tog(); } });
+  });
+  if (cards.length) view().insertBefore(h('div', { class: 'row end', style: 'margin:-4px 0 10px' },
+    h('button', { class: 'btn small', onclick: () => { cards.forEach((c) => c.classList.remove('closed')); } }, t('fold_open_all')),
+    h('button', { class: 'btn small', onclick: () => { cards.forEach((c) => c.classList.add('closed')); try { localStorage.setItem('wf_open_cards', '{}'); } catch (e) {} } }, t('fold_close_all'))), cards[0]);
+}
 
 async function reloadMe() { me = await api('me'); }
 

@@ -18,11 +18,14 @@ $key = (string)($_GET['key'] ?? '');
 $real = (string)($db->query("SELECT value FROM meta WHERE key = 'cron_key'")->fetchColumn() ?: '');
 if ((int)$cnt->fetchColumn() >= 30 || $real === '' || !hash_equals($real, $key)) {
     $db->prepare('INSERT INTO rate_limit (ip, at) VALUES (?, ?)')->execute([$ip, time()]);
+    // für die Fehlersuche in den Einstellungen: Aufruf kam an, aber Schlüssel falsch/fehlt
+    $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('cron_denied', ?)")->execute([date('Y-m-d H:i:s') . ($key === '' ? ' · ohne Schlüssel' : ' · falscher Schlüssel')]);
     http_response_code(403);
     exit("forbidden\n");
 }
 @set_time_limit(120);
 $archive = wf_archive_cfg()['mode'] !== '' ? wf_archive_run($db, 20) : ['sent' => 0, 'failed' => 0];
 $mails = wf_cm_run($db, 20);
-$db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('cron_last', ?)")->execute([date('Y-m-d H:i:s')]);
-echo "OK archive={$archive['sent']} failed={$archive['failed']} followup=$mails\n";
+$res = "OK archive={$archive['sent']} failed={$archive['failed']} followup=$mails";
+$db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('cron_last', ?), ('cron_result', ?)")->execute([date('Y-m-d H:i:s'), $res]);
+echo $res . "\n";

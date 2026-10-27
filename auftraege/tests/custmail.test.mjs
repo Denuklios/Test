@@ -169,7 +169,10 @@ try {
     const res = await fetch(ci.url);
     assert.equal(res.status, 200); assert.match(await res.text(), /followup=1/);
     assert.equal(readMails().length, n + 1); assert.equal(readMails().at(-1).to, 'karl@example.de');
-    assert.ok((await call('cron_info')).j.last);
+    const info = (await call('cron_info')).j;
+    assert.ok(info.last && info.result.includes('followup=1')); assert.ok(info.denied.includes('falscher Schlüssel'));
+    const pm = (await call('mail_test', { body: { to: 'robert@example.dk' } })).j;
+    assert.equal(pm.to, 'robert@example.dk'); assert.equal(readMails().at(-1).to, 'robert@example.dk');
     const ren = (await call('cron_info', { body: { renew: 1 } })).j;
     assert.notEqual(ren.url, ci.url); assert.equal((await fetch(ci.url)).status, 403);
   });

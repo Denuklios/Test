@@ -401,3 +401,8 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 .curswitch{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden;flex:none}
 .curbtn{border:0;background:none;color:var(--muted);padding:3px 11px;font-size:.8rem;cursor:pointer;min-height:0}
 .curbtn.on{background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff}
+.card.fold>h3{cursor:pointer;display:flex;align-items:center;gap:8px;user-select:none}
+.card.fold>h3::after{content:"";margin-left:auto;width:9px;height:9px;border-right:2px solid var(--p2);border-bottom:2px solid var(--p2);transform:rotate(45deg);transition:transform .15s;flex:none}
+.card.fold.closed>h3::after{transform:rotate(-45deg)}
+.card.fold.closed>:not(h3){display:none!important}
+.card.fold.closed{padding-top:14px;padding-bottom:14px}
