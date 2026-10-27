@@ -69,11 +69,19 @@ public final class Transports {
     // ---------------------------------------------------------------- Bluetooth klassisch
 
     static final class Classic extends StreamTransport {
+        /** Verbindungsarten, die nacheinander probiert werden (Adapter verhalten sich unterschiedlich). */
+        static final String[] MODES = {"SPP gesichert", "SPP ungesichert", "Kanal 1 gesichert", "Kanal 1 ungesichert"};
         final BluetoothDevice device;
+        final int mode;
         private BluetoothSocket socket;
 
         Classic(BluetoothDevice d) {
+            this(d, 0);
+        }
+
+        Classic(BluetoothDevice d, int mode) {
             device = d;
+            this.mode = mode;
         }
 
         @Override
@@ -84,32 +92,26 @@ public final class Transports {
                 if (ad != null) ad.cancelDiscovery();
             } catch (SecurityException ignored) {
             }
-            IOException first = null;
             try {
-                socket = device.createRfcommSocketToServiceRecord(SPP);
-                socket.connect();
-            } catch (IOException e) {
-                first = e;
-                closeQuietly();
-                try {
-                    socket = device.createInsecureRfcommSocketToServiceRecord(SPP);
-                    socket.connect();
-                    first = null;
-                } catch (IOException e2) {
-                    closeQuietly();
-                    try {
-                        Method m = device.getClass().getMethod("createRfcommSocket", int.class);
+                switch (mode) {
+                    case 0:
+                        socket = device.createRfcommSocketToServiceRecord(SPP);
+                        break;
+                    case 1:
+                        socket = device.createInsecureRfcommSocketToServiceRecord(SPP);
+                        break;
+                    default:
+                        String name = mode == 2 ? "createRfcommSocket" : "createInsecureRfcommSocket";
+                        Method m = device.getClass().getMethod(name, int.class);
                         socket = (BluetoothSocket) m.invoke(device, 1);
-                        socket.connect();
-                        first = null;
-                    } catch (Exception e3) {
-                        closeQuietly();
-                    }
+                        break;
                 }
-            }
-            if (first != null || socket == null) {
-                throw new IOException("Bluetooth-Verbindung fehlgeschlagen. Ist der Adapter eingesteckt, "
-                        + "die Zündung an und das Gerät gekoppelt? (" + (first != null ? first.getMessage() : "") + ")");
+                socket.connect();
+            } catch (Exception e) {
+                closeQuietly();
+                String msg = e instanceof java.lang.reflect.InvocationTargetException && e.getCause() != null
+                        ? e.getCause().getMessage() : e.getMessage();
+                throw new IOException("Verbindung fehlgeschlagen (" + msg + ")");
             }
             in = socket.getInputStream();
             out = socket.getOutputStream();
@@ -173,6 +175,42 @@ public final class Transports {
     }
 
     // ---------------------------------------------------------------- Bluetooth LE
+
+    /** Sucht einige Sekunden nach BLE-Geräten mit OBD-typischem Namen (blockiert, nicht im UI-Thread aufrufen). */
+    static java.util.List<BluetoothDevice> scanObdBle(long ms, final String alsoName) {
+        final java.util.List<BluetoothDevice> found = new java.util.ArrayList<BluetoothDevice>();
+        BluetoothAdapter ad = BluetoothAdapter.getDefaultAdapter();
+        if (ad == null) return found;
+        final android.bluetooth.le.BluetoothLeScanner sc = ad.getBluetoothLeScanner();
+        if (sc == null) return found;
+        android.bluetooth.le.ScanCallback cb = new android.bluetooth.le.ScanCallback() {
+            @Override
+            public void onScanResult(int type, android.bluetooth.le.ScanResult r) {
+                BluetoothDevice d = r.getDevice();
+                String n = d.getName();
+                if (n == null && r.getScanRecord() != null) n = r.getScanRecord().getDeviceName();
+                if (n == null) return;
+                if (!ConnectScreen.looksLikeObd(n) && !n.equalsIgnoreCase(alsoName)) return;
+                synchronized (found) {
+                    for (BluetoothDevice x : found) if (x.getAddress().equals(d.getAddress())) return;
+                    found.add(d);
+                }
+            }
+        };
+        try {
+            sc.startScan(cb);
+            Thread.sleep(ms);
+        } catch (Exception ignored) {
+        } finally {
+            try {
+                sc.stopScan(cb);
+            } catch (Exception ignored) {
+            }
+        }
+        synchronized (found) {
+            return new java.util.ArrayList<BluetoothDevice>(found);
+        }
+    }
 
     static final class Ble extends Transport {
         private static final UUID CCCD = UUID.fromString("00002902-0000-1000-8000-00805f9b34fb");

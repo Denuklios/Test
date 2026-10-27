@@ -18,6 +18,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import java.io.IOException;
 import java.io.OutputStream;
 import java.util.ArrayList;
 import java.util.List;
@@ -163,21 +164,54 @@ public class MainActivity extends Activity {
         new Job<String>() {
             @Override
             public String run() throws Exception {
-                try {
-                    return open(t);
-                } catch (Elm327.NoResponse e) {
-                    // Dual-Mode-Adapter: klassisch gekoppelt, Daten aber nur über Bluetooth LE
-                    if (!(t instanceof Transports.Classic) || !e.silent) throw e;
-                    Transports.Classic c = (Transports.Classic) t;
-                    progress("Keine Daten über Bluetooth klassisch – versuche Bluetooth LE …");
+                if (!(t instanceof Transports.Classic)) return open(t);
+                // Klassisches Bluetooth: mehrere Verbindungsarten probieren, danach Bluetooth LE
+                final Transports.Classic c = (Transports.Classic) t;
+                StringBuilder log = new StringBuilder();
+                Exception last = null;
+                for (int mode = 0; mode < Transports.Classic.MODES.length && !isCancelled(); mode++) {
+                    String label = "Bluetooth " + Transports.Classic.MODES[mode];
+                    progress("Versuch " + (mode + 1) + ": " + label + " …");
                     try {
-                        String r = open(new Transports.Ble(MainActivity.this, c.device));
-                        prefs().edit().putString("last_type", "ble").apply();
+                        String r = open(new Transports.Classic(c.device, mode));
+                        prefs().edit().putInt("bt_mode", mode).apply();
                         return r;
-                    } catch (Exception e2) {
-                        throw e;
+                    } catch (Elm327.NoResponse e) {
+                        log.append("• ").append(label).append(": ").append(e.getMessage()).append('\n');
+                        last = e;
+                        if (!e.silent) throw new IOException(log.toString());
+                    } catch (Exception e) {
+                        log.append("• ").append(label).append(": ").append(e.getMessage()).append('\n');
+                        last = e;
                     }
                 }
+                // Dual-Mode-Adapter: Daten nur über Bluetooth LE (oft mit eigener Adresse)
+                java.util.List<android.bluetooth.BluetoothDevice> cands = new java.util.ArrayList<android.bluetooth.BluetoothDevice>();
+                cands.add(c.device);
+                if (!isCancelled()) {
+                    progress("Suche den Adapter über Bluetooth LE …");
+                    for (android.bluetooth.BluetoothDevice d : Transports.scanObdBle(6000, c.device.getName())) {
+                        if (!d.getAddress().equals(c.device.getAddress())) cands.add(d);
+                    }
+                }
+                for (android.bluetooth.BluetoothDevice d : cands) {
+                    if (isCancelled()) break;
+                    String label = "Bluetooth LE " + (d.getName() == null ? "" : d.getName() + " ") + "(" + d.getAddress() + ")";
+                    progress("Versuch: " + label + " …");
+                    try {
+                        String r = open(new Transports.Ble(MainActivity.this, d));
+                        prefs().edit().putString("last_type", "ble").putString("last_addr", d.getAddress()).apply();
+                        return r;
+                    } catch (Exception e) {
+                        log.append("• ").append(label).append(": ").append(e.getMessage()).append('\n');
+                        last = e;
+                    }
+                }
+                if (cands.size() == 1) log.append("• Bluetooth-LE-Suche: kein weiteres OBD-Gerät gefunden\n");
+                throw new IOException("Alle Verbindungsversuche erfolglos:\n" + log
+                        + "\nBitte prüfen: Funktioniert der Adapter mit einer anderen App (z. B. Car Scanner)? "
+                        + "Ist das Handy evtl. mit einem anderen Gerät (zweites Handy, Radio) am Adapter verbunden? "
+                        + "Adapter abziehen, 10 s warten, wieder einstecken.", last);
             }
 
             private String open(Transport tr) throws Exception {

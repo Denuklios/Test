@@ -117,13 +117,13 @@ public final class Elm327 {
                 break;
             } catch (IOException e) {
                 if (transport.isFailed()) throw e;
+                if (transport.receivedCount() == 0) break; // völlig stumm: weitere Befehle sinnlos
             }
         }
         if (!ok) {
             int n = transport.receivedCount();
             throw new NoResponse(n == 0,
-                    n == 0 ? "Der Adapter ist verbunden, sendet aber keine Daten. Adapter kurz abziehen und neu "
-                            + "einstecken; falls er „BLE“ unterstützt, über „Bluetooth LE“ verbinden."
+                    n == 0 ? "verbunden, aber keine Daten empfangen"
                             : "Der Adapter antwortet nicht wie ein ELM327. Empfangen: \"" + transport.receivedText() + "\"");
         }
         setup();
