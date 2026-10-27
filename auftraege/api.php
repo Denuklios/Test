@@ -630,11 +630,25 @@ try {
                 ->execute([$o['id'], hash('sha256', $token), $lang, json_encode(wf_confirm_snapshot($db, $o, $cust, $lang, 30), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $user['name']]);
             log_order($db, $o['id'], $user, 'confirm_sent');
             // Mail-Probleme dürfen den Link nie verhindern
+            $GLOBALS['wf_mail_err'] = '';
+            $mailed = false;
             try {
-                $mailed = !empty($in['email']) && wf_mail_settings()['offer'] ? wf_cm_offer($db, (int)$o['id'], wf_public_base($db) . 'bestaetigung.php?t=' . $token) : false;
+                if (empty($in['email'])) {
+                    $GLOBALS['wf_mail_err'] = 'nicht angefordert';
+                } elseif (!wf_mail_settings()['offer']) {
+                    $GLOBALS['wf_mail_err'] = 'Angebots-Mail ist in den Einstellungen ausgeschaltet';
+                } else {
+                    $mailed = wf_cm_offer($db, (int)$o['id'], wf_public_base($db) . 'bestaetigung.php?t=' . $token);
+                }
             } catch (Throwable $e) {
                 error_log('auftraege offer mail: ' . $e->getMessage());
-                $mailed = false;
+                $GLOBALS['wf_mail_err'] = 'Programmfehler: ' . $e->getMessage() . ' (' . basename($e->getFile()) . ':' . $e->getLine() . ')';
+            }
+            if (!$mailed && ($GLOBALS['wf_mail_err'] ?? '') === '') {
+                $GLOBALS['wf_mail_err'] = 'Versand vom Server abgelehnt, ohne Begründung';
+            }
+            if (!$mailed) {
+                $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('mail_last_error', ?)")->execute([date('Y-m-d H:i:s') . ' · ' . $GLOBALS['wf_mail_err']]);
             }
             wf_json(['ok' => true, 'token' => $token, 'mailed' => $mailed, 'mail_error' => $mailed ? '' : (string)($GLOBALS['wf_mail_err'] ?? '')]);
         }

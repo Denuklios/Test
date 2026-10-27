@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Zeitplan-Fehler behoben';
+const APP_VERSION = '2026-10-27 · Mail-Grund sichtbar';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -331,7 +331,7 @@ function orderMoneyCard(o, reload) {
     try {
       const r = await api('confirm_create', { body: { order_id: o.id, email: !!o.customer_email && me.company.mail_offer !== false } });
       showLink(r.token);
-      if (r.mailed) toast(t('mail_offer_sent', o.customer_email)); else if (o.customer_email && me.company.mail_offer !== false) toast(t('mail_failed_why', r.mail_error || '?'));
+      if (r.mailed) toast(t('mail_offer_sent', o.customer_email)); else if (o.customer_email && me.company.mail_offer !== false) alert(t('mail_failed_why', r.mail_error || '?'));
       else if (!o.customer_email) toast(t('mail_no_address'));
     } catch (e) { toast(e.message); } finally { if (b) b.disabled = false; }
   };
