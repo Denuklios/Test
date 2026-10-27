@@ -9,6 +9,7 @@ require_once __DIR__ . '/inc/tax.php';
 require_once __DIR__ . '/inc/note.php';
 require_once __DIR__ . '/inc/archive.php';
 require_once __DIR__ . '/inc/pricing.php';
+require_once __DIR__ . '/inc/custmail.php';
 
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
@@ -27,18 +28,22 @@ if ($isPost) {
     }
 }
 $db = wf_db();
+wf_public_base($db, true);   // Adresse für Links in Kundenmails merken (nur angemeldete Aufrufe)
 // Archiv bei Dritten: nach der Antwort offene Einträge senden (höchstens alle 2 Minuten)
 register_shutdown_function(function () use ($db): void {
     try {
         $last = (int)($db->query("SELECT value FROM meta WHERE key = 'archive_tick'")->fetchColumn() ?: 0);
-        if (time() - $last < 120 || wf_archive_cfg()['mode'] === '') {
+        if (time() - $last < 120) {
             return;
         }
         $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('archive_tick', ?)")->execute([(string)time()]);
         if (function_exists('fastcgi_finish_request')) {
             fastcgi_finish_request();
         }
-        wf_archive_run($db, 5);
+        if (wf_archive_cfg()['mode'] !== '') {
+            wf_archive_run($db, 5);
+        }
+        wf_cm_run($db, 5);   // fällige Nachfrage-Mails
     } catch (Throwable $e) {
         error_log('auftraege archive: ' . $e->getMessage());
     }
@@ -84,6 +89,13 @@ function log_order(PDO $db, int $orderId, array $user, string $what): void
 {
     $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([$orderId, $user['name'], $what]);
 }
+function ship_fields(array $in): array
+{
+    $mode = in_array($in['ship_mode'] ?? '', ['pickup', 'ship'], true) ? $in['ship_mode'] : '';
+    $carrier = isset(WF_CARRIERS[$in['carrier'] ?? '']) ? $in['carrier'] : '';
+    $no = preg_replace('/[^\w\-\/ .]/u', '', mb_substr(trim((string)($in['tracking_no'] ?? '')), 0, 60));
+    return ['ship_mode' => $mode, 'carrier' => $mode === 'ship' ? $carrier : '', 'tracking_no' => $mode === 'ship' ? $no : ''];
+}
 /** Verfahren mit Minuten je Stück (bzw. einmalig) prüfen: [{process_id, per_piece}] */
 function clean_procs(PDO $db, $list): array
 {
@@ -115,6 +127,9 @@ function order_row(PDO $db, int $id): array
     $p->execute([$id]);
     $o['processes'] = $p->fetchAll();
     $o['items'] = json_decode((string)($o['items'] ?? '[]'), true) ?: [];
+    $o['track_url'] = wf_track_url($db, $id);
+    $o['carrier_url'] = wf_carrier_url((string)$o['carrier'], (string)$o['tracking_no']);
+    unset($o['track_token']);
     $dd = $db->prepare('SELECT date, start_time, minutes, kind FROM order_days WHERE order_id = ? ORDER BY date, start_time');
     $dd->execute([$id]);
     $o['days'] = array_map(fn($r) => ['date' => $r['date'], 'start' => $r['start_time'], 'end' => wf_min_to_hhmm(wf_hhmm_to_min($r['start_time']) + (int)$r['minutes']), 'minutes' => (int)$r['minutes'], 'kind' => $r['kind']], $dd->fetchAll());
@@ -223,6 +238,7 @@ try {
                 'settings' => ['weekend_min' => wf_weekend_min(), 'day_start' => wf_min_to_hhmm(wf_day_start())],
                 'version' => wf_version(),
                 'company' => wf_company(),
+                'carriers' => array_map(fn($c) => $c[0], WF_CARRIERS),
                 'company_missing' => wf_company_missing(wf_company()),
                 'countries' => wf_countries(),
                 'eu' => WF_EU,
@@ -501,6 +517,9 @@ try {
             }
             wf_touch();
             $db->commit();
+            if (($oldRow['status'] ?? 'inquiry') !== $status) {
+                wf_cm_status($db, $id, (string)($oldRow['status'] ?? 'inquiry'), $status);
+            }
             wf_json(['ok' => true, 'order' => order_row($db, $id), 'due_adjusted' => $dueAdjusted]);
         }
 
@@ -526,6 +545,10 @@ try {
                     $upd['deposit'] = 0;
                 }
             }
+            // Abgeholt/Versendet: Art (abgeholt/verschickt), Versanddienst und Sendungsnummer gleich mit
+            if (($upd['status'] ?? '') === 'delivered' && isset($in['ship_mode'])) {
+                $upd += ship_fields($in);
+            }
             if (!$upd) {
                 wf_fail('nothing');
             }
@@ -540,6 +563,9 @@ try {
                 }
             }
             wf_touch();
+            if (isset($upd['status']) && $upd['status'] !== $o['status']) {
+                wf_cm_status($db, $id, $o['status'], $upd['status']);
+            }
             // Abgeholt/versendet: Schlussrechnung als Entwurf vorbereiten (falls noch keine Rechnung existiert)
             $invId = null;
             if (($upd['status'] ?? '') === 'delivered' && (float)$o['price'] > 0) {
@@ -553,6 +579,19 @@ try {
                 }
             }
             wf_json(['ok' => true, 'order' => order_row($db, $id), 'invoice_id' => $invId]);
+        }
+
+        // Versand nachtragen/ändern (Sendungsnummer erscheint im Verfolgungslink); optional Versandmail
+        case 'order_ship': {
+            need_post();
+            $id = (int)($in['id'] ?? 0);
+            $o = order_row($db, $id);
+            $f = ship_fields($in);
+            $db->prepare('UPDATE orders SET ship_mode = ?, carrier = ?, tracking_no = ?, updated_at = datetime(\'now\') WHERE id = ?')->execute([$f['ship_mode'], $f['carrier'], $f['tracking_no'], $id]);
+            log_order($db, $id, $user, 'ship');
+            $mailed = !empty($in['mail']) && $o['status'] === 'delivered' && $f['ship_mode'] === 'ship' ? wf_cm_shipped($db, $id) : false;
+            wf_touch();
+            wf_json(['ok' => true, 'order' => order_row($db, $id), 'mailed' => $mailed]);
         }
 
         case 'order_invoice': {
@@ -582,7 +621,8 @@ try {
             $db->prepare("INSERT INTO order_confirmations (order_id, token_hash, lang, snapshot, created_by, expires_at) VALUES (?,?,?,?,?, datetime('now', '+30 days'))")
                 ->execute([$o['id'], hash('sha256', $token), $lang, json_encode(wf_confirm_snapshot($db, $o, $cust, $lang, 30), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $user['name']]);
             log_order($db, $o['id'], $user, 'confirm_sent');
-            wf_json(['ok' => true, 'token' => $token]);
+            $mailed = !empty($in['email']) && wf_mail_settings()['offer'] ? wf_cm_offer($db, (int)$o['id'], wf_public_base($db) . 'bestaetigung.php?t=' . $token) : false;
+            wf_json(['ok' => true, 'token' => $token, 'mailed' => $mailed]);
         }
 
         case 'confirm_revoke': {
@@ -733,16 +773,17 @@ try {
                 wf_fail('bad_vat_id');
             }
             $vals = [$name, s($in, 'company', 200), $email, s($in, 'phone', 60), s($in, 'address', 500), $cur, s($in, 'notes', 3000), $country, $vat, $isBiz, $docLang];
+            $vals[] = array_key_exists('no_followup', $in) ? (empty($in['no_followup']) ? 0 : 1) : null;   // fehlt = unverändert
             if ($id) {
                 $old = $db->prepare('SELECT vat_id, country FROM customers WHERE id = ?');
                 $old->execute([$id]);
                 $o = $old->fetch();
-                $db->prepare('UPDATE customers SET name=?, company=?, email=?, phone=?, address=?, currency=?, notes=?, country=?, vat_id=?, is_business=?, doc_lang=? WHERE id=? AND anonymized_at IS NULL')->execute([...$vals, $id]);
+                $db->prepare('UPDATE customers SET name=?, company=?, email=?, phone=?, address=?, currency=?, notes=?, country=?, vat_id=?, is_business=?, doc_lang=?, no_followup=COALESCE(?, no_followup) WHERE id=? AND anonymized_at IS NULL')->execute([...$vals, $id]);
                 if ($o && ($o['vat_id'] !== $vat || $o['country'] !== $country)) {
                     $db->prepare("UPDATE customers SET vat_valid = NULL, vat_checked_at = NULL, vat_checked_name = '' WHERE id = ?")->execute([$id]);
                 }
             } else {
-                $db->prepare('INSERT INTO customers (name, company, email, phone, address, currency, notes, country, vat_id, is_business, doc_lang) VALUES (?,?,?,?,?,?,?,?,?,?,?)')->execute($vals);
+                $db->prepare('INSERT INTO customers (name, company, email, phone, address, currency, notes, country, vat_id, is_business, doc_lang, no_followup) VALUES (?,?,?,?,?,?,?,?,?,?,?,COALESCE(?, 0))')->execute($vals);
                 $id = (int)$db->lastInsertId();
             }
             // EU-Firmenkunde: USt-ID gleich bei VIES pruefen (ohne Netz bleibt sie ungeprueft)
@@ -1118,6 +1159,18 @@ try {
             $c['phone_share'] = max(0, min(100, (int)($in['phone_share'] ?? ($c['phone_share'] ?? 50))));
             if (array_key_exists('hour_rate', $in)) {
                 $c['hour_rate'] = max(0, min(500000, (int)(wf_to_cents($in['hour_rate']) ?? 0)));
+            }
+            foreach (['mail_offer', 'mail_shipped', 'mail_followup'] as $mk) {
+                if (array_key_exists($mk, $in)) {
+                    $c[$mk] = !empty($in[$mk]);
+                }
+            }
+            if (array_key_exists('review_url', $in)) {
+                $ru = s($in, 'review_url', 300);
+                if ($ru !== '' && (!filter_var($ru, FILTER_VALIDATE_URL) || !str_starts_with($ru, 'https://'))) {
+                    wf_fail('bad_url');
+                }
+                $c['review_url'] = $ru;
             }
             foreach (['archive_email', 'archive_from'] as $ak) {
                 if (array_key_exists($ak, $in)) {

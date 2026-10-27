@@ -110,6 +110,13 @@ Unter **Einstellungen**:
 - **Stundensatz** (voreingestellt 450 kr netto) oben auf der Produktseite ändern; „Selbst kalkulieren“ rechnet Material + Minuten × Stundensatz. Beim Einzelpreis mit dem Schalter **kr | €** die Eingabewährung wählen; Umschalten rechnet den Betrag zum Tageskurs um, gespeichert wird in kr.
 - Kunde → **Kunde löschen**: zwei Bestätigungen (Frage + Wort LÖSCHEN/SLET eintippen). Ohne festgeschriebene Rechnungen wird der Kunde mit Aufträgen, Fotos und Rechnungsentwürfen gelöscht. Mit Rechnungen werden nur die Personendaten gelöscht (Aufbewahrungspflicht 5 Jahre).
 
+## 5e. Verfolgungslink und E-Mails an Kunden
+- Jeder Auftrag hat einen **Verfolgungslink** (Karte „📍 Verfolgungslink für den Kunden“: Teilen/Kopieren/Öffnen). Der Kunde sieht dort Stand, geplante Fertigstellung, seine Positionen und – sobald versendet – Versanddienst, Sendungsnummer und „Sendung verfolgen“. Keine Adresse, keine Preise.
+- Status **Abgeholt/Versendet** fragt: „Abgeholt“ oder „Versendet“ mit Versanddienst (PostNord, GLS, DAO, Bring, DHL, DPD, Hermes, UPS) und Sendungsnummer. Nachtragen/Ändern auf der Auftragsseite.
+- Einstellungen → **E-Mails an Kunden**: Angebot zum Unterschreiben per E-Mail (an), Versandmail (aus – auf Knopfdruck am Auftrag möglich), Nachfrage-Mail 7 Tage nach Abgeholt/Versendet (an, wechselnde Sätze, Abmeldelink), optional Google-Bewertungslink.
+- Absender ist die E-Mail aus den Firmendaten – sie muss ein Postfach auf deiner Domain sein (z. B. info@wunsch-fabrik.dk), sonst landen Mails im Spam. Versand über den Mailserver von one.com, ohne Cronjob (beim nächsten Öffnen der App).
+- Rechtlich: Die Angebots-Mail weist auf die spätere Nachfrage hin und enthält den Abmeldelink; jede Nachfrage-Mail auch. Abgemeldete Kunden (oder Häkchen „Keine Nachfrage-Mails“ beim Kunden) bekommen keine.
+
 ## 6. Als App auf dem Handy
 Seite im Handy-Browser öffnen → Menü → „Zur Startseite hinzufügen“ (Android/Chrome: „App installieren“).
 
@@ -119,4 +126,4 @@ Seite im Handy-Browser öffnen → Menü → „Zur Startseite hinzufügen“ (A
 - Schriften liegen lokal, kein Tracking. Externe Abfragen nur für Tageskurs (Nationalbank/EZB) und USt-IdNr.-Prüfung (EU-VIES).
 
 ## Tests (lokal, optional)
-`node auftraege/tests/api.test.mjs`, `invoice.test.mjs`, `expense.test.mjs`, `tax.test.mjs`, `note.test.mjs` und `archive.test.mjs` (benötigt PHP 8.x mit pdo_sqlite und Node 18+).
+`node auftraege/tests/api.test.mjs`, `invoice.test.mjs`, `expense.test.mjs`, `tax.test.mjs`, `note.test.mjs`, `archive.test.mjs` und `custmail.test.mjs` (benötigt PHP 8.x mit pdo_sqlite und Node 18+).

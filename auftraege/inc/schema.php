@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 13) {
+    if ($v >= 14) {
         return;
     }
     if ($v < 1) {
@@ -44,7 +44,30 @@ function wf_migrate(PDO $db): void
     if ($v < 12) {
         wf_migrate_v12($db);
     }
-    wf_migrate_v13($db);
+    if ($v < 13) {
+        wf_migrate_v13($db);
+    }
+    wf_migrate_v14($db);
+}
+
+/**
+ * Version 14: Verfolgungslink, Versand (Dienst, Sendungsnummer), Nachfrage-Mail, Abmeldung des Kunden.
+ */
+function wf_migrate_v14(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    ALTER TABLE orders ADD COLUMN track_token TEXT;
+    ALTER TABLE orders ADD COLUMN ship_mode TEXT NOT NULL DEFAULT '';
+    ALTER TABLE orders ADD COLUMN carrier TEXT NOT NULL DEFAULT '';
+    ALTER TABLE orders ADD COLUMN tracking_no TEXT NOT NULL DEFAULT '';
+    ALTER TABLE orders ADD COLUMN shipped_at TEXT;
+    ALTER TABLE orders ADD COLUMN followup_at TEXT;
+    CREATE UNIQUE INDEX idx_orders_track ON orders(track_token);
+    ALTER TABLE customers ADD COLUMN no_followup INTEGER NOT NULL DEFAULT 0;
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '14');
+    ");
+    $db->commit();
 }
 
 /**

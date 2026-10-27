@@ -168,7 +168,7 @@ try {
     const f = readdirSync(mails);
     assert.ok(f.length >= 2, f.join());
     const eml = f.map((x) => readFileSync(join(mails, x), 'utf8')).find((x) => x.includes('Faktura-3.html'));
-    assert.ok(eml && eml.includes('To: archiv@gmail.com') && eml.includes('From: Wunsch-Fabrik Archiv <info@wunsch-fabrik.dk>'));
+    assert.ok(eml && eml.includes('To: archiv@gmail.com') && eml.includes('<info@wunsch-fabrik.dk>'));
   });
 
   await ok('Kunde löschen ohne Bestätigung abgelehnt', async () => {

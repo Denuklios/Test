@@ -79,7 +79,7 @@ function wf_archive_queue(PDO $db, string $type, string $ref): void
 }
 
 /** E-Mail mit Anhängen (MIME). Tests: WF_MAIL_DIR schreibt .eml-Dateien statt zu senden. */
-function wf_mail(string $to, string $from, string $subject, string $text, array $files): bool
+function wf_mail(string $to, string $from, string $subject, string $text, array $files, string $fromName = 'Wunsch-Fabrik Archiv'): bool
 {
     $b = 'wf' . bin2hex(random_bytes(12));
     $enc = fn(string $s) => '=?UTF-8?B?' . base64_encode($s) . '?=';
@@ -89,7 +89,7 @@ function wf_mail(string $to, string $from, string $subject, string $text, array 
             . chunk_split(base64_encode($f['data'])) . "\r\n";
     }
     $body .= "--$b--\r\n";
-    $headers = "From: Wunsch-Fabrik Archiv <$from>\r\nReply-To: $from\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"$b\"\r\nX-WF-Archive: 1";
+    $headers = 'From: ' . $enc(str_replace(["\r", "\n"], '', $fromName)) . " <$from>\r\nReply-To: $from\r\nMIME-Version: 1.0\r\nContent-Type: multipart/mixed; boundary=\"$b\"\r\nX-Mailer: Wunsch-Fabrik Auftraege";
     if ($dir = getenv('WF_MAIL_DIR')) {
         @mkdir($dir, 0775, true);
         return (bool)file_put_contents($dir . '/' . microtime(true) . '-' . preg_replace('/\W+/', '_', $subject) . '.eml', "To: $to\r\nSubject: " . $enc($subject) . "\r\n$headers\r\n\r\n$body");

@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Helles Design';
+const APP_VERSION = '2026-10-27 · Verfolgungslink + Kundenmails';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -215,7 +215,7 @@ function orderCard(o) {
         activeWorkers().length > 1 ? wchip(workerById(o.worker_id)) : null,
         procDots((o.process_ids || '').split(',').filter(Boolean))),
       o.plan_date ? h('div', { class: 'o-plan' }, `🔧 ${t('production')}: ${dfmt(o.plan_date)}${o.start_time ? ' ' + o.start_time : ''}${o.finish_date && o.finish_date !== o.plan_date ? ' → ' + dfmt(o.finish_date) : ''}`) : null),
-    nextS && !o.deleted_at && h('div', { class: 'next' }, h('button', { class: 'btn small', onclick: async (e) => { e.preventDefault(); const r = await api('order_status', { body: { id: o.id, status: nextS } }); toast(r.invoice_id ? t('inv_draft_auto') : t('saved')); render(); } }, '→ ' + t('st_' + nextS))));
+    nextS && !o.deleted_at && h('div', { class: 'next' }, h('button', { class: 'btn small', onclick: async (e) => { e.preventDefault(); const r = await setStatus(o, nextS); if (r) { toast(r.invoice_id ? t('inv_draft_auto') : t('saved')); render(); } } }, '→ ' + t('st_' + nextS))));
   return card;
 }
 
@@ -224,7 +224,7 @@ route(/^\/order\/(\d+)$/, async (id) => {
   const { order: o } = await api('order', { params: { id } });
   const reload = () => render();
   const late = o.due_date && o.due_date < today() && !['done', 'delivered'].includes(o.status);
-  const steps = h('div', { class: 'steps' }, me.statuses.map((s, i) => h('button', { class: i < me.statuses.indexOf(o.status) ? 'done' : i === me.statuses.indexOf(o.status) ? 'cur' : '', onclick: async () => { const r = await api('order_status', { body: { id: o.id, status: s } }); if (r.invoice_id) toast(t('inv_draft_auto')); reload(); } }, t('st_' + s))));
+  const steps = h('div', { class: 'steps' }, me.statuses.map((s, i) => h('button', { class: i < me.statuses.indexOf(o.status) ? 'done' : i === me.statuses.indexOf(o.status) ? 'cur' : '', onclick: async () => { const r = await setStatus(o, s); if (!r) return; if (r.invoice_id) toast(t('inv_draft_auto')); reload(); } }, t('st_' + s))));
   const paySel = h('select', { onchange: async (e) => { await api('order_status', { body: { id: o.id, pay_status: e.target.value } }); reload(); } }, me.pay.map((p) => h('option', { value: p, selected: p === o.pay_status }, t('pay_' + p))));
   const rest = o.price - o.deposit;
   const wk = workerById(o.worker_id);
@@ -252,6 +252,7 @@ route(/^\/order\/(\d+)$/, async (id) => {
         h('td', { class: 'num' }, money(i.qty * i.price, o.currency)), h('td', { class: 'num muted' }, m ? hm(m) : ''));
     })))) : null,
     (o.description || o.notes) && h('div', { class: 'card' }, o.description && h('p', { style: 'margin:0 0 8px;white-space:pre-wrap' }, o.description), o.notes && h('p', { class: 'muted', style: 'margin:0;white-space:pre-wrap' }, o.notes)),
+    !o.deleted_at && trackCard(o, reload),
     !o.deleted_at && orderMoneyCard(o, reload),
     h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:10px' }, t('files')),
       photoButtons(async (list) => { await uploadFiles(o.id, list); reload(); }),
@@ -260,6 +261,52 @@ route(/^\/order\/(\d+)$/, async (id) => {
         h('div', { class: 'n' }, h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, f.original_name), h('a', { href: '#', title: t('delete'), onclick: async (e) => { e.preventDefault(); if (confirm(t('confirm_delete_file'))) { await api('file_delete', { body: { id: f.id } }); reload(); } } }, '✕')))))),
     h('div', { class: 'card' }, h('h3', {}, t('history')), h('ul', { class: 'log' }, o.log.map((l) => h('li', {}, `${l.at.slice(0, 16)} · ${l.user_name} · ${logText(l.what)}`)))));
 });
+// Status setzen; bei „Abgeholt/Versendet“ erst fragen: abgeholt oder verschickt (Dienst + Sendungsnummer)
+function setStatus(o, s) {
+  if (s !== 'delivered' || o.status === 'delivered') return api('order_status', { body: { id: o.id, status: s } });
+  return new Promise((resolve) => {
+    const close = (v) => { m.remove(); resolve(v); };
+    const form = shipForm(o);
+    const go = async (mode) => { try { close(await api('order_status', { body: { id: o.id, status: s, ship_mode: mode, ...(mode === 'ship' ? form.get() : {}) } })); } catch (e) { toast(e.message); } };
+    const m = h('div', { class: 'modal', onclick: (e) => { if (e.target === m) close(null); } },
+      h('div', { class: 'sheet' },
+        h('div', { class: 'row' }, h('h2', { style: 'flex:1' }, t('st_delivered')), h('button', { type: 'button', class: 'btn small', onclick: () => close(null) }, '✕')),
+        h('div', { class: 'grid', style: 'margin-top:10px' },
+          h('button', { class: 'btn', onclick: () => go('pickup') }, '🤝 ' + t('ship_pickup')),
+          h('div', { class: 'card', style: 'margin:0' }, h('h3', { style: 'margin-bottom:8px' }, '📦 ' + t('ship_ship')), form,
+            h('button', { class: 'btn primary', style: 'margin-top:10px;width:100%', onclick: () => go('ship') }, t('ship_save'))))));
+    document.body.append(m);
+  });
+}
+function shipForm(o) {
+  const car = h('select', {}, h('option', { value: '' }, '—'), Object.entries(me.carriers).filter(([k]) => k !== 'other').map(([k, n]) => h('option', { value: k, selected: k === o.carrier }, n)), h('option', { value: 'other', selected: o.carrier === 'other' }, t('ship_other')));
+  const no = h('input', { type: 'text', value: o.tracking_no || '', placeholder: t('ship_no_ph'), autocomplete: 'off' });
+  const el = h('div', { class: 'grid c2' }, h('div', {}, h('label', {}, t('ship_carrier')), car), h('div', {}, h('label', {}, t('ship_no')), no));
+  el.get = () => ({ carrier: car.value, tracking_no: no.value.trim() });
+  return el;
+}
+// Verfolgungslink für den Kunden + Versand (Sendungsnummer erscheint dort)
+function trackCard(o, reload) {
+  const url = o.track_url;
+  const shared = h('div', { class: 'row', style: 'margin-top:8px;flex-wrap:wrap' },
+    navigator.share ? h('button', { class: 'btn small primary', onclick: () => navigator.share({ title: t('track_title'), text: t('track_share_text', o.nr), url }).catch(() => {}) }, t('share')) : null,
+    h('button', { class: 'btn small', onclick: () => navigator.clipboard.writeText(url).then(() => toast(t('copied'))) }, t('copy')),
+    h('a', { class: 'btn small', href: url, target: '_blank', rel: 'noopener' }, t('open')));
+  let ship = null;
+  if (o.status === 'delivered') {
+    const form = shipForm(o);
+    ship = h('div', { style: 'margin-top:14px' }, h('div', { class: 'sechead' }, o.ship_mode === 'pickup' ? '🤝 ' + t('ship_pickup') : '📦 ' + t('ship_ship')),
+      o.ship_mode !== 'pickup' ? form : null,
+      o.ship_mode !== 'pickup' ? h('div', { class: 'row', style: 'margin-top:8px;flex-wrap:wrap' },
+        h('button', { class: 'btn small primary', onclick: async () => { try { await api('order_ship', { body: { id: o.id, ship_mode: 'ship', ...form.get() } }); toast(t('saved')); reload(); } catch (e) { toast(e.message); } } }, t('save')),
+        o.customer_email ? h('button', { class: 'btn small', onclick: async () => { try { const r = await api('order_ship', { body: { id: o.id, ship_mode: 'ship', mail: 1, ...form.get() } }); toast(r.mailed ? t('mail_ship_sent', o.customer_email) : t('mail_failed_share')); reload(); } catch (e) { toast(e.message); } } }, '✉ ' + t('ship_mail')) : null,
+        o.carrier_url ? h('a', { class: 'btn small', href: o.carrier_url, target: '_blank', rel: 'noopener' }, t('ship_follow')) : null) : null,
+      h('p', { class: 'muted', style: 'margin:8px 0 0;font-size:.85rem' }, o.followup_at && o.followup_at !== 'skip' ? '✉ ' + t('fu_sent', o.followup_at.slice(0, 16))
+        : o.followup_at === 'skip' ? t('fu_skip') : me.company.mail_followup === false ? t('fu_off') : o.shipped_at ? t('fu_planned', dfmt(addDays(o.shipped_at.slice(0, 10), 7))) : ''));
+  }
+  return h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:6px' }, '📍 ' + t('track_title')), h('p', { class: 'muted', style: 'margin:0' }, t('track_text')), shared, ship);
+}
+
 // Rechnungen und Auftragsbestaetigung direkt am Auftrag
 function orderMoneyCard(o, reload) {
   const main = o.invoices.filter((i) => i.purpose !== 'deposit' && !i.fully_credited);
@@ -278,7 +325,11 @@ function orderMoneyCard(o, reload) {
         o.customer_email ? h('a', { class: 'btn small', href: `mailto:${encodeURIComponent(o.customer_email)}?subject=${encodeURIComponent(t('confirm_title') + ' ' + o.nr)}&body=${encodeURIComponent(text + '\n\n' + url)}` }, '✉ E-Mail') : null,
         h('a', { class: 'btn small', href: url, target: '_blank', rel: 'noopener' }, t('open'))));
   };
-  const send = async () => { const r = await api('confirm_create', { body: { order_id: o.id } }); showLink(r.token); };
+  const send = async () => {
+    const r = await api('confirm_create', { body: { order_id: o.id, email: !!o.customer_email && me.company.mail_offer !== false } });
+    showLink(r.token);
+    if (r.mailed) toast(t('mail_offer_sent', o.customer_email)); else if (o.customer_email && me.company.mail_offer !== false) toast(t('mail_failed_share'));
+  };
   let conf;
   const viewBtn = c ? h('a', { class: 'btn small', href: `${BASE}bestaetigung.php?id=${c.id}`, target: '_blank', rel: 'noopener' }, '📄 ' + t('confirm_view')) : null;
   if (c && c.signed_at) {
@@ -305,6 +356,7 @@ function logText(w) {
   if (w.startsWith('pay:')) return t('log_pay') + ' ' + t('pay_' + w.slice(4));
   if (w.startsWith('file:')) return t('log_file') + ' ' + w.slice(5);
   if (w.startsWith('confirmed:')) return t('log_confirmed');
+  if (w.startsWith('mail:')) return '✉ ' + t('log_mail_' + w.slice(5));
   return t('log_' + w);
 }
 
@@ -898,6 +950,7 @@ route(/^\/customer\/(new|\d+)$/, async (id) => {
   const mk = (k, type = 'text') => h('input', { type, value: c[k] });
   let biz = +c.is_business;
   const bizRow = h('div', { class: 'row' });
+  const nfu = h('input', { type: 'checkbox', checked: !!+c.no_followup, style: 'width:22px;height:22px;min-height:0' });
   const vatWrap = h('div');
   const drawBiz = () => {
     bizRow.replaceChildren(...[[0, t('private')], [1, t('business')]].map(([v, l]) => h('button', { type: 'button', class: 'chip' + (biz === v ? ' on' : ''), onclick: () => { biz = v; drawBiz(); } }, l)));
@@ -918,10 +971,11 @@ route(/^\/customer\/(new|\d+)$/, async (id) => {
         f('currency', t('currency'), h('select', {}, me.currencies.map((x) => h('option', { value: x, selected: x === c.currency }, x)))),
         f('doc_lang', t('doc_lang'), h('select', {}, h('option', { value: '' }, t('lang_auto')), ['da', 'de', 'en'].map((l) => h('option', { value: l, selected: c.doc_lang === l }, t('lang_' + l)))))),
       h('div', {}, vatWrap),
-      f('notes', t('notes'), h('textarea', {}, c.notes)), err,
+      f('notes', t('notes'), h('textarea', {}, c.notes)),
+      h('label', { class: 'row', style: 'gap:8px;text-transform:none;letter-spacing:0;font-size:.92rem;color:var(--text)' }, nfu, t('cust_no_followup')), err,
       h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: async () => {
         err.textContent = '';
-        try { const r = await api('customer_save', { body: { id: c.id, is_business: biz, ...Object.fromEntries(Object.entries(F).map(([k, el]) => [k, el.value])) } }); toast(t('saved')); location.hash = `#/customer/${r.id}`; render(); } catch (e) { err.textContent = e.message; }
+        try { const r = await api('customer_save', { body: { id: c.id, is_business: biz, no_followup: nfu.checked ? 1 : 0, ...Object.fromEntries(Object.entries(F).map(([k, el]) => [k, el.value])) } }); toast(t('saved')); location.hash = `#/customer/${r.id}`; render(); } catch (e) { err.textContent = e.message; }
       } }, t('save')))),
     !isNew && c.invoices && c.invoices.length ? h('div', { class: 'card' }, h('h3', {}, t('nav_invoices')), h('div', { class: 'tscroll' }, h('table', { class: 't' }, c.invoices.map((i) => h('tr', {},
       h('td', {}, h('a', { href: `#/invoice/${i.id}` }, invLabel(i))), h('td', {}, dfmt(i.issue_date)), h('td', { class: 'n' }, (i.type === 'credit' ? '− ' : '') + cents(i.total, i.currency))))))) : null,
@@ -1739,6 +1793,15 @@ route(/^\/settings$/, async () => {
   const themeCard = h('div', { class: 'card' }, h('h3', {}, '🎨 ' + t('theme_title')),
     h('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' }, ...[['light', '☀️ ' + t('theme_light')], ['dark', '🌙 ' + t('theme_dark')]].map(([k, l]) =>
       h('button', { class: 'btn' + (theme === k ? ' primary' : ''), onclick: () => { theme = k; try { localStorage.setItem('wf_theme', k); } catch (e) {} applyTheme(k); render(); } }, l))));
+  // E-Mails an Kunden
+  const mk = (k, def) => h('input', { type: 'checkbox', checked: me.company[k] === undefined ? def : !!me.company[k], style: 'width:22px;height:22px;min-height:0' });
+  const mOffer = mk('mail_offer', true), mShip = mk('mail_shipped', false), mFu = mk('mail_followup', true);
+  const revIn = h('input', { type: 'url', value: me.company.review_url || '', placeholder: 'https://g.page/r/…/review' });
+  const ckRow = (cb, label, hint) => h('label', { class: 'row', style: 'gap:10px;align-items:flex-start;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--text);margin:8px 0' }, cb, h('span', {}, label, h('small', { class: 'muted', style: 'display:block' }, hint)));
+  const mailCard = h('div', { class: 'card' }, h('h3', {}, '✉ ' + t('cm_title')), h('p', { class: 'muted', style: 'margin:0 0 6px' }, t('cm_text', me.company.email || '—')),
+    ckRow(mOffer, t('cm_offer'), t('cm_offer_h')), ckRow(mShip, t('cm_ship'), t('cm_ship_h')), ckRow(mFu, t('cm_fu'), t('cm_fu_h')),
+    h('div', {}, h('label', {}, t('cm_review')), revIn, h('small', { class: 'muted hint' }, t('cm_review_h'))),
+    h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { try { await api('company_save', { body: { ...me.company, mail_offer: mOffer.checked, mail_shipped: mShip.checked, mail_followup: mFu.checked, review_url: revIn.value.trim() } }); await reloadMe(); toast(t('saved')); } catch (e) { toast(e.message); } } }, t('save'))));
   // Testphase: Rechnungen/Belege löschen und Nummern zurücksetzen, bis „Echtbetrieb starten“
   const twice = (msg, word) => { if (!confirm(msg)) return false; const v = prompt(t('cdel_type', word)); if (v === null) return false; if (v.trim().toUpperCase() !== word.toUpperCase()) { toast(t('cdel_wrong')); return false; } return true; };
   const testCard = me.live ? null : h('div', { class: 'card warnbox' }, h('h3', {}, '🧪 ' + t('test_title')), h('p', { class: 'muted' }, t('test_text')),
@@ -1764,6 +1827,7 @@ route(/^\/settings$/, async () => {
     testCard,
     themeCard,
     companyCard,
+    mailCard,
     archiveCard,
     termsCard,
     aiCard,
