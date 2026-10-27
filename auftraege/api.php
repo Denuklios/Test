@@ -8,6 +8,7 @@ require_once __DIR__ . '/inc/expense.php';
 require_once __DIR__ . '/inc/tax.php';
 require_once __DIR__ . '/inc/note.php';
 require_once __DIR__ . '/inc/archive.php';
+require_once __DIR__ . '/inc/pricing.php';
 
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
@@ -582,6 +583,10 @@ try {
             }
             wf_json(['ok' => true, 'id' => $id]);
         }
+
+        // Preisvorschlag aus Marktpreisen (Endkunde DK, inkl. Moms)
+        case 'price_suggest':
+            wf_json(['ok' => true, 'suggest' => wf_price_suggest(mb_substr((string)($_GET['name'] ?? ''), 0, 300))]);
 
         case 'product_delete': {
             need_post();

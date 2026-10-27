@@ -105,6 +105,7 @@ Unter **Einstellungen**:
 
 ## 5d. Produkte und Kunden löschen
 - Kunden → Reiter **Produkte**: Preisliste anlegen/ändern/deaktivieren. In der Rechnung beim Tippen der Position erscheinen passende Produkte; Auswahl füllt Text, Einheit, Preis und Art, dann nur noch die Menge eingeben – Summe rechnet sofort.
+- Beim Anlegen eines Produkts schlägt die App einen Marktpreis vor (recherchierte Endkundenpreise dänischer Anbieter, 1 Stück, inkl. Moms; Knopf für inkl. oder netto). Feld „Preis in €“ mit Knöpfen „€ → kr“ und „kr → €“ rechnet zum Tageskurs um.
 - Kunde → **Kunde löschen**: zwei Bestätigungen (Frage + Wort LÖSCHEN/SLET eintippen). Ohne festgeschriebene Rechnungen wird der Kunde mit Aufträgen, Fotos und Rechnungsentwürfen gelöscht. Mit Rechnungen werden nur die Personendaten gelöscht (Aufbewahrungspflicht 5 Jahre).
 
 ## 6. Als App auf dem Handy

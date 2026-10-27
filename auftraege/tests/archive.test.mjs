@@ -64,6 +64,14 @@ try {
     assert.equal((await call('products')).j.products.length, 0);
   });
 
+  await ok('Preisvorschlag aus Marktpreisen (DE/DA, Verfahren erkannt)', async () => {
+    const g = async (name) => (await call('price_suggest', { params: { name } })).j.suggest;
+    assert.equal((await g('Hættetrøje med broderi')).key, 'hoodie_stick');
+    assert.equal((await g('T-Shirt bedruckt')).typ, 15000);
+    assert.equal((await g('Zaubertasse mit Foto')).key, 'zaubertasse');
+    assert.equal(await g('Fahrrad'), null);
+  });
+
   await ok('Ohne Archiv-Einstellung: nichts wird vorgemerkt', async () => {
     assert.equal((await call('archive_status')).j.mode, '');
     assert.equal((await call('archive_test', { body: {} })).j.error, 'archive_not_set');

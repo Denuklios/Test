@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Produkte, Drive-Archiv';
+const APP_VERSION = '2026-10-27 · Preisvorschlag, Drive-Archiv';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -670,7 +670,14 @@ async function orderForm(o, presetCustomer, note = '') {
 const masterTabs = (on) => h('div', { class: 'mtabs' }, [['/customers', t('nav_customers')], ['/products', t('tab_products')]].map(([r, l]) => h('a', { href: '#' + r, class: r === on ? 'on' : '' }, l)));
 
 // ---------- Produkte / Preisliste ----------
-let prodQ = '';
+let prodQ = '', eurCache = null;
+const num = (v) => { let x = String(v || '').replace(/\s|kr\.?|€|dkk|eur/gi, ''); if (x.includes(',')) x = x.replace(/\./g, '').replace(',', '.'); return parseFloat(x) || 0; };
+// EUR-Kurs (DKK je 1 €): Nationalbank/EZB, sonst fester Leitkurs der Krone (ERM II)
+async function eurRate() {
+  if (eurCache) return eurCache;
+  try { const r = await api('rate', { params: { cur: 'EUR' } }); eurCache = { rate: +r.rate, date: r.date }; } catch (e) { eurCache = { rate: 7.46038, date: '' }; }
+  return eurCache;
+}
 route(/^\/products$/, async () => {
   const { products } = await api('products');
   const list = h('div', { class: 'orders' });
@@ -680,9 +687,41 @@ route(/^\/products$/, async () => {
     const pr = h('input', { type: 'text', inputmode: 'decimal', value: p.price != null ? centsIn(p.price) : '', placeholder: '0,00' });
     const kd = h('select', {}, ['goods', 'services'].map((k) => h('option', { value: k, selected: k === (p.kind || 'goods') }, t(k))));
     const act = h('input', { type: 'checkbox', checked: p.id ? !!+p.active : true, style: 'width:22px;height:22px;min-height:0' });
+    // Umrechnung € ⇄ kr per Knopf (Tageskurs Nationalbank)
+    const eur = h('input', { type: 'text', inputmode: 'decimal', placeholder: '0,00' });
+    const fxNote = h('small', { class: 'muted hint' });
+    const conv = (toDkk) => async () => {
+      const r = await eurRate();
+      const src = num(toDkk ? eur.value : pr.value);
+      if (!src) { toast(t('fx_enter')); return; }
+      (toDkk ? pr : eur).value = (Math.round((toDkk ? src * r.rate : src / r.rate) * 100) / 100).toFixed(2).replace('.', ',');
+      fxNote.textContent = t('fx_note', String(r.rate.toFixed(4)).replace('.', ','), r.date ? dfmt(r.date) : t('fx_fixed'));
+    };
+    // Preisvorschlag aus Marktpreisen, sobald ein Name getippt ist
+    const sug = h('div', { class: 'pricesug hidden' });
+    let sugT = 0;
+    const askSug = () => { clearTimeout(sugT); sugT = setTimeout(async () => {
+      const q = nm.value.trim();
+      if (q.length < 3) { sug.classList.add('hidden'); return; }
+      const { suggest: g } = await api('price_suggest', { params: { name: q } });
+      if (!g) { sug.replaceChildren(h('span', { class: 'muted' }, t('ps_none'))); sug.classList.remove('hidden'); return; }
+      const net = Math.round(g.typ / 1.25);
+      sug.replaceChildren(
+        h('div', {}, '💡 ' + t('ps_market', cents(g.low, 'DKK'), cents(g.high, 'DKK')), ' ', h('b', {}, t('ps_typ', cents(g.typ, 'DKK')))),
+        h('div', { class: 'row', style: 'flex-wrap:wrap;margin-top:6px' },
+          h('button', { type: 'button', class: 'btn small', onclick: () => { pr.value = centsIn(g.typ); } }, t('ps_take_incl', cents(g.typ, 'DKK'))),
+          me.company.moms_registered ? h('button', { type: 'button', class: 'btn small', onclick: () => { pr.value = centsIn(net); } }, t('ps_take_net', cents(net, 'DKK'))) : null),
+        h('small', { class: 'muted' }, (g.estimated ? t('ps_est') : t('ps_src')) + ' ' + g.source.replace(/^geschätzt:?\s*/, '')));
+      sug.classList.remove('hidden');
+    }, 350); };
+    nm.addEventListener('input', askSug);
+    if (!p.id) setTimeout(askSug, 0);
     return h('div', { class: 'card prodcard' + (p.id && !+p.active ? ' inactive' : '') },
-      h('div', {}, h('label', {}, t('prod_name')), nm),
+      h('div', {}, h('label', {}, t('prod_name')), nm), sug,
       h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('unit')), un), h('div', {}, h('label', {}, t('unit_price') + ' DKK'), pr), h('div', {}, h('label', {}, t('prod_kind')), kd)),
+      h('div', { class: 'fxrow' }, h('div', {}, h('label', {}, t('fx_eur')), eur),
+        h('button', { type: 'button', class: 'btn small', onclick: conv(true) }, '€ → kr'),
+        h('button', { type: 'button', class: 'btn small', onclick: conv(false) }, 'kr → €')), fxNote,
       h('div', { class: 'row', style: 'justify-content:space-between;margin-top:8px' },
         h('label', { class: 'row', style: 'margin:0;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, act, t('active')),
         h('div', { class: 'row' },

@@ -361,3 +361,7 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 .subh{margin:12px 0 4px;font-size:.95rem;color:var(--p2)}
 .prodcard.inactive{opacity:.55}
 .prodcard{margin-bottom:10px}
+.pricesug{margin:8px 0 4px;padding:10px 12px;border-radius:12px;background:color-mix(in srgb,var(--p1) 12%,transparent);border:1px solid color-mix(in srgb,var(--p1) 35%,transparent);font-size:.9rem}
+.pricesug small{display:block;margin-top:6px}
+.fxrow{display:flex;gap:8px;align-items:flex-end;margin-top:8px;flex-wrap:wrap}
+.fxrow>div{flex:1;min-width:120px}
