@@ -8,6 +8,10 @@ if (isset($_GET['exp'])) {
     // Beleg einer Ausgabe
     $st = wf_db()->prepare('SELECT id, file_stored AS stored_name, file_mime AS mime, file_name AS original_name FROM expenses WHERE id = ? AND file_stored IS NOT NULL');
     $st->execute([(int)$_GET['exp']]);
+} elseif (isset($_GET['pimg'])) {
+    // Produktbild
+    $st = wf_db()->prepare('SELECT * FROM product_images WHERE id = ?');
+    $st->execute([(int)$_GET['pimg']]);
 } else {
     $st = wf_db()->prepare('SELECT * FROM order_files WHERE id = ?');
     $st->execute([(int)($_GET['id'] ?? 0)]);

@@ -89,6 +89,13 @@ function log_order(PDO $db, int $orderId, array $user, string $what): void
 {
     $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([$orderId, $user['name'], $what]);
 }
+function remove_upload(string $stored): void
+{
+    $dir = rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/';
+    @unlink($dir . $stored);
+    array_map('unlink', glob($dir . 'thumbs/' . $stored . '.*') ?: []);
+}
+
 function ship_fields(array $in): array
 {
     $mode = in_array($in['ship_mode'] ?? '', ['pickup', 'ship'], true) ? $in['ship_mode'] : '';
@@ -680,8 +687,13 @@ try {
 
         // ---------- Produkte ----------
         case 'products':
-            wf_json(['ok' => true, 'products' => array_map(function ($p) {
+            $imgs = [];
+            foreach ($db->query('SELECT id, product_id FROM product_images ORDER BY id')->fetchAll() as $im) {
+                $imgs[(int)$im['product_id']][] = (int)$im['id'];
+            }
+            wf_json(['ok' => true, 'products' => array_map(function ($p) use ($imgs) {
                 $p['processes'] = json_decode((string)$p['processes'], true) ?: [];
+                $p['images'] = $imgs[(int)$p['id']] ?? [];
                 return $p;
             }, $db->query('SELECT * FROM products ORDER BY active DESC, sort, name COLLATE NOCASE')->fetchAll())]);
 
@@ -695,13 +707,21 @@ try {
             if ($price === null) {
                 wf_fail('bad_price');
             }
+            $cat = (int)($in['category_id'] ?? 0) ?: null;
+            if ($cat !== null) {
+                $cc = $db->prepare('SELECT 1 FROM product_categories WHERE id = ?');
+                $cc->execute([$cat]);
+                if (!$cc->fetchColumn()) {
+                    wf_fail('bad_category');
+                }
+            }
             $vals = [$name, in_array($in['unit'] ?? '', WF_UNITS, true) ? $in['unit'] : 'stk', $price, ($in['kind'] ?? '') === 'services' ? 'services' : 'goods', !empty($in['active']) || !isset($in['active']) ? 1 : 0,
-                json_encode(clean_procs($db, $in['processes'] ?? []))];
+                json_encode(clean_procs($db, $in['processes'] ?? [])), $cat];
             $id = (int)($in['id'] ?? 0);
             if ($id) {
-                $db->prepare('UPDATE products SET name=?, unit=?, price=?, kind=?, active=?, processes=? WHERE id = ?')->execute([...$vals, $id]);
+                $db->prepare('UPDATE products SET name=?, unit=?, price=?, kind=?, active=?, processes=?, category_id=? WHERE id = ?')->execute([...$vals, $id]);
             } else {
-                $db->prepare('INSERT INTO products (name, unit, price, kind, active, processes) VALUES (?,?,?,?,?,?)')->execute($vals);
+                $db->prepare('INSERT INTO products (name, unit, price, kind, active, processes, category_id) VALUES (?,?,?,?,?,?,?)')->execute($vals);
                 $id = (int)$db->lastInsertId();
             }
             wf_json(['ok' => true, 'id' => $id]);
@@ -712,9 +732,60 @@ try {
             $er = wf_rate('EUR');
             wf_json(['ok' => true, 'suggest' => wf_price_suggest(mb_substr((string)($_GET['name'] ?? ''), 0, 300), $er ? (float)$er['rate'] : 7.46038)]);
 
+        // ---------- Produkt-Kategorien (Kategorie > Unterkategorie) ----------
+        case 'categories':
+            wf_json(['ok' => true, 'categories' => $db->query('SELECT * FROM product_categories ORDER BY sort, name COLLATE NOCASE')->fetchAll()]);
+
+        case 'category_save': {
+            need_post();
+            $name = s($in, 'name', 80);
+            if ($name === '') {
+                wf_fail('name_required');
+            }
+            $id = (int)($in['id'] ?? 0);
+            $parent = (int)($in['parent_id'] ?? 0) ?: null;
+            if ($parent !== null) {
+                // nur zwei Ebenen: Elternteil muss eine Hauptkategorie sein
+                $pc = $db->prepare('SELECT parent_id FROM product_categories WHERE id = ?');
+                $pc->execute([$parent]);
+                $row = $pc->fetch();
+                if (!$row || $row['parent_id'] !== null || $parent === $id) {
+                    wf_fail('bad_category');
+                }
+            }
+            if ($id) {
+                $db->prepare('UPDATE product_categories SET name = ? WHERE id = ?')->execute([$name, $id]);
+            } else {
+                $db->prepare('INSERT INTO product_categories (parent_id, name) VALUES (?, ?)')->execute([$parent, $name]);
+                $id = (int)$db->lastInsertId();
+            }
+            wf_touch();
+            wf_json(['ok' => true, 'id' => $id]);
+        }
+
+        // Löschen: Unterkategorien gehen mit, Produkte bleiben (ohne Kategorie)
+        case 'category_delete': {
+            need_post();
+            $id = (int)($in['id'] ?? 0);
+            $db->beginTransaction();
+            $db->prepare('UPDATE products SET category_id = NULL WHERE category_id = ? OR category_id IN (SELECT id FROM product_categories WHERE parent_id = ?)')->execute([$id, $id]);
+            $db->prepare('DELETE FROM product_categories WHERE parent_id = ?')->execute([$id]);
+            $db->prepare('DELETE FROM product_categories WHERE id = ?')->execute([$id]);
+            $db->commit();
+            wf_touch();
+            wf_json(['ok' => true]);
+        }
+
         case 'product_delete': {
             need_post();
-            $db->prepare('DELETE FROM products WHERE id = ?')->execute([(int)($in['id'] ?? 0)]);
+            $pid = (int)($in['id'] ?? 0);
+            $im = $db->prepare('SELECT stored_name FROM product_images WHERE product_id = ?');
+            $im->execute([$pid]);
+            foreach ($im->fetchAll(PDO::FETCH_COLUMN) as $sn) {
+                remove_upload($sn);
+            }
+            $db->prepare('DELETE FROM product_images WHERE product_id = ?')->execute([$pid]);
+            $db->prepare('DELETE FROM products WHERE id = ?')->execute([$pid]);
             wf_json(['ok' => true]);
         }
 
@@ -858,34 +929,45 @@ try {
             need_post();
             $oid = (int)($_POST['order_id'] ?? 0);
             order_row($db, $oid);
-            $f = $_FILES['file'] ?? null;
-            if (!$f || $f['error'] !== UPLOAD_ERR_OK || !is_uploaded_file($f['tmp_name'])) {
-                wf_fail('upload_failed');
-            }
-            if ($f['size'] > wf_cfg('max_upload_bytes')) {
-                wf_fail('too_large');
-            }
-            $ext = strtolower(pathinfo((string)$f['name'], PATHINFO_EXTENSION));
-            if (!in_array($ext, wf_cfg('allowed_ext'), true)) {
-                wf_fail('bad_type');
-            }
-            $mime = (new finfo(FILEINFO_MIME_TYPE))->file($f['tmp_name']);
-            $okMime = ['jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'png' => 'image/png', 'webp' => 'image/webp', 'gif' => 'image/gif', 'pdf' => 'application/pdf'];
-            if (($okMime[$ext] ?? '') !== $mime) {
-                wf_fail('bad_type');
-            }
-            $stored = bin2hex(random_bytes(16)) . '.dat';
-            $dest = rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/' . $stored;
-            if (!move_uploaded_file($f['tmp_name'], $dest)) {
-                wf_fail('upload_failed', 500);
-            }
-            @chmod($dest, 0640);
-            $orig = preg_replace('/[^\p{L}\p{N}._ -]/u', '_', basename((string)$f['name']));
+            [$stored, $mime, $orig, $size] = store_upload();
             $db->prepare('INSERT INTO order_files (order_id, original_name, stored_name, mime, size) VALUES (?,?,?,?,?)')
-               ->execute([$oid, mb_substr($orig, 0, 200), $stored, $mime, (int)$f['size']]);
+               ->execute([$oid, $orig, $stored, $mime, $size]);
             log_order($db, $oid, $user, 'file:' . $orig);
             wf_touch();
             wf_json(['ok' => true, 'order' => order_row($db, $oid)]);
+        }
+
+        // Produktbilder: Foto mit dem Handy oder Datei hochladen (nur Bilder)
+        case 'product_image_upload': {
+            need_post();
+            $pid = (int)($_POST['product_id'] ?? 0);
+            $pc = $db->prepare('SELECT 1 FROM products WHERE id = ?');
+            $pc->execute([$pid]);
+            if (!$pc->fetchColumn()) {
+                wf_fail('not_found', 404);
+            }
+            [$stored, $mime, $orig, $size] = store_upload();
+            if (!str_starts_with($mime, 'image/')) {
+                remove_upload($stored);
+                wf_fail('bad_type');
+            }
+            $db->prepare('INSERT INTO product_images (product_id, original_name, stored_name, mime, size) VALUES (?,?,?,?,?)')->execute([$pid, $orig, $stored, $mime, $size]);
+            wf_touch();
+            wf_json(['ok' => true, 'id' => (int)$db->lastInsertId()]);
+        }
+
+        case 'product_image_delete': {
+            need_post();
+            $st = $db->prepare('SELECT * FROM product_images WHERE id = ?');
+            $st->execute([(int)($in['id'] ?? 0)]);
+            $f = $st->fetch();
+            if (!$f) {
+                wf_fail('not_found', 404);
+            }
+            remove_upload($f['stored_name']);
+            $db->prepare('DELETE FROM product_images WHERE id = ?')->execute([$f['id']]);
+            wf_touch();
+            wf_json(['ok' => true]);
         }
 
         case 'file_delete': {

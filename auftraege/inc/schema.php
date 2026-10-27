@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 14) {
+    if ($v >= 15) {
         return;
     }
     if ($v < 1) {
@@ -47,7 +47,39 @@ function wf_migrate(PDO $db): void
     if ($v < 13) {
         wf_migrate_v13($db);
     }
-    wf_migrate_v14($db);
+    if ($v < 14) {
+        wf_migrate_v14($db);
+    }
+    wf_migrate_v15($db);
+}
+
+/**
+ * Version 15: Produkt-Kategorien mit Unterkategorien (zwei Ebenen) und Produktbilder.
+ */
+function wf_migrate_v15(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    CREATE TABLE product_categories (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      parent_id INTEGER REFERENCES product_categories(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      sort INTEGER NOT NULL DEFAULT 0
+    );
+    ALTER TABLE products ADD COLUMN category_id INTEGER REFERENCES product_categories(id) ON DELETE SET NULL;
+    CREATE TABLE product_images (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE CASCADE,
+      original_name TEXT NOT NULL,
+      stored_name TEXT NOT NULL UNIQUE,
+      mime TEXT NOT NULL,
+      size INTEGER NOT NULL,
+      uploaded_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX idx_pimg ON product_images(product_id, id);
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '15');
+    ");
+    $db->commit();
 }
 
 /**

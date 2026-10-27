@@ -64,6 +64,7 @@ if ($o && ($_SERVER['REQUEST_METHOD'] ?? '') === 'POST' && ($_POST['a'] ?? '') =
 }
 
 $e = fn($v) => htmlspecialchars((string)$v, ENT_QUOTES, 'UTF-8');
+$unsubView = isset($_GET['abmelden']) || $unsubDone;
 $co = wf_company();
 $statuses = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 $cur = $o ? max(0, (int)array_search($o['status'], $statuses, true)) : 0;
@@ -107,6 +108,7 @@ body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
 <?php else: ?>
   <div class="eyebrow"><?= $e($T['order']) ?> <?= $e($o['nr']) ?></div>
   <h1><?= $e($o['title']) ?></h1>
+  <?php if (!$unsubView): // Abmeldeseite zeigt nur die Abmeldung, keinen Auftragsstand ?>
   <?php if ($o['status'] === 'delivered' && $o['ship_mode'] === 'ship'): ?>
   <div class="card ship">
     <label><?= $e($T['shipped']) ?><?= $o['shipped_at'] ? ' · ' . $e(wf_doc_date(substr($o['shipped_at'], 0, 10), $lang)) : '' ?></label>
@@ -132,6 +134,7 @@ body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
   <div class="card"><label><?= $e($T['items']) ?></label>
     <table class="items"><?php foreach ($items as $it): ?><tr><td><?= (int)$it['qty'] ?> ×</td><td><?= $e($it['name']) ?></td></tr><?php endforeach; ?></table>
   </div>
+  <?php endif; ?>
   <?php endif; ?>
   <?php if ($unsubDone): ?>
   <div class="card"><?= $e($T['unsub_ok']) ?></div>

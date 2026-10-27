@@ -104,6 +104,33 @@ try {
     assert.deepEqual(lines.map((l) => [l.description, +l.qty, +l.unit_price]), [['Hoodie bestickt', 4, 39900], ['T-Shirt Flex', 10, 14950]]);
   });
 
+  await ok('Kategorien: zwei Ebenen, Produkt zuordnen, Löschen behält Produkte', async () => {
+    const bek = (await call('category_save', { body: { name: 'Bekleidung' } })).j.id;
+    const polo = (await call('category_save', { body: { name: 'Poloshirt', parent_id: bek } })).j.id;
+    assert.equal((await call('category_save', { body: { name: 'Zu tief', parent_id: polo } })).j.error, 'bad_category', 'nur zwei Ebenen');
+    const pid = (await call('product_save', { body: { name: 'Polo bestickt', unit: 'stk', price: '249', kind: 'goods', category_id: polo } })).j.id;
+    assert.equal(+(await call('products')).j.products.find((p) => p.id === pid).category_id, polo);
+    assert.equal((await call('product_save', { body: { name: 'X', unit: 'stk', price: '1', kind: 'goods', category_id: 999 } })).j.error, 'bad_category');
+    await call('category_delete', { body: { id: bek } });
+    assert.equal((await call('categories')).j.categories.length, 0, 'Unterkategorie mitgelöscht');
+    const p = (await call('products')).j.products.find((x) => x.id === pid);
+    assert.ok(p, 'Produkt bleibt'); assert.equal(p.category_id, null);
+    // Bilder: Upload (nur Bilder), Liste, Auslieferung, Löschen
+    const png = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==', 'base64');
+    const up = async (name, type, data) => { const fd = new FormData(); fd.append('product_id', String(pid)); fd.append('file', new Blob([data], { type }), name);
+      const r = await fetch(`${B}/api.php?a=product_image_upload`, { method: 'POST', headers: { cookie, 'x-csrf-token': csrf }, body: fd }); return r.json(); };
+    const im = await up('polo.png', 'image/png', png);
+    assert.ok(im.ok, JSON.stringify(im));
+    assert.equal((await up('x.pdf', 'application/pdf', Buffer.from('%PDF-1.4\n%%EOF'))).error, 'bad_type', 'kein PDF als Produktbild');
+    assert.deepEqual((await call('products')).j.products.find((x) => x.id === pid).images, [im.id]);
+    const img = await fetch(`${B}/file.php?pimg=${im.id}`, { headers: { cookie } });
+    assert.equal(img.status, 200); assert.equal(img.headers.get('content-type'), 'image/png');
+    assert.equal((await fetch(`${B}/file.php?pimg=${im.id}`)).status === 200, false, 'ohne Login kein Bild');
+    await call('product_image_delete', { body: { id: im.id } });
+    assert.deepEqual((await call('products')).j.products.find((x) => x.id === pid).images, []);
+    await call('product_delete', { body: { id: pid } });
+  });
+
   await ok('Ohne Archiv-Einstellung: nichts wird vorgemerkt', async () => {
     assert.equal((await call('archive_status')).j.mode, '');
     assert.equal((await call('archive_test', { body: {} })).j.error, 'archive_not_set');

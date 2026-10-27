@@ -62,13 +62,14 @@ try {
     assert.match(m.subj, /Dein Angebot \d{4}-/);
     assert.ok(m.text.startsWith('Hallo Erika,'));
     assert.ok(m.text.includes(`bestaetigung.php?t=${r.token}`));
-    assert.ok(m.text.includes(o.track_url) && m.text.includes('&abmelden=1'));
+    assert.ok(!m.text.includes(o.track_url + '\n') && !m.text.includes('Stand deines Auftrags'), 'Verfolgungslink erst nach Unterschrift');
+    assert.ok(m.text.includes('&abmelden=1'));
     assert.ok(m.text.includes('Robert') && m.raw.includes('<info@wunsch-fabrik.dk>'));
     // HTML-Teil: Unterschrift-Link als klickbarer Knopf
     const hm = m.raw.match(/Content-Type: text\/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n([\s\S]*?)\r\n--/);
     const html = Buffer.from(hm[1].replace(/\s/g, ''), 'base64').toString();
     assert.ok(html.includes(`href="http://127.0.0.1:8099/bestaetigung.php?t=${r.token}"`) && html.includes('Angebot ansehen &amp; unterschreiben'));
-    assert.ok(html.includes('Auftrag verfolgen'));
+    assert.ok(!html.includes('Auftrag verfolgen'), 'kein Verfolgungslink im Angebot');
     assert.ok((await call('order', { params: { id: o.id } })).j.order.log.some((l) => l.what === 'mail:offer|erika@example.de'));
   });
 
@@ -138,6 +139,7 @@ try {
   await ok('Abmelden per Knopf: Kunde bekommt keine Nachfrage mehr, Bearbeiten des Kunden ändert das nicht', async () => {
     const page = await (await fetch(o.track_url + '&abmelden=1')).text();
     assert.ok(page.includes('keine solchen E-Mails mehr'));
+    assert.ok(!page.includes('Material bestellt'), 'Abmeldeseite ohne Auftragsstand');
     assert.equal(q1(`SELECT no_followup FROM customers WHERE id = ${cid}`)[0].no_followup, 0, 'GET allein meldet nicht ab');
     const t = o.track_url.split('t=')[1];
     const res = await (await fetch(`${B}/verfolgen.php?t=${t}`, { method: 'POST', body: new URLSearchParams({ t, a: 'unsub' }) })).text();

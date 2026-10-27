@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Mailversand one.com repariert';
+const APP_VERSION = '2026-10-27 · Kategorien + Produktbilder';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -142,6 +142,15 @@ function photoButtons(onFiles) {
   return h('div', { class: 'row' }, h('button', { type: 'button', class: 'btn primary', onclick: () => cam.click() }, '📷 ' + t('take_photo')), h('button', { type: 'button', class: 'btn', onclick: () => gal.click() }, '🖼 ' + t('pick_files')), cam, gal);
 }
 const thumbUrl = (id) => `${BASE}file.php?id=${id}&thumb=1`;
+const pimgUrl = (id, full) => `${BASE}file.php?pimg=${id}${full ? '' : '&thumb=1'}`;
+async function uploadProductImages(pid, files) {
+  const ids = [];
+  for (const f of files) {
+    try { const fd = new FormData(); fd.append('product_id', pid); fd.append('file', await prepImage(f)); ids.push((await api('product_image_upload', { form: fd })).id); }
+    catch (er) { toast((f.name || t('photo')) + ': ' + er.message); }
+  }
+  return ids;
+}
 const procNames = (ids, max = 2) => {
   const n = (ids || '').split(',').filter(Boolean).map((i) => procById(i)).filter(Boolean).map(pname);
   return n.length > max ? n.slice(0, max).join(', ') + ' +' + (n.length - max) : n.join(', ');
@@ -649,7 +658,9 @@ async function orderForm(o, presetCustomer, note = '') {
     return r;
   }
   // Produktsuche: Liste beim Antippen, Filter beim Tippen, oder freie Position
-  const prodList = (await api('products')).products.filter((p) => +p.active);
+  const [{ products: allProds }, { categories: pcats }] = await Promise.all([api('products'), api('categories')]);
+  const prodList = allProds.filter((p) => +p.active).map((p) => ({ ...p, path: catPath(pcats, p.category_id) }))
+    .sort((a, b) => (a.path || '\uffff').localeCompare(b.path || '\uffff') || a.name.localeCompare(b.name));
   const pq = h('input', { type: 'search', placeholder: prodList.length ? t('item_search') : t('item_search_none'), autocomplete: 'off' });
   const psug = h('div', { class: 'suggest-list hidden' });
   const toCur = async (dkkCents) => {
@@ -664,9 +675,12 @@ async function orderForm(o, presetCustomer, note = '') {
   };
   const drawPsug = () => {
     const q = pq.value.trim().toLowerCase();
-    const hits = prodList.filter((p) => !q || p.name.toLowerCase().includes(q)).slice(0, 12);
-    psug.replaceChildren(...hits.map((p) => h('button', { type: 'button', onmousedown: (e) => e.preventDefault(), onclick: () => pickProd(p) },
-      h('b', {}, p.name), h('span', { class: 'muted' }, ` · ${cents(p.price, 'DKK')}` + (p.processes.length ? ' · ' + procLabel(p.processes) : '')))),
+    // Treffer nach Kategorie gruppiert; die Suche findet auch über den Kategorienamen („bekleidung“, „polo“)
+    const hits = prodList.filter((p) => !q || (p.name + ' ' + p.path).toLowerCase().includes(q)).slice(0, q ? 20 : 60);
+    let lastPath = null;
+    psug.replaceChildren(...hits.flatMap((p) => [p.path !== lastPath && (pcats.length) ? h('div', { class: 'sug-head' }, (lastPath = p.path) || t('cat_none')) : null, h('button', { type: 'button', class: 'psugitem', onmousedown: (e) => e.preventDefault(), onclick: () => pickProd(p) },
+      p.images && p.images.length ? h('img', { class: 'sthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : null,
+      h('b', {}, p.name), h('span', { class: 'muted' }, ` · ${cents(p.price, 'DKK')}` + (p.processes.length ? ' · ' + procLabel(p.processes) : '')))]).filter(Boolean),
       h('button', { type: 'button', onmousedown: (e) => e.preventDefault(), onclick: () => { const nm = pq.value.trim(); psug.classList.add('hidden'); pq.value = ''; addItem({ name: nm, qty: 1, price: 0, processes: [] }, !!nm); if (!nm) items[items.length - 1].el.querySelector('input').focus(); itemsChanged(); } }, '+ ' + (q ? t('item_free_named', pq.value.trim()) : t('item_free'))));
     psug.classList.remove('hidden');
   };
@@ -826,7 +840,14 @@ async function orderForm(o, presetCustomer, note = '') {
 // ---------- Kunden ----------
 
 // ---------- Produkte / Preisliste ----------
-let prodQ = '', eurCache = null;
+let prodQ = '', eurCache = null, prodCat = 0;
+// Kategorie-Pfad „Bekleidung › Poloshirt“ und Auswahlliste (Hauptkategorie, darunter ihre Unterkategorien)
+const catPath = (cats, id) => { const c = cats.find((x) => +x.id === +id); if (!c) return ''; const p = c.parent_id ? cats.find((x) => +x.id === +c.parent_id) : null; return p ? `${p.name} › ${c.name}` : c.name; };
+const catOpts = (cats, sel) => [h('option', { value: '' }, '— ' + t('cat_none') + ' —'), ...cats.filter((c) => !c.parent_id).flatMap((m) => [
+  h('option', { value: m.id, selected: +sel === +m.id }, m.name),
+  ...cats.filter((c) => +c.parent_id === +m.id).map((c) => h('option', { value: c.id, selected: +sel === +c.id }, `${m.name} › ${c.name}`))])];
+// gehört Produkt p zur gewählten Kategorie (Hauptkategorie schließt ihre Unterkategorien ein; -1 = ohne Kategorie)?
+const inCat = (cats, p, sel) => { if (!sel) return true; if (sel === -1) return !p.category_id; if (+p.category_id === +sel) return true; const c = cats.find((x) => +x.id === +p.category_id); return !!(c && +c.parent_id === +sel); };
 function hourCard() {
   const inp = h('input', { type: 'text', inputmode: 'decimal', value: +me.company.hour_rate ? centsIn(me.company.hour_rate) : '', placeholder: '450,00', style: 'max-width:140px' });
   return h('div', { class: 'card' }, h('h3', {}, '⏱ ' + t('hr_title')), h('p', { class: 'muted', style: 'margin:0 0 8px' }, t('hr_text')),
@@ -841,8 +862,8 @@ async function eurRate() {
   return eurCache;
 }
 route(/^\/products$/, async () => {
-  const { products } = await api('products');
-  const list = h('div', { class: 'orders' });
+  const [{ products }, { categories: cats }] = await Promise.all([api('products'), api('categories')]);
+  const list = h('div', { class: 'prows' });
   const editRow = (p) => {
     const nm = h('input', { value: p.name || '', placeholder: t('prod_name_ph'), maxlength: 300 });
     const un = h('select', {}, me.units.map((u) => h('option', { value: u, selected: u === (p.unit || 'stk') }, t('u_' + u))));
@@ -868,6 +889,24 @@ route(/^\/products$/, async () => {
     const setPrice = async (dkkCents) => { if (prCur === 'EUR') { const r = await eurRate(); pr.value = fmt2(dkkCents / 100 / r.rate); } else pr.value = centsIn(dkkCents); };
     const priceDkk = async () => { if (prCur !== 'EUR') return pr.value || '0'; const r = await eurRate(); return fmt2(num(pr.value) * r.rate); };
     const kd = h('select', {}, ['goods', 'services'].map((k) => h('option', { value: k, selected: k === (p.kind || 'goods') }, t(k))));
+    const catSel = h('select', {}, catOpts(cats, p.id ? p.category_id : (prodCat > 0 ? prodCat : '')));
+    // Bilder: mit dem Handy fotografieren oder hochladen; bei neuen Produkten nach dem Anlegen hochgeladen
+    const imgs = [...(p.images || [])], pendingImgs = [];
+    const imgBox = h('div', { class: 'pimgs' });
+    let pUrls = [];
+    const drawImgs = () => {
+      pUrls.forEach((u) => URL.revokeObjectURL(u)); pUrls = [];
+      imgBox.replaceChildren(...imgs.map((id) => h('div', { class: 'pimg' }, h('a', { href: pimgUrl(id, true), target: '_blank', rel: 'noopener' }, h('img', { src: pimgUrl(id), alt: '', loading: 'lazy' })),
+        h('button', { type: 'button', 'aria-label': t('delete'), onclick: async () => { if (!confirm(t('pimg_delete_q'))) return; await api('product_image_delete', { body: { id } }); imgs.splice(imgs.indexOf(id), 1); p.images = [...imgs]; drawImgs(); } }, '✕'))),
+        ...pendingImgs.map((f, i) => { const u = URL.createObjectURL(f); pUrls.push(u); return h('div', { class: 'pimg pending' }, h('img', { src: u, alt: '' }), h('button', { type: 'button', 'aria-label': t('delete'), onclick: () => { pendingImgs.splice(i, 1); drawImgs(); } }, '✕')); }));
+    };
+    const imgButtons = photoButtons(async (list) => {
+      const files = list.filter((f) => f.type.startsWith('image/'));
+      if (!p.id) { pendingImgs.push(...files); drawImgs(); return; }
+      toast(t('uploading_files'));
+      imgs.push(...await uploadProductImages(p.id, files)); p.images = [...imgs]; drawImgs();
+    });
+    drawImgs();
     const act = h('input', { type: 'checkbox', checked: p.id ? !!+p.active : true, style: 'width:22px;height:22px;min-height:0' });
     const ppTime = h('small', { class: 'muted' });
     const drawPpTime = () => {
@@ -914,6 +953,8 @@ route(/^\/products$/, async () => {
     if (!p.id) setTimeout(askSug, 0);
     return h('div', { class: 'card prodcard' + (p.id && !+p.active ? ' inactive' : '') },
       h('div', {}, h('label', {}, t('prod_name')), nm), sug,
+      h('div', { style: 'margin-top:8px' }, h('label', {}, t('cat_label')), catSel),
+      h('div', { style: 'margin-top:8px' }, h('label', {}, t('pimg_label')), imgBox, imgButtons),
       h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('unit')), un), h('div', {}, h('div', { class: 'prhead' }, prLabel, curSwitch), pr), h('div', {}, h('label', {}, t('prod_kind')), kd)), fxNote,
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('prod_procs')), ppick, ppTime),
       calcBox,
@@ -921,19 +962,59 @@ route(/^\/products$/, async () => {
         h('label', { class: 'row', style: 'margin:0;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, act, t('active')),
         h('div', { class: 'row' },
           p.id ? h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('prod_delete_confirm', p.name))) { await api('product_delete', { body: { id: p.id } }); render(); } } }, t('delete')) : null,
-          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: await priceDkk(), kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get() } }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
+          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: await priceDkk(), kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get(), category_id: catSel.value || null } }).then(async (r) => { if (pendingImgs.length) { toast(t('uploading_files')); await uploadProductImages(r.id, pendingImgs); } return r; }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
   };
-  const draw = () => list.replaceChildren(...products.filter((p) => !prodQ || p.name.toLowerCase().includes(prodQ.toLowerCase())).map(editRow));
+  const chips = h('div', { class: 'catchips' });
+  const drawChips = () => {
+    const main = cats.filter((c) => !c.parent_id);
+    const selMain = prodCat > 0 ? (cats.find((c) => +c.id === prodCat) || {}).parent_id || prodCat : 0;
+    const chip = (id, label) => h('button', { type: 'button', class: 'chip' + (prodCat === id ? ' on' : ''), onclick: () => { prodCat = id; drawChips(); draw(); } }, label, h('small', { class: 'muted' }, ' ' + products.filter((p) => inCat(cats, p, id)).length));
+    const subs = selMain ? cats.filter((c) => +c.parent_id === +selMain) : [];
+    chips.replaceChildren(...[h('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px' }, chip(0, t('cat_all')), ...main.map((m) => chip(+m.id, m.name)), products.some((p) => !p.category_id) && cats.length ? chip(-1, t('cat_none')) : null),
+      subs.length ? h('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px;padding-left:12px' }, h('span', { class: 'muted' }, '↳'), chip(+selMain, t('cat_all_in', catPath(cats, selMain))), ...subs.map((c) => chip(+c.id, c.name))) : null].filter(Boolean));
+  };
+  // schmale Zeile je Produkt; Tippen öffnet das ausführliche Bearbeiten an derselben Stelle
+  const compactRow = (p) => {
+    const m = procMin(p.processes, 1);
+    const row = h('button', { type: 'button', class: 'prow' + (+p.active ? '' : ' inactive'), onclick: () => {
+      const ed = editRow(p);
+      ed.prepend(h('div', { class: 'row end', style: 'margin:-4px 0 6px' }, h('button', { type: 'button', class: 'btn small', onclick: () => ed.replaceWith(compactRow(p)) }, '▲ ' + t('close'))));
+      row.replaceWith(ed);
+    } },
+      p.images.length ? h('img', { class: 'pthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : h('span', { class: 'pthumb none' }, '🏷'),
+      h('span', { class: 'pn' }, h('b', {}, p.name), p.category_id ? h('small', { class: 'muted' }, catPath(cats, p.category_id)) : null),
+      h('span', { class: 'pt muted' }, p.processes.length ? '⏱ ' + procLabel(p.processes) : ''),
+      h('span', { class: 'pp' }, cents(p.price, 'DKK') + ' / ' + t('u_' + p.unit)),
+      +p.active ? null : h('span', { class: 'pill' }, t('inactive')));
+    return row;
+  };
+  const draw = () => list.replaceChildren(...products.filter((p) => inCat(cats, p, prodCat) && (!prodQ || (p.name + ' ' + catPath(cats, p.category_id)).toLowerCase().includes(prodQ.toLowerCase()))).map(compactRow));
   const newBox = h('div', { class: 'hidden' }, editRow({}));
+  // Kategorien verwalten
+  const catSave = async (body) => { try { await api('category_save', { body }); render(); } catch (e) { toast(e.message); } };
+  const catCard = h('div', { class: 'card' }, h('h3', {}, '🗂 ' + t('cat_title')), h('p', { class: 'muted', style: 'margin:0 0 8px' }, t('cat_text')),
+    h('div', { class: 'cattree' }, ...cats.filter((c) => !c.parent_id).map((m) => h('div', { class: 'catmain' },
+      h('div', { class: 'catrow' }, h('b', {}, m.name),
+        h('button', { class: 'btn small', onclick: () => { const n = prompt(t('cat_sub_name', m.name)); if (n && n.trim()) catSave({ name: n.trim(), parent_id: m.id }); } }, '+ ' + t('cat_sub')),
+        h('button', { class: 'btn small', 'aria-label': t('edit'), onclick: () => { const n = prompt(t('cat_rename'), m.name); if (n && n.trim()) catSave({ id: m.id, name: n.trim() }); } }, '✎'),
+        h('button', { class: 'btn small danger', 'aria-label': t('delete'), onclick: async () => { if (confirm(t('cat_delete_q', m.name))) { await api('category_delete', { body: { id: m.id } }); if (prodCat) prodCat = 0; render(); } } }, '✕')),
+      ...cats.filter((c) => +c.parent_id === +m.id).map((c) => h('div', { class: 'catrow sub' }, h('span', {}, '↳ ' + c.name),
+        h('button', { class: 'btn small', 'aria-label': t('edit'), onclick: () => { const n = prompt(t('cat_rename'), c.name); if (n && n.trim()) catSave({ id: c.id, name: n.trim() }); } }, '✎'),
+        h('button', { class: 'btn small danger', 'aria-label': t('delete'), onclick: async () => { if (confirm(t('cat_delete_q', c.name))) { await api('category_delete', { body: { id: c.id } }); if (prodCat === +c.id) prodCat = 0; render(); } } }, '✕')))))),
+    h('button', { class: 'btn small primary', style: 'margin-top:8px', onclick: () => { const n = prompt(t('cat_main_name')); if (n && n.trim()) catSave({ name: n.trim() }); } }, '+ ' + t('cat_main')));
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('tab_products')), h('h1', {}, t('prod_h1_a'), ' ', h('em', {}, t('prod_h1_b')))),
       h('button', { class: 'btn primary', onclick: () => { newBox.classList.toggle('hidden'); newBox.querySelector('input').focus(); } }, '+ ' + t('prod_add'))),
     h('p', { class: 'muted', style: 'margin:0 0 12px' }, t('products_text')),
     hourCard(),
+    catCard,
     newBox,
+    cats.length ? chips : null,
     h('div', { class: 'filters' }, h('input', { type: 'search', placeholder: t('prod_search'), value: prodQ, oninput: (e) => { prodQ = e.target.value; draw(); } })),
     products.length ? list : h('div', { class: 'empty' }, t('prod_none')));
-  draw();
+  if (prodCat && prodCat !== -1 && !cats.some((c) => +c.id === prodCat)) prodCat = 0;
+  drawChips(); draw();
+  foldCards(false);   // Stundensatz und Kategorien einklappbar, damit die Produktliste schnell erreichbar ist
 });
 
 route(/^\/customers$/, async () => {
@@ -1919,7 +2000,7 @@ route(/^\/settings$/, async () => {
 });
 
 // Einstellungen: jede Karte über ihre Überschrift ein-/ausklappen; Zustand je Gerät gemerkt (Standard: eingeklappt)
-function foldCards() {
+function foldCards(allButtons = true) {
   let open = {};
   try { open = JSON.parse(localStorage.getItem('wf_open_cards') || '{}'); } catch (e) { /* Speicher gesperrt */ }
   const cards = [...view().querySelectorAll(':scope > .card')].filter((c) => c.firstElementChild && c.firstElementChild.tagName === 'H3');
@@ -1931,7 +2012,7 @@ function foldCards() {
     h3.addEventListener('click', tog);
     h3.addEventListener('keydown', (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tog(); } });
   });
-  if (cards.length) view().insertBefore(h('div', { class: 'row end', style: 'margin:-4px 0 10px' },
+  if (cards.length && allButtons) view().insertBefore(h('div', { class: 'row end', style: 'margin:-4px 0 10px' },
     h('button', { class: 'btn small', onclick: () => { cards.forEach((c) => c.classList.remove('closed')); } }, t('fold_open_all')),
     h('button', { class: 'btn small', onclick: () => { cards.forEach((c) => c.classList.add('closed')); try { localStorage.setItem('wf_open_cards', '{}'); } catch (e) {} } }, t('fold_close_all'))), cards[0]);
 }
