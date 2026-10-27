@@ -1174,7 +1174,7 @@ try {
             if (array_key_exists('hour_rate', $in)) {
                 $c['hour_rate'] = max(0, min(500000, (int)(wf_to_cents($in['hour_rate']) ?? 0)));
             }
-            foreach (['mail_offer', 'mail_shipped', 'mail_followup'] as $mk) {
+            foreach (['mail_offer', 'mail_approved', 'mail_shipped', 'mail_followup'] as $mk) {
                 if (array_key_exists($mk, $in)) {
                     $c[$mk] = !empty($in[$mk]);
                 }

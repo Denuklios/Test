@@ -4,6 +4,7 @@ declare(strict_types=1);
 require __DIR__ . '/inc/bootstrap.php';
 require_once __DIR__ . '/inc/invoice.php';
 require __DIR__ . '/inc/confirm.php';
+require_once __DIR__ . '/inc/custmail.php';
 session_write_close();
 $nonce = base64_encode(random_bytes(16));
 header('Cache-Control: no-store');
@@ -90,6 +91,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
     $db->commit();
     wf_touch();
+    // Danke-Mail mit Verfolgungslink (Fehler beim Mailen ändern nichts an der gültigen Unterschrift)
+    try {
+        wf_cm_approved($db, (int)$c['order_id'], wf_public_base($db) . 'bestaetigung.php?t=' . $token);
+    } catch (Throwable $e) {
+        error_log('auftraege approved mail: ' . $e->getMessage());
+    }
     wf_json(['ok' => true]);
 }
 if ($c && !$admin && !$c['viewed_at']) {

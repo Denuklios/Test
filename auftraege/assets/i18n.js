@@ -1,5 +1,6 @@
 window.WF_I18N = {
 de: {
+  cm_appr: 'Danke-Mail nach der Unterschrift', cm_appr_h: 'Sobald der Kunde unterschreibt: Dank für die Freigabe, Verfolgungslink und Link zur unterschriebenen Bestätigung.', log_mail_approved: 'Danke-Mail nach Freigabe gesendet',
   mail_no_address: 'Link erstellt – beim Kunden ist keine E-Mail-Adresse hinterlegt, bitte Link teilen.',
   cron_title: 'Automatisch versenden – auch wenn die App zu ist', cron_text: 'Ohne Zeitplan gehen Nachfrage-Mails und Archiv erst raus, wenn du die App öffnest. Mit einem kostenlosen Zeitplan läuft das stündlich von selbst. one.com bietet dafür keine eigenen Cronjobs, deshalb eine der zwei Möglichkeiten:', cron_last: 'Zeitplan läuft – letzter Aufruf {0}', cron_never: 'Noch kein Zeitplan eingerichtet.',
   cron_a: 'A) cron-job.org (am einfachsten)', cron_a1: 'Auf cron-job.org kostenlos registrieren → „Cronjob erstellen“.', cron_a2: 'Diese Adresse als URL einfügen, Zeitplan „jede Stunde“, speichern.', cron_a3: 'Fertig – hier steht dann „Zeitplan läuft“.', cron_copy_url: 'Adresse kopieren', cron_renew: 'Neuer Schlüssel', cron_renew_q: 'Neuen Schlüssel erzeugen? Die alte Adresse funktioniert dann nicht mehr und muss im Zeitplan ersetzt werden.',
@@ -189,6 +190,7 @@ de: {
   err_duplicate_admin_id: 'Admin-ID doppelt vergeben.', err_unknown_action: 'Unbekannte Aktion.', err_bad_json: 'Ungültige Daten.', err_bad_date: 'Datum ungültig.', err_range_too_large: 'Zeitraum zu groß.', err_nothing: 'Nichts zu ändern.', err_post_required: 'Ungültige Anfrage.'
 },
 da: {
+  cm_appr: 'Tak-mail efter underskrift', cm_appr_h: 'Så snart kunden underskriver: tak for godkendelsen, sporingslink og link til den underskrevne bekræftelse.', log_mail_approved: 'Tak-mail efter godkendelse sendt',
   mail_no_address: 'Link oprettet – kunden har ingen e-mailadresse, del venligst linket.',
   cron_title: 'Send automatisk – også når appen er lukket', cron_text: 'Uden tidsplan sendes opfølgningsmails og arkiv først, når du åbner appen. Med en gratis tidsplan kører det af sig selv hver time. one.com har ikke egne cronjobs, derfor en af to muligheder:', cron_last: 'Tidsplan kører – sidste kald {0}', cron_never: 'Ingen tidsplan sat op endnu.',
   cron_a: 'A) cron-job.org (nemmest)', cron_a1: 'Opret gratis konto på cron-job.org → „Create cronjob“.', cron_a2: 'Indsæt denne adresse som URL, tidsplan „hver time“, gem.', cron_a3: 'Færdig – her står så „Tidsplan kører“.', cron_copy_url: 'Kopiér adresse', cron_renew: 'Ny nøgle', cron_renew_q: 'Opret ny nøgle? Den gamle adresse virker så ikke længere og skal udskiftes i tidsplanen.',

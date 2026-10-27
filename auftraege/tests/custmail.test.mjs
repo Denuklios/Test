@@ -72,6 +72,25 @@ try {
     assert.ok((await call('order', { params: { id: o.id } })).j.order.log.some((l) => l.what === 'mail:offer'));
   });
 
+  await ok('Unterschrift: Danke-Mail mit Verfolgungslink und Link zur unterschriebenen Bestätigung, Status Freigabe', async () => {
+    const r = (await call('confirm_create', { body: { order_id: o.id } })).j;
+    const n = readMails().length;
+    const png = 'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNkYPhfDwAChwGA60e6kgAAAABJRU5ErkJggg==';
+    const res = await fetch(`${B}/bestaetigung.php?t=${r.token}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ name: 'Erika Muster', accept: true, signature: png }) });
+    assert.equal(res.status, 200, await res.text());
+    const all = readMails();
+    assert.equal(all.length, n + 1);
+    const m = all.at(-1);
+    assert.match(m.subj, /Danke für Ihre Freigabe/);
+    assert.ok(m.text.includes(o.track_url) && m.text.includes(`bestaetigung.php?t=${r.token}&signed=1`));
+    assert.ok(m.raw.length > 0);
+    const hm = m.raw.match(/Content-Type: text\/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n([\s\S]*?)\r\n--/);
+    const html = Buffer.from(hm[1].replace(/\s/g, ''), 'base64').toString();
+    assert.ok(html.includes('Auftrag verfolgen') && html.includes('Auftragsbestätigung ansehen'));
+    assert.equal((await call('order', { params: { id: o.id } })).j.order.status, 'approval');
+    assert.ok((await (await fetch(`${B}/bestaetigung.php?t=${r.token}&signed=1`)).text()).includes('Erika Muster'));
+  });
+
   await ok('Ohne Häkchen keine Angebotsmail', async () => {
     const n = readMails().length;
     assert.equal((await call('confirm_create', { body: { order_id: o.id } })).j.mailed, false);

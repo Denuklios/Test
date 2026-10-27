@@ -60,7 +60,7 @@ function wf_track_url(PDO $db, int $orderId): string
 function wf_mail_settings(): array
 {
     $co = wf_company();
-    return ['offer' => (bool)($co['mail_offer'] ?? true), 'shipped' => (bool)($co['mail_shipped'] ?? false), 'followup' => (bool)($co['mail_followup'] ?? true),
+    return ['offer' => (bool)($co['mail_offer'] ?? true), 'approved' => (bool)($co['mail_approved'] ?? true), 'shipped' => (bool)($co['mail_shipped'] ?? false), 'followup' => (bool)($co['mail_followup'] ?? true),
         'review_url' => (string)($co['review_url'] ?? ''), 'from' => trim((string)$co['email']), 'name' => trim((string)$co['name']) ?: 'Wunsch-Fabrik'];
 }
 
@@ -69,10 +69,13 @@ function wf_cm_text(string $lang): array
 {
     $T = [
         'de' => [
-            'buttons' => ['sign' => 'Angebot ansehen & unterschreiben', 'track' => 'Auftrag verfolgen', 'ship' => 'Sendung verfolgen', 'review' => 'Bewertung schreiben', 'unsub' => 'hier abmelden'],
+            'buttons' => ['sign' => 'Angebot ansehen & unterschreiben', 'track' => 'Auftrag verfolgen', 'ship' => 'Sendung verfolgen', 'review' => 'Bewertung schreiben', 'unsub' => 'hier abmelden', 'conf' => 'Auftragsbestätigung ansehen'],
             'hello' => 'Hallo {name},', 'regards' => "Viele Grüße\n{owner}\n{company}",
             'offer_subj' => 'Ihr Angebot {nr} – bitte prüfen und unterschreiben',
             'offer_body' => "vielen Dank für Ihre Anfrage! Ihr Angebot „{title}“ ist fertig. Bitte prüfen Sie Motiv, Menge, Preis und Termin und bestätigen Sie es mit Ihrer Unterschrift:\n\n{sign}\n\nDer Link ist 30 Tage gültig. Erst mit Ihrer Unterschrift wird das Angebot zum verbindlichen Auftrag.\n\nDen aktuellen Stand Ihres Auftrags sehen Sie jederzeit hier:\n{track}",
+            'appr_subj' => 'Danke für Ihre Freigabe – Auftrag {nr}',
+            'appr_body' => "vielen Dank für Ihre Unterschrift! Ihr Auftrag „{title}“ ist damit freigegeben und wir legen los.{due}\n\nHier sehen Sie jederzeit, wie weit Ihr Auftrag ist – vom Material bis zum Versand, dort steht später auch die Sendungsnummer:\n{track}\n\nIhre unterschriebene Auftragsbestätigung zum Nachlesen und Drucken:\n{conf}",
+            'appr_due' => "\n\nGeplante Fertigstellung: {d}",
             'offer_note' => 'Nach der Lieferung fragen wir einmal per E-Mail nach, ob alles passt. Wenn Sie das nicht möchten: {unsub}',
             'ship_subj' => 'Ihre Bestellung {nr} ist unterwegs',
             'ship_body' => "Ihre Bestellung „{title}“ ist heute verschickt worden.{tracking}\n\nStand und Sendungsnummer finden Sie auch hier:\n{track}",
@@ -86,10 +89,13 @@ function wf_cm_text(string $lang): array
             'unsub' => 'Sie erhalten diese Nachricht, weil Sie bei uns bestellt haben. Keine solchen E-Mails mehr: {unsub}',
         ],
         'da' => [
-            'buttons' => ['sign' => 'Se tilbud & underskriv', 'track' => 'Følg ordren', 'ship' => 'Følg forsendelsen', 'review' => 'Skriv en anmeldelse', 'unsub' => 'afmeld her'],
+            'buttons' => ['sign' => 'Se tilbud & underskriv', 'track' => 'Følg ordren', 'ship' => 'Følg forsendelsen', 'review' => 'Skriv en anmeldelse', 'unsub' => 'afmeld her', 'conf' => 'Se ordrebekræftelsen'],
             'hello' => 'Hej {name},', 'regards' => "Venlig hilsen\n{owner}\n{company}",
             'offer_subj' => 'Dit tilbud {nr} – gennemse og underskriv',
             'offer_body' => "tak for din forespørgsel! Dit tilbud „{title}“ er klar. Tjek motiv, antal, pris og termin, og bekræft med din underskrift:\n\n{sign}\n\nLinket er gyldigt i 30 dage. Først med din underskrift bliver tilbuddet til en bindende ordre.\n\nDu kan altid følge din ordre her:\n{track}",
+            'appr_subj' => 'Tak for din godkendelse – ordre {nr}',
+            'appr_body' => "mange tak for din underskrift! Din ordre „{title}“ er nu godkendt, og vi går i gang.{due}\n\nHer kan du altid se, hvor langt din ordre er – fra materiale til forsendelse; senere står forsendelsesnummeret også dér:\n{track}\n\nDin underskrevne ordrebekræftelse til at læse og printe:\n{conf}",
+            'appr_due' => "\n\nForventet færdig: {d}",
             'offer_note' => 'Efter leveringen spørger vi én gang pr. e-mail, om alt er i orden. Ønsker du ikke det: {unsub}',
             'ship_subj' => 'Din ordre {nr} er på vej',
             'ship_body' => "Din ordre „{title}“ er sendt i dag.{tracking}\n\nStatus og forsendelsesnummer finder du også her:\n{track}",
@@ -103,10 +109,13 @@ function wf_cm_text(string $lang): array
             'unsub' => 'Du modtager denne besked, fordi du har handlet hos os. Ingen flere af denne slags e-mails: {unsub}',
         ],
         'en' => [
-            'buttons' => ['sign' => 'View quote & sign', 'track' => 'Track order', 'ship' => 'Track shipment', 'review' => 'Write a review', 'unsub' => 'unsubscribe here'],
+            'buttons' => ['sign' => 'View quote & sign', 'track' => 'Track order', 'ship' => 'Track shipment', 'review' => 'Write a review', 'unsub' => 'unsubscribe here', 'conf' => 'View order confirmation'],
             'hello' => 'Hello {name},', 'regards' => "Kind regards\n{owner}\n{company}",
             'offer_subj' => 'Your quote {nr} – please review and sign',
             'offer_body' => "thank you for your enquiry! Your quote \"{title}\" is ready. Please check design, quantity, price and date and confirm with your signature:\n\n{sign}\n\nThe link is valid for 30 days. Only your signature turns the quote into a binding order.\n\nYou can follow your order here at any time:\n{track}",
+            'appr_subj' => 'Thank you for your approval – order {nr}',
+            'appr_body' => "thank you for your signature! Your order \"{title}\" is now approved and we are getting started.{due}\n\nHere you can always see how far your order has come – from material to shipping; the tracking number will appear there later:\n{track}\n\nYour signed order confirmation to read and print:\n{conf}",
+            'appr_due' => "\n\nPlanned completion: {d}",
             'offer_note' => 'After delivery we will ask once by e-mail whether everything is fine. If you do not want this: {unsub}',
             'ship_subj' => 'Your order {nr} is on its way',
             'ship_body' => "Your order \"{title}\" was shipped today.{tracking}\n\nStatus and tracking number are also available here:\n{track}",
@@ -149,7 +158,7 @@ function wf_cm_html(string $text, array $B, string $track): string
     $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
     $label = function (string $u) use ($B, $track): string {
         if (str_contains($u, 'bestaetigung.php')) {
-            return $B['sign'];
+            return str_contains($u, '&signed=1') ? $B['conf'] : $B['sign'];
         }
         if (str_contains($u, '&abmelden=1')) {
             return '';
@@ -206,6 +215,20 @@ function wf_cm_offer(PDO $db, int $orderId, string $signUrl): bool
         $body .= "\n\n" . strtr($x['T']['offer_note'], $x['vars']);
     }
     return wf_cm_send($db, $x, $x['T']['offer_subj'], $body, 'offer');
+}
+
+/** Nach der Unterschrift: Dank für die Freigabe + Verfolgungslink + Link zur unterschriebenen Bestätigung. */
+function wf_cm_approved(PDO $db, int $orderId, string $confUrl): bool
+{
+    if (!wf_mail_settings()['approved']) {
+        return false;
+    }
+    $x = wf_cm_ctx($db, $orderId);
+    if (!$x) {
+        return false;
+    }
+    $due = $x['o']['due_date'] ? strtr($x['T']['appr_due'], ['{d}' => wf_doc_date($x['o']['due_date'], $x['lang'])]) : '';
+    return wf_cm_send($db, $x, $x['T']['appr_subj'], strtr($x['T']['appr_body'], $x['vars'] + ['{due}' => $due, '{conf}' => $confUrl . '&signed=1']), 'approved');
 }
 
 function wf_cm_shipped(PDO $db, int $orderId): bool

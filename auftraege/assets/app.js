@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Verfolgung Sprachwahl';
+const APP_VERSION = '2026-10-27 · Danke-Mail nach Unterschrift';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -1816,13 +1816,13 @@ route(/^\/settings$/, async () => {
   api('cron_info').then(drawCron).catch(() => {});
   // E-Mails an Kunden
   const mk = (k, def) => h('input', { type: 'checkbox', checked: me.company[k] === undefined ? def : !!me.company[k], style: 'width:22px;height:22px;min-height:0' });
-  const mOffer = mk('mail_offer', true), mShip = mk('mail_shipped', false), mFu = mk('mail_followup', true);
+  const mOffer = mk('mail_offer', true), mAppr = mk('mail_approved', true), mShip = mk('mail_shipped', false), mFu = mk('mail_followup', true);
   const revIn = h('input', { type: 'url', value: me.company.review_url || '', placeholder: 'https://g.page/r/…/review' });
   const ckRow = (cb, label, hint) => h('label', { class: 'row', style: 'gap:10px;align-items:flex-start;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--text);margin:8px 0' }, cb, h('span', {}, label, h('small', { class: 'muted', style: 'display:block' }, hint)));
   const mailCard = h('div', { class: 'card' }, h('h3', {}, '✉ ' + t('cm_title')), h('p', { class: 'muted', style: 'margin:0 0 6px' }, t('cm_text', me.company.email || '—')),
-    ckRow(mOffer, t('cm_offer'), t('cm_offer_h')), ckRow(mShip, t('cm_ship'), t('cm_ship_h')), ckRow(mFu, t('cm_fu'), t('cm_fu_h')),
+    ckRow(mOffer, t('cm_offer'), t('cm_offer_h')), ckRow(mAppr, t('cm_appr'), t('cm_appr_h')), ckRow(mShip, t('cm_ship'), t('cm_ship_h')), ckRow(mFu, t('cm_fu'), t('cm_fu_h')),
     h('div', {}, h('label', {}, t('cm_review')), revIn, h('small', { class: 'muted hint' }, t('cm_review_h'))),
-    h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { try { await api('company_save', { body: { ...me.company, mail_offer: mOffer.checked, mail_shipped: mShip.checked, mail_followup: mFu.checked, review_url: revIn.value.trim() } }); await reloadMe(); toast(t('saved')); } catch (e) { toast(e.message); } } }, t('save'))),
+    h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { try { await api('company_save', { body: { ...me.company, mail_offer: mOffer.checked, mail_approved: mAppr.checked, mail_shipped: mShip.checked, mail_followup: mFu.checked, review_url: revIn.value.trim() } }); await reloadMe(); toast(t('saved')); } catch (e) { toast(e.message); } } }, t('save'))),
     cronBox);
   // Testphase: Rechnungen/Belege löschen und Nummern zurücksetzen, bis „Echtbetrieb starten“
   const twice = (msg, word) => { if (!confirm(msg)) return false; const v = prompt(t('cdel_type', word)); if (v === null) return false; if (v.trim().toUpperCase() !== word.toUpperCase()) { toast(t('cdel_wrong')); return false; } return true; };
