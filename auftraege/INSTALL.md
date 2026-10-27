@@ -115,6 +115,7 @@ Unter **Einstellungen**:
 - Status **Abgeholt/Versendet** fragt: „Abgeholt“ oder „Versendet“ mit Versanddienst (PostNord, GLS, DAO, Bring, DHL, DPD, Hermes, UPS) und Sendungsnummer. Nachtragen/Ändern auf der Auftragsseite.
 - Einstellungen → **E-Mails an Kunden**: Angebot zum Unterschreiben per E-Mail (an), Danke-Mail mit Verfolgungslink nach der Unterschrift (an), Versandmail (aus – auf Knopfdruck am Auftrag möglich), Nachfrage-Mail 7 Tage nach Abgeholt/Versendet (an, wechselnde Sätze, Abmeldelink), optional Google-Bewertungslink.
 - Absender ist die E-Mail aus den Firmendaten – sie muss ein Postfach auf deiner Domain sein (z. B. info@wunsch-fabrik.dk), sonst landen Mails im Spam. Versand über den Mailserver von one.com. Die Mails haben eine Textfassung und eine HTML-Fassung mit klickbaren Knöpfen („Angebot ansehen & unterschreiben“, „Auftrag verfolgen“).
+- **Versandweg (empfohlen bei one.com):** Einstellungen → E-Mails an Kunden → „Versandweg“: Server `send.one.com`, Port 465, Benutzer = deine Domain-Adresse (z. B. info@wunsch-fabrik.dk), Passwort des Postfachs. Danach „Probe-Mail senden“. Schlägt etwas fehl, nennt die App den Grund (z. B. Anmeldung fehlgeschlagen).
 - **Automatisch ohne geöffnete App:** one.com hat keine Cronjobs. Einstellungen → E-Mails an Kunden → „Automatisch versenden“: die angezeigte Adresse (`cron.php?key=…`) stündlich aufrufen lassen – kostenlos über cron-job.org oder mit dem angezeigten Google-Apps-Script (Funktion „einrichten“ einmal ausführen). Ohne Zeitplan gehen fällige Nachfrage-Mails und das Archiv beim nächsten Öffnen der App raus.
 - Rechtlich: Die Angebots-Mail weist auf die spätere Nachfrage hin und enthält den Abmeldelink; jede Nachfrage-Mail auch. Abgemeldete Kunden (oder Häkchen „Keine Nachfrage-Mails“ beim Kunden) bekommen keine.
 
@@ -127,4 +128,4 @@ Seite im Handy-Browser öffnen → Menü → „Zur Startseite hinzufügen“ (A
 - Schriften liegen lokal, kein Tracking. Externe Abfragen nur für Tageskurs (Nationalbank/EZB) und USt-IdNr.-Prüfung (EU-VIES).
 
 ## Tests (lokal, optional)
-`node auftraege/tests/api.test.mjs`, `invoice.test.mjs`, `expense.test.mjs`, `tax.test.mjs`, `note.test.mjs`, `archive.test.mjs` und `custmail.test.mjs` (benötigt PHP 8.x mit pdo_sqlite und Node 18+).
+`node auftraege/tests/api.test.mjs`, `invoice.test.mjs`, `expense.test.mjs`, `tax.test.mjs`, `note.test.mjs`, `archive.test.mjs`, `custmail.test.mjs` und `smtp.test.mjs` (benötigt PHP 8.x mit pdo_sqlite und Node 18+).

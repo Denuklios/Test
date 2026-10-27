@@ -139,6 +139,7 @@ function wf_cm_ctx(PDO $db, int $orderId): ?array
     $st->execute([$orderId]);
     $o = $st->fetch();
     if (!$o || $o['anonymized_at'] || !filter_var($o['c_email'], FILTER_VALIDATE_EMAIL)) {
+        $GLOBALS['wf_mail_err'] = 'Kunde hat keine gültige E-Mail-Adresse';
         return null;
     }
     $lang = wf_doc_lang_for(['doc_lang' => $o['doc_lang'], 'country' => $o['country']]);
@@ -192,7 +193,12 @@ function wf_cm_html(string $text, array $B, string $track): string
 function wf_cm_send(PDO $db, array $x, string $subject, string $body, string $what): bool
 {
     $s = wf_mail_settings();
-    if (!filter_var($s['from'], FILTER_VALIDATE_EMAIL) || wf_public_base($db) === '') {
+    if (!filter_var($s['from'], FILTER_VALIDATE_EMAIL)) {
+        $GLOBALS['wf_mail_err'] = 'In den Firmendaten fehlt die eigene E-Mail-Adresse (Absender)';
+        return false;
+    }
+    if (wf_public_base($db) === '') {
+        $GLOBALS['wf_mail_err'] = 'Adresse der App unbekannt – App einmal neu laden';
         return false;
     }
     $text = strtr($x['T']['hello'], $x['vars']) . "\n\n" . $body . "\n\n" . strtr($x['T']['regards'], $x['vars']);

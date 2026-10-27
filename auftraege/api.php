@@ -599,7 +599,7 @@ try {
             log_order($db, $id, $user, 'ship');
             $mailed = !empty($in['mail']) && $o['status'] === 'delivered' && $f['ship_mode'] === 'ship' ? wf_cm_shipped($db, $id) : false;
             wf_touch();
-            wf_json(['ok' => true, 'order' => order_row($db, $id), 'mailed' => $mailed]);
+            wf_json(['ok' => true, 'order' => order_row($db, $id), 'mailed' => $mailed, 'mail_error' => $mailed ? '' : (string)($GLOBALS['wf_mail_err'] ?? '')]);
         }
 
         case 'order_invoice': {
@@ -636,7 +636,7 @@ try {
                 error_log('auftraege offer mail: ' . $e->getMessage());
                 $mailed = false;
             }
-            wf_json(['ok' => true, 'token' => $token, 'mailed' => $mailed]);
+            wf_json(['ok' => true, 'token' => $token, 'mailed' => $mailed, 'mail_error' => $mailed ? '' : (string)($GLOBALS['wf_mail_err'] ?? '')]);
         }
 
         case 'confirm_revoke': {
@@ -1953,7 +1953,8 @@ try {
                 . "    .forEach(function (t) { ScriptApp.deleteTrigger(t); });\n  ScriptApp.newTrigger('wunschFabrikPing').timeBased().everyHours(1).create();\n  wunschFabrikPing();\n}\n";
             $due = (int)$db->query("SELECT COUNT(*) FROM orders WHERE status = 'delivered' AND deleted_at IS NULL AND followup_at IS NULL AND shipped_at IS NOT NULL AND shipped_at >= datetime('now', '-30 days')")->fetchColumn();
             $next = (string)($db->query("SELECT MIN(datetime(shipped_at, '+7 days')) FROM orders WHERE status = 'delivered' AND deleted_at IS NULL AND followup_at IS NULL AND shipped_at >= datetime('now', '-30 days')")->fetchColumn() ?: '');
-            wf_json(['ok' => true, 'url' => $url, 'last' => $last, 'result' => $mv('cron_result'), 'denied' => $mv('cron_denied'), 'mail_ok' => $mv('mail_last_ok'), 'mail_error' => $mv('mail_last_error'),
+            $sc = wf_smtp_cfg();
+            wf_json(['ok' => true, 'smtp' => $sc ? ['host' => $sc['host'], 'port' => (int)$sc['port'], 'user' => $sc['user'], 'pass_set' => true] : null, 'url' => $url, 'last' => $last, 'result' => $mv('cron_result'), 'denied' => $mv('cron_denied'), 'mail_ok' => $mv('mail_last_ok'), 'mail_error' => $mv('mail_last_error'),
                 'waiting' => $due, 'next' => $next, 'script' => $script]);
         }
 
@@ -1972,9 +1973,32 @@ try {
             $track = wf_public_base($db) . 'verfolgen.php?t=' . str_repeat('0', 48);
             $text = "Hallo,\n\ndies ist eine Probe-Mail aus der Auftrags-App. So sehen Kundenmails aus – mit Knopf:\n\n$track\n\nKommt diese Mail an (auch den Spam-Ordner prüfen), funktioniert der Versand.\n\n" . strtr($T['regards'], ['{owner}' => (string)wf_company()['owner'], '{company}' => $s['name']]);
             if (!wf_mail($to, $s['from'], 'Probe-Mail Wunsch-Fabrik Aufträge', $text, [], $s['name'], wf_cm_html($text, $T['buttons'], $track))) {
-                wf_fail('mail_failed', 502);
+                wf_json(['ok' => false, 'error' => 'mail_failed', 'detail' => (string)($GLOBALS['wf_mail_err'] ?? '')], 502);
             }
-            wf_json(['ok' => true, 'to' => $to]);
+            wf_json(['ok' => true, 'to' => $to, 'via' => wf_smtp_cfg() ? 'smtp' : 'mail']);
+        }
+
+        // SMTP-Zugang speichern (Passwort leer = bisheriges behalten; host leer = SMTP aus)
+        case 'smtp_save': {
+            need_post();
+            $old = wf_smtp_cfg() ?? [];
+            $host = s($in, 'host', 120);
+            if ($host === '') {
+                $db->exec("DELETE FROM meta WHERE key = 'smtp'");
+                wf_json(['ok' => true, 'smtp' => null]);
+            }
+            if (!preg_match('/^[a-z0-9.\-]+$/i', $host)) {
+                wf_fail('bad_host');
+            }
+            $port = (int)($in['port'] ?? 465);
+            if (!in_array($port, [465, 587, 25, 2525], true) && !getenv('WF_TEST_DATA_DIR')) {
+                wf_fail('bad_port');
+            }
+            $user = s($in, 'user', 200);
+            $pass = (string)($in['pass'] ?? '');
+            $cfg = ['host' => $host, 'port' => $port, 'user' => $user, 'pass' => $pass !== '' ? $pass : (string)($old['pass'] ?? '')];
+            $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('smtp', ?)")->execute([json_encode($cfg)]);
+            wf_json(['ok' => true, 'smtp' => ['host' => $host, 'port' => $port, 'user' => $user, 'pass_set' => $cfg['pass'] !== '']]);
         }
 
         // Apps Script für Google Drive (Geheimwort wird einmalig erzeugt)

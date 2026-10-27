@@ -102,16 +102,107 @@ function wf_mail(string $to, string $from, string $subject, string $text, array 
         @mkdir($dir, 0775, true);
         return (bool)file_put_contents($dir . '/' . microtime(true) . '-' . preg_replace('/\W+/', '_', $subject) . '.eml', "To: $to\r\nSubject: " . $enc($subject) . "\r\n$headers\r\n\r\n$body");
     }
-    // Manche Server verbieten den Absender-Parameter (-f): dann ohne ihn versuchen. Fehler merken (Anzeige in den Einstellungen).
-    $ok = @mail($to, $enc($subject), $body, $headers, '-f' . $from) || @mail($to, $enc($subject), $body, $headers);
     $db = wf_db();
+    $smtp = wf_smtp_cfg();
+    $GLOBALS['wf_mail_err'] = '';
+    if ($smtp) {
+        // Versand über das Postfach (z. B. send.one.com) – zuverlässiger als mail()
+        $msg = "Date: " . date('r') . "\r\nTo: $to\r\nSubject: " . $enc($subject) . "\r\nMessage-ID: <" . bin2hex(random_bytes(10)) . '@' . (explode('@', $from)[1] ?? 'localhost') . ">\r\n$headers\r\n\r\n$body";
+        $ok = wf_smtp_send($smtp, $from, $to, $msg);
+    } else {
+        // Manche Server verbieten den Absender-Parameter (-f): dann ohne ihn versuchen
+        $ok = @mail($to, $enc($subject), $body, $headers, '-f' . $from) || @mail($to, $enc($subject), $body, $headers);
+        if (!$ok) {
+            $GLOBALS['wf_mail_err'] = 'mail(): ' . ((error_get_last()['message'] ?? '') ?: 'vom Server abgelehnt');
+        }
+    }
     if ($ok) {
         $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('mail_last_ok', ?)")->execute([date('Y-m-d H:i:s')]);
     } else {
-        $err = error_get_last();
-        $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('mail_last_error', ?)")->execute([date('Y-m-d H:i:s') . ' · ' . ($err['message'] ?? 'mail() abgelehnt') . ' · an ' . $to]);
+        $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('mail_last_error', ?)")->execute([date('Y-m-d H:i:s') . ' · ' . $GLOBALS['wf_mail_err'] . ' · an ' . $to]);
     }
     return $ok;
+}
+
+/** SMTP-Zugang (Passwort bleibt auf dem Server, wird nie an den Browser gegeben). */
+function wf_smtp_cfg(): ?array
+{
+    $raw = wf_db()->query("SELECT value FROM meta WHERE key = 'smtp'")->fetchColumn();
+    $c = $raw ? json_decode((string)$raw, true) : null;
+    return is_array($c) && !empty($c['host']) && !empty($c['user']) && isset($c['pass']) && $c['pass'] !== '' ? $c : null;
+}
+
+/** Schlanker SMTP-Client: Port 465 = SSL, 587 = STARTTLS, AUTH LOGIN. Fehlertext in $GLOBALS['wf_mail_err']. */
+function wf_smtp_send(array $c, string $from, string $to, string $msg): bool
+{
+    $port = (int)($c['port'] ?? 465);
+    $host = (string)$c['host'];
+    $plain = getenv('WF_TEST_DATA_DIR') && $host === '127.0.0.1';   // nur Tests: ohne Verschlüsselung
+    $errno = 0;
+    $errstr = '';
+    $ctx = stream_context_create(['ssl' => ['verify_peer' => true, 'verify_peer_name' => true, 'SNI_enabled' => true, 'peer_name' => $host]]);
+    $fp = @stream_socket_client(($port === 465 && !$plain ? 'ssl://' : 'tcp://') . $host . ':' . $port, $errno, $errstr, 15, STREAM_CLIENT_CONNECT, $ctx);
+    if (!$fp) {
+        $GLOBALS['wf_mail_err'] = "SMTP: keine Verbindung zu $host:$port ($errstr)";
+        return false;
+    }
+    stream_set_timeout($fp, 20);
+    $read = function () use ($fp): string {
+        $out = '';
+        while (($line = fgets($fp, 1024)) !== false) {
+            $out .= $line;
+            if (strlen($line) < 4 || $line[3] !== '-') {
+                break;
+            }
+        }
+        return $out;
+    };
+    $cmd = function (string $c, array $okCodes) use ($fp, $read): ?string {
+        if ($c !== '') {
+            fwrite($fp, $c . "\r\n");
+        }
+        $r = $read();
+        return in_array((int)substr($r, 0, 3), $okCodes, true) ? $r : null;
+    };
+    $fail = function (string $step, string $r = '') use ($fp): bool {
+        $GLOBALS['wf_mail_err'] = 'SMTP ' . $step . ($r !== '' ? ': ' . trim(substr($r, 0, 200)) : '');
+        @fclose($fp);
+        return false;
+    };
+    $me = preg_replace('/[^a-z0-9.\-]/i', '', (string)(explode('@', $from)[1] ?? 'localhost')) ?: 'localhost';
+    if (($r = $cmd('', [220])) === null) {
+        return $fail('Begrüßung');
+    }
+    if (($r = $cmd("EHLO $me", [250])) === null) {
+        return $fail('EHLO');
+    }
+    if ($port === 587 && !$plain) {
+        if ($cmd('STARTTLS', [220]) === null || !@stream_socket_enable_crypto($fp, true, STREAM_CRYPTO_METHOD_TLS_CLIENT)) {
+            return $fail('STARTTLS');
+        }
+        if ($cmd("EHLO $me", [250]) === null) {
+            return $fail('EHLO');
+        }
+    }
+    if ($cmd('AUTH LOGIN', [334]) === null || $cmd(base64_encode((string)$c['user']), [334]) === null || ($r = $cmd(base64_encode((string)$c['pass']), [235])) === null) {
+        return $fail('Anmeldung fehlgeschlagen (Benutzer/Passwort prüfen)');
+    }
+    if (($r = $cmd("MAIL FROM:<$from>", [250])) === null) {
+        return $fail('Absender abgelehnt');
+    }
+    if (($r = $cmd("RCPT TO:<$to>", [250, 251])) === null) {
+        return $fail('Empfänger abgelehnt');
+    }
+    if ($cmd('DATA', [354]) === null) {
+        return $fail('DATA');
+    }
+    $data = preg_replace('/^\./m', '..', str_replace(["\r\n", "\r"], ["\n", "\n"], $msg));
+    if (($r = $cmd(str_replace("\n", "\r\n", rtrim($data, "\n")) . "\r\n.", [250])) === null) {
+        return $fail('Nachricht abgelehnt');
+    }
+    $cmd('QUIT', [221]);
+    fclose($fp);
+    return true;
 }
 
 /** Inhalt einer Archiv-Mail. */

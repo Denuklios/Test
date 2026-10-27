@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Kundenliste beim Antippen';
+const APP_VERSION = '2026-10-27 · Versand über Postfach';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -299,7 +299,7 @@ function trackCard(o, reload) {
       o.ship_mode !== 'pickup' ? form : null,
       o.ship_mode !== 'pickup' ? h('div', { class: 'row', style: 'margin-top:8px;flex-wrap:wrap' },
         h('button', { class: 'btn small primary', onclick: async () => { try { await api('order_ship', { body: { id: o.id, ship_mode: 'ship', ...form.get() } }); toast(t('saved')); reload(); } catch (e) { toast(e.message); } } }, t('save')),
-        o.customer_email ? h('button', { class: 'btn small', onclick: async () => { try { const r = await api('order_ship', { body: { id: o.id, ship_mode: 'ship', mail: 1, ...form.get() } }); toast(r.mailed ? t('mail_ship_sent', o.customer_email) : t('mail_failed_share')); reload(); } catch (e) { toast(e.message); } } }, '✉ ' + t('ship_mail')) : null,
+        o.customer_email ? h('button', { class: 'btn small', onclick: async () => { try { const r = await api('order_ship', { body: { id: o.id, ship_mode: 'ship', mail: 1, ...form.get() } }); toast(r.mailed ? t('mail_ship_sent', o.customer_email) : t('mail_failed_why', r.mail_error || '?')); reload(); } catch (e) { toast(e.message); } } }, '✉ ' + t('ship_mail')) : null,
         o.carrier_url ? h('a', { class: 'btn small', href: o.carrier_url, target: '_blank', rel: 'noopener' }, t('ship_follow')) : null) : null,
       h('p', { class: 'muted', style: 'margin:8px 0 0;font-size:.85rem' }, o.followup_at && o.followup_at !== 'skip' ? '✉ ' + t('fu_sent', o.followup_at.slice(0, 16))
         : o.followup_at === 'skip' ? t('fu_skip') : me.company.mail_followup === false ? t('fu_off') : o.shipped_at ? t('fu_planned', dfmt(addDays(o.shipped_at.slice(0, 10), 7))) : ''));
@@ -331,7 +331,7 @@ function orderMoneyCard(o, reload) {
     try {
       const r = await api('confirm_create', { body: { order_id: o.id, email: !!o.customer_email && me.company.mail_offer !== false } });
       showLink(r.token);
-      if (r.mailed) toast(t('mail_offer_sent', o.customer_email)); else if (o.customer_email && me.company.mail_offer !== false) toast(t('mail_failed_share'));
+      if (r.mailed) toast(t('mail_offer_sent', o.customer_email)); else if (o.customer_email && me.company.mail_offer !== false) toast(t('mail_failed_why', r.mail_error || '?'));
       else if (!o.customer_email) toast(t('mail_no_address'));
     } catch (e) { toast(e.message); } finally { if (b) b.disabled = false; }
   };
@@ -1809,8 +1809,21 @@ route(/^\/settings$/, async () => {
   const cronBox = h('div', { style: 'margin-top:16px' });
   const drawCron = (c) => {
     const copy = (txt) => navigator.clipboard.writeText(txt).then(() => toast(t('copied')));
+    // Versandweg: SMTP-Postfach (z. B. send.one.com) oder PHP mail()
+    const sm = c.smtp || {};
+    const sHost = h('input', { type: 'text', value: sm.host || 'send.one.com' });
+    const sPort = h('select', {}, [465, 587].map((p) => h('option', { value: p, selected: (+sm.port || 465) === p }, p === 465 ? '465 (SSL)' : '587 (STARTTLS)')));
+    const sUser = h('input', { type: 'email', value: sm.user || me.company.email || '', autocomplete: 'off' });
+    const sPass = h('input', { type: 'password', placeholder: sm.pass_set ? t('smtp_pass_keep') : t('smtp_pass_ph'), autocomplete: 'new-password' });
+    const smtpBox = h('details', { class: 'calcbox', open: !c.smtp }, h('summary', {}, '📮 ' + t('smtp_title') + ' · ' + (c.smtp ? t('smtp_on', sm.user) : t('smtp_off'))),
+      h('p', { class: 'muted', style: 'margin:6px 0;font-size:.88rem' }, t('smtp_text')),
+      h('div', { class: 'grid c2' }, h('div', {}, h('label', {}, t('smtp_host')), sHost), h('div', {}, h('label', {}, t('smtp_port')), sPort)),
+      h('div', { class: 'grid c2' }, h('div', {}, h('label', {}, t('smtp_user')), sUser), h('div', {}, h('label', {}, t('smtp_pass')), sPass)),
+      h('div', { class: 'row', style: 'margin-top:8px;flex-wrap:wrap' },
+        h('button', { class: 'btn small primary', onclick: async () => { try { await api('smtp_save', { body: { host: sHost.value.trim(), port: +sPort.value, user: sUser.value.trim(), pass: sPass.value } }); toast(t('saved')); drawCron(await api('cron_info')); } catch (e) { toast(e.message); } } }, t('save')),
+        c.smtp ? h('button', { class: 'btn small danger', onclick: async () => { await api('smtp_save', { body: { host: '' } }); drawCron(await api('cron_info')); } }, t('smtp_disable')) : null));
     const scr = h('textarea', { readonly: true, rows: 9, class: 'hidden', style: 'font-family:monospace;font-size:.75rem;margin-top:6px' }, c.script);
-    cronBox.replaceChildren(h('div', { class: 'sechead' }, '⏰ ' + t('cron_title')),
+    cronBox.replaceChildren(...[smtpBox, h('div', { class: 'sechead', style: 'margin-top:14px' }, '⏰ ' + t('cron_title')),
       h('p', { class: 'muted', style: 'margin:4px 0 8px' }, t('cron_text')),
       h('p', { style: 'margin:0 0 4px;font-size:.9rem' }, c.last ? '✓ ' + t('cron_last', c.last.slice(0, 16)) + (c.result ? ' · ' + t('cron_result', c.result.replace(/^OK /, '')) : '') : '⚠ ' + t('cron_never')),
       c.denied && (!c.last || c.denied > c.last) ? h('p', { class: 'warn-t', style: 'margin:0 0 4px;font-size:.9rem' }, '⚠ ' + t('cron_denied', c.denied)) : null,
@@ -1819,7 +1832,7 @@ route(/^\/settings$/, async () => {
       h('div', { class: 'row', style: 'margin:6px 0 10px;flex-wrap:wrap' }, h('button', { class: 'btn small', onclick: async () => {
         const to = prompt(t('mail_test_to'), me.company.email || '');
         if (!to) return;
-        try { const r = await api('mail_test', { body: { to } }); toast(t('mail_test_ok', r.to)); } catch (e) { toast(e.message); }
+        try { const r = await api('mail_test', { body: { to } }); toast(t('mail_test_ok', r.to)); } catch (e) { alert(e.message); }
         drawCron(await api('cron_info'));
       } }, '✉ ' + t('mail_test'))),
       h('b', {}, t('cron_a')), h('ol', { class: 'arsteps muted' }, h('li', {}, t('cron_a1')), h('li', {}, t('cron_a2')), h('li', {}, t('cron_a3'))),
@@ -1827,14 +1840,14 @@ route(/^\/settings$/, async () => {
       h('div', { class: 'row', style: 'margin:6px 0 12px;flex-wrap:wrap' }, h('button', { class: 'btn small', onclick: () => copy(c.url) }, '📋 ' + t('cron_copy_url')),
         h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('cron_renew_q'))) drawCron(await api('cron_info', { body: { renew: 1 } })); } }, t('cron_renew'))),
       h('b', {}, t('cron_b')), h('p', { class: 'muted', style: 'margin:4px 0 6px;font-size:.9rem' }, t('cron_b_text')),
-      h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn small', onclick: () => scr.classList.toggle('hidden') }, '</> ' + t('ar_script')), h('button', { class: 'btn small', onclick: () => copy(c.script) }, '📋 ' + t('ar_copy'))), scr);
+      h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn small', onclick: () => scr.classList.toggle('hidden') }, '</> ' + t('ar_script')), h('button', { class: 'btn small', onclick: () => copy(c.script) }, '📋 ' + t('ar_copy'))), scr].filter(Boolean));
   };
   api('cron_info').then(drawCron).catch(() => {});
   // E-Mails an Kunden
   const mk = (k, def) => h('input', { type: 'checkbox', checked: me.company[k] === undefined ? def : !!me.company[k], style: 'width:22px;height:22px;min-height:0' });
   const mOffer = mk('mail_offer', true), mAppr = mk('mail_approved', true), mShip = mk('mail_shipped', false), mFu = mk('mail_followup', true);
   const revIn = h('input', { type: 'url', value: me.company.review_url || '', placeholder: 'https://g.page/r/…/review' });
-  const ckRow = (cb, label, hint) => h('label', { class: 'row', style: 'gap:10px;align-items:flex-start;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--text);margin:8px 0' }, cb, h('span', {}, label, h('small', { class: 'muted', style: 'display:block' }, hint)));
+  const ckRow = (cb, label, hint) => h('label', { style: 'display:flex;flex-wrap:nowrap;gap:10px;align-items:flex-start;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--text);margin:10px 0' }, cb, h('span', { style: 'flex:1;min-width:0' }, label, h('small', { class: 'muted', style: 'display:block' }, hint)));
   const mailCard = h('div', { class: 'card' }, h('h3', {}, '✉ ' + t('cm_title')), h('p', { class: 'muted', style: 'margin:0 0 6px' }, t('cm_text', me.company.email || '—')),
     ckRow(mOffer, t('cm_offer'), t('cm_offer_h')), ckRow(mAppr, t('cm_appr'), t('cm_appr_h')), ckRow(mShip, t('cm_ship'), t('cm_ship_h')), ckRow(mFu, t('cm_fu'), t('cm_fu_h')),
     h('div', {}, h('label', {}, t('cm_review')), revIn, h('small', { class: 'muted hint' }, t('cm_review_h'))),
