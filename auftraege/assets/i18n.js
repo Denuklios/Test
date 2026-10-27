@@ -1,5 +1,6 @@
 window.WF_I18N = {
 de: {
+  min_once: 'Minuten einmalig je Position', min_once_short: 'Min. einmalig', prod_time_once: '{0} Min. einmalig (z. B. Digitalisieren)', fx_saved_dkk: 'gespeichert wird in kr',
   items_label: 'Produkte', item_search: '🔍 Produkt suchen oder antippen …', item_search_none: 'Position eingeben (Produkte unter „Produkte“ anlegen)', item_free: 'Freie Position (ohne Produkt)', item_free_named: 'Freie Position „{0}“', item_name: 'Bezeichnung', item_no_proc: 'Kein Verfahren gewählt – antippen, was gemacht wird', line_total: 'Summe', items_empty: 'Noch kein Produkt – oben suchen oder antippen.', err_no_items: 'Bitte mindestens ein Produkt oder eine Position eintragen.',
   price_total: 'Gesamtpreis', price_differs: 'Abweichend von der Summe der Produkte ({0}).', price_use_sum: 'Summe übernehmen', sum_hint_items: 'Bei den Produkten antippen, was gemacht wird – die Zeiten kommen automatisch.',
   form_time: 'Arbeitszeit', form_price: 'Preis & Zahlung', form_details: 'Details', default_pp: 'Min./Stück (Standard)', prod_procs: 'Verfahren & Minuten pro Stück', prod_time: '⏱ {0} Min. pro Stück – wird im Auftrag automatisch mal Menge gerechnet', prod_time_none: 'Antippen, welche Verfahren das Produkt braucht – die Standardzeit wird eingesetzt.', calc_min_ph: 'leer = aus Verfahren', nav_products_s: 'Produkte',
@@ -175,6 +176,7 @@ de: {
   err_duplicate_admin_id: 'Admin-ID doppelt vergeben.', err_unknown_action: 'Unbekannte Aktion.', err_bad_json: 'Ungültige Daten.', err_bad_date: 'Datum ungültig.', err_range_too_large: 'Zeitraum zu groß.', err_nothing: 'Nichts zu ändern.', err_post_required: 'Ungültige Anfrage.'
 },
 da: {
+  min_once: 'Minutter én gang pr. linje', min_once_short: 'min. én gang', prod_time_once: '{0} min. én gang (fx digitalisering)', fx_saved_dkk: 'gemmes i kr',
   items_label: 'Produkter', item_search: '🔍 Søg eller tryk for produkt …', item_search_none: 'Indtast linje (opret produkter under „Produkter“)', item_free: 'Fri linje (uden produkt)', item_free_named: 'Fri linje „{0}“', item_name: 'Betegnelse', item_no_proc: 'Ingen metode valgt – tryk på det, der skal laves', line_total: 'I alt', items_empty: 'Intet produkt endnu – søg eller tryk ovenfor.', err_no_items: 'Angiv mindst ét produkt eller én linje.',
   price_total: 'Samlet pris', price_differs: 'Afviger fra summen af produkterne ({0}).', price_use_sum: 'Brug summen', sum_hint_items: 'Tryk ved produkterne på det, der skal laves – tiderne kommer automatisk.',
   form_time: 'Arbejdstid', form_price: 'Pris & betaling', form_details: 'Detaljer', default_pp: 'Min./stk. (standard)', prod_procs: 'Metoder & minutter pr. stk.', prod_time: '⏱ {0} min. pr. stk. – ganges automatisk med antal i ordren', prod_time_none: 'Tryk på de metoder, produktet kræver – standardtiden indsættes.', calc_min_ph: 'tom = fra metoder', nav_products_s: 'Produkter',

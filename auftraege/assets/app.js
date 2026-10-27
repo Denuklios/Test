@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Auftrag mit Produkten';
+const APP_VERSION = '2026-10-27 · Digitalisieren, kr|€';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -238,8 +238,8 @@ route(/^\/order\/(\d+)$/, async (id) => {
         h('dt', {}, t('price')), h('dd', {}, `${money(o.price, o.currency)} · ${t('deposit')} ${money(o.deposit, o.currency)} · ${t('remaining')} ${money(rest, o.currency)}`),
         h('dt', {}, t('payment')), h('dd', {}, paySel))),
     o.items && o.items.length ? h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:8px' }, t('items_label')), h('div', { class: 'tscroll' }, h('table', { class: 't' }, o.items.map((i) => {
-      const m = (i.processes || []).reduce((s_, p) => s_ + p.per_piece, 0) * i.qty;
-      return h('tr', {}, h('td', {}, `${i.qty} ×`), h('td', {}, h('b', {}, i.name), h('div', { class: 'muted', style: 'font-size:.8rem' }, (i.processes || []).map((p) => { const pt = me.processes.find((x) => +x.id === +p.process_id); return pt ? `${pname(pt)} ${p.per_piece} ${t('min_short')}` : ''; }).filter(Boolean).join(' · '))),
+      const m = procMin(i.processes, i.qty);
+      return h('tr', {}, h('td', {}, `${i.qty} ×`), h('td', {}, h('b', {}, i.name), h('div', { class: 'muted', style: 'font-size:.8rem' }, procLabel(i.processes))),
         h('td', { class: 'num' }, money(i.qty * i.price, o.currency)), h('td', { class: 'num muted' }, m ? hm(m) : ''));
     })))) : null,
     (o.description || o.notes) && h('div', { class: 'card' }, o.description && h('p', { style: 'margin:0 0 8px;white-space:pre-wrap' }, o.description), o.notes && h('p', { class: 'muted', style: 'margin:0;white-space:pre-wrap' }, o.notes)),
@@ -420,17 +420,22 @@ async function noteToOrder(note) {
 route(/^\/new\/customer\/(\d+)$/, (cid) => orderForm(null, +cid));
 route(/^\/order\/(\d+)\/edit$/, async (id) => orderForm((await api('order', { params: { id } })).order));
 
+// Zeit einer Position: Minuten je Stück × Menge, einmalige Verfahren (Digitalisieren) nur einmal
+const isOnce = (pid) => { const pt = me.processes.find((x) => +x.id === +pid); return !!(pt && +pt.per_order); };
+const procMin = (procs, qty) => (procs || []).reduce((s_, p) => s_ + p.per_piece * (isOnce(p.process_id) ? 1 : qty), 0);
+const procLabel = (procs) => (procs || []).map((p) => { const pt = me.processes.find((x) => +x.id === +p.process_id); return pt ? `${pname(pt)} ${p.per_piece} ${+pt.per_order ? t('min_once_short') : t('min_short')}` : ''; }).filter(Boolean).join(' · ');
+
 // Verfahren antippen: an = Standardminuten des Verfahrens je Stück (änderbar)
 function procPicker(initial, onChange) {
   const sel = new Map((initial || []).map((p) => [+p.process_id, +p.per_piece]));
   const wrap = h('div', { class: 'pchips' });
   const draw = () => wrap.replaceChildren(...me.processes.filter((p) => +p.active || sel.has(+p.id)).map((p) => {
-    const on = sel.has(+p.id);
-    const mi = h('input', { type: 'number', min: 1, max: 60, inputmode: 'numeric', value: sel.get(+p.id) || '', 'aria-label': t('min_per_piece'),
-      onclick: (e) => e.stopPropagation(), oninput: (e) => { sel.set(+p.id, Math.min(60, Math.max(1, parseInt(e.target.value, 10) || 1))); onChange(); } });
+    const on = sel.has(+p.id), mx = +p.per_order ? 600 : 60;
+    const mi = h('input', { type: 'number', min: 1, max: mx, inputmode: 'numeric', value: sel.get(+p.id) || '', 'aria-label': t(+p.per_order ? 'min_once' : 'min_per_piece'),
+      onclick: (e) => e.stopPropagation(), oninput: (e) => { sel.set(+p.id, Math.min(mx, Math.max(1, parseInt(e.target.value, 10) || 1))); onChange(); } });
     return h('div', { class: 'pchip' + (on ? ' on' : ''), style: `--c:${p.color}`, role: 'button', tabindex: 0,
       onclick: () => { if (on) sel.delete(+p.id); else sel.set(+p.id, +p.default_pp || 10); draw(); onChange(); } },
-      h('span', {}, pname(p)), on ? h('span', { class: 'pmin' }, mi, t('min_short')) : null);
+      h('span', {}, pname(p)), on ? h('span', { class: 'pmin' }, mi, +p.per_order ? t('min_once_short') : t('min_short')) : null);
   }));
   draw();
   wrap.get = () => [...sel].map(([process_id, per_piece]) => ({ process_id, per_piece }));
@@ -557,11 +562,12 @@ async function orderForm(o, presetCustomer, note = '') {
     const pick = procPicker(it.processes || [], itemsChanged);
     r.get = () => ({ product_id: it.product_id || null, name: nameIn.value.trim(), qty: Math.max(1, parseInt(qtyIn.value, 10) || 1), price: num(priceIn.value), processes: pick.get() });
     r.sum = () => { const g = r.get(); return g.qty * g.price; };
-    r.min = () => { const g = r.get(); return g.processes.reduce((s_, p) => s_ + p.per_piece, 0) * g.qty; };
+    r.min = () => { const g = r.get(); return procMin(g.processes, g.qty); };
     r.upd = () => {
-      const g = r.get(), pp = g.processes.reduce((s_, p) => s_ + p.per_piece, 0);
+      const g = r.get(), m = procMin(g.processes, g.qty);
+      const pp = g.processes.filter((p) => !isOnce(p.process_id)).reduce((s_, p) => s_ + p.per_piece, 0), once = m - pp * g.qty;
       sumEl.textContent = money(r.sum(), F.currency.value);
-      timeEl.textContent = pp ? `⏱ ${pp} ${t('min_short')} × ${g.qty} = ${hm(pp * g.qty)}` : t('item_no_proc');
+      timeEl.textContent = m ? '⏱ ' + [pp ? `${pp} ${t('min_short')} × ${g.qty}` : '', once ? `${once} ${t('min_once_short')}` : ''].filter(Boolean).join(' + ') + ` = ${hm(m)}` : t('item_no_proc');
     };
     r.el = h('div', { class: 'item' },
       h('div', { class: 'itop' }, nameIn, h('button', { type: 'button', class: 'btn small danger', 'aria-label': t('delete'), onclick: () => { items.splice(items.indexOf(r), 1); r.el.remove(); itemsChanged(); } }, '✕')),
@@ -589,7 +595,7 @@ async function orderForm(o, presetCustomer, note = '') {
     const q = pq.value.trim().toLowerCase();
     const hits = prodList.filter((p) => !q || p.name.toLowerCase().includes(q)).slice(0, 12);
     psug.replaceChildren(...hits.map((p) => h('button', { type: 'button', onmousedown: (e) => e.preventDefault(), onclick: () => pickProd(p) },
-      h('b', {}, p.name), h('span', { class: 'muted' }, ` · ${cents(p.price, 'DKK')}` + (p.processes.length ? ' · ' + p.processes.map((x) => { const pt = me.processes.find((y) => +y.id === +x.process_id); return pt ? `${pname(pt)} ${x.per_piece} ${t('min_short')}` : ''; }).filter(Boolean).join(', ') : '')))),
+      h('b', {}, p.name), h('span', { class: 'muted' }, ` · ${cents(p.price, 'DKK')}` + (p.processes.length ? ' · ' + procLabel(p.processes) : '')))),
       h('button', { type: 'button', onmousedown: (e) => e.preventDefault(), onclick: () => { const nm = pq.value.trim(); psug.classList.add('hidden'); pq.value = ''; addItem({ name: nm, qty: 1, price: 0, processes: [] }, !!nm); if (!nm) items[items.length - 1].el.querySelector('input').focus(); itemsChanged(); } }, '+ ' + (q ? t('item_free_named', pq.value.trim()) : t('item_free'))));
     psug.classList.remove('hidden');
   };
@@ -702,7 +708,7 @@ async function orderForm(o, presetCustomer, note = '') {
     if (!its.length) { err.textContent = t('err_no_items'); pq.focus(); return; }
     const body = { id: D.id, customer_id: D.customer_id, worker_id: wid, title: F.title.value || its.map((i) => i.name).join(' + ').slice(0, 200), qty: its.reduce((s_, i) => s_ + i.qty, 0),
       due_date: duePicker.value, plan_date: planPicker.value, start_time: S.start, items: its };
-    for (const k of ['article', 'price', 'currency', 'pay_status', 'deposit', 'description', 'notes', 'status']) body[k] = F[k].value;
+    for (const k of ['article', 'price', 'currency', 'pay_status', 'deposit', 'description', 'notes', 'status']) body[k] = F[k] ? F[k].value : (D[k] ?? '');
     if (body.pay_status === 'paid' && !body.deposit) body.deposit = body.price;
     btn.disabled = true;
     try {
@@ -733,9 +739,11 @@ async function orderForm(o, presetCustomer, note = '') {
     sec(t('files'), photoButtons((list) => { pending.push(...list); drawThumbs(); }), thumbs,
       isNew ? null : h('div', { class: 'files' }, (D.files || []).map((f) => h('div', { class: 'file' }, f.mime.startsWith('image/') ? h('img', { src: thumbUrl(f.id), alt: f.original_name, loading: 'lazy' }) : h('div', { class: 'pdf' }, 'PDF'), h('div', { class: 'n' }, h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, f.original_name)))))),
     sec(t('form_price'), payRow, priceHint, field('deposit', t('deposit'), inp('deposit', 'number', { step: '0.01', min: 0, inputmode: 'decimal' }))),
+    // Details: Status und Notizen; Artikel/Beschreibung nur noch bei alten Aufträgen, die sie schon haben
     sec(t('form_details'),
-      h('div', { class: 'grid c2' }, field('article', t('article'), inp('article')), field('status', t('status'), h('select', {}, me.statuses.map((s_) => h('option', { value: s_, selected: s_ === D.status }, t('st_' + s_)))))),
-      field('description', t('description'), h('textarea', {}, D.description)),
+      field('status', t('status'), h('select', {}, me.statuses.map((s_) => h('option', { value: s_, selected: s_ === D.status }, t('st_' + s_))))),
+      !isNew && D.article ? field('article', t('article'), inp('article')) : null,
+      !isNew && D.description ? field('description', t('description'), h('textarea', {}, D.description)) : null,
       field('notes', t('notes'), h('textarea', {}, D.notes))),
     err,
     h('div', { class: 'formbar' }, h('a', { class: 'btn', href: isNew ? '#/' : `#/order/${D.id}` }, t('cancel')), btn));
@@ -767,23 +775,36 @@ route(/^\/products$/, async () => {
   const editRow = (p) => {
     const nm = h('input', { value: p.name || '', placeholder: t('prod_name_ph'), maxlength: 300 });
     const un = h('select', {}, me.units.map((u) => h('option', { value: u, selected: u === (p.unit || 'stk') }, t('u_' + u))));
+    // Preis wahlweise in kr oder € eingeben; Umschalten rechnet den Betrag um, gespeichert wird immer in kr
     const pr = h('input', { type: 'text', inputmode: 'decimal', value: p.price != null ? centsIn(p.price) : '', placeholder: '0,00' });
+    let prCur = 'DKK', back = null;
+    const prLabel = h('label', {}, t('unit_price') + ' DKK');
+    const fxNote = h('small', { class: 'muted hint' });
+    const fmt2 = (v) => (Math.round(v * 100) / 100).toFixed(2).replace('.', ',');
+    const curBtns = ['DKK', 'EUR'].map((c) => h('button', { type: 'button', class: 'curbtn' + (c === 'DKK' ? ' on' : ''), onclick: async () => {
+      if (c === prCur) return;
+      const r = await eurRate(), v = num(pr.value);
+      // unverändert hin und zurück: ursprünglichen Betrag wiederherstellen (keine Rundungsdrift)
+      if (back && back.shown === pr.value && back.cur === c) pr.value = back.value;
+      else if (v) { const before = pr.value; pr.value = fmt2(c === 'EUR' ? v / r.rate : v * r.rate); back = { cur: prCur, value: before, shown: pr.value }; }
+      prCur = c;
+      curBtns.forEach((b) => b.classList.toggle('on', b.textContent === (c === 'EUR' ? '€' : 'kr')));
+      prLabel.textContent = t('unit_price') + (c === 'EUR' ? ' €' : ' DKK');
+      fxNote.textContent = c === 'EUR' ? t('fx_note', String(r.rate.toFixed(4)).replace('.', ','), r.date ? dfmt(r.date) : t('fx_fixed')) + ' · ' + t('fx_saved_dkk') : '';
+    } }, c === 'EUR' ? '€' : 'kr'));
+    const curSwitch = h('div', { class: 'curswitch' }, ...curBtns);
+    // Betrag in Øre (kr) ins Feld setzen, passend zur gewählten Währung
+    const setPrice = async (dkkCents) => { if (prCur === 'EUR') { const r = await eurRate(); pr.value = fmt2(dkkCents / 100 / r.rate); } else pr.value = centsIn(dkkCents); };
+    const priceDkk = async () => { if (prCur !== 'EUR') return pr.value || '0'; const r = await eurRate(); return fmt2(num(pr.value) * r.rate); };
     const kd = h('select', {}, ['goods', 'services'].map((k) => h('option', { value: k, selected: k === (p.kind || 'goods') }, t(k))));
     const act = h('input', { type: 'checkbox', checked: p.id ? !!+p.active : true, style: 'width:22px;height:22px;min-height:0' });
     const ppTime = h('small', { class: 'muted' });
-    const drawPpTime = () => { const m = ppick.get().reduce((s_, x) => s_ + x.per_piece, 0); ppTime.textContent = m ? t('prod_time', m) : t('prod_time_none'); };
+    const drawPpTime = () => {
+      const g = ppick.get(), m = g.filter((x) => !isOnce(x.process_id)).reduce((s_, x) => s_ + x.per_piece, 0), o = g.filter((x) => isOnce(x.process_id)).reduce((s_, x) => s_ + x.per_piece, 0);
+      ppTime.textContent = m || o ? [m ? t('prod_time', m) : '', o ? t('prod_time_once', o) : ''].filter(Boolean).join(' · ') : t('prod_time_none');
+    };
     const ppick = procPicker(p.processes || [], () => drawPpTime());
     drawPpTime();
-    // Umrechnung € ⇄ kr per Knopf (Tageskurs Nationalbank)
-    const eur = h('input', { type: 'text', inputmode: 'decimal', placeholder: '0,00' });
-    const fxNote = h('small', { class: 'muted hint' });
-    const conv = (toDkk) => async () => {
-      const r = await eurRate();
-      const src = num(toDkk ? eur.value : pr.value);
-      if (!src) { toast(t('fx_enter')); return; }
-      (toDkk ? pr : eur).value = (Math.round((toDkk ? src * r.rate : src / r.rate) * 100) / 100).toFixed(2).replace('.', ',');
-      fxNote.textContent = t('fx_note', String(r.rate.toFixed(4)).replace('.', ','), r.date ? dfmt(r.date) : t('fx_fixed'));
-    };
     // Preisvorschlag aus Marktpreisen, sobald ein Name getippt ist
     const sug = h('div', { class: 'pricesug hidden' });
     let sugT = 0;
@@ -792,7 +813,7 @@ route(/^\/products$/, async () => {
       if (q.length < 3) { sug.classList.add('hidden'); return; }
       const { suggest: g } = await api('price_suggest', { params: { name: q } });
       if (!g) { sug.replaceChildren(h('span', { class: 'muted' }, t('ps_none'))); sug.classList.remove('hidden'); return; }
-      const take = (v) => h('button', { type: 'button', class: 'btn small', onclick: () => { pr.value = centsIn(v); } }, cents(v, 'DKK'));
+      const take = (v) => h('button', { type: 'button', class: 'btn small', onclick: () => setPrice(v) }, cents(v, 'DKK'));
       const line = (flag, lbl, txt, est, src) => h('div', { class: 'psline' }, h('span', { class: 'psflag' }, flag), h('div', {}, h('div', {}, h('b', {}, lbl), ' ', txt), h('small', { class: 'muted' }, (est ? t('ps_est') : t('ps_src')) + ' ' + src.replace(/^geschätzt:?\s*/, ''))));
       sug.replaceChildren(
         line('🇩🇰', t('ps_dk'), t('ps_range', cents(g.dk.low, 'DKK'), cents(g.dk.high, 'DKK'), cents(g.dk.typ, 'DKK')), g.dk.estimated, g.dk.source),
@@ -809,12 +830,12 @@ route(/^\/products$/, async () => {
     const calcOut = h('div', { class: 'muted', style: 'font-size:.9rem;margin-top:6px' });
     const doCalc = () => {
       const rate = +me.company.hour_rate || 0;
-      const mv = mins.value.trim() ? num(mins.value) : ppick.get().reduce((s_, x) => s_ + x.per_piece, 0);
+      const mv = mins.value.trim() ? num(mins.value) : ppick.get().filter((x) => !isOnce(x.process_id)).reduce((s_, x) => s_ + x.per_piece, 0);
       const net = Math.round(num(mat.value) * 100 + mv / 60 * rate);
       if (!net) { calcOut.replaceChildren(rate ? '' : t('calc_no_rate')); return; }
       const incl = Math.round(net * 1.25);
       calcOut.replaceChildren(t('calc_res', cents(net, 'DKK'), cents(incl, 'DKK')), ' ',
-        h('button', { type: 'button', class: 'btn small', onclick: () => { pr.value = centsIn(me.company.moms_registered ? net : incl); } }, t('calc_take')));
+        h('button', { type: 'button', class: 'btn small', onclick: () => setPrice(me.company.moms_registered ? net : incl) }, t('calc_take')));
     };
     mat.addEventListener('input', doCalc); mins.addEventListener('input', doCalc);
     const calcBox = h('details', { class: 'calcbox' }, h('summary', {}, '🧮 ' + t('calc_h')),
@@ -822,17 +843,14 @@ route(/^\/products$/, async () => {
     if (!p.id) setTimeout(askSug, 0);
     return h('div', { class: 'card prodcard' + (p.id && !+p.active ? ' inactive' : '') },
       h('div', {}, h('label', {}, t('prod_name')), nm), sug,
-      h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('unit')), un), h('div', {}, h('label', {}, t('unit_price') + ' DKK'), pr), h('div', {}, h('label', {}, t('prod_kind')), kd)),
+      h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('unit')), un), h('div', {}, h('div', { class: 'prhead' }, prLabel, curSwitch), pr), h('div', {}, h('label', {}, t('prod_kind')), kd)), fxNote,
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('prod_procs')), ppick, ppTime),
       calcBox,
-      h('div', { class: 'fxrow' }, h('div', {}, h('label', {}, t('fx_eur')), eur),
-        h('button', { type: 'button', class: 'btn small', onclick: conv(true) }, '€ → kr'),
-        h('button', { type: 'button', class: 'btn small', onclick: conv(false) }, 'kr → €')), fxNote,
       h('div', { class: 'row', style: 'justify-content:space-between;margin-top:8px' },
         h('label', { class: 'row', style: 'margin:0;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, act, t('active')),
         h('div', { class: 'row' },
           p.id ? h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('prod_delete_confirm', p.name))) { await api('product_delete', { body: { id: p.id } }); render(); } } }, t('delete')) : null,
-          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: pr.value || '0', kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get() } }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
+          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: await priceDkk(), kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get() } }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
   };
   const draw = () => list.replaceChildren(...products.filter((p) => !prodQ || p.name.toLowerCase().includes(prodQ.toLowerCase())).map(editRow));
   const newBox = h('div', { class: 'hidden' }, editRow({}));
@@ -1612,8 +1630,8 @@ route(/^\/tax$/, async () => {
 route(/^\/settings$/, async () => {
   const procRows = me.processes.map((p) => {
     const act = h('input', { type: 'checkbox', checked: +p.active, style: 'width:22px;min-height:0;height:22px' });
-    const dpp = h('input', { type: 'number', min: 1, max: 60, inputmode: 'numeric', value: +p.default_pp || 10, style: 'width:76px' });
-    return { p, act, dpp, row: h('tr', {}, h('td', {}, h('i', { class: 'dot', style: `--c:${p.color}` }), ' ' + pname(p)), h('td', {}, dpp), h('td', {}, act)) };
+    const dpp = h('input', { type: 'number', min: 1, max: +p.per_order ? 600 : 60, inputmode: 'numeric', value: +p.default_pp || 10, style: 'width:76px', title: +p.per_order ? t('min_once') : t('min_per_piece') });
+    return { p, act, dpp, row: h('tr', {}, h('td', {}, h('i', { class: 'dot', style: `--c:${p.color}` }), ' ' + pname(p)), h('td', {}, dpp, +p.per_order ? h('small', { class: 'muted' }, ' ' + t('min_once_short')) : null), h('td', {}, act)) };
   });
   const workerRows = me.workers.map((w) => {
     const color = h('input', { type: 'color', value: w.color, 'aria-label': t('color'), class: 'colorin' });

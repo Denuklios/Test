@@ -88,13 +88,16 @@ try {
     const pr = (await call('product_save', { body: { name: 'Hoodie bestickt', unit: 'stk', price: '399', kind: 'goods', processes: [{ process_id: stick.id, per_piece: 20 }, { process_id: 999, per_piece: 5 }] } })).j.id;
     const pl = (await call('products')).j.products.find((p) => p.id === pr);
     assert.deepEqual(pl.processes, [{ process_id: +stick.id, per_piece: 20 }], 'unbekanntes Verfahren verworfen');
-    const items = [{ product_id: pr, name: 'Hoodie bestickt', qty: 4, price: 399, processes: [{ process_id: stick.id, per_piece: 20 }] },
+    const dig = me.processes.find((p) => p.key === 'digitalisieren'), cnc = me.processes.find((p) => p.key === 'cnc');
+    assert.equal(+dig.per_order, 1); assert.equal(+dig.default_pp, 60); assert.equal(+cnc.per_order, 0);
+    const items = [{ product_id: pr, name: 'Hoodie bestickt', qty: 4, price: 399, processes: [{ process_id: stick.id, per_piece: 20 }, { process_id: dig.id, per_piece: 90 }] },
       { name: 'T-Shirt Flex', qty: 10, price: '149,5', processes: [{ process_id: flex.id, per_piece: 5 }, { process_id: stick.id, per_piece: 3 }] }];
     const o = (await call('order_save', { body: { customer_id: cid, title: 'Vereinskleidung', qty: 1, price: 3091, currency: 'DKK', pay_status: 'open', items } })).j;
     assert.ok(o.ok, JSON.stringify(o));
     assert.equal(o.order.qty, 14);
     const mins = Object.fromEntries(o.order.processes.map((p) => [p.process_id, +p.minutes]));
     assert.equal(mins[stick.id], 4 * 20 + 10 * 3); assert.equal(mins[flex.id], 50);
+    assert.equal(mins[dig.id], 90, 'Digitalisieren einmalig, nicht × Menge');
     assert.equal(o.order.items.length, 2); assert.equal(o.order.items[1].price, 149.5);
     const inv = (await call('order_invoice', { body: { order_id: o.order.id, purpose: 'final' } })).j;
     const lines = (await call('invoice', { params: { id: inv.id } })).j.invoice.lines;

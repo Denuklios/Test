@@ -33,11 +33,11 @@ const ok = (name, fn) => fn().then(() => { passed++; console.log('  ✓', name);
 try {
   await ok('ohne Login: 401', async () => { const r = await call('me', { auth: false }); assert.equal(r.status, 401); });
   await ok('Login-Shell ohne Admin zeigt Hinweis', async () => { const t = await (await fetch(`${B}/index.php`)).text(); assert.match(t, /Bitte anmelden/); });
-  await ok('Dev-Login + me liefert 7 Verfahren, 5 Benutzer, CSRF', async () => {
+  await ok('Dev-Login + me liefert 9 Verfahren, 5 Benutzer, CSRF', async () => {
     cookie = '';
     const r0 = await fetch(`${B}/api.php?a=me&dev=7`); cookie = r0.headers.get('set-cookie').split(';')[0];
     const r = await call('me'); assert.equal(r.status, 200);
-    csrf = r.j.csrf; assert.equal(r.j.processes.length, 7); assert.equal(r.j.users.length, 5); assert.deepEqual(r.j.currencies, ['DKK', 'EUR']);
+    csrf = r.j.csrf; assert.equal(r.j.processes.length, 9); assert.equal(r.j.users.length, 5); assert.deepEqual(r.j.currencies, ['DKK', 'EUR']);
   });
   await ok('POST ohne CSRF: 403', async () => {
     const r = await fetch(`${B}/api.php?a=customer_save`, { method: 'POST', headers: { cookie, 'content-type': 'application/json' }, body: '{"name":"x"}' }); assert.equal(r.status, 403);
@@ -332,7 +332,7 @@ try {
     const r = await fetch(`${B}/api.php?a=backup`, { headers: { cookie } }); const b = Buffer.from(await r.arrayBuffer());
     assert.equal(b.subarray(0, 15).toString(), 'SQLite format 3');
   });
-  await ok('Datenbank-Update v4 → v12 übernimmt bestehende Aufträge als Block des Inhabers', async () => {
+  await ok('Datenbank-Update v4 → v13 übernimmt bestehende Aufträge als Block des Inhabers', async () => {
     const { execFileSync } = await import('node:child_process');
     const code = `require '${root}/inc/schema.php';
       $db = new PDO('sqlite::memory:'); $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
@@ -347,7 +347,7 @@ try {
       foreach ($db->query('SELECT order_id, date, start_time, minutes FROM order_days ORDER BY id') as $r) echo $r['order_id'] . '@' . $r['date'] . ' ' . $r['start_time'] . '+' . $r['minutes'] . ';';
       $o = $db->query('SELECT total_min, worker_id, plan_date FROM orders WHERE id = 1')->fetch(); echo ',', $o['total_min'], '/', $o['worker_id'], '/', $o['plan_date'];
       echo ',', $db->query('SELECT COUNT(*) FROM order_days WHERE order_id = 2')->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM customers')->fetchColumn();`;
-    assert.equal(execFileSync('php', ['-r', code]).toString(), '4,12,4,1@2030-05-06 08:00+180;3@2030-05-06 11:00+90;,180/1/2030-05-06,0,1');
+    assert.equal(execFileSync('php', ['-r', code]).toString(), '4,13,4,1@2030-05-06 08:00+180;3@2030-05-06 11:00+90;,180/1/2030-05-06,0,1');
   });
 
 } finally {

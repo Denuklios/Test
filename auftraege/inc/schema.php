@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 12) {
+    if ($v >= 13) {
         return;
     }
     if ($v < 1) {
@@ -41,7 +41,25 @@ function wf_migrate(PDO $db): void
     if ($v < 11) {
         wf_migrate_v11($db);
     }
-    wf_migrate_v12($db);
+    if ($v < 12) {
+        wf_migrate_v12($db);
+    }
+    wf_migrate_v13($db);
+}
+
+/**
+ * Version 13: Verfahren mit einmaliger Zeit je Position (z. B. Digitalisieren am PC) und neue Verfahren Digitalisieren, CNC-Fräsen.
+ */
+function wf_migrate_v13(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("ALTER TABLE process_types ADD COLUMN per_order INTEGER NOT NULL DEFAULT 0");
+    $sort = (int)$db->query('SELECT COALESCE(MAX(sort), 0) FROM process_types')->fetchColumn();
+    $st = $db->prepare('INSERT OR IGNORE INTO process_types (key, name_de, name_da, color, capacity_min, sort, default_pp, per_order) VALUES (?,?,?,?,?,?,?,?)');
+    $st->execute(['digitalisieren', 'Digitalisieren', 'Digitalisering', '#C084FC', 480, $sort + 1, 60, 1]);
+    $st->execute(['cnc', 'CNC-Fräsen', 'CNC-fræsning', '#94A3B8', 480, $sort + 2, 15, 0]);
+    $db->exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '13')");
+    $db->commit();
 }
 
 /**

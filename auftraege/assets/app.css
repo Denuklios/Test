@@ -381,3 +381,7 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 .itime{display:block;font-size:.85rem}
 .itemtot{display:flex;gap:14px;flex-wrap:wrap;align-items:center;margin-top:8px;padding:8px 12px;border-radius:12px;background:color-mix(in srgb,var(--p1) 12%,transparent)}
 .additem{margin-top:4px}
+.prhead{display:flex;align-items:center;justify-content:space-between;gap:8px}.prhead label{margin:0}
+.curswitch{display:inline-flex;border:1px solid var(--line-strong);border-radius:999px;overflow:hidden;flex:none}
+.curbtn{border:0;background:none;color:var(--muted);padding:3px 11px;font-size:.8rem;cursor:pointer;min-height:0}
+.curbtn.on{background:linear-gradient(135deg,var(--p1),var(--p2));color:#fff}

@@ -84,15 +84,19 @@ function log_order(PDO $db, int $orderId, array $user, string $what): void
 {
     $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([$orderId, $user['name'], $what]);
 }
-/** Verfahren mit Minuten je Stück prüfen: [{process_id, per_piece 1-60}] */
+/** Verfahren mit Minuten je Stück (bzw. einmalig) prüfen: [{process_id, per_piece}] */
 function clean_procs(PDO $db, $list): array
 {
-    $ids = array_map('intval', $db->query('SELECT id FROM process_types')->fetchAll(PDO::FETCH_COLUMN));
+    // per_order = einmalige Minuten je Position (bis 600), sonst Minuten je Stück (bis 60)
+    $max = [];
+    foreach ($db->query('SELECT id, per_order FROM process_types')->fetchAll() as $r) {
+        $max[(int)$r['id']] = $r['per_order'] ? 600 : 60;
+    }
     $out = [];
     foreach (is_array($list) ? $list : [] as $p) {
         $pid = (int)($p['process_id'] ?? 0);
         $pp = (int)($p['per_piece'] ?? 0);
-        if (in_array($pid, $ids, true) && $pp >= 1 && $pp <= 60) {
+        if (isset($max[$pid]) && $pp >= 1 && $pp <= $max[$pid]) {
             $out[$pid] = ['process_id' => $pid, 'per_piece' => $pp];
         }
     }
@@ -355,10 +359,12 @@ try {
             $procs = [];
             $perPiece = [];
             if ($items) {
+                $once = array_map('intval', $db->query('SELECT id FROM process_types WHERE per_order = 1')->fetchAll(PDO::FETCH_COLUMN));
                 foreach ($items as $it) {
                     foreach ($it['processes'] as $pr) {
-                        $procs[$pr['process_id']] = ($procs[$pr['process_id']] ?? 0) + $pr['per_piece'] * $it['qty'];
-                        $perPiece[$pr['process_id']] = count($items) === 1 ? $pr['per_piece'] : null;
+                        $fix = in_array($pr['process_id'], $once, true);
+                        $procs[$pr['process_id']] = ($procs[$pr['process_id']] ?? 0) + $pr['per_piece'] * ($fix ? 1 : $it['qty']);
+                        $perPiece[$pr['process_id']] = count($items) === 1 && !$fix ? $pr['per_piece'] : null;
                     }
                 }
                 $in['processes'] = [];
@@ -996,7 +1002,7 @@ try {
                 $db->prepare('UPDATE process_types SET capacity_min = ?, active = ? WHERE id = ?')
                    ->execute([$cap, empty($p['active']) ? 0 : 1, (int)($p['id'] ?? 0)]);
                 if (isset($p['default_pp'])) {
-                    $db->prepare('UPDATE process_types SET default_pp = ? WHERE id = ?')->execute([max(1, min(60, (int)$p['default_pp'])), (int)($p['id'] ?? 0)]);
+                    $db->prepare('UPDATE process_types SET default_pp = MAX(1, MIN(CASE per_order WHEN 1 THEN 600 ELSE 60 END, ?)) WHERE id = ?')->execute([(int)$p['default_pp'], (int)($p['id'] ?? 0)]);
                 }
             }
             wf_touch();

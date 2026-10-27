@@ -16,6 +16,8 @@ const WF_NOTE_PROC = [
     'sublimation' => '/subli/iu',
     'lasergravur' => '/gravur|gravi|graver|engrav/iu',
     'laserschnitt' => '/laser ?(schnitt|schneid|skær|cut)|ausschneiden|laser-?zuschnitt/iu',
+    'digitalisieren' => '/digitali[sz]|stickdatei|stickprogramm|punch|broderifil/iu',
+    'cnc' => '/\bcnc|fräs|fræs/iu',
 ];
 const WF_NOTE_MONTHS = ['jan' => 1, 'feb' => 2, 'mär' => 3, 'mar' => 3, 'apr' => 4, 'mai' => 5, 'maj' => 5, 'may' => 5, 'jun' => 6, 'jul' => 7, 'aug' => 8,
     'sep' => 9, 'okt' => 10, 'oct' => 10, 'nov' => 11, 'dez' => 12, 'dec' => 12];
@@ -208,7 +210,7 @@ function wf_note_rules(PDO $db, string $text): array
             if ($key === 'flex' && preg_match('/\bdtf\b/iu', $all) && !preg_match('/\bflex|\bflock/iu', $all)) {
                 continue;   // "DTF-Transfer" ist kein Flex
             }
-            $r['processes'][] = ['process_id' => (int)$id, 'per_piece' => $pp];
+            $r['processes'][] = ['process_id' => (int)$id, 'per_piece' => $key === 'digitalisieren' ? null : $pp];   // Digitalisieren: einmalig, Standardzeit
         }
     }
     // Termin aus dem Text, Preis mit Währung
