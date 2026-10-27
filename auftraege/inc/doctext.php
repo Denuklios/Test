@@ -19,7 +19,7 @@ function wf_doc_text(string $lang): array
             'novat' => 'Virksomheden er ikke momsregistreret. Der er ikke beregnet moms.',
             'pay_title' => 'Betaling', 'pay_text' => 'Beløbet bedes indbetalt senest {d} med angivelse af fakturanr. {n}.',
             'bank' => 'Bank', 'reg' => 'Reg.nr.', 'acc' => 'Kontonr.', 'iban' => 'IBAN', 'bic' => 'BIC/SWIFT',
-            'thanks' => 'Tak for din ordre!', 'credit_text' => 'Beløbet modregnes eller tilbagebetales.',
+            'to' => 'Kunde', 'thanks' => 'Tak for din ordre!', 'credit_text' => 'Beløbet modregnes eller tilbagebetales.',
             'units' => ['stk' => 'stk.', 'timer' => 'timer', 'dage' => 'dage', 'm' => 'm', 'm2' => 'm²', 'kg' => 'kg', 'pakke' => 'pakke', 'md' => 'md.'],
         ],
         'de' => [
@@ -36,7 +36,7 @@ function wf_doc_text(string $lang): array
             'novat' => 'Das Unternehmen ist nicht für die Moms (MwSt.) registriert. Es wird keine Moms berechnet.',
             'pay_title' => 'Zahlung', 'pay_text' => 'Bitte überweisen Sie den Betrag bis {d} unter Angabe der Rechnungsnr. {n}.',
             'bank' => 'Bank', 'reg' => 'Reg.-Nr.', 'acc' => 'Konto-Nr.', 'iban' => 'IBAN', 'bic' => 'BIC/SWIFT',
-            'thanks' => 'Vielen Dank für Ihren Auftrag!', 'credit_text' => 'Der Betrag wird verrechnet oder erstattet.',
+            'to' => 'Kunde', 'thanks' => 'Vielen Dank für Ihren Auftrag!', 'credit_text' => 'Der Betrag wird verrechnet oder erstattet.',
             'units' => ['stk' => 'Stk.', 'timer' => 'Std.', 'dage' => 'Tage', 'm' => 'm', 'm2' => 'm²', 'kg' => 'kg', 'pakke' => 'Paket', 'md' => 'Mon.'],
         ],
         'en' => [
@@ -53,7 +53,7 @@ function wf_doc_text(string $lang): array
             'novat' => 'The business is not VAT registered. No VAT has been charged.',
             'pay_title' => 'Payment', 'pay_text' => 'Please pay by {d} quoting invoice no. {n}.',
             'bank' => 'Bank', 'reg' => 'Reg. no.', 'acc' => 'Account no.', 'iban' => 'IBAN', 'bic' => 'BIC/SWIFT',
-            'thanks' => 'Thank you for your order!', 'credit_text' => 'The amount will be offset or refunded.',
+            'to' => 'Customer', 'thanks' => 'Thank you for your order!', 'credit_text' => 'The amount will be offset or refunded.',
             'units' => ['stk' => 'pcs', 'timer' => 'hours', 'dage' => 'days', 'm' => 'm', 'm2' => 'm²', 'kg' => 'kg', 'pakke' => 'pack', 'md' => 'months'],
         ],
     ];
