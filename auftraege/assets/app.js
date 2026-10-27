@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Logo mit Schimmer';
+const APP_VERSION = '2026-10-27 · Beleg-Zuschnitt';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -124,6 +124,78 @@ async function prepImage(file) {
     const blob = await new Promise((r) => c.toBlob(r, png ? 'image/png' : 'image/jpeg', 0.85));
     if (!blob || (sc === 1 && blob.size >= file.size)) return name === file.name ? file : new File([file], name, { type: file.type });
     return new File([blob], name.replace(/\.[^.]+$/, png ? '.png' : '.jpg'), { type: blob.type });
+  } catch (e) { return file; }
+}
+// Belegfoto: hellen Zettel vor dunklerem Hintergrund finden, gerade ziehen und alles außenrum abschneiden.
+// Klappt die Erkennung nicht sicher (heller Tisch, Beleg füllt schon das Bild), bleibt das Foto unverändert.
+async function cropReceipt(file) {
+  if (!file.type.startsWith('image/') || /gif|webp|svg/.test(file.type)) return file;
+  try {
+    const bmp = await createImageBitmap(file, { imageOrientation: 'from-image' });
+    const big = Math.min(1, 2400 / Math.max(bmp.width, bmp.height));
+    const W = Math.round(bmp.width * big), H = Math.round(bmp.height * big);
+    const src = document.createElement('canvas'); src.width = W; src.height = H;
+    const sx = src.getContext('2d', { willReadFrequently: true }); sx.drawImage(bmp, 0, 0, W, H); bmp.close && bmp.close();
+    // 1) kleines Graubild + Otsu-Schwelle (Papier = hell und farblos)
+    const s = 320 / Math.max(W, H), w = Math.max(8, Math.round(W * s)), hh = Math.max(8, Math.round(H * s));
+    const sm = document.createElement('canvas'); sm.width = w; sm.height = hh;
+    const smx = sm.getContext('2d', { willReadFrequently: true }); smx.imageSmoothingQuality = 'high'; smx.drawImage(src, 0, 0, w, hh);
+    const px = smx.getImageData(0, 0, w, hh).data, n = w * hh, g = new Uint8Array(n), hist = new Array(256).fill(0);
+    for (let i = 0; i < n; i++) {
+      const r = px[i * 4], gg = px[i * 4 + 1], b = px[i * 4 + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
+      const v = Math.max(0, Math.min(255, Math.round(0.3 * r + 0.59 * gg + 0.11 * b - (mx - mn) * 0.6))); g[i] = v; hist[v]++;
+    }
+    let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
+    let sB = 0, wB = 0, best = 0, th = 128;
+    for (let i = 0; i < 256; i++) { wB += hist[i]; if (!wB) continue; const wF = n - wB; if (!wF) break; sB += i * hist[i]; const d = sB / wB - (sum - sB) / wF, v = wB * wF * d * d; if (v > best) { best = v; th = i; } }
+    // 2) Maske schließen (Schrift im Beleg zählt mit), größte helle Fläche suchen
+    let m = new Uint8Array(n); for (let i = 0; i < n; i++) m[i] = g[i] > th ? 1 : 0;
+    const morph = (a, grow) => { const o = new Uint8Array(n); for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) { let v = grow ? 0 : 1; for (let dy = -2; dy <= 2 && v === (grow ? 0 : 1); dy++) for (let dx = -2; dx <= 2; dx++) { const X = x + dx, Y = y + dy; const q = X < 0 || Y < 0 || X >= w || Y >= hh ? 0 : a[Y * w + X]; if (grow ? q : !q) { v = grow ? 1 : 0; break; } } o[y * w + x] = v; } return o; };
+    m = morph(morph(m, true), false);
+    const lab = new Int32Array(n), stack = []; let bestL = 0, bestA = 0, L = 0;
+    for (let i = 0; i < n; i++) {
+      if (!m[i] || lab[i]) continue; L++; let a = 0; stack.push(i); lab[i] = L;
+      while (stack.length) { const p = stack.pop(); a++; const x = p % w, y = (p - x) / w;
+        for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < hh - 1 ? p + w : -1]) if (q >= 0 && m[q] && !lab[q]) { lab[q] = L; stack.push(q); } }
+      if (a > bestA) { bestA = a; bestL = L; }
+    }
+    if (bestA < n * 0.12 || bestA > n * 0.9) return file;
+    // 3) Ecken = äußerste Punkte der Fläche (x+y / x−y)
+    let tl = [0, 0, 1e9], br = [0, 0, -1e9], tr = [0, 0, -1e9], bl = [0, 0, 1e9], edge = 0;
+    for (let i = 0; i < n; i++) if (lab[i] === bestL) {
+      const x = i % w, y = (i - x) / w;
+      if (x + y < tl[2]) tl = [x, y, x + y]; if (x + y > br[2]) br = [x, y, x + y];
+      if (x - y > tr[2]) tr = [x, y, x - y]; if (x - y < bl[2]) bl = [x, y, x - y];
+      if (x === 0 || y === 0 || x === w - 1 || y === hh - 1) edge++;
+    }
+    let q = [tl, tr, br, bl].map(([x, y]) => [x + 0.5, y + 0.5]);
+    const area = Math.abs(q.reduce((a, p, i) => { const r = q[(i + 1) % 4]; return a + p[0] * r[1] - r[0] * p[1]; }, 0)) / 2;
+    if (area < n * 0.12 || bestA / area < 0.8 || edge > (w + hh) * 0.6) return file;     // keine klare Rechteck-Form
+    const cx = q.reduce((a, p) => a + p[0], 0) / 4, cy = q.reduce((a, p) => a + p[1], 0) / 4;
+    q = q.map(([x, y]) => [Math.max(0, Math.min(W, (cx + (x - cx) * 1.02) / s)), Math.max(0, Math.min(H, (cy + (y - cy) * 1.02) / s))]);
+    // 4) entzerren (Homographie Ziel-Rechteck -> Foto-Viereck)
+    const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+    const ow = Math.round(Math.max(dist(q[0], q[1]), dist(q[3], q[2]))), oh = Math.round(Math.max(dist(q[0], q[3]), dist(q[1], q[2])));
+    if (ow < 100 || oh < 100) return file;
+    const Hm = (() => {
+      const P = [[0, 0], [ow, 0], [ow, oh], [0, oh]], A = [], B = [];
+      for (let i = 0; i < 4; i++) { const [x, y] = P[i], [u, v] = q[i]; A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); B.push(u); A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); B.push(v); }
+      for (let c = 0; c < 8; c++) { let p = c; for (let r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r; [A[c], A[p]] = [A[p], A[c]]; [B[c], B[p]] = [B[p], B[c]];
+        for (let r = 0; r < 8; r++) if (r !== c) { const f = A[r][c] / A[c][c]; for (let k = c; k < 8; k++) A[r][k] -= f * A[c][k]; B[r] -= f * B[c]; } }
+      return B.map((b, i) => b / A[i][i]);
+    })();
+    const sd = sx.getImageData(0, 0, W, H).data, out = document.createElement('canvas'); out.width = ow; out.height = oh;
+    const ox = out.getContext('2d'), od = ox.createImageData(ow, oh), d = od.data;
+    for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) {
+      const z = Hm[6] * x + Hm[7] * y + 1, u = (Hm[0] * x + Hm[1] * y + Hm[2]) / z, v = (Hm[3] * x + Hm[4] * y + Hm[5]) / z;
+      const x0 = Math.max(0, Math.min(W - 2, Math.floor(u))), y0 = Math.max(0, Math.min(H - 2, Math.floor(v))), fx = Math.min(1, Math.max(0, u - x0)), fy = Math.min(1, Math.max(0, v - y0));
+      const o = (y * ow + x) * 4, i00 = (y0 * W + x0) * 4, i10 = i00 + 4, i01 = i00 + W * 4, i11 = i01 + 4;
+      for (let c = 0; c < 3; c++) d[o + c] = (sd[i00 + c] * (1 - fx) + sd[i10 + c] * fx) * (1 - fy) + (sd[i01 + c] * (1 - fx) + sd[i11 + c] * fx) * fy;
+      d[o + 3] = 255;
+    }
+    ox.putImageData(od, 0, 0);
+    const blob = await new Promise((r) => out.toBlob(r, 'image/jpeg', 0.88));
+    return blob ? new File([blob], (file.name || 'beleg').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }) : file;
   } catch (e) { return file; }
 }
 async function uploadFiles(orderId, files) {
@@ -1529,7 +1601,7 @@ function receiptButtons(id) {
     if (!files.length) return;
     toast(me.ai_enabled && !id ? t('ai_reading') : t('uploading', 1, 1));
     try {
-      const fd = new FormData(); if (id) fd.append('id', id); fd.append('scan', id ? '' : '1'); fd.append('file', await prepImage(files[0]));
+      const fd = new FormData(); if (id) fd.append('id', id); fd.append('scan', id ? '' : '1'); fd.append('file', await prepImage(await cropReceipt(files[0])));
       const r = await api('expense_upload', { form: fd });
       if (r.ai_error) toast(t('err_' + r.ai_error)); else if (r.ai && !r.ai.is_receipt) toast(t('ai_not_receipt')); else if (r.ai && !r.ai.confident) toast(t('ai_check'));
       if (location.hash === `#/expense/${r.id}`) render(); else location.hash = `#/expense/${r.id}`;

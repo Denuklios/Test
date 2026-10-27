@@ -78,6 +78,13 @@ try {
     assert.equal(s.j.calc.gross_dkk, 74600); assert.equal(s.j.calc.rc_vat_dkk, 18650); assert.equal(s.j.calc.deduct_dkk, 18650);
     await call('expense_delete', { body: { id: s.j.id } });
   });
+  await ok('Leeres Moms-Feld: bei EU-Einkauf egal, bei dänischer Moms klare Meldung', async () => {
+    const s = await call('expense_save', { body: { date: iso(-1), supplier: 'Shop', category: 'misc', gross: '563,89', vat: '', vat_mode: 'eu_goods', currency: 'DKK', no_receipt: 'Test' } });
+    assert.equal(s.status, 200); assert.equal(s.j.calc.rc_vat_dkk, 14097);
+    await call('expense_delete', { body: { id: s.j.id } });
+    const d = await call('expense_save', { body: { date: iso(-1), supplier: 'Shop', gross: '100', vat: '', vat_mode: 'dk' } });
+    assert.equal(d.j.error, 'vat_missing');
+  });
   await ok('Bewirtung 25 %, Telefon gemischt nach Firmenanteil, Versicherung ohne Moms', async () => {
     const a = await call('expense_save', { body: { date: iso(-1), supplier: 'Restaurant', category: 'meals', gross: '500', vat: '100', vat_mode: 'dk' } }); assert.equal(a.j.calc.deduct_dkk, 2500);
     await call('company_save', { body: { ...me.j.company, phone_share: 40 } });

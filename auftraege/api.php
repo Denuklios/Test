@@ -1725,7 +1725,12 @@ try {
                 wf_fail('bad_currency');
             }
             $gross = wf_to_cents($in['gross'] ?? '', true);
-            $vat = wf_to_cents($in['vat'] ?? '0', true);
+            // Moms-Feld zählt nur bei dänischer Moms; bei EU-Einkauf/keine Moms bleibt es leer
+            $vatIn = trim((string)($in['vat'] ?? ''));
+            if ($mode === 'dk' && $vatIn === '') {
+                wf_fail('vat_missing');
+            }
+            $vat = $mode === 'dk' ? wf_to_cents($vatIn, true) : 0;
             if ($gross === null || $vat === null) {
                 wf_fail('bad_amount');
             }
