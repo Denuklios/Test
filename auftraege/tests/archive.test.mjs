@@ -75,7 +75,8 @@ try {
     assert.equal(await g('Fahrrad'), null);
   });
 
-  await ok('Stundensatz speichern', async () => {
+  await ok('Stundensatz: Standard 450 kr, änderbar', async () => {
+    assert.equal((await call('me')).j.company.hour_rate, 45000);
     assert.ok((await call('company_save', { body: { ...co, hour_rate: '480' } })).j.ok);
     assert.equal((await call('me')).j.company.hour_rate, 48000);
   });
