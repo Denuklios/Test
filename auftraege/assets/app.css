@@ -385,9 +385,10 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 .calcbox{margin-top:8px}.calcbox summary{cursor:pointer;color:var(--p2);font-size:.9rem}
 .pchips{display:flex;flex-wrap:wrap;gap:6px;margin:6px 0}
 .pchip{display:inline-flex;align-items:center;gap:6px;padding:7px 12px;border-radius:999px;border:1px solid var(--line-strong);background:var(--surface2,var(--surface));color:var(--muted);font-size:.86rem;cursor:pointer;user-select:none;min-height:38px}
-.pchip.on{color:#fff;border-color:var(--c);background:color-mix(in srgb,var(--c) 30%,transparent)}
+.pchip.on{color:var(--text);font-weight:600;border-color:var(--c);background:color-mix(in srgb,var(--c) 22%,var(--surface))}
 .pchip .pmin{display:inline-flex;align-items:center;gap:3px;font-size:.78rem}
-.pchip .pmin input{width:46px;min-height:0;height:28px;padding:2px 6px;border-radius:8px;text-align:center;font-size:.85rem}
+.pchip .pmin input{width:54px;min-height:0;height:30px;padding:2px 4px;border-radius:8px;text-align:center;font-size:.95rem;font-weight:600;color:var(--text);background:var(--field);border-color:var(--c);-moz-appearance:textfield;appearance:textfield}
+.pchip .pmin input::-webkit-outer-spin-button,.pchip .pmin input::-webkit-inner-spin-button{-webkit-appearance:none;margin:0}
 .items{display:grid;gap:10px;margin-bottom:8px}
 .item{border:1px solid var(--line-strong);border-radius:14px;padding:10px;background:rgba(255,255,255,.02)}
 .itop{display:flex;gap:8px;align-items:center}.itop input{flex:1}
