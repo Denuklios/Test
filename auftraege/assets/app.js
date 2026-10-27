@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Kundenmails per du';
+const APP_VERSION = '2026-10-27 · Zeitplan-Fehler behoben';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -1826,6 +1826,7 @@ route(/^\/settings$/, async () => {
     cronBox.replaceChildren(...[smtpBox, h('div', { class: 'sechead', style: 'margin-top:14px' }, '⏰ ' + t('cron_title')),
       h('p', { class: 'muted', style: 'margin:4px 0 8px' }, t('cron_text')),
       h('p', { style: 'margin:0 0 4px;font-size:.9rem' }, c.last ? '✓ ' + t('cron_last', c.last.slice(0, 16)) + (c.result ? ' · ' + t('cron_result', c.result.replace(/^OK /, '')) : '') : '⚠ ' + t('cron_never')),
+      c.error ? h('p', { class: 'warn-t', style: 'margin:0 0 4px;font-size:.88rem;word-break:break-word' }, '⚠ ' + t('cron_error', c.error)) : null,
       c.denied && (!c.last || c.denied > c.last) ? h('p', { class: 'warn-t', style: 'margin:0 0 4px;font-size:.9rem' }, '⚠ ' + t('cron_denied', c.denied)) : null,
       h('p', { class: 'muted', style: 'margin:0 0 4px;font-size:.88rem' }, c.waiting ? t('cron_waiting', c.waiting, c.next ? dfmt(c.next.slice(0, 10)) : '—') : t('cron_nothing')),
       c.mail_error && (!c.mail_ok || c.mail_error > c.mail_ok) ? h('p', { class: 'warn-t', style: 'margin:0 0 4px;font-size:.88rem' }, '⚠ ' + t('mail_err', c.mail_error)) : null,

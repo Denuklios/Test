@@ -1981,7 +1981,7 @@ try {
             $due = (int)$db->query("SELECT COUNT(*) FROM orders WHERE status = 'delivered' AND deleted_at IS NULL AND followup_at IS NULL AND shipped_at IS NOT NULL AND shipped_at >= datetime('now', '-30 days')")->fetchColumn();
             $next = (string)($db->query("SELECT MIN(datetime(shipped_at, '+7 days')) FROM orders WHERE status = 'delivered' AND deleted_at IS NULL AND followup_at IS NULL AND shipped_at >= datetime('now', '-30 days')")->fetchColumn() ?: '');
             $sc = wf_smtp_cfg();
-            wf_json(['ok' => true, 'smtp' => $sc ? ['host' => $sc['host'], 'port' => (int)$sc['port'], 'user' => $sc['user'], 'pass_set' => true] : null, 'url' => $url, 'last' => $last, 'result' => $mv('cron_result'), 'denied' => $mv('cron_denied'), 'mail_ok' => $mv('mail_last_ok'), 'mail_error' => $mv('mail_last_error'),
+            wf_json(['ok' => true, 'smtp' => $sc ? ['host' => $sc['host'], 'port' => (int)$sc['port'], 'user' => $sc['user'], 'pass_set' => true] : null, 'url' => $url, 'last' => $last, 'result' => $mv('cron_result'), 'denied' => $mv('cron_denied'), 'error' => $mv('cron_error'), 'mail_ok' => $mv('mail_last_ok'), 'mail_error' => $mv('mail_last_error'),
                 'waiting' => $due, 'next' => $next, 'script' => $script]);
         }
 

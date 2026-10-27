@@ -156,6 +156,16 @@ try {
     assert.equal(st.open, 0); assert.equal(st.last_backup, today);
   });
 
+  await ok('Wochensicherung auch über den Zeitplan (cron.php) – früher 500-Fehler', async () => {
+    execFileSync('php', ['-r', `$p=new PDO('sqlite:${data}/auftraege.sqlite');$p->exec("DELETE FROM meta WHERE key='archive_last_backup'");$p->exec("DELETE FROM archive_queue WHERE type='backup'");`]);
+    const before = drive.filter((d) => d.folder === 'Sikkerhedskopi').length;
+    const url = (await call('cron_info')).j.url;
+    const res = await fetch(url);
+    assert.equal(res.status, 200, await res.text());
+    assert.equal(drive.filter((d) => d.folder === 'Sikkerhedskopi').length, before + 1);
+    assert.equal((await call('cron_info')).j.error, '');
+  });
+
   await ok('Alles bisherige nachsenden: auch die Rechnung von vor der Einrichtung', async () => {
     const before = drive.length;
     await call('archive_run', { body: { all: 1 } });

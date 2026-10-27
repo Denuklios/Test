@@ -244,10 +244,19 @@ function wf_archive_build(PDO $db, array $q): ?array
             'files' => $files];
     }
     if ($q['type'] === 'backup') {
-        $tmp = tempnam(sys_get_temp_dir(), 'wfa') . '.sqlite';
-        $db->exec("VACUUM INTO '" . str_replace("'", "''", $tmp) . "'");
-        $data = (string)gzencode((string)file_get_contents($tmp), 9);
-        @unlink($tmp);
+        // Kopie im eigenen Datenordner (Systemordner sind bei Webhostern oft gesperrt)
+        $dir = rtrim((string)wf_cfg('data_dir'), '/');
+        $tmp = $dir . '/backup-tmp-' . bin2hex(random_bytes(6)) . '.sqlite';
+        try {
+            // eigene Verbindung: VACUUM geht nicht, solange auf der Hauptverbindung Abfragen offen sind
+            $bk = new PDO('sqlite:' . $dir . '/auftraege.sqlite', null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+            $bk->exec('PRAGMA busy_timeout = 10000');
+            $bk->exec("VACUUM INTO '" . str_replace("'", "''", $tmp) . "'");
+            $bk = null;
+            $data = (string)gzencode((string)file_get_contents($tmp), 6);
+        } finally {
+            @unlink($tmp);
+        }
         $chk = wf_journal_verify($db);
         return ['folder' => 'Sikkerhedskopi', 'subject' => '[WF-Archiv] Wochensicherung ' . date('Y-m-d') . ' · ' . $co['name'],
             'text' => 'Komplette Datenbank (Aufträge, Kunden, Rechnungen, Ausgaben, Journal) vom ' . date('Y-m-d H:i') . ".\nPrüfkette: " . ($chk['ok'] ? 'OK' : 'ABWEICHUNG: ' . implode(', ', $chk['problems']))
@@ -273,12 +282,24 @@ function wf_archive_run(PDO $db, int $limit = 5): array
     $st = $db->prepare("SELECT * FROM archive_queue WHERE sent_at IS NULL AND attempts < 10 AND (attempts = 0 OR created_at < datetime('now', '-' || (attempts * 10) || ' minutes')) ORDER BY id LIMIT ?");
     $st->execute([$limit]);
     foreach ($st->fetchAll() as $q) {
-        $m = wf_archive_build($db, $q);
+        // Ein fehlerhafter Eintrag darf den Rest nicht aufhalten: Fehler merken, später erneut
+        try {
+            $m = wf_archive_build($db, $q);
+        } catch (Throwable $e) {
+            $db->prepare("UPDATE archive_queue SET attempts = attempts + 1, last_error = ? WHERE id = ?")->execute([mb_substr('Fehler: ' . $e->getMessage(), 0, 300), $q['id']]);
+            $failed++;
+            continue;
+        }
         if (!$m) {
             $db->prepare("UPDATE archive_queue SET sent_at = datetime('now'), last_error = 'übersprungen' WHERE id = ?")->execute([$q['id']]);
             continue;
         }
-        $ok = wf_archive_send($cfg, $m);
+        try {
+            $ok = wf_archive_send($cfg, $m);
+        } catch (Throwable $e) {
+            $ok = false;
+            $GLOBALS['wf_mail_err'] = $e->getMessage();
+        }
         if ($ok) {
             $db->prepare("UPDATE archive_queue SET sent_at = datetime('now'), attempts = attempts + 1, last_error = '' WHERE id = ?")->execute([$q['id']]);
             if ($q['type'] === 'backup') {
