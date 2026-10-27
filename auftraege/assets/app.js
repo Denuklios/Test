@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Schmale Auftragsliste';
+const APP_VERSION = '2026-10-27 · Kategorie-Filter im Auftrag';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -846,7 +846,7 @@ async function orderForm(o, presetCustomer, note = '') {
   const drawPsug = () => {
     const q = pq.value.trim().toLowerCase();
     // Treffer nach Kategorie gruppiert; die Suche findet auch über den Kategorienamen („bekleidung“, „polo“)
-    const hits = prodList.filter((p) => !q || (p.name + ' ' + (p.sku || '') + ' ' + p.path).toLowerCase().includes(q)).slice(0, q ? 20 : 60);
+    const hits = prodList.filter((p) => inCat(pcats, p, pcat) && (!q || (p.name + ' ' + (p.sku || '') + ' ' + p.path).toLowerCase().includes(q))).slice(0, pcat ? 300 : q ? 20 : 60);
     let lastPath = null;
     psug.replaceChildren(...hits.flatMap((p) => [p.path !== lastPath && (pcats.length) ? h('div', { class: 'sug-head' }, (lastPath = p.path) || t('cat_none')) : null, h('button', { type: 'button', class: 'psugitem', onmousedown: (e) => e.preventDefault(), onclick: () => pickProd(p) },
       p.images && p.images.length ? h('img', { class: 'sthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : null,
@@ -856,7 +856,21 @@ async function orderForm(o, presetCustomer, note = '') {
   };
   pq.addEventListener('focus', drawPsug); pq.addEventListener('input', drawPsug);
   pq.addEventListener('blur', () => setTimeout(() => psug.classList.add('hidden'), 150));
-  const addBox = h('div', { class: 'suggest additem' }, pq, psug);
+  // Kategorie-Filter: Hauptkategorie, dann Unterkategorie antippen – die Liste zeigt nur diese Produkte
+  let pcat = 0;
+  const pchips = h('div', { class: 'catchips pcatf' });
+  const drawPchips = () => {
+    const main = pcats.filter((c) => !c.parent_id && prodList.some((p) => inCat(pcats, p, +c.id)));
+    const selMain = pcat > 0 ? (pcats.find((c) => +c.id === pcat) || {}).parent_id || pcat : 0;
+    const chip = (id, label) => h('button', { type: 'button', class: 'chip' + (pcat === id || (id && +selMain === id) ? ' on' : ''), onmousedown: (e) => e.preventDefault(),
+      onclick: () => { pcat = pcat === id && id ? (+((pcats.find((c) => +c.id === id) || {}).parent_id) || 0) : id; drawPchips(); if (document.activeElement === pq) drawPsug(); else pq.focus(); } },
+      label, h('small', { class: 'muted' }, ' ' + prodList.filter((p) => inCat(pcats, p, id)).length));
+    const subs = selMain ? pcats.filter((c) => +c.parent_id === +selMain && prodList.some((p) => inCat(pcats, p, +c.id))) : [];
+    pchips.replaceChildren(...[h('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px' }, chip(0, t('cat_all')), ...main.map((m) => chip(+m.id, m.name))),
+      subs.length ? h('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px;padding-left:12px' }, h('span', { class: 'muted' }, '↳'), ...subs.map((c) => chip(+c.id, c.name))) : null].filter(Boolean));
+  };
+  if (pcats.length) drawPchips();
+  const addBox = h('div', {}, pcats.length ? pchips : null, h('div', { class: 'suggest additem' }, pq, psug));
 
   const sumBox = h('div', { class: 'sumbox' });
   function updateSummary() {

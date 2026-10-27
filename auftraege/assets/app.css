@@ -469,3 +469,5 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 @media(max-width:900px){.orow{grid-template-columns:40px minmax(0,1fr) auto;grid-template-areas:'th main due' 'th st next';row-gap:4px}
   .or-th{grid-area:th;align-self:start}.or-main{grid-area:main}.or-due{grid-area:due;text-align:right}.or-qty{display:none}
   .or-st{grid-area:st;justify-content:flex-start;flex-wrap:wrap;align-self:center}.or-next{grid-area:next}}
+.pcatf{margin:6px 0 8px;contain:inline-size;min-width:0}.pcatf .chip{min-height:0;padding:5px 11px;font-size:.82rem}
+@media(max-width:600px){.pcatf .row{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}.pcatf .row::-webkit-scrollbar{display:none}.pcatf .chip{flex:none}}
