@@ -47,6 +47,7 @@ public final class HomeScreen extends Screen {
         });
         Ui.add(page, Ui.section(c, "Werkzeuge"), 20);
         addTiles(page, new Object[][]{
+                {"Adapter-Test", "Was kann mein OBD-Stecker?", new AdapterScreen()},
                 {"Fehlercode-Suche", "Code nachschlagen", new LookupScreen()},
                 {"Bericht", "Diagnosebericht teilen", null},
         });
@@ -93,11 +94,14 @@ public final class HomeScreen extends Screen {
         Context c = act;
         connButtons.removeAllViews();
         if (Session.connected()) {
-            connTitle.setText("● Verbunden");
-            connTitle.setTextColor(Ui.GREEN);
+            boolean adapterOnly = Session.elm != null && !Session.elm.vehicleOk;
+            connTitle.setText(adapterOnly ? "● Nur Adapter verbunden" : "● Verbunden");
+            connTitle.setTextColor(adapterOnly ? Ui.YELLOW : Ui.GREEN);
             StringBuilder sb = new StringBuilder();
             sb.append(Session.transport.describe());
-            if (Session.elm != null) {
+            if (Session.elm != null && !Session.elm.vehicleOk) {
+                sb.append("\nDas Fahrzeug antwortet nicht – Zündung an? Adapter-Test und Terminal sind nutzbar.");
+            } else if (Session.elm != null) {
                 sb.append("\nProtokoll: ").append(Session.elm.protocolDesc);
                 sb.append("\nAdapter: ").append(Session.elm.version);
             }

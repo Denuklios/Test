@@ -10,6 +10,11 @@ public final class Elm327 {
     public String protocolDesc = "";
     /** ELM-Protokollnummer 1..C (6..9 = CAN). */
     public int protocol;
+    /** false = nur der Adapter antwortet, das Fahrzeug (noch) nicht. */
+    public boolean vehicleOk;
+
+    private final StringBuilder transcript = new StringBuilder();
+    private final long t0 = System.currentTimeMillis();
 
     /** Protokollnamen für ATSP-Auswahl. */
     public static final String[] PROTOCOLS = {
@@ -32,17 +37,49 @@ public final class Elm327 {
     /** Sendet einen Befehl und liefert die ungefilterte Antwort (ohne Prompt). */
     public synchronized String raw(String cmd, long timeoutMs) throws IOException {
         transport.clearInput();
+        long start = System.currentTimeMillis();
+        log("> " + cmd);
         transport.write(cmd + "\r");
         String r = transport.readUntilPrompt(timeoutMs);
         if (r == null) {
+            // Nicht unterbrechen (billige Klone hängen sich dabei oft auf), sondern noch etwas länger warten
+            r = transport.readUntilPrompt(5000);
+        }
+        long ms = System.currentTimeMillis() - start;
+        if (r == null) {
             String partial = transport.peek().replace('\r', ' ').trim();
-            // Adapter mit einem Zeilenumbruch unterbrechen und neu synchronisieren
-            transport.write("\r");
-            transport.readUntilPrompt(1500);
-            throw new IOException("Keine Antwort vom Adapter auf \"" + cmd + "\" (Zeitüberschreitung"
+            log("< (keine Antwort nach " + ms + " ms" + (partial.isEmpty() ? "" : ", Teil: " + partial) + ")");
+            throw new Timeout("Keine Antwort vom Adapter auf \"" + cmd + "\" (Zeitüberschreitung"
                     + (partial.isEmpty() ? "" : ", bisher empfangen: " + partial) + ")");
         }
+        log("< " + r.trim().replace("\r", " | ") + "   [" + ms + " ms]");
         return r;
+    }
+
+    private void log(String line) {
+        synchronized (transcript) {
+            if (transcript.length() > 200_000) return;
+            transcript.append(String.format(java.util.Locale.US, "%7.2f s  ", (System.currentTimeMillis() - t0) / 1000.0))
+                    .append(line).append('\n');
+        }
+    }
+
+    /** Vollständiges Mitschnitt-Protokoll aller Befehle und Antworten. */
+    public String transcript() {
+        synchronized (transcript) {
+            return transcript.toString();
+        }
+    }
+
+    /** Versucht einen hängenden Adapter per Reset wiederzubeleben. */
+    public boolean recover() {
+        try {
+            raw("ATZ", 5000);
+            setup();
+            return true;
+        } catch (IOException e) {
+            return false;
+        }
     }
 
     public String cmd(String c) throws IOException {
@@ -128,34 +165,48 @@ public final class Elm327 {
                     n == 0 ? "verbunden, aber keine Daten empfangen"
                             : "Der Adapter antwortet nicht wie ein ELM327. Empfangen: \"" + transport.receivedText() + "\"");
         }
-        setup();
-        version = cmd("ATI");
-        log.line("Adapter: " + version);
+        // Ab hier ist klar: Bluetooth und Adapter funktionieren. Fehler betreffen das Fahrzeug.
+        try {
+            setup();
+            version = cmd("ATI");
+            log.line("Adapter: " + version);
+            findVehicle(protocolChoice, log);
+        } catch (IOException e) {
+            if (transport.isFailed() || e instanceof VehicleError) throw e;
+            throw new VehicleError("Der Adapter (" + version + ") antwortet, aber die Verbindung zum Fahrzeug "
+                    + "klappt nicht: " + e.getMessage());
+        }
+    }
+
+    private void findVehicle(int protocolChoice, Log log) throws IOException {
         // Erst die gängigen CAN-Protokolle direkt testen (schnell), dann die automatische Suche
         // mit viel Zeit – billige Klone brauchen dafür teils über 30 s.
         int[] order = protocolChoice != 0 ? new int[]{protocolChoice} : new int[]{6, 8, 7, 9, 0};
-        String last = "";
+        StringBuilder tried = new StringBuilder();
         boolean found = false;
         for (int p : order) {
             log.line(p == 0 ? "Automatische Protokollsuche (kann bis zu 1 Minute dauern) …"
                     : "Teste " + PROTOCOLS[p] + " …");
-            cmd("ATSP" + Integer.toHexString(p).toUpperCase());
+            String result;
             try {
-                String r = cmd("0100", p == 0 ? 60000 : p >= 6 ? 8000 : 25000);
+                cmd("ATSP" + Integer.toHexString(p).toUpperCase());
+                String r = cmd("0100", p == 0 ? 60000 : p >= 6 ? 12000 : 25000);
                 if (!ResponseParser.parse(r, true, false).isEmpty()) {
                     found = true;
                     break;
                 }
-                last = r.replace('\n', ' ');
-            } catch (IOException e) {
-                if (transport.isFailed()) throw e;
-                last = e.getMessage();
+                result = r.replace('\n', ' ');
+            } catch (Timeout e) {
+                result = "keine Antwort";
+                log.line("Adapter hängt – Neustart …");
+                if (!recover()) throw new VehicleError("Der Adapter (" + version + ") hat sich bei der "
+                        + "Fahrzeugabfrage aufgehängt und reagiert nicht mehr. Adapter abziehen und neu einstecken.");
             }
+            tried.append("\n• ").append(p == 0 ? "Automatisch" : PROTOCOLS[p]).append(": ").append(result);
         }
         if (!found) {
-            throw new VehicleError("Der Adapter (" + version + ") funktioniert, aber das Fahrzeug antwortet nicht"
-                    + (last.isEmpty() ? "." : " (" + last + ").")
-                    + "\nBitte Zündung einschalten (Stellung 2 oder Motor laufen lassen) und erneut verbinden.");
+            throw new VehicleError("Der Adapter (" + version + ") funktioniert, aber das Fahrzeug antwortet nicht."
+                    + tried + "\n\nZündung einschalten (Stellung 2 oder Motor laufen lassen) und erneut verbinden.");
         }
         String dpn = cmd("ATDPN").replace("A", "").trim();
         try {
@@ -167,6 +218,7 @@ public final class Elm327 {
         log.line("Protokoll: " + protocolDesc);
         // Feste Protokollnummer setzen, damit später keine Suche mehr nötig ist
         cmd("ATSP" + Integer.toHexString(protocol).toUpperCase());
+        vehicleOk = true;
     }
 
     /** Stellt den Normalzustand nach Spezialbefehlen (UDS, Header) wieder her. */
@@ -183,6 +235,13 @@ public final class Elm327 {
         public NoResponse(boolean silent, String msg) {
             super(msg);
             this.silent = silent;
+        }
+    }
+
+    /** Zeitüberschreitung bei einem einzelnen Befehl. */
+    public static final class Timeout extends IOException {
+        public Timeout(String msg) {
+            super(msg);
         }
     }
 

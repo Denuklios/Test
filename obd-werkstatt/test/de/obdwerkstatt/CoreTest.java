@@ -70,6 +70,15 @@ public class CoreTest {
         check(api.readAllDtcs().isEmpty(), "OBD-Fehler gelöscht");
         r = api.readiness();
         check(!r.mil, "MKL aus nach Löschen");
+        AdapterTest at = new AdapterTest(elm);
+        at.run(true, new AdapterTest.Progress() {
+            public void update(String text) {}
+            public boolean cancelled() { return false; }
+        });
+        String rep = at.report();
+        System.out.println(rep.substring(0, rep.indexOf("--- Befehlsprotokoll")));
+        check(at.verdict.contains("Fahrzeug antwortet."), "Adapter-Test: " + at.verdict);
+        check(elm.transcript().contains("> 0100"), "Befehlsprotokoll vorhanden");
         System.out.println(fails == 0 ? "ALLE TESTS OK" : fails + " FEHLER");
         System.exit(fails == 0 ? 0 : 1);
     }

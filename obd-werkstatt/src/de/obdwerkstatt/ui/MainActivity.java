@@ -149,8 +149,10 @@ public class MainActivity extends Activity {
 
     public void updateStatus() {
         boolean c = Session.connected();
-        statusView.setText(c ? "Verbunden" : "Getrennt");
-        statusView.setBackground(Ui.rounded(this, c ? Ui.GREEN : Ui.RED, 8));
+        boolean adapterOnly = c && Session.elm != null && !Session.elm.vehicleOk;
+        statusView.setText(adapterOnly ? "Nur Adapter" : c ? "Verbunden" : "Getrennt");
+        statusView.setTextColor(adapterOnly ? android.graphics.Color.BLACK : android.graphics.Color.WHITE);
+        statusView.setBackground(Ui.rounded(this, adapterOnly ? Ui.YELLOW : c ? Ui.GREEN : Ui.RED, 8));
     }
 
     public void connectionChanged() {
@@ -220,21 +222,29 @@ public class MainActivity extends Activity {
                         + "Adapter abziehen, 10 s warten, wieder einstecken.", last);
             }
 
+            private String vehicleMessage;
+
             private String open(Transport tr) throws Exception {
                 progress("Verbinde mit " + tr.describe() + " …");
                 tr.open();
                 try {
                     Elm327 elm = new Elm327(tr);
-                    elm.init(protocol, new Elm327.Log() {
-                        @Override
-                        public void line(String s) {
-                            progress(s);
-                        }
-                    });
+                    try {
+                        elm.init(protocol, new Elm327.Log() {
+                            @Override
+                            public void line(String s) {
+                                progress(s);
+                            }
+                        });
+                    } catch (Elm327.VehicleError ve) {
+                        // Adapter funktioniert – Verbindung halten, damit Adapter-Test und Terminal nutzbar sind
+                        vehicleMessage = ve.getMessage();
+                    }
                     ObdApi api = new ObdApi(elm);
                     Session.transport = tr;
                     Session.elm = elm;
                     Session.api = api;
+                    if (!elm.vehicleOk) return "!";
                     progress("Lese unterstützte Messwerte …");
                     api.supportedPids();
                     try {
@@ -252,8 +262,20 @@ public class MainActivity extends Activity {
             @Override
             public void done(String proto) {
                 connectionChanged();
-                toast("Verbunden – " + proto);
                 popToHome();
+                if ("!".equals(proto)) {
+                    new AlertDialog.Builder(MainActivity.this).setTitle("Adapter verbunden – Fahrzeug antwortet nicht")
+                            .setMessage(vehicleMessage + "\n\nMit dem Adapter-Test lässt sich prüfen, was der Adapter kann.")
+                            .setPositiveButton("Adapter-Test", new DialogInterface.OnClickListener() {
+                                @Override
+                                public void onClick(DialogInterface d, int w) {
+                                    push(new AdapterScreen());
+                                }
+                            })
+                            .setNegativeButton("OK", null).show();
+                    return;
+                }
+                toast("Verbunden – " + proto);
             }
 
             @Override
