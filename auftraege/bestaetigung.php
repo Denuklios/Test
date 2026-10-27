@@ -164,11 +164,13 @@ body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
     <?php
     $its = $snap['items'] ?? [];
     $offSum = array_sum(array_column($its, 'off'));
-    if ($its && (count($its) > 1 || $offSum > 0)): ?>
+    if ($its): ?>
     <div class="tscroll"><table class="items">
-      <tr><th><?= $e($T['item']) ?></th><th class="n"><?= $e($T['qty']) ?></th><th class="n"><?= $e($T['unit_price']) ?></th><th class="n"><?= $e($T['line_sum']) ?></th></tr>
+      <tr><th><?= $e($T['item']) ?></th><th class="n"><?= $e($T['line_sum']) ?></th></tr>
       <?php foreach ($its as $it): ?>
-      <tr><td><?= $e($it['name']) ?></td><td class="n"><?= (int)$it['qty'] ?></td><td class="n"><?= $e($money($it['price'], $snap['currency'])) ?></td>
+      <?php $nl = explode("\n", (string)$it['name'], 2); ?>
+      <tr><td><b><?= $e($nl[0]) ?></b><?php if (isset($nl[1])): ?><div class="muted" style="white-space:pre-line;font-size:.88em"><?= $e($nl[1]) ?></div><?php endif; ?>
+        <div class="muted" style="font-size:.88em"><?= (int)$it['qty'] ?> × <?= $e($money($it['price'], $snap['currency'])) ?></div></td>
         <td class="n"><?php if ($it['off'] > 0): ?><s class="muted"><?= $e($money($it['gross'], $snap['currency'])) ?></s><br><span class="disc"><?= $e($T['disc'] . ' ' . ($it['disc_type'] === 'pct' ? str_replace('.', ',', (string)(float)$it['disc']) . ' % ' : '') . '−' . $money($it['off'], $snap['currency'])) ?></span><br><?php endif; ?><b><?= $e($money($it['total'], $snap['currency'])) ?></b></td></tr>
       <?php endforeach; ?>
     </table></div>

@@ -438,3 +438,14 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 .irow{grid-template-columns:minmax(56px,.7fr) minmax(170px,1.8fr) minmax(130px,1.1fr) minmax(90px,1fr)}
 .fxw>input{min-width:80px}
 @media(max-width:600px){.irow{grid-template-columns:minmax(56px,.6fr) minmax(0,1.9fr)}.irow .idisc{grid-column:1/-1}.irow .isumbox{grid-column:1/-1}.irow .isumbox .isum{padding:2px 0}}
+
+/* Produkt-Eigenschaften */
+.optgroups{display:grid;gap:8px}.optrow{border:1px solid var(--line);border-radius:12px;padding:8px;display:grid;gap:6px}
+.optrow-top{display:flex;gap:8px;align-items:center}.optrow-top input{flex:1;min-width:0}.optrow textarea{resize:none;min-height:0}
+.optsplit{margin:0;gap:6px;text-transform:none;letter-spacing:0;font-size:.85rem;color:var(--text);white-space:nowrap}
+.popts{display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:46ch}
+.pp.nopr{color:#b45309;font-size:.85rem}
+.iopts{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:8px;margin-top:8px}
+.sizebox{margin-top:8px}.sizes{display:flex;flex-wrap:wrap;gap:6px}
+.szc{display:flex;flex-direction:column;align-items:center;gap:2px;margin:0;text-transform:none;letter-spacing:0;font-size:.8rem;color:var(--muted)}
+.szc input{width:64px;text-align:center;padding:8px 4px}

@@ -259,6 +259,23 @@ try {
     assert.equal(i.lines.reduce((a, l) => a + l.amount, 0), 98000);
     await call('invoice_delete', { body: { id: iid } });
   });
+  await ok('Katalog: einmal laden, zweites Mal nichts doppelt; Eigenschaften speichern; Größen im Auftrag → Menge und Rechnungstext', async () => {
+    const r1 = (await call('catalog_import', { body: {} })).j; assert.ok(r1.products > 150); assert.ok(r1.categories > 20);
+    const r2 = (await call('catalog_import', { body: {} })).j; assert.equal(r2.products, 0); assert.equal(r2.skipped, r1.products);
+    let ps = (await call('products')).j.products; const h = ps.find((p) => p.sku === 'WF-SW-002');
+    assert.equal(h.options[0].name, 'Größe'); assert.equal(h.options[0].split, true); assert.ok(h.options[0].values.includes('5XL'));
+    await call('product_save', { body: { id: h.id, name: h.name, unit: 'stk', price: '249', kind: 'goods', active: 1, category_id: h.category_id, sku: 'WF-SW-002',
+      options: [{ name: 'Größe', values: 'S, M, L', split: true }, { name: 'Farbe', values: ['Navy', 'Navy', ' Rot '] }, { name: '', values: 'x' }] } });
+    ps = (await call('products')).j.products; const h2 = ps.find((p) => p.id === h.id);
+    assert.deepEqual(h2.options, [{ name: 'Größe', values: ['S', 'M', 'L'], split: true }, { name: 'Farbe', values: ['Navy', 'Rot'], split: false }]);
+    const o = (await call('order_save', { body: { customer_id: dk, title: 'Hoodies', qty: 1, price: '2490', deposit: 0, currency: 'DKK', pay_status: 'open',
+      items: [{ product_id: h.id, name: 'Hoodie', sku: 'WF-SW-002', qty: 99, price: 249, opts: { Farbe: 'Navy' }, sizes: { S: 3, M: '4', L: 3, XL: 0 }, processes: [] }] } })).j.order;
+    assert.equal(o.items[0].qty, 10, 'Menge = Summe der Größen'); assert.deepEqual(o.items[0].sizes, { S: 3, M: 4, L: 3 }); assert.equal(o.qty, 10);
+    const iid = (await call('order_invoice', { body: { order_id: o.id, purpose: 'final' } })).j.id;
+    const i = (await call('invoice', { params: { id: iid } })).j.invoice;
+    assert.equal(i.lines[0].description, 'Hoodie · Navy\nStørrelser: S × 3, M × 4, L × 3\nVarenr. WF-SW-002'); assert.equal(i.lines[0].qty, 10);
+    await call('invoice_delete', { body: { id: iid } });
+  });
   await ok('Journal: Hash-Kette und alle Rechnungen geprüft, keine Lücke', async () => {
     const r = await call('journal_verify'); assert.equal(r.j.ok, true, JSON.stringify(r.j.problems)); assert.equal(r.j.invoices, 6); assert.ok(r.j.entries >= 12);
   });

@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Rabatt sichtbar für Kunden';
+const APP_VERSION = '2026-10-27 · Produktkatalog & Größen';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -128,8 +128,9 @@ async function prepImage(file) {
     return new File([blob], name.replace(/\.[^.]+$/, png ? '.png' : '.jpg'), { type: blob.type });
   } catch (e) { return file; }
 }
-// Belegfoto: hellen Zettel vor dunklerem Hintergrund finden, gerade ziehen und alles außenrum abschneiden.
-// Klappt die Erkennung nicht sicher (heller Tisch, Beleg füllt schon das Bild), bleibt das Foto unverändert.
+// Belegfoto: Zettel im Bild finden, gerade ziehen, alles außenrum abschneiden und nachschärfen.
+// Zwei Wege: helle Fläche (Otsu) und Papierkante (harte Kante; Schatten sind weich). Die größere gültige Fläche gewinnt,
+// damit ein Schatten auf dem Beleg nicht abgeschnitten wird. Ist nichts sicher erkennbar, wird nur geschärft.
 async function cropReceipt(file) {
   if (!file.type.startsWith('image/') || /gif|webp|svg/.test(file.type)) return file;
   try {
@@ -138,65 +139,101 @@ async function cropReceipt(file) {
     const W = Math.round(bmp.width * big), H = Math.round(bmp.height * big);
     const src = document.createElement('canvas'); src.width = W; src.height = H;
     const sx = src.getContext('2d', { willReadFrequently: true }); sx.drawImage(bmp, 0, 0, W, H); bmp.close && bmp.close();
-    // 1) kleines Graubild + Otsu-Schwelle (Papier = hell und farblos)
-    const s = 320 / Math.max(W, H), w = Math.max(8, Math.round(W * s)), hh = Math.max(8, Math.round(H * s));
+    const s = 320 / Math.max(W, H), w = Math.max(8, Math.round(W * s)), hh = Math.max(8, Math.round(H * s)), n = w * hh;
     const sm = document.createElement('canvas'); sm.width = w; sm.height = hh;
     const smx = sm.getContext('2d', { willReadFrequently: true }); smx.imageSmoothingQuality = 'high'; smx.drawImage(src, 0, 0, w, hh);
-    const px = smx.getImageData(0, 0, w, hh).data, n = w * hh, g = new Uint8Array(n), hist = new Array(256).fill(0);
+    const px = smx.getImageData(0, 0, w, hh).data, g = new Float32Array(n), hist = new Array(256).fill(0);
     for (let i = 0; i < n; i++) {
       const r = px[i * 4], gg = px[i * 4 + 1], b = px[i * 4 + 2], mx = Math.max(r, gg, b), mn = Math.min(r, gg, b);
-      const v = Math.max(0, Math.min(255, Math.round(0.3 * r + 0.59 * gg + 0.11 * b - (mx - mn) * 0.6))); g[i] = v; hist[v]++;
+      const v = Math.max(0, Math.min(255, 0.3 * r + 0.59 * gg + 0.11 * b - (mx - mn) * 0.6)); g[i] = v; hist[v | 0]++;
     }
+    const morph = (a, grow, R = 2) => { const o = new Uint8Array(n); for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) { let hit = false;
+      for (let dy = -R; dy <= R && !hit; dy++) for (let dx = -R; dx <= R; dx++) { const X = x + dx, Y = y + dy; const q = X < 0 || Y < 0 || X >= w || Y >= hh ? 0 : a[Y * w + X]; if (grow ? q : !q) { hit = true; break; } }
+      o[y * w + x] = grow ? (hit ? 1 : 0) : (hit ? 0 : 1); } return o; };
+    // größte zusammenhängende Fläche einer Maske -> Viereck aus den äußersten Punkten, oder null
+    const quadOf = (m) => {
+      const lab = new Int32Array(n), stack = []; let bestL = 0, bestA = 0, L = 0;
+      for (let i = 0; i < n; i++) {
+        if (!m[i] || lab[i]) continue; L++; let a = 0; stack.push(i); lab[i] = L;
+        while (stack.length) { const p = stack.pop(); a++; const x = p % w, y = (p - x) / w;
+          for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < hh - 1 ? p + w : -1]) if (q >= 0 && m[q] && !lab[q]) { lab[q] = L; stack.push(q); } }
+        if (a > bestA) { bestA = a; bestL = L; }
+      }
+      if (bestA < n * 0.12 || bestA > n * 0.9) return null;
+      let tl = [0, 0, 1e9], br = [0, 0, -1e9], tr = [0, 0, -1e9], bl = [0, 0, 1e9], edge = 0;
+      for (let i = 0; i < n; i++) if (lab[i] === bestL) {
+        const x = i % w, y = (i - x) / w;
+        if (x + y < tl[2]) tl = [x, y, x + y]; if (x + y > br[2]) br = [x, y, x + y];
+        if (x - y > tr[2]) tr = [x, y, x - y]; if (x - y < bl[2]) bl = [x, y, x - y];
+        if (x === 0 || y === 0 || x === w - 1 || y === hh - 1) edge++;
+      }
+      const q = [tl, tr, br, bl].map(([x, y]) => [x + 0.5, y + 0.5]);
+      const area = Math.abs(q.reduce((a, p, i) => { const r = q[(i + 1) % 4]; return a + p[0] * r[1] - r[0] * p[1]; }, 0)) / 2;
+      if (area < n * 0.12 || area > n * 0.92 || bestA / area < 0.8 || edge > (w + hh) * 0.6) return null;
+      return { q, area };
+    };
+    // Weg 1: helle Fläche
     let sum = 0; for (let i = 0; i < 256; i++) sum += i * hist[i];
     let sB = 0, wB = 0, best = 0, th = 128;
     for (let i = 0; i < 256; i++) { wB += hist[i]; if (!wB) continue; const wF = n - wB; if (!wF) break; sB += i * hist[i]; const d = sB / wB - (sum - sB) / wF, v = wB * wF * d * d; if (v > best) { best = v; th = i; } }
-    // 2) Maske schließen (Schrift im Beleg zählt mit), größte helle Fläche suchen
-    let m = new Uint8Array(n); for (let i = 0; i < n; i++) m[i] = g[i] > th ? 1 : 0;
-    const morph = (a, grow) => { const o = new Uint8Array(n); for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) { let v = grow ? 0 : 1; for (let dy = -2; dy <= 2 && v === (grow ? 0 : 1); dy++) for (let dx = -2; dx <= 2; dx++) { const X = x + dx, Y = y + dy; const q = X < 0 || Y < 0 || X >= w || Y >= hh ? 0 : a[Y * w + X]; if (grow ? q : !q) { v = grow ? 1 : 0; break; } } o[y * w + x] = v; } return o; };
-    m = morph(morph(m, true), false);
-    const lab = new Int32Array(n), stack = []; let bestL = 0, bestA = 0, L = 0;
-    for (let i = 0; i < n; i++) {
-      if (!m[i] || lab[i]) continue; L++; let a = 0; stack.push(i); lab[i] = L;
-      while (stack.length) { const p = stack.pop(); a++; const x = p % w, y = (p - x) / w;
-        for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < hh - 1 ? p + w : -1]) if (q >= 0 && m[q] && !lab[q]) { lab[q] = L; stack.push(q); } }
-      if (a > bestA) { bestA = a; bestL = L; }
+    const m1 = new Uint8Array(n); for (let i = 0; i < n; i++) m1[i] = g[i] > th ? 1 : 0;
+    const A = quadOf(morph(morph(m1, true), false));
+    // Weg 2: Papierkante. Weichzeichnen, Kantenstärke, vom Bildrand aus „Tisch“ fluten; was nicht erreicht wird, ist der Beleg
+    const bl = new Float32Array(n);
+    for (let y = 0; y < hh; y++) for (let x = 0; x < w; x++) { let t = 0, c = 0; for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) { const X = x + dx, Y = y + dy; if (X >= 0 && Y >= 0 && X < w && Y < hh) { t += g[Y * w + X]; c++; } } bl[y * w + x] = t / c; }
+    const ed = new Float32Array(n); const es = [];
+    for (let y = 1; y < hh - 1; y++) for (let x = 1; x < w - 1; x++) { const i = y * w + x;
+      const gx = bl[i + 1 - w] + 2 * bl[i + 1] + bl[i + 1 + w] - bl[i - 1 - w] - 2 * bl[i - 1] - bl[i - 1 + w], gy = bl[i + w - 1] + 2 * bl[i + w] + bl[i + w + 1] - bl[i - w - 1] - 2 * bl[i - w] - bl[i - w + 1];
+      ed[i] = Math.hypot(gx, gy); es.push(ed[i]); }
+    es.sort((a, b) => a - b);
+    const eth = Math.max(14, es[Math.floor(es.length * 0.9)] * 0.6);
+    const wall = morph(Uint8Array.from(ed, (v) => (v > eth ? 1 : 0)), true, 1);
+    const bg = new Uint8Array(n), st = [];
+    for (let x = 0; x < w; x++) for (const y of [0, hh - 1]) { const i = y * w + x; if (!wall[i] && !bg[i]) { bg[i] = 1; st.push(i); } }
+    for (let y = 0; y < hh; y++) for (const x of [0, w - 1]) { const i = y * w + x; if (!wall[i] && !bg[i]) { bg[i] = 1; st.push(i); } }
+    while (st.length) { const p = st.pop(), x = p % w, y = (p - x) / w;
+      for (const q of [x > 0 ? p - 1 : -1, x < w - 1 ? p + 1 : -1, y > 0 ? p - w : -1, y < hh - 1 ? p + w : -1]) if (q >= 0 && !bg[q] && !wall[q]) { bg[q] = 1; st.push(q); } }
+    const B = quadOf(morph(Uint8Array.from(bg, (v) => 1 - v), false, 1));
+    const pick = A && B ? (B.area > A.area ? B : A) : (A || B);
+    let ow = W, oh = H, Hm = null;
+    if (pick) {
+      let q = pick.q;
+      const cx = q.reduce((a, p) => a + p[0], 0) / 4, cy = q.reduce((a, p) => a + p[1], 0) / 4;
+      q = q.map(([x, y]) => [Math.max(0, Math.min(W, (cx + (x - cx) * 1.03) / s)), Math.max(0, Math.min(H, (cy + (y - cy) * 1.03) / s))]);
+      const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
+      ow = Math.round(Math.max(dist(q[0], q[1]), dist(q[3], q[2]))); oh = Math.round(Math.max(dist(q[0], q[3]), dist(q[1], q[2])));
+      if (ow >= 100 && oh >= 100) {
+        // Homographie Ziel-Rechteck -> Foto-Viereck
+        const P = [[0, 0], [ow, 0], [ow, oh], [0, oh]], M = [], R = [];
+        for (let i = 0; i < 4; i++) { const [x, y] = P[i], [u, v] = q[i]; M.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); R.push(u); M.push([0, 0, 0, x, y, 1, -v * x, -v * y]); R.push(v); }
+        for (let c = 0; c < 8; c++) { let p = c; for (let r = c + 1; r < 8; r++) if (Math.abs(M[r][c]) > Math.abs(M[p][c])) p = r; [M[c], M[p]] = [M[p], M[c]]; [R[c], R[p]] = [R[p], R[c]];
+          for (let r = 0; r < 8; r++) if (r !== c) { const f = M[r][c] / M[c][c]; for (let k = c; k < 8; k++) M[r][k] -= f * M[c][k]; R[r] -= f * R[c]; } }
+        Hm = R.map((b, i) => b / M[i][i]);
+      } else { ow = W; oh = H; }
     }
-    if (bestA < n * 0.12 || bestA > n * 0.9) return file;
-    // 3) Ecken = äußerste Punkte der Fläche (x+y / x−y)
-    let tl = [0, 0, 1e9], br = [0, 0, -1e9], tr = [0, 0, -1e9], bl = [0, 0, 1e9], edge = 0;
-    for (let i = 0; i < n; i++) if (lab[i] === bestL) {
-      const x = i % w, y = (i - x) / w;
-      if (x + y < tl[2]) tl = [x, y, x + y]; if (x + y > br[2]) br = [x, y, x + y];
-      if (x - y > tr[2]) tr = [x, y, x - y]; if (x - y < bl[2]) bl = [x, y, x - y];
-      if (x === 0 || y === 0 || x === w - 1 || y === hh - 1) edge++;
-    }
-    let q = [tl, tr, br, bl].map(([x, y]) => [x + 0.5, y + 0.5]);
-    const area = Math.abs(q.reduce((a, p, i) => { const r = q[(i + 1) % 4]; return a + p[0] * r[1] - r[0] * p[1]; }, 0)) / 2;
-    if (area < n * 0.12 || bestA / area < 0.8 || edge > (w + hh) * 0.6) return file;     // keine klare Rechteck-Form
-    const cx = q.reduce((a, p) => a + p[0], 0) / 4, cy = q.reduce((a, p) => a + p[1], 0) / 4;
-    q = q.map(([x, y]) => [Math.max(0, Math.min(W, (cx + (x - cx) * 1.02) / s)), Math.max(0, Math.min(H, (cy + (y - cy) * 1.02) / s))]);
-    // 4) entzerren (Homographie Ziel-Rechteck -> Foto-Viereck)
-    const dist = (a, b) => Math.hypot(a[0] - b[0], a[1] - b[1]);
-    const ow = Math.round(Math.max(dist(q[0], q[1]), dist(q[3], q[2]))), oh = Math.round(Math.max(dist(q[0], q[3]), dist(q[1], q[2])));
-    if (ow < 100 || oh < 100) return file;
-    const Hm = (() => {
-      const P = [[0, 0], [ow, 0], [ow, oh], [0, oh]], A = [], B = [];
-      for (let i = 0; i < 4; i++) { const [x, y] = P[i], [u, v] = q[i]; A.push([x, y, 1, 0, 0, 0, -u * x, -u * y]); B.push(u); A.push([0, 0, 0, x, y, 1, -v * x, -v * y]); B.push(v); }
-      for (let c = 0; c < 8; c++) { let p = c; for (let r = c + 1; r < 8; r++) if (Math.abs(A[r][c]) > Math.abs(A[p][c])) p = r; [A[c], A[p]] = [A[p], A[c]]; [B[c], B[p]] = [B[p], B[c]];
-        for (let r = 0; r < 8; r++) if (r !== c) { const f = A[r][c] / A[c][c]; for (let k = c; k < 8; k++) A[r][k] -= f * A[c][k]; B[r] -= f * B[c]; } }
-      return B.map((b, i) => b / A[i][i]);
-    })();
     const sd = sx.getImageData(0, 0, W, H).data, out = document.createElement('canvas'); out.width = ow; out.height = oh;
     const ox = out.getContext('2d'), od = ox.createImageData(ow, oh), d = od.data;
+    if (Hm) {
+      for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) {
+        const z = Hm[6] * x + Hm[7] * y + 1, u = (Hm[0] * x + Hm[1] * y + Hm[2]) / z, v = (Hm[3] * x + Hm[4] * y + Hm[5]) / z;
+        const x0 = Math.max(0, Math.min(W - 2, Math.floor(u))), y0 = Math.max(0, Math.min(H - 2, Math.floor(v))), fx = Math.min(1, Math.max(0, u - x0)), fy = Math.min(1, Math.max(0, v - y0));
+        const o = (y * ow + x) * 4, i00 = (y0 * W + x0) * 4, i10 = i00 + 4, i01 = i00 + W * 4, i11 = i01 + 4;
+        for (let c = 0; c < 3; c++) d[o + c] = (sd[i00 + c] * (1 - fx) + sd[i10 + c] * fx) * (1 - fy) + (sd[i01 + c] * (1 - fx) + sd[i11 + c] * fx) * fy;
+        d[o + 3] = 255;
+      }
+    } else d.set(sd);
+    // Nachschärfen: Tonwerte spreizen (1 %/99 %) und Unscharf maskieren, damit Zahlen gut lesbar sind
+    const N = ow * oh, lh = new Uint32Array(256);
+    for (let i = 0; i < N; i++) lh[(d[i * 4] * 0.3 + d[i * 4 + 1] * 0.59 + d[i * 4 + 2] * 0.11) | 0]++;
+    let lo = 0, hi = 255, acc = 0; for (; lo < 255 && (acc += lh[lo]) < N * 0.01; lo++); acc = 0; for (; hi > 0 && (acc += lh[hi]) < N * 0.01; hi--);
+    const k = hi - lo > 40 ? 255 / (hi - lo) : 1, off = hi - lo > 40 ? lo : 0;
+    const c0 = new Uint8ClampedArray(d);
     for (let y = 0; y < oh; y++) for (let x = 0; x < ow; x++) {
-      const z = Hm[6] * x + Hm[7] * y + 1, u = (Hm[0] * x + Hm[1] * y + Hm[2]) / z, v = (Hm[3] * x + Hm[4] * y + Hm[5]) / z;
-      const x0 = Math.max(0, Math.min(W - 2, Math.floor(u))), y0 = Math.max(0, Math.min(H - 2, Math.floor(v))), fx = Math.min(1, Math.max(0, u - x0)), fy = Math.min(1, Math.max(0, v - y0));
-      const o = (y * ow + x) * 4, i00 = (y0 * W + x0) * 4, i10 = i00 + 4, i01 = i00 + W * 4, i11 = i01 + 4;
-      for (let c = 0; c < 3; c++) d[o + c] = (sd[i00 + c] * (1 - fx) + sd[i10 + c] * fx) * (1 - fy) + (sd[i01 + c] * (1 - fx) + sd[i11 + c] * fx) * fy;
-      d[o + 3] = 255;
+      const o = (y * ow + x) * 4, up = y > 0 ? o - ow * 4 : o, dn = y < oh - 1 ? o + ow * 4 : o, lf = x > 0 ? o - 4 : o, rt = x < ow - 1 ? o + 4 : o;
+      for (let c = 0; c < 3; c++) { const v = c0[o + c], blur = (c0[up + c] + c0[dn + c] + c0[lf + c] + c0[rt + c]) / 4; d[o + c] = ((v + (v - blur) * 0.8) - off) * k; }
     }
     ox.putImageData(od, 0, 0);
-    const blob = await new Promise((r) => out.toBlob(r, 'image/jpeg', 0.88));
+    const blob = await new Promise((r) => out.toBlob(r, 'image/jpeg', 0.9));
     return blob ? new File([blob], (file.name || 'beleg').replace(/\.[^.]+$/, '') + '.jpg', { type: 'image/jpeg' }) : file;
   } catch (e) { return file; }
 }
@@ -331,7 +368,9 @@ route(/^\/order\/(\d+)$/, async (id) => {
         h('dt', {}, t('payment')), h('dd', {}, paySel))),
     o.items && o.items.length ? h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:8px' }, t('items_label')), h('div', { class: 'tscroll' }, h('table', { class: 't' }, o.items.map((i) => {
       const m = procMin(i.processes, i.qty);
-      return h('tr', {}, h('td', {}, `${i.qty} ×`), h('td', {}, h('b', {}, i.name), h('div', { class: 'muted', style: 'font-size:.8rem' }, procLabel(i.processes))),
+      const ov = Object.values(i.opts || {}).filter(Boolean), sz = Object.entries(i.sizes || {}).filter(([, q]) => +q > 0);
+      return h('tr', {}, h('td', {}, `${i.qty} ×`), h('td', {}, h('b', {}, i.name), ov.length ? h('div', {}, ov.join(' · ')) : null, sz.length ? h('div', { class: 'muted', style: 'font-size:.85rem' }, sz.map(([k, q]) => `${k} × ${q}`).join(', ')) : null,
+        h('div', { class: 'muted', style: 'font-size:.8rem' }, [i.sku, procLabel(i.processes)].filter(Boolean).join(' · '))),
         h('td', { class: 'num' }, money(itemTotal(i), o.currency), +i.disc ? h('div', { class: 'muted', style: 'font-size:.8rem' }, `${t('discount_short')} ${i.disc_type === 'abs' ? money(+i.disc, o.currency) : String(+i.disc).replace('.', ',') + ' %'}`) : null), h('td', { class: 'num muted' }, m ? hm(m) : ''));
     })))) : null,
     (o.description || o.notes) && h('div', { class: 'card' }, o.description && h('p', { style: 'margin:0 0 8px;white-space:pre-wrap' }, o.description), o.notes && h('p', { class: 'muted', style: 'margin:0;white-space:pre-wrap' }, o.notes)),
@@ -720,7 +759,24 @@ async function orderForm(o, presetCustomer, note = '') {
     const sumEl = h('span', { class: 'isum' });
     const timeEl = h('span', { class: 'itime muted' });
     const pick = procPicker(it.processes || [], itemsChanged);
-    r.get = () => ({ product_id: it.product_id || null, name: nameIn.value.trim(), qty: Math.max(1, parseInt(qtyIn.value, 10) || 1), price: num(priceIn.value), disc: Math.max(0, num(discIn.value)), disc_type: dType, processes: pick.get() });
+    // Eigenschaften des Produkts: Auswahl (Farbe, Inhalt, Maße …) und Menge je Größe
+    const prod = allProds.find((p) => +p.id === +it.product_id) || {};
+    const defs = it.optDefs || prod.options || [];
+    const opts = { ...(it.opts || {}) }, sizes = { ...(it.sizes || {}) };
+    const splitG = defs.find((g) => g.split);
+    const syncQty = () => { const n = Object.values(sizes).reduce((a, b) => a + (+b || 0), 0); qtyIn.readOnly = n > 0; if (n > 0) qtyIn.value = n; };
+    const optSels = defs.filter((g) => !g.split).map((g) => {
+      if (g.values.length === 1 && !opts[g.name]) opts[g.name] = g.values[0];
+      const sel = h('select', { onchange: () => { opts[g.name] = sel.value; itemsChanged(); } }, h('option', { value: '' }, `– ${g.name} –`),
+        [...new Set([...g.values, ...(opts[g.name] && !g.values.includes(opts[g.name]) ? [opts[g.name]] : [])])].map((v) => h('option', { value: v, selected: opts[g.name] === v }, v)));
+      return h('div', {}, h('label', {}, g.name), sel);
+    });
+    const sizeKeys = splitG ? [...new Set([...splitG.values, ...Object.keys(sizes)])] : Object.keys(sizes);
+    const sizeBox = sizeKeys.length ? h('div', { class: 'sizebox' }, h('label', {}, (splitG ? splitG.name : t('op_size')) + ' · ' + t('op_qty_each')),
+      h('div', { class: 'sizes' }, sizeKeys.map((v) => { const inp = h('input', { type: 'number', min: 0, inputmode: 'numeric', value: sizes[v] || '', placeholder: '0',
+        oninput: () => { sizes[v] = Math.max(0, parseInt(inp.value, 10) || 0); syncQty(); itemsChanged(); } }); return h('label', { class: 'szc' }, h('span', {}, v), inp); }))) : null;
+    r.get = () => ({ product_id: it.product_id || null, name: nameIn.value.trim(), qty: Math.max(1, parseInt(qtyIn.value, 10) || 1), price: num(priceIn.value), disc: Math.max(0, num(discIn.value)), disc_type: dType, processes: pick.get(),
+      sku: it.sku || prod.sku || '', opts: Object.fromEntries(Object.entries(opts).filter(([, v]) => v)), sizes: Object.fromEntries(Object.entries(sizes).filter(([, q]) => +q > 0)) });
     r.sum = () => itemTotal(r.get());
     r.min = () => { const g = r.get(); return procMin(g.processes, g.qty); };
     r.upd = () => {
@@ -735,7 +791,9 @@ async function orderForm(o, presetCustomer, note = '') {
       h('div', { class: 'itop' }, nameIn, h('button', { type: 'button', class: 'btn small danger', 'aria-label': t('delete'), onclick: () => { items.splice(items.indexOf(r), 1); r.el.remove(); itemsChanged(); } }, '✕')),
       h('div', { class: 'irow' }, h('div', {}, h('label', {}, t('qty')), qtyIn), h('div', {}, h('label', {}, t('unit_price')), priceIn),
         h('div', { class: 'idisc' }, h('label', {}, t('discount_short')), h('span', { class: 'fxw' }, discIn, h('span', { class: 'curswitch' }, bPct, bAbs))), h('div', { class: 'isumbox' }, h('label', {}, t('line_total')), sumEl)),
+      optSels.length ? h('div', { class: 'iopts' }, ...optSels) : null, sizeBox,
       pick, timeEl);
+    syncQty();
     items.push(r); itemsBox.append(r.el);
     fxAttach(priceIn, () => F.currency.value);
     if (focus) { qtyIn.focus(); qtyIn.select(); }
@@ -754,13 +812,13 @@ async function orderForm(o, presetCustomer, note = '') {
   };
   const pickProd = async (p) => {
     psug.classList.add('hidden'); pq.value = '';
-    addItem({ product_id: p.id, name: p.name, qty: items.length ? 1 : Math.max(1, +D.qty || 1), price: await toCur(+p.price), processes: p.processes }, true);
+    addItem({ product_id: p.id, name: p.name, sku: p.sku, optDefs: p.options, qty: items.length ? 1 : Math.max(1, +D.qty || 1), price: await toCur(+p.price), processes: p.processes }, true);
     itemsChanged();
   };
   const drawPsug = () => {
     const q = pq.value.trim().toLowerCase();
     // Treffer nach Kategorie gruppiert; die Suche findet auch über den Kategorienamen („bekleidung“, „polo“)
-    const hits = prodList.filter((p) => !q || (p.name + ' ' + p.path).toLowerCase().includes(q)).slice(0, q ? 20 : 60);
+    const hits = prodList.filter((p) => !q || (p.name + ' ' + (p.sku || '') + ' ' + p.path).toLowerCase().includes(q)).slice(0, q ? 20 : 60);
     let lastPath = null;
     psug.replaceChildren(...hits.flatMap((p) => [p.path !== lastPath && (pcats.length) ? h('div', { class: 'sug-head' }, (lastPath = p.path) || t('cat_none')) : null, h('button', { type: 'button', class: 'psugitem', onmousedown: (e) => e.preventDefault(), onclick: () => pickProd(p) },
       p.images && p.images.length ? h('img', { class: 'sthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : null,
@@ -989,11 +1047,46 @@ async function eurRate() {
   try { const r = await api('rate', { params: { cur: 'EUR' } }); eurCache = { rate: +r.rate, date: r.date }; } catch (e) { eurCache = { rate: 7.46038, date: '' }; }
   return eurCache;
 }
+// Eigenschaften eines Produkts (Größe, Farbe, Inhalt, Maße …): Name, Werte (Komma), „Menge je Wert“ für Größen
+const OPT_PRESETS = () => [
+  [t('op_p_adult'), { name: t('op_size'), values: 'XS, S, M, L, XL, XXL, 3XL, 4XL, 5XL', split: true }],
+  [t('op_p_women'), { name: t('op_size'), values: 'XS, S, M, L, XL, XXL, 3XL', split: true }],
+  [t('op_p_kids'), { name: t('op_size'), values: '98/104, 110/116, 122/128, 134/146, 152/164', split: true }],
+  [t('op_p_baby'), { name: t('op_size'), values: '50/56, 62/68, 74/80, 86/92', split: true }],
+  [t('op_p_colors'), { name: t('op_color'), values: 'Weiß, Schwarz, Grau meliert, Navy, Royalblau, Rot, Bordeaux, Flaschengrün, Gelb, Orange, Pink, Sand/Beige', split: false }],
+  [t('op_p_ml'), { name: t('op_ml'), values: '250 ml, 330 ml, 450 ml', split: false }],
+  [t('op_p_cm'), { name: t('op_cm'), values: '20 × 10 cm, 30 × 20 cm, 40 × 30 cm', split: false }],
+];
+function optEditor(groups) {
+  const box = h('div', { class: 'optgroups' });
+  const rows = [];
+  const add = (g) => {
+    const r = {};
+    r.name = h('input', { value: g.name || '', placeholder: t('op_name_ph'), maxlength: 40 });
+    r.vals = h('textarea', { rows: 1, placeholder: t('op_vals_ph') }, Array.isArray(g.values) ? g.values.join(', ') : (g.values || ''));
+    r.split = h('input', { type: 'checkbox', checked: !!g.split, style: 'width:20px;height:20px;min-height:0' });
+    r.el = h('div', { class: 'optrow' }, h('div', { class: 'optrow-top' }, r.name,
+      h('label', { class: 'row optsplit' }, r.split, t('op_split')),
+      h('button', { type: 'button', class: 'btn small danger', 'aria-label': t('delete'), onclick: () => { rows.splice(rows.indexOf(r), 1); r.el.remove(); } }, '✕')), r.vals);
+    rows.push(r); box.append(r.el);
+    requestAnimationFrame(() => { r.vals.style.height = 'auto'; r.vals.style.height = r.vals.scrollHeight + 'px'; });
+    r.vals.addEventListener('input', () => { r.vals.style.height = 'auto'; r.vals.style.height = r.vals.scrollHeight + 'px'; });
+  };
+  (groups || []).forEach(add);
+  const presets = h('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px' },
+    h('button', { type: 'button', class: 'btn small', onclick: () => add({}) }, '+ ' + t('op_add')),
+    ...OPT_PRESETS().map(([l, g]) => h('button', { type: 'button', class: 'chip', onclick: () => add(g) }, '+ ' + l)));
+  return { el: h('div', {}, box, presets), get: () => rows.map((r) => ({ name: r.name.value.trim(), values: r.vals.value.split(/\s*[,;\n]\s*/).map((v) => v.trim()).filter(Boolean), split: r.split.checked })).filter((g) => g.name && g.values.length) };
+}
+const optSummary = (p) => (p.options || []).map((g) => `${g.name}: ${g.values.length > 4 ? g.values.slice(0, 2).join(', ') + ' … ' + g.values[g.values.length - 1] : g.values.join(', ')}`).join(' · ');
+
 route(/^\/products$/, async () => {
   const [{ products }, { categories: cats }] = await Promise.all([api('products'), api('categories')]);
   const list = h('div', { class: 'prows' });
   const editRow = (p) => {
     const nm = h('input', { value: p.name || '', placeholder: t('prod_name_ph'), maxlength: 300 });
+    const sku = h('input', { value: p.sku || '', placeholder: 'WF-…', maxlength: 40 });
+    const oped = optEditor(p.options || []);
     const un = h('select', {}, me.units.map((u) => h('option', { value: u, selected: u === (p.unit || 'stk') }, t('u_' + u))));
     // Preis wahlweise in kr oder € eingeben; Umschalten rechnet den Betrag um, gespeichert wird immer in kr
     const pr = h('input', { type: 'text', inputmode: 'decimal', value: p.price != null ? centsIn(p.price) : '', placeholder: '0,00' });
@@ -1081,17 +1174,18 @@ route(/^\/products$/, async () => {
       h('div', { class: 'grid c2', style: 'margin-top:8px' }, h('div', {}, h('label', {}, t('calc_mat')), mat), h('div', {}, h('label', {}, t('calc_min')), mins)), calcOut);
     if (!p.id) setTimeout(askSug, 0);
     return h('div', { class: 'card prodcard' + (p.id && !+p.active ? ' inactive' : '') },
-      h('div', {}, h('label', {}, t('prod_name')), nm), sug,
+      h('div', { class: 'grid', style: 'grid-template-columns:minmax(0,3fr) minmax(110px,1fr);gap:8px' }, h('div', {}, h('label', {}, t('prod_name')), nm), h('div', {}, h('label', {}, t('sku')), sku)), sug,
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('cat_label')), catSel),
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('pimg_label')), imgBox, imgButtons),
       h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('unit')), un), h('div', {}, h('div', { class: 'prhead' }, prLabel, curSwitch), pr), h('div', {}, h('label', {}, t('prod_kind')), kd)), fxNote,
+      h('div', { style: 'margin-top:8px' }, h('label', {}, t('op_title')), h('small', { class: 'muted', style: 'display:block;margin-bottom:6px' }, t('op_hint')), oped.el),
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('prod_procs')), ppick, ppTime),
       calcBox,
       h('div', { class: 'row', style: 'justify-content:space-between;margin-top:8px' },
         h('label', { class: 'row', style: 'margin:0;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, act, t('active')),
         h('div', { class: 'row' },
           p.id ? h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('prod_delete_confirm', p.name))) { await api('product_delete', { body: { id: p.id } }); render(); } } }, t('delete')) : null,
-          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: await priceDkk(), kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get(), category_id: catSel.value || null } }).then(async (r) => { if (pendingImgs.length) { toast(t('uploading_files')); await uploadProductImages(r.id, pendingImgs); } return r; }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
+          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: await priceDkk(), kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get(), category_id: catSel.value || null, sku: sku.value, options: oped.get() } }).then(async (r) => { if (pendingImgs.length) { toast(t('uploading_files')); await uploadProductImages(r.id, pendingImgs); } return r; }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
   };
   const chips = h('div', { class: 'catchips' });
   const drawChips = () => {
@@ -1111,13 +1205,14 @@ route(/^\/products$/, async () => {
       row.replaceWith(ed);
     } },
       p.images.length ? h('img', { class: 'pthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : h('span', { class: 'pthumb none' }, '🏷'),
-      h('span', { class: 'pn' }, h('b', {}, p.name), p.category_id ? h('small', { class: 'muted' }, catPath(cats, p.category_id)) : null),
+      h('span', { class: 'pn' }, h('b', {}, p.name), h('small', { class: 'muted' }, [p.sku, p.category_id ? catPath(cats, p.category_id) : ''].filter(Boolean).join(' · ')),
+        (p.options || []).length ? h('small', { class: 'muted popts' }, optSummary(p)) : null),
       h('span', { class: 'pt muted' }, p.processes.length ? '⏱ ' + procLabel(p.processes) : ''),
-      h('span', { class: 'pp' }, cents(p.price, 'DKK') + ' / ' + t('u_' + p.unit)),
+      +p.price ? h('span', { class: 'pp' }, cents(p.price, 'DKK') + ' / ' + t('u_' + p.unit)) : h('span', { class: 'pp nopr' }, t('price_missing')),
       +p.active ? null : h('span', { class: 'pill' }, t('inactive')));
     return row;
   };
-  const draw = () => list.replaceChildren(...products.filter((p) => inCat(cats, p, prodCat) && (!prodQ || (p.name + ' ' + catPath(cats, p.category_id)).toLowerCase().includes(prodQ.toLowerCase()))).map(compactRow));
+  const draw = () => list.replaceChildren(...products.filter((p) => inCat(cats, p, prodCat) && (!prodQ || (p.name + ' ' + (p.sku || '') + ' ' + catPath(cats, p.category_id)).toLowerCase().includes(prodQ.toLowerCase()))).map(compactRow));
   const newBox = h('div', { class: 'hidden' }, editRow({}));
   // Kategorien verwalten
   const catSave = async (body) => { try { await api('category_save', { body }); render(); } catch (e) { toast(e.message); } };
@@ -1136,6 +1231,11 @@ route(/^\/products$/, async () => {
       h('button', { class: 'btn primary', onclick: () => { newBox.classList.toggle('hidden'); newBox.querySelector('input').focus(); } }, '+ ' + t('prod_add'))),
     h('p', { class: 'muted', style: 'margin:0 0 12px' }, t('products_text')),
     hourCard(),
+    h('div', { class: 'card', id: 'catalogCard' }, h('h3', {}, '📦 ' + t('catalog_title')), h('p', { class: 'muted', style: 'margin:0 0 8px' }, t('catalog_text')),
+      h('button', { class: 'btn primary', onclick: async () => {
+        if (!confirm(t('catalog_confirm'))) return;
+        try { const r = await api('catalog_import', { body: {} }); toast(t('catalog_done', r.products, r.categories, r.skipped)); render(); } catch (e) { toast(e.message); }
+      } }, '📦 ' + t('catalog_btn'))),
     catCard,
     newBox,
     cats.length ? chips : null,
@@ -1144,6 +1244,7 @@ route(/^\/products$/, async () => {
   if (prodCat && prodCat !== -1 && !cats.some((c) => +c.id === prodCat)) prodCat = 0;
   drawChips(); draw();
   foldCards(false);   // Stundensatz und Kategorien einklappbar, damit die Produktliste schnell erreichbar ist
+  if (!products.some((p) => p.sku)) document.getElementById('catalogCard')?.classList.remove('closed');   // Katalog noch nicht geladen: Karte offen zeigen
 });
 
 route(/^\/customers$/, async () => {

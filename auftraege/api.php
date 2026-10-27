@@ -10,6 +10,7 @@ require_once __DIR__ . '/inc/note.php';
 require_once __DIR__ . '/inc/archive.php';
 require_once __DIR__ . '/inc/pricing.php';
 require_once __DIR__ . '/inc/custmail.php';
+require_once __DIR__ . '/inc/catalog.php';
 
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
@@ -347,13 +348,31 @@ try {
                 if ($nm === '') {
                     continue;
                 }
-                $iq = max(1, min(1000000, (int)($it['qty'] ?? 1)));
+                // Größenverteilung (z. B. S 3, M 4) ergibt die Menge; übrige Eigenschaften als gewählter Wert je Name
+                $sizes = [];
+                foreach (array_slice((array)($it['sizes'] ?? []), 0, 60, true) as $k => $q) {
+                    $k = mb_substr(trim((string)$k), 0, 60);
+                    $q = max(0, min(1000000, (int)$q));
+                    if ($k !== '' && $q > 0) {
+                        $sizes[$k] = $q;
+                    }
+                }
+                $opts = [];
+                foreach (array_slice((array)($it['opts'] ?? []), 0, 8, true) as $k => $v) {
+                    $k = mb_substr(trim((string)$k), 0, 40);
+                    $v = mb_substr(trim((string)$v), 0, 60);
+                    if ($k !== '' && $v !== '') {
+                        $opts[$k] = $v;
+                    }
+                }
+                $iq = $sizes ? min(1000000, array_sum($sizes)) : max(1, min(1000000, (int)($it['qty'] ?? 1)));
                 $ip = round(max(0, min(100000000, (float)str_replace(',', '.', (string)($it['price'] ?? 0)))), 2);
                 // Rabatt: Prozent (0–100) oder fester Betrag (höchstens die Positionssumme)
                 $dt = ($it['disc_type'] ?? '') === 'abs' ? 'abs' : 'pct';
                 $dv = max(0, (float)str_replace(',', '.', (string)($it['disc'] ?? 0)));
                 $dv = round($dt === 'abs' ? min($dv, $iq * $ip) : min($dv, 100), 2);
-                $items[] = ['product_id' => (int)($it['product_id'] ?? 0) ?: null, 'name' => $nm, 'qty' => $iq, 'price' => $ip, 'disc' => $dv, 'disc_type' => $dt, 'processes' => clean_procs($db, $it['processes'] ?? [])];
+                $items[] = ['product_id' => (int)($it['product_id'] ?? 0) ?: null, 'name' => $nm, 'qty' => $iq, 'price' => $ip, 'disc' => $dv, 'disc_type' => $dt, 'processes' => clean_procs($db, $it['processes'] ?? []),
+                    'sku' => mb_substr(trim((string)($it['sku'] ?? '')), 0, 40), 'opts' => (object)$opts, 'sizes' => (object)$sizes];
             }
             if ($items) {
                 $qty = array_sum(array_column($items, 'qty'));
@@ -700,6 +719,7 @@ try {
             }
             wf_json(['ok' => true, 'products' => array_map(function ($p) use ($imgs) {
                 $p['processes'] = json_decode((string)$p['processes'], true) ?: [];
+                $p['options'] = json_decode((string)$p['options'], true) ?: [];
                 $p['images'] = $imgs[(int)$p['id']] ?? [];
                 return $p;
             }, $db->query('SELECT * FROM products ORDER BY active DESC, sort, name COLLATE NOCASE')->fetchAll())]);
@@ -723,15 +743,20 @@ try {
                 }
             }
             $vals = [$name, in_array($in['unit'] ?? '', WF_UNITS, true) ? $in['unit'] : 'stk', $price, ($in['kind'] ?? '') === 'services' ? 'services' : 'goods', !empty($in['active']) || !isset($in['active']) ? 1 : 0,
-                json_encode(clean_procs($db, $in['processes'] ?? [])), $cat];
+                json_encode(clean_procs($db, $in['processes'] ?? [])), $cat, s($in, 'sku', 40), json_encode(wf_clean_options($in['options'] ?? []), JSON_UNESCAPED_UNICODE)];
             $id = (int)($in['id'] ?? 0);
             if ($id) {
-                $db->prepare('UPDATE products SET name=?, unit=?, price=?, kind=?, active=?, processes=?, category_id=? WHERE id = ?')->execute([...$vals, $id]);
+                $db->prepare('UPDATE products SET name=?, unit=?, price=?, kind=?, active=?, processes=?, category_id=?, sku=?, options=? WHERE id = ?')->execute([...$vals, $id]);
             } else {
-                $db->prepare('INSERT INTO products (name, unit, price, kind, active, processes, category_id) VALUES (?,?,?,?,?,?,?)')->execute($vals);
+                $db->prepare('INSERT INTO products (name, unit, price, kind, active, processes, category_id, sku, options) VALUES (?,?,?,?,?,?,?,?,?)')->execute($vals);
                 $id = (int)$db->lastInsertId();
             }
             wf_json(['ok' => true, 'id' => $id]);
+        }
+
+        case 'catalog_import': {
+            need_post();
+            wf_json(['ok' => true] + wf_catalog_import($db));
         }
 
         // Preisvorschlag aus Marktpreisen (Endkunde DK, inkl. Moms)

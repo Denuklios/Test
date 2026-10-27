@@ -20,11 +20,11 @@ function wf_confirm_snapshot(PDO $db, array $o, array $cust, string $lang = 'da'
         'price' => (float)$o['price'], 'deposit' => (float)$o['deposit'], 'currency' => $o['currency'], 'due_date' => $o['due_date'],
         'processes' => $procs,
         // Positionen mit Rabatt, damit der Kunde sieht, was er wofür bekommt
-        'items' => array_map(function ($it) {
+        'items' => array_map(function ($it) use ($lang) {
             $g = (float)$it['qty'] * (float)$it['price'];
             $d = (float)($it['disc'] ?? 0);
             $off = ($it['disc_type'] ?? 'pct') === 'abs' ? min($d, $g) : round($g * min($d, 100) / 100, 2);
-            return ['name' => $it['name'], 'qty' => (int)$it['qty'], 'price' => (float)$it['price'], 'disc' => $d, 'disc_type' => ($it['disc_type'] ?? 'pct') === 'abs' ? 'abs' : 'pct',
+            return ['name' => wf_item_desc($it, $lang), 'qty' => (int)$it['qty'], 'price' => (float)$it['price'], 'disc' => $d, 'disc_type' => ($it['disc_type'] ?? 'pct') === 'abs' ? 'abs' : 'pct',
                 'gross' => round($g, 2), 'off' => round($off, 2), 'total' => round($g - $off, 2)];
         }, $o['items'] ?? []),
         'files' => array_values(array_map(fn($f) => (int)$f['id'], array_filter($o['files'], fn($f) => str_starts_with($f['mime'], 'image/')))),

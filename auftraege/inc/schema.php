@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 16) {
+    if ($v >= 17) {
         return;
     }
     if ($v < 1) {
@@ -53,7 +53,24 @@ function wf_migrate(PDO $db): void
     if ($v < 15) {
         wf_migrate_v15($db);
     }
-    wf_migrate_v16($db);
+    if ($v < 16) {
+        wf_migrate_v16($db);
+    }
+    wf_migrate_v17($db);
+}
+
+/**
+ * Version 17: Artikelnummer und Eigenschaften je Produkt (Größen, Farben, Inhalt, Maße …).
+ */
+function wf_migrate_v17(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    ALTER TABLE products ADD COLUMN sku TEXT NOT NULL DEFAULT '';
+    ALTER TABLE products ADD COLUMN options TEXT NOT NULL DEFAULT '[]';
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '17');
+    ");
+    $db->commit();
 }
 
 /**

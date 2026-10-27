@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/doctext.php';
+require_once __DIR__ . '/catalog.php';
 
 /*
  * Rechnungen und Kreditnotas (Gutschriften) nach dänischem Recht.
@@ -672,7 +673,7 @@ function wf_order_invoice(PDO $db, int $orderId, string $purpose, string $user, 
             $up = (int)round($it['price'] * 100);
             $dv = (float)($it['disc'] ?? 0);
             $pct = ($it['disc_type'] ?? 'pct') === 'pct' ? $dv : 0;
-            $itLines[] = ['description' => $it['name'], 'qty' => (int)$it['qty'], 'unit' => 'stk', 'unit_price' => $up, 'discount' => $pct, 'kind' => $kind];
+            $itLines[] = ['description' => wf_item_desc($it, $lang), 'qty' => (int)$it['qty'], 'unit' => 'stk', 'unit_price' => $up, 'discount' => $pct, 'kind' => $kind];
             if (($it['disc_type'] ?? '') === 'abs' && $dv > 0) {
                 $itLines[] = ['description' => wf_order_line_text('discount', $lang, ['{name}' => $it['name']]), 'qty' => 1, 'unit' => 'stk', 'unit_price' => -(int)round($dv * 100), 'discount' => 0, 'kind' => $kind];
             }

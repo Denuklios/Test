@@ -118,7 +118,7 @@ table.items{width:100%;border-collapse:separate;border-spacing:0;margin-top:6mm}
 .items td{padding:3mm 2mm;vertical-align:top;border-bottom:1px solid var(--line)}
 .items tr:nth-child(even) td{background:#fbf8fe}
 .items .no{width:9mm;font-family:"Cormorant Garamond",Georgia,serif;font-weight:700;font-size:13pt;color:var(--p2);line-height:1.1}
-.items .d{font-weight:600}
+.items .d{font-weight:600}.items .d .dx{display:block;font-weight:400;font-size:.9em;opacity:.8;margin-top:1mm}
 .items .n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .items td.amt{font-weight:600}
 .after{display:grid;grid-template-columns:1fr 78mm;gap:8mm;margin-top:6mm;align-items:start}
@@ -195,7 +195,7 @@ table.items{width:100%;border-collapse:separate;border-spacing:0;margin-top:6mm}
   <table class="items">
     <tr><th></th><th><?= $e($T['desc']) ?></th><th class="n"><?= $e($T['qty']) ?></th><th><?= $e($T['unit']) ?></th><th class="n"><?= $e($T['price']) ?></th><?php if ($hasDisc): ?><th class="n"><?= $e($T['disc']) ?></th><?php endif; ?><th class="n"><?= $e($T['amount']) ?></th></tr>
     <?php foreach (array_values($i['lines']) as $k => $l): ?>
-    <tr><td class="no"><?= sprintf('%02d', $k + 1) ?></td><td class="d"><?= nl2br($e($l['description'])) ?></td><td class="n"><?= $e(wf_doc_num((float)$l['qty'], $lang)) ?></td><td><?= $e($T['units'][$l['unit']] ?? $l['unit']) ?></td>
+    <tr><td class="no"><?= sprintf('%02d', $k + 1) ?></td><td class="d"><?php $dl = explode("\n", (string)$l['description'], 2); ?><?= $e($dl[0]) ?><?php if (isset($dl[1])): ?><span class="dx"><?= nl2br($e($dl[1])) ?></span><?php endif; ?></td><td class="n"><?= $e(wf_doc_num((float)$l['qty'], $lang)) ?></td><td><?= $e($T['units'][$l['unit']] ?? $l['unit']) ?></td>
       <td class="n"><?= $e(wf_doc_money((int)$l['unit_price'], '', $lang)) ?></td><?php if ($hasDisc): ?><td class="n"><?php if ((float)$l['discount']): ?><?= $e(wf_doc_num((float)$l['discount'], $lang)) ?> %<br><small class="doff">−<?= $e(wf_doc_money($lineOff($l), '', $lang)) ?></small><?php endif; ?></td><?php endif; ?>
       <td class="n amt"><?= $e(wf_doc_money((int)$l['amount'], '', $lang)) ?></td></tr>
     <?php endforeach; ?>

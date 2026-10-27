@@ -46,7 +46,7 @@ table.items{width:100%;border-collapse:collapse;margin-top:11mm}
 .items th{text-align:left;font-size:7.6pt;font-weight:700;text-transform:uppercase;letter-spacing:.12em;color:var(--p1);padding:0 1.6mm 2.6mm;border-bottom:1.6px solid var(--ink)}
 .items td{padding:3.4mm 1.6mm;border-bottom:1px solid var(--line);vertical-align:top}
 .items .no{width:7mm;color:var(--p2);font-weight:700;font-size:8pt;padding-top:3.8mm}
-.items .d{font-weight:600}
+.items .d{font-weight:600}.items .d .dx{display:block;font-weight:400;font-size:.9em;opacity:.8;margin-top:1mm}
 .items .n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .items td.amt{font-weight:600}
 .sum{margin:5mm 0 0 auto;min-width:76mm;border-collapse:collapse}
@@ -122,7 +122,7 @@ table.items{width:100%;border-collapse:collapse;margin-top:11mm}
     <table class="items">
       <tr><th></th><th><?= $e($T['desc']) ?></th><th class="n"><?= $e($T['qty']) ?></th><th class="n"><?= $e($T['price']) ?></th><?php if ($hasDisc): ?><th class="n"><?= $e($T['disc']) ?></th><?php endif; ?><th class="n"><?= $e($T['amount']) ?></th></tr>
       <?php foreach (array_values($i['lines']) as $k => $l): ?>
-      <tr><td class="no"><?= sprintf('%02d', $k + 1) ?></td><td class="d"><?= nl2br($e($l['description'])) ?></td>
+      <tr><td class="no"><?= sprintf('%02d', $k + 1) ?></td><td class="d"><?php $dl = explode("\n", (string)$l['description'], 2); ?><?= $e($dl[0]) ?><?php if (isset($dl[1])): ?><span class="dx"><?= nl2br($e($dl[1])) ?></span><?php endif; ?></td>
         <td class="n"><?= $e(wf_doc_num((float)$l['qty'], $lang)) ?> <?= $e($T['units'][$l['unit']] ?? $l['unit']) ?></td>
         <td class="n"><?= $e(wf_doc_money((int)$l['unit_price'], '', $lang)) ?></td><?php if ($hasDisc): ?><td class="n"><?php if ((float)$l['discount']): ?><?= $e(wf_doc_num((float)$l['discount'], $lang)) ?> %<br><small class="doff">−<?= $e(wf_doc_money($lineOff($l), '', $lang)) ?></small><?php endif; ?></td><?php endif; ?>
         <td class="n amt"><?= $e(wf_doc_money((int)$l['amount'], '', $lang)) ?></td></tr>
