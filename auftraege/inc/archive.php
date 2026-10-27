@@ -112,10 +112,22 @@ function wf_mail(string $to, string $from, string $subject, string $text, array 
         $msg = "Date: " . date('r') . "\r\nTo: $to\r\nSubject: " . $enc($subject) . "\r\nMessage-ID: <" . bin2hex(random_bytes(10)) . '@' . (explode('@', $from)[1] ?? 'localhost') . ">\r\n$headers\r\n\r\n$body";
         $ok = wf_smtp_send($smtp, $from, $to, $msg);
     } else {
-        // Manche Server verbieten den Absender-Parameter (-f): dann ohne ihn versuchen
-        $ok = @mail($to, $enc($subject), $body, $headers, '-f' . $from) || @mail($to, $enc($subject), $body, $headers);
-        if (!$ok) {
-            $GLOBALS['wf_mail_err'] = 'mail(): ' . ((error_get_last()['message'] ?? '') ?: 'vom Server abgelehnt');
+        // Manche Server verbieten den Absender-Parameter (-f): dann ohne ihn versuchen. Den 5. Parameter immer als Text
+        // übergeben – bei one.com löst ein fehlender Wert sonst einen Programmfehler aus.
+        $ok = false;
+        foreach (['-f' . $from, ''] as $param) {
+            try {
+                if (@mail($to, $enc($subject), $body, $headers, $param)) {
+                    $ok = true;
+                    break;
+                }
+                $GLOBALS['wf_mail_err'] = 'mail(): ' . ((error_get_last()['message'] ?? '') ?: 'vom Server abgelehnt');
+            } catch (Throwable $e) {
+                $GLOBALS['wf_mail_err'] = 'mail(): ' . $e->getMessage();
+            }
+        }
+        if ($ok) {
+            $GLOBALS['wf_mail_err'] = '';
         }
     }
     if ($ok) {
