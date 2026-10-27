@@ -51,7 +51,7 @@ function wf_company_defaults(): array
         'name' => '', 'owner' => '', 'street' => '', 'zip' => '', 'city' => '', 'country' => 'DK',
         'cvr' => '', 'email' => '', 'phone' => '', 'web' => '',
         'bank' => '', 'reg_no' => '', 'account_no' => '', 'iban' => '', 'bic' => '',
-        'moms_registered' => true, 'moms_period' => 'half', 'invoice_start' => 1, 'pay_days' => 14, 'phone_share' => 50,
+        'moms_registered' => true, 'moms_period' => 'half', 'invoice_start' => 1, 'pay_days' => 14, 'phone_share' => 50, 'hour_rate' => 0,
     ];
 }
 function wf_company(): array

@@ -365,3 +365,6 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 .pricesug small{display:block;margin-top:6px}
 .fxrow{display:flex;gap:8px;align-items:flex-end;margin-top:8px;flex-wrap:wrap}
 .fxrow>div{flex:1;min-width:120px}
+.psline{display:flex;gap:8px;margin-bottom:6px}.psline small{display:block;margin-top:2px}.psflag{font-size:1.1rem;line-height:1.4}
+.psmix{margin-top:4px;padding-top:6px;border-top:1px solid var(--line)}
+.calcbox{margin-top:8px}.calcbox summary{cursor:pointer;color:var(--p2);font-size:.9rem}

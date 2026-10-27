@@ -105,7 +105,8 @@ Unter **Einstellungen**:
 
 ## 5d. Produkte und Kunden löschen
 - Kunden → Reiter **Produkte**: Preisliste anlegen/ändern/deaktivieren. In der Rechnung beim Tippen der Position erscheinen passende Produkte; Auswahl füllt Text, Einheit, Preis und Art, dann nur noch die Menge eingeben – Summe rechnet sofort.
-- Beim Anlegen eines Produkts schlägt die App einen Marktpreis vor (recherchierte Endkundenpreise dänischer Anbieter, 1 Stück, inkl. Moms; Knopf für inkl. oder netto). Feld „Preis in €“ mit Knöpfen „€ → kr“ und „kr → €“ rechnet zum Tageskurs um.
+- Beim Anlegen eines Produkts zeigt die App recherchierte Endkundenpreise (1 Stück) aus Dänemark und Deutschland und einen **Mittelweg**: beide Nettopreise gemittelt, plus 25 % dänische Moms (gilt auch für deutsche Privatkunden, solange du unter der OSS-Grenze von 10.000 € bleibst). Knopf übernimmt inkl. oder netto.
+- **Stundensatz** oben auf der Produktseite eintragen; „Selbst kalkulieren“ rechnet Material + Minuten × Stundensatz. Feld „Preis in €“ mit Knöpfen „€ → kr“ und „kr → €“ rechnet zum Tageskurs um.
 - Kunde → **Kunde löschen**: zwei Bestätigungen (Frage + Wort LÖSCHEN/SLET eintippen). Ohne festgeschriebene Rechnungen wird der Kunde mit Aufträgen, Fotos und Rechnungsentwürfen gelöscht. Mit Rechnungen werden nur die Personendaten gelöscht (Aufbewahrungspflicht 5 Jahre).
 
 ## 6. Als App auf dem Handy

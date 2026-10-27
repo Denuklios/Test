@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Preisvorschlag, Drive-Archiv';
+const APP_VERSION = '2026-10-27 · Preise DK+DE, Stundensatz';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -671,6 +671,12 @@ const masterTabs = (on) => h('div', { class: 'mtabs' }, [['/customers', t('nav_c
 
 // ---------- Produkte / Preisliste ----------
 let prodQ = '', eurCache = null;
+function hourCard() {
+  const inp = h('input', { type: 'text', inputmode: 'decimal', value: +me.company.hour_rate ? centsIn(me.company.hour_rate) : '', placeholder: '450,00', style: 'max-width:140px' });
+  return h('div', { class: 'card' }, h('h3', {}, '⏱ ' + t('hr_title')), h('p', { class: 'muted', style: 'margin:0 0 8px' }, t('hr_text')),
+    h('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px;align-items:center' }, inp, h('span', { class: 'muted' }, t('hr_unit')),
+      h('button', { class: 'btn small primary', onclick: async () => { try { await api('company_save', { body: { ...me.company, hour_rate: inp.value || '0' } }); await reloadMe(); toast(t('saved')); } catch (e) { toast(e.message); } } }, t('save'))));
+}
 const num = (v) => { let x = String(v || '').replace(/\s|kr\.?|€|dkk|eur/gi, ''); if (x.includes(',')) x = x.replace(/\./g, '').replace(',', '.'); return parseFloat(x) || 0; };
 // EUR-Kurs (DKK je 1 €): Nationalbank/EZB, sonst fester Leitkurs der Krone (ERM II)
 async function eurRate() {
@@ -705,20 +711,37 @@ route(/^\/products$/, async () => {
       if (q.length < 3) { sug.classList.add('hidden'); return; }
       const { suggest: g } = await api('price_suggest', { params: { name: q } });
       if (!g) { sug.replaceChildren(h('span', { class: 'muted' }, t('ps_none'))); sug.classList.remove('hidden'); return; }
-      const net = Math.round(g.typ / 1.25);
+      const take = (v) => h('button', { type: 'button', class: 'btn small', onclick: () => { pr.value = centsIn(v); } }, cents(v, 'DKK'));
+      const line = (flag, lbl, txt, est, src) => h('div', { class: 'psline' }, h('span', { class: 'psflag' }, flag), h('div', {}, h('div', {}, h('b', {}, lbl), ' ', txt), h('small', { class: 'muted' }, (est ? t('ps_est') : t('ps_src')) + ' ' + src.replace(/^geschätzt:?\s*/, ''))));
       sug.replaceChildren(
-        h('div', {}, '💡 ' + t('ps_market', cents(g.low, 'DKK'), cents(g.high, 'DKK')), ' ', h('b', {}, t('ps_typ', cents(g.typ, 'DKK')))),
-        h('div', { class: 'row', style: 'flex-wrap:wrap;margin-top:6px' },
-          h('button', { type: 'button', class: 'btn small', onclick: () => { pr.value = centsIn(g.typ); } }, t('ps_take_incl', cents(g.typ, 'DKK'))),
-          me.company.moms_registered ? h('button', { type: 'button', class: 'btn small', onclick: () => { pr.value = centsIn(net); } }, t('ps_take_net', cents(net, 'DKK'))) : null),
-        h('small', { class: 'muted' }, (g.estimated ? t('ps_est') : t('ps_src')) + ' ' + g.source.replace(/^geschätzt:?\s*/, '')));
+        line('🇩🇰', t('ps_dk'), t('ps_range', cents(g.dk.low, 'DKK'), cents(g.dk.high, 'DKK'), cents(g.dk.typ, 'DKK')), g.dk.estimated, g.dk.source),
+        line('🇩🇪', t('ps_de'), t('ps_range_eur', (g.de.low / 100).toFixed(2).replace('.', ',') + ' €', (g.de.high / 100).toFixed(2).replace('.', ',') + ' €', (g.de.typ / 100).toFixed(2).replace('.', ',') + ' €', cents(g.de.typ_dkk, 'DKK')), g.de.estimated, g.de.source),
+        h('div', { class: 'psmix' }, '⚖️ ', h('b', {}, t('ps_mix')), ' ', t('ps_mix_txt', cents(g.mix.incl, 'DKK'), cents(g.mix.net, 'DKK'))),
+        h('div', { class: 'row', style: 'flex-wrap:wrap;margin-top:6px;gap:6px' }, h('span', { class: 'muted', style: 'font-size:.85rem' }, t('ps_take')),
+          take(g.mix.incl), me.company.moms_registered ? h('span', { class: 'muted', style: 'font-size:.85rem' }, t('ps_or_net')) : null, me.company.moms_registered ? take(g.mix.net) : null));
       sug.classList.remove('hidden');
     }, 350); };
     nm.addEventListener('input', askSug);
+    // Kalkulation: Material + Arbeitszeit × Stundensatz (netto)
+    const mat = h('input', { type: 'text', inputmode: 'decimal', placeholder: '0,00' });
+    const mins = h('input', { type: 'text', inputmode: 'numeric', placeholder: '0' });
+    const calcOut = h('div', { class: 'muted', style: 'font-size:.9rem;margin-top:6px' });
+    const doCalc = () => {
+      const rate = +me.company.hour_rate || 0;
+      const net = Math.round(num(mat.value) * 100 + num(mins.value) / 60 * rate);
+      if (!net) { calcOut.replaceChildren(rate ? '' : t('calc_no_rate')); return; }
+      const incl = Math.round(net * 1.25);
+      calcOut.replaceChildren(t('calc_res', cents(net, 'DKK'), cents(incl, 'DKK')), ' ',
+        h('button', { type: 'button', class: 'btn small', onclick: () => { pr.value = centsIn(me.company.moms_registered ? net : incl); } }, t('calc_take')));
+    };
+    mat.addEventListener('input', doCalc); mins.addEventListener('input', doCalc);
+    const calcBox = h('details', { class: 'calcbox' }, h('summary', {}, '🧮 ' + t('calc_h')),
+      h('div', { class: 'grid c2', style: 'margin-top:8px' }, h('div', {}, h('label', {}, t('calc_mat')), mat), h('div', {}, h('label', {}, t('calc_min')), mins)), calcOut);
     if (!p.id) setTimeout(askSug, 0);
     return h('div', { class: 'card prodcard' + (p.id && !+p.active ? ' inactive' : '') },
       h('div', {}, h('label', {}, t('prod_name')), nm), sug,
       h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('unit')), un), h('div', {}, h('label', {}, t('unit_price') + ' DKK'), pr), h('div', {}, h('label', {}, t('prod_kind')), kd)),
+      calcBox,
       h('div', { class: 'fxrow' }, h('div', {}, h('label', {}, t('fx_eur')), eur),
         h('button', { type: 'button', class: 'btn small', onclick: conv(true) }, '€ → kr'),
         h('button', { type: 'button', class: 'btn small', onclick: conv(false) }, 'kr → €')), fxNote,
@@ -735,6 +758,7 @@ route(/^\/products$/, async () => {
       h('button', { class: 'btn primary', onclick: () => { newBox.classList.toggle('hidden'); newBox.querySelector('input').focus(); } }, '+ ' + t('prod_add'))),
     masterTabs('/products'),
     h('p', { class: 'muted', style: 'margin:0 0 12px' }, t('products_text')),
+    hourCard(),
     newBox,
     h('div', { class: 'filters' }, h('input', { type: 'search', placeholder: t('prod_search'), value: prodQ, oninput: (e) => { prodQ = e.target.value; draw(); } })),
     products.length ? list : h('div', { class: 'empty' }, t('prod_none')));

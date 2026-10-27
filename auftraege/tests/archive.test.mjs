@@ -67,9 +67,17 @@ try {
   await ok('Preisvorschlag aus Marktpreisen (DE/DA, Verfahren erkannt)', async () => {
     const g = async (name) => (await call('price_suggest', { params: { name } })).j.suggest;
     assert.equal((await g('Hættetrøje med broderi')).key, 'hoodie_stick');
-    assert.equal((await g('T-Shirt bedruckt')).typ, 15000);
+    const ts = await g('T-Shirt bedruckt');
+    assert.equal(ts.dk.typ, 15000); assert.equal(ts.de.typ, 2000);
+    // Mittelweg: Netto DK (120 kr) und Netto DE (20 € × 7,46038 / 1,19 = 125,38 kr) mitteln, + 25 % Moms, volle Krone
+    assert.equal(ts.mix.incl, 15300); assert.equal(ts.mix.net, 12240);
     assert.equal((await g('Zaubertasse mit Foto')).key, 'zaubertasse');
     assert.equal(await g('Fahrrad'), null);
+  });
+
+  await ok('Stundensatz speichern', async () => {
+    assert.ok((await call('company_save', { body: { ...co, hour_rate: '480' } })).j.ok);
+    assert.equal((await call('me')).j.company.hour_rate, 48000);
   });
 
   await ok('Ohne Archiv-Einstellung: nichts wird vorgemerkt', async () => {

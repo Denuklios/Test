@@ -586,7 +586,8 @@ try {
 
         // Preisvorschlag aus Marktpreisen (Endkunde DK, inkl. Moms)
         case 'price_suggest':
-            wf_json(['ok' => true, 'suggest' => wf_price_suggest(mb_substr((string)($_GET['name'] ?? ''), 0, 300))]);
+            $er = wf_rate('EUR');
+            wf_json(['ok' => true, 'suggest' => wf_price_suggest(mb_substr((string)($_GET['name'] ?? ''), 0, 300), $er ? (float)$er['rate'] : 7.46038)]);
 
         case 'product_delete': {
             need_post();
@@ -1063,6 +1064,9 @@ try {
             $c['moms_period'] = in_array($in['moms_period'] ?? '', ['half', 'quarter', 'month'], true) ? $in['moms_period'] : 'half';
             $c['pay_days'] = max(0, min(90, (int)($in['pay_days'] ?? 14)));
             $c['phone_share'] = max(0, min(100, (int)($in['phone_share'] ?? ($c['phone_share'] ?? 50))));
+            if (array_key_exists('hour_rate', $in)) {
+                $c['hour_rate'] = max(0, min(500000, (int)(wf_to_cents($in['hour_rate']) ?? 0)));
+            }
             foreach (['archive_email', 'archive_from'] as $ak) {
                 if (array_key_exists($ak, $in)) {
                     $v = s($in, $ak, 200);
