@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Einklappen + Mail-Diagnose';
+const APP_VERSION = '2026-10-27 · Kundenliste beim Antippen';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -561,20 +561,24 @@ async function orderForm(o, presetCustomer, note = '') {
   const sug = h('div', { class: 'suggest-list hidden' });
   let ct;
   const pickCust = (c) => { cust = c; D.customer_id = c.id; custName.value = c.name + (c.company ? ' · ' + c.company : ''); sug.classList.add('hidden'); if (isNew) F.currency.value = c.currency; };
-  custName.addEventListener('input', () => {
-    cust = null; D.customer_id = 0; clearTimeout(ct);
+  // Liste beim Antippen (alle Kunden), beim Tippen gefiltert – wie bei den Produkten
+  const custSearch = (delay) => {
+    clearTimeout(ct);
     ct = setTimeout(async () => {
-      const q = custName.value.trim();
+      const q = cust ? '' : custName.value.trim();
       const { customers } = await api('customers', { params: { q } });
-      sug.replaceChildren(...customers.slice(0, 8).map((c) => h('button', { type: 'button', onclick: () => pickCust(c) }, c.name + (c.company ? ' · ' + c.company : ''))),
+      sug.replaceChildren(...customers.slice(0, q ? 8 : 30).map((c) => h('button', { type: 'button', onmousedown: (e) => e.preventDefault(), onclick: () => pickCust(c) }, h('b', {}, c.name), c.company || c.phone ? h('span', { class: 'muted' }, ' · ' + [c.company, c.phone].filter(Boolean).join(' · ')) : null)),
         q && h('button', { type: 'button', onclick: async () => {
           const phone = prompt(t('new_customer_phone')) || '';
           const r = await api('customer_save', { body: { name: q, phone, currency: F.currency.value } });
           pickCust({ id: r.id, name: q, company: '', currency: F.currency.value });
         } }, '+ ' + t('create_customer', q)));
       sug.classList.toggle('hidden', !sug.childNodes.length);
-    }, 200);
-  });
+    }, delay);
+  };
+  custName.addEventListener('input', () => { cust = null; D.customer_id = 0; custSearch(200); });
+  custName.addEventListener('focus', () => { if (cust) custName.select(); custSearch(0); });
+  custName.addEventListener('blur', () => setTimeout(() => sug.classList.add('hidden'), 150));
   custBox.append(custName, sug);
   // Kunde aus der Notiz noch nicht vorhanden: mit einem Tipp anlegen (Name, Firma, Telefon, E-Mail)
   const nc = NP && NP.customer;
@@ -1176,16 +1180,19 @@ async function invoiceEditor(inv, preset = {}) {
     if (isNew && !preset.currency) { curSel.value = cust.currency; onCur(); }
     drawCustInfo(); drawScheme(); recalc();
   };
-  custName.addEventListener('input', () => {
-    cust = null; D.customer_id = 0; clearTimeout(ct); drawCustInfo(); drawScheme();
+  const custSearch = (delay) => {
+    clearTimeout(ct);
     ct = setTimeout(async () => {
-      const q = custName.value.trim();
+      const q = cust ? '' : custName.value.trim();
       const { customers } = await api('customers', { params: { q } });
-      sug.replaceChildren(...customers.slice(0, 8).map((c) => h('button', { type: 'button', onclick: () => pickCust(c) }, c.name + (c.company ? ' · ' + c.company : '') + (c.country && c.country !== 'DK' ? ` (${c.country})` : ''))),
-        q && h('a', { class: 'sug-new', href: '#/customer/new' }, '+ ' + t('new_customer')));
+      sug.replaceChildren(...customers.slice(0, q ? 8 : 30).map((c) => h('button', { type: 'button', onmousedown: (e) => e.preventDefault(), onclick: () => pickCust(c) }, c.name + (c.company ? ' · ' + c.company : '') + (c.country && c.country !== 'DK' ? ` (${c.country})` : ''))),
+        h('a', { class: 'sug-new', href: '#/customer/new', onmousedown: (e) => e.preventDefault() }, '+ ' + t('new_customer')));
       sug.classList.toggle('hidden', !sug.childNodes.length);
-    }, 200);
-  });
+    }, delay);
+  };
+  custName.addEventListener('input', () => { cust = null; D.customer_id = 0; drawCustInfo(); drawScheme(); custSearch(200); });
+  custName.addEventListener('focus', () => { if (cust) custName.select(); custSearch(0); });
+  custName.addEventListener('blur', () => setTimeout(() => sug.classList.add('hidden'), 150));
 
   // --- Moms-Regel (automatisch, mit Erklaerung; von Hand nur bewusst)
   const autoScheme = () => {
