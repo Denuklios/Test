@@ -79,7 +79,11 @@ public final class Transports {
         @Override
         public void open() throws IOException {
             BluetoothAdapter ad = BluetoothAdapter.getDefaultAdapter();
-            if (ad != null) ad.cancelDiscovery();
+            try {
+                // Laufende Gerätesuche bremst den Verbindungsaufbau; ab Android 12 nur mit Scan-Berechtigung erlaubt
+                if (ad != null) ad.cancelDiscovery();
+            } catch (SecurityException ignored) {
+            }
             IOException first = null;
             try {
                 socket = device.createRfcommSocketToServiceRecord(SPP);

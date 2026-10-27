@@ -132,7 +132,7 @@ public final class ConnectScreen extends Screen {
         if (Build.VERSION.SDK_INT >= 31) {
             return scan ? new String[]{"android.permission.BLUETOOTH_SCAN", "android.permission.BLUETOOTH_CONNECT",
                     Manifest.permission.ACCESS_FINE_LOCATION}
-                    : new String[]{"android.permission.BLUETOOTH_CONNECT"};
+                    : new String[]{"android.permission.BLUETOOTH_CONNECT", "android.permission.BLUETOOTH_SCAN"};
         }
         return scan ? new String[]{Manifest.permission.ACCESS_FINE_LOCATION} : new String[0];
     }
