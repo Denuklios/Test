@@ -69,6 +69,7 @@ function wf_cm_text(string $lang): array
 {
     $T = [
         'de' => [
+            'buttons' => ['sign' => 'Angebot ansehen & unterschreiben', 'track' => 'Auftrag verfolgen', 'ship' => 'Sendung verfolgen', 'review' => 'Bewertung schreiben', 'unsub' => 'hier abmelden'],
             'hello' => 'Hallo {name},', 'regards' => "Viele Grüße\n{owner}\n{company}",
             'offer_subj' => 'Ihr Angebot {nr} – bitte prüfen und unterschreiben',
             'offer_body' => "vielen Dank für Ihre Anfrage! Ihr Angebot „{title}“ ist fertig. Bitte prüfen Sie Motiv, Menge, Preis und Termin und bestätigen Sie es mit Ihrer Unterschrift:\n\n{sign}\n\nDer Link ist 30 Tage gültig. Erst mit Ihrer Unterschrift wird das Angebot zum verbindlichen Auftrag.\n\nDen aktuellen Stand Ihres Auftrags sehen Sie jederzeit hier:\n{track}",
@@ -85,6 +86,7 @@ function wf_cm_text(string $lang): array
             'unsub' => 'Sie erhalten diese Nachricht, weil Sie bei uns bestellt haben. Keine solchen E-Mails mehr: {unsub}',
         ],
         'da' => [
+            'buttons' => ['sign' => 'Se tilbud & underskriv', 'track' => 'Følg ordren', 'ship' => 'Følg forsendelsen', 'review' => 'Skriv en anmeldelse', 'unsub' => 'afmeld her'],
             'hello' => 'Hej {name},', 'regards' => "Venlig hilsen\n{owner}\n{company}",
             'offer_subj' => 'Dit tilbud {nr} – gennemse og underskriv',
             'offer_body' => "tak for din forespørgsel! Dit tilbud „{title}“ er klar. Tjek motiv, antal, pris og termin, og bekræft med din underskrift:\n\n{sign}\n\nLinket er gyldigt i 30 dage. Først med din underskrift bliver tilbuddet til en bindende ordre.\n\nDu kan altid følge din ordre her:\n{track}",
@@ -101,6 +103,7 @@ function wf_cm_text(string $lang): array
             'unsub' => 'Du modtager denne besked, fordi du har handlet hos os. Ingen flere af denne slags e-mails: {unsub}',
         ],
         'en' => [
+            'buttons' => ['sign' => 'View quote & sign', 'track' => 'Track order', 'ship' => 'Track shipment', 'review' => 'Write a review', 'unsub' => 'unsubscribe here'],
             'hello' => 'Hello {name},', 'regards' => "Kind regards\n{owner}\n{company}",
             'offer_subj' => 'Your quote {nr} – please review and sign',
             'offer_body' => "thank you for your enquiry! Your quote \"{title}\" is ready. Please check design, quantity, price and date and confirm with your signature:\n\n{sign}\n\nThe link is valid for 30 days. Only your signature turns the quote into a binding order.\n\nYou can follow your order here at any time:\n{track}",
@@ -138,14 +141,53 @@ function wf_cm_ctx(PDO $db, int $orderId): ?array
             '{owner}' => (string)($co['owner'] ?? ''), '{company}' => (string)$co['name']]];
 }
 
+/**
+ * HTML-Fassung: Absätze, eine Zeile nur mit Link wird zum Knopf (Beschriftung je nach Ziel), Links im Text sind klickbar.
+ */
+function wf_cm_html(string $text, array $B, string $track): string
+{
+    $e = fn($s) => htmlspecialchars($s, ENT_QUOTES, 'UTF-8');
+    $label = function (string $u) use ($B, $track): string {
+        if (str_contains($u, 'bestaetigung.php')) {
+            return $B['sign'];
+        }
+        if (str_contains($u, '&abmelden=1')) {
+            return '';
+        }
+        if ($u === $track) {
+            return $B['track'];
+        }
+        return str_contains($u, 'verfolgen.php') ? $B['track'] : (preg_match('~g\.page|google\.|trustpilot|review~i', $u) ? $B['review'] : $B['ship']);
+    };
+    $out = '';
+    foreach (preg_split("/\n{2,}/", trim($text)) as $para) {
+        $lines = [];
+        foreach (explode("\n", $para) as $ln) {
+            $t = trim($ln);
+            if (preg_match('~^https?://\S+$~', $t) && ($lb = $label($t)) !== '') {
+                $lines[] = '<a href="' . $e($t) . '" style="display:inline-block;margin:6px 0;padding:12px 22px;border-radius:10px;background:#8B2BE2;background-image:linear-gradient(135deg,#8B2BE2,#A855F7);color:#ffffff;font-weight:600;text-decoration:none">' . $e($lb) . '</a>';
+            } else {
+                // Abmeldelink als kurzer Text statt langer Adresse
+                $lines[] = preg_replace_callback('~https?://[^\s<]+~', fn($m) => '<a href="' . $m[0] . '" style="color:#7E22CE;word-break:break-all">'
+                    . (str_contains($m[0], '&amp;abmelden=1') ? $e($B['unsub']) : $m[0]) . '</a>', $e($ln));
+            }
+        }
+        $small = str_starts_with($para, '— ') || str_contains($para, '&abmelden=1');
+        $out .= '<p style="margin:0 0 14px;' . ($small ? 'font-size:12px;color:#6b6479' : '') . '">' . implode('<br>', $lines) . '</p>';
+    }
+    return '<!doctype html><html><body style="margin:0;padding:0;background:#f1eef7"><div style="max-width:560px;margin:0 auto;padding:24px 16px;font-family:Arial,Helvetica,sans-serif;font-size:15px;line-height:1.5;color:#1f1a2b">'
+        . '<div style="font-family:Georgia,serif;letter-spacing:4px;font-weight:bold;margin-bottom:18px">WUNSCH-<span style="color:#9333EA">FABRIK</span></div>'
+        . '<div style="background:#ffffff;border:1px solid #e3dbf0;border-radius:14px;padding:22px">' . $out . '</div></div></body></html>';
+}
+
 function wf_cm_send(PDO $db, array $x, string $subject, string $body, string $what): bool
 {
     $s = wf_mail_settings();
-    if ($s['from'] === '' || wf_public_base($db) === '') {
+    if (!filter_var($s['from'], FILTER_VALIDATE_EMAIL) || wf_public_base($db) === '') {
         return false;
     }
     $text = strtr($x['T']['hello'], $x['vars']) . "\n\n" . $body . "\n\n" . strtr($x['T']['regards'], $x['vars']);
-    $ok = wf_mail($x['o']['c_email'], $s['from'], strtr($subject, $x['vars']), $text, [], $s['name']);
+    $ok = wf_mail($x['o']['c_email'], $s['from'], strtr($subject, $x['vars']), $text, [], $s['name'], wf_cm_html($text, $x['T']['buttons'], $x['track']));
     if ($ok) {
         $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([(int)$x['o']['id'], 'System', 'mail:' . $what]);
     }

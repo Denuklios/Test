@@ -79,11 +79,19 @@ function wf_archive_queue(PDO $db, string $type, string $ref): void
 }
 
 /** E-Mail mit Anhängen (MIME). Tests: WF_MAIL_DIR schreibt .eml-Dateien statt zu senden. */
-function wf_mail(string $to, string $from, string $subject, string $text, array $files, string $fromName = 'Wunsch-Fabrik Archiv'): bool
+function wf_mail(string $to, string $from, string $subject, string $text, array $files, string $fromName = 'Wunsch-Fabrik Archiv', ?string $html = null): bool
 {
     $b = 'wf' . bin2hex(random_bytes(12));
     $enc = fn(string $s) => '=?UTF-8?B?' . base64_encode($s) . '?=';
-    $body = "--$b\r\nContent-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($text)) . "\r\n";
+    $plain = "Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($text));
+    if ($html !== null) {
+        // Text + HTML (mit klickbaren Knöpfen); Mailprogramme zeigen die beste Variante
+        $a = 'wa' . bin2hex(random_bytes(12));
+        $body = "--$b\r\nContent-Type: multipart/alternative; boundary=\"$a\"\r\n\r\n--$a\r\n$plain\r\n--$a\r\nContent-Type: text/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n"
+            . chunk_split(base64_encode($html)) . "\r\n--$a--\r\n";
+    } else {
+        $body = "--$b\r\n$plain\r\n";
+    }
     foreach ($files as $f) {
         $body .= "--$b\r\nContent-Type: {$f['mime']}; name=\"{$f['name']}\"\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"{$f['name']}\"\r\n\r\n"
             . chunk_split(base64_encode($f['data'])) . "\r\n";

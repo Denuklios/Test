@@ -64,6 +64,11 @@ try {
     assert.ok(m.text.includes(`bestaetigung.php?t=${r.token}`));
     assert.ok(m.text.includes(o.track_url) && m.text.includes('&abmelden=1'));
     assert.ok(m.text.includes('Robert') && m.raw.includes('<info@wunsch-fabrik.dk>'));
+    // HTML-Teil: Unterschrift-Link als klickbarer Knopf
+    const hm = m.raw.match(/Content-Type: text\/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n([\s\S]*?)\r\n--/);
+    const html = Buffer.from(hm[1].replace(/\s/g, ''), 'base64').toString();
+    assert.ok(html.includes(`href="http://127.0.0.1:8099/bestaetigung.php?t=${r.token}"`) && html.includes('Angebot ansehen &amp; unterschreiben'));
+    assert.ok(html.includes('Auftrag verfolgen'));
     assert.ok((await call('order', { params: { id: o.id } })).j.order.log.some((l) => l.what === 'mail:offer'));
   });
 
@@ -129,6 +134,25 @@ try {
     assert.equal(q1(`SELECT followup_at FROM orders WHERE id = ${o2.id}`)[0].followup_at, 'skip');
     const html = await (await fetch((await call('order', { params: { id: o2.id } })).j.order.track_url)).text();
     assert.ok(html.includes('Abgeholt'));
+  });
+
+  await ok('Zeitplan (cron.php): falscher Schlüssel 403, richtiger verschickt fällige Nachfrage ohne App', async () => {
+    assert.equal((await fetch(`${B}/cron.php?key=falsch`)).status, 403);
+    const ci = (await call('cron_info')).j;
+    assert.match(ci.url, /cron\.php\?key=[0-9a-f]{40}$/); assert.equal(ci.last, '');
+    assert.ok(ci.script.includes(ci.url) && ci.script.includes('everyHours(1)'));
+    const c3 = (await call('customer_save', { body: { name: 'Karl Kunde', email: 'karl@example.de', country: 'DE' } })).j.id;
+    const o4 = await mkOrder('Caps', c3);
+    await call('order_status', { body: { id: o4.id, status: 'delivered', ship_mode: 'pickup' } });
+    sql(`UPDATE orders SET shipped_at = datetime('now', '-8 days') WHERE id = ${o4.id}`);
+    sql("INSERT OR REPLACE INTO meta (key, value) VALUES ('archive_tick', '9999999999')");   // App-eigener Lauf aus
+    const n = readMails().length;
+    const res = await fetch(ci.url);
+    assert.equal(res.status, 200); assert.match(await res.text(), /followup=1/);
+    assert.equal(readMails().length, n + 1); assert.equal(readMails().at(-1).to, 'karl@example.de');
+    assert.ok((await call('cron_info')).j.last);
+    const ren = (await call('cron_info', { body: { renew: 1 } })).j;
+    assert.notEqual(ren.url, ci.url); assert.equal((await fetch(ci.url)).status, 403);
   });
 
   await ok('Dänischer Kunde bekommt dänische Mails', async () => {

@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Minuten lesbar';
+const APP_VERSION = '2026-10-27 · Mail-Knöpfe + Zeitplan';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -325,10 +325,15 @@ function orderMoneyCard(o, reload) {
         o.customer_email ? h('a', { class: 'btn small', href: `mailto:${encodeURIComponent(o.customer_email)}?subject=${encodeURIComponent(t('confirm_title') + ' ' + o.nr)}&body=${encodeURIComponent(text + '\n\n' + url)}` }, '✉ E-Mail') : null,
         h('a', { class: 'btn small', href: url, target: '_blank', rel: 'noopener' }, t('open'))));
   };
-  const send = async () => {
-    const r = await api('confirm_create', { body: { order_id: o.id, email: !!o.customer_email && me.company.mail_offer !== false } });
-    showLink(r.token);
-    if (r.mailed) toast(t('mail_offer_sent', o.customer_email)); else if (o.customer_email && me.company.mail_offer !== false) toast(t('mail_failed_share'));
+  const send = async (ev) => {
+    const b = ev && ev.currentTarget;
+    if (b) b.disabled = true;
+    try {
+      const r = await api('confirm_create', { body: { order_id: o.id, email: !!o.customer_email && me.company.mail_offer !== false } });
+      showLink(r.token);
+      if (r.mailed) toast(t('mail_offer_sent', o.customer_email)); else if (o.customer_email && me.company.mail_offer !== false) toast(t('mail_failed_share'));
+      else if (!o.customer_email) toast(t('mail_no_address'));
+    } catch (e) { toast(e.message); } finally { if (b) b.disabled = false; }
   };
   let conf;
   const viewBtn = c ? h('a', { class: 'btn small', href: `${BASE}bestaetigung.php?id=${c.id}`, target: '_blank', rel: 'noopener' }, '📄 ' + t('confirm_view')) : null;
@@ -1793,6 +1798,22 @@ route(/^\/settings$/, async () => {
   const themeCard = h('div', { class: 'card' }, h('h3', {}, '🎨 ' + t('theme_title')),
     h('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' }, ...[['light', '☀️ ' + t('theme_light')], ['dark', '🌙 ' + t('theme_dark')]].map(([k, l]) =>
       h('button', { class: 'btn' + (theme === k ? ' primary' : ''), onclick: () => { theme = k; try { localStorage.setItem('wf_theme', k); } catch (e) {} applyTheme(k); render(); } }, l))));
+ // Automatisch versenden, auch wenn die App geschlossen ist (Zeitplan ruft cron.php auf)
+  const cronBox = h('div', { style: 'margin-top:16px' });
+  const drawCron = (c) => {
+    const copy = (txt) => navigator.clipboard.writeText(txt).then(() => toast(t('copied')));
+    const scr = h('textarea', { readonly: true, rows: 9, class: 'hidden', style: 'font-family:monospace;font-size:.75rem;margin-top:6px' }, c.script);
+    cronBox.replaceChildren(h('div', { class: 'sechead' }, '⏰ ' + t('cron_title')),
+      h('p', { class: 'muted', style: 'margin:4px 0 8px' }, t('cron_text')),
+      h('p', { style: 'margin:0 0 8px;font-size:.9rem' }, c.last ? '✓ ' + t('cron_last', c.last.slice(0, 16)) : '⚠ ' + t('cron_never')),
+      h('b', {}, t('cron_a')), h('ol', { class: 'arsteps muted' }, h('li', {}, t('cron_a1')), h('li', {}, t('cron_a2')), h('li', {}, t('cron_a3'))),
+      h('div', { class: 'token-box' }, c.url),
+      h('div', { class: 'row', style: 'margin:6px 0 12px;flex-wrap:wrap' }, h('button', { class: 'btn small', onclick: () => copy(c.url) }, '📋 ' + t('cron_copy_url')),
+        h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('cron_renew_q'))) drawCron(await api('cron_info', { body: { renew: 1 } })); } }, t('cron_renew'))),
+      h('b', {}, t('cron_b')), h('p', { class: 'muted', style: 'margin:4px 0 6px;font-size:.9rem' }, t('cron_b_text')),
+      h('div', { class: 'row', style: 'flex-wrap:wrap' }, h('button', { class: 'btn small', onclick: () => scr.classList.toggle('hidden') }, '</> ' + t('ar_script')), h('button', { class: 'btn small', onclick: () => copy(c.script) }, '📋 ' + t('ar_copy'))), scr);
+  };
+  api('cron_info').then(drawCron).catch(() => {});
   // E-Mails an Kunden
   const mk = (k, def) => h('input', { type: 'checkbox', checked: me.company[k] === undefined ? def : !!me.company[k], style: 'width:22px;height:22px;min-height:0' });
   const mOffer = mk('mail_offer', true), mShip = mk('mail_shipped', false), mFu = mk('mail_followup', true);
@@ -1801,7 +1822,8 @@ route(/^\/settings$/, async () => {
   const mailCard = h('div', { class: 'card' }, h('h3', {}, '✉ ' + t('cm_title')), h('p', { class: 'muted', style: 'margin:0 0 6px' }, t('cm_text', me.company.email || '—')),
     ckRow(mOffer, t('cm_offer'), t('cm_offer_h')), ckRow(mShip, t('cm_ship'), t('cm_ship_h')), ckRow(mFu, t('cm_fu'), t('cm_fu_h')),
     h('div', {}, h('label', {}, t('cm_review')), revIn, h('small', { class: 'muted hint' }, t('cm_review_h'))),
-    h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { try { await api('company_save', { body: { ...me.company, mail_offer: mOffer.checked, mail_shipped: mShip.checked, mail_followup: mFu.checked, review_url: revIn.value.trim() } }); await reloadMe(); toast(t('saved')); } catch (e) { toast(e.message); } } }, t('save'))));
+    h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { try { await api('company_save', { body: { ...me.company, mail_offer: mOffer.checked, mail_shipped: mShip.checked, mail_followup: mFu.checked, review_url: revIn.value.trim() } }); await reloadMe(); toast(t('saved')); } catch (e) { toast(e.message); } } }, t('save'))),
+    cronBox);
   // Testphase: Rechnungen/Belege löschen und Nummern zurücksetzen, bis „Echtbetrieb starten“
   const twice = (msg, word) => { if (!confirm(msg)) return false; const v = prompt(t('cdel_type', word)); if (v === null) return false; if (v.trim().toUpperCase() !== word.toUpperCase()) { toast(t('cdel_wrong')); return false; } return true; };
   const testCard = me.live ? null : h('div', { class: 'card warnbox' }, h('h3', {}, '🧪 ' + t('test_title')), h('p', { class: 'muted' }, t('test_text')),

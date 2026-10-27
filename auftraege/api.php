@@ -518,7 +518,11 @@ try {
             wf_touch();
             $db->commit();
             if (($oldRow['status'] ?? 'inquiry') !== $status) {
-                wf_cm_status($db, $id, (string)($oldRow['status'] ?? 'inquiry'), $status);
+                try {
+                    wf_cm_status($db, $id, (string)($oldRow['status'] ?? 'inquiry'), $status);
+                } catch (Throwable $e) {
+                    error_log('auftraege status mail: ' . $e->getMessage());
+                }
             }
             wf_json(['ok' => true, 'order' => order_row($db, $id), 'due_adjusted' => $dueAdjusted]);
         }
@@ -564,7 +568,11 @@ try {
             }
             wf_touch();
             if (isset($upd['status']) && $upd['status'] !== $o['status']) {
-                wf_cm_status($db, $id, $o['status'], $upd['status']);
+                try {
+                    wf_cm_status($db, $id, $o['status'], $upd['status']);
+                } catch (Throwable $e) {
+                    error_log('auftraege status mail: ' . $e->getMessage());
+                }
             }
             // Abgeholt/versendet: Schlussrechnung als Entwurf vorbereiten (falls noch keine Rechnung existiert)
             $invId = null;
@@ -621,7 +629,13 @@ try {
             $db->prepare("INSERT INTO order_confirmations (order_id, token_hash, lang, snapshot, created_by, expires_at) VALUES (?,?,?,?,?, datetime('now', '+30 days'))")
                 ->execute([$o['id'], hash('sha256', $token), $lang, json_encode(wf_confirm_snapshot($db, $o, $cust, $lang, 30), JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES), $user['name']]);
             log_order($db, $o['id'], $user, 'confirm_sent');
-            $mailed = !empty($in['email']) && wf_mail_settings()['offer'] ? wf_cm_offer($db, (int)$o['id'], wf_public_base($db) . 'bestaetigung.php?t=' . $token) : false;
+            // Mail-Probleme dürfen den Link nie verhindern
+            try {
+                $mailed = !empty($in['email']) && wf_mail_settings()['offer'] ? wf_cm_offer($db, (int)$o['id'], wf_public_base($db) . 'bestaetigung.php?t=' . $token) : false;
+            } catch (Throwable $e) {
+                error_log('auftraege offer mail: ' . $e->getMessage());
+                $mailed = false;
+            }
             wf_json(['ok' => true, 'token' => $token, 'mailed' => $mailed]);
         }
 
@@ -1918,6 +1932,25 @@ try {
                 wf_fail($cfg['mode'] === 'drive' ? 'drive_failed' : 'mail_failed', 502);
             }
             wf_json(['ok' => true, 'mode' => $cfg['mode']]);
+        }
+
+        // Zeitplan-Aufruf ohne geöffnete App: Adresse mit geheimem Schlüssel (einmalig erzeugt, auf Wunsch neu)
+        case 'cron_info': {
+            $k = (string)($db->query("SELECT value FROM meta WHERE key = 'cron_key'")->fetchColumn() ?: '');
+            if ($k === '' || ($isPost && !empty($in['renew']))) {
+                $k = bin2hex(random_bytes(20));
+                $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('cron_key', ?)")->execute([$k]);
+            }
+            $url = wf_public_base($db) . 'cron.php?key=' . $k;
+            $last = (string)($db->query("SELECT value FROM meta WHERE key = 'cron_last'")->fetchColumn() ?: '');
+            $script = "// Wunsch-Fabrik: stündlich Kundenmails + Archiv verschicken, auch wenn die App zu ist.\n"
+                . "// Einfügen unter script.google.com (z. B. im Projekt vom Drive-Archiv als neue Datei), speichern,\n"
+                . "// oben die Funktion „einrichten“ auswählen und einmal auf „Ausführen“ tippen (Zugriff erlauben).\n"
+                . "const WF_CRON_URL = '$url';\n\n"
+                . "function wunschFabrikPing() {\n  UrlFetchApp.fetch(WF_CRON_URL, { muteHttpExceptions: true });\n}\n\n"
+                . "function einrichten() {\n  ScriptApp.getProjectTriggers().filter(function (t) { return t.getHandlerFunction() === 'wunschFabrikPing'; })\n"
+                . "    .forEach(function (t) { ScriptApp.deleteTrigger(t); });\n  ScriptApp.newTrigger('wunschFabrikPing').timeBased().everyHours(1).create();\n  wunschFabrikPing();\n}\n";
+            wf_json(['ok' => true, 'url' => $url, 'last' => $last, 'script' => $script]);
         }
 
         // Apps Script für Google Drive (Geheimwort wird einmalig erzeugt)
