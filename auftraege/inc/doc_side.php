@@ -26,7 +26,9 @@ body{margin:0;background:#e9e6ef;font:9.6pt/1.5 Outfit,Arial,sans-serif;color:va
 .side{background:var(--side);color:#d9d2e6;padding:12mm 7mm 10mm 9mm;position:relative;overflow:hidden;font-size:8.6pt;line-height:1.55}
 .side::before{content:"";position:absolute;left:-30mm;top:-30mm;width:90mm;height:90mm;border-radius:50%;background:radial-gradient(circle,rgba(168,85,247,.35),rgba(139,43,226,0) 70%)}
 .side>*{position:relative}
-.logo{display:block;height:15mm;width:auto;max-width:46mm;object-fit:contain;margin-bottom:10mm}
+.logowrap{position:relative;margin:-4mm -4mm 6mm;padding:4mm;background:radial-gradient(closest-side,rgba(255,255,255,.28),rgba(255,255,255,.08) 60%,rgba(255,255,255,0))}
+.logowrap .logo{margin:0}
+.logo{display:block;height:15mm;width:auto;max-width:46mm;object-fit:contain;margin-bottom:10mm;filter:drop-shadow(0 0 .8mm #fff) drop-shadow(0 0 3mm rgba(255,255,255,.7)) drop-shadow(0 0 7mm rgba(233,213,255,.55))}
 .sec{padding:0 0 5mm;margin:0 0 5mm;border-bottom:1px solid rgba(201,160,255,.18)}
 .sec:last-child{border-bottom:0}
 .sec h4{margin:0 0 2mm;font-size:7.4pt;font-weight:600;letter-spacing:.2em;text-transform:uppercase;color:var(--p3)}
@@ -68,7 +70,7 @@ table.items{width:100%;border-collapse:collapse;margin-top:11mm}
 <div class="page">
 <?php if ($draft): ?><div class="wm"><?= $e($T['draft']) ?></div><?php endif; ?>
   <aside class="side">
-    <img class="logo" src="<?= $e($logoSrc) ?>" alt="">
+    <div class="logowrap"><img class="logo" src="<?= $e($logoSrc) ?>" alt=""></div>
     <div class="sec"><h4><?= $e($T['to']) ?></h4><div class="cust"><?php
       $lines = array_filter([(string)($C['company'] ?? ''), (string)($C['name'] ?? '')]);
       if (($C['company'] ?? '') !== '' && ($C['name'] ?? '') === ($C['company'] ?? '')) {

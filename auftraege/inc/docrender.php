@@ -92,7 +92,7 @@ body{margin:0;background:#e9e6ef;font:9.6pt/1.5 Outfit,Arial,sans-serif;color:va
 .hero::before{content:"";position:absolute;right:-30mm;top:-40mm;width:120mm;height:120mm;border-radius:50%;background:radial-gradient(circle,rgba(168,85,247,.55),rgba(139,43,226,0) 70%)}
 .hero::after{content:"";position:absolute;left:0;right:0;bottom:0;height:2.2mm;background:linear-gradient(90deg,var(--p1),var(--p2),#d8b4fe)}
 .brand{position:relative;display:flex;flex-direction:column;gap:5mm}
-.logo{height:17mm;width:auto;max-width:70mm;align-self:flex-start;object-fit:contain;filter:drop-shadow(0 2mm 4mm rgba(0,0,0,.35))}
+.logo{height:17mm;width:auto;max-width:70mm;align-self:flex-start;object-fit:contain;filter:drop-shadow(0 0 .8mm #fff) drop-shadow(0 0 3mm rgba(255,255,255,.7)) drop-shadow(0 0 7mm rgba(233,213,255,.55))}
 .doctype{font-family:"Cormorant Garamond",Georgia,serif;font-weight:700;font-size:38pt;line-height:.9;letter-spacing:.01em}
 .doctype em{display:block;font-family:Outfit,Arial,sans-serif;font-style:normal;font-weight:600;font-size:11pt;letter-spacing:.28em;text-transform:uppercase;color:#d8b4fe;margin-top:3mm}
 .seller{position:relative;text-align:right;font-size:8.2pt;line-height:1.55;color:#d9d2e6;align-self:flex-end}
