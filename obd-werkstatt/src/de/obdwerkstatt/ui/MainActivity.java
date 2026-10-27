@@ -163,10 +163,28 @@ public class MainActivity extends Activity {
         new Job<String>() {
             @Override
             public String run() throws Exception {
-                progress("Verbinde mit " + t.describe() + " …");
-                t.open();
                 try {
-                    Elm327 elm = new Elm327(t);
+                    return open(t);
+                } catch (Elm327.NoResponse e) {
+                    // Dual-Mode-Adapter: klassisch gekoppelt, Daten aber nur über Bluetooth LE
+                    if (!(t instanceof Transports.Classic) || !e.silent) throw e;
+                    Transports.Classic c = (Transports.Classic) t;
+                    progress("Keine Daten über Bluetooth klassisch – versuche Bluetooth LE …");
+                    try {
+                        String r = open(new Transports.Ble(MainActivity.this, c.device));
+                        prefs().edit().putString("last_type", "ble").apply();
+                        return r;
+                    } catch (Exception e2) {
+                        throw e;
+                    }
+                }
+            }
+
+            private String open(Transport tr) throws Exception {
+                progress("Verbinde mit " + tr.describe() + " …");
+                tr.open();
+                try {
+                    Elm327 elm = new Elm327(tr);
                     elm.init(protocol, new Elm327.Log() {
                         @Override
                         public void line(String s) {
@@ -174,7 +192,7 @@ public class MainActivity extends Activity {
                         }
                     });
                     ObdApi api = new ObdApi(elm);
-                    Session.transport = t;
+                    Session.transport = tr;
                     Session.elm = elm;
                     Session.api = api;
                     progress("Lese unterstützte Messwerte …");
@@ -186,7 +204,7 @@ public class MainActivity extends Activity {
                     return elm.protocolDesc;
                 } catch (Exception e) {
                     Session.disconnect();
-                    t.close();
+                    tr.close();
                     throw e;
                 }
             }

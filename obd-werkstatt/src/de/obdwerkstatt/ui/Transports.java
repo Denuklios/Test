@@ -69,7 +69,7 @@ public final class Transports {
     // ---------------------------------------------------------------- Bluetooth klassisch
 
     static final class Classic extends StreamTransport {
-        private final BluetoothDevice device;
+        final BluetoothDevice device;
         private BluetoothSocket socket;
 
         Classic(BluetoothDevice d) {

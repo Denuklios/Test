@@ -10,6 +10,9 @@ public abstract class Transport {
     private final StringBuilder buf = new StringBuilder();
     private final Object lock = new Object();
     private volatile IOException failure;
+    /** Alle bisher empfangenen Zeichen (gekürzt) – zur Fehlerdiagnose. */
+    private final StringBuilder rxLog = new StringBuilder();
+    private volatile int rxCount;
 
     public abstract void open() throws IOException;
 
@@ -30,7 +33,9 @@ public abstract class Transport {
             for (int i = 0; i < len; i++) {
                 char c = (char) (data[i] & 0xFF);
                 if (c != 0) buf.append(c);
+                if (rxLog.length() < 200) rxLog.append(c >= 0x20 && c < 0x7F ? c : (c == '\r' ? '↵' : '·'));
             }
+            rxCount += len;
             lock.notifyAll();
         }
     }
@@ -39,6 +44,18 @@ public abstract class Transport {
         synchronized (lock) {
             failure = e;
             lock.notifyAll();
+        }
+    }
+
+    /** Anzahl empfangener Bytes seit dem Öffnen. */
+    public int receivedCount() {
+        return rxCount;
+    }
+
+    /** Die ersten empfangenen Zeichen, lesbar aufbereitet. */
+    public String receivedText() {
+        synchronized (lock) {
+            return rxLog.toString();
         }
     }
 

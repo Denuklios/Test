@@ -97,11 +97,34 @@ public final class Elm327 {
      * @param protocolChoice 0 = automatisch, sonst feste Protokollnummer
      */
     public void init(int protocolChoice, Log log) throws IOException {
-        log.line("Adapter wird zurückgesetzt (ATZ) …");
+        // Manche Adapter brauchen nach dem Verbindungsaufbau einen Moment und einen "Weckruf"
+        log.line("Warte auf Adapter …");
         try {
-            raw("ATZ", 5000);
-        } catch (IOException e) {
-            raw("ATZ", 5000);
+            Thread.sleep(700);
+        } catch (InterruptedException ignored) {
+        }
+        transport.clearInput();
+        transport.write("\r");
+        transport.readUntilPrompt(1500);
+        // Nicht jeder Klon versteht ATZ – nacheinander verschiedene Rücksetzbefehle probieren
+        String[] resets = {"ATZ", "ATWS", "ATD", "ATI"};
+        boolean ok = false;
+        for (String r : resets) {
+            log.line("Adapter wird initialisiert (" + r + ") …");
+            try {
+                raw(r, r.equals("ATZ") ? 4000 : 2500);
+                ok = true;
+                break;
+            } catch (IOException e) {
+                if (transport.isFailed()) throw e;
+            }
+        }
+        if (!ok) {
+            int n = transport.receivedCount();
+            throw new NoResponse(n == 0,
+                    n == 0 ? "Der Adapter ist verbunden, sendet aber keine Daten. Adapter kurz abziehen und neu "
+                            + "einstecken; falls er „BLE“ unterstützt, über „Bluetooth LE“ verbinden."
+                            : "Der Adapter antwortet nicht wie ein ELM327. Empfangen: \"" + transport.receivedText() + "\"");
         }
         setup();
         version = cmd("ATI");
@@ -130,6 +153,16 @@ public final class Elm327 {
         cmd("ATD");
         setup();
         cmd("ATSP" + Integer.toHexString(protocol).toUpperCase());
+    }
+
+    /** Adapter liefert keine verwertbare Antwort; silent = überhaupt keine Bytes empfangen. */
+    public static final class NoResponse extends IOException {
+        public final boolean silent;
+
+        public NoResponse(boolean silent, String msg) {
+            super(msg);
+            this.silent = silent;
+        }
     }
 
     public interface Log {
