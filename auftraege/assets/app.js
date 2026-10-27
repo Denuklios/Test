@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Produktkatalog & Größen';
+const APP_VERSION = '2026-10-27 · Schmale Auftragsliste';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -297,7 +297,22 @@ route(/^\/$/, async () => {
     for (const k of ['status', 'pay', 'process', 'worker']) if (filt[k]) params[k] = filt[k];
     if (filt.overdue) params.overdue = 1;
     const { orders } = await api('orders', { params });
-    list.replaceChildren(...(orders.length ? orders.map(orderCard) : [h('div', { class: 'empty' }, t('no_orders'))]));
+    if (!orders.length) { list.replaceChildren(h('div', { class: 'empty' }, t('no_orders'))); return; }
+    // von oben nach unten nach Abgabetermin, in Abschnitten: überfällig, diese Woche, nächste Woche, später, ohne Termin
+    const td = today(), wd = (new Date(td + 'T12:00:00').getDay() + 6) % 7;
+    const addD = (n) => { const x = new Date(td + 'T12:00:00'); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
+    const endW = addD(6 - wd), endNW = addD(13 - wd);
+    const finished = (o) => ['done', 'delivered'].includes(o.status);
+    const bucket = (o) => finished(o) ? 'b_done' : !o.due_date ? 'b_none' : o.due_date < td ? 'b_late' : o.due_date <= endW ? 'b_week' : o.due_date <= endNW ? 'b_next' : 'b_later';
+    const order = ['b_late', 'b_week', 'b_next', 'b_later', 'b_none', 'b_done'];
+    const sorted = [...orders].sort((x, y) => order.indexOf(bucket(x)) - order.indexOf(bucket(y)) || (x.due_date || '9999').localeCompare(y.due_date || '9999') || String(x.nr).localeCompare(String(y.nr)));
+    const out = []; let last = null;
+    for (const o of sorted) {
+      const bk = bucket(o);
+      if (bk !== last) { out.push(h('div', { class: 'ogroup' + (bk === 'b_late' ? ' late' : '') }, t(bk), h('small', {}, String(sorted.filter((x) => bucket(x) === bk).length)))); last = bk; }
+      out.push(orderRow(o));
+    }
+    list.replaceChildren(...out);
   };
   let timer;
   const sel = (key, opts, ph) => h('select', { onchange: (e) => { filt[key] = e.target.value; load(); } },
@@ -321,6 +336,19 @@ route(/^\/$/, async () => {
     if (n && location.hash.replace(/^#/, '') in { '': 1, '/': 1 }) view().prepend(h('a', { class: 'alertbar', href: '#/tax' }, h('span', {}, t0.warnings.some((w) => w.level === 'bad') ? '⛔' : '⚠'), h('span', {}, t('alert_tax', n)), h('b', { style: 'margin-left:auto' }, '→')));
   }).catch(() => {});
 });
+
+// schmale Zeile je Auftrag: Statusfarbe links, Titel/Kunde, Termin, Menge/Preis, Status, nächster Schritt
+function orderRow(o) {
+  const late = o.due_date && o.due_date < today() && !['done', 'delivered'].includes(o.status);
+  const nextS = me.statuses[me.statuses.indexOf(o.status) + 1];
+  return h('a', { href: `#/order/${o.id}`, class: 'orow' + (late ? ' late' : ''), style: `--sc:${SCOL[o.status]}` },
+    o.thumb ? h('img', { class: 'or-th', src: thumbUrl(o.thumb), alt: '', loading: 'lazy' }) : (() => { const p = procById((o.process_ids || '').split(',').filter(Boolean)[0]); return h('span', { class: 'or-th none', style: p ? `--sc:${p.color}` : '', title: p ? pname(p) : '' }, p ? pname(p).slice(0, 2) : '·'); })(),
+    h('span', { class: 'or-main' }, h('b', {}, o.title), h('small', {}, [o.nr, o.customer_company || o.customer_name].filter(Boolean).join(' · '))),
+    h('span', { class: 'or-due' + (late ? ' late' : '') }, o.due_date ? (late ? '⚠ ' : '') + dfmt(o.due_date) : '—'),
+    h('span', { class: 'or-qty muted' }, `${o.qty} ${t('pcs')} · ${money(o.price, o.currency)}`),
+    h('span', { class: 'or-st' }, statusPill(o.status), o.pay_status !== 'open' || ['done', 'delivered'].includes(o.status) ? payPill(o.pay_status) : null),
+    nextS && !o.deleted_at ? h('button', { class: 'btn small or-next', title: t('st_' + nextS), onclick: async (e) => { e.preventDefault(); e.stopPropagation(); const r = await setStatus(o, nextS); if (r) { toast(r.invoice_id ? t('inv_draft_auto') : t('saved')); render(); } } }, '→ ' + t('st_' + nextS)) : h('span', { class: 'or-next' }));
+}
 
 function orderCard(o) {
   const late = o.due_date && o.due_date < today() && !['done', 'delivered'].includes(o.status);

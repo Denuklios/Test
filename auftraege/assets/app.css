@@ -449,3 +449,23 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 .sizebox{margin-top:8px}.sizes{display:flex;flex-wrap:wrap;gap:6px}
 .szc{display:flex;flex-direction:column;align-items:center;gap:2px;margin:0;text-transform:none;letter-spacing:0;font-size:.8rem;color:var(--muted)}
 .szc input{width:64px;text-align:center;padding:8px 4px}
+
+/* Auftragsliste: eine Zeile je Auftrag, gruppiert nach Termin */
+.ogroup{display:flex;align-items:center;gap:8px;margin:14px 2px 2px;font-size:.72rem;letter-spacing:.16em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.ogroup small{font-size:.72rem;letter-spacing:0;background:var(--line);border-radius:99px;padding:1px 8px}
+.ogroup.late{color:#dc2626}.orders .ogroup:first-child{margin-top:0}
+.orders:has(.orow){gap:6px;grid-template-columns:minmax(0,1fr)!important}
+.orow{display:grid;grid-template-columns:40px minmax(0,1fr) 110px 170px 220px 170px;align-items:center;gap:12px;padding:8px 12px 8px 14px;border:1px solid var(--line);border-left:4px solid var(--sc);border-radius:12px;background:var(--card);text-decoration:none;color:inherit}
+.orow:hover{border-color:var(--line-strong);border-left-color:var(--sc)}
+.orow.late{background:color-mix(in srgb,#ef4444 6%,var(--card))}
+.or-th{width:40px;height:40px;border-radius:9px;object-fit:cover;border:1px solid var(--line)}
+.or-th.none{display:grid;place-items:center;background:color-mix(in srgb,var(--sc) 18%,transparent);color:var(--sc);border:0;font-weight:700;font-size:.8rem}
+.or-main{min-width:0;display:flex;flex-direction:column}.or-main b{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-weight:600}
+.or-main small{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-size:.8rem}
+.or-due{font-variant-numeric:tabular-nums;font-size:.9rem;white-space:nowrap}.or-due.late{color:#dc2626;font-weight:600}
+.or-qty{font-size:.85rem;white-space:nowrap;text-align:right}
+.or-st{display:flex;gap:4px;flex-wrap:nowrap;justify-content:flex-end;min-width:0}.or-st .pill{font-size:.62rem;padding:2px 8px;white-space:nowrap}
+.or-next{justify-self:end;white-space:nowrap;font-size:.8rem}
+@media(max-width:900px){.orow{grid-template-columns:40px minmax(0,1fr) auto;grid-template-areas:'th main due' 'th st next';row-gap:4px}
+  .or-th{grid-area:th;align-self:start}.or-main{grid-area:main}.or-due{grid-area:due;text-align:right}.or-qty{display:none}
+  .or-st{grid-area:st;justify-content:flex-start;flex-wrap:wrap;align-self:center}.or-next{grid-area:next}}
