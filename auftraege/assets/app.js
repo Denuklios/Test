@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Neues Rechnungsdesign';
+const APP_VERSION = '2026-10-27 · kr|€ überall, Logo gerade';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -654,6 +654,7 @@ async function orderForm(o, presetCustomer, note = '') {
       h('div', { class: 'irow' }, h('div', {}, h('label', {}, t('qty')), qtyIn), h('div', {}, h('label', {}, t('unit_price')), priceIn), h('div', { class: 'isumbox' }, h('label', {}, t('line_total')), sumEl)),
       pick, timeEl);
     items.push(r); itemsBox.append(r.el);
+    fxAttach(priceIn, () => F.currency.value);
     if (focus) { qtyIn.focus(); qtyIn.select(); }
     return r;
   }
@@ -832,6 +833,7 @@ async function orderForm(o, presetCustomer, note = '') {
       field('notes', t('notes'), h('textarea', {}, D.notes))),
     err,
     h('div', { class: 'formbar' }, h('a', { class: 'btn', href: isNew ? '#/' : `#/order/${D.id}` }, t('cancel')), btn));
+  fxAttach(F.price, () => F.currency.value); fxAttach(F.deposit, () => F.currency.value);
   D.items.forEach((it) => addItem(it));
   itemsChanged(true);
   drawWorkers(); updateSummary(); refreshPlan(isNew);
@@ -856,6 +858,49 @@ function hourCard() {
 }
 const num = (v) => { let x = String(v || '').replace(/\s|kr\.?|€|dkk|eur/gi, ''); if (x.includes(',')) x = x.replace(/\./g, '').replace(',', '.'); return parseFloat(x) || 0; };
 // EUR-Kurs (DKK je 1 €): Nationalbank/EZB, sonst fester Leitkurs der Krone (ERM II)
+// Betragsfeld mit Umschalter kr | €: in der anderen Währung tippen, das eigentliche Feld bekommt live den umgerechneten
+// Betrag in der Belegwährung (docCur). Funktioniert für jedes Feld, ohne dass der übrige Code etwas davon merkt.
+function fxAttach(input, docCur) {
+  if (!input.parentNode) { setTimeout(() => fxAttach(input, docCur), 0); return; }
+  const other = () => (docCur() === 'DKK' ? 'EUR' : 'DKK');
+  const sym = (c) => (c === 'EUR' ? '€' : 'kr');
+  const fmt = (v) => (input.type === 'number' ? (Math.round(v * 100) / 100).toFixed(2) : (Math.round(v * 100) / 100).toFixed(2).replace('.', ','));
+  const foreign = h('input', { type: 'text', inputmode: 'decimal', class: 'hidden', placeholder: '0,00' });
+  const note = h('small', { class: 'muted fxnote hidden' });
+  let mode = 'doc', rate = 0;
+  // DKK je Einheit; DKK = 1
+  const r = async (c) => (c === 'DKK' ? 1 : (await eurRate()).rate);
+  const push = async () => {
+    const v = num(foreign.value);
+    rate = (await r(other())) / (await r(docCur()));
+    input.value = foreign.value.trim() === '' ? '' : fmt(v * rate);
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    note.textContent = foreign.value.trim() === '' ? '' : `= ${input.value} ${sym(docCur())}`;
+  };
+  foreign.addEventListener('input', push);
+  const bDoc = h('button', { type: 'button', class: 'curbtn on' }), bOther = h('button', { type: 'button', class: 'curbtn' });
+  const label = () => { bDoc.textContent = sym(docCur()); bOther.textContent = sym(other()); };
+  const setMode = async (m) => {
+    mode = m; label();
+    bDoc.classList.toggle('on', m === 'doc'); bOther.classList.toggle('on', m === 'other');
+    if (m === 'other') {
+      rate = (await r(other())) / (await r(docCur()));
+      foreign.value = input.value.trim() === '' ? '' : fmt(num(input.value) / rate).replace('.', ',');
+      input.classList.add('hidden'); foreign.classList.remove('hidden'); note.classList.remove('hidden'); foreign.focus();
+      note.textContent = foreign.value ? `= ${input.value} ${sym(docCur())}` : '';
+    } else {
+      input.classList.remove('hidden'); foreign.classList.add('hidden'); note.classList.add('hidden');
+    }
+  };
+  bDoc.onclick = () => setMode('doc'); bOther.onclick = () => setMode('other');
+  const wrap = h('span', { class: 'fxw' });
+  input.parentNode.insertBefore(wrap, input);
+  wrap.append(input, foreign, h('span', { class: 'curswitch' }, bDoc, bOther), note);
+  wrap._refresh = () => { if (mode === 'other') setMode('doc'); label(); };
+  label();
+}
+document.addEventListener('change', (e) => { if (e.target.tagName === 'SELECT') document.querySelectorAll('.fxw').forEach((w) => w._refresh && w._refresh()); });
+
 async function eurRate() {
   if (eurCache) return eurCache;
   try { const r = await api('rate', { params: { cur: 'EUR' } }); eurCache = { rate: +r.rate, date: r.date }; } catch (e) { eurCache = { rate: 7.46038, date: '' }; }
@@ -948,6 +993,7 @@ route(/^\/products$/, async () => {
         h('button', { type: 'button', class: 'btn small', onclick: () => setPrice(me.company.moms_registered ? net : incl) }, t('calc_take')));
     };
     mat.addEventListener('input', doCalc); mins.addEventListener('input', doCalc);
+    fxAttach(mat, () => 'DKK');
     const calcBox = h('details', { class: 'calcbox' }, h('summary', {}, '🧮 ' + t('calc_h')),
       h('div', { class: 'grid c2', style: 'margin-top:8px' }, h('div', {}, h('label', {}, t('calc_mat')), mat), h('div', {}, h('label', {}, t('calc_min')), mins)), calcOut);
     if (!p.id) setTimeout(askSug, 0);
@@ -1343,6 +1389,7 @@ async function invoiceEditor(inv, preset = {}) {
         h('div', {}, h('label', {}, t('qty')), r.qty), h('div', {}, h('label', {}, t('unit')), r.unit), h('div', {}, h('label', {}, t('unit_price')), r.price), h('div', {}, h('label', {}, t('discount')), r.disc),
         h('div', { class: 'ilend' }, kindBtn, r.amt, h('button', { type: 'button', class: 'btn small danger', 'aria-label': t('delete'), onclick: () => { rows.splice(rows.indexOf(r), 1); r.el.remove(); recalc(); } }, '✕'))));
     rows.push(r); linesBox.append(r.el);
+    fxAttach(r.price, () => curSel.value);
     requestAnimationFrame(() => { r.desc.style.height = 'auto'; r.desc.style.height = r.desc.scrollHeight + 'px'; });
   }
   D.lines.forEach(addLine);
@@ -1424,6 +1471,7 @@ function invoiceView(i) {
   const C = i.customer_snap;
   const amt = h('input', { type: 'text', inputmode: 'decimal', value: !isCredit && b.open > 0 ? centsIn(b.open) : '' });
   const pdate = h('input', { type: 'date', value: today(), max: today() });
+  fxAttach(amt, () => cur);
   const meth = h('select', {}, ['bank', 'mobilepay', 'cash', 'card', 'other'].map((m) => h('option', { value: m }, t('pm_' + m))));
   const pnote = h('input', { type: 'text', maxlength: 200, placeholder: t('notes') });
   const err = h('div', { class: 'err' });
@@ -1558,6 +1606,7 @@ function expenseEditor(e) {
   const modeHint = h('small', { class: 'muted hint' });
   F.gross = h('input', { type: 'text', inputmode: 'decimal', value: e.gross ? centsIn(e.gross) : '', placeholder: '0,00', oninput: () => calc() });
   F.vat = h('input', { type: 'text', inputmode: 'decimal', value: e.vat ? centsIn(e.vat) : '', placeholder: '0,00', oninput: () => calc() });
+  fxAttach(F.gross, () => F.currency.value); fxAttach(F.vat, () => F.currency.value);
   const vat20 = h('button', { type: 'button', class: 'btn small', onclick: () => { F.vat.value = centsIn(Math.round(toC(F.gross.value) * 0.2)); calc(); } }, t('vat_from_gross'));
   F.vat_share = h('input', { type: 'number', min: 0, max: 100, value: e.vat_share ?? 100, oninput: () => calc(), style: 'width:90px' });
   F.currency = h('select', { onchange: () => { rateWrap.classList.toggle('hidden', F.currency.value === 'DKK'); calc(); } }, me.currencies.map((c) => h('option', { value: c, selected: c === e.currency }, c)));
