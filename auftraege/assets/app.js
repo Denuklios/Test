@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Beleg-Zuschnitt';
+const APP_VERSION = '2026-10-27 · Rabatt & Gerät merken';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -105,6 +105,8 @@ const workerById = (id) => (me.workers || []).find((w) => +w.id === +id);
 const activeWorkers = () => (me.workers || []).filter((w) => w.active);
 const wchip = (w) => w ? h('span', { class: 'wchip', style: `--wc:${w.color}` }, h('i'), w.name) : null;
 const hhmmAdd = (hhmm, m) => { const x = (+hhmm.slice(0, 2)) * 60 + (+hhmm.slice(3)) + m; return `${String(Math.floor(x / 60) % 24).padStart(2, '0')}:${String(x % 60).padStart(2, '0')}`; };
+// Positionssumme nach Rabatt (Prozent oder fester Betrag), nie unter 0
+const itemTotal = (i) => { const g = (+i.qty || 0) * (+i.price || 0), d = +i.disc || 0; return Math.round(Math.max(0, i.disc_type === 'abs' ? g - d : g * (1 - Math.min(100, d) / 100)) * 100) / 100; };
 const hoursToMin = (v) => Math.max(0, Math.round((parseFloat(String(v).replace(',', '.')) || 0) * 60));
 const minToHours = (m) => String(Math.round(m / 60 * 100) / 100).replace('.', lang === 'da' ? ',' : ',');
 
@@ -330,7 +332,7 @@ route(/^\/order\/(\d+)$/, async (id) => {
     o.items && o.items.length ? h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:8px' }, t('items_label')), h('div', { class: 'tscroll' }, h('table', { class: 't' }, o.items.map((i) => {
       const m = procMin(i.processes, i.qty);
       return h('tr', {}, h('td', {}, `${i.qty} ×`), h('td', {}, h('b', {}, i.name), h('div', { class: 'muted', style: 'font-size:.8rem' }, procLabel(i.processes))),
-        h('td', { class: 'num' }, money(i.qty * i.price, o.currency)), h('td', { class: 'num muted' }, m ? hm(m) : ''));
+        h('td', { class: 'num' }, money(itemTotal(i), o.currency), +i.disc ? h('div', { class: 'muted', style: 'font-size:.8rem' }, `${t('discount_short')} ${i.disc_type === 'abs' ? money(+i.disc, o.currency) : String(+i.disc).replace('.', ',') + ' %'}`) : null), h('td', { class: 'num muted' }, m ? hm(m) : ''));
     })))) : null,
     (o.description || o.notes) && h('div', { class: 'card' }, o.description && h('p', { style: 'margin:0 0 8px;white-space:pre-wrap' }, o.description), o.notes && h('p', { class: 'muted', style: 'margin:0;white-space:pre-wrap' }, o.notes)),
     !o.deleted_at && trackCard(o, reload),
@@ -692,7 +694,7 @@ async function orderForm(o, presetCustomer, note = '') {
   const items = [];
   const totalMin = () => items.reduce((s_, r) => s_ + r.min(), 0);
   const itemsSum = () => Math.round(items.reduce((s_, r) => s_ + r.sum(), 0) * 100) / 100;
-  let titleTouched = !isNew || !!note, priceTouched = !isNew && Math.abs((+D.price || 0) - D.items.reduce((s_, i) => s_ + i.qty * i.price, 0)) > 0.005;
+  let titleTouched = !isNew || !!note, priceTouched = !isNew && Math.abs((+D.price || 0) - D.items.reduce((s_, i) => s_ + itemTotal(i), 0)) > 0.005;
   const totLine = h('div', { class: 'itemtot' });
   function itemsChanged(init) {
     const sum = itemsSum();
@@ -709,21 +711,30 @@ async function orderForm(o, presetCustomer, note = '') {
     const nameIn = h('input', { type: 'text', value: it.name || '', placeholder: t('item_name'), maxlength: 200, oninput: itemsChanged });
     const qtyIn = h('input', { type: 'number', min: 1, inputmode: 'numeric', value: it.qty || 1, oninput: itemsChanged });
     const priceIn = h('input', { type: 'text', inputmode: 'decimal', value: it.price ? String(it.price).replace('.', ',') : '', placeholder: '0,00', oninput: itemsChanged });
+    // Rabatt je Position: Prozent oder fester Betrag auf die Positionssumme
+    let dType = it.disc_type === 'abs' ? 'abs' : 'pct';
+    const discIn = h('input', { type: 'text', inputmode: 'decimal', value: +it.disc ? String(+it.disc).replace('.', ',') : '', placeholder: '0', oninput: itemsChanged });
+    const bPct = h('button', { type: 'button', class: 'curbtn' }, '%'), bAbs = h('button', { type: 'button', class: 'curbtn' });
+    const dLabel = () => { bPct.classList.toggle('on', dType === 'pct'); bAbs.classList.toggle('on', dType === 'abs'); bAbs.textContent = F.currency.value === 'EUR' ? '€' : 'kr'; };
+    bPct.onclick = () => { dType = 'pct'; dLabel(); itemsChanged(); }; bAbs.onclick = () => { dType = 'abs'; dLabel(); itemsChanged(); };
     const sumEl = h('span', { class: 'isum' });
     const timeEl = h('span', { class: 'itime muted' });
     const pick = procPicker(it.processes || [], itemsChanged);
-    r.get = () => ({ product_id: it.product_id || null, name: nameIn.value.trim(), qty: Math.max(1, parseInt(qtyIn.value, 10) || 1), price: num(priceIn.value), processes: pick.get() });
-    r.sum = () => { const g = r.get(); return g.qty * g.price; };
+    r.get = () => ({ product_id: it.product_id || null, name: nameIn.value.trim(), qty: Math.max(1, parseInt(qtyIn.value, 10) || 1), price: num(priceIn.value), disc: Math.max(0, num(discIn.value)), disc_type: dType, processes: pick.get() });
+    r.sum = () => itemTotal(r.get());
     r.min = () => { const g = r.get(); return procMin(g.processes, g.qty); };
     r.upd = () => {
       const g = r.get(), m = procMin(g.processes, g.qty);
       const pp = g.processes.filter((p) => !isOnce(p.process_id)).reduce((s_, p) => s_ + p.per_piece, 0), once = m - pp * g.qty;
-      sumEl.textContent = money(r.sum(), F.currency.value);
+      dLabel();
+      const gross = g.qty * g.price;
+      sumEl.replaceChildren(...(r.sum() < gross - 0.005 ? [h('s', { class: 'muted', style: 'font-weight:400;margin-right:6px' }, money(gross, F.currency.value)), money(r.sum(), F.currency.value)] : [money(r.sum(), F.currency.value)]));
       timeEl.textContent = m ? '⏱ ' + [pp ? `${pp} ${t('min_short')} × ${g.qty}` : '', once ? `${once} ${t('min_once_short')}` : ''].filter(Boolean).join(' + ') + ` = ${hm(m)}` : t('item_no_proc');
     };
     r.el = h('div', { class: 'item' },
       h('div', { class: 'itop' }, nameIn, h('button', { type: 'button', class: 'btn small danger', 'aria-label': t('delete'), onclick: () => { items.splice(items.indexOf(r), 1); r.el.remove(); itemsChanged(); } }, '✕')),
-      h('div', { class: 'irow' }, h('div', {}, h('label', {}, t('qty')), qtyIn), h('div', {}, h('label', {}, t('unit_price')), priceIn), h('div', { class: 'isumbox' }, h('label', {}, t('line_total')), sumEl)),
+      h('div', { class: 'irow' }, h('div', {}, h('label', {}, t('qty')), qtyIn), h('div', {}, h('label', {}, t('unit_price')), priceIn),
+        h('div', { class: 'idisc' }, h('label', {}, t('discount_short')), h('span', { class: 'fxw' }, discIn, h('span', { class: 'curswitch' }, bPct, bAbs))), h('div', { class: 'isumbox' }, h('label', {}, t('line_total')), sumEl)),
       pick, timeEl);
     items.push(r); itemsBox.append(r.el);
     fxAttach(priceIn, () => F.currency.value);
@@ -2082,6 +2093,14 @@ route(/^\/settings$/, async () => {
   const tokOut = h('div');
   const tokList = h('div', {}, me.tokens.map((k) => h('div', { class: 'free' }, h('span', {}, `${k.label} · ${k.created_at.slice(0, 10)}${k.last_used_at ? ' · ' + t('last_seen') + ' ' + k.last_used_at.slice(0, 16) : ''}`),
     k.revoked_at ? h('span', { class: 'muted' }, t('revoked')) : h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('confirm_revoke'))) { await api('token_revoke', { body: { id: k.id } }); await reloadMe(); render(); } } }, t('revoke')))));
+  const devCard = h('div', { class: 'card' }, h('h3', {}, '🔑 ' + t('dev_title')), h('p', { class: 'muted' }, t('dev_text')),
+    (me.devices || []).length ? h('div', {}, me.devices.map((d) => h('div', { class: 'free' },
+      h('span', {}, h('b', {}, d.label), +d.id === +me.device_id ? h('span', { class: 'pill', style: 'margin-left:6px;--c:var(--p1)' }, t('dev_this')) : null,
+        h('small', { class: 'muted', style: 'display:block' }, `${t('dev_since')} ${dfmt(d.created_at.slice(0, 10))}` + (d.last_used_at ? ` · ${t('last_seen')} ${dfmt(d.last_used_at.slice(0, 10))}` : ''))),
+      h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('dev_revoke_confirm', d.label))) { await api('device_revoke', { body: { id: d.id } }); if (+d.id === +me.device_id) { location.reload(); return; } await reloadMe(); render(); } } }, t('dev_revoke'))))) : h('p', { class: 'muted' }, t('dev_none')),
+    (() => { const u = h('input', { type: 'url', value: me.admin_url || '', placeholder: 'https://wunsch-fabrik.dk/…' });
+      return h('div', { style: 'margin-top:12px' }, h('label', {}, t('dev_admin_url')), h('div', { class: 'row' }, u, h('button', { class: 'btn', onclick: async () => { try { await api('admin_url_save', { body: { url: u.value } }); await reloadMe(); toast(t('saved')); } catch (x) { toast(x.message); } } }, t('save'))),
+        h('small', { class: 'muted' }, t('dev_admin_url_hint'))); })());
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_settings')), h('h1', {}, t('settings_h1_a'), ' ', h('em', {}, t('settings_h1_b'))))),
     testCard,
@@ -2091,6 +2110,7 @@ route(/^\/settings$/, async () => {
     archiveCard,
     termsCard,
     aiCard,
+    devCard,
     h('div', { class: 'card' }, h('h3', {}, t('display_title')), h('p', { class: 'muted' }, t('display_text')),
       h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: async () => {
         const r = await api('token_create', { body: { label: t('display_label') } });

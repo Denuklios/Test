@@ -89,10 +89,18 @@ function wf_user(): ?array
         return $cache;
     }
     $adminId = $_SESSION[wf_cfg('session_key')] ?? null;
+    if ($adminId) {
+        wf_device_remember((string)$adminId);
+    } else {
+        $adminId = wf_device_login();   // bei jeder Anfrage prüfen, damit Abmelden eines Geräts sofort wirkt
+    }
     if (!$adminId && wf_cfg('dev_login') && in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true)) {
         $adminId = $_SESSION['wf_dev_admin'] ?? ($_GET['dev'] ?? null);
         if ($adminId) {
             $_SESSION['wf_dev_admin'] = $adminId;
+            if (isset($_GET['dev'])) {
+                wf_device_remember((string)$adminId);   // lokal wie ein Login über die Hauptseite behandeln (Tests)
+            }
         }
     }
     if (!$adminId) {
@@ -106,6 +114,97 @@ function wf_user(): ?array
         $u = ['id' => 0, 'name' => 'Admin ' . $adminId, 'wf_admin_id' => (string)$adminId, 'active' => 1];
     }
     return $cache = $u;
+}
+
+const WF_DEVICE_COOKIE = 'wf_auftraege_device';
+
+/** Pfad der App für das Geräte-Cookie (z. B. /auftraege/), damit es nicht an die ganze Domain geht. */
+function wf_app_path(): string
+{
+    $root = realpath(dirname(__DIR__)) ?: '';
+    $file = realpath((string)($_SERVER['SCRIPT_FILENAME'] ?? '')) ?: '';
+    $name = (string)($_SERVER['SCRIPT_NAME'] ?? '');
+    if ($root === '' || !str_starts_with($file, $root) || $name === '') {
+        return '/';
+    }
+    $rel = str_replace(DIRECTORY_SEPARATOR, '/', substr($file, strlen($root)));
+    $base = str_ends_with($name, $rel) ? substr($name, 0, -strlen($rel)) : dirname($name);
+    return rtrim($base, '/') . '/';
+}
+
+function wf_device_cookie(string $value, int $expires): void
+{
+    if (headers_sent()) {
+        return;
+    }
+    setcookie(WF_DEVICE_COOKIE, $value, ['expires' => $expires, 'path' => wf_app_path(), 'httponly' => true, 'samesite' => 'Lax', 'secure' => !empty($_SERVER['HTTPS'])]);
+}
+
+function wf_device_label(): string
+{
+    $ua = (string)($_SERVER['HTTP_USER_AGENT'] ?? '');
+    $os = preg_match('/Android/i', $ua) ? 'Android' : (preg_match('/iPhone|iPad/i', $ua) ? 'iPhone/iPad' : (preg_match('/Windows/i', $ua) ? 'Windows' : (preg_match('/Mac OS/i', $ua) ? 'Mac' : (preg_match('/Linux/i', $ua) ? 'Linux' : ''))));
+    $br = preg_match('/Edg\//', $ua) ? 'Edge' : (preg_match('/SamsungBrowser/', $ua) ? 'Samsung Internet' : (preg_match('/Firefox\//', $ua) ? 'Firefox' : (preg_match('/Chrome\//', $ua) ? 'Chrome' : (preg_match('/Safari\//', $ua) ? 'Safari' : ''))));
+    return trim($br . ($br && $os ? ' · ' : '') . $os) ?: 'Gerät';
+}
+
+/** Angemeldet über die Hauptseite: Gerät merken (Cookie 1 Jahr), damit die App später auch ohne Hauptseite öffnet. */
+function wf_device_remember(string $adminId): void
+{
+    try {
+        $db = wf_db();
+        $tok = (string)($_COOKIE[WF_DEVICE_COOKIE] ?? '');
+        if ($tok !== '') {
+            $st = $db->prepare('SELECT admin_id FROM app_devices WHERE token_hash = ?');
+            $st->execute([hash('sha256', $tok)]);
+            if ($st->fetchColumn() === $adminId) {
+                return;
+            }
+        }
+        $tok = bin2hex(random_bytes(32));
+        $db->prepare('INSERT INTO app_devices (token_hash, admin_id, label, last_used_at) VALUES (?,?,?,datetime(\'now\'))')->execute([hash('sha256', $tok), $adminId, wf_device_label()]);
+        wf_device_cookie($tok, time() + 365 * 86400);
+    } catch (Throwable $e) {
+        // ohne Gerät merken weiter wie bisher
+    }
+}
+
+/** Anmeldung über ein gemerktes Gerät. Gibt die Admin-ID zurück oder null. */
+function wf_device_login(): ?string
+{
+    $tok = (string)($_COOKIE[WF_DEVICE_COOKIE] ?? '');
+    if ($tok === '' || !preg_match('/^[0-9a-f]{64}$/', $tok)) {
+        return null;
+    }
+    try {
+        $db = wf_db();
+        $st = $db->prepare('SELECT id, admin_id, last_used_at FROM app_devices WHERE token_hash = ?');
+        $st->execute([hash('sha256', $tok)]);
+        $d = $st->fetch();
+        if (!$d) {
+            wf_device_cookie('', time() - 3600);
+            return null;
+        }
+        if ((string)$d['last_used_at'] < date('Y-m-d H:i:s', time() - 86400)) {
+            $db->prepare("UPDATE app_devices SET last_used_at = datetime('now') WHERE id = ?")->execute([$d['id']]);
+            wf_device_cookie($tok, time() + 365 * 86400);   // verlängern, solange das Gerät benutzt wird
+        }
+        return (string)$d['admin_id'];
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/** ID des gemerkten Geräts dieser Anfrage (für „dieses Gerät“ in den Einstellungen). */
+function wf_device_current(): int
+{
+    $tok = (string)($_COOKIE[WF_DEVICE_COOKIE] ?? '');
+    if ($tok === '') {
+        return 0;
+    }
+    $st = wf_db()->prepare('SELECT id FROM app_devices WHERE token_hash = ?');
+    $st->execute([hash('sha256', $tok)]);
+    return (int)$st->fetchColumn();
 }
 
 function wf_require_user(bool $json = true): array

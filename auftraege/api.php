@@ -241,6 +241,9 @@ try {
                 'workers' => wf_workers(),
                 'users' => $db->query('SELECT id, name, wf_admin_id, active FROM users ORDER BY id')->fetchAll(),
                 'tokens' => $tokens,
+                'devices' => $db->query('SELECT id, label, created_at, last_used_at FROM app_devices ORDER BY COALESCE(last_used_at, created_at) DESC')->fetchAll(),
+                'device_id' => wf_device_current(),
+                'admin_url' => (string)($db->query("SELECT value FROM meta WHERE key = 'admin_url'")->fetchColumn() ?: ''),
                 'blocked' => $db->query("SELECT id, date_from, date_to, reason, time_from, time_to FROM blocked_days WHERE date_to >= date('now','localtime') ORDER BY date_from")->fetchAll(),
                 'settings' => ['weekend_min' => wf_weekend_min(), 'day_start' => wf_min_to_hhmm(wf_day_start())],
                 'version' => wf_version(),
@@ -346,7 +349,11 @@ try {
                 }
                 $iq = max(1, min(1000000, (int)($it['qty'] ?? 1)));
                 $ip = round(max(0, min(100000000, (float)str_replace(',', '.', (string)($it['price'] ?? 0)))), 2);
-                $items[] = ['product_id' => (int)($it['product_id'] ?? 0) ?: null, 'name' => $nm, 'qty' => $iq, 'price' => $ip, 'processes' => clean_procs($db, $it['processes'] ?? [])];
+                // Rabatt: Prozent (0–100) oder fester Betrag (höchstens die Positionssumme)
+                $dt = ($it['disc_type'] ?? '') === 'abs' ? 'abs' : 'pct';
+                $dv = max(0, (float)str_replace(',', '.', (string)($it['disc'] ?? 0)));
+                $dv = round($dt === 'abs' ? min($dv, $iq * $ip) : min($dv, 100), 2);
+                $items[] = ['product_id' => (int)($it['product_id'] ?? 0) ?: null, 'name' => $nm, 'qty' => $iq, 'price' => $ip, 'disc' => $dv, 'disc_type' => $dt, 'processes' => clean_procs($db, $it['processes'] ?? [])];
             }
             if ($items) {
                 $qty = array_sum(array_column($items, 'qty'));
@@ -1194,6 +1201,25 @@ try {
             $db->prepare('INSERT INTO display_tokens (label, token_hash) VALUES (?,?)')->execute([$label, hash('sha256', $token)]);
             // Klartext wird nur dieses eine Mal angezeigt.
             wf_json(['ok' => true, 'token' => $token]);
+        }
+
+        case 'admin_url_save': {
+            need_post();
+            $u = trim((string)($in['url'] ?? ''));
+            if ($u !== '' && (!filter_var($u, FILTER_VALIDATE_URL) || !preg_match('#^https?://#i', $u))) {
+                wf_fail('bad_url');
+            }
+            $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('admin_url', ?)")->execute([mb_substr($u, 0, 500)]);
+            wf_json(['ok' => true]);
+        }
+
+        case 'device_revoke': {
+            need_post();
+            $db->prepare('DELETE FROM app_devices WHERE id = ?')->execute([(int)($in['id'] ?? 0)]);
+            if ((int)($in['id'] ?? 0) === wf_device_current()) {
+                wf_device_cookie('', time() - 3600);
+            }
+            wf_json(['ok' => true]);
         }
 
         case 'token_revoke': {

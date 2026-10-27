@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 15) {
+    if ($v >= 16) {
         return;
     }
     if ($v < 1) {
@@ -50,7 +50,31 @@ function wf_migrate(PDO $db): void
     if ($v < 14) {
         wf_migrate_v14($db);
     }
-    wf_migrate_v15($db);
+    if ($v < 15) {
+        wf_migrate_v15($db);
+    }
+    wf_migrate_v16($db);
+}
+
+/**
+ * Version 16: gemerkte Geräte. Nach einer Anmeldung über die Hauptseite bleibt die App auf dem Gerät angemeldet
+ * (auch als installierte App), bis das Gerät in den Einstellungen abgemeldet wird.
+ */
+function wf_migrate_v16(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    CREATE TABLE app_devices (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      token_hash TEXT NOT NULL UNIQUE,
+      admin_id TEXT NOT NULL,
+      label TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_used_at TEXT
+    );
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '16');
+    ");
+    $db->commit();
 }
 
 /**

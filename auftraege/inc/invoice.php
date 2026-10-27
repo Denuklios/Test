@@ -564,6 +564,7 @@ function wf_order_line_text(string $key, string $lang, array $r): string
         'deposit' => ['da' => 'Forudbetaling (a conto) – ordre {nr}: {title}', 'de' => 'Anzahlung – Auftrag {nr}: {title}', 'en' => 'Deposit – order {nr}: {title}'],
         'deduct' => ['da' => 'Fradrag forudbetaling, faktura nr. {n} af {d}', 'de' => 'Abzüglich Anzahlung, Rechnung Nr. {n} vom {d}', 'en' => 'Less deposit, invoice no. {n} dated {d}'],
         'pcs' => ['da' => 'stk.', 'de' => 'Stk.', 'en' => 'pcs'],
+        'discount' => ['da' => 'Rabat {name}', 'de' => 'Rabatt {name}', 'en' => 'Discount {name}'],
     ];
     return strtr($T[$key][$lang] ?? $T[$key]['da'], $r);
 }
@@ -664,12 +665,21 @@ function wf_order_invoice(PDO $db, int $orderId, string $purpose, string $user, 
                 $kinds[(int)$it['product_id']] = $pk->fetchColumn() ?: 'goods';
             }
         }
-        $sum = array_sum(array_map(fn($it) => (int)round($it['price'] * 100) * (int)$it['qty'], $items));
-        if ($items && $sum === $price) {
-            foreach ($items as $it) {
-                $lines[] = ['description' => $it['name'], 'qty' => (int)$it['qty'], 'unit' => 'stk', 'unit_price' => (int)round($it['price'] * 100), 'discount' => 0,
-                    'kind' => $kinds[(int)($it['product_id'] ?? 0)] ?? 'goods'];
+        // Rabatt in Prozent -> Rabattspalte der Zeile; fester Betrag -> eigene Minuszeile darunter
+        $itLines = [];
+        foreach ($items as $it) {
+            $kind = $kinds[(int)($it['product_id'] ?? 0)] ?? 'goods';
+            $up = (int)round($it['price'] * 100);
+            $dv = (float)($it['disc'] ?? 0);
+            $pct = ($it['disc_type'] ?? 'pct') === 'pct' ? $dv : 0;
+            $itLines[] = ['description' => $it['name'], 'qty' => (int)$it['qty'], 'unit' => 'stk', 'unit_price' => $up, 'discount' => $pct, 'kind' => $kind];
+            if (($it['disc_type'] ?? '') === 'abs' && $dv > 0) {
+                $itLines[] = ['description' => wf_order_line_text('discount', $lang, ['{name}' => $it['name']]), 'qty' => 1, 'unit' => 'stk', 'unit_price' => -(int)round($dv * 100), 'discount' => 0, 'kind' => $kind];
             }
+        }
+        $sum = array_sum(array_map(fn($l) => (int)round($l['qty'] * $l['unit_price'] * (1 - $l['discount'] / 100)), $itLines));
+        if ($items && $sum === $price) {
+            array_push($lines, ...$itLines);
         } else {
             $qty = max(1, (int)$o['qty']);
             $even = $price % $qty === 0;

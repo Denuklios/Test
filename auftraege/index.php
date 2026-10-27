@@ -25,7 +25,16 @@ $v = fn(string $f) => (string)@filemtime(__DIR__ . '/' . $f);
   <div class="card">
     <div class="eyebrow">WUNSCH-FABRIK.DK</div>
     <h2>Bitte anmelden / Log ind</h2>
-    <p class="muted">Melde dich zuerst als Admin auf der Hauptseite an und öffne diese Seite danach erneut.<br>Log først ind som admin på hovedsiden, og åbn derefter denne side igen.</p>
+    <p class="muted">Melde dich einmal als Admin auf der Hauptseite an und öffne diese Seite danach erneut. Ab dann merkt sich die App dieses Gerät, auch als installierte App.<br>Log én gang ind som admin på hovedsiden, og åbn derefter denne side igen. Derefter husker appen enheden, også som installeret app.</p>
+<?php
+$adminUrl = '';
+try {
+    $adminUrl = (string)(wf_db()->query("SELECT value FROM meta WHERE key = 'admin_url'")->fetchColumn() ?: '');
+} catch (Throwable $e) {
+}
+if ($adminUrl !== '' && preg_match('#^https?://#i', $adminUrl)): ?>
+    <p style="margin-top:14px"><a class="btn primary" href="<?= htmlspecialchars($adminUrl, ENT_QUOTES) ?>">Zur Admin-Anmeldung / Til admin-login</a></p>
+<?php endif; ?>
   </div>
 </main>
 <?php else: ?>

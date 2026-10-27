@@ -435,6 +435,6 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 .psugitem{display:flex!important;align-items:center;gap:8px}.sthumb{width:36px;height:36px;border-radius:8px;object-fit:cover;flex:none}
 .fxw{display:flex;align-items:center;gap:6px;flex-wrap:wrap;position:relative}.fxw>input{flex:1;min-width:0}
 .fxw .curswitch{flex:none}.fxnote{flex-basis:100%;font-size:.78rem}
-.irow{grid-template-columns:minmax(56px,.7fr) minmax(170px,1.8fr) minmax(90px,1fr)}
+.irow{grid-template-columns:minmax(56px,.7fr) minmax(170px,1.8fr) minmax(130px,1.1fr) minmax(90px,1fr)}
 .fxw>input{min-width:80px}
-@media(max-width:600px){.irow{grid-template-columns:minmax(56px,.6fr) minmax(0,1.9fr)}.irow .isumbox{grid-column:1/-1}.irow .isumbox .isum{padding:2px 0}}
+@media(max-width:600px){.irow{grid-template-columns:minmax(56px,.6fr) minmax(0,1.9fr)}.irow .idisc{grid-column:1/-1}.irow .isumbox{grid-column:1/-1}.irow .isumbox .isum{padding:2px 0}}

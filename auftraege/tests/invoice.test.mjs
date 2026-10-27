@@ -248,6 +248,17 @@ try {
     let l = (await call('products')).j.products; assert.equal(l[0].price, 4950); assert.equal(l[0].kind, 'services');
     await call('product_delete', { body: { id } }); assert.equal((await call('products')).j.products.length, 0);
   });
+  await ok('Rabatt im Auftrag: Prozent als Rabattspalte, fester Betrag als Minuszeile, Summe passt', async () => {
+    const r = await call('order_save', { body: { customer_id: dk, title: 'Rabatt-Test', qty: 12, price: '980', deposit: 0, currency: 'DKK', pay_status: 'open',
+      items: [{ name: 'Hoodie', qty: 10, price: 100, disc: '10', disc_type: 'pct', processes: [] }, { name: 'Cap', qty: 2, price: 50, disc: '20', disc_type: 'abs', processes: [] }, { name: 'Zu viel', qty: 1, price: 5, disc: '50', disc_type: 'abs', processes: [] }] } });
+    const it = r.j.order.items; assert.equal(it[0].disc, 10); assert.equal(it[1].disc_type, 'abs'); assert.equal(it[2].disc, 5, 'Rabatt höchstens Positionssumme');
+    await call('order_save', { body: { id: r.j.order.id, customer_id: dk, title: 'Rabatt-Test', qty: 12, price: '980', deposit: 0, currency: 'DKK', pay_status: 'open', items: it.slice(0, 2) } });
+    const iid = (await call('order_invoice', { body: { order_id: r.j.order.id, purpose: 'final' } })).j.id;
+    const i = (await call('invoice', { params: { id: iid } })).j.invoice;
+    assert.equal(i.lines.length, 3); assert.equal(+i.lines[0].discount, 10); assert.equal(i.lines[2].unit_price, -2000); assert.match(i.lines[2].description, /Rabat Cap/);
+    assert.equal(i.lines.reduce((a, l) => a + l.amount, 0), 98000);
+    await call('invoice_delete', { body: { id: iid } });
+  });
   await ok('Journal: Hash-Kette und alle Rechnungen geprüft, keine Lücke', async () => {
     const r = await call('journal_verify'); assert.equal(r.j.ok, true, JSON.stringify(r.j.problems)); assert.equal(r.j.invoices, 6); assert.ok(r.j.entries >= 12);
   });
