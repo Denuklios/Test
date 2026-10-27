@@ -84,6 +84,21 @@ function log_order(PDO $db, int $orderId, array $user, string $what): void
 {
     $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([$orderId, $user['name'], $what]);
 }
+/** Verfahren mit Minuten je Stück prüfen: [{process_id, per_piece 1-60}] */
+function clean_procs(PDO $db, $list): array
+{
+    $ids = array_map('intval', $db->query('SELECT id FROM process_types')->fetchAll(PDO::FETCH_COLUMN));
+    $out = [];
+    foreach (is_array($list) ? $list : [] as $p) {
+        $pid = (int)($p['process_id'] ?? 0);
+        $pp = (int)($p['per_piece'] ?? 0);
+        if (in_array($pid, $ids, true) && $pp >= 1 && $pp <= 60) {
+            $out[$pid] = ['process_id' => $pid, 'per_piece' => $pp];
+        }
+    }
+    return array_values($out);
+}
+
 function order_row(PDO $db, int $id): array
 {
     $st = $db->prepare('SELECT o.*, c.name AS customer_name, c.company AS customer_company, c.email AS customer_email FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = ?');
@@ -95,6 +110,7 @@ function order_row(PDO $db, int $id): array
     $p = $db->prepare('SELECT process_id, minutes, per_piece FROM order_processes WHERE order_id = ?');
     $p->execute([$id]);
     $o['processes'] = $p->fetchAll();
+    $o['items'] = json_decode((string)($o['items'] ?? '[]'), true) ?: [];
     $dd = $db->prepare('SELECT date, start_time, minutes, kind FROM order_days WHERE order_id = ? ORDER BY date, start_time');
     $dd->execute([$id]);
     $o['days'] = array_map(fn($r) => ['date' => $r['date'], 'start' => $r['start_time'], 'end' => wf_min_to_hhmm(wf_hhmm_to_min($r['start_time']) + (int)$r['minutes']), 'minutes' => (int)$r['minutes'], 'kind' => $r['kind']], $dd->fetchAll());
@@ -294,6 +310,20 @@ try {
                 wf_fail('title_required');
             }
             $qty = max(1, min(1000000, (int)($in['qty'] ?? 1)));
+            // Positionen (Produkte): Menge, Stückpreis und Verfahren je Position; Gesamtmenge und Zeiten ergeben sich daraus
+            $items = [];
+            foreach (array_slice((array)($in['items'] ?? []), 0, 50) as $it) {
+                $nm = mb_substr(trim((string)($it['name'] ?? '')), 0, 200);
+                if ($nm === '') {
+                    continue;
+                }
+                $iq = max(1, min(1000000, (int)($it['qty'] ?? 1)));
+                $ip = round(max(0, min(100000000, (float)str_replace(',', '.', (string)($it['price'] ?? 0)))), 2);
+                $items[] = ['product_id' => (int)($it['product_id'] ?? 0) ?: null, 'name' => $nm, 'qty' => $iq, 'price' => $ip, 'processes' => clean_procs($db, $it['processes'] ?? [])];
+            }
+            if ($items) {
+                $qty = array_sum(array_column($items, 'qty'));
+            }
             $price = money($in, 'price');
             $deposit = money($in, 'deposit');
             $cur = s($in, 'currency', 3);
@@ -324,6 +354,15 @@ try {
             // Dauer je Stueck in Minuten (1-60); die Gesamtzeit je Verfahren = je Stueck x Menge. Rohe 'minutes' bleiben fuer Altdaten/API moeglich.
             $procs = [];
             $perPiece = [];
+            if ($items) {
+                foreach ($items as $it) {
+                    foreach ($it['processes'] as $pr) {
+                        $procs[$pr['process_id']] = ($procs[$pr['process_id']] ?? 0) + $pr['per_piece'] * $it['qty'];
+                        $perPiece[$pr['process_id']] = count($items) === 1 ? $pr['per_piece'] : null;
+                    }
+                }
+                $in['processes'] = [];
+            }
             foreach ((array)($in['processes'] ?? []) as $pr) {
                 $pid = (int)($pr['process_id'] ?? 0);
                 if ($pid <= 0) {
@@ -412,8 +451,8 @@ try {
             $db->beginTransaction();
             if ($id) {
                 $old = order_row($db, $id);
-                $db->prepare('UPDATE orders SET customer_id=?, title=?, description=?, article=?, qty=?, price=?, deposit=?, currency=?, pay_status=?, status=?, due_date=?, worker_id=?, notes=?, updated_at=datetime(\'now\') WHERE id=?')
-                   ->execute([$cid, $title, s($in, 'description', 5000), s($in, 'article', 300), $qty, $price, $deposit, $cur, $pay, $status, $due, $wid, s($in, 'notes', 5000), $id]);
+                $db->prepare('UPDATE orders SET customer_id=?, title=?, description=?, article=?, qty=?, price=?, deposit=?, currency=?, pay_status=?, status=?, due_date=?, worker_id=?, notes=?, items=?, updated_at=datetime(\'now\') WHERE id=?')
+                   ->execute([$cid, $title, s($in, 'description', 5000), s($in, 'article', 300), $qty, $price, $deposit, $cur, $pay, $status, $due, $wid, s($in, 'notes', 5000), json_encode($items, JSON_UNESCAPED_UNICODE), $id]);
                 if ($old['status'] !== $status) {
                     log_order($db, $id, $user, 'status:' . $status);
                 }
@@ -429,8 +468,8 @@ try {
                     $ex = $db->prepare('SELECT 1 FROM orders WHERE nr = ?');
                     $ex->execute([$nr]);
                 } while ($ex->fetchColumn());
-                $db->prepare('INSERT INTO orders (nr, customer_id, title, description, article, qty, price, deposit, currency, pay_status, status, due_date, worker_id, notes, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
-                   ->execute([$nr, $cid, $title, s($in, 'description', 5000), s($in, 'article', 300), $qty, $price, $deposit, $cur, $pay, $status, $due, $wid, s($in, 'notes', 5000), $user['id'] ?: null]);
+                $db->prepare('INSERT INTO orders (nr, customer_id, title, description, article, qty, price, deposit, currency, pay_status, status, due_date, worker_id, notes, items, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                   ->execute([$nr, $cid, $title, s($in, 'description', 5000), s($in, 'article', 300), $qty, $price, $deposit, $cur, $pay, $status, $due, $wid, s($in, 'notes', 5000), json_encode($items, JSON_UNESCAPED_UNICODE), $user['id'] ?: null]);
                 $id = (int)$db->lastInsertId();
                 log_order($db, $id, $user, 'created');
             }
@@ -561,7 +600,10 @@ try {
 
         // ---------- Produkte ----------
         case 'products':
-            wf_json(['ok' => true, 'products' => $db->query('SELECT * FROM products ORDER BY active DESC, sort, name COLLATE NOCASE')->fetchAll()]);
+            wf_json(['ok' => true, 'products' => array_map(function ($p) {
+                $p['processes'] = json_decode((string)$p['processes'], true) ?: [];
+                return $p;
+            }, $db->query('SELECT * FROM products ORDER BY active DESC, sort, name COLLATE NOCASE')->fetchAll())]);
 
         case 'product_save': {
             need_post();
@@ -573,12 +615,13 @@ try {
             if ($price === null) {
                 wf_fail('bad_price');
             }
-            $vals = [$name, in_array($in['unit'] ?? '', WF_UNITS, true) ? $in['unit'] : 'stk', $price, ($in['kind'] ?? '') === 'services' ? 'services' : 'goods', !empty($in['active']) || !isset($in['active']) ? 1 : 0];
+            $vals = [$name, in_array($in['unit'] ?? '', WF_UNITS, true) ? $in['unit'] : 'stk', $price, ($in['kind'] ?? '') === 'services' ? 'services' : 'goods', !empty($in['active']) || !isset($in['active']) ? 1 : 0,
+                json_encode(clean_procs($db, $in['processes'] ?? []))];
             $id = (int)($in['id'] ?? 0);
             if ($id) {
-                $db->prepare('UPDATE products SET name=?, unit=?, price=?, kind=?, active=? WHERE id = ?')->execute([...$vals, $id]);
+                $db->prepare('UPDATE products SET name=?, unit=?, price=?, kind=?, active=?, processes=? WHERE id = ?')->execute([...$vals, $id]);
             } else {
-                $db->prepare('INSERT INTO products (name, unit, price, kind, active) VALUES (?,?,?,?,?)')->execute($vals);
+                $db->prepare('INSERT INTO products (name, unit, price, kind, active, processes) VALUES (?,?,?,?,?,?)')->execute($vals);
                 $id = (int)$db->lastInsertId();
             }
             wf_json(['ok' => true, 'id' => $id]);
@@ -952,6 +995,9 @@ try {
                 $cap = max(0, min(1440, (int)($p['capacity_min'] ?? 0)));
                 $db->prepare('UPDATE process_types SET capacity_min = ?, active = ? WHERE id = ?')
                    ->execute([$cap, empty($p['active']) ? 0 : 1, (int)($p['id'] ?? 0)]);
+                if (isset($p['default_pp'])) {
+                    $db->prepare('UPDATE process_types SET default_pp = ? WHERE id = ?')->execute([max(1, min(60, (int)$p['default_pp'])), (int)($p['id'] ?? 0)]);
+                }
             }
             wf_touch();
             wf_json(['ok' => true]);

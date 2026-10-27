@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 11) {
+    if ($v >= 12) {
         return;
     }
     if ($v < 1) {
@@ -38,7 +38,30 @@ function wf_migrate(PDO $db): void
     if ($v < 10) {
         wf_migrate_v10($db);
     }
-    wf_migrate_v11($db);
+    if ($v < 11) {
+        wf_migrate_v11($db);
+    }
+    wf_migrate_v12($db);
+}
+
+/**
+ * Version 12: Produkte mit Verfahren und Minuten je Stück, Standardminuten je Verfahren, Aufträge mit mehreren Positionen.
+ */
+function wf_migrate_v12(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    ALTER TABLE products ADD COLUMN processes TEXT NOT NULL DEFAULT '[]';
+    ALTER TABLE process_types ADD COLUMN default_pp INTEGER NOT NULL DEFAULT 10;
+    ALTER TABLE orders ADD COLUMN items TEXT NOT NULL DEFAULT '[]';
+    UPDATE process_types SET default_pp = 15 WHERE key = 'stick';
+    UPDATE process_types SET default_pp = 5 WHERE key IN ('flex', 'sublimation');
+    UPDATE process_types SET default_pp = 4 WHERE key = 'dtf';
+    UPDATE process_types SET default_pp = 3 WHERE key = 'siebdruck';
+    UPDATE process_types SET default_pp = 8 WHERE key = 'lasergravur';
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '12');
+    ");
+    $db->commit();
 }
 
 /** Version 11: Archiv bei Dritten (E-Mail-Postfach): Warteschlange für Rechnungen, Belege und wöchentliche Sicherung. */

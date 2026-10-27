@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Stundensatz 450 kr';
+const APP_VERSION = '2026-10-27 · Auftrag mit Produkten';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -37,6 +37,7 @@ function toast(msg) {
   setTimeout(() => el.remove(), 2600);
 }
 const ICON = {
+  tag: 'M3 12V4h8l10 10-8 8zM7.5 7.5h.01',
   list: 'M4 6h16M4 12h16M4 18h10', plus: 'M12 5v14M5 12h14', cal: 'M5 5h14v15H5zM5 10h14M9 3v4M15 3v4',
   doc: 'M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5', users: 'M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M20 19v-1a3 3 0 0 0-2-2.8', cog: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12l2-1-2-4-2 1-2-1-1-2h-4l-1 2-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1 1 2h4l1-2 2-1 2 1 2-4-2-1z'
 };
@@ -144,7 +145,7 @@ const route = (re, fn) => routes.push([re, fn]);
 async function render() {
   if (!me) return;
   const hash = location.hash.replace(/^#/, '') || '/';
-  const navHash = /^\/(expense|bank|invoice|tax)/.test(hash) ? '/invoices' : /^\/products/.test(hash) ? '/customers' : hash;
+  const navHash = /^\/(expense|bank|invoice|tax)/.test(hash) ? '/invoices' : hash;
   document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('on', a.dataset.r && (navHash === a.dataset.r || (a.dataset.r !== '/' && navHash.startsWith(a.dataset.r)))));
   for (const [re, fn] of routes) {
     const m = re.exec(hash);
@@ -236,6 +237,11 @@ route(/^\/order\/(\d+)$/, async (id) => {
         o.days.some((d) => d.kind === 'handover') ? [h('dt', {}, t('handover')), h('dd', {}, o.days.filter((d) => d.kind === 'handover').map((d) => h('div', {}, `🤝 ${dfmt(d.date)} · ${d.start}–${d.end}`)))] : null,
         h('dt', {}, t('price')), h('dd', {}, `${money(o.price, o.currency)} · ${t('deposit')} ${money(o.deposit, o.currency)} · ${t('remaining')} ${money(rest, o.currency)}`),
         h('dt', {}, t('payment')), h('dd', {}, paySel))),
+    o.items && o.items.length ? h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:8px' }, t('items_label')), h('div', { class: 'tscroll' }, h('table', { class: 't' }, o.items.map((i) => {
+      const m = (i.processes || []).reduce((s_, p) => s_ + p.per_piece, 0) * i.qty;
+      return h('tr', {}, h('td', {}, `${i.qty} ×`), h('td', {}, h('b', {}, i.name), h('div', { class: 'muted', style: 'font-size:.8rem' }, (i.processes || []).map((p) => { const pt = me.processes.find((x) => +x.id === +p.process_id); return pt ? `${pname(pt)} ${p.per_piece} ${t('min_short')}` : ''; }).filter(Boolean).join(' · '))),
+        h('td', { class: 'num' }, money(i.qty * i.price, o.currency)), h('td', { class: 'num muted' }, m ? hm(m) : ''));
+    })))) : null,
     (o.description || o.notes) && h('div', { class: 'card' }, o.description && h('p', { style: 'margin:0 0 8px;white-space:pre-wrap' }, o.description), o.notes && h('p', { class: 'muted', style: 'margin:0;white-space:pre-wrap' }, o.notes)),
     !o.deleted_at && orderMoneyCard(o, reload),
     h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:10px' }, t('files')),
@@ -391,7 +397,16 @@ async function noteToOrder(note) {
   if (!cid) return toForm(t('note_no_customer'));
   const body = { id: 0, customer_id: cid, worker_id: 1, title: NP.title || note.split('\n')[0].slice(0, 200), qty: NP.qty || 1, article: NP.article || '',
     price: NP.price || 0, currency: NP.currency || 'DKK', pay_status: 'open', deposit: 0, status: 'inquiry', due_date: NP.due_date || '', plan_date: '', start_time: '',
-    description: NP.description || '', notes: note, processes: (NP.processes || []).map((p) => ({ process_id: p.process_id, per_piece: p.per_piece || 10 })) };
+    description: NP.description || '', notes: note };
+  // Passendes Produkt aus der Preisliste (Name kommt in der Notiz vor): liefert Verfahren/Zeiten und ggf. den Preis
+  const q = Math.max(1, +NP.qty || 1);
+  let prod = null;
+  try { const low = note.toLowerCase(); prod = (await api('products')).products.filter((p) => +p.active && low.includes(p.name.toLowerCase())).sort((a, b) => b.name.length - a.name.length)[0] || null; } catch (e) { /* ohne Preisliste weiter */ }
+  let procs = (NP.processes || []).map((p) => { const pt = me.processes.find((x) => +x.id === +p.process_id); return { process_id: +p.process_id, per_piece: +p.per_piece || (pt ? +pt.default_pp : 10) || 10 }; });
+  if (!procs.length && prod) procs = prod.processes;
+  const unit = NP.price ? Math.round(NP.price / q * 100) / 100 : (prod && (NP.currency || 'DKK') === 'DKK' ? +prod.price / 100 : 0);
+  body.items = [{ product_id: prod ? prod.id : null, name: prod ? prod.name : (NP.article || body.title), qty: q, price: unit, processes: procs }];
+  if (!NP.price && unit) body.price = Math.round(unit * q * 100) / 100;
   let r;
   try { r = await api('order_save', { body }); }
   catch (e) {
@@ -404,6 +419,23 @@ async function noteToOrder(note) {
 }
 route(/^\/new\/customer\/(\d+)$/, (cid) => orderForm(null, +cid));
 route(/^\/order\/(\d+)\/edit$/, async (id) => orderForm((await api('order', { params: { id } })).order));
+
+// Verfahren antippen: an = Standardminuten des Verfahrens je Stück (änderbar)
+function procPicker(initial, onChange) {
+  const sel = new Map((initial || []).map((p) => [+p.process_id, +p.per_piece]));
+  const wrap = h('div', { class: 'pchips' });
+  const draw = () => wrap.replaceChildren(...me.processes.filter((p) => +p.active || sel.has(+p.id)).map((p) => {
+    const on = sel.has(+p.id);
+    const mi = h('input', { type: 'number', min: 1, max: 60, inputmode: 'numeric', value: sel.get(+p.id) || '', 'aria-label': t('min_per_piece'),
+      onclick: (e) => e.stopPropagation(), oninput: (e) => { sel.set(+p.id, Math.min(60, Math.max(1, parseInt(e.target.value, 10) || 1))); onChange(); } });
+    return h('div', { class: 'pchip' + (on ? ' on' : ''), style: `--c:${p.color}`, role: 'button', tabindex: 0,
+      onclick: () => { if (on) sel.delete(+p.id); else sel.set(+p.id, +p.default_pp || 10); draw(); onChange(); } },
+      h('span', {}, pname(p)), on ? h('span', { class: 'pmin' }, mi, t('min_short')) : null);
+  }));
+  draw();
+  wrap.get = () => [...sel].map(([process_id, per_piece]) => ({ process_id, per_piece }));
+  return wrap;
+}
 
 // Notiz aus der Zwischenablage (z. B. vom WF-Launcher kopiert) oder eingefügt übernehmen
 function noteCard() {
@@ -436,6 +468,14 @@ async function orderForm(o, presetCustomer, note = '') {
       if (NP.customer && NP.customer.id) D.customer_id = NP.customer.id;
     }
   }
+  // Positionen: neue Aufträge und alte Aufträge ohne Positionen bekommen eine Position aus Titel/Menge/Preis/Verfahren
+  if (!Array.isArray(D.items)) D.items = [];
+  const legacyItem = () => {
+    const q = Math.max(1, +D.qty || 1);
+    return { product_id: null, name: D.article || D.title, qty: q, price: Math.round((+D.price || 0) / q * 100) / 100,
+      processes: (D.processes || []).map((p) => ({ process_id: +p.process_id, per_piece: Math.min(60, Math.max(1, p.per_piece ? +p.per_piece : Math.round(+p.minutes / q))) })) };
+  };
+  if (!D.items.length && (!isNew || note) && (D.title || D.processes.length)) D.items = [legacyItem()];
   let cust = null;
   if (D.customer_id) cust = (await api('customer', { params: { id: D.customer_id } })).customer;
   if (isNew && cust && !(NP && NP.currency)) D.currency = cust.currency;
@@ -487,48 +527,86 @@ async function orderForm(o, presetCustomer, note = '') {
     wid = w.id; drawWorkers(); S.start = ''; planPicker.value = ''; updateSummary(); refreshPlan(true);
   } }, h('i'), w.name)));
 
-  // --- Verfahren mit Dauer JE STUECK (Minuten); die App rechnet mal Menge und addiert alles
+  // --- Positionen: Produkt aussuchen -> Menge, Preis und Zeiten der Verfahren kommen automatisch
   const S = { start: D.start_time || '' };                       // gewaehlte Uhrzeit ('' = automatisch frueheste)
-  const PP = [5, 10, 15, 20, 25, 30, 35, 40, 45, 50, 55, 60];
-  const curQty = () => Math.max(1, parseInt(F.qty ? F.qty.value : D.qty, 10) || 1);
-  const sel = new Map(D.processes.map((p) => [+p.process_id, p.per_piece ? +p.per_piece : Math.min(60, Math.max(1, Math.round(+p.minutes / Math.max(1, +D.qty || 1))))]));
   let rt;
   const procChanged = () => { S.start = ''; updateSummary(); clearTimeout(rt); rt = setTimeout(() => refreshPlan(!planPicker.value), 350); };
-  const procBox = h('div', { class: 'procs' }, me.processes.filter((p) => +p.active).map((p) => {
-    let pp = sel.get(+p.id) || 10;
-    const cb = h('input', { type: 'checkbox', checked: sel.has(+p.id) });
-    const tot = h('span', { class: 'ptot' });
-    const own = h('input', { type: 'number', min: 1, max: 60, step: 1, inputmode: 'numeric', 'aria-label': t('min_per_piece') });
-    const chips = PP.map((v) => h('button', { type: 'button', class: 'ppchip', onclick: () => { pp = v; upd(); procChanged(); } }, v));
-    const box = h('div', { class: 'ppbox' + (cb.checked ? '' : ' hidden') }, h('div', { class: 'ppgrid' }, chips), h('div', { class: 'ppown' }, h('span', { class: 'muted' }, t('min_per_piece') + ':'), own));
-    const row = h('div', { class: 'proc2' + (cb.checked ? ' on' : ''), style: `--c:${p.color}` },
-      h('label', { class: 'proc2head' }, cb, h('span', { class: 'pn' }, pname(p)), tot), box);
-    function upd() {
-      chips.forEach((c, i) => c.classList.toggle('on', PP[i] === pp));
-      own.value = pp;
-      tot.textContent = cb.checked ? `${pp} ${t('min_short')} × ${curQty()} = ${hm(pp * curQty())}` : '';
-    }
-    cb.addEventListener('change', () => { row.classList.toggle('on', cb.checked); box.classList.toggle('hidden', !cb.checked); upd(); procChanged(); });
-    own.addEventListener('input', () => { pp = Math.min(60, Math.max(1, parseInt(own.value, 10) || 1)); upd(); procChanged(); });
-    row._upd = upd; row._pp = () => pp;
-    row._min = () => (cb.checked ? pp * curQty() : 0);
-    row._get = () => (cb.checked ? { process_id: +p.id, per_piece: pp } : null);
-    upd();
-    return row;
-  }));
-  const totalMin = () => [...procBox.children].reduce((s_, r) => s_ + r._min(), 0);
+  const itemsBox = h('div', { class: 'items' });
+  const items = [];
+  const totalMin = () => items.reduce((s_, r) => s_ + r.min(), 0);
+  const itemsSum = () => Math.round(items.reduce((s_, r) => s_ + r.sum(), 0) * 100) / 100;
+  let titleTouched = !isNew || !!note, priceTouched = !isNew && Math.abs((+D.price || 0) - D.items.reduce((s_, i) => s_ + i.qty * i.price, 0)) > 0.005;
+  const totLine = h('div', { class: 'itemtot' });
+  function itemsChanged(init) {
+    const sum = itemsSum();
+    if (!titleTouched) F.title.value = items.map((r) => r.get().name).filter(Boolean).join(' + ').slice(0, 200);
+    if (!priceTouched) F.price.value = sum ? sum.toFixed(2) : '';
+    priceHint.replaceChildren(...(priceTouched && items.length && Math.abs(num(F.price.value) - sum) > 0.005
+      ? [t('price_differs', money(sum, F.currency.value)), ' ', h('button', { type: 'button', class: 'btn small', onclick: () => { priceTouched = false; itemsChanged(); } }, '↺ ' + t('price_use_sum'))] : []));
+    const q = items.reduce((s_, r) => s_ + r.get().qty, 0);
+    totLine.replaceChildren(...(items.length ? [h('span', {}, `${q} ${t('pcs')}`), h('b', {}, money(sum, F.currency.value)), h('span', {}, '⏱ ' + hm(totalMin()))] : [h('span', { class: 'muted' }, t('items_empty'))]));
+    if (init === true) updateSummary(); else procChanged();
+  }
+  function addItem(it, focus) {
+    const r = {};
+    const nameIn = h('input', { type: 'text', value: it.name || '', placeholder: t('item_name'), maxlength: 200, oninput: itemsChanged });
+    const qtyIn = h('input', { type: 'number', min: 1, inputmode: 'numeric', value: it.qty || 1, oninput: itemsChanged });
+    const priceIn = h('input', { type: 'text', inputmode: 'decimal', value: it.price ? String(it.price).replace('.', ',') : '', placeholder: '0,00', oninput: itemsChanged });
+    const sumEl = h('span', { class: 'isum' });
+    const timeEl = h('span', { class: 'itime muted' });
+    const pick = procPicker(it.processes || [], itemsChanged);
+    r.get = () => ({ product_id: it.product_id || null, name: nameIn.value.trim(), qty: Math.max(1, parseInt(qtyIn.value, 10) || 1), price: num(priceIn.value), processes: pick.get() });
+    r.sum = () => { const g = r.get(); return g.qty * g.price; };
+    r.min = () => { const g = r.get(); return g.processes.reduce((s_, p) => s_ + p.per_piece, 0) * g.qty; };
+    r.upd = () => {
+      const g = r.get(), pp = g.processes.reduce((s_, p) => s_ + p.per_piece, 0);
+      sumEl.textContent = money(r.sum(), F.currency.value);
+      timeEl.textContent = pp ? `⏱ ${pp} ${t('min_short')} × ${g.qty} = ${hm(pp * g.qty)}` : t('item_no_proc');
+    };
+    r.el = h('div', { class: 'item' },
+      h('div', { class: 'itop' }, nameIn, h('button', { type: 'button', class: 'btn small danger', 'aria-label': t('delete'), onclick: () => { items.splice(items.indexOf(r), 1); r.el.remove(); itemsChanged(); } }, '✕')),
+      h('div', { class: 'irow' }, h('div', {}, h('label', {}, t('qty')), qtyIn), h('div', {}, h('label', {}, t('unit_price')), priceIn), h('div', { class: 'isumbox' }, h('label', {}, t('line_total')), sumEl)),
+      pick, timeEl);
+    items.push(r); itemsBox.append(r.el);
+    if (focus) { qtyIn.focus(); qtyIn.select(); }
+    return r;
+  }
+  // Produktsuche: Liste beim Antippen, Filter beim Tippen, oder freie Position
+  const prodList = (await api('products')).products.filter((p) => +p.active);
+  const pq = h('input', { type: 'search', placeholder: prodList.length ? t('item_search') : t('item_search_none'), autocomplete: 'off' });
+  const psug = h('div', { class: 'suggest-list hidden' });
+  const toCur = async (dkkCents) => {
+    const cur = F.currency.value;
+    if (cur === 'DKK') return dkkCents / 100;
+    try { const r = await api('rate', { params: { cur } }); return Math.round(dkkCents / +r.rate) / 100; } catch (e) { return cur === 'EUR' ? Math.round(dkkCents / 7.46038) / 100 : dkkCents / 100; }
+  };
+  const pickProd = async (p) => {
+    psug.classList.add('hidden'); pq.value = '';
+    addItem({ product_id: p.id, name: p.name, qty: items.length ? 1 : Math.max(1, +D.qty || 1), price: await toCur(+p.price), processes: p.processes }, true);
+    itemsChanged();
+  };
+  const drawPsug = () => {
+    const q = pq.value.trim().toLowerCase();
+    const hits = prodList.filter((p) => !q || p.name.toLowerCase().includes(q)).slice(0, 12);
+    psug.replaceChildren(...hits.map((p) => h('button', { type: 'button', onmousedown: (e) => e.preventDefault(), onclick: () => pickProd(p) },
+      h('b', {}, p.name), h('span', { class: 'muted' }, ` · ${cents(p.price, 'DKK')}` + (p.processes.length ? ' · ' + p.processes.map((x) => { const pt = me.processes.find((y) => +y.id === +x.process_id); return pt ? `${pname(pt)} ${x.per_piece} ${t('min_short')}` : ''; }).filter(Boolean).join(', ') : '')))),
+      h('button', { type: 'button', onmousedown: (e) => e.preventDefault(), onclick: () => { const nm = pq.value.trim(); psug.classList.add('hidden'); pq.value = ''; addItem({ name: nm, qty: 1, price: 0, processes: [] }, !!nm); if (!nm) items[items.length - 1].el.querySelector('input').focus(); itemsChanged(); } }, '+ ' + (q ? t('item_free_named', pq.value.trim()) : t('item_free'))));
+    psug.classList.remove('hidden');
+  };
+  pq.addEventListener('focus', drawPsug); pq.addEventListener('input', drawPsug);
+  pq.addEventListener('blur', () => setTimeout(() => psug.classList.add('hidden'), 150));
+  const addBox = h('div', { class: 'suggest additem' }, pq, psug);
+
   const sumBox = h('div', { class: 'sumbox' });
   function updateSummary() {
-    [...procBox.children].forEach((r) => r._upd());
+    items.forEach((r) => r.upd());
     const tm = totalMin();
     const dm = (workerById(wid) || { day_min: 480 }).day_min || 480;
-    if (!tm) { sumBox.replaceChildren(h('span', { class: 'muted' }, t('sum_hint'))); return; }
+    if (!tm) { sumBox.replaceChildren(h('span', { class: 'muted' }, t('sum_hint_items'))); return; }
     const pct = Math.round(tm / dm * 100);
     const days = Math.round(tm / dm * 10) / 10;
-    const perOne = [...procBox.children].reduce((s_, r) => s_ + (r._min() ? r._pp() : 0), 0);
     sumBox.replaceChildren(
       h('div', { class: 'sumline' }, h('b', {}, hm(tm)), h('span', { class: 'muted' }, ` · ${pct} % ${t('of_a_day')}${tm > dm ? ` (≈ ${String(days).replace('.', ',')} ${t('work_days')})` : ''}`)),
-      h('div', { class: 'muted', style: 'font-size:.85rem;margin-top:2px' }, `${t('per_piece_sum')}: ${perOne} ${t('min_short')} × ${curQty()} ${t('pcs')}`),
       h('div', { class: 'meter' + (pct > 100 ? ' over' : '') }, h('i', { style: `width:${Math.min(100, pct)}%` })));
   }
 
@@ -607,26 +685,23 @@ async function orderForm(o, presetCustomer, note = '') {
     }));
   }
 
-  // --- Weitere Angaben
-  const more = h('div', { class: 'grid' });
+  // --- Preis, Zahlung, Details: direkt sichtbar
+  const priceHint = h('div', { class: 'muted', style: 'font-size:.85rem' });
+  const priceIn = inp('price', 'number', { step: '0.01', min: 0, inputmode: 'decimal' });
+  priceIn.addEventListener('input', () => { priceTouched = true; itemsChanged(); });
+  const curSel = h('select', { onchange: () => itemsChanged() }, me.currencies.map((c) => h('option', { value: c, selected: c === D.currency }, c)));
   const payRow = h('div', { class: 'grid c3' },
-    field('price', t('price'), inp('price', 'number', { step: '0.01', min: 0, inputmode: 'decimal' })),
-    field('currency', t('currency'), h('select', {}, me.currencies.map((c) => h('option', { value: c, selected: c === D.currency }, c)))),
+    field('price', t('price_total'), priceIn),
+    field('currency', t('currency'), curSel),
     field('pay_status', t('payment'), h('select', {}, me.pay.map((p) => h('option', { value: p, selected: p === D.pay_status }, t('pay_' + p))))));
-  more.append(
-    field('article', t('article'), inp('article')),
-    field('status', t('status'), h('select', {}, me.statuses.map((s_) => h('option', { value: s_, selected: s_ === D.status }, t('st_' + s_))))),
-    payRow, field('deposit', t('deposit'), inp('deposit', 'number', { step: '0.01', min: 0, inputmode: 'decimal' })),
-    field('description', t('description'), h('textarea', {}, D.description)),
-    field('notes', t('notes'), h('textarea', {}, D.notes)));
-  const moreCard = h('div', { class: 'card' + (isNew && D.description ? '' : ' hidden') }, more);
-  const moreBtn = h('button', { class: 'btn', type: 'button', onclick: () => { moreCard.classList.toggle('hidden'); moreBtn.textContent = moreCard.classList.contains('hidden') ? t('more_details') : t('less_details'); } }, moreCard.classList.contains('hidden') ? t('more_details') : t('less_details'));
 
   const save = async (btn) => {
     err.textContent = '';
     if (!D.customer_id) { err.textContent = t('err_bad_customer'); return; }
-    const body = { id: D.id, customer_id: D.customer_id, worker_id: wid, title: F.title.value, qty: F.qty.value,
-      due_date: duePicker.value, plan_date: planPicker.value, start_time: S.start, processes: [...procBox.children].map((r) => r._get()).filter(Boolean) };
+    const its = items.map((r) => r.get()).filter((i) => i.name);
+    if (!its.length) { err.textContent = t('err_no_items'); pq.focus(); return; }
+    const body = { id: D.id, customer_id: D.customer_id, worker_id: wid, title: F.title.value || its.map((i) => i.name).join(' + ').slice(0, 200), qty: its.reduce((s_, i) => s_ + i.qty, 0),
+      due_date: duePicker.value, plan_date: planPicker.value, start_time: S.start, items: its };
     for (const k of ['article', 'price', 'currency', 'pay_status', 'deposit', 'description', 'notes', 'status']) body[k] = F[k].value;
     if (body.pay_status === 'paid' && !body.deposit) body.deposit = body.price;
     btn.disabled = true;
@@ -646,11 +721,9 @@ async function orderForm(o, presetCustomer, note = '') {
     isNew && !note ? noteCard() : null,
     sec(t('form_order'),
       h('div', {}, h('label', {}, t('customer')), custBox),
-      field('title', t('title'), inp('title', 'text', { placeholder: t('title_ph'), maxlength: 200 })),
-      field('qty', t('qty'), inp('qty', 'number', { min: 1, inputmode: 'numeric' }))),
-    sec(t('form_what'),
-      h('p', { class: 'muted', style: 'margin:0;font-size:.9rem' }, t('what_hint')),
-      procBox, sumBox,
+      h('div', {}, h('label', {}, t('items_label')), itemsBox, addBox, totLine),
+      field('title', t('title'), inp('title', 'text', { placeholder: t('title_ph'), maxlength: 200, oninput: () => { titleTouched = true; } }))),
+    sec(t('form_time'), sumBox,
       activeWorkers().length > 1 ? h('div', {}, h('label', {}, t('worker')), workerRow) : null),
     sec(t('form_when'),
       h('div', {}, h('label', {}, t('suggested_days')), optsBox),
@@ -659,15 +732,19 @@ async function orderForm(o, presetCustomer, note = '') {
       h('div', {}, h('label', {}, t('due')), duePicker)),
     sec(t('files'), photoButtons((list) => { pending.push(...list); drawThumbs(); }), thumbs,
       isNew ? null : h('div', { class: 'files' }, (D.files || []).map((f) => h('div', { class: 'file' }, f.mime.startsWith('image/') ? h('img', { src: thumbUrl(f.id), alt: f.original_name, loading: 'lazy' }) : h('div', { class: 'pdf' }, 'PDF'), h('div', { class: 'n' }, h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, f.original_name)))))),
-    moreBtn, moreCard,
+    sec(t('form_price'), payRow, priceHint, field('deposit', t('deposit'), inp('deposit', 'number', { step: '0.01', min: 0, inputmode: 'decimal' }))),
+    sec(t('form_details'),
+      h('div', { class: 'grid c2' }, field('article', t('article'), inp('article')), field('status', t('status'), h('select', {}, me.statuses.map((s_) => h('option', { value: s_, selected: s_ === D.status }, t('st_' + s_)))))),
+      field('description', t('description'), h('textarea', {}, D.description)),
+      field('notes', t('notes'), h('textarea', {}, D.notes))),
     err,
     h('div', { class: 'formbar' }, h('a', { class: 'btn', href: isNew ? '#/' : `#/order/${D.id}` }, t('cancel')), btn));
-  F.qty.addEventListener('input', procChanged);
+  D.items.forEach((it) => addItem(it));
+  itemsChanged(true);
   drawWorkers(); updateSummary(); refreshPlan(isNew);
 }
 
 // ---------- Kunden ----------
-const masterTabs = (on) => h('div', { class: 'mtabs' }, [['/customers', t('nav_customers')], ['/products', t('tab_products')]].map(([r, l]) => h('a', { href: '#' + r, class: r === on ? 'on' : '' }, l)));
 
 // ---------- Produkte / Preisliste ----------
 let prodQ = '', eurCache = null;
@@ -693,6 +770,10 @@ route(/^\/products$/, async () => {
     const pr = h('input', { type: 'text', inputmode: 'decimal', value: p.price != null ? centsIn(p.price) : '', placeholder: '0,00' });
     const kd = h('select', {}, ['goods', 'services'].map((k) => h('option', { value: k, selected: k === (p.kind || 'goods') }, t(k))));
     const act = h('input', { type: 'checkbox', checked: p.id ? !!+p.active : true, style: 'width:22px;height:22px;min-height:0' });
+    const ppTime = h('small', { class: 'muted' });
+    const drawPpTime = () => { const m = ppick.get().reduce((s_, x) => s_ + x.per_piece, 0); ppTime.textContent = m ? t('prod_time', m) : t('prod_time_none'); };
+    const ppick = procPicker(p.processes || [], () => drawPpTime());
+    drawPpTime();
     // Umrechnung € ⇄ kr per Knopf (Tageskurs Nationalbank)
     const eur = h('input', { type: 'text', inputmode: 'decimal', placeholder: '0,00' });
     const fxNote = h('small', { class: 'muted hint' });
@@ -724,11 +805,12 @@ route(/^\/products$/, async () => {
     nm.addEventListener('input', askSug);
     // Kalkulation: Material + Arbeitszeit × Stundensatz (netto)
     const mat = h('input', { type: 'text', inputmode: 'decimal', placeholder: '0,00' });
-    const mins = h('input', { type: 'text', inputmode: 'numeric', placeholder: '0' });
+    const mins = h('input', { type: 'text', inputmode: 'numeric', placeholder: t('calc_min_ph') });
     const calcOut = h('div', { class: 'muted', style: 'font-size:.9rem;margin-top:6px' });
     const doCalc = () => {
       const rate = +me.company.hour_rate || 0;
-      const net = Math.round(num(mat.value) * 100 + num(mins.value) / 60 * rate);
+      const mv = mins.value.trim() ? num(mins.value) : ppick.get().reduce((s_, x) => s_ + x.per_piece, 0);
+      const net = Math.round(num(mat.value) * 100 + mv / 60 * rate);
       if (!net) { calcOut.replaceChildren(rate ? '' : t('calc_no_rate')); return; }
       const incl = Math.round(net * 1.25);
       calcOut.replaceChildren(t('calc_res', cents(net, 'DKK'), cents(incl, 'DKK')), ' ',
@@ -741,6 +823,7 @@ route(/^\/products$/, async () => {
     return h('div', { class: 'card prodcard' + (p.id && !+p.active ? ' inactive' : '') },
       h('div', {}, h('label', {}, t('prod_name')), nm), sug,
       h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('unit')), un), h('div', {}, h('label', {}, t('unit_price') + ' DKK'), pr), h('div', {}, h('label', {}, t('prod_kind')), kd)),
+      h('div', { style: 'margin-top:8px' }, h('label', {}, t('prod_procs')), ppick, ppTime),
       calcBox,
       h('div', { class: 'fxrow' }, h('div', {}, h('label', {}, t('fx_eur')), eur),
         h('button', { type: 'button', class: 'btn small', onclick: conv(true) }, '€ → kr'),
@@ -749,14 +832,13 @@ route(/^\/products$/, async () => {
         h('label', { class: 'row', style: 'margin:0;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, act, t('active')),
         h('div', { class: 'row' },
           p.id ? h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('prod_delete_confirm', p.name))) { await api('product_delete', { body: { id: p.id } }); render(); } } }, t('delete')) : null,
-          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: pr.value || '0', kind: kd.value, active: act.checked ? 1 : 0 } }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
+          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: pr.value || '0', kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get() } }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
   };
   const draw = () => list.replaceChildren(...products.filter((p) => !prodQ || p.name.toLowerCase().includes(prodQ.toLowerCase())).map(editRow));
   const newBox = h('div', { class: 'hidden' }, editRow({}));
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('tab_products')), h('h1', {}, t('prod_h1_a'), ' ', h('em', {}, t('prod_h1_b')))),
       h('button', { class: 'btn primary', onclick: () => { newBox.classList.toggle('hidden'); newBox.querySelector('input').focus(); } }, '+ ' + t('prod_add'))),
-    masterTabs('/products'),
     h('p', { class: 'muted', style: 'margin:0 0 12px' }, t('products_text')),
     hourCard(),
     newBox,
@@ -776,7 +858,6 @@ route(/^\/customers$/, async () => {
   let tm;
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_customers')), h('h1', {}, t('customers_h1_a'), ' ', h('em', {}, t('customers_h1_b')))), h('a', { class: 'btn primary', href: '#/customer/new' }, '+ ' + t('new_customer'))),
-    masterTabs('/customers'),
     h('div', { class: 'filters' }, h('input', { type: 'search', placeholder: t('search_ph'), oninput: (e) => { clearTimeout(tm); tm = setTimeout(() => load(e.target.value), 250); } })), list);
   await load();
 });
@@ -1531,7 +1612,8 @@ route(/^\/tax$/, async () => {
 route(/^\/settings$/, async () => {
   const procRows = me.processes.map((p) => {
     const act = h('input', { type: 'checkbox', checked: +p.active, style: 'width:22px;min-height:0;height:22px' });
-    return { p, act, row: h('tr', {}, h('td', {}, h('i', { class: 'dot', style: `--c:${p.color}` }), ' ' + pname(p)), h('td', {}, act)) };
+    const dpp = h('input', { type: 'number', min: 1, max: 60, inputmode: 'numeric', value: +p.default_pp || 10, style: 'width:76px' });
+    return { p, act, dpp, row: h('tr', {}, h('td', {}, h('i', { class: 'dot', style: `--c:${p.color}` }), ' ' + pname(p)), h('td', {}, dpp), h('td', {}, act)) };
   });
   const workerRows = me.workers.map((w) => {
     const color = h('input', { type: 'color', value: w.color, 'aria-label': t('color'), class: 'colorin' });
@@ -1676,8 +1758,8 @@ route(/^\/settings$/, async () => {
     h('div', { class: 'card' }, h('h3', {}, t('capacity')), h('p', { class: 'muted' }, t('capacity_text')),
       h('div', { class: 'row', style: 'margin-bottom:12px' }, h('label', { style: 'margin:0' }, t('weekend_hours')), wk, h('span', { class: 'muted' }, 'h')),
       h('div', { class: 'row', style: 'margin-bottom:12px' }, h('label', { style: 'margin:0' }, t('day_start')), ds, h('span', { class: 'muted', style: 'font-size:.85rem' }, t('day_start_hint'))),
-      h('div', { class: 'tscroll' }, h('table', { class: 't' }, h('tr', {}, h('th', {}, t('process')), h('th', {}, t('active'))), procRows.map((r) => r.row))),
-      h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { await api('processes_save', { body: { processes: procRows.map((r) => ({ id: r.p.id, capacity_min: r.p.capacity_min, active: r.act.checked })) } }); await api('settings_save', { body: { weekend_min: Math.round((parseFloat(wk.value) || 0) * 60), day_start: ds.value || '08:00' } }); await reloadMe(); toast(t('saved')); } }, t('save')))),
+      h('div', { class: 'tscroll' }, h('table', { class: 't' }, h('tr', {}, h('th', {}, t('process')), h('th', {}, t('default_pp')), h('th', {}, t('active'))), procRows.map((r) => r.row))),
+      h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { await api('processes_save', { body: { processes: procRows.map((r) => ({ id: r.p.id, capacity_min: r.p.capacity_min, active: r.act.checked, default_pp: r.dpp.value })) } }); await api('settings_save', { body: { weekend_min: Math.round((parseFloat(wk.value) || 0) * 60), day_start: ds.value || '08:00' } }); await reloadMe(); toast(t('saved')); } }, t('save')))),
     h('div', { class: 'card' }, h('h3', {}, t('users')), h('p', { class: 'muted' }, t('users_text', me.user.name)),
       h('div', { class: 'tscroll' }, h('table', { class: 't' }, h('tr', {}, h('th', {}, t('name')), h('th', {}, 'Admin-ID'), h('th', {}, t('active'))), userRows.map((r) => r.row))),
       h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { class: 'btn primary', onclick: async () => { try { await api('users_save', { body: { users: userRows.map((r) => ({ id: r.u.id, name: r.name.value, wf_admin_id: r.wid.value, active: r.act.checked })) } }); await reloadMe(); toast(t('saved')); } catch (e) { toast(e.message); } } }, t('save')))),
@@ -1693,7 +1775,7 @@ async function reloadMe() { me = await api('me'); }
 function buildChrome() {
   const nav = $('#nav');
   const item = (r, ic, label, cls, short) => h('a', { href: '#' + r, 'data-r': r, class: cls || '' }, cls === 'add' ? h('span', { class: 'fab' }, icon(ic)) : icon(ic), cls === 'add' ? h('small', {}, label) : h('span', { 'data-s': short || label }, label));
-  nav.replaceChildren(item('/', 'list', t('nav_orders')), item('/calendar', 'cal', t('nav_calendar')), item('/new', 'plus', t('new_order'), 'add'), item('/customers', 'users', t('nav_customers')), item('/invoices', 'doc', t('nav_invoices'), '', t('nav_invoices_s')), item('/settings', 'cog', t('nav_settings'), '', t('nav_settings_s')));
+  nav.replaceChildren(item('/', 'list', t('nav_orders')), item('/calendar', 'cal', t('nav_calendar')), item('/new', 'plus', t('new_order'), 'add'), item('/customers', 'users', t('nav_customers')), item('/products', 'tag', t('tab_products'), '', t('nav_products_s')), item('/invoices', 'doc', t('nav_invoices'), '', t('nav_invoices_s')), item('/settings', 'cog', t('nav_settings'), '', t('nav_settings_s')));
   const l = $('#lang');
   l.replaceChildren(...[['de', '🇩🇪'], ['da', '🇩🇰']].map(([c, f]) => h('button', { class: lang === c ? 'on' : '', 'aria-label': c, onclick: () => { lang = c; try { localStorage.setItem('wf_lang', c); } catch (e) {} document.documentElement.lang = c; buildChrome(); render(); } }, f)));
   $('#who').textContent = me ? me.user.name : '';

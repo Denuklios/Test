@@ -103,8 +103,9 @@ Unter **Einstellungen**:
 
 **Testphase:** Bis du „Echtbetrieb starten“ tippst, löscht „Testrechnungen löschen & Nummern zurücksetzen“ alle Rechnungen, Zahlungen, Belege, Bank-Importe und Momsmeldungen (doppelte Bestätigung). Kunden, Aufträge und Produkte bleiben. Danach ist das gesperrt. Testdateien, die schon in Drive liegen, dort von Hand löschen.
 
-## 5d. Produkte und Kunden löschen
-- Kunden → Reiter **Produkte**: Preisliste anlegen/ändern/deaktivieren. In der Rechnung beim Tippen der Position erscheinen passende Produkte; Auswahl füllt Text, Einheit, Preis und Art, dann nur noch die Menge eingeben – Summe rechnet sofort.
+## 5d. Produkte, Auftrag mit Produkten, Kunden löschen
+- **Neuer Auftrag:** oben Kunde, darunter „Produkt suchen oder antippen“. Jedes Produkt wird eine Position mit Menge und Stückpreis; die Verfahren (Sticken, Flex & Flock, Siebdruck …) und ihre Minuten pro Stück kommen aus dem Produkt. Weitere Verfahren antippen – es wird die Standardzeit des Verfahrens eingesetzt (Einstellungen → Verfahren → „Min./Stück“). Gesamtpreis, Titel und Arbeitszeit rechnen sich automatisch; Preis, Zahlung und Details stehen direkt darunter. Die Rechnung aus dem Auftrag übernimmt die Positionen einzeln.
+- Menü **Produkte** (links bzw. unten): Preisliste anlegen/ändern/deaktivieren. In der Rechnung beim Tippen der Position erscheinen passende Produkte; Auswahl füllt Text, Einheit, Preis und Art, dann nur noch die Menge eingeben – Summe rechnet sofort.
 - Beim Anlegen eines Produkts zeigt die App recherchierte Endkundenpreise (1 Stück) aus Dänemark und Deutschland und einen **Mittelweg**: beide Nettopreise gemittelt, plus 25 % dänische Moms (gilt auch für deutsche Privatkunden, solange du unter der OSS-Grenze von 10.000 € bleibst). Knopf übernimmt inkl. oder netto.
 - **Stundensatz** (voreingestellt 450 kr netto) oben auf der Produktseite ändern; „Selbst kalkulieren“ rechnet Material + Minuten × Stundensatz. Feld „Preis in €“ mit Knöpfen „€ → kr“ und „kr → €“ rechnet zum Tageskurs um.
 - Kunde → **Kunde löschen**: zwei Bestätigungen (Frage + Wort LÖSCHEN/SLET eintippen). Ohne festgeschriebene Rechnungen wird der Kunde mit Aufträgen, Fotos und Rechnungsentwürfen gelöscht. Mit Rechnungen werden nur die Personendaten gelöscht (Aufbewahrungspflicht 5 Jahre).

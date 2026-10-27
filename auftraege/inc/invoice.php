@@ -636,10 +636,28 @@ function wf_order_invoice(PDO $db, int $orderId, string $purpose, string $user, 
             $manual = 1;
             $incl = (int)$deposits[0]['prices_incl'];
         }
-        $qty = max(1, (int)$o['qty']);
-        $even = $price % $qty === 0;
-        $desc = trim($o['title'] . ($o['article'] !== '' ? ' · ' . $o['article'] : '')) . ($even || $qty === 1 ? '' : ' (' . $qty . ' ' . wf_order_line_text('pcs', $lang, []) . ')');
-        $lines[] = ['description' => $desc, 'qty' => $even ? $qty : 1, 'unit' => 'stk', 'unit_price' => $even ? intdiv($price, $qty) : $price, 'discount' => 0, 'kind' => 'goods'];
+        // Positionen aus dem Auftrag übernehmen, wenn ihre Summe dem Auftragspreis entspricht; sonst eine Sammelzeile
+        $items = json_decode((string)($o['items'] ?? '[]'), true) ?: [];
+        $kinds = [];
+        foreach ($items as $it) {
+            if (!empty($it['product_id'])) {
+                $pk = $db->prepare('SELECT kind FROM products WHERE id = ?');
+                $pk->execute([(int)$it['product_id']]);
+                $kinds[(int)$it['product_id']] = $pk->fetchColumn() ?: 'goods';
+            }
+        }
+        $sum = array_sum(array_map(fn($it) => (int)round($it['price'] * 100) * (int)$it['qty'], $items));
+        if ($items && $sum === $price) {
+            foreach ($items as $it) {
+                $lines[] = ['description' => $it['name'], 'qty' => (int)$it['qty'], 'unit' => 'stk', 'unit_price' => (int)round($it['price'] * 100), 'discount' => 0,
+                    'kind' => $kinds[(int)($it['product_id'] ?? 0)] ?? 'goods'];
+            }
+        } else {
+            $qty = max(1, (int)$o['qty']);
+            $even = $price % $qty === 0;
+            $desc = trim($o['title'] . ($o['article'] !== '' ? ' · ' . $o['article'] : '')) . ($even || $qty === 1 ? '' : ' (' . $qty . ' ' . wf_order_line_text('pcs', $lang, []) . ')');
+            $lines[] = ['description' => $desc, 'qty' => $even ? $qty : 1, 'unit' => 'stk', 'unit_price' => $even ? intdiv($price, $qty) : $price, 'discount' => 0, 'kind' => 'goods'];
+        }
         foreach ($deposits as $d) {
             $credNet = (int)$d['credited_net'];
             $credTot = (int)$d['balance']['credited'];
