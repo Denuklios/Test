@@ -37,11 +37,11 @@ if (in_array($_GET['lang'] ?? '', ['de', 'da', 'en'], true)) {
     $lang = $_GET['lang'];
 }
 $T = [
-    'de' => ['title' => 'Auftragsverfolgung', 'order' => 'Auftrag', 'invalid' => 'Dieser Link ist ungültig.', 'due' => 'Geplante Fertigstellung', 'items' => 'Ihre Bestellung',
+    'de' => ['title' => 'Auftragsverfolgung', 'order' => 'Auftrag', 'invalid' => 'Dieser Link ist ungültig.', 'due' => 'Geplante Fertigstellung', 'items' => 'Deine Bestellung',
         'steps' => ['Angefragt', 'Freigegeben', 'Material bestellt', 'In Produktion', 'Fertig', 'Abgeholt / Versendet'], 'picked' => 'Abgeholt', 'shipped' => 'Versendet',
-        'tracking' => 'Sendungsnummer', 'carrier' => 'Versand mit', 'follow' => 'Sendung verfolgen', 'ready' => 'Ihre Bestellung ist fertig und wartet auf Abholung bzw. Versand.',
-        'unsub_q' => 'Keine Nachfrage-E-Mail nach der Lieferung erhalten?', 'unsub_btn' => 'Ja, keine solchen E-Mails mehr', 'unsub_ok' => 'Erledigt – Sie bekommen keine Nachfrage-E-Mails mehr von uns.',
-        'questions' => 'Fragen? Antworten Sie einfach auf unsere E-Mail oder schreiben Sie an', 'pcs' => 'Stk.'],
+        'tracking' => 'Sendungsnummer', 'carrier' => 'Versand mit', 'follow' => 'Sendung verfolgen', 'ready' => 'Deine Bestellung ist fertig und wartet auf Abholung bzw. Versand.',
+        'unsub_q' => 'Keine Nachfrage-E-Mail nach der Lieferung bekommen?', 'unsub_btn' => 'Ja, keine solchen E-Mails mehr', 'unsub_ok' => 'Erledigt – du bekommst keine Nachfrage-E-Mails mehr von uns.',
+        'questions' => 'Fragen? Antworte einfach auf unsere E-Mail oder schreib an', 'pcs' => 'Stk.'],
     'da' => ['title' => 'Ordresporing', 'order' => 'Ordre', 'invalid' => 'Dette link er ugyldigt.', 'due' => 'Forventet færdig', 'items' => 'Din bestilling',
         'steps' => ['Forespurgt', 'Godkendt', 'Materiale bestilt', 'I produktion', 'Færdig', 'Afhentet / sendt'], 'picked' => 'Afhentet', 'shipped' => 'Sendt',
         'tracking' => 'Forsendelsesnummer', 'carrier' => 'Sendt med', 'follow' => 'Følg forsendelsen', 'ready' => 'Din ordre er færdig og venter på afhentning eller forsendelse.',

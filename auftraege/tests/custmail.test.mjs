@@ -59,7 +59,7 @@ try {
     assert.equal(r.mailed, true);
     const m = readMails().at(-1);
     assert.equal(m.to, 'erika@example.de');
-    assert.match(m.subj, /Ihr Angebot 2026-|Ihr Angebot \d{4}-/);
+    assert.match(m.subj, /Dein Angebot \d{4}-/);
     assert.ok(m.text.startsWith('Hallo Erika,'));
     assert.ok(m.text.includes(`bestaetigung.php?t=${r.token}`));
     assert.ok(m.text.includes(o.track_url) && m.text.includes('&abmelden=1'));
@@ -81,7 +81,7 @@ try {
     const all = readMails();
     assert.equal(all.length, n + 1);
     const m = all.at(-1);
-    assert.match(m.subj, /Danke für Ihre Freigabe/);
+    assert.match(m.subj, /Danke für deine Freigabe/);
     assert.ok(m.text.includes(o.track_url) && m.text.includes(`bestaetigung.php?t=${r.token}&signed=1`));
     assert.ok(m.raw.length > 0);
     const hm = m.raw.match(/Content-Type: text\/html; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n([\s\S]*?)\r\n--/);
