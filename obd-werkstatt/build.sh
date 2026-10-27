@@ -8,8 +8,8 @@ SDK=${ANDROID_SDK:-/usr/lib/android-sdk}
 BT=$(ls -d "$SDK"/build-tools/* | sort -V | tail -1)
 JAR="$SDK/platforms/android-23/android.jar"
 OUT=build/apk
-VERSION_CODE=6
-VERSION_NAME=1.5
+VERSION_CODE=7
+VERSION_NAME=1.6
 KS=keystore/obd-werkstatt.jks
 KS_PASS=${KS_PASS:-obdwerkstatt}
 

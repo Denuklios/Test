@@ -181,6 +181,21 @@ public final class AdapterTest {
                     break;
                 }
             }
+            if (!carOk && !p.cancelled()) {
+                // Kompatibilitätsmodus wie gängige Apps: Header aus, automatische Suche
+                p.update("Fahrzeug: Kompatibilitätsmodus (Header aus, automatische Suche) …");
+                String r;
+                try {
+                    elm.cmd("ATH0");
+                    elm.cmd("ATSP0");
+                    r = elm.cmd("0100", 60000).replace('\n', ' ');
+                } catch (Elm327.Timeout e) {
+                    r = "keine Antwort (Adapter hängt)";
+                    elm.recover();
+                }
+                carOk = !ResponseParser.parse(r, true, false).isEmpty();
+                add(carOk ? OK : WARN, "Fahrzeug Kompatibilitätsmodus", carOk ? "ANTWORT: " + r : r);
+            }
             if (!carOk) add(FAIL, "Fahrzeug", "Auf keinem Protokoll eine Antwort – Zündung an?");
             elm.cmd("ATD");
             elm.setup();

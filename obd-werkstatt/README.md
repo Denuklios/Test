@@ -1,7 +1,7 @@
 # OBD Werkstatt (Android)
 
 Diagnose-App für ELM327-kompatible OBD-II-Adapter (Bluetooth klassisch, Bluetooth LE, WLAN).
-Fertige APK: [`dist/OBD-Werkstatt-1.5.apk`](dist/OBD-Werkstatt-1.5.apk) – Android 6.0 oder neuer.
+Fertige APK: [`dist/OBD-Werkstatt-1.6.apk`](dist/OBD-Werkstatt-1.6.apk) – Android 6.0 oder neuer.
 
 ## Funktionen
 
@@ -34,7 +34,7 @@ Ohne Gradle und ohne Google-SDK, nur mit Paketen aus Ubuntu/Debian:
 
 ```sh
 sudo apt install openjdk-17-jdk android-sdk-build-tools android-sdk-platform-23 apksigner zipalign
-./build.sh            # Ergebnis: dist/OBD-Werkstatt-1.5.apk
+./build.sh            # Ergebnis: dist/OBD-Werkstatt-1.6.apk
 ```
 
 `keystore/obd-werkstatt.jks` ist der Signierschlüssel (Passwort `obdwerkstatt`). Für Updates immer

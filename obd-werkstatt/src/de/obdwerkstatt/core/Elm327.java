@@ -12,6 +12,8 @@ public final class Elm327 {
     public int protocol;
     /** false = nur der Adapter antwortet, das Fahrzeug (noch) nicht. */
     public boolean vehicleOk;
+    /** Absenderkennungen (ATH1) anzeigen; false = Kompatibilitätsmodus wie bei Torque/Car Scanner. */
+    public boolean headers = true;
 
     private final StringBuilder transcript = new StringBuilder();
     private final long t0 = System.currentTimeMillis();
@@ -126,7 +128,7 @@ public final class Elm327 {
         cmd("ATE0");
         cmd("ATL0");
         cmd("ATS1");
-        cmd("ATH1");
+        cmd(headers ? "ATH1" : "ATH0");
         cmd("ATAT1");
     }
 
@@ -181,16 +183,27 @@ public final class Elm327 {
     private void findVehicle(int protocolChoice, Log log) throws IOException {
         // Erst die gängigen CAN-Protokolle direkt testen (schnell), dann die automatische Suche
         // mit viel Zeit – billige Klone brauchen dafür teils über 30 s.
-        int[] order = protocolChoice != 0 ? new int[]{protocolChoice} : new int[]{6, 8, 7, 9, 0};
+        // Schritte: {Protokoll, Header an?}. Der Kompatibilitätsmodus (Header aus, automatische Suche)
+        // entspricht dem Ablauf gängiger Apps – manche Nachbauten kommen nur damit zurecht.
+        int[][] steps = protocolChoice != 0
+                ? new int[][]{{protocolChoice, 1}, {protocolChoice, 0}}
+                : new int[][]{{6, 1}, {6, 0}, {0, 0}};
         StringBuilder tried = new StringBuilder();
         boolean found = false;
-        for (int p : order) {
-            log.line(p == 0 ? "Automatische Protokollsuche (kann bis zu 1 Minute dauern) …"
-                    : "Teste " + PROTOCOLS[p] + " …");
+        for (int[] st : steps) {
+            int p = st[0];
+            boolean h = st[1] == 1;
+            String name = (p == 0 ? "Automatische Suche" : PROTOCOLS[p]) + (h ? "" : " (Kompatibilitätsmodus)");
+            log.line(p == 0 ? "Automatische Protokollsuche, Kompatibilitätsmodus (bis zu 1 Minute) …"
+                    : "Teste " + name + " …");
             String result;
             try {
+                if (h != headers) {
+                    headers = h;
+                    cmd(h ? "ATH1" : "ATH0");
+                }
                 cmd("ATSP" + Integer.toHexString(p).toUpperCase());
-                String r = cmd("0100", p == 0 ? 60000 : p >= 6 ? 12000 : 25000);
+                String r = cmd("0100", p == 0 ? 60000 : 15000);
                 if (!ResponseParser.parse(r, true, false).isEmpty()) {
                     found = true;
                     break;
@@ -202,7 +215,7 @@ public final class Elm327 {
                 if (!recover()) throw new VehicleError("Der Adapter (" + version + ") hat sich bei der "
                         + "Fahrzeugabfrage aufgehängt und reagiert nicht mehr. Adapter abziehen und neu einstecken.");
             }
-            tried.append("\n• ").append(p == 0 ? "Automatisch" : PROTOCOLS[p]).append(": ").append(result);
+            tried.append("\n• ").append(name).append(": ").append(result);
         }
         if (!found) {
             throw new VehicleError("Der Adapter (" + version + ") funktioniert, aber das Fahrzeug antwortet nicht."
@@ -216,6 +229,19 @@ public final class Elm327 {
         }
         protocolDesc = cmd("ATDP");
         log.line("Protokoll: " + protocolDesc);
+        if (!headers) {
+            // Gefunden im Kompatibilitätsmodus: prüfen, ob Header jetzt doch gehen (für Steuergeräte-Scan nötig)
+            try {
+                cmd("ATSP" + Integer.toHexString(protocol).toUpperCase());
+                cmd("ATH1");
+                if (!ResponseParser.parse(cmd("0100", 8000), isCan(), is29Bit()).isEmpty()) headers = true;
+            } catch (Timeout e) {
+                recover();
+                cmd("ATSP" + Integer.toHexString(protocol).toUpperCase());
+            }
+            if (!headers) cmd("ATH0");
+            log.line(headers ? "Header funktionieren jetzt." : "Kompatibilitätsmodus bleibt aktiv.");
+        }
         // Feste Protokollnummer setzen, damit später keine Suche mehr nötig ist
         cmd("ATSP" + Integer.toHexString(protocol).toUpperCase());
         vehicleOk = true;
