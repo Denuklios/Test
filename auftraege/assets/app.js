@@ -2,10 +2,19 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Digitalisieren, kr|€';
+const APP_VERSION = '2026-10-27 · Helles Design';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
+// Design: hell (Standard) oder dunkel, je Gerät gemerkt
+function applyTheme(th) {
+  document.documentElement.dataset.theme = th;
+  const m = document.querySelector('meta[name=theme-color]');
+  if (m) m.content = th === 'dark' ? '#090909' : '#f8f7fb';
+}
+let theme = 'light';
+try { theme = localStorage.getItem('wf_theme') || 'light'; } catch (e) { /* Speicher gesperrt */ }
+applyTheme(theme);
 if (!['de', 'da'].includes(lang)) lang = 'de';
 
 const t = (k, ...a) => {
@@ -1727,6 +1736,9 @@ route(/^\/settings$/, async () => {
       h('button', { class: 'btn', onclick: arRun({ all: 1 }) }, '⟳ ' + t('ar_all')),
       h('button', { class: 'btn', onclick: arRun({ backup: 1 }) }, '💾 ' + t('ar_backup'))),
     arState);
+  const themeCard = h('div', { class: 'card' }, h('h3', {}, '🎨 ' + t('theme_title')),
+    h('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' }, ...[['light', '☀️ ' + t('theme_light')], ['dark', '🌙 ' + t('theme_dark')]].map(([k, l]) =>
+      h('button', { class: 'btn' + (theme === k ? ' primary' : ''), onclick: () => { theme = k; try { localStorage.setItem('wf_theme', k); } catch (e) {} applyTheme(k); render(); } }, l))));
   // Testphase: Rechnungen/Belege löschen und Nummern zurücksetzen, bis „Echtbetrieb starten“
   const twice = (msg, word) => { if (!confirm(msg)) return false; const v = prompt(t('cdel_type', word)); if (v === null) return false; if (v.trim().toUpperCase() !== word.toUpperCase()) { toast(t('cdel_wrong')); return false; } return true; };
   const testCard = me.live ? null : h('div', { class: 'card warnbox' }, h('h3', {}, '🧪 ' + t('test_title')), h('p', { class: 'muted' }, t('test_text')),
@@ -1750,6 +1762,7 @@ route(/^\/settings$/, async () => {
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_settings')), h('h1', {}, t('settings_h1_a'), ' ', h('em', {}, t('settings_h1_b'))))),
     testCard,
+    themeCard,
     companyCard,
     archiveCard,
     termsCard,

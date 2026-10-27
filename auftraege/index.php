@@ -10,7 +10,7 @@ $v = fn(string $f) => (string)@filemtime(__DIR__ . '/' . $f);
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
-<meta name="theme-color" content="#090909">
+<meta name="theme-color" content="#f8f7fb">
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Aufträge">
 <title>Aufträge · Wunsch-Fabrik</title>
