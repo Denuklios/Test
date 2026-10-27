@@ -70,11 +70,12 @@ $cur = $o ? max(0, (int)array_search($o['status'], $statuses, true)) : 0;
 $items = $o ? (json_decode((string)$o['items'], true) ?: []) : [];
 $carrierUrl = $o ? wf_carrier_url((string)$o['carrier'], (string)$o['tracking_no']) : '';
 ?><!doctype html>
-<html lang="<?= $e($lang) ?>">
+<html lang="<?= $e($lang) ?>" translate="no">
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
+<meta name="google" content="notranslate">
 <meta name="theme-color" content="#f8f7fb">
 <title><?= $e($T['title'] . ($o ? ' ' . $o['nr'] : '')) ?></title>
 <link rel="icon" href="icons/icon-192.png">
@@ -94,11 +95,13 @@ body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
 .trk{font-size:1.25rem;font-weight:600;letter-spacing:.04em;word-break:break-all}
 .items td{padding:4px 8px 4px 0}
 .small{font-size:.8rem;color:var(--muted);margin-top:18px;text-align:center}
+.langs{margin-left:auto;display:flex;gap:4px}.langs a{padding:4px 8px;border-radius:8px;text-decoration:none;font-size:1.1rem;opacity:.5}.langs a.on{opacity:1;background:var(--surface3)}
 </style>
 </head>
 <body>
 <main>
-  <div class="head"><img src="assets/logo-bg.png" alt=""><div class="b">WUNSCH-<b>FABRIK</b>.DK</div></div>
+  <div class="head"><img src="assets/logo-bg.png" alt=""><div class="b">WUNSCH-<b>FABRIK</b>.DK</div>
+    <?php if ($o): ?><div class="langs"><?php foreach (['de' => '🇩🇪', 'da' => '🇩🇰', 'en' => '🇬🇧'] as $lc => $fl): ?><a class="<?= $lc === $lang ? 'on' : '' ?>" href="?t=<?= $e($token) ?>&amp;lang=<?= $lc ?>" aria-label="<?= $lc ?>"><?= $fl ?></a><?php endforeach; ?></div><?php endif; ?></div>
 <?php if (!$o): ?>
   <div class="card"><h2><?= $e($T['title']) ?></h2><p class="muted"><?= $e($T['invalid']) ?></p></div>
 <?php else: ?>

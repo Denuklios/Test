@@ -109,6 +109,7 @@ $thumbSrc = fn(int $fid) => $admin ? 'file.php?id=' . $fid . '&thumb=1' : '?t=' 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <meta name="robots" content="noindex,nofollow">
+<meta name="google" content="notranslate">
 <meta name="theme-color" content="#f8f7fb">
 <title><?= $e($pageTitle . ($snap ? ' ' . $snap['nr'] : '')) ?></title>
 <link rel="icon" href="icons/icon-192.png">
