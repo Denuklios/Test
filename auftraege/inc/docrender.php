@@ -34,6 +34,9 @@ function wf_doc_html(PDO $db, array $i, ?string $lang = null, bool $embed = fals
     $m = fn(int $c) => wf_doc_money($c, $cur, $lang);
     $orig = $isCredit && $i['credit_of'] ? wf_inv_load($db, (int)$i['credit_of']) : null;
     $hasDisc = (bool)array_filter($i['lines'], fn($l) => (float)$l['discount'] != 0);
+    // Rabatt gesamt: Prozent-Rabatte der Zeilen + eigene Rabattzeilen (Minusbetrag, Text beginnt mit Rabatt/Rabat/Discount)
+    $lineOff = fn($l) => (float)$l['discount'] != 0 ? (int)round((float)$l['qty'] * (int)$l['unit_price']) - (int)$l['amount'] : 0;
+    $discTotal = array_sum(array_map(fn($l) => $lineOff($l) + ((int)$l['amount'] < 0 && preg_match('/^(Rabatt?|Discount)\b/iu', (string)$l['description']) ? -(int)$l['amount'] : 0), $i['lines']));
     $kinds = array_unique(array_column($i['lines'], 'kind'));
     $numTxt = $draft ? '—' : (string)$i['number'];
     $title = ($isCredit ? $T['credit'] : $T['invoice']) . ($draft ? '' : ' ' . $i['number']);
@@ -120,7 +123,7 @@ table.items{width:100%;border-collapse:separate;border-spacing:0;margin-top:6mm}
 .items td.amt{font-weight:600}
 .after{display:grid;grid-template-columns:1fr 78mm;gap:8mm;margin-top:6mm;align-items:start}
 .sum{width:100%;border-collapse:collapse}
-.sum td{padding:1.4mm 2mm}.sum td.n{text-align:right;font-variant-numeric:tabular-nums}
+.sum td{padding:1.4mm 2mm}.sum td.n{text-align:right;font-variant-numeric:tabular-nums}.sum tr.dtot td{color:#15803d;font-weight:600}.doff{color:#15803d;font-size:.82em}
 .grand{margin-top:2mm;border-radius:3.5mm;padding:4mm 4.5mm;background:var(--ink);color:#fff;display:flex;justify-content:space-between;align-items:baseline;position:relative;overflow:hidden}
 .grand::after{content:"";position:absolute;inset:auto 0 0 0;height:1.4mm;background:linear-gradient(90deg,var(--p1),var(--p2))}
 .grand span{font-size:7.6pt;letter-spacing:.18em;text-transform:uppercase;color:#d8b4fe}
@@ -193,7 +196,7 @@ table.items{width:100%;border-collapse:separate;border-spacing:0;margin-top:6mm}
     <tr><th></th><th><?= $e($T['desc']) ?></th><th class="n"><?= $e($T['qty']) ?></th><th><?= $e($T['unit']) ?></th><th class="n"><?= $e($T['price']) ?></th><?php if ($hasDisc): ?><th class="n"><?= $e($T['disc']) ?></th><?php endif; ?><th class="n"><?= $e($T['amount']) ?></th></tr>
     <?php foreach (array_values($i['lines']) as $k => $l): ?>
     <tr><td class="no"><?= sprintf('%02d', $k + 1) ?></td><td class="d"><?= nl2br($e($l['description'])) ?></td><td class="n"><?= $e(wf_doc_num((float)$l['qty'], $lang)) ?></td><td><?= $e($T['units'][$l['unit']] ?? $l['unit']) ?></td>
-      <td class="n"><?= $e(wf_doc_money((int)$l['unit_price'], '', $lang)) ?></td><?php if ($hasDisc): ?><td class="n"><?= (float)$l['discount'] ? $e(wf_doc_num((float)$l['discount'], $lang)) . ' %' : '' ?></td><?php endif; ?>
+      <td class="n"><?= $e(wf_doc_money((int)$l['unit_price'], '', $lang)) ?></td><?php if ($hasDisc): ?><td class="n"><?php if ((float)$l['discount']): ?><?= $e(wf_doc_num((float)$l['discount'], $lang)) ?> %<br><small class="doff">−<?= $e(wf_doc_money($lineOff($l), '', $lang)) ?></small><?php endif; ?></td><?php endif; ?>
       <td class="n amt"><?= $e(wf_doc_money((int)$l['amount'], '', $lang)) ?></td></tr>
     <?php endforeach; ?>
   </table>
@@ -205,6 +208,7 @@ table.items{width:100%;border-collapse:separate;border-spacing:0;margin-top:6mm}
     </div>
     <div>
       <table class="sum">
+        <?php if ($discTotal > 0): ?><tr class="dtot"><td><?= $e($T['disc_total']) ?></td><td class="n">−<?= $e($m($discTotal)) ?></td></tr><?php endif; ?>
         <tr><td><?= $e($T['net']) ?></td><td class="n"><?= $e($m((int)$i['net'])) ?></td></tr>
         <tr><td><?= $e($p ? $tr('vat', ['{p}' => $p]) : $T['vat0']) ?></td><td class="n"><?= $e($m((int)$i['vat'])) ?></td></tr>
       </table>

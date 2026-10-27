@@ -1,6 +1,6 @@
 <?php
 // Rechnung/Kreditnota im Seitenleisten-Design (dunkle Leiste links, Inhalt auf Weiß). Wird aus wf_doc_html() eingebunden
-// und nutzt deren Variablen ($i, $S, $C, $T, $e, $tr, $m, $p, $legal, $logoSrc, $draft, $isCredit, $numTxt, $hasDisc, $orig, $lang, $cur, $embed).
+// und nutzt deren Variablen ($i, $S, $C, $T, $e, $tr, $m, $p, $legal, $logoSrc, $draft, $isCredit, $numTxt, $hasDisc, $lineOff, $discTotal, $orig, $lang, $cur, $embed).
 ?><!doctype html>
 <html lang="<?= $e($lang) ?>">
 <head>
@@ -50,7 +50,7 @@ table.items{width:100%;border-collapse:collapse;margin-top:11mm}
 .items .n{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
 .items td.amt{font-weight:600}
 .sum{margin:5mm 0 0 auto;min-width:76mm;border-collapse:collapse}
-.sum td{padding:1.6mm 1.6mm}.sum td.n{text-align:right;font-variant-numeric:tabular-nums}
+.sum td{padding:1.6mm 1.6mm}.sum td.n{text-align:right;font-variant-numeric:tabular-nums}.sum tr.dtot td{color:#15803d;font-weight:600}.doff{color:#15803d;font-size:.82em}
 .sum tr.g td{padding-top:3mm;border-top:1.6px solid var(--ink);font-size:14pt;font-weight:700;color:var(--p1)}
 .sum tr.g td:first-child{font-size:10.5pt;color:var(--ink)}
 .note{margin-top:7mm;white-space:pre-line;font-style:italic;color:#3d3549}
@@ -124,11 +124,12 @@ table.items{width:100%;border-collapse:collapse;margin-top:11mm}
       <?php foreach (array_values($i['lines']) as $k => $l): ?>
       <tr><td class="no"><?= sprintf('%02d', $k + 1) ?></td><td class="d"><?= nl2br($e($l['description'])) ?></td>
         <td class="n"><?= $e(wf_doc_num((float)$l['qty'], $lang)) ?> <?= $e($T['units'][$l['unit']] ?? $l['unit']) ?></td>
-        <td class="n"><?= $e(wf_doc_money((int)$l['unit_price'], '', $lang)) ?></td><?php if ($hasDisc): ?><td class="n"><?= (float)$l['discount'] ? $e(wf_doc_num((float)$l['discount'], $lang)) . ' %' : '' ?></td><?php endif; ?>
+        <td class="n"><?= $e(wf_doc_money((int)$l['unit_price'], '', $lang)) ?></td><?php if ($hasDisc): ?><td class="n"><?php if ((float)$l['discount']): ?><?= $e(wf_doc_num((float)$l['discount'], $lang)) ?> %<br><small class="doff">−<?= $e(wf_doc_money($lineOff($l), '', $lang)) ?></small><?php endif; ?></td><?php endif; ?>
         <td class="n amt"><?= $e(wf_doc_money((int)$l['amount'], '', $lang)) ?></td></tr>
       <?php endforeach; ?>
     </table>
     <table class="sum">
+      <?php if ($discTotal > 0): ?><tr class="dtot"><td><?= $e($T['disc_total']) ?></td><td class="n">−<?= $e($m($discTotal)) ?></td></tr><?php endif; ?>
       <tr><td><?= $e($T['net']) ?></td><td class="n"><?= $e($m((int)$i['net'])) ?></td></tr>
       <tr><td><?= $e($p ? $tr('vat', ['{p}' => $p]) : $T['vat0']) ?></td><td class="n"><?= $e($m((int)$i['vat'])) ?></td></tr>
       <tr class="g"><td><?= $e($isCredit ? $T['total_credit'] : $T['total']) ?></td><td class="n"><?= $e($m((int)$i['total'])) ?></td></tr>

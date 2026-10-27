@@ -125,7 +125,7 @@ $thumbSrc = fn(int $fid) => $admin ? 'file.php?id=' . $fid . '&thumb=1' : '?t=' 
 body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
 .head{display:flex;align-items:center;gap:14px;margin-bottom:18px}.head img{height:44px;border-radius:8px}
 .head .b{font-family:var(--head);letter-spacing:.24em;font-weight:600}.head .b b{color:var(--p2);font-weight:600}
-.kv{margin-top:6px}.thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.thumbs img{width:110px;height:110px;object-fit:cover;border-radius:12px;border:1px solid var(--line-strong);background:#fff}
+.kv{margin-top:6px}.tscroll{overflow-x:auto}table.items{width:100%;border-collapse:collapse;margin:6px 0 4px;font-size:.92rem}table.items th{text-align:left;font-size:.72rem;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600;padding:6px 6px;border-bottom:1px solid var(--line-strong)}table.items td{padding:8px 6px;border-bottom:1px solid var(--line-strong);vertical-align:top}table.items .n{text-align:right;white-space:nowrap}table.items .disc{color:#15803d;font-weight:600;font-size:.85em}.savings{display:flex;flex-wrap:wrap;justify-content:space-between;gap:6px 14px;align-items:center;margin:10px 0 4px;padding:10px 14px;border-radius:12px;background:#ecfdf3;border:1px solid #86efac;color:#14532d}.savings s{opacity:.7}.thumbs{display:flex;flex-wrap:wrap;gap:8px;margin-top:8px}.thumbs img{width:110px;height:110px;object-fit:cover;border-radius:12px;border:1px solid var(--line-strong);background:#fff}
 #pad{width:100%;height:180px;background:#fff;border-radius:12px;touch-action:none;display:block;cursor:crosshair}
 .acc{display:flex;gap:10px;align-items:flex-start;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--text);margin:14px 0}
 .acc input{width:22px;height:22px;min-height:0;flex:none;margin-top:2px}
@@ -161,6 +161,21 @@ body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
   <div class="card">
     <h2 style="margin-bottom:8px"><?= $e($snap['title']) ?></h2>
     <?php if ($snap['description']): ?><p style="white-space:pre-wrap;margin:0 0 10px"><?= $e($snap['description']) ?></p><?php endif; ?>
+    <?php
+    $its = $snap['items'] ?? [];
+    $offSum = array_sum(array_column($its, 'off'));
+    if ($its && (count($its) > 1 || $offSum > 0)): ?>
+    <div class="tscroll"><table class="items">
+      <tr><th><?= $e($T['item']) ?></th><th class="n"><?= $e($T['qty']) ?></th><th class="n"><?= $e($T['unit_price']) ?></th><th class="n"><?= $e($T['line_sum']) ?></th></tr>
+      <?php foreach ($its as $it): ?>
+      <tr><td><?= $e($it['name']) ?></td><td class="n"><?= (int)$it['qty'] ?></td><td class="n"><?= $e($money($it['price'], $snap['currency'])) ?></td>
+        <td class="n"><?php if ($it['off'] > 0): ?><s class="muted"><?= $e($money($it['gross'], $snap['currency'])) ?></s><br><span class="disc"><?= $e($T['disc'] . ' ' . ($it['disc_type'] === 'pct' ? str_replace('.', ',', (string)(float)$it['disc']) . ' % ' : '') . '−' . $money($it['off'], $snap['currency'])) ?></span><br><?php endif; ?><b><?= $e($money($it['total'], $snap['currency'])) ?></b></td></tr>
+      <?php endforeach; ?>
+    </table></div>
+    <?php if ($offSum > 0): ?>
+    <div class="savings"><span><?= $e($T['before_disc']) ?> <s><?= $e($money(array_sum(array_column($its, 'gross')), $snap['currency'])) ?></s></span><b>🎁 <?= $e($T['disc_total']) ?>: −<?= $e($money($offSum, $snap['currency'])) ?></b></div>
+    <?php endif; ?>
+    <?php endif; ?>
     <dl class="kv">
       <dt><?= $e($T['qty']) ?></dt><dd><?= (int)$snap['qty'] ?> <?= $e($T['pcs']) ?><?= $snap['article'] ? ' · ' . $e($snap['article']) : '' ?></dd>
       <?php if ($snap['processes']): ?><dt><?= $e($T['process']) ?></dt><dd><?= $e(implode(', ', array_map(fn($p) => $lang === 'da' ? $p['da'] : $p['de'], $snap['processes']))) ?></dd><?php endif; ?>

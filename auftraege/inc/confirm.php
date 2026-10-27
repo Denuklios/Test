@@ -18,7 +18,16 @@ function wf_confirm_snapshot(PDO $db, array $o, array $cust, string $lang = 'da'
         'customer' => ['name' => $cust['name'], 'company' => $cust['company'], 'address' => $cust['address'], 'email' => $cust['email'], 'phone' => $cust['phone']],
         'nr' => $o['nr'], 'title' => $o['title'], 'description' => $o['description'], 'article' => $o['article'], 'qty' => (int)$o['qty'],
         'price' => (float)$o['price'], 'deposit' => (float)$o['deposit'], 'currency' => $o['currency'], 'due_date' => $o['due_date'],
-        'processes' => $procs, 'files' => array_values(array_map(fn($f) => (int)$f['id'], array_filter($o['files'], fn($f) => str_starts_with($f['mime'], 'image/')))),
+        'processes' => $procs,
+        // Positionen mit Rabatt, damit der Kunde sieht, was er wofür bekommt
+        'items' => array_map(function ($it) {
+            $g = (float)$it['qty'] * (float)$it['price'];
+            $d = (float)($it['disc'] ?? 0);
+            $off = ($it['disc_type'] ?? 'pct') === 'abs' ? min($d, $g) : round($g * min($d, 100) / 100, 2);
+            return ['name' => $it['name'], 'qty' => (int)$it['qty'], 'price' => (float)$it['price'], 'disc' => $d, 'disc_type' => ($it['disc_type'] ?? 'pct') === 'abs' ? 'abs' : 'pct',
+                'gross' => round($g, 2), 'off' => round($off, 2), 'total' => round($g - $off, 2)];
+        }, $o['items'] ?? []),
+        'files' => array_values(array_map(fn($f) => (int)$f['id'], array_filter($o['files'], fn($f) => str_starts_with($f['mime'], 'image/')))),
         'vat' => $scheme === 'novat' ? 'none' : ($scheme === 'eu_rc' ? 'rc' : ($scheme === 'export' ? 'export' : (wf_default_incl($scheme, $cust) ? 'incl' : 'excl'))),
         'created' => date('Y-m-d'),
         'valid_until' => date('Y-m-d', strtotime("+$days days")),
@@ -87,7 +96,7 @@ function wf_confirm_text(string $lang): array
             'intro_done' => 'Tak for din ordre! Denne bekræftelse kan altid åbnes igen via dette link.', 'print' => 'Udskriv / gem som PDF', 'customer' => 'Kunde', 'terms' => 'Betingelser',
             'withdrawal' => 'Fortrydelsesret: Da varerne fremstilles efter dine specifikationer eller tydeligt personliggøres, gælder fortrydelsesretten ikke (forbrugeraftalelovens § 18, stk. 2, nr. 3).',
             'signed_by' => 'Underskrevet', 'title' => 'Ordrebekræftelse', 'intro' => 'Kontrollér venligst ordren og bekræft den med din underskrift.', 'order' => 'Ordre', 'qty' => 'Antal', 'article' => 'Vare',
-            'process' => 'Metode', 'due' => 'Klar til afhentning/levering', 'price' => 'Pris', 'deposit' => 'Allerede betalt', 'files' => 'Motiv / skabelon',
+            'process' => 'Metode', 'due' => 'Klar til afhentning/levering', 'price' => 'Pris', 'deposit' => 'Allerede betalt', 'item' => 'Produkt', 'unit_price' => 'Stk.-pris', 'disc' => 'Rabat', 'line_sum' => 'Beløb', 'before_disc' => 'Pris før rabat', 'disc_total' => 'Din rabat', 'files' => 'Motiv / skabelon',
             'vat_incl' => 'inkl. 25 % moms', 'vat_excl' => 'ekskl. moms', 'vat_rc' => 'uden moms (omvendt betalingspligt)', 'vat_export' => 'uden moms (eksport)', 'vat_none' => '',
             'name' => 'Dit navn', 'sign' => 'Underskrift (med finger eller mus)', 'clear' => 'Slet', 'accept' => 'Jeg accepterer tilbuddet bindende, herunder motiv, antal, pris, tidspunkt og betingelserne ovenfor.',
             'submit' => 'Accepter tilbuddet bindende', 'done' => 'Tak! Ordren er bekræftet {d} af {n}.', 'invalid' => 'Linket er ugyldigt eller udløbet. Kontakt os venligst.',
@@ -96,7 +105,7 @@ function wf_confirm_text(string $lang): array
             'intro_done' => 'Vielen Dank für Ihren Auftrag! Diese Bestätigung können Sie jederzeit über diesen Link wieder öffnen.', 'print' => 'Drucken / als PDF speichern', 'customer' => 'Kunde', 'terms' => 'Bedingungen',
             'withdrawal' => 'Widerrufsrecht: Da die Ware nach Ihren Vorgaben angefertigt bzw. eindeutig personalisiert wird, besteht kein Widerrufsrecht (dän. Verbrauchervertragsgesetz, forbrugeraftaleloven § 18 Abs. 2 Nr. 3).',
             'signed_by' => 'Unterschrieben', 'title' => 'Auftragsbestätigung', 'intro' => 'Bitte prüfen Sie den Auftrag und bestätigen Sie ihn mit Ihrer Unterschrift.', 'order' => 'Auftrag', 'qty' => 'Menge', 'article' => 'Artikel',
-            'process' => 'Verfahren', 'due' => 'Fertig zur Abholung/Lieferung', 'price' => 'Preis', 'deposit' => 'Bereits bezahlt', 'files' => 'Motiv / Vorlage',
+            'process' => 'Verfahren', 'due' => 'Fertig zur Abholung/Lieferung', 'price' => 'Preis', 'deposit' => 'Bereits bezahlt', 'item' => 'Produkt', 'unit_price' => 'Einzelpreis', 'disc' => 'Rabatt', 'line_sum' => 'Betrag', 'before_disc' => 'Preis vor Rabatt', 'disc_total' => 'Ihr Rabatt', 'files' => 'Motiv / Vorlage',
             'vat_incl' => 'inkl. 25 % dänischer Moms', 'vat_excl' => 'zzgl. Moms', 'vat_rc' => 'ohne Moms (Reverse Charge)', 'vat_export' => 'ohne Moms (Export)', 'vat_none' => '',
             'name' => 'Ihr Name', 'sign' => 'Unterschrift (mit Finger oder Maus)', 'clear' => 'Löschen', 'accept' => 'Ich nehme das Angebot verbindlich an, einschließlich Motiv, Menge, Preis, Termin und der Bedingungen oben.',
             'submit' => 'Angebot verbindlich annehmen', 'done' => 'Vielen Dank! Der Auftrag wurde am {d} von {n} bestätigt.', 'invalid' => 'Der Link ist ungültig oder abgelaufen. Bitte kontaktieren Sie uns.',
@@ -105,7 +114,7 @@ function wf_confirm_text(string $lang): array
             'intro_done' => 'Thank you for your order! You can open this confirmation again at any time via this link.', 'print' => 'Print / save as PDF', 'customer' => 'Customer', 'terms' => 'Terms',
             'withdrawal' => 'Right of withdrawal: As the goods are made to your specifications or clearly personalised, there is no right of withdrawal (Danish Consumer Contracts Act, § 18(2)(3)).',
             'signed_by' => 'Signed', 'title' => 'Order confirmation', 'intro' => 'Please check the order and confirm it with your signature.', 'order' => 'Order', 'qty' => 'Quantity', 'article' => 'Item',
-            'process' => 'Method', 'due' => 'Ready for pick-up/delivery', 'price' => 'Price', 'deposit' => 'Already paid', 'files' => 'Design / artwork',
+            'process' => 'Method', 'due' => 'Ready for pick-up/delivery', 'price' => 'Price', 'deposit' => 'Already paid', 'item' => 'Product', 'unit_price' => 'Unit price', 'disc' => 'Discount', 'line_sum' => 'Amount', 'before_disc' => 'Price before discount', 'disc_total' => 'Your discount', 'files' => 'Design / artwork',
             'vat_incl' => 'incl. 25 % Danish VAT', 'vat_excl' => 'excl. VAT', 'vat_rc' => 'excl. VAT (reverse charge)', 'vat_export' => 'excl. VAT (export)', 'vat_none' => '',
             'name' => 'Your name', 'sign' => 'Signature (finger or mouse)', 'clear' => 'Clear', 'accept' => 'I bindingly accept the offer, including design, quantity, price, date and the terms above.',
             'submit' => 'Accept offer', 'done' => 'Thank you! The order was confirmed on {d} by {n}.', 'invalid' => 'This link is invalid or has expired. Please contact us.',
