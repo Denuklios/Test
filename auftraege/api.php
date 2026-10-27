@@ -649,6 +649,12 @@ try {
             }
             if (!$mailed) {
                 $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('mail_last_error', ?)")->execute([date('Y-m-d H:i:s') . ' · ' . $GLOBALS['wf_mail_err']]);
+                // im Verlauf festhalten, falls der Fehler vor dem eigentlichen Senden lag (z. B. keine Kundenadresse)
+                $chk = $db->prepare("SELECT COUNT(*) FROM status_log WHERE order_id = ? AND what LIKE 'mailfail:offer|%' AND at >= datetime('now', '-5 seconds')");
+                $chk->execute([(int)$o['id']]);
+                if (!empty($in['email']) && !(int)$chk->fetchColumn()) {
+                    log_order($db, (int)$o['id'], ['name' => 'System'] + $user, 'mailfail:offer|' . mb_substr($GLOBALS['wf_mail_err'], 0, 200));
+                }
             }
             wf_json(['ok' => true, 'token' => $token, 'mailed' => $mailed, 'mail_error' => $mailed ? '' : (string)($GLOBALS['wf_mail_err'] ?? '')]);
         }

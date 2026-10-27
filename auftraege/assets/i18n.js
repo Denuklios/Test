@@ -1,5 +1,6 @@
 window.WF_I18N = {
 de: {
+  log_mailfail: '{0} NICHT gesendet: {1}',
   cron_error: 'Letzter Zeitplan-Lauf mit Fehler: {0}',
   err_drive_dev_url: 'Das ist die Test-URL (endet auf /dev). Bitte unter „Bereitstellen → Bereitstellungen verwalten“ die Web-App-URL kopieren – sie endet auf /exec.',
   mail_failed_why: 'E-Mail nicht gesendet ({0}) – Link bitte teilen.', smtp_title: 'Versandweg', smtp_on: 'über Postfach {0}', smtp_off: 'Standard (PHP mail)', smtp_text: 'Empfohlen bei one.com: Mails über dein Postfach senden. Server send.one.com, Port 465, Benutzer = deine E-Mail-Adresse (z. B. hej@wunsch-fabrik.dk), Passwort = Passwort dieses Postfachs. Das Passwort bleibt auf dem Server.', smtp_host: 'Postausgangsserver', smtp_port: 'Port', smtp_user: 'Benutzer (E-Mail-Adresse)', smtp_pass: 'Passwort des Postfachs', smtp_pass_ph: 'Passwort', smtp_pass_keep: '•••••• (leer lassen = behalten)', smtp_disable: 'Postfach-Versand aus', err_bad_host: 'Ungültiger Servername.', err_bad_port: 'Port 465 oder 587 verwenden.',
@@ -196,6 +197,7 @@ de: {
   err_duplicate_admin_id: 'Admin-ID doppelt vergeben.', err_unknown_action: 'Unbekannte Aktion.', err_bad_json: 'Ungültige Daten.', err_bad_date: 'Datum ungültig.', err_range_too_large: 'Zeitraum zu groß.', err_nothing: 'Nichts zu ändern.', err_post_required: 'Ungültige Anfrage.'
 },
 da: {
+  log_mailfail: '{0} IKKE sendt: {1}',
   cron_error: 'Sidste kørsel med fejl: {0}',
   err_drive_dev_url: 'Det er test-URL’en (slutter på /dev). Kopiér webapp-URL’en under „Implementer → Administrer implementeringer“ – den slutter på /exec.',
   mail_failed_why: 'E-mail ikke sendt ({0}) – del venligst linket.', smtp_title: 'Afsendelsesvej', smtp_on: 'via postkasse {0}', smtp_off: 'Standard (PHP mail)', smtp_text: 'Anbefalet hos one.com: send mails via din postkasse. Server send.one.com, port 465, bruger = din e-mailadresse (fx hej@wunsch-fabrik.dk), adgangskode = postkassens adgangskode. Adgangskoden bliver på serveren.', smtp_host: 'Udgående server', smtp_port: 'Port', smtp_user: 'Bruger (e-mailadresse)', smtp_pass: 'Postkassens adgangskode', smtp_pass_ph: 'Adgangskode', smtp_pass_keep: '•••••• (tom = behold)', smtp_disable: 'Slå postkasse-afsendelse fra', err_bad_host: 'Ugyldigt servernavn.', err_bad_port: 'Brug port 465 eller 587.',

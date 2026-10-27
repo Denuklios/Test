@@ -69,7 +69,7 @@ try {
     const html = Buffer.from(hm[1].replace(/\s/g, ''), 'base64').toString();
     assert.ok(html.includes(`href="http://127.0.0.1:8099/bestaetigung.php?t=${r.token}"`) && html.includes('Angebot ansehen &amp; unterschreiben'));
     assert.ok(html.includes('Auftrag verfolgen'));
-    assert.ok((await call('order', { params: { id: o.id } })).j.order.log.some((l) => l.what === 'mail:offer'));
+    assert.ok((await call('order', { params: { id: o.id } })).j.order.log.some((l) => l.what === 'mail:offer|erika@example.de'));
   });
 
   await ok('Unterschrift: Danke-Mail mit Verfolgungslink und Link zur unterschriebenen Bestätigung, Status Freigabe', async () => {

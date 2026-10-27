@@ -203,9 +203,9 @@ function wf_cm_send(PDO $db, array $x, string $subject, string $body, string $wh
     }
     $text = strtr($x['T']['hello'], $x['vars']) . "\n\n" . $body . "\n\n" . strtr($x['T']['regards'], $x['vars']);
     $ok = wf_mail($x['o']['c_email'], $s['from'], strtr($subject, $x['vars']), $text, [], $s['name'], wf_cm_html($text, $x['T']['buttons'], $x['track']));
-    if ($ok) {
-        $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([(int)$x['o']['id'], 'System', 'mail:' . $what]);
-    }
+    // Verlauf: gesendet (an wen) oder fehlgeschlagen (mit Grund)
+    $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([(int)$x['o']['id'], 'System',
+        $ok ? 'mail:' . $what . '|' . $x['o']['c_email'] : 'mailfail:' . $what . '|' . mb_substr((string)($GLOBALS['wf_mail_err'] ?? ''), 0, 200)]);
     return $ok;
 }
 

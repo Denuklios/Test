@@ -87,6 +87,12 @@ try {
     await call('smtp_save', { body: { host: '127.0.0.1', port: SPORT, user: 'info@wunsch-fabrik.dk', pass: 'falsch' } });
     const r = await call('mail_test', { body: { to: 'robert@example.dk' } });
     assert.equal(r.status, 502); assert.match(r.j.detail, /Anmeldung fehlgeschlagen/);
+    const cid2 = (await call('customer_save', { body: { name: 'Karl', email: 'karl@example.de', country: 'DE' } })).j.id;
+    const o2 = (await call('order_save', { body: { customer_id: cid2, title: 'Y', qty: 1, price: 1, currency: 'DKK', pay_status: 'open', items: [{ name: 'Y', qty: 1, price: 1, processes: [] }] } })).j.order;
+    const r2 = (await call('confirm_create', { body: { order_id: o2.id, email: true } })).j;
+    assert.equal(r2.mailed, false); assert.match(r2.mail_error, /Anmeldung/);
+    const log = (await call('order', { params: { id: o2.id } })).j.order.log.filter((l) => l.what.startsWith('mailfail:'));
+    assert.equal(log.length, 1, 'genau ein Eintrag'); assert.match(log[0].what, /Anmeldung/);
     assert.match((await call('cron_info')).j.mail_error, /Anmeldung fehlgeschlagen/);
   });
 
@@ -95,6 +101,7 @@ try {
     const o = (await call('order_save', { body: { customer_id: cid, title: 'X', qty: 1, price: 1, currency: 'DKK', pay_status: 'open', items: [{ name: 'X', qty: 1, price: 1, processes: [] }] } })).j.order;
     const r = (await call('confirm_create', { body: { order_id: o.id, email: true } })).j;
     assert.equal(r.mailed, false); assert.match(r.mail_error, /keine gültige E-Mail/);
+    assert.ok((await call('order', { params: { id: o.id } })).j.order.log.some((l) => l.what.startsWith('mailfail:offer|') && l.what.includes('keine gültige E-Mail')), 'im Verlauf');
     await call('smtp_save', { body: { host: '' } });
     assert.equal((await call('cron_info')).j.smtp, null);
   });

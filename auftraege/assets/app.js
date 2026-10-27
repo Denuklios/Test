@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Mail-Grund sichtbar';
+const APP_VERSION = '2026-10-27 · Mails im Verlauf';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -361,7 +361,8 @@ function logText(w) {
   if (w.startsWith('pay:')) return t('log_pay') + ' ' + t('pay_' + w.slice(4));
   if (w.startsWith('file:')) return t('log_file') + ' ' + w.slice(5);
   if (w.startsWith('confirmed:')) return t('log_confirmed');
-  if (w.startsWith('mail:')) return '✉ ' + t('log_mail_' + w.slice(5));
+  if (w.startsWith('mail:')) { const [k, to] = w.slice(5).split('|'); return '✉ ' + t('log_mail_' + k) + (to ? ' → ' + to : ''); }
+  if (w.startsWith('mailfail:')) { const [k, why] = w.slice(9).split('|'); return '⚠ ' + t('log_mailfail', t('log_mail_' + k).replace(/ gesendet| sendt/, ''), why || '?'); }
   return t('log_' + w);
 }
 
