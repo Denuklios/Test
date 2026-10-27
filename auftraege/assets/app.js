@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-24 · Notiz→Auftrag';
+const APP_VERSION = '2026-10-27 · Produkte, Drive-Archiv';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -144,7 +144,7 @@ const route = (re, fn) => routes.push([re, fn]);
 async function render() {
   if (!me) return;
   const hash = location.hash.replace(/^#/, '') || '/';
-  const navHash = /^\/(expense|bank|invoice|tax)/.test(hash) ? '/invoices' : hash;
+  const navHash = /^\/(expense|bank|invoice|tax)/.test(hash) ? '/invoices' : /^\/products/.test(hash) ? '/customers' : hash;
   document.querySelectorAll('.nav a').forEach((a) => a.classList.toggle('on', a.dataset.r && (navHash === a.dataset.r || (a.dataset.r !== '/' && navHash.startsWith(a.dataset.r)))));
   for (const [re, fn] of routes) {
     const m = re.exec(hash);
@@ -667,6 +667,41 @@ async function orderForm(o, presetCustomer, note = '') {
 }
 
 // ---------- Kunden ----------
+const masterTabs = (on) => h('div', { class: 'mtabs' }, [['/customers', t('nav_customers')], ['/products', t('tab_products')]].map(([r, l]) => h('a', { href: '#' + r, class: r === on ? 'on' : '' }, l)));
+
+// ---------- Produkte / Preisliste ----------
+let prodQ = '';
+route(/^\/products$/, async () => {
+  const { products } = await api('products');
+  const list = h('div', { class: 'orders' });
+  const editRow = (p) => {
+    const nm = h('input', { value: p.name || '', placeholder: t('prod_name_ph'), maxlength: 300 });
+    const un = h('select', {}, me.units.map((u) => h('option', { value: u, selected: u === (p.unit || 'stk') }, t('u_' + u))));
+    const pr = h('input', { type: 'text', inputmode: 'decimal', value: p.price != null ? centsIn(p.price) : '', placeholder: '0,00' });
+    const kd = h('select', {}, ['goods', 'services'].map((k) => h('option', { value: k, selected: k === (p.kind || 'goods') }, t(k))));
+    const act = h('input', { type: 'checkbox', checked: p.id ? !!+p.active : true, style: 'width:22px;height:22px;min-height:0' });
+    return h('div', { class: 'card prodcard' + (p.id && !+p.active ? ' inactive' : '') },
+      h('div', {}, h('label', {}, t('prod_name')), nm),
+      h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('unit')), un), h('div', {}, h('label', {}, t('unit_price') + ' DKK'), pr), h('div', {}, h('label', {}, t('prod_kind')), kd)),
+      h('div', { class: 'row', style: 'justify-content:space-between;margin-top:8px' },
+        h('label', { class: 'row', style: 'margin:0;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, act, t('active')),
+        h('div', { class: 'row' },
+          p.id ? h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('prod_delete_confirm', p.name))) { await api('product_delete', { body: { id: p.id } }); render(); } } }, t('delete')) : null,
+          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: pr.value || '0', kind: kd.value, active: act.checked ? 1 : 0 } }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
+  };
+  const draw = () => list.replaceChildren(...products.filter((p) => !prodQ || p.name.toLowerCase().includes(prodQ.toLowerCase())).map(editRow));
+  const newBox = h('div', { class: 'hidden' }, editRow({}));
+  show(
+    h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('tab_products')), h('h1', {}, t('prod_h1_a'), ' ', h('em', {}, t('prod_h1_b')))),
+      h('button', { class: 'btn primary', onclick: () => { newBox.classList.toggle('hidden'); newBox.querySelector('input').focus(); } }, '+ ' + t('prod_add'))),
+    masterTabs('/products'),
+    h('p', { class: 'muted', style: 'margin:0 0 12px' }, t('products_text')),
+    newBox,
+    h('div', { class: 'filters' }, h('input', { type: 'search', placeholder: t('prod_search'), value: prodQ, oninput: (e) => { prodQ = e.target.value; draw(); } })),
+    products.length ? list : h('div', { class: 'empty' }, t('prod_none')));
+  draw();
+});
+
 route(/^\/customers$/, async () => {
   const list = h('div', { class: 'orders' });
   const load = async (q = '') => {
@@ -678,6 +713,7 @@ route(/^\/customers$/, async () => {
   let tm;
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_customers')), h('h1', {}, t('customers_h1_a'), ' ', h('em', {}, t('customers_h1_b')))), h('a', { class: 'btn primary', href: '#/customer/new' }, '+ ' + t('new_customer'))),
+    masterTabs('/customers'),
     h('div', { class: 'filters' }, h('input', { type: 'search', placeholder: t('search_ph'), oninput: (e) => { clearTimeout(tm); tm = setTimeout(() => load(e.target.value), 250); } })), list);
   await load();
 });
@@ -721,7 +757,17 @@ route(/^\/customer\/(new|\d+)$/, async (id) => {
     !isNew && h('div', { class: 'card' }, h('h3', {}, t('history')), c.orders.length ? h('div', { class: 'tscroll' }, h('table', { class: 't' }, c.orders.map((o) => h('tr', {}, h('td', {}, h('a', { href: `#/order/${o.id}` }, o.nr)), h('td', {}, o.title), h('td', {}, dfmt(o.due_date)), h('td', {}, statusPill(o.status)), h('td', {}, payPill(o.pay_status)), h('td', {}, money(o.price, o.currency)))))) : h('p', { class: 'muted' }, t('no_orders'))),
     !isNew && h('div', { class: 'card' }, h('h3', {}, t('privacy')), h('p', { class: 'muted' }, t('privacy_text')),
       h('div', { class: 'row' }, h('a', { class: 'btn small', href: `${BASE}api.php?a=customer_export&id=${c.id}` }, t('export_data')),
-        h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('confirm_anonymize'))) { await api('customer_anonymize', { body: { id: c.id } }); location.hash = '#/customers'; } } }, t('anonymize')))));
+        h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('confirm_anonymize'))) { await api('customer_anonymize', { body: { id: c.id } }); location.hash = '#/customers'; } } }, t('anonymize')),
+        h('button', { class: 'btn small danger', onclick: async () => {
+          // 1. Bestätigung mit Folgen, 2. Bestätigung durch Eintippen des Wortes
+          const msg = c.final_invoices ? t('cdel_keep', c.name, c.final_invoices) : t('cdel_all', c.name, c.orders.length);
+          if (!confirm(msg)) return;
+          const word = t('cdel_word');
+          const typed = prompt(t('cdel_type', word));
+          if (typed === null) return;
+          if (typed.trim().toUpperCase() !== word.toUpperCase()) { toast(t('cdel_wrong')); return; }
+          try { const r = await api('customer_delete', { body: { id: c.id, confirm: 'DELETE' } }); toast(r.mode === 'anonymized' ? t('cdel_done_anon') : t('cdel_done', r.orders)); location.hash = '#/customers'; } catch (e) { toast(e.message); }
+        } }, '🗑 ' + t('cdel_btn')))));
   vatWrap.append(f('vat_id', t('vat_id'), h('input', { type: 'text', value: c.vat_id, placeholder: t('vat_id_ph'), autocapitalize: 'characters' })), vatState,
     h('button', { type: 'button', class: 'btn small', style: 'margin:6px 8px 0 0', onclick: async () => {
       try {
@@ -953,7 +999,19 @@ async function invoiceEditor(inv, preset = {}) {
   const rows = [];
   function addLine(l) {
     const r = {};
-    r.desc = h('textarea', { rows: 1, placeholder: t('line_desc'), oninput: (e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; } }, l.description || '');
+    r.desc = h('textarea', { rows: 1, placeholder: products.length ? t('line_desc_prod') : t('line_desc'), oninput: (e) => { e.target.style.height = 'auto'; e.target.style.height = e.target.scrollHeight + 'px'; suggestProd(); } }, l.description || '');
+    // Produktvorschläge beim Tippen: Auswahl übernimmt Text, Einheit, Preis und Art; Menge × Preis rechnet die Summe sofort
+    const psug = h('div', { class: 'suggest-list hidden' });
+    const suggestProd = () => {
+      const q = r.desc.value.trim().toLowerCase();
+      const hits = q.length < 2 ? [] : products.filter((p) => p.name.toLowerCase().includes(q) && p.name.toLowerCase() !== q).slice(0, 6);
+      psug.replaceChildren(...hits.map((p) => h('button', { type: 'button', onmousedown: (ev) => ev.preventDefault(), onclick: () => {
+        r.desc.value = p.name; r.unit.value = p.unit; r.price.value = centsIn(p.price); r.kind = p.kind; kindBtn.textContent = t(r.kind);
+        psug.classList.add('hidden'); r.qty.focus(); r.qty.select(); recalc();
+      } }, h('b', {}, p.name), h('span', { class: 'muted' }, ` · ${cents(p.price, 'DKK')} / ${t('u_' + p.unit)}`))));
+      psug.classList.toggle('hidden', !hits.length);
+    };
+    r.desc.addEventListener('blur', () => setTimeout(() => psug.classList.add('hidden'), 150));
     r.qty = h('input', { type: 'text', inputmode: 'decimal', value: String(+l.qty || 1).replace('.', ','), oninput: () => recalc() });
     r.unit = h('select', {}, me.units.map((u) => h('option', { value: u, selected: u === (l.unit || 'stk') }, t('u_' + u))));
     r.price = h('input', { type: 'text', inputmode: 'decimal', value: l.unit_price ? centsIn(l.unit_price) : '', placeholder: '0,00', oninput: () => recalc() });
@@ -961,7 +1019,7 @@ async function invoiceEditor(inv, preset = {}) {
     r.kind = l.kind || 'goods';
     const kindBtn = h('button', { type: 'button', class: 'chip kindbtn', title: t('vat_rule'), onclick: () => { r.kind = r.kind === 'goods' ? 'services' : 'goods'; kindBtn.textContent = t(r.kind); } }, t(r.kind));
     r.amt = h('b', { class: 'lamt' });
-    r.el = h('div', { class: 'iline' }, r.desc,
+    r.el = h('div', { class: 'iline' }, h('div', { class: 'suggest' }, r.desc, psug),
       h('div', { class: 'ilrow' },
         h('div', {}, h('label', {}, t('qty')), r.qty), h('div', {}, h('label', {}, t('unit')), r.unit), h('div', {}, h('label', {}, t('unit_price')), r.price), h('div', {}, h('label', {}, t('discount')), r.disc),
         h('div', { class: 'ilend' }, kindBtn, r.amt, h('button', { type: 'button', class: 'btn small danger', 'aria-label': t('delete'), onclick: () => { rows.splice(rows.indexOf(r), 1); r.el.remove(); recalc(); } }, '✕'))));
@@ -1459,18 +1517,6 @@ route(/^\/settings$/, async () => {
           await api('company_save', { body }); await reloadMe(); toast(t('saved')); render();
         } catch (e) { coErr.textContent = e.message; }
       } }, t('save'))), verifyOut);
-  // Produkte / Preisliste
-  const { products } = await api('products');
-  const prodRow = (p) => {
-    const nm = h('input', { value: p.name || '', placeholder: t('prod_name_ph') });
-    const un = h('select', {}, me.units.map((u) => h('option', { value: u, selected: u === (p.unit || 'stk') }, t('u_' + u))));
-    const pr = h('input', { type: 'text', inputmode: 'decimal', value: p.price != null ? centsIn(p.price) : '', placeholder: '0,00' });
-    const kd = h('select', {}, ['goods', 'services'].map((k) => h('option', { value: k, selected: k === (p.kind || 'goods') }, t(k))));
-    const row = h('div', { class: 'prow' }, nm, un, pr, kd,
-      h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: pr.value || '0', kind: kd.value, active: 1 } }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, '✓'),
-      p.id ? h('button', { class: 'btn small danger', onclick: async () => { await api('product_delete', { body: { id: p.id } }); render(); } }, '✕') : null);
-    return row;
-  };
   // Bedingungen fürs Angebot (je Sprache); leer = Standardtext
   const TA = {};
   const termsCard = h('div', { class: 'card' }, h('h3', {}, t('terms_title')), h('p', { class: 'muted' }, t('terms_text')),
@@ -1486,22 +1532,64 @@ route(/^\/settings$/, async () => {
         await api('company_save', { body }); await reloadMe(); toast(t('saved'));
       } catch (e) { toast(e.message); }
     } }, t('save'))));
+  // Archiv bei Dritten: Google Drive (Apps Script) oder E-Mail-Postfach
+  const arDrive = h('input', { type: 'url', value: me.company.drive_url || '', placeholder: 'https://script.google.com/macros/s/…/exec' });
+  const arTo = h('input', { type: 'email', value: me.company.archive_email || '', placeholder: 'wunschfabrik.archiv@gmail.com' });
+  const arFrom = h('input', { type: 'email', value: me.company.archive_from || '', placeholder: me.company.email || 'info@wunsch-fabrik.dk' });
+  const arState = h('div', { class: 'muted', style: 'font-size:.88rem;margin-top:8px' }, '…');
+  const drawAr = (st) => arState.replaceChildren(...[
+    st.mode ? h('div', {}, (st.open ? '⏳ ' : '✓ ') + t('ar_state_' + st.mode, st.sent, st.open, st.last_sent ? st.last_sent.slice(0, 16) : '—', st.last_backup ? dfmt(st.last_backup) : '—')) : h('div', { class: 'warn-t' }, '⚠ ' + t('ar_off')),
+    st.failing ? h('div', { class: 'warn-t' }, '⚠ ' + t('ar_failing', st.failing, st.last_error)) : null].filter(Boolean));
+  api('archive_status').then(drawAr).catch(() => {});
+  const arRun = (body) => async () => { try { const r = await api('archive_run', { body }); drawAr(r.status); toast(t('ar_sent', r.sent)); } catch (e) { toast(e.message); } };
+  const scriptBox = h('div', { class: 'hidden' });
+  const showScript = async () => {
+    if (!scriptBox.classList.contains('hidden')) { scriptBox.classList.add('hidden'); return; }
+    const { script } = await api('drive_script');
+    const ta = h('textarea', { readonly: true, rows: 10, style: 'font-family:monospace;font-size:.78rem' }, script);
+    scriptBox.replaceChildren(ta, h('button', { class: 'btn small', style: 'margin-top:6px', onclick: async () => { try { await navigator.clipboard.writeText(script); } catch (e) { ta.select(); document.execCommand('copy'); } toast(t('copied')); } }, '📋 ' + t('ar_copy')));
+    scriptBox.classList.remove('hidden');
+  };
+  const archiveCard = h('div', { class: 'card' + (me.company.drive_url || me.company.archive_email ? '' : ' warnbox') }, h('h3', {}, '🗄 ' + t('ar_title')), h('p', { class: 'muted' }, t('ar_text')),
+    h('h4', { class: 'subh' }, t('ar_drive_h')),
+    h('ol', { class: 'arsteps muted' }, ...[1, 2, 3, 4].map((n) => h('li', {}, t('ar_drive_s' + n)))),
+    h('button', { class: 'btn small', onclick: showScript }, '</> ' + t('ar_script')), scriptBox,
+    h('div', { style: 'margin-top:8px' }, h('label', {}, t('ar_drive_url')), arDrive),
+    h('details', { style: 'margin-top:12px', open: !!(me.company.archive_email && !me.company.drive_url) }, h('summary', {}, t('ar_mail_h')),
+      h('div', { class: 'grid c2', style: 'margin-top:8px' }, h('div', {}, h('label', {}, t('ar_to')), arTo), h('div', {}, h('label', {}, t('ar_from')), arFrom)),
+      h('small', { class: 'muted hint' }, t('ar_from_hint'))),
+    h('div', { class: 'row', style: 'margin-top:10px;flex-wrap:wrap' },
+      h('button', { class: 'btn primary', onclick: async () => { try { await api('company_save', { body: { ...me.company, drive_url: arDrive.value.trim(), archive_email: arTo.value.trim(), archive_from: arFrom.value.trim() } }); await reloadMe(); toast(t('saved')); api('archive_status').then(drawAr); } catch (e) { toast(e.message); } } }, t('save')),
+      h('button', { class: 'btn', onclick: async () => { try { const r = await api('archive_test', { body: {} }); toast(t('ar_test_ok_' + r.mode)); } catch (e) { toast(e.message); } } }, '✓ ' + t('ar_test')),
+      h('button', { class: 'btn', onclick: arRun({ all: 1 }) }, '⟳ ' + t('ar_all')),
+      h('button', { class: 'btn', onclick: arRun({ backup: 1 }) }, '💾 ' + t('ar_backup'))),
+    arState);
+  // Testphase: Rechnungen/Belege löschen und Nummern zurücksetzen, bis „Echtbetrieb starten“
+  const twice = (msg, word) => { if (!confirm(msg)) return false; const v = prompt(t('cdel_type', word)); if (v === null) return false; if (v.trim().toUpperCase() !== word.toUpperCase()) { toast(t('cdel_wrong')); return false; } return true; };
+  const testCard = me.live ? null : h('div', { class: 'card warnbox' }, h('h3', {}, '🧪 ' + t('test_title')), h('p', { class: 'muted' }, t('test_text')),
+    h('div', { class: 'row', style: 'flex-wrap:wrap' },
+      h('button', { class: 'btn danger', onclick: async () => {
+        if (!twice(t('reset_confirm'), t('cdel_word'))) return;
+        try { const r = await api('accounting_reset', { body: { confirm: 'RESET' } }); toast(t('reset_done', r.invoices, r.expenses)); await reloadMe(); render(); } catch (e) { toast(e.message); }
+      } }, '↺ ' + t('reset_btn')),
+      h('button', { class: 'btn primary', onclick: async () => {
+        if (!twice(t('live_confirm'), t('live_word'))) return;
+        try { await api('go_live', { body: { confirm: 'LIVE' } }); toast(t('live_done')); await reloadMe(); render(); } catch (e) { toast(e.message); }
+      } }, '🚀 ' + t('live_btn'))));
   const aiIn = h('input', { type: 'password', autocomplete: 'off', placeholder: me.ai_enabled ? '••••••••••••' : 'sk-ant-…' });
   const aiCard = h('div', { class: 'card' }, h('h3', {}, '✨ ' + t('ai_title')), h('p', { class: 'muted' }, t('ai_text')),
     h('p', { style: 'margin:0 0 8px' }, me.ai_enabled ? '✓ ' + t('ai_on') : t('ai_off')),
     h('div', { class: 'row' }, aiIn, h('button', { class: 'btn primary', onclick: async () => { try { await api('ai_key_save', { body: { key: aiIn.value } }); await reloadMe(); toast(t('saved')); render(); } catch (x) { toast(x.message); } } }, t('save')),
       me.ai_enabled ? h('button', { class: 'btn danger', onclick: async () => { await api('ai_key_save', { body: { key: '' } }); await reloadMe(); render(); } }, t('delete')) : null));
-  const prodCard = h('div', { class: 'card' }, h('h3', {}, t('products_title')), h('p', { class: 'muted' }, t('products_text')),
-    h('div', { class: 'prow head' }, h('small', {}, t('prod_name')), h('small', {}, t('unit')), h('small', {}, t('unit_price') + ' DKK'), h('small', {}, t('vat_rule'))),
-    products.map(prodRow), prodRow({}));
   const tokOut = h('div');
   const tokList = h('div', {}, me.tokens.map((k) => h('div', { class: 'free' }, h('span', {}, `${k.label} · ${k.created_at.slice(0, 10)}${k.last_used_at ? ' · ' + t('last_seen') + ' ' + k.last_used_at.slice(0, 16) : ''}`),
     k.revoked_at ? h('span', { class: 'muted' }, t('revoked')) : h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('confirm_revoke'))) { await api('token_revoke', { body: { id: k.id } }); await reloadMe(); render(); } } }, t('revoke')))));
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_settings')), h('h1', {}, t('settings_h1_a'), ' ', h('em', {}, t('settings_h1_b'))))),
+    testCard,
     companyCard,
+    archiveCard,
     termsCard,
-    prodCard,
     aiCard,
     h('div', { class: 'card' }, h('h3', {}, t('display_title')), h('p', { class: 'muted' }, t('display_text')),
       h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: async () => {

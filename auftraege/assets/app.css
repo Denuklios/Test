@@ -355,3 +355,9 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 @media(max-width:640px){.mtabs a{padding:8px 4px;font-size:.82rem}}
 .euq{padding:10px 0;border-top:1px dashed var(--line)}
 .notepre{white-space:pre-wrap;font:inherit;font-size:.88rem;margin:6px 0 0;color:var(--muted)}
+
+.arsteps{margin:6px 0 10px;padding-left:20px;font-size:.88rem;line-height:1.5}
+.arsteps li{margin:2px 0}
+.subh{margin:12px 0 4px;font-size:.95rem;color:var(--p2)}
+.prodcard.inactive{opacity:.55}
+.prodcard{margin-bottom:10px}

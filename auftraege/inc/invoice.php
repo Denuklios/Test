@@ -60,6 +60,44 @@ function wf_company(): array
     $c = $raw ? json_decode((string)$raw, true) : [];
     return array_replace(wf_company_defaults(), is_array($c) ? $c : []);
 }
+function wf_is_live(PDO $db): bool
+{
+    return (bool)$db->query("SELECT 1 FROM meta WHERE key = 'live_since'")->fetchColumn();
+}
+
+/** Nur Testphase: Buchhaltung leeren. Sperr-Trigger werden kurz entfernt und unverändert wieder angelegt. */
+function wf_accounting_reset(PDO $db): array
+{
+    $dir = rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/';
+    $n = ['invoices' => (int)$db->query("SELECT COUNT(*) FROM invoices")->fetchColumn(), 'expenses' => (int)$db->query("SELECT COUNT(*) FROM expenses")->fetchColumn()];
+    $files = $db->query("SELECT file_stored FROM expenses WHERE file_stored IS NOT NULL AND file_stored <> ''")->fetchAll(PDO::FETCH_COLUMN);
+    $tables = ['invoices', 'invoice_lines', 'invoice_payments', 'journal', 'expenses', 'vat_returns'];
+    $db->beginTransaction();
+    $trg = $db->query("SELECT name, sql FROM sqlite_master WHERE type = 'trigger' AND tbl_name IN ('" . implode("','", $tables) . "')")->fetchAll();
+    foreach ($trg as $t) {
+        $db->exec('DROP TRIGGER "' . $t['name'] . '"');
+    }
+    foreach (['invoice_payments', 'invoice_lines', 'invoices', 'journal', 'expenses', 'vat_returns', 'bank_tx', 'archive_queue'] as $tb) {
+        $db->exec("DELETE FROM $tb");
+    }
+    $db->exec("DELETE FROM sqlite_sequence WHERE name IN ('invoices', 'invoice_lines', 'invoice_payments', 'journal', 'expenses', 'bank_tx', 'archive_queue')");
+    $db->exec("DELETE FROM meta WHERE key LIKE 'eu_reported:%' OR key = 'archive_last_backup'");
+    foreach ($trg as $t) {
+        $db->exec($t['sql']);
+    }
+    $db->commit();
+    foreach ($files as $fn) {
+        @unlink($dir . $fn);
+        array_map('unlink', glob($dir . 'thumbs/' . $fn . '.*') ?: []);
+    }
+    wf_touch();
+    return $n;
+}
+
+function wf_company_save(array $c): void
+{
+    wf_db()->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('company', ?)")->execute([json_encode($c, JSON_UNESCAPED_UNICODE)]);
+}
 /** Was für eine rechtsgültige Rechnung fehlt (leer = vollständig). */
 function wf_company_missing(array $c): array
 {

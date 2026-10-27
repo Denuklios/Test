@@ -7,6 +7,7 @@ require __DIR__ . '/inc/confirm.php';
 require_once __DIR__ . '/inc/expense.php';
 require_once __DIR__ . '/inc/tax.php';
 require_once __DIR__ . '/inc/note.php';
+require_once __DIR__ . '/inc/archive.php';
 
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
@@ -25,6 +26,22 @@ if ($isPost) {
     }
 }
 $db = wf_db();
+// Archiv bei Dritten: nach der Antwort offene Einträge senden (höchstens alle 2 Minuten)
+register_shutdown_function(function () use ($db): void {
+    try {
+        $last = (int)($db->query("SELECT value FROM meta WHERE key = 'archive_tick'")->fetchColumn() ?: 0);
+        if (time() - $last < 120 || wf_archive_cfg()['mode'] === '') {
+            return;
+        }
+        $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('archive_tick', ?)")->execute([(string)time()]);
+        if (function_exists('fastcgi_finish_request')) {
+            fastcgi_finish_request();
+        }
+        wf_archive_run($db, 5);
+    } catch (Throwable $e) {
+        error_log('auftraege archive: ' . $e->getMessage());
+    }
+});
 
 // ---------- Hilfsfunktionen ----------
 function s(array $in, string $k, int $max = 500): string
@@ -173,6 +190,7 @@ try {
                 'ok' => true,
                 'user' => $user,
                 'csrf' => wf_csrf(),
+                'live' => wf_is_live($db),
                 'statuses' => WF_STATUSES,
                 'pay' => WF_PAY,
                 'currencies' => wf_cfg('currencies'),
@@ -624,6 +642,7 @@ try {
             $iv = $db->prepare('SELECT id, type, status, number, issue_date, due_date, currency, total FROM invoices WHERE customer_id = ? ORDER BY COALESCE(number, 1e12) DESC, id DESC');
             $iv->execute([$id]);
             $c['invoices'] = $iv->fetchAll();
+            $c['final_invoices'] = count(array_filter($c['invoices'], fn($x) => $x['status'] === 'final'));
             wf_json(['ok' => true, 'customer' => $c]);
         }
 
@@ -1039,6 +1058,23 @@ try {
             $c['moms_period'] = in_array($in['moms_period'] ?? '', ['half', 'quarter', 'month'], true) ? $in['moms_period'] : 'half';
             $c['pay_days'] = max(0, min(90, (int)($in['pay_days'] ?? 14)));
             $c['phone_share'] = max(0, min(100, (int)($in['phone_share'] ?? ($c['phone_share'] ?? 50))));
+            foreach (['archive_email', 'archive_from'] as $ak) {
+                if (array_key_exists($ak, $in)) {
+                    $v = s($in, $ak, 200);
+                    if ($v !== '' && !filter_var($v, FILTER_VALIDATE_EMAIL)) {
+                        wf_fail('bad_email');
+                    }
+                    $c[$ak] = $v;
+                }
+            }
+            if (array_key_exists('drive_url', $in)) {
+                $du = s($in, 'drive_url', 300);
+                $okUrl = preg_match('~^https://script\.google\.com/macros/s/[\w-]+/exec$~', $du) || ($du !== '' && getenv('WF_TEST_DATA_DIR') && str_starts_with($du, 'http://127.0.0.1:'));
+                if ($du !== '' && !$okUrl) {
+                    wf_fail('bad_drive_url');
+                }
+                $c['drive_url'] = $du;
+            }
             foreach (['de', 'da', 'en'] as $tl) {
                 if (array_key_exists('terms_' . $tl, $in)) {
                     $c['terms_' . $tl] = mb_substr(trim((string)$in['terms_' . $tl]), 0, 6000);
@@ -1246,6 +1282,7 @@ try {
                 wf_fail($code, 400, ['detail' => $detail]);
             }
             wf_order_sync_pay($db, (int)$db->query('SELECT order_id FROM invoices WHERE id = ' . (int)$in['id'])->fetchColumn() ?: null);
+            wf_archive_queue($db, 'invoice', (string)(int)$in['id']);
             wf_json(['ok' => true] + $r);
         }
 
@@ -1489,6 +1526,7 @@ try {
             } catch (RuntimeException $e) {
                 wf_fail($e->getMessage());
             }
+            wf_archive_queue($db, 'expense', (string)(int)$in['id']);
             wf_json(['ok' => true, 'number' => $n]);
         }
 
@@ -1513,6 +1551,7 @@ try {
             } catch (RuntimeException $e) {
                 wf_fail($e->getMessage());
             }
+            wf_archive_queue($db, 'expense', (string)$nid);
             wf_json(['ok' => true, 'id' => $nid]);
         }
 
@@ -1725,6 +1764,119 @@ try {
                 wf_fail('nothing');
             }
             wf_json(['ok' => true, 'note' => wf_note_parse($db, $txt)]);
+        }
+
+
+        // ---------- Archiv bei Dritten ----------
+        case 'archive_status':
+            wf_json(['ok' => true] + wf_archive_status($db));
+
+        case 'archive_run': {
+            need_post();
+            if (!empty($in['all'])) {
+                foreach ($db->query("SELECT id FROM invoices WHERE status = 'final'")->fetchAll(PDO::FETCH_COLUMN) as $iid) {
+                    wf_archive_queue($db, 'invoice', (string)$iid);
+                }
+                foreach ($db->query("SELECT id FROM expenses WHERE status = 'final'")->fetchAll(PDO::FETCH_COLUMN) as $eid) {
+                    wf_archive_queue($db, 'expense', (string)$eid);
+                }
+                $db->exec("UPDATE archive_queue SET attempts = 0 WHERE sent_at IS NULL");
+            }
+            if (!empty($in['backup'])) {
+                $db->prepare('DELETE FROM archive_queue WHERE type = ? AND ref = ?')->execute(['backup', date('Y-m-d')]);
+                wf_archive_queue($db, 'backup', date('Y-m-d'));
+            }
+            if (wf_archive_cfg()['mode'] === '') {
+                wf_fail('archive_not_set');
+            }
+            $r = wf_archive_run($db, 20);
+            wf_json(['ok' => true] + $r + ['status' => wf_archive_status($db)]);
+        }
+
+        case 'archive_test': {
+            need_post();
+            $cfg = wf_archive_cfg();
+            if ($cfg['mode'] === '') {
+                wf_fail('archive_not_set');
+            }
+            $txt = "Dieser Test zeigt: Das Archiv ist erreichbar.\nAb jetzt kommt hier jede festgeschriebene Rechnung, jeder gebuchte Beleg und einmal pro Woche eine Komplettsicherung an.";
+            if (!wf_archive_send($cfg, ['folder' => '', 'subject' => 'Test ' . date('Y-m-d H.i'), 'text' => $txt, 'files' => []])) {
+                wf_fail($cfg['mode'] === 'drive' ? 'drive_failed' : 'mail_failed', 502);
+            }
+            wf_json(['ok' => true, 'mode' => $cfg['mode']]);
+        }
+
+        // Apps Script für Google Drive (Geheimwort wird einmalig erzeugt)
+        case 'drive_script': {
+            $co = wf_company();
+            if (empty($co['drive_secret'])) {
+                $co['drive_secret'] = bin2hex(random_bytes(16));
+                wf_company_save($co);
+            }
+            wf_json(['ok' => true, 'script' => wf_drive_script($co['drive_secret'])]);
+        }
+
+        // Kunde löschen (doppelt bestätigt). Mit festgeschriebenen Rechnungen: Aufbewahrungspflicht -> nur Personendaten löschen.
+        case 'customer_delete': {
+            need_post();
+            $id = (int)($in['id'] ?? 0);
+            if (($in['confirm'] ?? '') !== 'DELETE') {
+                wf_fail('confirm_required');
+            }
+            $cs = $db->prepare('SELECT * FROM customers WHERE id = ?');
+            $cs->execute([$id]);
+            if (!$cs->fetch()) {
+                wf_fail('not_found', 404);
+            }
+            $finals = (int)$db->query("SELECT COUNT(*) FROM invoices WHERE customer_id = $id AND status = 'final'")->fetchColumn();
+            if ($finals) {
+                $db->prepare("UPDATE customers SET name = 'Gelöscht #' || id, company = '', email = '', phone = '', address = '', notes = '', vat_id = '', vat_checked_name = '', anonymized_at = datetime('now') WHERE id = ?")->execute([$id]);
+                wf_touch();
+                wf_json(['ok' => true, 'mode' => 'anonymized', 'invoices' => $finals]);
+            }
+            $dir = rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/';
+            $db->beginTransaction();
+            $orders = $db->query("SELECT id FROM orders WHERE customer_id = $id")->fetchAll(PDO::FETCH_COLUMN);
+            $files = [];
+            foreach ($orders as $oid) {
+                foreach ($db->query('SELECT stored_name FROM order_files WHERE order_id = ' . (int)$oid)->fetchAll(PDO::FETCH_COLUMN) as $fn) {
+                    $files[] = $fn;
+                }
+            }
+            $db->exec("DELETE FROM invoices WHERE customer_id = $id AND status = 'draft'");
+            $db->exec("DELETE FROM orders WHERE customer_id = $id");
+            $db->prepare('DELETE FROM customers WHERE id = ?')->execute([$id]);
+            $db->commit();
+            foreach ($files as $fn) {
+                @unlink($dir . $fn);
+                array_map('unlink', glob($dir . 'thumbs/' . $fn . '.*') ?: []);
+            }
+            wf_touch();
+            wf_json(['ok' => true, 'mode' => 'deleted', 'orders' => count($orders)]);
+        }
+
+        // Testphase: alle Rechnungen/Belege löschen, Nummern starten neu. Nach „Echtbetrieb starten“ für immer gesperrt.
+        case 'accounting_reset': {
+            need_post();
+            if (($in['confirm'] ?? '') !== 'RESET') {
+                wf_fail('confirm_required');
+            }
+            if (wf_is_live($db)) {
+                wf_fail('live_locked', 409);
+            }
+            wf_json(['ok' => true] + wf_accounting_reset($db));
+        }
+
+        case 'go_live': {
+            need_post();
+            if (($in['confirm'] ?? '') !== 'LIVE') {
+                wf_fail('confirm_required');
+            }
+            if (!wf_is_live($db)) {
+                $db->prepare("INSERT INTO meta (key, value) VALUES ('live_since', datetime('now','localtime'))")->execute();
+                wf_journal($db, $user['name'], 'go_live', null, []);
+            }
+            wf_json(['ok' => true]);
         }
 
         case 'journal_verify':

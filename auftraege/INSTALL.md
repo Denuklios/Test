@@ -84,13 +84,28 @@ Unter **Einstellungen**:
 
 **Internet-Zugriff vom Server:** Tageskurs, CVR-Abruf (cvrapi.dk) und VIES-Prüfung brauchen ausgehende Verbindungen von one.com (Nationalbank, EU-Kommission). Klappt das nicht, Kurs von Hand eintragen; die USt-IdNr. kann man dann unter ec.europa.eu/taxation_customs/vies prüfen.
 
-**Aufbewahrung:** Bogføringsloven verlangt 5 Jahre Aufbewahrung. Backup (unten) regelmäßig ziehen und außerhalb des Servers speichern. Vor der ersten echten Rechnung einmal vom Revisor/Buchhalter anschauen lassen.
+**Aufbewahrung:** Bogføringsloven verlangt 5 Jahre Aufbewahrung, mit Kopie bei einem Dritten. Das macht das **Archiv** (Abschnitt 5c) automatisch. Vor der ersten echten Rechnung einmal vom Revisor/Buchhalter anschauen lassen.
 
 ## 5b. Auftrag aus einer Notiz (z. B. WF-Launcher)
 - Im neuen Auftrag „📋 Aus Notiz ausfüllen“ tippen: die App holt die kopierte Notiz aus der Zwischenablage (beim ersten Mal fragt der Browser nach Erlaubnis; sonst Notiz ins Feld einfügen).
 - Oder per Link: `…/auftraege/index.php#/new?note=TEXT`.
 - Die Notiz wird auf die Felder verteilt: Kunde (bestehender Kunde wird über Telefon, E-Mail oder Namen erkannt, sonst ein Knopf zum Anlegen), Titel, Menge, Artikel, Verfahren (inkl. „10 min pro Stück“), Abgabetermin (z. B. 14.11., „Ende November“, „KW 47“, „Freitag“ – nie am Wochenende), Preis (Stückpreis × Menge), Beschreibung. Die Original-Notiz steht immer unter „Notizen“.
 - Mit Claude-Schlüssel (Einstellungen → Belegerkennung) liest Claude die Notiz, auch frei formuliert auf Deutsch oder Dänisch; ohne Schlüssel arbeiten feste Regeln.
+
+## 5c. Archiv bei Dritten (Google Drive) und Testphase
+**Google Drive (empfohlen):** Einstellungen → „Archiv bei Dritten“ → den 4 Schritten folgen (script.google.com → neues Projekt → Script aus der App einfügen → als Web-App bereitstellen, „Ausführen als: Ich“, „Zugriff: Jeder“ → URL `…/exec` eintragen → Test). In deinem Drive entsteht „Wunsch-Fabrik Archiv“ mit `Fakturaer/2026`, `Kreditnotaer/…`, `Bilag/2026` und `Sikkerhedskopi`.
+- Jede festgeschriebene Rechnung (HTML zum Drucken + CSV), jeder gebuchte Beleg (Foto/PDF) und einmal pro Woche die komplette Datenbank werden automatisch hochgeladen – ohne Cronjob, die App schickt offene Dokumente beim nächsten Aufruf (höchstens alle 2 Minuten).
+- Das Script enthält ein Geheimwort; nur deine App kann damit Dateien ablegen. Lesen kann über die URL niemand etwas.
+- Schlägt etwas fehl, bleibt es in der Warteschlange und wird später wiederholt; der Kasten zeigt den Fehler. „Alles bisherige nachsenden“ holt ältere Dokumente nach.
+- Ändert man das Script später, in Apps Script „Bereitstellungen verwalten → Bearbeiten → Neue Version“ wählen, damit die URL gleich bleibt.
+
+**Alternative E-Mail:** Archiv-Postfach (z. B. Gmail) + Absender auf deiner Domain (sonst Spam).
+
+**Testphase:** Bis du „Echtbetrieb starten“ tippst, löscht „Testrechnungen löschen & Nummern zurücksetzen“ alle Rechnungen, Zahlungen, Belege, Bank-Importe und Momsmeldungen (doppelte Bestätigung). Kunden, Aufträge und Produkte bleiben. Danach ist das gesperrt. Testdateien, die schon in Drive liegen, dort von Hand löschen.
+
+## 5d. Produkte und Kunden löschen
+- Kunden → Reiter **Produkte**: Preisliste anlegen/ändern/deaktivieren. In der Rechnung beim Tippen der Position erscheinen passende Produkte; Auswahl füllt Text, Einheit, Preis und Art, dann nur noch die Menge eingeben – Summe rechnet sofort.
+- Kunde → **Kunde löschen**: zwei Bestätigungen (Frage + Wort LÖSCHEN/SLET eintippen). Ohne festgeschriebene Rechnungen wird der Kunde mit Aufträgen, Fotos und Rechnungsentwürfen gelöscht. Mit Rechnungen werden nur die Personendaten gelöscht (Aufbewahrungspflicht 5 Jahre).
 
 ## 6. Als App auf dem Handy
 Seite im Handy-Browser öffnen → Menü → „Zur Startseite hinzufügen“ (Android/Chrome: „App installieren“).
@@ -101,4 +116,4 @@ Seite im Handy-Browser öffnen → Menü → „Zur Startseite hinzufügen“ (A
 - Schriften liegen lokal, kein Tracking. Externe Abfragen nur für Tageskurs (Nationalbank/EZB) und USt-IdNr.-Prüfung (EU-VIES).
 
 ## Tests (lokal, optional)
-`node auftraege/tests/api.test.mjs`, `invoice.test.mjs`, `expense.test.mjs` und `tax.test.mjs` (benötigt PHP 8.x mit pdo_sqlite und Node 18+).
+`node auftraege/tests/api.test.mjs`, `invoice.test.mjs`, `expense.test.mjs`, `tax.test.mjs`, `note.test.mjs` und `archive.test.mjs` (benötigt PHP 8.x mit pdo_sqlite und Node 18+).

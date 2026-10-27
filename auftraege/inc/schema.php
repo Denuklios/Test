@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 10) {
+    if ($v >= 11) {
         return;
     }
     if ($v < 1) {
@@ -35,7 +35,30 @@ function wf_migrate(PDO $db): void
     if ($v < 9) {
         wf_migrate_v9($db);
     }
-    wf_migrate_v10($db);
+    if ($v < 10) {
+        wf_migrate_v10($db);
+    }
+    wf_migrate_v11($db);
+}
+
+/** Version 11: Archiv bei Dritten (E-Mail-Postfach): Warteschlange für Rechnungen, Belege und wöchentliche Sicherung. */
+function wf_migrate_v11(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    CREATE TABLE archive_queue (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      type TEXT NOT NULL,
+      ref TEXT NOT NULL,
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      attempts INTEGER NOT NULL DEFAULT 0,
+      last_error TEXT NOT NULL DEFAULT '',
+      sent_at TEXT,
+      UNIQUE (type, ref)
+    );
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '11');
+    ");
+    $db->commit();
 }
 
 /**
