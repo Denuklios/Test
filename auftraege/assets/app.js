@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · kr|€ überall, Logo gerade';
+const APP_VERSION = '2026-10-27 · Rechnungsdesign wählbar';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -1933,9 +1933,14 @@ route(/^\/settings$/, async () => {
       h('button', { class: 'btn', onclick: arRun({ all: 1 }) }, '⟳ ' + t('ar_all')),
       h('button', { class: 'btn', onclick: arRun({ backup: 1 }) }, '💾 ' + t('ar_backup'))),
     arState);
+  const docDesign = me.company.doc_design === 'side' ? 'side' : 'band';
   const themeCard = h('div', { class: 'card' }, h('h3', {}, '🎨 ' + t('theme_title')),
     h('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' }, ...[['light', '☀️ ' + t('theme_light')], ['dark', '🌙 ' + t('theme_dark')]].map(([k, l]) =>
-      h('button', { class: 'btn' + (theme === k ? ' primary' : ''), onclick: () => { theme = k; try { localStorage.setItem('wf_theme', k); } catch (e) {} applyTheme(k); render(); } }, l))));
+      h('button', { class: 'btn' + (theme === k ? ' primary' : ''), onclick: () => { theme = k; try { localStorage.setItem('wf_theme', k); } catch (e) {} applyTheme(k); render(); } }, l))),
+    h('label', { style: 'margin-top:14px' }, t('doc_design')),
+    h('div', { class: 'row', style: 'flex-wrap:wrap;gap:8px' }, ...[['band', t('doc_design_band')], ['side', t('doc_design_side')]].map(([k, l]) =>
+      h('button', { class: 'btn' + (docDesign === k ? ' primary' : ''), onclick: async () => { try { await api('company_save', { body: { ...me.company, doc_design: k } }); await reloadMe(); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, l))),
+    h('small', { class: 'muted hint' }, t('doc_design_hint')));
  // Automatisch versenden, auch wenn die App geschlossen ist (Zeitplan ruft cron.php auf)
   const cronBox = h('div', { style: 'margin-top:16px' });
   const drawCron = (c) => {

@@ -1,5 +1,6 @@
 window.WF_I18N = {
 de: {
+  doc_design: 'Rechnungsdesign', doc_design_band: 'Kopfband oben', doc_design_side: 'Seitenleiste links', doc_design_hint: 'Gilt für Rechnungen und Kreditnotas (Druck/PDF und Archiv). Beim Öffnen einer Rechnung siehst du die gewählte Variante.',
   pimg_label: 'Bilder', pimg_delete_q: 'Bild löschen?',
   close: 'Schließen', inactive: 'inaktiv',
   cat_title: 'Kategorien', cat_text: 'Ordne deine Produkte in Kategorien und Unterkategorien, z. B. Bekleidung › Poloshirt. Danach kannst du oben filtern, und im Auftrag ist die Produktliste danach sortiert.', cat_main: 'Kategorie', cat_sub: 'Unterkategorie', cat_main_name: 'Name der neuen Kategorie (z. B. Bekleidung):', cat_sub_name: 'Name der Unterkategorie in „{0}“ (z. B. Poloshirt):', cat_rename: 'Neuer Name:', cat_delete_q: '„{0}“ löschen? Unterkategorien werden mitgelöscht, die Produkte bleiben erhalten (ohne Kategorie).', cat_none: 'ohne Kategorie', cat_all: 'Alle', cat_all_in: 'alles in {0}', cat_label: 'Kategorie', err_bad_category: 'Ungültige Kategorie.',
@@ -200,6 +201,7 @@ de: {
   err_duplicate_admin_id: 'Admin-ID doppelt vergeben.', err_unknown_action: 'Unbekannte Aktion.', err_bad_json: 'Ungültige Daten.', err_bad_date: 'Datum ungültig.', err_range_too_large: 'Zeitraum zu groß.', err_nothing: 'Nichts zu ändern.', err_post_required: 'Ungültige Anfrage.'
 },
 da: {
+  doc_design: 'Fakturadesign', doc_design_band: 'Bånd øverst', doc_design_side: 'Sidebjælke til venstre', doc_design_hint: 'Gælder for fakturaer og kreditnotaer (print/PDF og arkiv). Når du åbner en faktura, ser du den valgte variant.',
   pimg_label: 'Billeder', pimg_delete_q: 'Slet billede?',
   close: 'Luk', inactive: 'inaktiv',
   cat_title: 'Kategorier', cat_text: 'Sortér dine produkter i kategorier og underkategorier, fx Beklædning › Poloshirt. Derefter kan du filtrere ovenfor, og i ordren er produktlisten sorteret efter dem.', cat_main: 'Kategori', cat_sub: 'Underkategori', cat_main_name: 'Navn på den nye kategori (fx Beklædning):', cat_sub_name: 'Navn på underkategorien i „{0}“ (fx Poloshirt):', cat_rename: 'Nyt navn:', cat_delete_q: 'Slet „{0}“? Underkategorier slettes med, produkterne bevares (uden kategori).', cat_none: 'uden kategori', cat_all: 'Alle', cat_all_in: 'alt i {0}', cat_label: 'Kategori', err_bad_category: 'Ugyldig kategori.',

@@ -193,6 +193,16 @@ try {
     assert.equal((await call('cron_info')).j.error, '');
   });
 
+  await ok('Rechnungsdesign: Kopfband Standard, Seitenleiste wählbar, Archiv nutzt die Wahl', async () => {
+    const inv = JSON.parse(execFileSync('php', ['-r', `$p=new PDO('sqlite:${data}/auftraege.sqlite');echo json_encode($p->query("SELECT id FROM invoices WHERE status='final' LIMIT 1")->fetch(PDO::FETCH_ASSOC));`]).toString());
+    const page = async (q = '') => (await fetch(`${B}/doc.php?id=${inv.id}${q}`, { headers: { cookie } })).text();
+    assert.ok((await page()).includes('class="hero"'));
+    assert.ok((await page('&design=side')).includes('class="side"'));
+    await call('company_save', { body: { ...(await call('me')).j.company, doc_design: 'side' } });
+    assert.ok((await page()).includes('class="side"'));
+    await call('company_save', { body: { ...(await call('me')).j.company, doc_design: 'band' } });
+  });
+
   await ok('Alles bisherige nachsenden: auch die Rechnung von vor der Einrichtung', async () => {
     const before = drive.length;
     await call('archive_run', { body: { all: 1 } });

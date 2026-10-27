@@ -4,7 +4,7 @@ require_once __DIR__ . '/invoice.php';
 require_once __DIR__ . '/doctext.php';
 
 /** HTML einer Rechnung/Kreditnota (A4). $embed = eigenständige Datei (Logo eingebettet, ohne Bedienleiste) z. B. fürs Revisor-Paket. */
-function wf_doc_html(PDO $db, array $i, ?string $lang = null, bool $embed = false): string
+function wf_doc_html(PDO $db, array $i, ?string $lang = null, bool $embed = false, ?string $design = null): string
 {
     ob_start();
     $draft = $i['status'] !== 'final';
@@ -38,6 +38,34 @@ function wf_doc_html(PDO $db, array $i, ?string $lang = null, bool $embed = fals
     $numTxt = $draft ? '—' : (string)$i['number'];
     $title = ($isCredit ? $T['credit'] : $T['invoice']) . ($draft ? '' : ' ' . $i['number']);
     $fname = ($isCredit ? 'Kreditnota' : 'Faktura') . '-' . ($draft ? 'kladde' : $i['number']);
+    $p = wf_scheme_rate($i['vat_scheme']);
+    $legal = [];
+    if ($i['prices_incl'] && $p) {
+        $legal[] = $T['incl_note'];
+    }
+    if ($i['vat_scheme'] === 'eu_rc') {
+        if (in_array('services', $kinds, true)) {
+            $legal[] = $T['rc_services'];
+        }
+        if (in_array('goods', $kinds, true)) {
+            $legal[] = $T['rc_goods'];
+        }
+    } elseif ($i['vat_scheme'] === 'export') {
+        $legal[] = $T['export'];
+    } elseif ($i['vat_scheme'] === 'novat') {
+        $legal[] = $T['novat'];
+    }
+    if ($cur !== 'DKK' && $p) {
+        $legal[] = $tr('vat_dkk', ['{v}' => wf_doc_money((int)$i['vat_dkk'], 'DKK', $lang), '{r}' => str_replace('.', $lang === 'en' ? '.' : ',', $i['rate']),
+            '{d}' => wf_doc_date($i['rate_date'], $lang), '{s}' => $i['rate_source'] ?: '—']);
+    }
+    // Gestaltung: 'band' (dunkles Kopfband, Standard) oder 'side' (dunkle Seitenleiste)
+    $design = in_array($design ?? '', ['band', 'side'], true) ? $design : ((string)(wf_company()['doc_design'] ?? 'band') === 'side' ? 'side' : 'band');   // aktuelle Einstellung, nicht der eingefrorene Stand
+    $logoSrc = $embed ? 'data:image/png;base64,' . base64_encode((string)file_get_contents(__DIR__ . '/../assets/logo-bg.png')) : 'assets/logo-bg.png';
+    if ($design === 'side') {
+        require __DIR__ . '/doc_side.php';
+        return (string)ob_get_clean();
+    }
     ?><!doctype html>
 <html lang="<?= $e($lang) ?>">
 <head>
@@ -169,30 +197,9 @@ table.items{width:100%;border-collapse:separate;border-spacing:0;margin-top:6mm}
       <td class="n amt"><?= $e(wf_doc_money((int)$l['amount'], '', $lang)) ?></td></tr>
     <?php endforeach; ?>
   </table>
-  <?php $p = wf_scheme_rate($i['vat_scheme']); ?>
   <div class="after">
     <div>
   <?php
-  $legal = [];
-  if ($i['prices_incl'] && $p) {
-      $legal[] = $T['incl_note'];
-  }
-  if ($i['vat_scheme'] === 'eu_rc') {
-      if (in_array('services', $kinds, true)) {
-          $legal[] = $T['rc_services'];
-      }
-      if (in_array('goods', $kinds, true)) {
-          $legal[] = $T['rc_goods'];
-      }
-  } elseif ($i['vat_scheme'] === 'export') {
-      $legal[] = $T['export'];
-  } elseif ($i['vat_scheme'] === 'novat') {
-      $legal[] = $T['novat'];
-  }
-  if ($cur !== 'DKK' && $p) {
-      $legal[] = $tr('vat_dkk', ['{v}' => wf_doc_money((int)$i['vat_dkk'], 'DKK', $lang), '{r}' => str_replace('.', $lang === 'en' ? '.' : ',', $i['rate']),
-          '{d}' => wf_doc_date($i['rate_date'], $lang), '{s}' => $i['rate_source'] ?: '—']);
-  }
   if (trim($i['note']) !== ''): ?><div class="note"><?= $e($i['note']) ?></div><?php endif; ?>
   <?php if ($legal): ?><div class="legal"><?= implode('<br>', array_map($e, $legal)) ?></div><?php endif; ?>
     </div>

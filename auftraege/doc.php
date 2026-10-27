@@ -14,4 +14,4 @@ if (!$i) {
     http_response_code(404);
     exit('not found');
 }
-echo wf_doc_html($db, $i, (string)($_GET['lang'] ?? ''));
+echo wf_doc_html($db, $i, (string)($_GET['lang'] ?? ''), false, isset($_GET['design']) ? (string)$_GET['design'] : null);
