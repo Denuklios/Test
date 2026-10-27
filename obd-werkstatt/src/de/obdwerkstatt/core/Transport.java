@@ -63,6 +63,13 @@ public abstract class Transport {
         return failure != null;
     }
 
+    /** Bisher empfangene, noch nicht gelesene Zeichen (ohne sie zu entfernen). */
+    public String peek() {
+        synchronized (lock) {
+            return buf.toString();
+        }
+    }
+
     public void clearInput() {
         synchronized (lock) {
             buf.setLength(0);

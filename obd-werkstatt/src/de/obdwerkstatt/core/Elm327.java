@@ -35,10 +35,12 @@ public final class Elm327 {
         transport.write(cmd + "\r");
         String r = transport.readUntilPrompt(timeoutMs);
         if (r == null) {
+            String partial = transport.peek().replace('\r', ' ').trim();
             // Adapter mit einem Zeilenumbruch unterbrechen und neu synchronisieren
             transport.write("\r");
             transport.readUntilPrompt(1500);
-            throw new IOException("Keine Antwort vom Adapter auf \"" + cmd + "\" (Zeitüberschreitung)");
+            throw new IOException("Keine Antwort vom Adapter auf \"" + cmd + "\" (Zeitüberschreitung"
+                    + (partial.isEmpty() ? "" : ", bisher empfangen: " + partial) + ")");
         }
         return r;
     }
@@ -129,12 +131,31 @@ public final class Elm327 {
         setup();
         version = cmd("ATI");
         log.line("Adapter: " + version);
-        cmd("ATSP" + Integer.toHexString(protocolChoice).toUpperCase());
-        log.line("Verbinde mit Fahrzeug, Protokollsuche …");
-        String r = cmd("0100", 20000);
-        if (ResponseParser.parse(r, true, false).isEmpty() && ResponseParser.parse(r, false, false).isEmpty()) {
-            throw new IOException("Keine Antwort vom Fahrzeug (" + r.replace('\n', ' ')
-                    + "). Ist die Zündung eingeschaltet?");
+        // Erst die gängigen CAN-Protokolle direkt testen (schnell), dann die automatische Suche
+        // mit viel Zeit – billige Klone brauchen dafür teils über 30 s.
+        int[] order = protocolChoice != 0 ? new int[]{protocolChoice} : new int[]{6, 8, 7, 9, 0};
+        String last = "";
+        boolean found = false;
+        for (int p : order) {
+            log.line(p == 0 ? "Automatische Protokollsuche (kann bis zu 1 Minute dauern) …"
+                    : "Teste " + PROTOCOLS[p] + " …");
+            cmd("ATSP" + Integer.toHexString(p).toUpperCase());
+            try {
+                String r = cmd("0100", p == 0 ? 60000 : p >= 6 ? 8000 : 25000);
+                if (!ResponseParser.parse(r, true, false).isEmpty()) {
+                    found = true;
+                    break;
+                }
+                last = r.replace('\n', ' ');
+            } catch (IOException e) {
+                if (transport.isFailed()) throw e;
+                last = e.getMessage();
+            }
+        }
+        if (!found) {
+            throw new VehicleError("Der Adapter (" + version + ") funktioniert, aber das Fahrzeug antwortet nicht"
+                    + (last.isEmpty() ? "." : " (" + last + ").")
+                    + "\nBitte Zündung einschalten (Stellung 2 oder Motor laufen lassen) und erneut verbinden.");
         }
         String dpn = cmd("ATDPN").replace("A", "").trim();
         try {
@@ -162,6 +183,13 @@ public final class Elm327 {
         public NoResponse(boolean silent, String msg) {
             super(msg);
             this.silent = silent;
+        }
+    }
+
+    /** Adapter antwortet, aber das Fahrzeug nicht. */
+    public static final class VehicleError extends IOException {
+        public VehicleError(String msg) {
+            super(msg);
         }
     }
 

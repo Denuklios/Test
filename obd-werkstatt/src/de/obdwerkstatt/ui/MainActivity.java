@@ -169,13 +169,19 @@ public class MainActivity extends Activity {
                 final Transports.Classic c = (Transports.Classic) t;
                 StringBuilder log = new StringBuilder();
                 Exception last = null;
-                for (int mode = 0; mode < Transports.Classic.MODES.length && !isCancelled(); mode++) {
+                int first = prefs().getInt("bt_mode", 0);
+                for (int i = 0; i < Transports.Classic.MODES.length && !isCancelled(); i++) {
+                    int mode = i == 0 ? first : (i <= first ? i - 1 : i);
                     String label = "Bluetooth " + Transports.Classic.MODES[mode];
-                    progress("Versuch " + (mode + 1) + ": " + label + " …");
+                    progress("Versuch " + (i + 1) + ": " + label + " …");
                     try {
                         String r = open(new Transports.Classic(c.device, mode));
                         prefs().edit().putInt("bt_mode", mode).apply();
                         return r;
+                    } catch (Elm327.VehicleError e) {
+                        // Bluetooth und Adapter funktionieren – weitere Verbindungsarten bringen nichts
+                        prefs().edit().putInt("bt_mode", mode).apply();
+                        throw e;
                     } catch (Elm327.NoResponse e) {
                         log.append("• ").append(label).append(": ").append(e.getMessage()).append('\n');
                         last = e;
