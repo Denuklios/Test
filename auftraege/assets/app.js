@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Versand über Postfach';
+const APP_VERSION = '2026-10-27 · Archiv speichern repariert';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -1773,7 +1773,7 @@ route(/^\/settings$/, async () => {
   // Archiv bei Dritten: Google Drive (Apps Script) oder E-Mail-Postfach
   const arDrive = h('input', { type: 'url', value: me.company.drive_url || '', placeholder: 'https://script.google.com/macros/s/…/exec' });
   const arTo = h('input', { type: 'email', value: me.company.archive_email || '', placeholder: 'wunschfabrik.archiv@gmail.com' });
-  const arFrom = h('input', { type: 'email', value: me.company.archive_from || '', placeholder: me.company.email || 'info@wunsch-fabrik.dk' });
+  const arFrom = h('input', { type: 'email', value: me.company.archive_from || '', placeholder: me.company.email || 'hej@wunsch-fabrik.dk' });
   const arState = h('div', { class: 'muted', style: 'font-size:.88rem;margin-top:8px' }, '…');
   const drawAr = (st) => arState.replaceChildren(...[
     st.mode ? h('div', {}, (st.open ? '⏳ ' : '✓ ') + t('ar_state_' + st.mode, st.sent, st.open, st.last_sent ? st.last_sent.slice(0, 16) : '—', st.last_backup ? dfmt(st.last_backup) : '—')) : h('div', { class: 'warn-t' }, '⚠ ' + t('ar_off')),
@@ -1797,7 +1797,7 @@ route(/^\/settings$/, async () => {
       h('div', { class: 'grid c2', style: 'margin-top:8px' }, h('div', {}, h('label', {}, t('ar_to')), arTo), h('div', {}, h('label', {}, t('ar_from')), arFrom)),
       h('small', { class: 'muted hint' }, t('ar_from_hint'))),
     h('div', { class: 'row', style: 'margin-top:10px;flex-wrap:wrap' },
-      h('button', { class: 'btn primary', onclick: async () => { try { await api('company_save', { body: { ...me.company, drive_url: arDrive.value.trim(), archive_email: arTo.value.trim(), archive_from: arFrom.value.trim() } }); await reloadMe(); toast(t('saved')); api('archive_status').then(drawAr); } catch (e) { toast(e.message); } } }, t('save')),
+      h('button', { class: 'btn primary', onclick: async () => { try { await api('archive_save', { body: { drive_url: arDrive.value.trim(), archive_email: arTo.value.trim(), archive_from: arFrom.value.trim() } }); await reloadMe(); toast(t('saved')); api('archive_status').then(drawAr); } catch (e) { toast(e.message); } } }, t('save')),
       h('button', { class: 'btn', onclick: async () => { try { const r = await api('archive_test', { body: {} }); toast(t('ar_test_ok_' + r.mode)); } catch (e) { toast(e.message); } } }, '✓ ' + t('ar_test')),
       h('button', { class: 'btn', onclick: arRun({ all: 1 }) }, '⟳ ' + t('ar_all')),
       h('button', { class: 'btn', onclick: arRun({ backup: 1 }) }, '💾 ' + t('ar_backup'))),

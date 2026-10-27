@@ -61,6 +61,23 @@ function wf_company(): array
     $c = $raw ? json_decode((string)$raw, true) : [];
     return array_replace(wf_company_defaults(), is_array($c) ? $c : []);
 }
+/** E-Mail prüfen, auch mit Umlaut-/ø-Domain (ønske-fabrik.dk). */
+function wf_email_ok(string $e): bool
+{
+    return filter_var(wf_email_ascii($e), FILTER_VALIDATE_EMAIL) !== false;
+}
+/** Domain in ASCII-Schreibweise (xn--…) für Mailserver; der Teil vor dem @ bleibt. */
+function wf_email_ascii(string $e): string
+{
+    $e = trim($e);
+    $at = strrpos($e, '@');
+    if ($at === false || !preg_match('/[^\x00-\x7F]/', substr($e, $at + 1)) || !function_exists('idn_to_ascii')) {
+        return $e;
+    }
+    $d = idn_to_ascii(substr($e, $at + 1), IDNA_DEFAULT, INTL_IDNA_VARIANT_UTS46);
+    return $d ? substr($e, 0, $at + 1) . $d : $e;
+}
+
 function wf_is_live(PDO $db): bool
 {
     return (bool)$db->query("SELECT 1 FROM meta WHERE key = 'live_since'")->fetchColumn();

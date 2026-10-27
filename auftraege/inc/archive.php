@@ -81,6 +81,8 @@ function wf_archive_queue(PDO $db, string $type, string $ref): void
 /** E-Mail mit Anhängen (MIME). Tests: WF_MAIL_DIR schreibt .eml-Dateien statt zu senden. */
 function wf_mail(string $to, string $from, string $subject, string $text, array $files, string $fromName = 'Wunsch-Fabrik Archiv', ?string $html = null): bool
 {
+    $to = wf_email_ascii($to);
+    $from = wf_email_ascii($from);
     $b = 'wf' . bin2hex(random_bytes(12));
     $enc = fn(string $s) => '=?UTF-8?B?' . base64_encode($s) . '?=';
     $plain = "Content-Type: text/plain; charset=UTF-8\r\nContent-Transfer-Encoding: base64\r\n\r\n" . chunk_split(base64_encode($text));

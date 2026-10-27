@@ -138,7 +138,7 @@ function wf_cm_ctx(PDO $db, int $orderId): ?array
         FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = ? AND o.deleted_at IS NULL');
     $st->execute([$orderId]);
     $o = $st->fetch();
-    if (!$o || $o['anonymized_at'] || !filter_var($o['c_email'], FILTER_VALIDATE_EMAIL)) {
+    if (!$o || $o['anonymized_at'] || !wf_email_ok((string)$o['c_email'])) {
         $GLOBALS['wf_mail_err'] = 'Kunde hat keine gültige E-Mail-Adresse';
         return null;
     }
@@ -193,7 +193,7 @@ function wf_cm_html(string $text, array $B, string $track): string
 function wf_cm_send(PDO $db, array $x, string $subject, string $body, string $what): bool
 {
     $s = wf_mail_settings();
-    if (!filter_var($s['from'], FILTER_VALIDATE_EMAIL)) {
+    if (!wf_email_ok($s['from'])) {
         $GLOBALS['wf_mail_err'] = 'In den Firmendaten fehlt die eigene E-Mail-Adresse (Absender)';
         return false;
     }

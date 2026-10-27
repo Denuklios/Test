@@ -763,8 +763,8 @@ try {
                 wf_fail('name_required');
             }
             $email = s($in, 'email', 200);
-            if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
-                wf_fail('bad_email');
+            if ($email !== '' && !wf_email_ok($email)) {
+                wf_fail('bad_email', 400, ['detail' => $email]);
             }
             $cur = s($in, 'currency', 3) ?: 'DKK';
             if (!in_array($cur, wf_cfg('currencies'), true)) {
@@ -1164,8 +1164,8 @@ try {
             }
             $c['iban'] = $iban;
             $c['bic'] = strtoupper($c['bic']);
-            if ($c['email'] !== '' && !filter_var($c['email'], FILTER_VALIDATE_EMAIL)) {
-                wf_fail('bad_email');
+            if ($c['email'] !== '' && !wf_email_ok($c['email'])) {
+                wf_fail('bad_email', 400, ['detail' => $c['email']]);
             }
             $c['moms_registered'] = !empty($in['moms_registered']);
             $c['moms_period'] = in_array($in['moms_period'] ?? '', ['half', 'quarter', 'month'], true) ? $in['moms_period'] : 'half';
@@ -1189,15 +1189,19 @@ try {
             foreach (['archive_email', 'archive_from'] as $ak) {
                 if (array_key_exists($ak, $in)) {
                     $v = s($in, $ak, 200);
-                    if ($v !== '' && !filter_var($v, FILTER_VALIDATE_EMAIL)) {
-                        wf_fail('bad_email');
+                    if ($v !== '' && !wf_email_ok($v)) {
+                        wf_fail('bad_email', 400, ['detail' => $v]);
                     }
                     $c[$ak] = $v;
                 }
             }
             if (array_key_exists('drive_url', $in)) {
                 $du = s($in, 'drive_url', 300);
-                $okUrl = preg_match('~^https://script\.google\.com/macros/s/[\w-]+/exec$~', $du) || ($du !== '' && getenv('WF_TEST_DATA_DIR') && str_starts_with($du, 'http://127.0.0.1:'));
+                if (preg_match('~^https://script\.google\.com/.*/dev$~', $du)) {
+                    wf_fail('drive_dev_url');
+                }
+                $du = preg_replace('~\?.*$~', '', $du);
+                $okUrl = preg_match('~^https://script\.google\.com/(a/macros/[^/\s]+/|macros/)s/[\w-]+/exec$~', $du) || ($du !== '' && getenv('WF_TEST_DATA_DIR') && str_starts_with($du, 'http://127.0.0.1:'));
                 if ($du !== '' && !$okUrl) {
                     wf_fail('bad_drive_url');
                 }
@@ -1896,6 +1900,29 @@ try {
 
 
         // ---------- Archiv bei Dritten ----------
+        // Nur die Archiv-Einstellungen speichern (unabhängig von den übrigen Firmendaten)
+        case 'archive_save': {
+            need_post();
+            $c = wf_company();
+            foreach (['archive_email', 'archive_from'] as $ak) {
+                $v = s($in, $ak, 200);
+                if ($v !== '' && !wf_email_ok($v)) {
+                    wf_fail('bad_email', 400, ['detail' => $v]);
+                }
+                $c[$ak] = $v;
+            }
+            $du = preg_replace('~\?.*$~', '', s($in, 'drive_url', 400));
+            if (preg_match('~^https://script\.google\.com/.*/dev$~', $du)) {
+                wf_fail('drive_dev_url');
+            }
+            if ($du !== '' && !preg_match('~^https://script\.google\.com/(a/macros/[^/\s]+/|macros/)s/[\w-]+/exec$~', $du) && !(getenv('WF_TEST_DATA_DIR') && str_starts_with($du, 'http://127.0.0.1:'))) {
+                wf_fail('bad_drive_url');
+            }
+            $c['drive_url'] = $du;
+            wf_company_save($c);
+            wf_json(['ok' => true, 'company' => wf_company()] + wf_archive_status($db));
+        }
+
         case 'archive_status':
             wf_json(['ok' => true] + wf_archive_status($db));
 
@@ -1962,11 +1989,11 @@ try {
         case 'mail_test': {
             need_post();
             $to = s($in, 'to', 200) ?: (string)wf_company()['email'];
-            if (!filter_var($to, FILTER_VALIDATE_EMAIL)) {
-                wf_fail('bad_email');
+            if (!wf_email_ok($to)) {
+                wf_fail('bad_email', 400, ['detail' => $to]);
             }
             $s = wf_mail_settings();
-            if (!filter_var($s['from'], FILTER_VALIDATE_EMAIL)) {
+            if (!wf_email_ok($s['from'])) {
                 wf_fail('no_sender');
             }
             $T = wf_cm_text('de');

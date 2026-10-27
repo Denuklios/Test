@@ -122,6 +122,16 @@ try {
     assert.equal(st.mode, 'drive'); assert.equal(JSON.stringify(st).includes(secret), false);
   });
 
+  await ok('Archiv speichern unabhängig von Firmendaten; ø-Domain erlaubt; /dev-URL erklärt; Workspace-URL ok', async () => {
+    assert.ok((await call('company_save', { body: { ...co, email: 'info@ønske-fabrik.dk' } })).j.ok, 'ø-Domain');
+    assert.equal((await call('company_save', { body: { ...co, email: 'kaputt@' } })).j.detail, 'kaputt@');
+    assert.equal((await call('archive_save', { body: { drive_url: 'https://script.google.com/macros/s/AKfy_x-1/dev' } })).j.error, 'drive_dev_url');
+    assert.ok((await call('archive_save', { body: { drive_url: 'https://script.google.com/a/macros/wunsch-fabrik.dk/s/AKfy_x-1/exec' } })).j.ok);
+    const r = (await call('archive_save', { body: { drive_url: `http://127.0.0.1:${DPORT}/exec`, archive_email: '', archive_from: '' } })).j;
+    assert.equal(r.mode, 'drive'); assert.equal(r.company.email, 'info@ønske-fabrik.dk', 'Firmendaten unverändert');
+    await call('company_save', { body: co });
+  });
+
   await ok('Drive: Test-Upload folgt der Google-Umleitung', async () => {
     const r = (await call('archive_test', { body: {} })).j;
     assert.equal(r.mode, 'drive', JSON.stringify(r));
