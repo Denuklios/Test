@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Kategorie-Filter im Auftrag';
+const APP_VERSION = '2026-10-27 · Bezugsquelle je Produkt';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -398,7 +398,7 @@ route(/^\/order\/(\d+)$/, async (id) => {
       const m = procMin(i.processes, i.qty);
       const ov = Object.values(i.opts || {}).filter(Boolean), sz = Object.entries(i.sizes || {}).filter(([, q]) => +q > 0);
       return h('tr', {}, h('td', {}, `${i.qty} ×`), h('td', {}, h('b', {}, i.name), ov.length ? h('div', {}, ov.join(' · ')) : null, sz.length ? h('div', { class: 'muted', style: 'font-size:.85rem' }, sz.map(([k, q]) => `${k} × ${q}`).join(', ')) : null,
-        h('div', { class: 'muted', style: 'font-size:.8rem' }, [i.sku, procLabel(i.processes)].filter(Boolean).join(' · '))),
+        h('div', { class: 'muted', style: 'font-size:.8rem' }, [i.sku, procLabel(i.processes)].filter(Boolean).join(' · ')), srcLine(i.src_name, i.src_url, i.src_sku)),
         h('td', { class: 'num' }, money(itemTotal(i), o.currency), +i.disc ? h('div', { class: 'muted', style: 'font-size:.8rem' }, `${t('discount_short')} ${i.disc_type === 'abs' ? money(+i.disc, o.currency) : String(+i.disc).replace('.', ',') + ' %'}`) : null), h('td', { class: 'num muted' }, m ? hm(m) : ''));
     })))) : null,
     (o.description || o.notes) && h('div', { class: 'card' }, o.description && h('p', { style: 'margin:0 0 8px;white-space:pre-wrap' }, o.description), o.notes && h('p', { class: 'muted', style: 'margin:0;white-space:pre-wrap' }, o.notes)),
@@ -803,7 +803,11 @@ async function orderForm(o, presetCustomer, note = '') {
     const sizeBox = sizeKeys.length ? h('div', { class: 'sizebox' }, h('label', {}, (splitG ? splitG.name : t('op_size')) + ' · ' + t('op_qty_each')),
       h('div', { class: 'sizes' }, sizeKeys.map((v) => { const inp = h('input', { type: 'number', min: 0, inputmode: 'numeric', value: sizes[v] || '', placeholder: '0',
         oninput: () => { sizes[v] = Math.max(0, parseInt(inp.value, 10) || 0); syncQty(); itemsChanged(); } }); return h('label', { class: 'szc' }, h('span', {}, v), inp); }))) : null;
-    r.get = () => ({ product_id: it.product_id || null, name: nameIn.value.trim(), qty: Math.max(1, parseInt(qtyIn.value, 10) || 1), price: num(priceIn.value), disc: Math.max(0, num(discIn.value)), disc_type: dType, processes: pick.get(),
+    const hasSrc = it.src_name !== undefined || it.src_url !== undefined || it.src_sku !== undefined;
+    const isrc = srcFields(hasSrc ? { name: it.src_name, url: it.src_url, sku: it.src_sku } : { name: prod.supplier, url: prod.supplier_url, sku: prod.supplier_sku });
+    const sv = isrc.get();
+    const srcBox = h('details', { class: 'calcbox isrc' }, h('summary', {}, '🛒 ' + t('src_title') + (sv.name || sv.sku ? ': ' + [sv.name, sv.sku].filter(Boolean).join(' · ') : '')), h('small', { class: 'muted', style: 'display:block;margin:6px 0' }, t('src_hint_order')), isrc.el);
+    r.get = () => ({ src_name: isrc.get().name, src_url: isrc.get().url, src_sku: isrc.get().sku, product_id: it.product_id || null, name: nameIn.value.trim(), qty: Math.max(1, parseInt(qtyIn.value, 10) || 1), price: num(priceIn.value), disc: Math.max(0, num(discIn.value)), disc_type: dType, processes: pick.get(),
       sku: it.sku || prod.sku || '', opts: Object.fromEntries(Object.entries(opts).filter(([, v]) => v)), sizes: Object.fromEntries(Object.entries(sizes).filter(([, q]) => +q > 0)) });
     r.sum = () => itemTotal(r.get());
     r.min = () => { const g = r.get(); return procMin(g.processes, g.qty); };
@@ -820,7 +824,7 @@ async function orderForm(o, presetCustomer, note = '') {
       h('div', { class: 'irow' }, h('div', {}, h('label', {}, t('qty')), qtyIn), h('div', {}, h('label', {}, t('unit_price')), priceIn),
         h('div', { class: 'idisc' }, h('label', {}, t('discount_short')), h('span', { class: 'fxw' }, discIn, h('span', { class: 'curswitch' }, bPct, bAbs))), h('div', { class: 'isumbox' }, h('label', {}, t('line_total')), sumEl)),
       optSels.length ? h('div', { class: 'iopts' }, ...optSels) : null, sizeBox,
-      pick, timeEl);
+      pick, timeEl, srcBox);
     syncQty();
     items.push(r); itemsBox.append(r.el);
     fxAttach(priceIn, () => F.currency.value);
@@ -1120,6 +1124,21 @@ function optEditor(groups) {
     ...OPT_PRESETS().map(([l, g]) => h('button', { type: 'button', class: 'chip', onclick: () => add(g) }, '+ ' + l)));
   return { el: h('div', {}, box, presets), get: () => rows.map((r) => ({ name: r.name.value.trim(), values: r.vals.value.split(/\s*[,;\n]\s*/).map((v) => v.trim()).filter(Boolean), split: r.split.checked })).filter((g) => g.name && g.values.length) };
 }
+// Bezugsquelle (Lieferant, Link, Hersteller-Artikelnr.) – nur intern
+function srcFields(v) {
+  const name = h('input', { value: v.name || '', placeholder: t('src_name_ph'), maxlength: 200 });
+  const url = h('input', { type: 'url', value: v.url || '', placeholder: 'https://…', maxlength: 1000 });
+  const sku = h('input', { value: v.sku || '', placeholder: t('src_sku_ph'), maxlength: 80 });
+  const open = h('a', { class: 'btn small', target: '_blank', rel: 'noopener noreferrer' }, '↗ ' + t('open'));
+  const sync = () => { const u = url.value.trim(); open.classList.toggle('hidden', !u); if (u) open.href = /^https?:\/\//i.test(u) ? u : 'https://' + u; };
+  url.addEventListener('input', sync); sync();
+  const el = h('div', { class: 'srcbox' }, h('div', { class: 'grid', style: 'grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:8px' },
+    h('div', {}, h('label', {}, t('src_name')), name), h('div', {}, h('label', {}, t('src_sku')), sku)),
+    h('div', { style: 'margin-top:6px' }, h('label', {}, t('src_url')), h('div', { class: 'row', style: 'gap:6px;flex-wrap:nowrap' }, url, open)));
+  return { el, get: () => ({ name: name.value.trim(), url: url.value.trim(), sku: sku.value.trim() }) };
+}
+const srcLine = (n, u, k) => (n || u || k) ? h('div', { class: 'srcline' }, '🛒 ', [n, k ? t('src_sku') + ' ' + k : ''].filter(Boolean).join(' · '),
+  u ? [n || k ? ' · ' : '', h('a', { href: u, target: '_blank', rel: 'noopener noreferrer', onclick: (e) => e.stopPropagation() }, t('src_link') + ' ↗')] : null) : null;
 const optSummary = (p) => (p.options || []).map((g) => `${g.name}: ${g.values.length > 4 ? g.values.slice(0, 2).join(', ') + ' … ' + g.values[g.values.length - 1] : g.values.join(', ')}`).join(' · ');
 
 route(/^\/products$/, async () => {
@@ -1129,6 +1148,7 @@ route(/^\/products$/, async () => {
     const nm = h('input', { value: p.name || '', placeholder: t('prod_name_ph'), maxlength: 300 });
     const sku = h('input', { value: p.sku || '', placeholder: 'WF-…', maxlength: 40 });
     const oped = optEditor(p.options || []);
+    const psrc = srcFields({ name: p.supplier, url: p.supplier_url, sku: p.supplier_sku });
     const un = h('select', {}, me.units.map((u) => h('option', { value: u, selected: u === (p.unit || 'stk') }, t('u_' + u))));
     // Preis wahlweise in kr oder € eingeben; Umschalten rechnet den Betrag um, gespeichert wird immer in kr
     const pr = h('input', { type: 'text', inputmode: 'decimal', value: p.price != null ? centsIn(p.price) : '', placeholder: '0,00' });
@@ -1220,6 +1240,7 @@ route(/^\/products$/, async () => {
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('cat_label')), catSel),
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('pimg_label')), imgBox, imgButtons),
       h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('unit')), un), h('div', {}, h('div', { class: 'prhead' }, prLabel, curSwitch), pr), h('div', {}, h('label', {}, t('prod_kind')), kd)), fxNote,
+      h('details', { class: 'calcbox', open: !!(p.supplier || p.supplier_url || p.supplier_sku) }, h('summary', {}, '🛒 ' + t('src_title')), h('small', { class: 'muted', style: 'display:block;margin:6px 0' }, t('src_hint')), psrc.el),
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('op_title')), h('small', { class: 'muted', style: 'display:block;margin-bottom:6px' }, t('op_hint')), oped.el),
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('prod_procs')), ppick, ppTime),
       calcBox,
@@ -1227,7 +1248,7 @@ route(/^\/products$/, async () => {
         h('label', { class: 'row', style: 'margin:0;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, act, t('active')),
         h('div', { class: 'row' },
           p.id ? h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('prod_delete_confirm', p.name))) { await api('product_delete', { body: { id: p.id } }); render(); } } }, t('delete')) : null,
-          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: await priceDkk(), kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get(), category_id: catSel.value || null, sku: sku.value, options: oped.get() } }).then(async (r) => { if (pendingImgs.length) { toast(t('uploading_files')); await uploadProductImages(r.id, pendingImgs); } return r; }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
+          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: await priceDkk(), kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get(), category_id: catSel.value || null, sku: sku.value, options: oped.get(), supplier: psrc.get().name, supplier_url: psrc.get().url, supplier_sku: psrc.get().sku } }).then(async (r) => { if (pendingImgs.length) { toast(t('uploading_files')); await uploadProductImages(r.id, pendingImgs); } return r; }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
   };
   const chips = h('div', { class: 'catchips' });
   const drawChips = () => {
@@ -1248,7 +1269,8 @@ route(/^\/products$/, async () => {
     } },
       p.images.length ? h('img', { class: 'pthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : h('span', { class: 'pthumb none' }, '🏷'),
       h('span', { class: 'pn' }, h('b', {}, p.name), h('small', { class: 'muted' }, [p.sku, p.category_id ? catPath(cats, p.category_id) : ''].filter(Boolean).join(' · ')),
-        (p.options || []).length ? h('small', { class: 'muted popts' }, optSummary(p)) : null),
+        (p.options || []).length ? h('small', { class: 'muted popts' }, optSummary(p)) : null,
+        p.supplier || p.supplier_sku ? h('small', { class: 'muted popts' }, '🛒 ' + [p.supplier, p.supplier_sku].filter(Boolean).join(' · ')) : null),
       h('span', { class: 'pt muted' }, p.processes.length ? '⏱ ' + procLabel(p.processes) : ''),
       +p.price ? h('span', { class: 'pp' }, cents(p.price, 'DKK') + ' / ' + t('u_' + p.unit)) : h('span', { class: 'pp nopr' }, t('price_missing')),
       +p.active ? null : h('span', { class: 'pill' }, t('inactive')));

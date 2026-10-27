@@ -471,3 +471,4 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
   .or-st{grid-area:st;justify-content:flex-start;flex-wrap:wrap;align-self:center}.or-next{grid-area:next}}
 .pcatf{margin:6px 0 8px;contain:inline-size;min-width:0}.pcatf .chip{min-height:0;padding:5px 11px;font-size:.82rem}
 @media(max-width:600px){.pcatf .row{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none;padding-bottom:2px}.pcatf .row::-webkit-scrollbar{display:none}.pcatf .chip{flex:none}}
+.srcbox .btn{white-space:nowrap;flex:none}.srcline{font-size:.82rem;margin-top:3px;color:var(--muted)}.srcline a{color:var(--p2);font-weight:600}.srcbox input{min-width:0}.isrc{margin-top:8px}

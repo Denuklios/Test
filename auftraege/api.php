@@ -211,6 +211,16 @@ function inv_lines_in(array $in): array
     }
     return [$out];
 }
+/** Link zur Bezugsquelle: nur http(s), sonst leer. */
+function src_url($v): string
+{
+    $u = mb_substr(trim((string)$v), 0, 1000);
+    if ($u !== '' && !preg_match('#^https?://#i', $u)) {
+        $u = 'https://' . $u;
+    }
+    return $u !== '' && filter_var($u, FILTER_VALIDATE_URL) ? $u : '';
+}
+
 function inv_rate_in(array $in, string $currency): string
 {
     if ($currency === 'DKK') {
@@ -372,7 +382,9 @@ try {
                 $dv = max(0, (float)str_replace(',', '.', (string)($it['disc'] ?? 0)));
                 $dv = round($dt === 'abs' ? min($dv, $iq * $ip) : min($dv, 100), 2);
                 $items[] = ['product_id' => (int)($it['product_id'] ?? 0) ?: null, 'name' => $nm, 'qty' => $iq, 'price' => $ip, 'disc' => $dv, 'disc_type' => $dt, 'processes' => clean_procs($db, $it['processes'] ?? []),
-                    'sku' => mb_substr(trim((string)($it['sku'] ?? '')), 0, 40), 'opts' => (object)$opts, 'sizes' => (object)$sizes];
+                    'sku' => mb_substr(trim((string)($it['sku'] ?? '')), 0, 40), 'opts' => (object)$opts, 'sizes' => (object)$sizes,
+                    // Bezugsquelle nur intern (nicht auf Angebot/Rechnung)
+                    'src_name' => mb_substr(trim((string)($it['src_name'] ?? '')), 0, 200), 'src_url' => src_url($it['src_url'] ?? ''), 'src_sku' => mb_substr(trim((string)($it['src_sku'] ?? '')), 0, 80)];
             }
             if ($items) {
                 $qty = array_sum(array_column($items, 'qty'));
@@ -743,12 +755,13 @@ try {
                 }
             }
             $vals = [$name, in_array($in['unit'] ?? '', WF_UNITS, true) ? $in['unit'] : 'stk', $price, ($in['kind'] ?? '') === 'services' ? 'services' : 'goods', !empty($in['active']) || !isset($in['active']) ? 1 : 0,
-                json_encode(clean_procs($db, $in['processes'] ?? [])), $cat, s($in, 'sku', 40), json_encode(wf_clean_options($in['options'] ?? []), JSON_UNESCAPED_UNICODE)];
+                json_encode(clean_procs($db, $in['processes'] ?? [])), $cat, s($in, 'sku', 40), json_encode(wf_clean_options($in['options'] ?? []), JSON_UNESCAPED_UNICODE),
+                s($in, 'supplier', 200), src_url($in['supplier_url'] ?? ''), s($in, 'supplier_sku', 80)];
             $id = (int)($in['id'] ?? 0);
             if ($id) {
-                $db->prepare('UPDATE products SET name=?, unit=?, price=?, kind=?, active=?, processes=?, category_id=?, sku=?, options=? WHERE id = ?')->execute([...$vals, $id]);
+                $db->prepare('UPDATE products SET name=?, unit=?, price=?, kind=?, active=?, processes=?, category_id=?, sku=?, options=?, supplier=?, supplier_url=?, supplier_sku=? WHERE id = ?')->execute([...$vals, $id]);
             } else {
-                $db->prepare('INSERT INTO products (name, unit, price, kind, active, processes, category_id, sku, options) VALUES (?,?,?,?,?,?,?,?,?)')->execute($vals);
+                $db->prepare('INSERT INTO products (name, unit, price, kind, active, processes, category_id, sku, options, supplier, supplier_url, supplier_sku) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')->execute($vals);
                 $id = (int)$db->lastInsertId();
             }
             wf_json(['ok' => true, 'id' => $id]);

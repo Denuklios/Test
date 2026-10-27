@@ -347,7 +347,7 @@ try {
       foreach ($db->query('SELECT order_id, date, start_time, minutes FROM order_days ORDER BY id') as $r) echo $r['order_id'] . '@' . $r['date'] . ' ' . $r['start_time'] . '+' . $r['minutes'] . ';';
       $o = $db->query('SELECT total_min, worker_id, plan_date FROM orders WHERE id = 1')->fetch(); echo ',', $o['total_min'], '/', $o['worker_id'], '/', $o['plan_date'];
       echo ',', $db->query('SELECT COUNT(*) FROM order_days WHERE order_id = 2')->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM customers')->fetchColumn();`;
-    assert.equal(execFileSync('php', ['-r', code]).toString(), '4,17,4,1@2030-05-06 08:00+180;3@2030-05-06 11:00+90;,180/1/2030-05-06,0,1');
+    assert.equal(execFileSync('php', ['-r', code]).toString(), '4,18,4,1@2030-05-06 08:00+180;3@2030-05-06 11:00+90;,180/1/2030-05-06,0,1');
   });
 
   await ok('Gerät merken: nach Login öffnet die App mit dem Geräte-Cookie allein, Abmelden sperrt sofort', async () => {

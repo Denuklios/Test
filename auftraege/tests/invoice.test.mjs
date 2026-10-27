@@ -276,6 +276,20 @@ try {
     assert.equal(i.lines[0].description, 'Hoodie · Navy\nStørrelser: S × 3, M × 4, L × 3\nVarenr. WF-SW-002'); assert.equal(i.lines[0].qty, 10);
     await call('invoice_delete', { body: { id: iid } });
   });
+  await ok('Bezugsquelle: am Produkt und je Auftragsposition, Link geprüft, nie auf Rechnung oder Angebot', async () => {
+    const pid = (await call('product_save', { body: { name: 'Polo Test', unit: 'stk', price: '100', kind: 'goods', supplier: 'Textil GmbH', supplier_url: 'www.example.com/polo?id=7', supplier_sku: 'TU01T' } })).j.id;
+    let p = (await call('products')).j.products.find((x) => x.id === pid);
+    assert.equal(p.supplier, 'Textil GmbH'); assert.equal(p.supplier_url, 'https://www.example.com/polo?id=7'); assert.equal(p.supplier_sku, 'TU01T');
+    await call('product_save', { body: { id: pid, name: 'Polo Test', unit: 'stk', price: '100', kind: 'goods', active: 1, supplier_url: 'javascript:alert(1)' } });
+    p = (await call('products')).j.products.find((x) => x.id === pid); assert.equal(p.supplier_url, '', 'kein javascript-Link');
+    const o = (await call('order_save', { body: { customer_id: dk, title: 'Polos', qty: 2, price: '200', deposit: 0, currency: 'DKK', pay_status: 'open',
+      items: [{ product_id: pid, name: 'Polo Test', qty: 2, price: 100, src_name: 'Shop X', src_url: 'https://shop.example/p/1', src_sku: 'ABC-1', processes: [] }] } })).j.order;
+    assert.equal(o.items[0].src_url, 'https://shop.example/p/1'); assert.equal(o.items[0].src_sku, 'ABC-1');
+    const iid = (await call('order_invoice', { body: { order_id: o.id, purpose: 'final' } })).j.id;
+    const i = (await call('invoice', { params: { id: iid } })).j.invoice;
+    assert.doesNotMatch(i.lines.map((l) => l.description).join(' '), /Shop X|ABC-1|shop\.example/);
+    await call('invoice_delete', { body: { id: iid } });
+  });
   await ok('Journal: Hash-Kette und alle Rechnungen geprüft, keine Lücke', async () => {
     const r = await call('journal_verify'); assert.equal(r.j.ok, true, JSON.stringify(r.j.problems)); assert.equal(r.j.invoices, 6); assert.ok(r.j.entries >= 12);
   });

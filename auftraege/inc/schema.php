@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 17) {
+    if ($v >= 18) {
         return;
     }
     if ($v < 1) {
@@ -56,7 +56,25 @@ function wf_migrate(PDO $db): void
     if ($v < 16) {
         wf_migrate_v16($db);
     }
-    wf_migrate_v17($db);
+    if ($v < 17) {
+        wf_migrate_v17($db);
+    }
+    wf_migrate_v18($db);
+}
+
+/**
+ * Version 18: Bezugsquelle je Produkt (Lieferant, Link, Hersteller-Artikelnummer) – nur intern, nie für Kunden.
+ */
+function wf_migrate_v18(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    ALTER TABLE products ADD COLUMN supplier TEXT NOT NULL DEFAULT '';
+    ALTER TABLE products ADD COLUMN supplier_url TEXT NOT NULL DEFAULT '';
+    ALTER TABLE products ADD COLUMN supplier_sku TEXT NOT NULL DEFAULT '';
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '18');
+    ");
+    $db->commit();
 }
 
 /**
