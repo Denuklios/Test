@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-27 · Bezugsquelle je Produkt';
+const APP_VERSION = '2026-10-28 · Katalog-Fenster im Auftrag';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -850,7 +850,7 @@ async function orderForm(o, presetCustomer, note = '') {
   const drawPsug = () => {
     const q = pq.value.trim().toLowerCase();
     // Treffer nach Kategorie gruppiert; die Suche findet auch über den Kategorienamen („bekleidung“, „polo“)
-    const hits = prodList.filter((p) => inCat(pcats, p, pcat) && (!q || (p.name + ' ' + (p.sku || '') + ' ' + p.path).toLowerCase().includes(q))).slice(0, pcat ? 300 : q ? 20 : 60);
+    const hits = prodList.filter((p) => !q || (p.name + ' ' + (p.sku || '') + ' ' + p.path).toLowerCase().includes(q)).slice(0, q ? 20 : 60);
     let lastPath = null;
     psug.replaceChildren(...hits.flatMap((p) => [p.path !== lastPath && (pcats.length) ? h('div', { class: 'sug-head' }, (lastPath = p.path) || t('cat_none')) : null, h('button', { type: 'button', class: 'psugitem', onmousedown: (e) => e.preventDefault(), onclick: () => pickProd(p) },
       p.images && p.images.length ? h('img', { class: 'sthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : null,
@@ -860,21 +860,9 @@ async function orderForm(o, presetCustomer, note = '') {
   };
   pq.addEventListener('focus', drawPsug); pq.addEventListener('input', drawPsug);
   pq.addEventListener('blur', () => setTimeout(() => psug.classList.add('hidden'), 150));
-  // Kategorie-Filter: Hauptkategorie, dann Unterkategorie antippen – die Liste zeigt nur diese Produkte
-  let pcat = 0;
-  const pchips = h('div', { class: 'catchips pcatf' });
-  const drawPchips = () => {
-    const main = pcats.filter((c) => !c.parent_id && prodList.some((p) => inCat(pcats, p, +c.id)));
-    const selMain = pcat > 0 ? (pcats.find((c) => +c.id === pcat) || {}).parent_id || pcat : 0;
-    const chip = (id, label) => h('button', { type: 'button', class: 'chip' + (pcat === id || (id && +selMain === id) ? ' on' : ''), onmousedown: (e) => e.preventDefault(),
-      onclick: () => { pcat = pcat === id && id ? (+((pcats.find((c) => +c.id === id) || {}).parent_id) || 0) : id; drawPchips(); if (document.activeElement === pq) drawPsug(); else pq.focus(); } },
-      label, h('small', { class: 'muted' }, ' ' + prodList.filter((p) => inCat(pcats, p, id)).length));
-    const subs = selMain ? pcats.filter((c) => +c.parent_id === +selMain && prodList.some((p) => inCat(pcats, p, +c.id))) : [];
-    pchips.replaceChildren(...[h('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px' }, chip(0, t('cat_all')), ...main.map((m) => chip(+m.id, m.name))),
-      subs.length ? h('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px;padding-left:12px' }, h('span', { class: 'muted' }, '↳'), ...subs.map((c) => chip(+c.id, c.name))) : null].filter(Boolean));
-  };
-  if (pcats.length) drawPchips();
-  const addBox = h('div', {}, pcats.length ? pchips : null, h('div', { class: 'suggest additem' }, pq, psug));
+  // Katalog-Fenster: Kategorien klappen Ebene für Ebene auf, Antippen eines Produkts übernimmt es
+  const addBox = h('div', { class: 'addrow' }, prodList.length ? h('button', { type: 'button', class: 'btn', onclick: () => catalogPicker(prodList, pcats, pickProd) }, '📂 ' + t('cp_open')) : null,
+    h('div', { class: 'suggest additem' }, pq, psug));
 
   const sumBox = h('div', { class: 'sumbox' });
   function updateSummary() {
@@ -1455,6 +1443,51 @@ route(/^\/calendar$/, async () => {
     h('div', { class: 'legend' }, workers.map((w) => wchip(w)), h('span', {}, t('cal_hint'))),
     body);
 });
+// Produktauswahl als Fenster: Hauptkategorie → Unterkategorie → Produkte (aufklappbar), mit Suche
+let cpOpen = {};
+function catalogPicker(prods, cats, onPick) {
+  const close = () => { m.remove(); document.removeEventListener('keydown', esc); };
+  const esc = (e) => { if (e.key === 'Escape') close(); };
+  const q = h('input', { type: 'search', placeholder: t('cp_search'), autocomplete: 'off' });
+  const tree = h('div', { class: 'cptree' });
+  const prodBtn = (p) => h('button', { type: 'button', class: 'cpprod', onclick: () => { close(); onPick(p); } },
+    p.images && p.images.length ? h('img', { src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : h('span', { class: 'cpnoimg' }, '🏷'),
+    h('span', { class: 'cpn' }, h('b', {}, p.name), h('small', { class: 'muted' }, [p.sku, (p.options || []).map((g) => g.name).join(', ')].filter(Boolean).join(' · '))),
+    h('span', { class: 'cpp' + (+p.price ? '' : ' nopr') }, +p.price ? cents(p.price, 'DKK') : t('price_missing')));
+  const node = (key, label, count, kids, level) => {
+    const d = h('details', { class: 'cpnode l' + level, open: !!cpOpen[key] }, h('summary', {}, h('span', {}, label), h('small', {}, String(count))), h('div', { class: 'cpkids' }, ...kids));
+    d.addEventListener('toggle', () => { cpOpen[key] = d.open; });
+    return d;
+  };
+  const draw = () => {
+    const s_ = q.value.trim().toLowerCase();
+    const match = (p) => !s_ || (p.name + ' ' + (p.sku || '') + ' ' + catPath(cats, p.category_id)).toLowerCase().includes(s_);
+    const list = prods.filter(match);
+    const mains = cats.filter((c) => !c.parent_id);
+    const out = [];
+    for (const mc of mains) {
+      const subs = cats.filter((c) => +c.parent_id === +mc.id);
+      const direct = list.filter((p) => +p.category_id === +mc.id);
+      const subNodes = subs.map((sc) => { const ps = list.filter((p) => +p.category_id === +sc.id); return ps.length ? node('s' + sc.id, sc.name, ps.length, ps.map(prodBtn), 2) : null; }).filter(Boolean);
+      const n = direct.length + subNodes.reduce((a, x) => a + +x.querySelector('summary small').textContent, 0);
+      if (!n) continue;
+      const nd = node('m' + mc.id, mc.name, n, [...direct.map(prodBtn), ...subNodes], 1);
+      if (s_) { nd.open = true; nd.querySelectorAll('details').forEach((x) => { x.open = true; }); }
+      out.push(nd);
+    }
+    const none = list.filter((p) => !p.category_id || !cats.some((c) => +c.id === +p.category_id));
+    if (none.length) { const nd = node('none', t('cat_none'), none.length, none.map(prodBtn), 1); if (s_) nd.open = true; out.push(nd); }
+    tree.replaceChildren(...(out.length ? out : [h('p', { class: 'muted' }, t('cp_nothing'))]));
+  };
+  q.addEventListener('input', draw);
+  const m = h('div', { class: 'modal', onclick: (e) => e.target === m && close() },
+    h('div', { class: 'sheet cpsheet' }, h('div', { class: 'cphead' }, h('h2', {}, '📂 ' + t('cp_title')),
+      h('button', { class: 'btn small', title: t('cp_collapse'), onclick: () => { tree.querySelectorAll('details').forEach((x) => { x.open = false; }); cpOpen = {}; } }, '⇡ ', h('span', { class: 'cpcl' }, t('cp_collapse'))), h('button', { class: 'btn small', 'aria-label': t('close'), onclick: close }, '✕')),
+      q, tree));
+  draw();
+  document.body.append(m); document.addEventListener('keydown', esc);
+}
+
 function dayModal(d, items, workers) {
   const close = () => m.remove();
   const m = h('div', { class: 'modal', onclick: (e) => e.target === m && close() },
