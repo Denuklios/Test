@@ -2882,7 +2882,13 @@ function loadReviews() {
 
     if (!track.children.length) {
       const t = translations[currentLang] || translations.de;
-      track.innerHTML = `<div class="testimonial" style="margin:0 auto;"><p class="testimonial-text">${t.reviews_empty}</p></div>`;
+      // Ohne Bewertungen: keinen Laufband-Slider, sondern eine ruhige Einladung über dem Knopf
+      const wrap = track.closest('.testimonials-slider-wrap');
+      if (wrap) { wrap.style.maskImage = 'none'; wrap.style.webkitMaskImage = 'none'; }
+      track.style.animation = 'none';
+      track.style.justifyContent = 'center';
+      track.style.width = '100%';
+      track.innerHTML = `<p class="testimonial-text" style="text-align:center;max-width:520px;margin:0 auto;font-size:1rem;">${t.reviews_empty}</p>`;
       return;
     }
     duplicateTrackForLoop(track);
