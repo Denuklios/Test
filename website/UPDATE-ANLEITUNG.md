@@ -43,4 +43,5 @@
 ## Spiele (Update Oktober 2026)
 - Oben auf jeder Spielseite: **„← Wunsch-Fabrik.dk“** (zurück zur Startseite) und **„Alle Spiele“**.
 - Alle fünf Spiele und die Spieleübersicht haben einen neuen, hellen und bunten Look: Himmel mit Wolken und Hügeln, plastische Knöpfe, Zähler mit Symbolen, Konfetti bei Gewinnen. Alle Grafiken werden im Browser gezeichnet, es gibt keine zusätzlichen Bilddateien.
-- Neue Dateien im Ordner `spiele/`: `wf-game.css`, `wf-gfx.js` – mit hochladen.
+- Neue Dateien im Ordner `spiele/`: `wf-game.css`, `wf-gfx.js`, `faden.html` – mit hochladen.
+- **Neues Spiel „Fadenlauf“** (`spiele/faden.html`): ruhiges Knobelspiel mit 24 Fadenbildern, steht in der Spieleübersicht ganz vorn.

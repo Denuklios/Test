@@ -194,3 +194,8 @@ zu versenden. Die Daten werden nach Ablauf des Gutscheins gelöscht."*
 ## Grafik (Oktober 2026)
 - `wf-game.css` – gemeinsamer, fröhlicher Spiel-Look für alle Spiele (Himmel, Bonbon-Knöpfe, helle Karten). Farben stehen oben in `:root`.
 - `wf-gfx.js` – alle Spielgrafiken als Vektorzeichnungen (keine Bilddateien nötig), die Kulisse mit Sonne, Wolken und Hügeln, Konfetti bei Gewinnen und die Leiste „← Wunsch-Fabrik.dk / Alle Spiele“ oben auf jeder Spielseite.
+
+## Fadenlauf (faden.html)
+Knobelspiel: Ein Faden wird von Nagel zu Nagel gespannt und muss alle Perlen auffädeln, ohne an Dornen hängenzubleiben.
+24 Level, jedes per Computer auf Lösbarkeit geprüft; „par“ ist die kürzeste Lösung (3 Sterne). Fortschritt bleibt nur im Browser
+(localStorage), es werden keine Daten an den Server geschickt. Keine Gutscheine – lässt sich bei Bedarf ergänzen.

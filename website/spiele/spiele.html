@@ -111,12 +111,22 @@ body .note b{color:#4a2a00}
     <img id="logo" alt="Wunsch-Fabrik">
     <div class="eyebrow">Wunsch-Fabrik.dk</div>
     <h1>Spiel dich durch die Werkstatt</h1>
-    <p>Fünf Spiele rund um Stickerei, Druck und Laser – direkt im Browser, ohne Anmeldung.
+    <p>Sechs Spiele rund um Stickerei, Druck und Laser – direkt im Browser, ohne Anmeldung.
        Wer gut ist, spielt sich einen Rabatt für die nächste Bestellung frei.</p>
     <div class="divider"></div>
   </div>
 
   <div class="games">
+
+    <a class="game" href="faden.html">
+      <span class="tag">Neu</span>
+      <canvas class="cover" data-art="faden" aria-hidden="true"></canvas>
+      <h2>Fadenlauf</h2>
+      <div class="kind">Knobelei · 24 Fadenbilder</div>
+      <p>Ein Faden, ein paar Nägel: Spanne ihn von Nagel zu Nagel und fädle alle Perlen auf –
+         mit so wenigen Strecken wie möglich. Jede Strecke klingt wie eine gezupfte Saite.</p>
+      <span class="go"><span class="play">▶</span> Faden spannen →</span>
+    </a>
 
     <a class="game" href="nadel.html">
       <span class="tag">Gutscheine</span>
@@ -202,6 +212,7 @@ document.getElementById("logo").onerror=function(){this.style.display="none"};
 /* Titelbilder der Spiele: kleine bewegte Szenen aus den Spielgrafiken */
 (function(){
   var ART={
+    faden:{string:true},
     nadel:{bg:["#ffd6ea","#ff8cc3","#ff4fa3"],main:"stick",mini:["needle","spool","heart","star"]},
     spuli:{bg:["#bfeaff","#49b8ff","#4fd94a"],main:"@spuli",mini:["scissors","spool","station","spool"]},
     chaos:{bg:["#fff3c4","#ffd23f","#ff9a1f"],main:"crate",mini:["tshirt","cap","mug","truck"]},
@@ -221,6 +232,16 @@ document.getElementById("logo").onerror=function(){this.style.display="none"};
     list.forEach(function(o,k){
       var c=o.c,w=o.w,h=o.h,a=o.a;if(!w)return;
       c.setTransform(dpr,0,0,dpr,0,0);
+      if(a.string){
+        c.fillStyle="#f3ede2";c.fillRect(0,0,w,h);
+        var N=60,R=h*.4,cx=w/2,cy=h/2,mul=2+((t/4000)%1)*0;
+        var k=(t/30)%(N*1.6);
+        c.lineWidth=1;
+        for(var i=0;i<Math.min(N,k);i++){var a1=i/N*6.283-1.57,a2=i*2/N*6.283-1.57;
+          c.strokeStyle="rgba(216,64,42,"+(.6*Math.min(1,k-i))+")";c.beginPath();c.moveTo(cx+Math.cos(a1)*R,cy+Math.sin(a1)*R);c.lineTo(cx+Math.cos(a2)*R,cy+Math.sin(a2)*R);c.stroke()}
+        c.fillStyle="#c4953a";for(var j=0;j<N;j++){var a3=j/N*6.283-1.57;c.beginPath();c.arc(cx+Math.cos(a3)*R,cy+Math.sin(a3)*R,1.8,0,6.283);c.fill()}
+        return;
+      }
       var g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,a.bg[0]);g.addColorStop(.45,a.bg[1]);g.addColorStop(1,a.bg[2]);
       c.fillStyle=g;c.fillRect(0,0,w,h);
       /* Lichtstrahlen */
