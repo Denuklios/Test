@@ -1156,6 +1156,11 @@
     width: max-content;
     animation: marquee 35s linear infinite;
   }
+  /* Ziehbare Laufbänder (Maus und Finger) */
+  .drag-marquee { cursor: grab; touch-action: pan-y; -webkit-user-select: none; user-select: none; }
+  .drag-marquee.dragging { cursor: grabbing; }
+  .drag-marquee img { -webkit-user-drag: none; pointer-events: auto; }
+  .drag-marquee.dragging .slide, .drag-marquee.dragging .ref-logo-img { pointer-events: none; }
   .portfolio-slider:hover #mainSliderTrack,
   .portfolio-slider:hover .slider-track { animation-play-state: paused; }
   .slide {
@@ -1943,11 +1948,11 @@
 
     <!-- LAUFENDE BILDER-KETTE -->
     <div class="portfolio-slider reveal" id="portfolioSlider">
-      <button class="slider-arrow-btn slider-arrow-left" onclick="sliderSpeed(-1)" title="Schneller / Rückwärts">‹</button>
+      <button class="slider-arrow-btn slider-arrow-left" onclick="sliderSpeed(-1)" title="Zurück" aria-label="Zurück">‹</button>
       <div class="slider-track" id="mainSliderTrack">
         <!-- wird per JS geladen -->
       </div>
-      <button class="slider-arrow-btn slider-arrow-right" onclick="sliderSpeed(1)" title="Schneller / Vorwärts">›</button>
+      <button class="slider-arrow-btn slider-arrow-right" onclick="sliderSpeed(1)" title="Weiter" aria-label="Weiter">›</button>
     </div>
   </div>
 </section>
@@ -2864,6 +2869,7 @@ function loadReviews() {
     fetch('reviews_api.php?action=list_approved').then(r => r.json()).catch(() => ({ok:false}))
   ]).then(([staticData, userReviews]) => {
     track.innerHTML = '';
+    track.dataset.static = '';
 
     // Statische Bewertungen einfügen
     const staticReviews = (staticData.ok && staticData.reviews) ? staticData.reviews : [];
@@ -2900,6 +2906,8 @@ function loadReviews() {
       const wrap = track.closest('.testimonials-slider-wrap');
       if (wrap) { wrap.style.maskImage = 'none'; wrap.style.webkitMaskImage = 'none'; }
       track.style.animation = 'none';
+      track.dataset.static = '1';
+      track.style.transform = 'none';
       track.style.justifyContent = 'center';
       track.style.width = '100%';
       track.innerHTML = `<p class="testimonial-text" style="text-align:center;max-width:520px;margin:0 auto;font-size:1rem;">${t.reviews_empty}</p>`;
@@ -3070,24 +3078,97 @@ const observer = new IntersectionObserver((entries) => {
 }, { threshold: 0.1 });
 reveals.forEach(el => observer.observe(el));
 
-// ─── BILD-SLIDER GESCHWINDIGKEIT ─────────────────────────────────
-let sliderDuration = 35; // Sekunden für einen Durchlauf
-let sliderDir = 1; // 1 = vorwärts, -1 = rückwärts
-
-function sliderSpeed(dir) {
-  const track = document.getElementById('mainSliderTrack');
-  if (!track) return;
-  if (dir !== sliderDir) {
-    // Richtung wechseln
-    sliderDir = dir;
-    sliderDuration = 35;
-  } else {
-    // Schneller machen (min 8 Sek.)
-    sliderDuration = Math.max(8, sliderDuration - 8);
-  }
+// ─── LAUFBÄNDER ZUM ZIEHEN (Impressionen, Bewertungen, Logos) ─────
+// Läuft von allein weiter, lässt sich aber jederzeit mit Maus oder Finger ziehen und anschubsen.
+// Der Inhalt ist doppelt im Band, deshalb springt es unsichtbar zurück, wenn eine Hälfte durch ist.
+const marquees = {};
+function makeDraggableMarquee(track, duration) {
+  if (!track || track._marquee) return track && track._marquee;
+  const wrap = track.parentElement;
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const st = { x: 0, dir: 1, duration, vel: 0, dragging: false, hover: false, half: 0, down: null, moved: false, resumeAt: 0 };
+  track._marquee = st;
   track.style.animation = 'none';
-  track.offsetHeight; // reflow
-  track.style.animation = `marquee${dir === -1 ? 'Reverse' : ''} ${sliderDuration}s linear infinite`;
+  track.style.willChange = 'transform';
+  wrap.classList.add('drag-marquee');
+
+  const measure = () => { st.half = track.scrollWidth / 2; };
+  measure();
+  if (window.ResizeObserver) new ResizeObserver(measure).observe(track);
+
+  let last = performance.now();
+  function frame(now) {
+    const dt = Math.min(64, now - last); last = now;
+    if (st.half > 0 && track.dataset.static !== '1') {
+      const auto = (st.half / (st.duration * 1000)) * st.dir;   // Pixel pro Millisekunde
+      if (!st.dragging) {
+        if (Math.abs(st.vel) > 0.02) {
+          st.x += st.vel * dt;                       // Schwung nach dem Loslassen
+          st.vel *= Math.pow(0.94, dt / 16);
+        } else if (!st.hover && !reduce && now > st.resumeAt) {
+          st.x -= auto * dt;                         // normales langsames Laufen
+        }
+      }
+      // in den Bereich (-half, 0] zurückholen → nahtlose Schleife in beide Richtungen
+      st.x = ((st.x % st.half) - st.half) % st.half;
+      track.style.transform = `translate3d(${st.x}px,0,0)`;
+    }
+    requestAnimationFrame(frame);
+  }
+  requestAnimationFrame(frame);
+
+  wrap.addEventListener('pointerenter', (e) => { if (e.pointerType === 'mouse') st.hover = true; });
+  wrap.addEventListener('pointerleave', (e) => { if (e.pointerType === 'mouse') st.hover = false; });
+  wrap.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || e.target.closest('button')) return;
+    st.down = { x: e.clientX, y: e.clientY, t: performance.now(), id: e.pointerId };
+    st.moved = false; st.vel = 0;
+  });
+  wrap.addEventListener('pointermove', (e) => {
+    if (!st.down || e.pointerId !== st.down.id) return;
+    const dx = e.clientX - st.down.x, dy = e.clientY - st.down.y;
+    if (!st.dragging) {
+      if (Math.abs(dx) < 6 || Math.abs(dx) < Math.abs(dy)) return;   // senkrechtes Wischen bleibt Seiten-Scrollen
+      st.dragging = true; st.moved = true;
+      wrap.setPointerCapture(e.pointerId);
+      wrap.classList.add('dragging');
+    }
+    const now = performance.now();
+    const step = e.clientX - (st.lastX ?? st.down.x);
+    st.x += step;
+    st.vel = step / Math.max(1, now - (st.lastT ?? st.down.t));
+    st.lastX = e.clientX; st.lastT = now;
+  });
+  const end = (e) => {
+    if (!st.down || (e.pointerId !== undefined && e.pointerId !== st.down.id)) return;
+    if (st.dragging) {
+      st.dragging = false;
+      wrap.classList.remove('dragging');
+      st.vel = Math.max(-3, Math.min(3, st.vel));
+      st.resumeAt = performance.now() + 1500;   // kurz stehen lassen, dann läuft es weiter
+    }
+    st.down = null; st.lastX = st.lastT = undefined;
+  };
+  wrap.addEventListener('pointerup', end);
+  wrap.addEventListener('pointercancel', end);
+  // Nach dem Ziehen kein Bild öffnen
+  wrap.addEventListener('click', (e) => { if (st.moved) { e.preventDefault(); e.stopPropagation(); st.moved = false; } }, true);
+  wrap.addEventListener('dragstart', (e) => e.preventDefault());
+  return st;
+}
+window.addEventListener('DOMContentLoaded', () => {
+  marquees.main = makeDraggableMarquee(document.getElementById('mainSliderTrack'), 35);
+  marquees.reviews = makeDraggableMarquee(document.getElementById('testimonialsTrack'), 40);
+  marquees.logos = makeDraggableMarquee(document.getElementById('refMarqueeTrack'), 90);
+});
+
+// ─── BILD-SLIDER: Pfeile schubsen das Band in die gewünschte Richtung ──
+function sliderSpeed(dir) {
+  const st = marquees.main;
+  if (!st) return;
+  st.dir = dir;
+  st.vel = -dir * 1.6;          // kräftiger Schubs, läuft danach langsam weiter
+  st.resumeAt = 0;
 }
 
 // ─── FAQ ─────────────────────────────────────────────────────────
