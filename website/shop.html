@@ -1,0 +1,654 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Shop – Wunsch-Fabrik.dk</title>
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<meta name="description" content="Unser Online-Shop ist bald da! Bald kannst du hier Produkte direkt bestellen – aktuell sind wir noch fleißig am Aufbauen.">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --purple: #8B2BE2;
+  --purple-bright: #A855F7;
+  --purple-soft: rgba(168,85,247,0.15);
+  --bg-deep: #090909;
+  --bg-card: #161616;
+  --bg-card2: #1c1c1c;
+  --text-white: #F0EEF5;
+  --text-muted: #888;
+  --text-dim: #555;
+  --border: rgba(139,43,226,0.2);
+}
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; overflow-x: hidden; }
+body {
+  background: var(--bg-deep);
+  color: var(--text-white);
+  font-family: 'Outfit', sans-serif;
+  line-height: 1.6;
+  overflow-x: hidden;
+  min-height: 100vh;
+  display: flex; flex-direction: column;
+}
+
+/* ─── TOP BAR ─── */
+.top-bar {
+  background: var(--purple);
+  color: #fff; text-align: center;
+  padding: 0.45rem 1rem;
+  font-size: 0.78rem; font-weight: 500;
+  letter-spacing: 0.04em;
+}
+
+/* ─── NAV ─── */
+nav {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1rem 2rem;
+  background: rgba(9,9,9,0.92);
+  backdrop-filter: blur(14px);
+  border-bottom: 1px solid var(--border);
+}
+.nav-logo {
+  display: flex; align-items: center; gap: 0.6rem;
+  text-decoration: none; color: var(--text-white);
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1rem; letter-spacing: 0.12em;
+}
+.nav-logo img { height: 34px; width: auto; }
+.nav-back {
+  color: var(--text-muted); text-decoration: none;
+  font-size: 0.82rem; font-weight: 500;
+  display: flex; align-items: center; gap: 0.4rem;
+  transition: color 0.2s;
+}
+.nav-back:hover { color: var(--purple-bright); }
+
+/* ─── HERO ─── */
+.shop-hero {
+  flex: 1;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  text-align: center;
+  padding: 4rem 1.5rem;
+  background: radial-gradient(ellipse 70% 60% at 50% 40%, rgba(139,43,226,0.12) 0%, transparent 70%);
+}
+.shop-hero-icon {
+  font-size: 3.5rem; margin-bottom: 1.2rem;
+  animation: float 3s ease-in-out infinite;
+}
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-12px); }
+}
+.shop-hero h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(2rem, 6vw, 3.4rem);
+  font-weight: 700; margin-bottom: 0.8rem;
+}
+.shop-hero h1 em { font-style: italic; color: var(--purple-bright); }
+.shop-hero p {
+  color: var(--text-muted); font-size: 1rem;
+  max-width: 540px; margin: 0 auto 1.5rem;
+  line-height: 1.7;
+}
+.shop-badge {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  background: var(--purple-soft); border: 1px solid rgba(168,85,247,0.35);
+  border-radius: 50px; padding: 0.5rem 1.4rem;
+  font-size: 0.85rem; font-weight: 600; color: var(--purple-bright);
+  margin-bottom: 2.5rem;
+}
+.shop-badge .dot {
+  width: 8px; height: 8px; border-radius: 50%;
+  background: var(--purple-bright);
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.3; } }
+
+/* ─── PREVIEW CATEGORIES ─── */
+.preview-section { width: 100%; max-width: 900px; }
+.preview-label {
+  font-size: 0.72rem; letter-spacing: 0.2em; text-transform: uppercase;
+  color: var(--text-dim); margin-bottom: 1.2rem;
+}
+.preview-grid {
+  display: grid; grid-template-columns: repeat(3, 1fr);
+  gap: 0.8rem;
+}
+.preview-item {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.2rem 0.8rem;
+  display: flex; flex-direction: column; align-items: center; gap: 0.5rem;
+  transition: border-color 0.2s, transform 0.2s;
+}
+.preview-item:hover { border-color: rgba(168,85,247,0.4); transform: translateY(-3px); }
+.preview-emoji { font-size: 1.8rem; }
+.preview-name {
+  font-size: 0.78rem; font-weight: 600; color: var(--text-muted);
+  text-align: center; line-height: 1.3;
+}
+
+/* ─── CTA ─── */
+.shop-cta {
+  margin-top: 2.5rem;
+  display: flex; gap: 1rem; flex-wrap: wrap; justify-content: center;
+}
+.btn-primary-shop {
+  background: var(--purple); color: #fff; text-decoration: none;
+  padding: 0.85rem 1.8rem; border-radius: 8px;
+  font-size: 0.92rem; font-weight: 600;
+  transition: background 0.2s, transform 0.15s;
+}
+.btn-primary-shop:hover { background: var(--purple-bright); transform: translateY(-2px); }
+.btn-secondary-shop {
+  background: none; color: var(--text-muted); text-decoration: none;
+  border: 1px solid var(--border);
+  padding: 0.85rem 1.8rem; border-radius: 8px;
+  font-size: 0.92rem; font-weight: 600;
+  transition: border-color 0.2s, color 0.2s;
+}
+.btn-secondary-shop:hover { border-color: var(--purple); color: var(--text-white); }
+
+/* ─── FOOTER ─── */
+footer {
+  background: var(--bg-deep);
+  border-top: 1px solid var(--border);
+  padding: 3rem 2rem;
+  text-align: center;
+}
+.footer-logo { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; letter-spacing: 0.15em; color: var(--text-white); margin-bottom: 0.4rem; }
+.footer-logo span { color: var(--text-white); }
+.footer-tag { font-size: 0.72rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-dim); margin-bottom: 2rem; }
+.footer-links { display: flex; justify-content: center; gap: 2rem; flex-wrap: wrap; margin-bottom: 2rem; }
+.footer-links a { color: var(--text-muted); text-decoration: none; font-size: 0.82rem; transition: color 0.2s; }
+.footer-links a:hover { color: var(--purple-bright); }
+.footer-copy { font-size: 0.76rem; color: var(--text-dim); }
+.footer-legal {
+  display: flex; justify-content: center; align-items: center;
+  gap: 0.75rem; margin-bottom: 1rem;
+}
+.footer-legal a {
+  color: var(--text-dim); text-decoration: none;
+  font-size: 0.76rem; transition: color 0.2s;
+}
+.footer-legal a:hover { color: var(--purple-bright); }
+.footer-legal span { color: var(--text-dim); font-size: 0.76rem; }
+
+/* ─── VISITOR COUNTER ─── */
+.visitor-counter {
+  margin-top: 1rem;
+  display: flex; justify-content: center; align-items: center;
+  gap: 0.6rem; flex-wrap: wrap;
+  font-size: 0.74rem; color: var(--text-dim);
+}
+.vc-item { display: flex; align-items: center; gap: 0.35rem; }
+.vc-sep { color: var(--text-dim); opacity: 0.4; }
+.vc-dot {
+  width: 7px; height: 7px; border-radius: 50%;
+  display: inline-block;
+}
+.vc-online {
+  background: #22c55e;
+  box-shadow: 0 0 6px rgba(34,197,94,0.7);
+  animation: vcPulse 2s ease-in-out infinite;
+}
+@keyframes vcPulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+@media (max-width: 600px) {
+  nav { padding: 0.8rem 1.2rem; }
+  .shop-hero { padding: 3rem 1.2rem; }
+  .preview-grid { grid-template-columns: repeat(3, 1fr); }
+}
+
+/* ─── LOADING ─── */
+.shop-loading {
+  flex: 1; display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 1rem; padding: 4rem 1.5rem; color: var(--text-muted);
+}
+.shop-loading .shop-hero-icon { animation: float 3s ease-in-out infinite; }
+
+/* ─── LIVE SHOP ─── */
+.live-shop {
+  flex: 1; max-width: 1100px; margin: 0 auto; width: 100%;
+  padding: 2.5rem 1.5rem 4rem;
+}
+.shop-header { text-align: center; margin-bottom: 2rem; }
+.shop-header h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: clamp(1.8rem, 5vw, 2.6rem); font-weight: 700; margin-bottom: 0.6rem;
+}
+.shop-header p { color: var(--text-muted); font-size: 0.92rem; max-width: 480px; margin: 0 auto; }
+
+.cat-filter {
+  display: flex; flex-wrap: wrap; gap: 0.6rem; justify-content: center;
+  margin-bottom: 2rem;
+}
+.cat-btn {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 50px; padding: 0.5rem 1.2rem;
+  color: var(--text-muted); font-family: 'Outfit', sans-serif;
+  font-size: 0.8rem; font-weight: 600; cursor: pointer;
+  transition: all 0.2s;
+}
+.cat-btn:hover { border-color: var(--purple); color: var(--text-white); }
+.cat-btn.active { background: var(--purple); border-color: var(--purple); color: #fff; }
+
+.product-grid {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 1.3rem;
+}
+.product-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 14px; overflow: hidden;
+  transition: transform 0.2s, border-color 0.2s;
+}
+.product-card:hover { transform: translateY(-3px); border-color: rgba(168,85,247,0.4); }
+.product-img {
+  width: 100%; aspect-ratio: 4/3; background: var(--bg-card2);
+  display: flex; align-items: center; justify-content: center;
+  font-size: 2.6rem; position: relative; overflow: hidden;
+}
+.product-img img { width: 100%; height: 100%; object-fit: cover; }
+.product-badge {
+  position: absolute; top: 0.6rem; left: 0.6rem;
+  background: var(--purple); color: #fff;
+  font-size: 0.62rem; font-weight: 700; letter-spacing: 0.06em;
+  padding: 0.2rem 0.6rem; border-radius: 50px; text-transform: uppercase;
+}
+.product-body { padding: 1.1rem; }
+.product-cat {
+  font-size: 0.65rem; letter-spacing: 0.15em; text-transform: uppercase;
+  color: var(--purple-bright); margin-bottom: 0.3rem;
+}
+.product-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.15rem; font-weight: 700; margin-bottom: 0.4rem; line-height: 1.25;
+}
+.product-desc {
+  font-size: 0.8rem; color: var(--text-muted); line-height: 1.55; margin-bottom: 0.8rem;
+}
+.product-price {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.2rem; font-weight: 700; margin-bottom: 0.5rem;
+}
+.product-price .from { font-size: 0.68rem; font-weight: 400; color: var(--text-muted); }
+.product-info { font-size: 0.72rem; color: var(--text-dim); margin-bottom: 0.8rem; }
+.product-cta {
+  display: block; text-align: center;
+  background: var(--purple); color: #fff; text-decoration: none;
+  padding: 0.6rem; border-radius: 7px;
+  font-size: 0.82rem; font-weight: 600; transition: background 0.2s;
+}
+.product-cta:hover { background: var(--purple-bright); }
+.empty-products {
+  text-align: center; padding: 3rem 1rem; color: var(--text-dim);
+  grid-column: 1 / -1;
+}
+</style>
+</head>
+<body>
+
+<div class="top-bar">🧵 Wir fertigen bereits ab 1 Stück &nbsp;·&nbsp; Siebdruck lohnt sich ab 50 Stück</div>
+
+<nav>
+  <a class="nav-logo" href="index.html">
+    <img src="wf-logo.png" alt="WF">
+    WUNSCH-FABRIK.DK
+  </a>
+  <a class="nav-back" href="index.html" id="navBack">← Zurück zur Website</a>
+</nav>
+
+<div class="shop-hero" id="comingSoon" style="display:none;">
+  <div class="shop-hero-icon">🧵✨</div>
+  <h1 id="heroTitle">Unser Shop ist <em>im Aufbau</em></h1>
+  <p id="heroDesc">Wir lesen gerade fleißig Eure Wünsche und packen sie nach und nach in unseren neuen Shop. Bald könnt ihr hier eure Lieblingsprodukte direkt bestellen!</p>
+  <div class="shop-badge" id="heroBadge"><span class="dot"></span> Bald verfügbar</div>
+
+  <div class="preview-section">
+    <div class="preview-label" id="previewLabel">Das erwartet euch demnächst</div>
+    <div class="preview-grid">
+      <div class="preview-item"><span class="preview-emoji">🧵</span><span class="preview-name" data-key="cat_sticken">Bestickte<br>Textilien</span></div>
+      <div class="preview-item"><span class="preview-emoji">🖨</span><span class="preview-name" data-key="cat_dtf">DTF<br>Druck</span></div>
+      <div class="preview-item"><span class="preview-emoji">✂️</span><span class="preview-name" data-key="cat_plotten">Plott &<br>Folie</span></div>
+      <div class="preview-item"><span class="preview-emoji">◇</span><span class="preview-name" data-key="cat_gravieren">Gravur &<br>Geschenke</span></div>
+      <div class="preview-item"><span class="preview-emoji">⊞</span><span class="preview-name" data-key="cat_siebdruck">Sieb-<br>druck</span></div>
+      <div class="preview-item"><span class="preview-emoji">✨</span><span class="preview-name" data-key="cat_mehr">Und noch<br>mehr...</span></div>
+    </div>
+  </div>
+
+  <div class="shop-cta">
+    <a class="btn-primary-shop" href="index.html#kontakt" id="ctaWish">✉ Jetzt schon Wunsch äußern</a>
+    <a class="btn-secondary-shop" href="index.html" id="ctaSite">Zur Website</a>
+  </div>
+</div>
+
+<!-- LIVE SHOP -->
+<div class="live-shop" id="liveShop" style="display:none;">
+  <div class="shop-header">
+    <h1 id="shopTitle">Unser Shop</h1>
+    <p id="shopDesc">Wähle Dein Produkt – wir veredeln es mit Herzblut.</p>
+  </div>
+  <div class="cat-filter" id="catFilter"></div>
+  <div class="product-grid" id="productGrid"></div>
+</div>
+
+<!-- Lade-Anzeige -->
+<div class="shop-loading" id="shopLoading">
+  <div class="shop-hero-icon">🧵</div>
+  <p id="loadingText">Lädt...</p>
+</div>
+
+<footer>
+  <div class="footer-logo"><img src="wf-logo.png" alt="WF" style="height:32px;width:auto;vertical-align:middle;margin-right:0.5rem;opacity:0.85;"> <span data-i18n="brand_name">WUNSCH-FABRIK.DK</span></div>
+  <div class="footer-tag" data-i18n="footer_tag">Damit Dein Wunsch kein Wunsch bleiben muss.</div>
+  <div class="footer-links">
+    <a href="index.html#leistungen" data-i18n="nav_services">Leistungen</a>
+    <a href="index.html#portfolio" data-i18n="nav_examples">Impressionen</a>
+    <a href="index.html#referenzen" data-i18n="nav_references">Referenzen</a>
+    <a href="index.html#faq" data-i18n="nav_faq">FAQ</a>
+    <a href="shop.html" data-i18n="nav_shop">Shop</a>
+    <a href="index.html#kontakt" data-i18n="nav_contact">Kontakt</a>
+  </div>
+  <div class="footer-legal">
+    <a href="#" onclick="openLegal('impressum'); return false;" data-i18n="legal_impressum">Impressum</a>
+    <span>·</span>
+    <a href="#" onclick="openLegal('agb'); return false;" data-i18n="legal_agb">AGB</a>
+    <span>·</span>
+    <a href="#" onclick="openLegal('datenschutz'); return false;" data-i18n="legal_privacy">Datenschutz</a>
+  </div>
+  <div class="footer-copy">© 2026 Wunsch-Fabrik.dk · Ønske-Fabrik.dk · Teglgård 1, 6330 Padborg</div>
+  <div class="visitor-counter" id="visitorCounter">
+    <span class="vc-item"><span class="vc-dot vc-online"></span><span id="vcOnline">–</span> <span data-i18n="vc_online">online</span></span>
+    <span class="vc-sep">·</span>
+    <span class="vc-item"><span id="vcTotal">–</span> <span data-i18n="vc_total">Besucher gesamt</span></span>
+  </div>
+</footer>
+
+<script>
+// ─── ÜBERSETZUNGEN ───────────────────────────────────────────────
+const translations = {
+  de: {
+    nav_back: '← Zurück zur Website',
+    title: 'Unser Shop ist',
+    title_em: 'im Aufbau',
+    desc: 'Wir lesen gerade fleißig Eure Wünsche und packen sie nach und nach in unseren neuen Shop. Bald könnt ihr hier eure Lieblingsprodukte direkt bestellen!',
+    badge: 'Bald verfügbar',
+    preview_label: 'Das erwartet euch demnächst',
+    cat_sticken: 'Bestickte<br>Textilien',
+    cat_dtf: 'DTF<br>Druck',
+    cat_plotten: 'Plott &<br>Folie',
+    cat_gravieren: 'Gravur &<br>Geschenke',
+    cat_siebdruck: 'Sieb-<br>druck',
+    cat_mehr: 'Und noch<br>mehr...',
+    cta_wish: '✉ Jetzt schon Wunsch äußern',
+    cta_site: 'Zur Website',
+    loading: 'Lädt...',
+    shop_title: 'Unser Shop',
+    shop_desc: 'Wähle Dein Produkt – wir veredeln es mit Herzblut.',
+    cat_all: '✦ Alle',
+    cat_label_sticken: '🧵 Sticken',
+    cat_label_dtf: '🖨 DTF Druck',
+    cat_label_plotten: '✂️ Plotten',
+    cat_label_gravieren: '◇ Gravieren',
+    cat_label_siebdruck: '⊞ Siebdruck',
+    cat_label_sonstiges: '✨ Sonstiges',
+    empty_cat: 'Keine Produkte in dieser Kategorie.',
+    from: 'ab',
+    buy_now: '🛒 Jetzt kaufen',
+    footer: '© 2026 Wunsch-Fabrik.dk · Teglgård 1, 6330 Padborg',
+  },
+  da: {
+    nav_back: '← Tilbage til hjemmesiden',
+    title: 'Vores shop er',
+    title_em: 'under opbygning',
+    desc: 'Vi læser i øjeblikket flittigt jeres ønsker og pakker dem løbende ind i vores nye shop. Snart kan I bestille jeres favoritprodukter direkte her!',
+    badge: 'Snart tilgængelig',
+    preview_label: 'Det kan I se frem til',
+    cat_sticken: 'Broderede<br>tekstiler',
+    cat_dtf: 'DTF<br>tryk',
+    cat_plotten: 'Plot &<br>folie',
+    cat_gravieren: 'Gravering &<br>gaver',
+    cat_siebdruck: 'Silke-<br>tryk',
+    cat_mehr: 'Og meget<br>mere...',
+    cta_wish: '✉ Send allerede dit ønske',
+    cta_site: 'Til hjemmesiden',
+    loading: 'Indlæser...',
+    shop_title: 'Vores shop',
+    shop_desc: 'Vælg dit produkt – vi forædler det med hjerte.',
+    cat_all: '✦ Alle',
+    cat_label_sticken: '🧵 Broderi',
+    cat_label_dtf: '🖨 DTF tryk',
+    cat_label_plotten: '✂️ Plot',
+    cat_label_gravieren: '◇ Gravering',
+    cat_label_siebdruck: '⊞ Silketryk',
+    cat_label_sonstiges: '✨ Andet',
+    empty_cat: 'Ingen produkter i denne kategori.',
+    from: 'fra',
+    buy_now: '🛒 Køb nu',
+    footer: '© 2026 Wunsch-Fabrik.dk · Teglgård 1, 6330 Padborg',
+  },
+  en: {
+    nav_back: '← Back to website',
+    title: 'Our shop is',
+    title_em: 'under construction',
+    desc: "We're busy reading your wishes and adding them to our new shop bit by bit. Soon you'll be able to order your favourite products directly here!",
+    badge: 'Coming soon',
+    preview_label: "What's coming up",
+    cat_sticken: 'Embroidered<br>textiles',
+    cat_dtf: 'DTF<br>printing',
+    cat_plotten: 'Plotting &<br>film',
+    cat_gravieren: 'Engraving &<br>gifts',
+    cat_siebdruck: 'Screen<br>printing',
+    cat_mehr: 'And much<br>more...',
+    cta_wish: '✉ Send us your wish now',
+    cta_site: 'To the website',
+    loading: 'Loading...',
+    shop_title: 'Our Shop',
+    shop_desc: "Pick your product – we'll personalise it with love.",
+    cat_all: '✦ All',
+    cat_label_sticken: '🧵 Embroidery',
+    cat_label_dtf: '🖨 DTF printing',
+    cat_label_plotten: '✂️ Plotting',
+    cat_label_gravieren: '◇ Engraving',
+    cat_label_siebdruck: '⊞ Screen printing',
+    cat_label_sonstiges: '✨ Other',
+    empty_cat: 'No products in this category.',
+    from: 'from',
+    buy_now: '🛒 Buy now',
+    footer: '© 2026 Wunsch-Fabrik.dk · Teglgård 1, 6330 Padborg',
+  },
+};
+
+const currentLang = localStorage.getItem('wf_lang') || 'de';
+const t = translations[currentLang] || translations.de;
+
+const categoryLabels = {
+  sticken: t.cat_label_sticken,
+  dtf: t.cat_label_dtf,
+  plotten: t.cat_label_plotten,
+  gravieren: t.cat_label_gravieren,
+  siebdruck: t.cat_label_siebdruck,
+  sonstiges: t.cat_label_sonstiges,
+};
+const categoryEmojis = {
+  sticken: '🧵', dtf: '🖨', plotten: '✂️',
+  gravieren: '◇', siebdruck: '⊞', sonstiges: '✨'
+};
+
+let allProducts = [];
+let activeCat = 'alle';
+
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+function applyStaticTranslations() {
+  document.documentElement.lang = currentLang;
+  document.getElementById('navBack').textContent = t.nav_back;
+  document.getElementById('heroTitle').innerHTML = `${t.title} <em>${t.title_em}</em>`;
+  document.getElementById('heroDesc').textContent = t.desc;
+  document.getElementById('heroBadge').innerHTML = `<span class="dot"></span> ${t.badge}`;
+  document.getElementById('previewLabel').textContent = t.preview_label;
+  document.getElementById('ctaWish').textContent = t.cta_wish;
+  document.getElementById('ctaSite').textContent = t.cta_site;
+  document.getElementById('loadingText').textContent = t.loading;
+  document.getElementById('shopTitle').textContent = t.shop_title;
+  document.getElementById('shopDesc').textContent = t.shop_desc;
+
+  document.querySelectorAll('.preview-name').forEach(el => {
+    const key = el.dataset.key;
+    if (key && t[key]) el.innerHTML = t[key];
+  });
+}
+
+function init() {
+  applyStaticTranslations();
+  fetch('products_api.php?action=shop_status')
+    .then(r => r.json())
+    .then(data => {
+      const published = data.ok && data.published;
+      document.getElementById('shopLoading').style.display = 'none';
+      if (published) {
+        document.getElementById('liveShop').style.display = 'block';
+        loadProducts();
+      } else {
+        document.getElementById('comingSoon').style.display = 'flex';
+      }
+    })
+    .catch(() => {
+      document.getElementById('shopLoading').style.display = 'none';
+      document.getElementById('comingSoon').style.display = 'flex';
+    });
+}
+
+function loadProducts() {
+  fetch('products_api.php?action=list')
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      allProducts = data.products;
+      renderCats();
+      renderProducts();
+    });
+}
+
+function renderCats() {
+  const usedCats = [...new Set(allProducts.map(p => p.category))];
+  const wrap = document.getElementById('catFilter');
+  let html = `<button class="cat-btn${activeCat === 'alle' ? ' active' : ''}" onclick="filterCat('alle')">${t.cat_all}</button>`;
+  usedCats.forEach(cat => {
+    html += `<button class="cat-btn${activeCat === cat ? ' active' : ''}" onclick="filterCat('${cat}')">${categoryLabels[cat] || cat}</button>`;
+  });
+  wrap.innerHTML = html;
+}
+
+function filterCat(cat) {
+  activeCat = cat;
+  renderCats();
+  renderProducts();
+}
+
+function renderProducts() {
+  const grid = document.getElementById('productGrid');
+  const filtered = activeCat === 'alle' ? allProducts : allProducts.filter(p => p.category === activeCat);
+
+  if (filtered.length === 0) {
+    grid.innerHTML = `<div class="empty-products">${t.empty_cat}</div>`;
+    return;
+  }
+
+  grid.innerHTML = filtered.map(p => {
+    const imgHtml = p.image
+      ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}">`
+      : `<span>${categoryEmojis[p.category] || '📦'}</span>`;
+    const priceLabel = p.price_from ? `<span class="from">${t.from}</span> ` : '';
+    return `
+      <div class="product-card">
+        <div class="product-img">
+          ${imgHtml}
+          ${p.badge ? `<div class="product-badge">${escapeHtml(p.badge)}</div>` : ''}
+        </div>
+        <div class="product-body">
+          <div class="product-cat">${categoryLabels[p.category] || p.category}</div>
+          <div class="product-name">${escapeHtml(p.name)}</div>
+          ${p.description ? `<div class="product-desc">${escapeHtml(p.description)}</div>` : ''}
+          <div class="product-price">${priceLabel}${Number(p.price).toLocaleString('de-DE')} ${escapeHtml(p.price_unit || '')}</div>
+          ${p.info ? `<div class="product-info">${escapeHtml(p.info)}</div>` : ''}
+          <button class="product-cta" onclick="buyProduct(${p.id})">${t.buy_now}</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+// ─── STRIPE CHECKOUT (Vorbereitung) ──────────────────────────────
+function buyProduct(productId) {
+  const product = allProducts.find(p => p.id === productId);
+  if (!product) return;
+
+  fetch('stripe_checkout.php', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `product_id=${productId}`
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok && data.checkout_url) {
+        window.location.href = data.checkout_url;
+      } else if (data.error === 'stripe_not_configured') {
+        alert(currentLang === 'de'
+          ? 'Die Online-Bezahlung wird gerade eingerichtet. Bitte schreib uns kurz über das Kontaktformular – wir kümmern uns gerne persönlich um deine Bestellung!'
+          : currentLang === 'da'
+          ? 'Online betaling er ved at blive opsat. Skriv venligst til os via kontaktformularen – vi tager os personligt af din bestilling!'
+          : "Online payment is currently being set up. Please reach out via the contact form – we'll happily take care of your order personally!");
+      } else {
+        alert(currentLang === 'de' ? 'Es gab ein Problem. Bitte versuch es später erneut.'
+          : currentLang === 'da' ? 'Der opstod et problem. Prøv venligst igen senere.'
+          : 'Something went wrong. Please try again later.');
+      }
+    })
+    .catch(() => {
+      alert(currentLang === 'de' ? 'Verbindungsfehler. Bitte versuch es später erneut.'
+        : currentLang === 'da' ? 'Forbindelsesfejl. Prøv venligst igen senere.'
+        : 'Connection error. Please try again later.');
+    });
+}
+
+// ─── BESUCHERZÄHLER (eigene Datenbank) ──────────────────────────
+(function() {
+  function updateCounters() {
+    const onlineEl = document.getElementById('vcOnline');
+    const totalEl  = document.getElementById('vcTotal');
+    if (!onlineEl || !totalEl) return;
+
+    fetch('track.php', { credentials: 'same-origin' })
+      .then(r => r.json())
+      .then(data => {
+        if (data.ok) {
+          onlineEl.textContent = data.online.toLocaleString('de-DE');
+          totalEl.textContent  = data.total.toLocaleString('de-DE');
+        }
+      })
+      .catch(() => {
+        onlineEl.textContent = '–';
+        totalEl.textContent  = '–';
+      });
+  }
+
+  window.addEventListener('DOMContentLoaded', () => {
+    updateCounters();
+    setInterval(updateCounters, 60000);
+  });
+})();
+
+init();
+</script>
+
+</body>
+</html>

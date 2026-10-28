@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="robots" content="noindex,nofollow">
+<title>Auftragsbestätigung – Wunsch-Fabrik.dk</title>
+<link rel="icon" type="image/png" href="wf-logo.png">
+<style>
+  :root{
+    --navy:#1a2438; --gold:#c9a24b; --cream:#faf7f0; --ink:#222; --line:#e3ddd0;
+  }
+  *{box-sizing:border-box;}
+  body{
+    margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif;
+    background:var(--cream); color:var(--ink); line-height:1.55;
+  }
+  header{
+    background:var(--navy); color:#fff; text-align:center; padding:22px 16px;
+  }
+  header img{height:52px; margin-bottom:6px;}
+  header h1{margin:0; font-size:19px; letter-spacing:.5px; font-weight:600;}
+  .wrap{max-width:680px; margin:0 auto; padding:18px 16px 60px;}
+  .card{
+    background:#fff; border:1px solid var(--line); border-radius:14px;
+    padding:20px 18px; margin-bottom:18px; box-shadow:0 2px 10px rgba(0,0,0,.04);
+  }
+  .titel{font-size:22px; font-weight:700; color:var(--navy); margin:0 0 4px;}
+  .meta{font-size:13px; color:#777; margin-bottom:14px;}
+  .label{font-size:12px; text-transform:uppercase; letter-spacing:.6px; color:var(--gold); font-weight:700; margin:16px 0 4px;}
+  .inhalt{white-space:pre-wrap; font-size:15.5px;}
+  .betrag{font-size:20px; font-weight:700; color:var(--navy); margin-top:6px;}
+  .kunde{font-size:15px;}
+  /* Unterschrift */
+  .sigbox{border:2px dashed var(--gold); border-radius:12px; background:#fffdf8; touch-action:none;}
+  canvas{display:block; width:100%; height:200px; border-radius:10px;}
+  .sigtools{display:flex; gap:10px; margin-top:10px;}
+  input[type=text]{
+    width:100%; padding:13px 14px; font-size:16px; border:1px solid var(--line);
+    border-radius:10px; margin-top:6px; background:#fff;
+  }
+  button{
+    font-size:16px; font-weight:600; border:none; border-radius:10px;
+    padding:14px 18px; cursor:pointer; transition:.15s;
+  }
+  .btn-primary{background:var(--gold); color:#fff; width:100%; margin-top:16px; padding:16px;}
+  .btn-primary:disabled{background:#d8cdb0; cursor:not-allowed;}
+  .btn-clear{background:#eee; color:#555; flex:1;}
+  .hint{font-size:13px; color:#888; margin-top:6px;}
+  .done{
+    text-align:center; padding:30px 18px; background:#eef7ee; border:1px solid #cfe6cf;
+    border-radius:14px; color:#2c6b2c;
+  }
+  .done .big{font-size:44px;}
+  .done h2{margin:8px 0 6px; color:#256025;}
+  .sigimg{max-width:100%; border:1px solid var(--line); border-radius:10px; background:#fff; margin-top:8px;}
+  .msg{padding:12px 14px; border-radius:10px; margin-top:12px; font-size:14px; display:none;}
+  .msg.err{background:#fbeaea; color:#a33; display:block;}
+  .loading{text-align:center; padding:50px 20px; color:#999;}
+</style>
+</head>
+<body>
+<header>
+  <img src="wf-logo.png" alt="Wunsch-Fabrik" onerror="this.style.display='none'">
+  <h1>Auftragsbestätigung</h1>
+</header>
+
+<div class="wrap">
+  <div id="content" class="loading">Auftrag wird geladen …</div>
+</div>
+
+<script>
+const API = 'auftrag_api.php';
+const params = new URLSearchParams(location.search);
+const token = params.get('t') || '';
+
+const content = document.getElementById('content');
+
+function esc(s){ const d=document.createElement('div'); d.textContent=s||''; return d.innerHTML; }
+function fmtDate(s){ if(!s) return ''; const d=new Date(s.replace(' ','T')); return d.toLocaleString('de-DE'); }
+
+if(!token){
+  content.className='';
+  content.innerHTML='<div class="card"><p>Ungültiger Link. Es wurde kein Auftrag angegeben.</p></div>';
+} else {
+  loadAuftrag();
+}
+
+function loadAuftrag(){
+  fetch(API+'?action=get&token='+encodeURIComponent(token))
+    .then(r=>r.json())
+    .then(d=>{
+      content.className='';
+      if(!d.ok){ content.innerHTML='<div class="card"><p>'+esc(d.error||'Auftrag nicht gefunden.')+'</p></div>'; return; }
+      const a=d.auftrag;
+      if(a.status==='bestaetigt'){ renderDone(a); } else { renderAuftrag(a); }
+    })
+    .catch(()=>{ content.className=''; content.innerHTML='<div class="card"><p>Verbindungsfehler. Bitte später erneut versuchen.</p></div>'; });
+}
+
+function renderAuftrag(a){
+  let html = '<div class="card">';
+  html += '<div class="titel">'+esc(a.titel)+'</div>';
+  html += '<div class="meta">Erstellt am '+fmtDate(a.created_at)+'</div>';
+  html += '<div class="label">Kunde</div><div class="kunde">'+esc(a.kunde_name);
+  if(a.kunde_email) html += ' &middot; '+esc(a.kunde_email);
+  html += '</div>';
+  html += '<div class="label">Auftragsdetails</div><div class="inhalt">'+esc(a.inhalt)+'</div>';
+  if(a.betrag){ html += '<div class="label">Betrag</div><div class="betrag">'+esc(a.betrag)+'</div>'; }
+  if(a.vorschaubild){
+    html += '<div class="label">Entwurf / Vorschau</div>';
+    html += '<img class="sigimg" src="'+esc(a.vorschaubild)+'" alt="Entwurf">';
+  }
+  html += '</div>';
+
+  html += '<div class="card">';
+  html += '<div class="label">Ihre Unterschrift</div>';
+  html += '<p class="hint">Bitte unterschreiben Sie mit dem Finger oder der Maus im Feld unten, um den Auftrag verbindlich zu bestätigen.</p>';
+  html += '<div class="sigbox"><canvas id="sig"></canvas></div>';
+  html += '<div class="sigtools"><button class="btn-clear" onclick="clearSig()">Löschen</button></div>';
+  html += '<input type="text" id="signame" placeholder="Ihr Name (in Druckbuchstaben)">';
+  html += '<button class="btn-primary" id="submitBtn" onclick="submitSig()">✓ Auftrag verbindlich bestätigen</button>';
+  html += '<div class="msg err" id="errBox"></div>';
+  html += '<p class="hint">Mit dem Bestätigen erklären Sie sich mit dem oben beschriebenen Auftrag einverstanden.</p>';
+  html += '</div>';
+
+  content.innerHTML = html;
+  initCanvas();
+}
+
+function renderDone(a){
+  let html = '<div class="done"><div class="big">✓</div><h2>Auftrag bestätigt</h2>';
+  html += '<p>Vielen Dank, '+esc(a.signatur_name||a.kunde_name)+'!<br>Ihr Auftrag <strong>'+esc(a.titel)+'</strong> wurde am '+fmtDate(a.signed_at)+' verbindlich bestätigt.</p>';
+  if(a.signatur){ html += '<img class="sigimg" src="'+a.signatur+'" alt="Unterschrift">'; }
+  html += '<p class="hint" style="margin-top:14px;">Eine Kopie als PDF wurde Ihnen per E-Mail zugeschickt.</p>';
+  html += '<a class="btn-primary" style="display:inline-block; text-decoration:none; margin-top:10px;" href="'+API+'?action=pdf&token='+encodeURIComponent(token)+'" target="_blank" rel="noopener">📄 PDF ansehen / herunterladen</a>';
+  html += '</div>';
+  // Auftragsinhalt zusätzlich anzeigen
+  html += '<div class="card"><div class="label">Auftragsdetails</div><div class="inhalt">'+esc(a.inhalt)+'</div>';
+  if(a.betrag){ html += '<div class="label">Betrag</div><div class="betrag">'+esc(a.betrag)+'</div>'; }
+  if(a.vorschaubild){
+    html += '<div class="label">Entwurf / Vorschau</div>';
+    html += '<img class="sigimg" src="'+esc(a.vorschaubild)+'" alt="Entwurf">';
+  }
+  html += '</div>';
+  content.innerHTML = html;
+}
+
+/* ─── Signatur-Canvas ─── */
+let canvas, ctx, drawing=false, hasDrawn=false;
+
+function initCanvas(){
+  canvas = document.getElementById('sig');
+  const rect = canvas.getBoundingClientRect();
+  const ratio = window.devicePixelRatio || 1;
+  canvas.width  = rect.width  * ratio;
+  canvas.height = rect.height * ratio;
+  ctx = canvas.getContext('2d');
+  ctx.scale(ratio, ratio);
+  ctx.lineWidth = 2.5;
+  ctx.lineCap = 'round';
+  ctx.lineJoin = 'round';
+  ctx.strokeStyle = '#1a2438';
+
+  canvas.addEventListener('mousedown', start);
+  canvas.addEventListener('mousemove', move);
+  window.addEventListener('mouseup', end);
+  canvas.addEventListener('touchstart', start, {passive:false});
+  canvas.addEventListener('touchmove', move, {passive:false});
+  canvas.addEventListener('touchend', end);
+}
+function pos(e){
+  const r = canvas.getBoundingClientRect();
+  const p = e.touches ? e.touches[0] : e;
+  return { x:p.clientX - r.left, y:p.clientY - r.top };
+}
+function start(e){ e.preventDefault(); drawing=true; const p=pos(e); ctx.beginPath(); ctx.moveTo(p.x,p.y); }
+function move(e){ if(!drawing) return; e.preventDefault(); const p=pos(e); ctx.lineTo(p.x,p.y); ctx.stroke(); hasDrawn=true; }
+function end(){ drawing=false; }
+function clearSig(){ if(ctx){ ctx.clearRect(0,0,canvas.width,canvas.height); hasDrawn=false; } }
+
+function submitSig(){
+  const err = document.getElementById('errBox');
+  err.style.display='none';
+  const name = document.getElementById('signame').value.trim();
+  if(!hasDrawn){ err.textContent='Bitte unterschreiben Sie im Feld.'; err.style.display='block'; return; }
+  if(!name){ err.textContent='Bitte geben Sie Ihren Namen ein.'; err.style.display='block'; return; }
+
+  const btn = document.getElementById('submitBtn');
+  btn.disabled=true; btn.textContent='Wird gespeichert …';
+  const dataURL = canvas.toDataURL('image/png');
+
+  const body = new URLSearchParams();
+  body.set('action','sign');
+  body.set('token', token);
+  body.set('signatur', dataURL);
+  body.set('signatur_name', name);
+
+  fetch(API, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:body.toString() })
+    .then(r=>r.json())
+    .then(d=>{
+      if(d.ok){ loadAuftrag(); window.scrollTo(0,0); }
+      else { err.textContent=d.error||'Fehler beim Speichern.'; err.style.display='block'; btn.disabled=false; btn.textContent='✓ Auftrag verbindlich bestätigen'; }
+    })
+    .catch(()=>{ err.textContent='Verbindungsfehler.'; err.style.display='block'; btn.disabled=false; btn.textContent='✓ Auftrag verbindlich bestätigen'; });
+}
+</script>
+</body>
+</html>

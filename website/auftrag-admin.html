@@ -1,0 +1,199 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="robots" content="noindex,nofollow">
+<title>Aufträge – Wunsch-Fabrik.dk</title>
+<link rel="icon" type="image/png" href="wf-logo.png">
+<style>
+  :root{ --navy:#1a2438; --gold:#c9a24b; --cream:#faf7f0; --line:#e3ddd0; }
+  *{box-sizing:border-box;}
+  body{margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Arial,sans-serif; background:var(--cream); color:#222;}
+  .wrap{max-width:920px; margin:0 auto; padding:20px 16px 60px;}
+  h2{color:var(--navy); font-size:20px; margin:0 0 4px;}
+  .sub{color:#777; font-size:13px; margin-bottom:18px;}
+  .card{background:#fff; border:1px solid var(--line); border-radius:14px; padding:20px 18px; margin-bottom:20px; box-shadow:0 2px 10px rgba(0,0,0,.04);}
+  label{display:block; font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:var(--gold); font-weight:700; margin:14px 0 4px;}
+  input,textarea{width:100%; padding:12px 13px; font-size:15px; border:1px solid var(--line); border-radius:10px; background:#fff; font-family:inherit;}
+  textarea{min-height:150px; resize:vertical; white-space:pre-wrap;}
+  .row{display:flex; gap:12px; flex-wrap:wrap;}
+  .row>div{flex:1; min-width:200px;}
+  button{font-size:15px; font-weight:600; border:none; border-radius:10px; padding:13px 18px; cursor:pointer;}
+  .btn-primary{background:var(--gold); color:#fff; margin-top:18px;}
+  .btn-primary:disabled{background:#d8cdb0;}
+  .btn-sm{padding:8px 12px; font-size:13px;}
+  .btn-copy{background:var(--navy); color:#fff;}
+  .btn-del{background:#f4e2e2; color:#a33;}
+  .btn-view{background:#eee; color:#444; text-decoration:none; display:inline-block;}
+  .linkbox{margin-top:16px; padding:14px; background:#f4f8ee; border:1px solid #d5e6c3; border-radius:10px; display:none;}
+  .linkbox.show{display:block;}
+  .linkurl{font-size:13px; word-break:break-all; color:var(--navy); background:#fff; padding:10px; border-radius:8px; border:1px solid var(--line); margin:8px 0;}
+  table{width:100%; border-collapse:collapse; margin-top:6px;}
+  th,td{text-align:left; padding:10px 8px; border-bottom:1px solid var(--line); font-size:14px; vertical-align:top;}
+  th{color:#888; font-size:11px; text-transform:uppercase; letter-spacing:.5px;}
+  .badge{font-size:12px; padding:3px 9px; border-radius:20px; font-weight:600; white-space:nowrap;}
+  .b-offen{background:#fdf3e0; color:#b07d1a;}
+  .b-ok{background:#e7f4e7; color:#2c6b2c;}
+  .actions{display:flex; gap:6px; flex-wrap:wrap;}
+  .empty{text-align:center; color:#aaa; padding:30px;}
+  .msg{padding:10px 12px; border-radius:8px; margin-top:10px; font-size:14px; display:none;}
+  .msg.ok{background:#e7f4e7; color:#2c6b2c; display:block;}
+  .msg.err{background:#fbeaea; color:#a33; display:block;}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>📝 Auftragsbestätigungen</h2>
+  <p class="sub">Auftrag anlegen, Link an den Kunden senden – Kunde liest und unterschreibt auf dem Handy.</p>
+
+  <div class="card">
+    <div class="row">
+      <div><label>Kunde – Name *</label><input id="kunde_name" placeholder="Max Mustermann"></div>
+      <div><label>Kunde – E-Mail</label><input id="kunde_email" placeholder="optional"></div>
+    </div>
+    <label>Titel des Auftrags *</label>
+    <input id="titel" placeholder="z. B. 50× T-Shirts mit Stickerei">
+    <label>Auftragsdetails *</label>
+    <textarea id="inhalt" placeholder="Beschreibe hier den kompletten Auftrag: Artikel, Menge, Farben, Motiv, Liefertermin, Preis usw."></textarea>
+    <label>Betrag (optional)</label>
+    <input id="betrag" placeholder="z. B. 1.250,00 DKK inkl. MwSt.">
+    <label>Entwurf / Vorschaubild (optional)</label>
+    <input type="file" id="vorschaubild" accept="image/jpeg,image/png,image/webp">
+    <p style="font-size:12px; color:#999; margin:4px 0 0;">JPG, PNG oder WEBP, max. 8 MB. Wird im PDF und auf der Kundenseite angezeigt.</p>
+
+    <label>Sprache des Kunden</label>
+    <p style="font-size:12px; color:#999; margin:0 0 6px;">Du schreibst immer auf Deutsch – bei Dänisch/Englisch wird beim Anlegen automatisch übersetzt.</p>
+    <div id="spracheSwitcher" style="display:flex; gap:8px; margin-bottom:14px;">
+      <button type="button" class="lang-btn active" data-lang="de" onclick="setSprache('de', this)" style="flex:1; padding:10px; border:2px solid #6d28d9; border-radius:8px; background:#f5f3ff; cursor:pointer; font-size:20px;">🇩🇪</button>
+      <button type="button" class="lang-btn" data-lang="da" onclick="setSprache('da', this)" style="flex:1; padding:10px; border:2px solid #ddd; border-radius:8px; background:#fff; cursor:pointer; font-size:20px;">🇩🇰</button>
+      <button type="button" class="lang-btn" data-lang="en" onclick="setSprache('en', this)" style="flex:1; padding:10px; border:2px solid #ddd; border-radius:8px; background:#fff; cursor:pointer; font-size:20px;">🇬🇧</button>
+    </div>
+
+    <button class="btn-primary" id="createBtn" onclick="createAuftrag()">Auftrag anlegen & Link erzeugen</button>
+    <div class="msg" id="createMsg"></div>
+
+    <div class="linkbox" id="linkBox">
+      <strong>✓ Link erstellt – an den Kunden senden:</strong>
+      <div class="linkurl" id="linkUrl"></div>
+      <div class="actions">
+        <button class="btn-copy btn-sm" onclick="copyLink()">🔗 Link kopieren</button>
+        <a class="btn-view btn-sm" id="waLink" target="_blank" rel="noopener">💬 WhatsApp</a>
+        <a class="btn-view btn-sm" id="mailLink">✉️ E-Mail</a>
+      </div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h2 style="font-size:16px;">Bisherige Aufträge</h2>
+    <div id="listWrap"><p class="empty">Wird geladen …</p></div>
+  </div>
+</div>
+
+<script>
+const API='auftrag_api.php';
+let lastLink='';
+
+function esc(s){const d=document.createElement('div');d.textContent=s||'';return d.innerHTML;}
+function fmtDate(s){if(!s)return '–';const d=new Date(s.replace(' ','T'));return d.toLocaleString('de-DE');}
+
+let currentSprache = 'de';
+function setSprache(lang, btn){
+  currentSprache = lang;
+  document.querySelectorAll('#spracheSwitcher .lang-btn').forEach(b=>{
+    b.style.borderColor = '#ddd';
+    b.style.background = '#fff';
+    b.classList.remove('active');
+  });
+  btn.style.borderColor = '#6d28d9';
+  btn.style.background = '#f5f3ff';
+  btn.classList.add('active');
+}
+
+function createAuftrag(){
+  const msg=document.getElementById('createMsg'); msg.className='msg';
+  const fd=new FormData();
+  fd.set('action','create');
+  fd.set('kunde_name', document.getElementById('kunde_name').value.trim());
+  fd.set('kunde_email', document.getElementById('kunde_email').value.trim());
+  fd.set('titel', document.getElementById('titel').value.trim());
+  fd.set('inhalt', document.getElementById('inhalt').value.trim());
+  fd.set('betrag', document.getElementById('betrag').value.trim());
+  fd.set('sprache', currentSprache);
+  const fileInput = document.getElementById('vorschaubild');
+  if (fileInput.files[0]) fd.set('vorschaubild', fileInput.files[0]);
+
+  const btn=document.getElementById('createBtn');
+  const spracheLabel = currentSprache === 'de' ? '' : (currentSprache === 'da' ? ' (wird auf Dänisch übersetzt...)' : ' (wird auf Englisch übersetzt...)');
+  btn.disabled=true; btn.textContent='…' + spracheLabel;
+  fetch(API,{method:'POST',body:fd})
+    .then(r=>r.json()).then(d=>{
+      btn.disabled=false; btn.textContent='Auftrag anlegen & Link erzeugen';
+      if(d.ok){
+        lastLink=d.link;
+        document.getElementById('linkUrl').textContent=d.link;
+        document.getElementById('linkBox').classList.add('show');
+        const titel=document.getElementById('titel').value.trim();
+        const waText=encodeURIComponent('Hallo, bitte bestätige deinen Auftrag "'+titel+'": '+d.link);
+        document.getElementById('waLink').href='https://wa.me/?text='+waText;
+        document.getElementById('mailLink').href='mailto:?subject='+encodeURIComponent('Auftragsbestätigung: '+titel)+'&body='+waText;
+        // Felder leeren
+        ['kunde_name','kunde_email','titel','inhalt','betrag'].forEach(i=>document.getElementById(i).value='');
+        fileInput.value='';
+        setSprache('de', document.querySelector('#spracheSwitcher .lang-btn[data-lang="de"]'));
+        loadList();
+      } else {
+        msg.className='msg err'; msg.textContent=d.error||'Fehler.';
+      }
+    }).catch(()=>{ btn.disabled=false; btn.textContent='Auftrag anlegen & Link erzeugen'; msg.className='msg err'; msg.textContent='Verbindungsfehler.'; });
+}
+
+function copyLink(){
+  navigator.clipboard.writeText(lastLink).then(()=>{
+    const m=document.getElementById('createMsg'); m.className='msg ok'; m.textContent='Link in Zwischenablage kopiert.';
+    setTimeout(()=>m.className='msg',2500);
+  });
+}
+
+function copyRowLink(link,btn){
+  navigator.clipboard.writeText(link).then(()=>{ const t=btn.textContent; btn.textContent='✓ Kopiert'; setTimeout(()=>btn.textContent=t,1500); });
+}
+
+function loadList(){
+  fetch(API+'?action=list').then(r=>r.json()).then(d=>{
+    const w=document.getElementById('listWrap');
+    if(!d.ok || !d.auftraege.length){ w.innerHTML='<p class="empty">Noch keine Aufträge.</p>'; return; }
+    let h='<table><tr><th>Kunde</th><th>Titel</th><th>Status</th><th>Erstellt</th><th></th></tr>';
+    d.auftraege.forEach(a=>{
+      const badge=a.status==='bestaetigt'
+        ? '<span class="badge b-ok">✓ Bestätigt</span>'
+        : '<span class="badge b-offen">Offen</span>';
+      const sub=a.status==='bestaetigt' && a.signed_at ? '<div style="font-size:11px;color:#999;">am '+fmtDate(a.signed_at)+'</div>' : '';
+      h+='<tr>'
+        +'<td>'+esc(a.kunde_name)+'</td>'
+        +'<td>'+esc(a.titel)+'</td>'
+        +'<td>'+badge+sub+'</td>'
+        +'<td style="font-size:12px;color:#888;">'+fmtDate(a.created_at)+'</td>'
+        +'<td><div class="actions">'
+        +'<a class="btn-view btn-sm" href="'+esc(a.link)+'" target="_blank" rel="noopener">Ansehen</a>'
+        +'<a class="btn-view btn-sm" href="'+API+'?action=pdf&token='+esc(a.token)+'" target="_blank" rel="noopener">📄 PDF</a>'
+        +'<button class="btn-copy btn-sm" onclick="copyRowLink(\''+a.link+'\',this)">🔗</button>'
+        +'<button class="btn-del btn-sm" onclick="delAuftrag('+a.id+')">✕</button>'
+        +'</div></td></tr>';
+    });
+    h+='</table>';
+    w.innerHTML=h;
+  });
+}
+
+function delAuftrag(id){
+  if(!confirm('Diesen Auftrag wirklich löschen?')) return;
+  const b=new URLSearchParams(); b.set('action','delete'); b.set('id',id);
+  fetch(API,{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},body:b.toString()})
+    .then(r=>r.json()).then(()=>loadList());
+}
+
+loadList();
+</script>
+</body>
+</html>

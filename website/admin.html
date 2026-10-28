@@ -1,0 +1,2775 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Admin – Wunsch-Fabrik.dk</title>
+<link rel="icon" type="image/png" href="wf-logo.png">
+<meta name="robots" content="noindex, nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root {
+  --purple: #8B2BE2;
+  --purple-bright: #A855F7;
+  --purple-soft: rgba(168,85,247,0.12);
+  --bg-deep: #090909;
+  --bg-card: #161616;
+  --bg-card2: #1c1c1c;
+  --text-white: #F0EEF5;
+  --text-muted: #999;
+  --text-dim: #555;
+  --border: rgba(139,43,226,0.2);
+  --green: #22c55e;
+  --orange: #f59e0b;
+  --red: #f87171;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: var(--bg-deep);
+  color: var(--text-white);
+  font-family: 'Outfit', sans-serif;
+  line-height: 1.6;
+  min-height: 100vh;
+}
+
+/* ─── LOGIN ─── */
+.login-screen {
+  min-height: 100vh; display: flex; align-items: center; justify-content: center;
+  padding: 1rem;
+}
+.login-box {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 16px; padding: 2.5rem; width: 100%; max-width: 380px;
+  text-align: center;
+}
+.login-box img { height: 50px; margin-bottom: 1rem; }
+.login-box h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.6rem; font-weight: 700; margin-bottom: 0.3rem;
+}
+.login-box p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.8rem; }
+.login-field { margin-bottom: 1rem; text-align: left; }
+.login-field label {
+  display: block; font-size: 0.72rem; letter-spacing: 0.1em;
+  text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.4rem;
+}
+.login-field input {
+  width: 100%; background: var(--bg-card2);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 0.75rem 1rem; color: var(--text-white);
+  font-family: 'Outfit', sans-serif; font-size: 0.92rem;
+  outline: none; transition: border-color 0.2s;
+}
+.login-field input:focus { border-color: var(--purple); }
+.login-btn {
+  width: 100%; background: var(--purple); color: #fff;
+  border: none; cursor: pointer; padding: 0.85rem;
+  border-radius: 8px; font-family: 'Outfit', sans-serif;
+  font-size: 0.95rem; font-weight: 600; margin-top: 0.5rem;
+  transition: background 0.2s;
+}
+.login-btn:hover { background: var(--purple-bright); }
+.login-error {
+  color: var(--red); font-size: 0.82rem; margin-top: 1rem; display: none;
+}
+.login-error.show { display: block; }
+
+/* ─── DASHBOARD LAYOUT ─── */
+.dashboard { display: none; }
+.dashboard.show { display: block; }
+
+header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 1.2rem 2rem;
+  border-bottom: 1px solid var(--border);
+  background: rgba(9,9,9,0.9);
+  position: sticky; top: 0; z-index: 50;
+}
+.header-left { display: flex; align-items: center; gap: 0.8rem; }
+.header-left img { height: 32px; }
+.header-left h1 {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.2rem; font-weight: 700;
+}
+.header-right { display: flex; align-items: center; gap: 1rem; }
+.header-user { font-size: 0.82rem; color: var(--text-muted); }
+.btn-secondary {
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-white); cursor: pointer;
+  padding: 0.5rem 1rem; border-radius: 7px;
+  font-family: 'Outfit', sans-serif; font-size: 0.82rem; font-weight: 600;
+  transition: border-color 0.2s;
+}
+.btn-secondary:hover { border-color: var(--purple); }
+
+.container { max-width: 1200px; margin: 0 auto; padding: 2rem 1.5rem; }
+
+/* ─── STAT CARDS ─── */
+.stat-grid {
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+  gap: 1rem; margin-bottom: 2rem;
+}
+.stat-card {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 12px; padding: 1.2rem 1.4rem;
+}
+.stat-label {
+  font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase;
+  color: var(--text-muted); margin-bottom: 0.4rem;
+}
+.stat-value {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.2rem; font-weight: 700; line-height: 1;
+  display: flex; align-items: baseline; gap: 0.5rem;
+}
+.stat-value .dot {
+  width: 10px; height: 10px; border-radius: 50%;
+  background: var(--green); display: inline-block;
+  animation: pulse 2s ease-in-out infinite;
+}
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.4; } }
+
+/* ─── PANELS ─── */
+.panel {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 14px; padding: 1.5rem; margin-bottom: 1.5rem;
+}
+.panel-title {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.3rem; font-weight: 700; margin-bottom: 1.2rem;
+  display: flex; align-items: center; justify-content: space-between;
+}
+
+/* ─── LIVE MONITOR ─── */
+.live-monitor-row {
+  display: flex; align-items: baseline; gap: 0.8rem; margin-bottom: 1rem;
+}
+.live-monitor-number {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 2.4rem; font-weight: 700; line-height: 1;
+  display: flex; align-items: baseline; gap: 0.5rem;
+}
+.live-monitor-label { font-size: 0.8rem; color: var(--text-muted); }
+.live-monitor-chart-wrap { width: 100%; overflow-x: auto; }
+.live-monitor-bars {
+  display: flex; align-items: flex-end; gap: 3px;
+  height: 80px; min-width: 100%;
+}
+.live-monitor-bar {
+  flex: 1; background: var(--purple);
+  border-radius: 2px 2px 0 0; min-height: 2px;
+  transition: height 0.3s, background 0.2s;
+}
+.live-monitor-bar.high { background: var(--green); }
+.online-locations {
+  display: flex; flex-wrap: wrap; gap: 0.5rem;
+  margin-top: 1rem;
+}
+.online-location-chip {
+  display: flex; align-items: center; gap: 0.4rem;
+  background: var(--bg-card2); border: 1px solid var(--border);
+  border-radius: 50px; padding: 0.35rem 0.8rem;
+  font-size: 0.78rem; color: var(--text-muted);
+}
+.online-location-chip img { width: 18px; height: 13px; border-radius: 2px; }
+.online-locations-empty { color: var(--text-dim); font-size: 0.8rem; }
+
+/* ─── COUNTRY LIST ─── */
+.country-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.country-row {
+  background: var(--bg-card2); border: 1px solid var(--border);
+  border-radius: 10px; overflow: hidden;
+}
+.country-row-header {
+  display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.7rem 1rem; cursor: pointer;
+}
+.country-row-header:hover { background: rgba(255,255,255,0.02); }
+.country-row-header img { width: 24px; height: 18px; border-radius: 2px; flex-shrink: 0; }
+.country-row-name { flex: 1; font-size: 0.88rem; font-weight: 600; }
+.country-row-count {
+  font-size: 0.8rem; color: var(--text-muted);
+  background: var(--bg-card); border-radius: 50px;
+  padding: 0.2rem 0.7rem;
+}
+.country-row-chevron { color: var(--purple); font-size: 0.85rem; transition: transform 0.2s; }
+.country-row.open .country-row-chevron { transform: rotate(180deg); }
+.country-row-regions {
+  display: none; padding: 0 1rem 0.8rem 3.2rem;
+  flex-direction: column; gap: 0.3rem;
+}
+.country-row.open .country-row-regions { display: flex; }
+.country-region-item {
+  display: flex; justify-content: space-between;
+  font-size: 0.78rem; color: var(--text-muted);
+}
+.country-region-item b { color: var(--text-white); font-weight: 500; }
+
+/* ─── CHART ─── */
+.chart-wrap { width: 100%; overflow-x: auto; }
+.chart-bars {
+  display: flex; align-items: flex-end; gap: 0.5rem;
+  height: 160px; min-width: 500px; padding-bottom: 1.5rem;
+  position: relative;
+}
+.chart-bar-col {
+  flex: 1; display: flex; flex-direction: column; align-items: center;
+  justify-content: flex-end; gap: 0.4rem; height: 100%; position: relative;
+}
+.chart-bar {
+  width: 100%; max-width: 32px; background: var(--purple);
+  border-radius: 4px 4px 0 0;
+  transition: background 0.2s;
+  min-height: 2px;
+}
+.chart-bar:hover { background: var(--purple-bright); }
+.chart-label {
+  position: absolute; bottom: -1.5rem; font-size: 0.65rem; color: var(--text-dim);
+  white-space: nowrap;
+}
+.chart-value {
+  font-size: 0.7rem; color: var(--text-muted); font-weight: 600;
+}
+
+/* ─── TOP PRODUCTS ─── */
+.top-products { display: flex; flex-direction: column; gap: 0.6rem; }
+.tp-row { display: flex; align-items: center; gap: 0.8rem; }
+.tp-name { flex: 1; font-size: 0.85rem; }
+.tp-bar-wrap { flex: 2; background: var(--bg-card2); border-radius: 50px; height: 8px; overflow: hidden; }
+.tp-bar { height: 100%; background: var(--purple); border-radius: 50px; }
+.tp-count { font-size: 0.8rem; color: var(--text-muted); font-weight: 600; width: 2.5rem; text-align: right; }
+
+/* ─── INQUIRIES TABLE ─── */
+.filter-tabs { display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.2rem; }
+.filter-tab {
+  background: var(--bg-card2); border: 1px solid var(--border);
+  border-radius: 50px; padding: 0.4rem 1rem;
+  color: var(--text-muted); font-size: 0.78rem; font-weight: 600;
+  cursor: pointer; transition: all 0.2s;
+}
+.filter-tab:hover { border-color: var(--purple); color: var(--text-white); }
+.filter-tab.active { background: var(--purple); border-color: var(--purple); color: #fff; }
+
+.inquiry-list { display: flex; flex-direction: column; gap: 0.8rem; }
+.inquiry-card {
+  background: var(--bg-card2); border: 1px solid var(--border);
+  border-radius: 10px; padding: 1rem 1.2rem;
+}
+.inquiry-head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: 1rem; margin-bottom: 0.6rem; flex-wrap: wrap;
+}
+.inquiry-name { font-weight: 700; font-size: 0.95rem; }
+.inquiry-email { color: var(--purple-bright); font-size: 0.8rem; }
+.inquiry-date { color: var(--text-dim); font-size: 0.75rem; white-space: nowrap; }
+.inquiry-body { font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.8rem; line-height: 1.6; }
+.inquiry-meta {
+  display: flex; gap: 1.2rem; flex-wrap: wrap;
+  font-size: 0.78rem; color: var(--text-dim); margin-bottom: 0.8rem;
+}
+.inquiry-meta b { color: var(--text-muted); }
+.inquiry-actions { display: flex; gap: 0.5rem; align-items: center; flex-wrap: wrap; }
+.status-select {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 6px; padding: 0.35rem 0.7rem; color: var(--text-white);
+  font-family: 'Outfit', sans-serif; font-size: 0.78rem; cursor: pointer;
+}
+.status-badge {
+  font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em;
+  text-transform: uppercase; padding: 0.2rem 0.6rem;
+  border-radius: 50px;
+}
+.status-new { background: rgba(168,85,247,0.2); color: var(--purple-bright); }
+.status-in_progress { background: rgba(245,158,11,0.2); color: var(--orange); }
+.status-done { background: rgba(34,197,94,0.2); color: var(--green); }
+.status-archived { background: rgba(255,255,255,0.08); color: var(--text-dim); }
+.status-pending { background: rgba(245,158,11,0.2); color: var(--orange); }
+.status-approved { background: rgba(34,197,94,0.2); color: var(--green); }
+.status-rejected { background: rgba(248,113,113,0.2); color: var(--red); }
+.btn-delete {
+  background: none; border: 1px solid var(--border); color: var(--text-dim);
+  cursor: pointer; padding: 0.35rem 0.7rem; border-radius: 6px;
+  font-size: 0.75rem; transition: all 0.2s;
+}
+.btn-delete:hover { border-color: var(--red); color: var(--red); }
+.empty-state {
+  text-align: center; padding: 3rem 1rem; color: var(--text-dim); font-size: 0.9rem;
+}
+
+/* ─── SETTINGS ─── */
+.settings-form { display: flex; flex-direction: column; gap: 1rem; max-width: 360px; }
+.settings-msg {
+  font-size: 0.82rem; padding: 0.6rem 1rem; border-radius: 8px;
+  display: none; margin-top: 0.5rem;
+}
+.settings-msg.show { display: block; }
+.settings-msg.ok { background: rgba(34,197,94,0.15); color: var(--green); }
+.settings-msg.error { background: rgba(248,113,113,0.15); color: var(--red); }
+
+/* ─── SHOP PUBLISH STATUS ─── */
+.shop-status-row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 1.5rem; flex-wrap: wrap;
+}
+.shop-status-info { flex: 1; min-width: 240px; }
+.shop-status-badge {
+  display: inline-flex; align-items: center; gap: 0.5rem;
+  font-size: 0.95rem; font-weight: 700; margin-bottom: 0.5rem;
+}
+.dot-status {
+  width: 10px; height: 10px; border-radius: 50%;
+  display: inline-block;
+}
+.dot-status.live { background: var(--green); box-shadow: 0 0 8px rgba(34,197,94,0.7); animation: pulse 2s ease-in-out infinite; }
+.dot-status.hidden { background: var(--text-dim); }
+.shop-status-desc { color: var(--text-muted); font-size: 0.82rem; line-height: 1.6; }
+.btn-publish {
+  background: var(--purple); color: #fff; border: none; cursor: pointer;
+  padding: 0.9rem 1.8rem; border-radius: 9px;
+  font-family: 'Outfit', sans-serif; font-size: 0.92rem; font-weight: 700;
+  transition: background 0.2s, transform 0.15s; white-space: nowrap;
+}
+.btn-publish:hover { transform: translateY(-1px); }
+.btn-publish.is-live { background: #b91c1c; }
+.btn-publish.is-live:hover { background: #dc2626; }
+.btn-publish.is-hidden { background: var(--purple); }
+.btn-publish.is-hidden:hover { background: var(--purple-bright); }
+
+/* ─── MAIN TABS ─── */
+.main-tabs {
+  display: flex; gap: 0.5rem; flex-wrap: wrap; margin-bottom: 1.5rem;
+  border-bottom: 1px solid var(--border); padding-bottom: 0.8rem;
+}
+.main-tab {
+  background: none; border: 1px solid var(--border);
+  color: var(--text-muted); cursor: pointer;
+  padding: 0.6rem 1.3rem; border-radius: 50px;
+  font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 600;
+  transition: all 0.2s;
+}
+.main-tab:hover { border-color: var(--purple); color: var(--text-white); }
+.main-tab.active { background: var(--purple); border-color: var(--purple); color: #fff; }
+
+.legal-subtab {
+  background: none; border: 1px solid var(--border);
+  color: var(--text-muted); cursor: pointer;
+  padding: 0.5rem 1.1rem; border-radius: 50px;
+  font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 600;
+  transition: all 0.2s;
+}
+.legal-subtab:hover { border-color: var(--purple); color: var(--text-white); }
+.legal-subtab.active { background: var(--purple); border-color: var(--purple); color: #fff; }
+
+.sitetext-subtab {
+  background: none; border: 1px solid var(--border);
+  color: var(--text-muted); cursor: pointer;
+  padding: 0.5rem 1.1rem; border-radius: 50px;
+  font-family: 'Outfit', sans-serif; font-size: 0.8rem; font-weight: 600;
+  transition: all 0.2s;
+}
+.sitetext-subtab:hover { border-color: var(--purple); color: var(--text-white); }
+.sitetext-subtab.active { background: var(--purple); border-color: var(--purple); color: #fff; }
+
+.tab-content { display: none; }
+.tab-content.active { display: block; }
+
+/* ─── PRODUCT LIST ─── */
+.product-list {
+  display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1rem;
+}
+.product-admin-card {
+  background: var(--bg-card2); border: 1px solid var(--border);
+  border-radius: 12px; overflow: hidden;
+  transition: border-color 0.2s;
+}
+.product-admin-card.inactive { opacity: 0.45; }
+.product-admin-img {
+  width: 100%; aspect-ratio: 4/3;
+  background: var(--bg-card); display: flex;
+  align-items: center; justify-content: center;
+  font-size: 2.5rem; position: relative; overflow: hidden;
+}
+.product-admin-img img { width: 100%; height: 100%; object-fit: cover; }
+.product-admin-badge {
+  position: absolute; top: 0.5rem; left: 0.5rem;
+  background: var(--purple); color: #fff;
+  font-size: 0.6rem; font-weight: 700; letter-spacing: 0.06em;
+  padding: 0.15rem 0.5rem; border-radius: 50px; text-transform: uppercase;
+}
+.product-admin-body { padding: 0.9rem; }
+.product-admin-cat {
+  font-size: 0.65rem; letter-spacing: 0.12em; text-transform: uppercase;
+  color: var(--purple-bright); margin-bottom: 0.3rem;
+}
+.product-admin-name {
+  font-family: 'Cormorant Garamond', serif;
+  font-size: 1.05rem; font-weight: 700; margin-bottom: 0.3rem; line-height: 1.25;
+}
+.product-admin-price {
+  font-size: 0.85rem; color: var(--text-muted); margin-bottom: 0.7rem;
+}
+.product-admin-actions { display: flex; gap: 0.4rem; flex-wrap: wrap; }
+.btn-mini {
+  background: var(--bg-card); border: 1px solid var(--border);
+  color: var(--text-white); cursor: pointer;
+  padding: 0.35rem 0.7rem; border-radius: 6px;
+  font-size: 0.72rem; font-weight: 600; transition: border-color 0.2s;
+}
+.btn-mini:hover { border-color: var(--purple); }
+.btn-mini.danger:hover { border-color: var(--red); color: var(--red); }
+
+/* ─── PRODUCT FORM MODAL ─── */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.75); backdrop-filter: blur(6px);
+  align-items: center; justify-content: center; padding: 1rem;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: var(--bg-card); border: 1px solid var(--border);
+  border-radius: 16px; max-width: 520px; width: 100%;
+  max-height: 90vh; overflow-y: auto; padding: 1.8rem;
+  position: relative;
+}
+.modal-close {
+  position: absolute; top: 1rem; right: 1.2rem;
+  background: none; border: none; cursor: pointer;
+  color: var(--text-muted); font-size: 1.3rem; transition: color 0.2s;
+}
+.modal-close:hover { color: var(--text-white); }
+.form-row-2 {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 1rem;
+}
+.checkbox-field label {
+  display: flex; align-items: center; gap: 0.5rem;
+  text-transform: none; font-size: 0.85rem; color: var(--text-white);
+  cursor: pointer;
+}
+.checkbox-field input { width: auto; }
+textarea#prodDescription {
+  width: 100%; background: var(--bg-card2);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 0.7rem 1rem; color: var(--text-white);
+  font-family: 'Outfit', sans-serif; font-size: 0.88rem;
+  resize: vertical; outline: none;
+}
+select#prodCategory {
+  width: 100%; background: var(--bg-card2);
+  border: 1px solid var(--border); border-radius: 8px;
+  padding: 0.7rem 1rem; color: var(--text-white);
+  font-family: 'Outfit', sans-serif; font-size: 0.9rem;
+  outline: none; cursor: pointer;
+}
+input[type="file"] {
+  width: 100%; font-size: 0.82rem; color: var(--text-muted);
+}
+.image-preview { margin-top: 0.6rem; }
+.image-preview img {
+  max-width: 100%; max-height: 140px; border-radius: 8px;
+  border: 1px solid var(--border);
+}
+
+@media (max-width: 600px) {
+  .container { padding: 1.2rem 1rem; }
+  header { padding: 1rem 1.2rem; }
+  .header-user { display: none; }
+  .stat-value { font-size: 1.7rem; }
+  .form-row-2 { grid-template-columns: 1fr; }
+  .main-tabs { gap: 0.4rem; }
+  .main-tab { padding: 0.5rem 1rem; font-size: 0.78rem; }
+}
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div class="login-screen" id="loginScreen">
+  <div class="login-box">
+    <img src="wf-logo.png" alt="WF">
+    <h1>Admin-Bereich</h1>
+    <p>Wunsch-Fabrik.dk</p>
+    <div class="login-field">
+      <label>Benutzername</label>
+      <input type="text" id="loginUser" autocomplete="username">
+    </div>
+    <div class="login-field">
+      <label>Passwort</label>
+      <input type="password" id="loginPass" autocomplete="current-password">
+    </div>
+    <button class="login-btn" onclick="doLogin()">Anmelden</button>
+    <p class="login-error" id="loginError">Benutzername oder Passwort falsch.</p>
+  </div>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dashboard" id="dashboard">
+  <header>
+    <div class="header-left">
+      <img src="wf-logo.png" alt="WF">
+      <h1>Admin-Bereich</h1>
+    </div>
+    <div class="header-right">
+      <span class="header-user" id="headerUser"></span>
+      <button class="btn-secondary" onclick="doLogout()">Abmelden</button>
+    </div>
+  </header>
+
+  <div class="container">
+
+    <!-- MAIN TABS -->
+    <div class="main-tabs">
+      <button class="main-tab active" onclick="switchTab('overview')">📊 Übersicht</button>
+      <button class="main-tab" onclick="switchTab('inquiries')">✉ Anfragen</button>
+      <button class="main-tab" onclick="switchTab('reviews')">★ Bewertungen</button>
+      <button class="main-tab" onclick="switchTab('impressionen')">📸 Impressionen</button>
+      <button class="main-tab" onclick="switchTab('logos')">🏢 Kunden-Logos</button>
+      <button class="main-tab" onclick="switchTab('workshop')">🔧 Werkstatt-Fotos</button>
+      <button class="main-tab" onclick="switchTab('calculator')">💰 Preis-Kalkulator</button>
+      <button class="main-tab" onclick="switchTab('auftraege')">📝 Aufträge</button>
+      <button class="main-tab" onclick="switchTab('shop')">🛒 Shop</button>
+      <button class="main-tab" onclick="switchTab('legal')">📄 Rechtstexte</button>
+      <button class="main-tab" onclick="switchTab('sitetexts')">📝 Website-Texte</button>
+      <button class="main-tab" onclick="switchTab('popup')">📢 Popup</button>
+      <button class="main-tab" onclick="switchTab('settings')">⚙ Einstellungen</button>
+    </div>
+
+    <!-- TAB: ÜBERSICHT -->
+    <div class="tab-content active" id="tab-overview">
+      <!-- STATS -->
+      <div class="stat-grid">
+        <div class="stat-card">
+          <div class="stat-label">Online jetzt</div>
+          <div class="stat-value"><span class="dot"></span><span id="statOnline">–</span></div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Besucher gesamt</div>
+          <div class="stat-value" id="statTotal">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Anfragen gesamt</div>
+          <div class="stat-value" id="statInquiries">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Neue Anfragen</div>
+          <div class="stat-value" id="statNew">–</div>
+        </div>
+        <div class="stat-card">
+          <div class="stat-label">Bewertungen offen</div>
+          <div class="stat-value" id="statReviewsPending">–</div>
+        </div>
+      </div>
+
+      <!-- LIVE MONITOR -->
+      <div class="panel">
+        <div class="panel-title">
+          🔴 Live-Monitor
+          <button class="btn-secondary" id="liveMonitorToggle" onclick="toggleLiveMonitor()">▶ Starten</button>
+        </div>
+        <div class="live-monitor-row">
+          <div class="live-monitor-number"><span class="dot"></span><span id="liveMonitorCount">–</span></div>
+          <div class="live-monitor-label">gleichzeitig online (Live-Aktualisierung alle 5s)</div>
+        </div>
+        <div class="live-monitor-chart-wrap">
+          <div class="live-monitor-bars" id="liveMonitorBars"></div>
+        </div>
+        <p style="color:var(--text-dim); font-size:0.75rem; margin-top:0.6rem;">
+          Verlauf der letzten 30 Minuten. Praktisch direkt nach einer Werbeaktion: Monitor starten und beobachten, wie der Traffic ankommt.
+        </p>
+        <div class="online-locations" id="onlineLocations"></div>
+      </div>
+
+      <!-- BESUCHER NACH LAND (gesamte Historie) -->
+      <div class="panel">
+        <div class="panel-title">🌍 Besucher nach Land (gesamt)</div>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
+          Woher alle bisherigen Besucher kamen – nicht nur aktuell Online, sondern die komplette Historie.
+          Klick auf ein Land, um Regionen/Städte zu sehen.
+        </p>
+        <div class="country-list" id="countryList"></div>
+      </div>
+
+      <!-- CHART -->
+      <div class="panel">
+        <div class="panel-title">Besucher der letzten 14 Tage</div>
+        <div class="chart-wrap">
+          <div class="chart-bars" id="chartBars"></div>
+        </div>
+      </div>
+
+      <!-- TOP PRODUCTS -->
+      <div class="panel" id="topProductsPanel" style="display:none;">
+        <div class="panel-title">Beliebteste Produktarten</div>
+        <div class="top-products" id="topProducts"></div>
+      </div>
+    </div>
+
+    <!-- TAB: ANFRAGEN -->
+    <div class="tab-content" id="tab-inquiries">
+      <div class="panel">
+        <div class="panel-title">Kontaktanfragen</div>
+        <div class="filter-tabs" id="filterTabs">
+          <button class="filter-tab active" onclick="filterInquiries('all')">Alle</button>
+          <button class="filter-tab" onclick="filterInquiries('new')">Neu</button>
+          <button class="filter-tab" onclick="filterInquiries('in_progress')">In Bearbeitung</button>
+          <button class="filter-tab" onclick="filterInquiries('done')">Erledigt</button>
+          <button class="filter-tab" onclick="filterInquiries('archived')">Archiviert</button>
+        </div>
+        <div class="inquiry-list" id="inquiryList"></div>
+      </div>
+    </div>
+
+    <!-- TAB: BEWERTUNGEN -->
+    <div class="tab-content" id="tab-reviews">
+      <div class="panel">
+        <div class="panel-title">Kundenbewertungen</div>
+        <div class="filter-tabs" id="reviewFilterTabs">
+          <button class="filter-tab active" onclick="filterReviews('all')">Alle</button>
+          <button class="filter-tab" onclick="filterReviews('pending')">Ausstehend</button>
+          <button class="filter-tab" onclick="filterReviews('approved')">Freigegeben</button>
+          <button class="filter-tab" onclick="filterReviews('rejected')">Abgelehnt</button>
+        </div>
+        <div class="inquiry-list" id="reviewList"></div>
+      </div>
+    </div>
+
+    <!-- TAB: IMPRESSIONEN -->
+    <div class="tab-content" id="tab-impressionen">
+      <div class="panel">
+        <div class="panel-title">📸 Impressionen verwalten</div>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
+          Bilder werden automatisch auf 800×600px zugeschnitten (egal welches Format du hochlädst).
+          Videos (MP4/WebM/MOV, max. 50&nbsp;MB) werden bei Bedarf automatisch komprimiert, gespeichert und im Popup abgespielt.
+          Klick auf ein Bild/Video öffnet die Großansicht in der Lightbox.
+        </p>
+        <form id="impUploadForm" onsubmit="uploadImpression(event)" style="margin-bottom:1.5rem;">
+          <div class="form-row-2">
+            <div class="login-field">
+              <label>Bild oder Video hochladen</label>
+              <input type="file" id="impFile" accept="image/*,video/*,.mp4,.mov,.webm,.jpg,.jpeg,.png,.webp,.gif" required>
+              <div id="impPreview" class="image-preview"></div>
+            </div>
+            <div class="login-field">
+              <label>Beschriftung (optional)</label>
+              <input type="text" id="impCaption" placeholder="z.B. Bestickter Hoodie">
+            </div>
+          </div>
+          <button type="submit" class="login-btn" style="max-width:240px;">+ Hochladen</button>
+          <p class="settings-msg" id="impMsg"></p>
+        </form>
+        <div class="product-list" id="impressionenList"></div>
+      </div>
+    </div>
+
+    <!-- TAB: KUNDEN-LOGOS -->
+    <div class="tab-content" id="tab-logos">
+      <div class="panel">
+        <div class="panel-title">🏢 Kunden-Logos verwalten</div>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
+          Diese Logos erscheinen in der Laufleiste unter "Sie vertrauen uns". Beide Größen (klein für die Leiste,
+          groß für das Popup beim Klick) werden automatisch aus deinem Upload erstellt.
+        </p>
+        <form id="logoUploadForm" onsubmit="uploadLogo(event)" style="margin-bottom:1.5rem;">
+          <div class="form-row-2">
+            <div class="login-field">
+              <label>Logo hochladen (beliebiges Format)</label>
+              <input type="file" id="logoFile" accept="image/*" required>
+              <div id="logoPreview" class="image-preview"></div>
+            </div>
+            <div>
+              <div class="login-field">
+                <label>Firmenname *</label>
+                <input type="text" id="logoName" placeholder="z.B. Muster GmbH" required>
+              </div>
+              <div class="login-field">
+                <label>Website (optional)</label>
+                <input type="text" id="logoWebsite" placeholder="z.B. www.muster.de">
+              </div>
+            </div>
+          </div>
+          <button type="submit" class="login-btn" style="max-width:240px;">+ Logo hochladen</button>
+          <p class="settings-msg" id="logoMsg"></p>
+        </form>
+        <div class="product-list" id="logoList"></div>
+      </div>
+
+      <!-- Logo Bearbeiten Modal -->
+      <div class="modal-overlay" id="logoEditModal" onclick="closeLogoEditModalOutside(event)">
+        <div class="modal-box">
+          <button class="modal-close" onclick="closeLogoEditModal()">✕</button>
+          <div class="panel-title">Logo bearbeiten</div>
+          <div class="settings-form">
+            <input type="hidden" id="editLogoId">
+            <div class="login-field">
+              <label>Firmenname *</label>
+              <input type="text" id="editLogoName">
+            </div>
+            <div class="login-field">
+              <label>Website (optional)</label>
+              <input type="text" id="editLogoWebsite" placeholder="z.B. www.muster.de">
+            </div>
+            <button class="login-btn" onclick="saveLogoEdit()">Speichern</button>
+            <p class="settings-msg" id="logoEditMsg"></p>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: WERKSTATT-FOTOS -->
+    <div class="tab-content" id="tab-workshop">
+      <div class="panel">
+        <div class="panel-title">Werkstatt-Fotos</div>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
+          Diese Fotos erscheinen in "Frisch aus der Werkstatt" auf der Hauptseite als 3×3-Raster –
+          sobald mindestens ein Foto aktiv ist, ersetzen sie die automatischen Produktart-Kacheln.
+          Maximal 9 Fotos/Videos werden angezeigt: lädst du ein 10., fällt automatisch das älteste raus.
+          Zusätzlich verschwindet jedes Element automatisch nach 7 Tagen.
+          Videos (MP4/WebM/MOV, max. 50&nbsp;MB) werden bei Bedarf automatisch komprimiert und im Popup abgespielt.
+        </p>
+
+        <form id="photoUploadForm" onsubmit="uploadWorkshopPhoto(event)" style="margin-bottom:1.5rem;">
+          <div class="form-row-2">
+            <div class="login-field">
+              <label>Foto oder Video</label>
+              <input type="file" id="photoFile" accept="image/*,video/*,.mp4,.mov,.webm,.jpg,.jpeg,.png,.webp,.gif" required>
+              <div id="photoPreview" class="image-preview"></div>
+            </div>
+            <div class="login-field">
+              <label>Beschriftung (optional)</label>
+              <input type="text" id="photoCaption" placeholder="z.B. Bestickter Hoodie für Team XY">
+            </div>
+          </div>
+          <button type="submit" class="login-btn" style="max-width:240px;">+ Hochladen</button>
+          <p class="settings-msg" id="photoMsg"></p>
+        </form>
+
+        <div class="product-list" id="workshopPhotoList"></div>
+      </div>
+    </div>
+
+    <!-- TAB: PREIS-KALKULATOR -->
+    <div class="tab-content" id="tab-calculator">
+      <iframe id="calculatorFrame" style="width:100%; height:100vh; border:none; border-radius:12px;" src="preis-kalkulator-v2.html"></iframe>
+    </div>
+
+    <!-- TAB: AUFTRÄGE -->
+    <div class="tab-content" id="tab-auftraege">
+      <iframe style="width:100%; height:100vh; border:none; border-radius:12px;" src="auftrag-admin.html"></iframe>
+    </div>
+
+    <!-- TAB: SHOP -->
+    <div class="tab-content" id="tab-shop">
+
+      <!-- PUBLISH STATUS -->
+      <div class="panel">
+        <div class="panel-title">Shop-Status</div>
+        <div class="shop-status-row">
+          <div class="shop-status-info">
+            <div class="shop-status-badge" id="shopStatusBadge">
+              <span class="dot-status" id="shopStatusDot"></span>
+              <span id="shopStatusText">Lädt…</span>
+            </div>
+            <p class="shop-status-desc">
+              Solange der Shop nicht veröffentlicht ist, sehen Besucher die "Im Aufbau"-Seite.
+              Wenn du fertig bist, klicke auf "Shop veröffentlichen" – dann sehen alle Besucher
+              sofort deine aktiven Produkte. Du kannst jederzeit zurückschalten.
+            </p>
+          </div>
+          <button class="btn-publish" id="shopPublishBtn" onclick="toggleShopPublish()">Lädt…</button>
+        </div>
+      </div>
+
+      <div class="panel">
+        <div class="panel-title">
+          Shop-Produkte
+          <button class="btn-secondary" onclick="openProductForm()">+ Neues Produkt</button>
+        </div>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
+          Diese Produkte werden im Shop angezeigt, sobald er veröffentlicht wird. Inaktive Produkte sind nur hier sichtbar.
+        </p>
+        <div class="product-list" id="productList"></div>
+      </div>
+
+      <!-- PRODUCT FORM (Modal) -->
+      <div class="modal-overlay" id="productModal" onclick="closeProductFormOutside(event)">
+        <div class="modal-box">
+          <button class="modal-close" onclick="closeProductForm()">✕</button>
+          <div class="panel-title" id="productFormTitle">Neues Produkt</div>
+          <form id="productForm" class="settings-form" onsubmit="saveProduct(event)" style="max-width:100%;">
+            <input type="hidden" id="prodId" value="0">
+            <input type="hidden" id="prodExistingImage" value="">
+
+            <div class="login-field">
+              <label>Name *</label>
+              <input type="text" id="prodName" required>
+            </div>
+
+            <div class="login-field">
+              <label>Kategorie *</label>
+              <select id="prodCategory" required>
+                <option value="sticken">🧵 Sticken</option>
+                <option value="dtf">🖨 DTF Druck</option>
+                <option value="plotten">✂️ Plotten</option>
+                <option value="gravieren">◇ Gravieren</option>
+                <option value="siebdruck">⊞ Siebdruck</option>
+                <option value="sonstiges">✨ Sonstiges</option>
+              </select>
+            </div>
+
+            <div class="login-field">
+              <label>Beschreibung</label>
+              <textarea id="prodDescription" rows="3"></textarea>
+            </div>
+
+            <div class="form-row-2">
+              <div class="login-field">
+                <label>Preis (DKK)</label>
+                <input type="number" id="prodPrice" step="0.01" min="0">
+              </div>
+              <div class="login-field">
+                <label>Preiseinheit</label>
+                <input type="text" id="prodPriceUnit" placeholder="DKK/Stück" value="DKK/Stück">
+              </div>
+            </div>
+
+            <div class="login-field checkbox-field">
+              <label><input type="checkbox" id="prodPriceFrom" checked> "ab"-Preis anzeigen</label>
+            </div>
+
+            <div class="login-field">
+              <label>Badge (optional)</label>
+              <input type="text" id="prodBadge" placeholder="z.B. Neu, Beliebt, Geschenkidee">
+            </div>
+
+            <div class="login-field">
+              <label>Zusatzinfo (optional)</label>
+              <input type="text" id="prodInfo" placeholder="z.B. Maximale Gravurfläche 50×50 cm">
+            </div>
+
+            <div class="login-field">
+              <label>Produktbild</label>
+              <input type="file" id="prodImage" accept="image/*">
+              <div id="prodImagePreview" class="image-preview"></div>
+            </div>
+
+            <div class="login-field checkbox-field">
+              <label><input type="checkbox" id="prodActive" checked> Aktiv (im Shop sichtbar)</label>
+            </div>
+
+            <button type="submit" class="login-btn">Speichern</button>
+            <p class="settings-msg" id="productMsg"></p>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- TAB: RECHTSTEXTE -->
+    <div class="tab-content" id="tab-legal">
+      <div class="panel">
+        <div class="panel-title">📄 Rechtstexte</div>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.2rem;">
+          Du bearbeitest nur den deutschen Text. Dänisch und Englisch werden beim Speichern
+          automatisch übersetzt und auf der Website aktualisiert – du musst dich um nichts
+          weiter kümmern. Leerzeilen erzeugen einen Absatz.
+        </p>
+
+        <div class="main-tabs" style="margin-bottom:1.2rem;">
+          <button class="legal-subtab active" onclick="switchLegalSubtab('impressum')">Impressum</button>
+          <button class="legal-subtab" onclick="switchLegalSubtab('agb')">AGB</button>
+          <button class="legal-subtab" onclick="switchLegalSubtab('datenschutz')">Datenschutz</button>
+        </div>
+
+        <div class="login-field">
+          <label>Titel (Deutsch)</label>
+          <input type="text" id="legalTitleInput">
+        </div>
+        <div class="login-field">
+          <label>Text (Deutsch)</label>
+          <textarea id="legalContentInput" rows="18" style="width:100%; font-family:inherit; font-size:0.9rem; line-height:1.6; padding:0.8rem; background:var(--bg-dark); border:1px solid var(--border); border-radius:8px; color:var(--text-white); resize:vertical;"></textarea>
+        </div>
+
+        <button class="login-btn" style="max-width:280px;" onclick="saveLegalText()">Speichern & übersetzen</button>
+        <p class="settings-msg" id="legalMsg"></p>
+      </div>
+    </div>
+
+    <!-- TAB: WEBSITE-TEXTE -->
+    <div class="tab-content" id="tab-sitetexts">
+      <div class="panel">
+        <div class="panel-title">📝 Website-Texte</div>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.2rem;">
+          Du bearbeitest nur den deutschen Text. Dänisch und Englisch werden beim Speichern
+          automatisch übersetzt und live auf der Website aktualisiert.
+        </p>
+
+        <div class="main-tabs" style="margin-bottom:1.2rem;">
+          <button class="sitetext-subtab active" onclick="switchSiteTextSubtab('hero')">Startbereich</button>
+          <button class="sitetext-subtab" onclick="switchSiteTextSubtab('welcome')">Willkommens-Text</button>
+          <button class="sitetext-subtab" onclick="switchSiteTextSubtab('sections')">Abschnitte</button>
+          <button class="sitetext-subtab" onclick="switchSiteTextSubtab('contact')">Kontakt</button>
+        </div>
+
+        <div id="siteTextFields"></div>
+
+        <button class="login-btn" style="max-width:280px;" onclick="saveSiteTextGroup()">Speichern & übersetzen</button>
+        <p class="settings-msg" id="siteTextMsg"></p>
+      </div>
+    </div>
+
+    <!-- TAB: POPUP -->
+    <div class="tab-content" id="tab-popup">
+      <div class="panel">
+        <div class="panel-title">📢 Popup für Sonderangebote / Urlaub etc.</div>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.2rem;">
+          Wird jedem Besucher einmal pro Tag angezeigt, solange es aktiv ist. Perfekt für
+          zeitlich begrenzte Angebote, Urlaubshinweise oder wichtige Ankündigungen.
+        </p>
+
+        <div class="login-field" style="display:flex; align-items:center; gap:0.8rem; margin-bottom:1.2rem;">
+          <label style="margin:0;" for="popupAktiv">Popup ist aktiv</label>
+          <input type="checkbox" id="popupAktiv" style="width:20px; height:20px;">
+        </div>
+
+        <div class="login-field">
+          <label>Titel</label>
+          <input type="text" id="popupTitel" placeholder="z. B. Sommerpause vom 1.–15. August">
+        </div>
+
+        <div class="login-field">
+          <label>Text</label>
+          <textarea id="popupText" rows="4" placeholder="z. B. In diesem Zeitraum bearbeiten wir keine neuen Aufträge. Bestehende Bestellungen werden wie gewohnt fertiggestellt." style="width:100%; font-family:inherit; font-size:0.9rem; line-height:1.5; padding:0.7rem; background:var(--bg-dark); border:1px solid var(--border); border-radius:8px; color:var(--text-white); resize:vertical;"></textarea>
+        </div>
+
+        <div class="login-field">
+          <label>Bild (optional)</label>
+          <input type="file" id="popupBild" accept="image/jpeg,image/png,image/webp">
+          <div id="popupBildPreview" class="image-preview"></div>
+          <p style="font-size:12px; color:#999; margin:4px 0 0;">JPG, PNG oder WEBP, max. 8 MB.</p>
+        </div>
+
+        <div class="login-field" style="display:flex; align-items:center; gap:0.8rem; margin-bottom:0.6rem;">
+          <label style="margin:0;" for="popupButtonAktiv">Button anzeigen</label>
+          <input type="checkbox" id="popupButtonAktiv" style="width:20px; height:20px;">
+        </div>
+
+        <div class="login-field">
+          <label>Button-Text</label>
+          <input type="text" id="popupButtonText" placeholder="z. B. Jetzt anfragen">
+        </div>
+        <div class="login-field">
+          <label>Button-Link</label>
+          <input type="text" id="popupButtonLink" placeholder="z. B. #kontakt oder shop.html">
+        </div>
+
+        <button class="login-btn" style="max-width:280px;" onclick="savePopupSettings()">Speichern</button>
+        <p class="settings-msg" id="popupMsg"></p>
+      </div>
+    </div>
+
+    <!-- TAB: SETTINGS -->
+    <div class="tab-content" id="tab-settings">
+      <div class="panel">
+        <div class="panel-title">Passwort ändern</div>
+        <div class="settings-form">
+          <div class="login-field">
+            <label>Aktuelles Passwort</label>
+            <input type="password" id="currentPass">
+          </div>
+          <div class="login-field">
+            <label>Neues Passwort</label>
+            <input type="password" id="newPass">
+          </div>
+          <button class="login-btn" onclick="changePassword()">Passwort ändern</button>
+          <p class="settings-msg" id="settingsMsg"></p>
+        </div>
+      </div>
+
+      <!-- PUSH-BENACHRICHTIGUNGEN -->
+      <div class="panel">
+        <div class="panel-title">📲 Push-Benachrichtigungen (ntfy.sh)</div>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
+          Erhalte Push-Benachrichtigungen auf dein Handy für zwei Ereignisse:
+          (1) wenn die Zahl der gleichzeitig Online-Besucher einen bestimmten Wert
+          erreicht – praktisch direkt nach einer Werbeaktion, und (2) sofort wenn
+          jemand eine neue Bewertung schreibt, damit du sie schnell prüfen und
+          freigeben kannst. Dafür wird die kostenlose App <b>ntfy</b> (iOS/Android)
+          benötigt: App installieren, eigenes "Topic" (Kanal-Name) wählen und hier eintragen.
+        </p>
+        <div class="settings-form">
+          <div class="login-field checkbox-field">
+            <label><input type="checkbox" id="pushEnabled"> Push-Benachrichtigungen aktivieren</label>
+          </div>
+          <div class="login-field">
+            <label>Ntfy-Topic (Kanal-Name)</label>
+            <input type="text" id="ntfyTopic" placeholder="z.B. wunschfabrik-jf2026x9">
+          </div>
+          <div class="form-row-2">
+            <div class="login-field">
+              <label>Schwellenwert (Online-Personen)</label>
+              <input type="number" id="pushThreshold" min="1" value="3">
+            </div>
+            <div class="login-field">
+              <label>Wartezeit zwischen Pushs (Min.)</label>
+              <input type="number" id="pushCooldown" min="1" value="15">
+            </div>
+          </div>
+          <button class="login-btn" onclick="saveNotifySettings()">Speichern</button>
+          <button class="btn-secondary" onclick="sendTestPush()" style="max-width:240px;">🔔 Test-Push senden</button>
+          <button class="btn-secondary" onclick="debugPushStatus()" style="max-width:240px;">🔍 Push-Status prüfen</button>
+          <button class="btn-secondary" onclick="debugGeoStatus()" style="max-width:240px;">🌍 Standort-Erkennung prüfen</button>
+          <div class="login-field" style="margin-top:1rem;">
+            <label>Test-E-Mail-Adresse (für Mail-Versand-Test)</label>
+            <input type="email" id="testMailAddress" placeholder="deine@email.de">
+          </div>
+          <button class="btn-secondary" onclick="debugMailStatus()" style="max-width:240px;">✉ Mail-Versand testen</button>
+          <p class="settings-msg" id="notifyMsg"></p>
+          <pre id="debugOutput" style="display:none; background:var(--bg-card2); border:1px solid var(--border); border-radius:8px; padding:0.8rem; font-size:0.75rem; color:var(--text-muted); white-space:pre-wrap; margin-top:0.5rem;"></pre>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const API = 'admin_api.php';
+let allInquiries = [];
+let currentFilter = 'all';
+
+// ─── AUTH ────────────────────────────────────────────────────────
+function doLogin() {
+  const username = document.getElementById('loginUser').value.trim();
+  const password = document.getElementById('loginPass').value.trim();
+  const errEl = document.getElementById('loginError');
+
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=login&username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        errEl.classList.remove('show');
+        showDashboard(username);
+      } else {
+        errEl.textContent = data.error || 'Anmeldung fehlgeschlagen.';
+        errEl.classList.add('show');
+      }
+    })
+    .catch(() => {
+      errEl.textContent = 'Verbindungsfehler.';
+      errEl.classList.add('show');
+    });
+}
+
+function doLogout() {
+  if (liveMonitorInterval) { clearInterval(liveMonitorInterval); liveMonitorInterval = null; liveMonitorActive = false; }
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=logout'
+  }).then(() => {
+    document.getElementById('dashboard').classList.remove('show');
+    document.getElementById('loginScreen').style.display = 'flex';
+    document.getElementById('loginUser').value = '';
+    document.getElementById('loginPass').value = '';
+  });
+}
+
+function checkSession() {
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=check'
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        showDashboard(data.user);
+      }
+    })
+    .catch(() => {});
+}
+
+function showDashboard(username) {
+  document.getElementById('loginScreen').style.display = 'none';
+  document.getElementById('dashboard').classList.add('show');
+  document.getElementById('headerUser').textContent = '👤 ' + username;
+  loadStats();
+  loadInquiries();
+}
+
+// Enter-Taste im Login
+document.addEventListener('keydown', e => {
+  if (e.key === 'Enter' && document.getElementById('loginScreen').style.display !== 'none') {
+    doLogin();
+  }
+});
+
+// ─── LIVE-MONITOR ────────────────────────────────────────────────
+let liveMonitorInterval = null;
+let liveMonitorActive = false;
+
+function toggleLiveMonitor() {
+  const btn = document.getElementById('liveMonitorToggle');
+  if (liveMonitorActive) {
+    clearInterval(liveMonitorInterval);
+    liveMonitorInterval = null;
+    liveMonitorActive = false;
+    btn.textContent = '▶ Starten';
+  } else {
+    liveMonitorActive = true;
+    btn.textContent = '⏸ Stoppen';
+    fetchLiveMonitor();
+    liveMonitorInterval = setInterval(fetchLiveMonitor, 5000);
+  }
+}
+
+function fetchLiveMonitor() {
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=live_monitor'
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      document.getElementById('liveMonitorCount').textContent = data.online;
+      renderLiveMonitorChart(data.history);
+      renderOnlineLocations(data.online_list || []);
+    });
+}
+
+function renderOnlineLocations(list) {
+  const wrap = document.getElementById('onlineLocations');
+  if (!wrap) return;
+  if (list.length === 0) {
+    wrap.innerHTML = '<div class="online-locations-empty">Keine Standortdaten verfügbar.</div>';
+    return;
+  }
+  wrap.innerHTML = list.map(loc => {
+    const flagUrl = loc.country_code ? `https://flagcdn.com/24x18/${loc.country_code.toLowerCase()}.png` : '';
+    const label = [loc.city, loc.region, loc.country].filter(Boolean).join(', ') || 'Unbekannt';
+    return `
+      <div class="online-location-chip">
+        ${flagUrl ? `<img src="${flagUrl}" alt="${loc.country_code}">` : '🌍'}
+        ${escapeHtml(label)}
+      </div>`;
+  }).join('');
+}
+
+function renderLiveMonitorChart(history) {
+  const wrap = document.getElementById('liveMonitorBars');
+  const max = Math.max(...history, 1);
+  wrap.innerHTML = history.map(v => {
+    const heightPct = Math.max(4, (v / max) * 100);
+    const highClass = v >= max && v > 0 ? ' high' : '';
+    return `<div class="live-monitor-bar${highClass}" style="height:${heightPct}%" title="${v}"></div>`;
+  }).join('');
+}
+
+// ─── STATS ───────────────────────────────────────────────────────
+function loadStats() {
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=stats'
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      document.getElementById('statOnline').textContent = data.visitors_online.toLocaleString('de-DE');
+      document.getElementById('statTotal').textContent  = data.visitors_total.toLocaleString('de-DE');
+      document.getElementById('statInquiries').textContent = data.inquiries_total.toLocaleString('de-DE');
+      document.getElementById('statNew').textContent   = data.inquiries_new.toLocaleString('de-DE');
+      document.getElementById('statReviewsPending').textContent = data.reviews_pending.toLocaleString('de-DE');
+      renderChart(data.visitors_daily);
+      renderTopProducts(data.top_products);
+    });
+  loadVisitorCountries();
+}
+
+function loadVisitorCountries() {
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=visitor_countries'
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      renderCountryList(data.countries, data.regions_by_country, data.unknown_count);
+    });
+}
+
+function renderCountryList(countries, regionsByCountry, unknownCount) {
+  const wrap = document.getElementById('countryList');
+  if (!wrap) return;
+
+  if (!countries || countries.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">Noch keine Standortdaten vorhanden.</div>';
+    return;
+  }
+
+  wrap.innerHTML = countries.map((c, i) => {
+    const flagUrl = c.country_code ? `https://flagcdn.com/24x18/${c.country_code.toLowerCase()}.png` : '';
+    const regions = regionsByCountry[c.country] || [];
+    const regionsHtml = regions.slice(0, 8).map(r => {
+      const place = [r.city, r.region].filter(Boolean).join(', ') || 'Unbekannt';
+      return `<div class="country-region-item"><b>${escapeHtml(place)}</b><span>${r.count}×</span></div>`;
+    }).join('');
+
+    return `
+      <div class="country-row" id="countryRow${i}">
+        <div class="country-row-header" onclick="toggleCountryRow(${i})">
+          ${flagUrl ? `<img src="${flagUrl}" alt="${c.country_code}">` : '🌍'}
+          <span class="country-row-name">${escapeHtml(c.country)}</span>
+          <span class="country-row-count">${c.total_visits} Besuche</span>
+          <span class="country-row-chevron">▾</span>
+        </div>
+        <div class="country-row-regions">${regionsHtml || '<span style="color:var(--text-dim);font-size:0.78rem;">Keine Detaildaten</span>'}</div>
+      </div>`;
+  }).join('') + (unknownCount > 0
+    ? `<div style="color:var(--text-dim); font-size:0.78rem; margin-top:0.4rem; text-align:center;">+ ${unknownCount} Besuche ohne erkennbaren Standort</div>`
+    : '');
+}
+
+function toggleCountryRow(i) {
+  document.getElementById('countryRow' + i).classList.toggle('open');
+}
+
+function renderChart(daily) {
+  const wrap = document.getElementById('chartBars');
+  if (!daily || daily.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">Noch keine Daten vorhanden.</div>';
+    return;
+  }
+  const max = Math.max(...daily.map(d => d.count), 1);
+  wrap.innerHTML = daily.map(d => {
+    const heightPct = Math.max(4, (d.count / max) * 100);
+    const dateObj = new Date(d.date);
+    const label = dateObj.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' });
+    return `
+      <div class="chart-bar-col">
+        <div class="chart-value">${d.count}</div>
+        <div class="chart-bar" style="height:${heightPct}%"></div>
+        <div class="chart-label">${label}</div>
+      </div>`;
+  }).join('');
+}
+
+function renderTopProducts(products) {
+  const panel = document.getElementById('topProductsPanel');
+  const wrap = document.getElementById('topProducts');
+  if (!products || products.length === 0) {
+    panel.style.display = 'none';
+    return;
+  }
+  panel.style.display = 'block';
+  const max = Math.max(...products.map(p => p.count), 1);
+  wrap.innerHTML = products.map(p => `
+    <div class="tp-row">
+      <div class="tp-name">${escapeHtml(p.product)}</div>
+      <div class="tp-bar-wrap"><div class="tp-bar" style="width:${(p.count / max) * 100}%"></div></div>
+      <div class="tp-count">${p.count}</div>
+    </div>
+  `).join('');
+}
+
+// ─── INQUIRIES ───────────────────────────────────────────────────
+function loadInquiries() {
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=inquiries'
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      allInquiries = data.inquiries;
+      renderInquiries();
+    });
+}
+
+function filterInquiries(status) {
+  currentFilter = status;
+  document.querySelectorAll('.filter-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  renderInquiries();
+}
+
+const statusLabels = {
+  new: 'Neu', in_progress: 'In Bearbeitung', done: 'Erledigt', archived: 'Archiviert'
+};
+
+function renderInquiries() {
+  const list = document.getElementById('inquiryList');
+  const filtered = currentFilter === 'all'
+    ? allInquiries
+    : allInquiries.filter(i => i.status === currentFilter);
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state">Keine Anfragen in dieser Ansicht.</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(i => {
+    const date = new Date(i.created_at).toLocaleString('de-DE', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+    return `
+      <div class="inquiry-card">
+        <div class="inquiry-head">
+          <div>
+            <span class="inquiry-name">${escapeHtml(i.name)}</span> ·
+            <a class="inquiry-email" href="mailto:${escapeHtml(i.email)}">${escapeHtml(i.email)}</a>
+          </div>
+          <div class="inquiry-date">${date}</div>
+        </div>
+        <div class="inquiry-meta">
+          ${i.phone ? `<span><b>Telefon:</b> ${escapeHtml(i.phone)}</span>` : ''}
+          ${i.product ? `<span><b>Produkt:</b> ${escapeHtml(i.product)}</span>` : ''}
+          ${i.qty ? `<span><b>Menge:</b> ${escapeHtml(i.qty)}</span>` : ''}
+          ${i.wish_date ? `<span><b>Wunschdatum:</b> ${escapeHtml(i.wish_date)}</span>` : ''}
+          ${i.file_name ? `<span><b>Datei:</b> ${escapeHtml(i.file_name)}</span>` : ''}
+        </div>
+        <div class="inquiry-body">${escapeHtml(i.message || '').replace(/\n/g, '<br>')}</div>
+        <div class="inquiry-actions">
+          <span class="status-badge status-${i.status}">${statusLabels[i.status] || i.status}</span>
+          <select class="status-select" onchange="setStatus(${i.id}, this.value)">
+            <option value="new" ${i.status === 'new' ? 'selected' : ''}>Neu</option>
+            <option value="in_progress" ${i.status === 'in_progress' ? 'selected' : ''}>In Bearbeitung</option>
+            <option value="done" ${i.status === 'done' ? 'selected' : ''}>Erledigt</option>
+            <option value="archived" ${i.status === 'archived' ? 'selected' : ''}>Archiviert</option>
+          </select>
+          <button class="btn-delete" onclick="deleteInquiry(${i.id})">🗑 Löschen</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function setStatus(id, status) {
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=set_status&id=${id}&status=${status}`
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      const item = allInquiries.find(i => i.id === id);
+      if (item) item.status = status;
+      loadStats();
+      renderInquiries();
+    }
+  });
+}
+
+function deleteInquiry(id) {
+  if (!confirm('Diese Anfrage wirklich löschen?')) return;
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=delete_inquiry&id=${id}`
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      allInquiries = allInquiries.filter(i => i.id !== id);
+      loadStats();
+      renderInquiries();
+    }
+  });
+}
+
+// ─── TABS ────────────────────────────────────────────────────────
+function switchTab(tabName) {
+  document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('tab-' + tabName).classList.add('active');
+  if (tabName === 'shop') loadProducts();
+  if (tabName === 'reviews') loadReviews();
+  if (tabName === 'workshop') loadWorkshopPhotos();
+  if (tabName === 'impressionen') loadImpressionen();
+  if (tabName === 'logos') loadLogos();
+  if (tabName === 'settings') loadNotifySettings();
+  if (tabName === 'legal') loadLegalTexts();
+  if (tabName === 'sitetexts') loadSiteTexts();
+  if (tabName === 'popup') loadPopupSettings();
+}
+
+function changePassword() {
+  const current = document.getElementById('currentPass').value.trim();
+  const newPass = document.getElementById('newPass').value.trim();
+  const msg = document.getElementById('settingsMsg');
+
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=change_password&current_password=${encodeURIComponent(current)}&new_password=${encodeURIComponent(newPass)}`
+  })
+    .then(r => r.json())
+    .then(data => {
+      msg.classList.remove('ok', 'error');
+      if (data.ok) {
+        msg.textContent = '✓ Passwort erfolgreich geändert.';
+        msg.classList.add('ok', 'show');
+        document.getElementById('currentPass').value = '';
+        document.getElementById('newPass').value = '';
+      } else {
+        msg.textContent = data.error || 'Fehler beim Ändern.';
+        msg.classList.add('error', 'show');
+      }
+    });
+}
+
+// ─── PUSH-BENACHRICHTIGUNGEN ─────────────────────────────────────
+function loadNotifySettings() {
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=get_notify_settings'
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      document.getElementById('pushEnabled').checked = data.push_enabled;
+      document.getElementById('ntfyTopic').value = data.ntfy_topic || '';
+      document.getElementById('pushThreshold').value = data.threshold;
+      document.getElementById('pushCooldown').value = data.cooldown_minutes;
+    });
+}
+
+function saveNotifySettings() {
+  const msg = document.getElementById('notifyMsg');
+  msg.classList.remove('show', 'ok', 'error');
+
+  const pushEnabled = document.getElementById('pushEnabled').checked ? '1' : '';
+  const ntfyTopic = document.getElementById('ntfyTopic').value.trim();
+  const threshold = document.getElementById('pushThreshold').value;
+  const cooldown = document.getElementById('pushCooldown').value;
+
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=set_notify_settings&push_enabled=${pushEnabled}&ntfy_topic=${encodeURIComponent(ntfyTopic)}&threshold=${threshold}&cooldown_minutes=${cooldown}`
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        const stateText = pushEnabled === '1' ? 'AKTIVIERT ✓' : 'deaktiviert';
+        msg.textContent = `✓ Einstellungen gespeichert. Push ist jetzt: ${stateText}`;
+        msg.classList.add('ok', 'show');
+      } else {
+        msg.textContent = data.error || 'Fehler beim Speichern.';
+        msg.classList.add('error', 'show');
+      }
+    });
+}
+
+function sendTestPush() {
+  const msg = document.getElementById('notifyMsg');
+  msg.classList.remove('show', 'ok', 'error');
+  msg.textContent = 'Sende Test-Push…';
+  msg.classList.add('show');
+
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=send_test_push'
+  })
+    .then(r => r.json())
+    .then(data => {
+      msg.classList.remove('ok', 'error');
+      if (data.ok) {
+        msg.textContent = '✓ Test-Push gesendet! Sollte gleich auf deinem Handy ankommen.';
+        msg.classList.add('ok', 'show');
+      } else {
+        msg.textContent = data.error || 'Fehler beim Senden.';
+        msg.classList.add('error', 'show');
+      }
+    });
+}
+
+function debugPushStatus() {
+  const out = document.getElementById('debugOutput');
+  out.style.display = 'block';
+  out.textContent = 'Lädt…';
+
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=debug_push'
+  })
+    .then(r => r.json())
+    .then(data => {
+      out.textContent = JSON.stringify(data, null, 2);
+    })
+    .catch(() => { out.textContent = 'Fehler beim Laden.'; });
+}
+
+function debugGeoStatus() {
+  const out = document.getElementById('debugOutput');
+  out.style.display = 'block';
+  out.textContent = 'Lädt…';
+
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: 'action=debug_geo'
+  })
+    .then(r => r.json())
+    .then(data => {
+      out.textContent = JSON.stringify(data, null, 2);
+    })
+    .catch(() => { out.textContent = 'Fehler beim Laden.'; });
+}
+
+function debugMailStatus() {
+  const out = document.getElementById('debugOutput');
+  const email = document.getElementById('testMailAddress').value.trim();
+  if (!email) {
+    out.style.display = 'block';
+    out.textContent = 'Bitte eine Test-E-Mail-Adresse eingeben.';
+    return;
+  }
+  out.style.display = 'block';
+  out.textContent = 'Sende Test-Mails…';
+
+  fetch(API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=debug_mail&test_email=${encodeURIComponent(email)}`
+  })
+    .then(r => r.json())
+    .then(data => {
+      out.textContent = JSON.stringify(data, null, 2);
+    })
+    .catch(() => { out.textContent = 'Fehler beim Laden.'; });
+}
+
+// ─── SHOP / PRODUKTE ─────────────────────────────────────────────
+const PRODUCTS_API = 'products_api.php';
+let allProducts = [];
+
+const categoryLabels = {
+  sticken: '🧵 Sticken',
+  dtf: '🖨 DTF Druck',
+  plotten: '✂️ Plotten',
+  gravieren: '◇ Gravieren',
+  siebdruck: '⊞ Siebdruck',
+  sonstiges: '✨ Sonstiges',
+};
+
+function loadProducts() {
+  fetch(`${PRODUCTS_API}?action=list_all`, { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      allProducts = data.products;
+      renderProductList();
+    });
+  loadShopStatus();
+}
+
+function loadShopStatus() {
+  fetch(`${PRODUCTS_API}?action=shop_status`, { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      renderShopStatus(data.published);
+    });
+}
+
+function renderShopStatus(published) {
+  const dot = document.getElementById('shopStatusDot');
+  const text = document.getElementById('shopStatusText');
+  const btn = document.getElementById('shopPublishBtn');
+
+  if (published) {
+    dot.className = 'dot-status live';
+    text.textContent = '🟢 Shop ist live – Besucher sehen deine Produkte';
+    btn.textContent = '🔒 Shop verstecken';
+    btn.className = 'btn-publish is-live';
+  } else {
+    dot.className = 'dot-status hidden';
+    text.textContent = '⚪ Shop ist versteckt – Besucher sehen "Im Aufbau"';
+    btn.textContent = '🚀 Shop veröffentlichen';
+    btn.className = 'btn-publish is-hidden';
+  }
+  btn.dataset.published = published ? '1' : '0';
+}
+
+function toggleShopPublish() {
+  const btn = document.getElementById('shopPublishBtn');
+  const current = btn.dataset.published === '1';
+  const next = current ? '' : '1';
+
+  if (!current) {
+    if (!confirm('Shop jetzt für alle Besucher veröffentlichen?')) return;
+  } else {
+    if (!confirm('Shop wieder verstecken? Besucher sehen dann wieder "Im Aufbau".')) return;
+  }
+
+  fetch(PRODUCTS_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=set_shop_status&published=${next}`,
+    credentials: 'same-origin'
+  })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) renderShopStatus(data.published);
+    });
+}
+
+function renderProductList() {
+  const wrap = document.getElementById('productList');
+  if (allProducts.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">Noch keine Produkte angelegt.</div>';
+    return;
+  }
+  wrap.innerHTML = allProducts.map(p => {
+    const imgHtml = p.image
+      ? `<img src="${escapeHtml(p.image)}" alt="${escapeHtml(p.name)}">`
+      : (categoryEmoji(p.category));
+    const priceLabel = p.price_from ? 'ab ' : '';
+    return `
+      <div class="product-admin-card${p.active ? '' : ' inactive'}">
+        <div class="product-admin-img">
+          ${imgHtml}
+          ${p.badge ? `<div class="product-admin-badge">${escapeHtml(p.badge)}</div>` : ''}
+        </div>
+        <div class="product-admin-body">
+          <div class="product-admin-cat">${categoryLabels[p.category] || p.category}</div>
+          <div class="product-admin-name">${escapeHtml(p.name)}</div>
+          <div class="product-admin-price">${priceLabel}${Number(p.price).toLocaleString('de-DE')} ${escapeHtml(p.price_unit || '')}</div>
+          <div class="product-admin-actions">
+            <button class="btn-mini" onclick="openProductForm(${p.id})">✎ Bearbeiten</button>
+            <button class="btn-mini" onclick="toggleProductActive(${p.id})">${p.active ? '👁 Deaktivieren' : '🚫 Aktivieren'}</button>
+            <button class="btn-mini danger" onclick="deleteProduct(${p.id})">🗑 Löschen</button>
+          </div>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function categoryEmoji(cat) {
+  const map = {
+    sticken: '🧵', dtf: '🖨', plotten: '✂️',
+    gravieren: '◇', siebdruck: '⊞', sonstiges: '✨'
+  };
+  return `<span style="font-size:2.5rem;">${map[cat] || '📦'}</span>`;
+}
+
+function openProductForm(productId = null) {
+  const form = document.getElementById('productForm');
+  form.reset();
+  document.getElementById('productMsg').classList.remove('show', 'ok', 'error');
+  document.getElementById('prodImagePreview').innerHTML = '';
+  document.getElementById('prodExistingImage').value = '';
+
+  if (productId) {
+    const p = allProducts.find(x => String(x.id) === String(productId));
+    if (!p) return;
+    document.getElementById('productFormTitle').textContent = 'Produkt bearbeiten';
+    document.getElementById('prodId').value = p.id;
+    document.getElementById('prodName').value = p.name;
+    document.getElementById('prodCategory').value = p.category;
+    document.getElementById('prodDescription').value = p.description || '';
+    document.getElementById('prodPrice').value = p.price;
+    document.getElementById('prodPriceUnit').value = p.price_unit || 'DKK/Stück';
+    document.getElementById('prodPriceFrom').checked = !!p.price_from;
+    document.getElementById('prodBadge').value = p.badge || '';
+    document.getElementById('prodInfo').value = p.info || '';
+    document.getElementById('prodActive').checked = !!p.active;
+    document.getElementById('prodExistingImage').value = p.image || '';
+    if (p.image) {
+      document.getElementById('prodImagePreview').innerHTML = `<img src="${escapeHtml(p.image)}" alt="">`;
+    }
+  } else {
+    document.getElementById('productFormTitle').textContent = 'Neues Produkt';
+    document.getElementById('prodId').value = '0';
+    document.getElementById('prodPriceUnit').value = 'DKK/Stück';
+    document.getElementById('prodPriceFrom').checked = true;
+    document.getElementById('prodActive').checked = true;
+  }
+
+  document.getElementById('productModal').classList.add('open');
+}
+
+function closeProductForm() {
+  document.getElementById('productModal').classList.remove('open');
+}
+function closeProductFormOutside(e) {
+  if (e.target === document.getElementById('productModal')) closeProductForm();
+}
+
+// Bildvorschau
+document.addEventListener('DOMContentLoaded', () => {
+  const fileInput = document.getElementById('prodImage');
+  if (fileInput) {
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      const preview = document.getElementById('prodImagePreview');
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => {
+        preview.innerHTML = `<img src="${e.target.result}" alt="">`;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+});
+
+function saveProduct(event) {
+  event.preventDefault();
+  const msg = document.getElementById('productMsg');
+  msg.classList.remove('show', 'ok', 'error');
+
+  const formData = new FormData();
+  formData.append('action', 'save');
+  formData.append('id', document.getElementById('prodId').value);
+  formData.append('name', document.getElementById('prodName').value.trim());
+  formData.append('category', document.getElementById('prodCategory').value);
+  formData.append('description', document.getElementById('prodDescription').value.trim());
+  formData.append('price', document.getElementById('prodPrice').value || '0');
+  formData.append('price_unit', document.getElementById('prodPriceUnit').value.trim() || 'DKK/Stück');
+  formData.append('price_from', document.getElementById('prodPriceFrom').checked ? '1' : '');
+  formData.append('badge', document.getElementById('prodBadge').value.trim());
+  formData.append('info', document.getElementById('prodInfo').value.trim());
+  formData.append('active', document.getElementById('prodActive').checked ? '1' : '');
+  formData.append('existing_image', document.getElementById('prodExistingImage').value);
+  formData.append('sort_order', '0');
+
+  const fileInput = document.getElementById('prodImage');
+  if (fileInput.files[0]) {
+    formData.append('image', fileInput.files[0]);
+  }
+
+  fetch(PRODUCTS_API, { method: 'POST', body: formData, credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        closeProductForm();
+        loadProducts();
+      } else {
+        msg.textContent = data.error || 'Fehler beim Speichern.';
+        msg.classList.add('error', 'show');
+      }
+    })
+    .catch(() => {
+      msg.textContent = 'Verbindungsfehler.';
+      msg.classList.add('error', 'show');
+    });
+}
+
+function toggleProductActive(id) {
+  fetch(PRODUCTS_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=toggle_active&id=${id}`,
+    credentials: 'same-origin'
+  }).then(r => r.json()).then(data => {
+    if (data.ok) loadProducts();
+  });
+}
+
+function deleteProduct(id) {
+  if (!confirm('Dieses Produkt wirklich löschen?')) return;
+  fetch(PRODUCTS_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=delete&id=${id}`,
+    credentials: 'same-origin'
+  }).then(r => r.json()).then(data => {
+    if (data.ok) loadProducts();
+  });
+}
+
+// ─── IMPRESSIONEN ────────────────────────────────────────────────
+const IMP_API = 'impressionen_api.php';
+let allImpressionen = [];
+
+function loadImpressionen() {
+  fetch(`${IMP_API}?action=list_all`, { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      allImpressionen = data.images;
+      renderImpressionen();
+    });
+
+  // Bild-/Video-Vorschau
+  const fileInput = document.getElementById('impFile');
+  if (fileInput && !fileInput._previewBound) {
+    fileInput._previewBound = true;
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      const preview = document.getElementById('impPreview');
+      if (!file) return;
+      preview.innerHTML = '';
+      if (file.type.startsWith('video/')) {
+        const url = URL.createObjectURL(file);
+        const video = document.createElement('video');
+        video.src = url;
+        video.style.maxWidth = '100%';
+        video.muted = true;
+        video.playsInline = true;
+        video.controls = true;
+        preview.appendChild(video);
+      } else {
+        const reader = new FileReader();
+        reader.onload = e => { preview.innerHTML = `<img src="${e.target.result}" alt="">`; };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+}
+
+// Zieht das erste Frame eines Video-Files als JPEG-Base64 (für Thumbnail)
+function extractVideoThumb(file) {
+  return new Promise((resolve) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+    video.addEventListener('loadeddata', () => {
+      video.currentTime = 0.1;
+    });
+    video.addEventListener('seeked', () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 800;
+      canvas.height = 600;
+      const ctx = canvas.getContext('2d');
+      // Cover-Zuschnitt wie bei Bildern
+      const scale = Math.max(canvas.width / video.videoWidth, canvas.height / video.videoHeight);
+      const w = video.videoWidth * scale, h = video.videoHeight * scale;
+      const x = (canvas.width - w) / 2, y = (canvas.height - h) / 2;
+      ctx.fillStyle = '#000';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(video, x, y, w, h);
+      URL.revokeObjectURL(url);
+      resolve(canvas.toDataURL('image/jpeg', 0.85));
+    });
+    video.addEventListener('error', () => { URL.revokeObjectURL(url); resolve(null); });
+  });
+}
+
+// ─── VIDEO-KOMPRESSION (native Browser-API, kein externes Skript nötig) ─
+// Spielt das Video unhörbar ab, zeichnet es verkleinert auf ein <canvas> und
+// nimmt das Ergebnis per MediaRecorder mit niedriger Bitrate neu auf.
+// Läuft in Echtzeit (dauert ungefähr so lange wie das Video selbst),
+// dafür ganz ohne CDN/Worker/CORS-Abhängigkeiten.
+async function compressVideoIfNeeded(file, onProgress) {
+  const COMPRESS_THRESHOLD = 8 * 1024 * 1024; // 8 MB
+  if (file.size <= COMPRESS_THRESHOLD) return file;
+
+  if (typeof MediaRecorder === 'undefined') {
+    throw new Error('Dieser Browser unterstützt keine Video-Komprimierung');
+  }
+
+  const MAX_DIM = 640; // längere Kante wird auf max. 640px begrenzt
+
+  return new Promise((resolve, reject) => {
+    const url = URL.createObjectURL(file);
+    const video = document.createElement('video');
+    video.src = url;
+    video.muted = true;
+    video.playsInline = true;
+
+    video.addEventListener('loadedmetadata', () => {
+      const vw = video.videoWidth, vh = video.videoHeight;
+      const scale = Math.min(1, MAX_DIM / Math.max(vw, vh));
+      const outW = Math.round(vw * scale / 2) * 2; // gerade Zahl (Codec-Anforderung)
+      const outH = Math.round(vh * scale / 2) * 2;
+
+      const canvas = document.createElement('canvas');
+      canvas.width = outW;
+      canvas.height = outH;
+      const ctx = canvas.getContext('2d');
+
+      const canvasStream = canvas.captureStream(30);
+
+      // Ton mit übernehmen, falls das Video welchen hat
+      let mixedStream = canvasStream;
+      try {
+        if (video.captureStream) {
+          const videoStreamForAudio = video.captureStream();
+          const audioTracks = videoStreamForAudio.getAudioTracks();
+          if (audioTracks.length > 0) {
+            mixedStream = new MediaStream([...canvasStream.getVideoTracks(), ...audioTracks]);
+          }
+        }
+      } catch (e) { /* Audio optional, Kompression funktioniert auch ohne */ }
+
+      const mimeCandidates = [
+        'video/webm;codecs=vp9,opus',
+        'video/webm;codecs=vp8,opus',
+        'video/webm'
+      ];
+      const mimeType = mimeCandidates.find(t => MediaRecorder.isTypeSupported(t)) || 'video/webm';
+
+      const recorder = new MediaRecorder(mixedStream, {
+        mimeType,
+        videoBitsPerSecond: 800000 // ~800 kbit/s – klein, aber für Vorschauzwecke ausreichend
+      });
+      const chunks = [];
+      recorder.ondataavailable = (e) => { if (e.data.size > 0) chunks.push(e.data); };
+
+      recorder.onstop = () => {
+        URL.revokeObjectURL(url);
+        const blob = new Blob(chunks, { type: 'video/webm' });
+        if (blob.size > 0 && blob.size < file.size) {
+          resolve(new File([blob], file.name.replace(/\.\w+$/, '.webm'), { type: 'video/webm' }));
+        } else {
+          resolve(file); // Kompression brachte nichts – Original behalten
+        }
+      };
+      recorder.onerror = (e) => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Kompression fehlgeschlagen: ' + (e?.error?.message || 'Aufnahmefehler')));
+      };
+
+      let rafId;
+      const drawFrame = () => {
+        if (video.paused || video.ended) return;
+        ctx.drawImage(video, 0, 0, outW, outH);
+        if (onProgress && video.duration) {
+          onProgress(Math.min(99, Math.round((video.currentTime / video.duration) * 100)));
+        }
+        rafId = requestAnimationFrame(drawFrame);
+      };
+
+      video.addEventListener('play', () => { rafId = requestAnimationFrame(drawFrame); });
+      video.addEventListener('ended', () => {
+        cancelAnimationFrame(rafId);
+        recorder.stop();
+      });
+      video.addEventListener('error', () => {
+        cancelAnimationFrame(rafId);
+        URL.revokeObjectURL(url);
+        reject(new Error('Video konnte nicht gelesen werden'));
+      });
+
+      recorder.start();
+      video.play().catch((err) => {
+        URL.revokeObjectURL(url);
+        reject(new Error('Video-Wiedergabe fehlgeschlagen: ' + err.message));
+      });
+    });
+
+    video.addEventListener('error', () => {
+      URL.revokeObjectURL(url);
+      reject(new Error('Video konnte nicht geladen werden'));
+    });
+  });
+}
+
+function renderImpressionen() {
+  const wrap = document.getElementById('impressionenList');
+  if (!wrap) return;
+  if (allImpressionen.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">Noch keine Bilder hochgeladen.</div>';
+    return;
+  }
+  wrap.innerHTML = allImpressionen.map(img => {
+    const isVideo = img.media_type === 'video';
+    const thumbSrc = isVideo ? (img.video_thumb || '') : img.image;
+    return `
+    <div class="product-admin-card${img.active ? '' : ' inactive'}">
+      <div class="product-admin-img" style="position:relative;">
+        ${thumbSrc ? `<img src="${escapeHtml(thumbSrc)}" alt="${escapeHtml(img.caption||'')}">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#111;color:#666;font-size:1.5rem;">🎬</div>`}
+        ${isVideo ? `<span style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);color:#fff;font-size:0.7rem;padding:0.2rem 0.5rem;border-radius:4px;">🎬 Video</span>` : ''}
+      </div>
+      <div class="product-admin-body">
+        <div class="product-admin-name">${escapeHtml(img.caption || '(ohne Beschriftung)')}</div>
+        <div class="product-admin-actions" style="margin-top:0.6rem;">
+          <button class="btn-mini" onclick="toggleImpression(${img.id})">${img.active ? '👁 Deaktivieren' : '🚫 Aktivieren'}</button>
+          <button class="btn-mini danger" onclick="deleteImpression(${img.id})">🗑 Löschen</button>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+async function uploadImpression(event) {
+  event.preventDefault();
+  const msg = document.getElementById('impMsg');
+  msg.classList.remove('show','ok','error');
+  const fileInput = document.getElementById('impFile');
+  let file = fileInput.files[0];
+  if (!file) return;
+
+  const submitBtn = event.target.querySelector('button[type="submit"]');
+  const isVideo = file.type.startsWith('video/');
+
+  if (isVideo) {
+    submitBtn.disabled = true;
+    if (file.size > 8 * 1024 * 1024) {
+      submitBtn.textContent = 'Video wird komprimiert...';
+      try {
+        file = await compressVideoIfNeeded(file, (pct) => {
+          submitBtn.textContent = `Wird komprimiert... ${pct}%`;
+        });
+      } catch (err) {
+        msg.textContent = err.message + ' (Original wird ohne Komprimierung hochgeladen)';
+        msg.classList.add('error','show');
+        // Trotzdem mit Original weitermachen statt abzubrechen
+      }
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      msg.textContent = 'Video ist auch nach Komprimierung zu groß – maximal 50 MB erlaubt.';
+      msg.classList.add('error','show');
+      submitBtn.disabled = false;
+      submitBtn.textContent = '+ Hochladen';
+      return;
+    }
+  }
+
+  const formData = new FormData();
+  formData.append('action', 'upload');
+  formData.append('image', file);
+  formData.append('caption', document.getElementById('impCaption').value.trim());
+
+  if (isVideo) {
+    submitBtn.textContent = 'Vorschaubild wird erzeugt...';
+    const thumb = await extractVideoThumb(file);
+    if (thumb) formData.append('thumb_data', thumb);
+    submitBtn.textContent = 'Lädt hoch...';
+  }
+
+  fetch(IMP_API, { method: 'POST', body: formData, credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '+ Hochladen';
+      if (data.ok) {
+        document.getElementById('impUploadForm').reset();
+        document.getElementById('impPreview').innerHTML = '';
+        loadImpressionen();
+      } else {
+        msg.textContent = data.error || 'Fehler beim Hochladen.';
+        msg.classList.add('error','show');
+      }
+    })
+    .catch(() => {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '+ Hochladen';
+      msg.textContent = 'Fehler beim Hochladen.';
+      msg.classList.add('error','show');
+    });
+}
+
+function toggleImpression(id) {
+  fetch(IMP_API, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:`action=toggle_active&id=${id}`, credentials:'same-origin'
+  }).then(r=>r.json()).then(d => { if(d.ok) loadImpressionen(); });
+}
+
+function deleteImpression(id) {
+  if (!confirm('Dieses Bild wirklich löschen?')) return;
+  fetch(IMP_API, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:`action=delete&id=${id}`, credentials:'same-origin'
+  }).then(r=>r.json()).then(d => { if(d.ok) loadImpressionen(); });
+}
+
+// ─── KUNDEN-LOGOS ─────────────────────────────────────────────────
+const LOGOS_API = 'logos_api.php';
+let allLogos = [];
+
+function loadLogos() {
+  fetch(`${LOGOS_API}?action=list_all`, { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      allLogos = data.logos;
+      renderLogos();
+    });
+
+  const fileInput = document.getElementById('logoFile');
+  if (fileInput && !fileInput._previewBound) {
+    fileInput._previewBound = true;
+    fileInput.addEventListener('change', () => {
+      const file = fileInput.files[0];
+      const preview = document.getElementById('logoPreview');
+      if (!file) return;
+      const reader = new FileReader();
+      reader.onload = e => { preview.innerHTML = `<img src="${e.target.result}" alt="" style="background:#fff;padding:4px;border-radius:6px;">`; };
+      reader.readAsDataURL(file);
+    });
+  }
+}
+
+function renderLogos() {
+  const wrap = document.getElementById('logoList');
+  if (!wrap) return;
+  if (allLogos.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">Noch keine Logos hochgeladen.</div>';
+    return;
+  }
+  wrap.innerHTML = allLogos.map(l => `
+    <div class="product-admin-card${l.active ? '' : ' inactive'}">
+      <div class="product-admin-img" style="background:#fff;">
+        <img src="${escapeHtml(l.image_small)}" alt="${escapeHtml(l.name)}" style="max-height:60px;width:auto;object-fit:contain;">
+      </div>
+      <div class="product-admin-body">
+        <div class="product-admin-name">${escapeHtml(l.name)}</div>
+        ${l.website ? `<div style="font-size:0.72rem;color:var(--purple-bright);margin-top:0.2rem;">🌐 ${escapeHtml(l.website)}</div>` : ''}
+        <div class="product-admin-actions" style="margin-top:0.6rem;">
+          <button class="btn-mini" onclick="editLogo(${l.id})">✎ Bearbeiten</button>
+          <button class="btn-mini" onclick="toggleLogo(${l.id})">${l.active ? '👁 Deaktivieren' : '🚫 Aktivieren'}</button>
+          <button class="btn-mini danger" onclick="deleteLogo(${l.id})">🗑 Löschen</button>
+        </div>
+      </div>
+    </div>`).join('');
+}
+
+function uploadLogo(event) {
+  event.preventDefault();
+  const msg = document.getElementById('logoMsg');
+  msg.classList.remove('show','ok','error');
+  const fileInput = document.getElementById('logoFile');
+  const name = document.getElementById('logoName').value.trim();
+  if (!fileInput.files[0] || !name) return;
+
+  const formData = new FormData();
+  formData.append('action', 'upload');
+  formData.append('image', fileInput.files[0]);
+  formData.append('name', name);
+  formData.append('website', document.getElementById('logoWebsite').value.trim());
+
+  fetch(LOGOS_API, { method:'POST', body: formData, credentials:'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        document.getElementById('logoUploadForm').reset();
+        document.getElementById('logoPreview').innerHTML = '';
+        loadLogos();
+      } else {
+        msg.textContent = data.error || 'Fehler beim Hochladen.';
+        msg.classList.add('error','show');
+      }
+    });
+}
+
+function editLogo(id) {
+  const l = allLogos.find(x => String(x.id) === String(id));
+  if (!l) return;
+  document.getElementById('editLogoId').value = id;
+  document.getElementById('editLogoName').value = l.name;
+  document.getElementById('editLogoWebsite').value = l.website || '';
+  document.getElementById('logoEditMsg').classList.remove('show','ok','error');
+  document.getElementById('logoEditModal').classList.add('open');
+}
+
+function closeLogoEditModal() {
+  document.getElementById('logoEditModal').classList.remove('open');
+}
+
+function closeLogoEditModalOutside(e) {
+  if (e.target === document.getElementById('logoEditModal')) closeLogoEditModal();
+}
+
+function saveLogoEdit() {
+  const id = document.getElementById('editLogoId').value;
+  const name = document.getElementById('editLogoName').value.trim();
+  const website = document.getElementById('editLogoWebsite').value.trim();
+  const msg = document.getElementById('logoEditMsg');
+  if (!name) { msg.textContent='Firmenname darf nicht leer sein.'; msg.classList.add('error','show'); return; }
+
+  fetch(LOGOS_API, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:`action=update&id=${id}&name=${encodeURIComponent(name)}&website=${encodeURIComponent(website)}`,
+    credentials:'same-origin'
+  }).then(r=>r.json()).then(d => {
+    if (d.ok) { closeLogoEditModal(); loadLogos(); }
+    else { msg.textContent = d.error || 'Fehler.'; msg.classList.add('error','show'); }
+  });
+}
+
+function toggleLogo(id) {
+  fetch(LOGOS_API, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:`action=toggle_active&id=${id}`, credentials:'same-origin'
+  }).then(r=>r.json()).then(d => { if(d.ok) loadLogos(); });
+}
+
+function deleteLogo(id) {
+  if (!confirm('Dieses Logo wirklich löschen?')) return;
+  fetch(LOGOS_API, { method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:`action=delete&id=${id}`, credentials:'same-origin'
+  }).then(r=>r.json()).then(d => { if(d.ok) loadLogos(); });
+}
+
+// ─── BEWERTUNGEN ─────────────────────────────────────────────────
+const REVIEWS_API = 'reviews_api.php';
+let allReviews = [];
+let currentReviewFilter = 'all';
+
+const reviewStatusLabels = {
+  pending: 'Ausstehend', approved: 'Freigegeben', rejected: 'Abgelehnt'
+};
+
+function loadReviews() {
+  fetch(`${REVIEWS_API}?action=list_all`, { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      allReviews = data.reviews;
+      renderReviews();
+    });
+}
+
+function filterReviews(status) {
+  currentReviewFilter = status;
+  document.querySelectorAll('#reviewFilterTabs .filter-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  renderReviews();
+}
+
+function renderReviews() {
+  const list = document.getElementById('reviewList');
+  const filtered = currentReviewFilter === 'all'
+    ? allReviews
+    : allReviews.filter(r => r.status === currentReviewFilter);
+
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty-state">Keine Bewertungen in dieser Ansicht.</div>';
+    return;
+  }
+
+  list.innerHTML = filtered.map(r => {
+    const date = new Date(r.created_at).toLocaleString('de-DE', {
+      day: '2-digit', month: '2-digit', year: 'numeric', hour: '2-digit', minute: '2-digit'
+    });
+    const displayName = r.initials_only
+      ? r.name.split(/\s+/).map(p => p.charAt(0).toUpperCase() + '.').join(' ')
+      : r.name;
+    return `
+      <div class="inquiry-card">
+        <div class="inquiry-head">
+          <div>
+            <span class="inquiry-name">${escapeHtml(r.name)}</span>
+            ${r.company ? `<span class="inquiry-email"> · ${escapeHtml(r.company)}</span>` : ''}
+            ${r.initials_only ? `<span style="color:var(--text-dim); font-size:0.78rem;"> (zeigt: ${escapeHtml(displayName)})</span>` : ''}
+          </div>
+          <div class="inquiry-date">${date}</div>
+        </div>
+        <div class="inquiry-body">„${escapeHtml(r.text)}"</div>
+        <div class="inquiry-actions">
+          <span class="status-badge status-${r.status}">${reviewStatusLabels[r.status] || r.status}</span>
+          ${r.status !== 'approved' ? `<button class="btn-mini" onclick="setReviewStatus(${r.id}, 'approved')">✓ Freigeben</button>` : ''}
+          ${r.status !== 'rejected' ? `<button class="btn-mini" onclick="setReviewStatus(${r.id}, 'rejected')">✕ Ablehnen</button>` : ''}
+          ${r.status !== 'pending' ? `<button class="btn-mini" onclick="setReviewStatus(${r.id}, 'pending')">↺ Zurücksetzen</button>` : ''}
+          <button class="btn-mini danger" onclick="deleteReview(${r.id})">🗑 Löschen</button>
+        </div>
+      </div>`;
+  }).join('');
+}
+
+function setReviewStatus(id, status) {
+  fetch(REVIEWS_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=set_status&id=${id}&status=${status}`,
+    credentials: 'same-origin'
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      const item = allReviews.find(r => String(r.id) === String(id));
+      if (item) item.status = status;
+      renderReviews();
+    }
+  });
+}
+
+function deleteReview(id) {
+  if (!confirm('Diese Bewertung wirklich löschen?')) return;
+  fetch(REVIEWS_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=delete&id=${id}`,
+    credentials: 'same-origin'
+  }).then(r => r.json()).then(data => {
+    if (data.ok) {
+      allReviews = allReviews.filter(r => r.id !== id);
+      renderReviews();
+    }
+  });
+}
+
+// ─── WERKSTATT-FOTOS ─────────────────────────────────────────────
+const WORKSHOP_API = 'workshop_photos_api.php';
+let allWorkshopPhotos = [];
+
+function loadWorkshopPhotos() {
+  fetch(`${WORKSHOP_API}?action=list_all`, { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok) return;
+      allWorkshopPhotos = data.photos;
+      renderWorkshopPhotos();
+    });
+}
+
+function renderWorkshopPhotos() {
+  const wrap = document.getElementById('workshopPhotoList');
+  if (allWorkshopPhotos.length === 0) {
+    wrap.innerHTML = '<div class="empty-state">Noch keine Fotos hochgeladen.</div>';
+    return;
+  }
+  wrap.innerHTML = allWorkshopPhotos.map(p => {
+    const isVideo = p.media_type === 'video';
+    const thumbSrc = isVideo ? (p.video_thumb || '') : p.image;
+    return `
+    <div class="product-admin-card${p.active ? '' : ' inactive'}">
+      <div class="product-admin-img" style="position:relative;">
+        ${thumbSrc ? `<img src="${escapeHtml(thumbSrc)}" alt="${escapeHtml(p.caption || '')}">` : `<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:#111;color:#666;font-size:1.5rem;">🎬</div>`}
+        ${isVideo ? `<span style="position:absolute;top:6px;right:6px;background:rgba(0,0,0,0.7);color:#fff;font-size:0.7rem;padding:0.2rem 0.5rem;border-radius:4px;">🎬 Video</span>` : ''}
+      </div>
+      <div class="product-admin-body">
+        <div class="product-admin-name">${escapeHtml(p.caption || '(ohne Beschriftung)')}</div>
+        <div class="product-admin-actions" style="margin-top:0.6rem;">
+          <button class="btn-mini" onclick="toggleWorkshopPhoto(${p.id})">${p.active ? '👁 Deaktivieren' : '🚫 Aktivieren'}</button>
+          <button class="btn-mini danger" onclick="deleteWorkshopPhoto(${p.id})">🗑 Löschen</button>
+        </div>
+      </div>
+    </div>
+  `;
+  }).join('');
+}
+
+// Bild-/Video-Vorschau für Werkstatt-Foto-Upload
+document.addEventListener('DOMContentLoaded', () => {
+  const photoInput = document.getElementById('photoFile');
+  if (photoInput) {
+    photoInput.addEventListener('change', () => {
+      const file = photoInput.files[0];
+      const preview = document.getElementById('photoPreview');
+      if (!file) return;
+      preview.innerHTML = '';
+      if (file.type.startsWith('video/')) {
+        const url = URL.createObjectURL(file);
+        const video = document.createElement('video');
+        video.src = url;
+        video.style.maxWidth = '100%';
+        video.muted = true;
+        video.playsInline = true;
+        video.controls = true;
+        preview.appendChild(video);
+      } else {
+        const reader = new FileReader();
+        reader.onload = e => {
+          preview.innerHTML = `<img src="${e.target.result}" alt="">`;
+        };
+        reader.readAsDataURL(file);
+      }
+    });
+  }
+});
+
+async function uploadWorkshopPhoto(event) {
+  event.preventDefault();
+  const msg = document.getElementById('photoMsg');
+  msg.classList.remove('show', 'ok', 'error');
+
+  const fileInput = document.getElementById('photoFile');
+  let file = fileInput.files[0];
+  if (!file) {
+    msg.textContent = 'Bitte ein Foto oder Video auswählen.';
+    msg.classList.add('error', 'show');
+    return;
+  }
+
+  const submitBtn = event.target.querySelector('button[type="submit"]');
+  const isVideo = file.type.startsWith('video/');
+
+  if (isVideo) {
+    submitBtn.disabled = true;
+    if (file.size > 8 * 1024 * 1024) {
+      submitBtn.textContent = 'Video wird komprimiert...';
+      try {
+        file = await compressVideoIfNeeded(file, (pct) => {
+          submitBtn.textContent = `Wird komprimiert... ${pct}%`;
+        });
+      } catch (err) {
+        msg.textContent = err.message + ' (Original wird ohne Komprimierung hochgeladen)';
+        msg.classList.add('error', 'show');
+        // Trotzdem mit Original weitermachen statt abzubrechen
+      }
+    }
+    if (file.size > 50 * 1024 * 1024) {
+      msg.textContent = 'Video ist auch nach Komprimierung zu groß – maximal 50 MB erlaubt.';
+      msg.classList.add('error', 'show');
+      submitBtn.disabled = false;
+      submitBtn.textContent = '+ Hochladen';
+      return;
+    }
+  }
+
+  const formData = new FormData();
+  formData.append('action', 'upload');
+  formData.append('image', file);
+  formData.append('caption', document.getElementById('photoCaption').value.trim());
+  formData.append('sort_order', '0');
+
+  if (isVideo) {
+    submitBtn.textContent = 'Vorschaubild wird erzeugt...';
+    const thumb = await extractVideoThumb(file);
+    if (thumb) formData.append('thumb_data', thumb);
+    submitBtn.textContent = 'Lädt hoch...';
+  }
+
+  fetch(WORKSHOP_API, { method: 'POST', body: formData, credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '+ Hochladen';
+      if (data.ok) {
+        document.getElementById('photoUploadForm').reset();
+        document.getElementById('photoPreview').innerHTML = '';
+        loadWorkshopPhotos();
+      } else {
+        msg.textContent = data.error || 'Fehler beim Hochladen.';
+        msg.classList.add('error', 'show');
+      }
+    })
+    .catch(() => {
+      submitBtn.disabled = false;
+      submitBtn.textContent = '+ Hochladen';
+      msg.textContent = 'Verbindungsfehler.';
+      msg.classList.add('error', 'show');
+    });
+}
+
+function toggleWorkshopPhoto(id) {
+  fetch(WORKSHOP_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=toggle_active&id=${id}`,
+    credentials: 'same-origin'
+  }).then(r => r.json()).then(data => {
+    if (data.ok) loadWorkshopPhotos();
+  });
+}
+
+function deleteWorkshopPhoto(id) {
+  if (!confirm('Dieses Foto wirklich löschen?')) return;
+  fetch(WORKSHOP_API, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    body: `action=delete&id=${id}`,
+    credentials: 'same-origin'
+  }).then(r => r.json()).then(data => {
+    if (data.ok) loadWorkshopPhotos();
+  });
+}
+
+// ─── HELPERS ─────────────────────────────────────────────────────
+function escapeHtml(str) {
+  const div = document.createElement('div');
+  div.textContent = str || '';
+  return div.innerHTML;
+}
+
+// ─── RECHTSTEXTE ────────────────────────────────────────────────────
+const LEGAL_API = 'legal_texts_api.php';
+let allLegalTexts = {};
+let currentLegalType = 'impressum';
+
+function loadLegalTexts() {
+  fetch(LEGAL_API + '?action=list_all', { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        allLegalTexts = {};
+        data.texts.forEach(t => { allLegalTexts[t.type] = t; });
+        renderLegalSubtab();
+      }
+    });
+}
+
+function switchLegalSubtab(type) {
+  currentLegalType = type;
+  document.querySelectorAll('.legal-subtab').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderLegalSubtab();
+}
+
+function renderLegalSubtab() {
+  const t = allLegalTexts[currentLegalType];
+  if (!t) return;
+  document.getElementById('legalTitleInput').value = t.title_de || '';
+  document.getElementById('legalContentInput').value = t.content_de || '';
+  document.getElementById('legalMsg').classList.remove('show', 'ok', 'error');
+}
+
+function saveLegalText() {
+  const msg = document.getElementById('legalMsg');
+  msg.classList.remove('show', 'ok', 'error');
+  const titleDe = document.getElementById('legalTitleInput').value.trim();
+  const contentDe = document.getElementById('legalContentInput').value;
+
+  if (!titleDe || !contentDe.trim()) {
+    msg.textContent = 'Titel und Text dürfen nicht leer sein.';
+    msg.classList.add('error', 'show');
+    return;
+  }
+
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Wird übersetzt & gespeichert...';
+
+  const formData = new FormData();
+  formData.append('action', 'update');
+  formData.append('type', currentLegalType);
+  formData.append('title_de', titleDe);
+  formData.append('content_de', contentDe);
+
+  fetch(LEGAL_API, { method: 'POST', body: formData, credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      btn.disabled = false;
+      btn.textContent = 'Speichern & übersetzen';
+      if (data.ok) {
+        if (data.warning) {
+          msg.textContent = data.warning;
+          msg.classList.add('error', 'show');
+        } else {
+          msg.textContent = 'Gespeichert – Dänisch und Englisch wurden automatisch aktualisiert.';
+          msg.classList.add('ok', 'show');
+        }
+        loadLegalTexts();
+      } else {
+        msg.textContent = data.error || 'Fehler beim Speichern.';
+        msg.classList.add('error', 'show');
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.textContent = 'Speichern & übersetzen';
+      msg.textContent = 'Verbindungsfehler.';
+      msg.classList.add('error', 'show');
+    });
+}
+
+// ─── WEBSITE-TEXTE ──────────────────────────────────────────────────
+const SITETEXT_API = 'site_texts_api.php';
+let allSiteTexts = [];
+let currentSiteTextGroup = 'hero';
+
+// Menschenlesbare Labels + Textarea-Größe pro Feld (statt rohem text_key)
+const SITETEXT_FIELD_META = {
+  hero_copy_1:      { label: 'Einleitungswort (z.B. "Damit")', rows: 1 },
+  hero_copy_3:      { label: 'Abschlusssatz (z.B. "kein Wunsch bleiben muss.")', rows: 1 },
+  hero_cta:         { label: 'Button-Text (z.B. "Los geht\'s")', rows: 1 },
+  services_label:   { label: 'Kleine Überschrift über dem Titel', rows: 1 },
+  services_title:   { label: 'Große Überschrift ("Hallo! 👋 Schön, dass du da bist.") – <br> erzeugt einen Zeilenumbruch', rows: 2 },
+  services_sub:     { label: 'Fließtext darunter', rows: 4 },
+  usp1_title:       { label: 'Kästchen 1 – Titel', rows: 1 },
+  usp1_text:        { label: 'Kästchen 1 – Text', rows: 3 },
+  usp2_title:       { label: 'Kästchen 2 – Titel', rows: 1 },
+  usp2_text:        { label: 'Kästchen 2 – Text', rows: 3 },
+  usp3_title:       { label: 'Kästchen 3 – Titel', rows: 1 },
+  usp3_text:        { label: 'Kästchen 3 – Text', rows: 3 },
+  portfolio_label:  { label: 'Impressionen – kleine Überschrift', rows: 1 },
+  portfolio_title:  { label: 'Impressionen – große Überschrift', rows: 1 },
+  ref_label:        { label: 'Referenzen – kleine Überschrift', rows: 1 },
+  ref_title:        { label: 'Referenzen – große Überschrift', rows: 2 },
+  workshop_label:   { label: 'Werkstatt – kleine Überschrift', rows: 1 },
+  workshop_title:   { label: 'Werkstatt – große Überschrift', rows: 1 },
+  faq_label:        { label: 'FAQ – kleine Überschrift', rows: 1 },
+  faq_title:        { label: 'FAQ – große Überschrift', rows: 1 },
+  contact_label:    { label: 'Kontakt – kleine Überschrift', rows: 1 },
+  contact_title:    { label: 'Kontakt – große Überschrift', rows: 1 },
+  contact_sub:      { label: 'Kontakt – Fließtext', rows: 3 },
+};
+
+function loadSiteTexts() {
+  fetch(SITETEXT_API + '?action=list_all', { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (data.ok) {
+        allSiteTexts = data.texts;
+        renderSiteTextSubtab();
+      }
+    });
+}
+
+function switchSiteTextSubtab(group) {
+  currentSiteTextGroup = group;
+  document.querySelectorAll('.sitetext-subtab').forEach(b => b.classList.remove('active'));
+  event.target.classList.add('active');
+  renderSiteTextSubtab();
+}
+
+function renderSiteTextSubtab() {
+  const wrap = document.getElementById('siteTextFields');
+  const fields = allSiteTexts.filter(t => t.group_key === currentSiteTextGroup);
+  wrap.innerHTML = fields.map(f => {
+    const meta = SITETEXT_FIELD_META[f.text_key] || { label: f.text_key, rows: 2 };
+    const isLong = meta.rows > 1;
+    const fieldHtml = isLong
+      ? `<textarea data-key="${f.text_key}" rows="${meta.rows}" style="width:100%; font-family:inherit; font-size:0.9rem; line-height:1.5; padding:0.7rem; background:var(--bg-dark); border:1px solid var(--border); border-radius:8px; color:var(--text-white); resize:vertical;">${escapeHtml(f.content_de || '')}</textarea>`
+      : `<input type="text" data-key="${f.text_key}" value="${escapeHtml(f.content_de || '')}">`;
+    return `
+      <div class="login-field">
+        <label>${meta.label}</label>
+        ${fieldHtml}
+      </div>
+    `;
+  }).join('');
+  document.getElementById('siteTextMsg').classList.remove('show', 'ok', 'error');
+}
+
+function saveSiteTextGroup() {
+  const msg = document.getElementById('siteTextMsg');
+  msg.classList.remove('show', 'ok', 'error');
+
+  const fields = {};
+  document.querySelectorAll('#siteTextFields [data-key]').forEach(el => {
+    fields[el.dataset.key] = el.value;
+  });
+
+  if (Object.keys(fields).length === 0) return;
+
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Wird übersetzt & gespeichert...';
+
+  const formData = new FormData();
+  formData.append('action', 'update_group');
+  formData.append('group_key', currentSiteTextGroup);
+  formData.append('fields', JSON.stringify(fields));
+
+  fetch(SITETEXT_API, { method: 'POST', body: formData, credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      btn.disabled = false;
+      btn.textContent = 'Speichern & übersetzen';
+      if (data.ok) {
+        if (data.warning) {
+          msg.textContent = data.warning;
+          msg.classList.add('error', 'show');
+        } else {
+          msg.textContent = 'Gespeichert – Dänisch und Englisch wurden automatisch aktualisiert.';
+          msg.classList.add('ok', 'show');
+        }
+        loadSiteTexts();
+      } else {
+        msg.textContent = data.error || 'Fehler beim Speichern.';
+        msg.classList.add('error', 'show');
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.textContent = 'Speichern & übersetzen';
+      msg.textContent = 'Verbindungsfehler.';
+      msg.classList.add('error', 'show');
+    });
+}
+
+// ─── POPUP ──────────────────────────────────────────────────────────
+const POPUP_API = 'popup_api.php';
+
+function loadPopupSettings() {
+  fetch(POPUP_API + '?action=get_admin', { credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      if (!data.ok || !data.popup) return;
+      const p = data.popup;
+      document.getElementById('popupAktiv').checked = !!(p.aktiv * 1);
+      document.getElementById('popupTitel').value = p.titel || '';
+      document.getElementById('popupText').value = p.text || '';
+      document.getElementById('popupButtonAktiv').checked = !!(p.button_aktiv * 1);
+      document.getElementById('popupButtonText').value = p.button_text || '';
+      document.getElementById('popupButtonLink').value = p.button_link || '';
+      const preview = document.getElementById('popupBildPreview');
+      if (p.bild) {
+        preview.innerHTML = `<img src="${escapeHtml(p.bild)}" alt="" style="max-width:200px; border-radius:8px; margin-top:0.5rem;">
+          <button type="button" class="btn-mini danger" style="margin-top:0.4rem;" onclick="removePopupImage()">🗑 Bild entfernen</button>`;
+      } else {
+        preview.innerHTML = '';
+      }
+      document.getElementById('popupMsg').classList.remove('show', 'ok', 'error');
+    });
+}
+
+let popupRemoveImageFlag = false;
+function removePopupImage() {
+  popupRemoveImageFlag = true;
+  document.getElementById('popupBildPreview').innerHTML = '<p style="color:var(--text-muted); font-size:0.85rem;">Bild wird beim Speichern entfernt.</p>';
+}
+
+// Bildvorschau bei neuer Auswahl
+document.addEventListener('DOMContentLoaded', () => {
+  const bildInput = document.getElementById('popupBild');
+  if (bildInput) {
+    bildInput.addEventListener('change', () => {
+      const file = bildInput.files[0];
+      if (!file) return;
+      popupRemoveImageFlag = false;
+      const reader = new FileReader();
+      reader.onload = e => {
+        document.getElementById('popupBildPreview').innerHTML = `<img src="${e.target.result}" alt="" style="max-width:200px; border-radius:8px; margin-top:0.5rem;">`;
+      };
+      reader.readAsDataURL(file);
+    });
+  }
+});
+
+function savePopupSettings() {
+  const msg = document.getElementById('popupMsg');
+  msg.classList.remove('show', 'ok', 'error');
+
+  const formData = new FormData();
+  formData.append('action', 'save');
+  formData.append('aktiv', document.getElementById('popupAktiv').checked ? '1' : '');
+  formData.append('titel', document.getElementById('popupTitel').value.trim());
+  formData.append('text', document.getElementById('popupText').value.trim());
+  formData.append('button_aktiv', document.getElementById('popupButtonAktiv').checked ? '1' : '');
+  formData.append('button_text', document.getElementById('popupButtonText').value.trim());
+  formData.append('button_link', document.getElementById('popupButtonLink').value.trim());
+  if (popupRemoveImageFlag) formData.append('remove_image', '1');
+
+  const bildInput = document.getElementById('popupBild');
+  if (bildInput.files[0]) formData.append('bild', bildInput.files[0]);
+
+  const btn = event.target;
+  btn.disabled = true;
+  btn.textContent = 'Wird gespeichert...';
+
+  fetch(POPUP_API, { method: 'POST', body: formData, credentials: 'same-origin' })
+    .then(r => r.json())
+    .then(data => {
+      btn.disabled = false;
+      btn.textContent = 'Speichern';
+      if (data.ok) {
+        msg.textContent = 'Gespeichert – Änderungen sind live auf der Website.';
+        msg.classList.add('ok', 'show');
+        popupRemoveImageFlag = false;
+        bildInput.value = '';
+        loadPopupSettings();
+      } else {
+        msg.textContent = data.error || 'Fehler beim Speichern.';
+        msg.classList.add('error', 'show');
+      }
+    })
+    .catch(() => {
+      btn.disabled = false;
+      btn.textContent = 'Speichern';
+      msg.textContent = 'Verbindungsfehler.';
+      msg.classList.add('error', 'show');
+    });
+}
+
+// ─── INIT ────────────────────────────────────────────────────────
+checkSession();
+// Stats alle 30 Sekunden aktualisieren
+setInterval(() => {
+  if (document.getElementById('dashboard').classList.contains('show')) {
+    loadStats();
+  }
+}, 30000);
+</script>
+</body>
+</html>

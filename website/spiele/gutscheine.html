@@ -1,0 +1,340 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Gutscheine – Wunsch-Fabrik.dk</title>
+<meta name="robots" content="noindex,nofollow">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --purple:#8B2BE2; --purple-bright:#A855F7; --purple-glow:rgba(139,43,226,0.35);
+  --bg-deep:#090909; --bg-card:#161616; --bg-card2:#1c1c1c;
+  --text-white:#F0EEF5; --text-muted:#888; --text-dim:#555;
+  --border:rgba(139,43,226,0.2); --gold:#F5C542; --green:#82b45c; --red:#c0603f;
+  --serif:'Cormorant Garamond',Georgia,serif; --sans:'Outfit',system-ui,sans-serif;
+}
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+button{font-family:inherit;color:inherit;outline:none;border:none;cursor:pointer;touch-action:manipulation}
+body{background:var(--bg-deep);color:var(--text-white);font-family:var(--sans);
+  min-height:100vh;line-height:1.6;
+  background-image:radial-gradient(ellipse at 50% 0%,rgba(139,43,226,.1),transparent 60%)}
+.wrap{max-width:900px;margin:0 auto;padding:1.4rem 1rem 3rem}
+
+header{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;background:var(--bg-card);
+  border:1px solid var(--border);border-radius:12px;padding:.9rem 1.1rem;margin-bottom:1rem}
+header .t{min-width:0;flex:1}
+header h1{font-family:var(--serif);font-size:1.4rem;font-weight:700;line-height:1.1}
+header .lbl{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple-bright)}
+header a{font-size:.72rem;color:var(--purple-bright);text-decoration:none;white-space:nowrap}
+
+/* Schnellprüfung */
+.check{background:var(--bg-card);border:1px solid var(--border);border-left:2px solid var(--purple);
+  border-radius:12px;padding:1rem 1.1rem;margin-bottom:1rem}
+.check .lbl{font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;
+  color:var(--purple-bright);margin-bottom:.5rem}
+.check .row{display:flex;gap:.5rem;flex-wrap:wrap}
+.check input{flex:1;min-width:180px;background:#0d0d0d;border:1px solid var(--border);
+  border-radius:8px;padding:.65rem .8rem;color:var(--text-white);font-family:Consolas,Menlo,monospace;
+  font-size:1rem;letter-spacing:2px;text-transform:uppercase;outline:none}
+.check input:focus{border-color:var(--purple)}
+.check button{background:var(--purple);color:#fff;border-radius:8px;padding:.65rem 1.2rem;
+  font-weight:600;font-size:.76rem;letter-spacing:.08em;text-transform:uppercase;
+  box-shadow:0 0 20px rgba(139,43,226,.3)}
+.check button:hover{background:var(--purple-bright)}
+.result{margin-top:.8rem;border-radius:10px;padding:.85rem 1rem;font-size:.85rem;display:none;
+  line-height:1.6}
+.result.on{display:block}
+.result.good{background:rgba(130,180,92,.12);border:1px solid var(--green);color:#c8e0b0}
+.result.bad{background:rgba(192,96,63,.12);border:1px solid var(--red);color:#e8b8a8}
+.result b{color:var(--text-white);font-size:1.05rem}
+.result .act{margin-top:.7rem;display:flex;gap:.5rem;flex-wrap:wrap}
+.result .act button{padding:.5rem 1rem;font-size:.72rem;border-radius:7px}
+.result .act .ok{background:var(--green);color:#12200a}
+.result .act .no{background:var(--bg-card2);color:var(--text-muted);border:1px solid var(--border)}
+
+/* Zahlen */
+.stats{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:1px;margin-bottom:1rem;
+  border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--border)}
+@media(min-width:600px){.stats{grid-template-columns:repeat(4,minmax(0,1fr))}}
+.stats div{background:var(--bg-card);padding:.8rem .7rem;text-align:center;min-width:0}
+.stats b{display:block;font-family:var(--serif);font-size:1.7rem;line-height:1.1;
+  font-variant-numeric:tabular-nums}
+.stats span{font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim)}
+.stats .o b{color:var(--purple-bright)}
+.stats .r b{color:var(--green)}
+.stats .e b{color:var(--text-dim)}
+.stats .v b{color:var(--red)}
+
+/* Filter */
+.tabs{display:flex;gap:1px;margin-bottom:1rem;border:1px solid var(--border);
+  border-radius:10px;overflow:hidden;background:var(--border);flex-wrap:wrap}
+.tabs button{flex:1 1 auto;min-width:80px;background:var(--bg-card);padding:.6rem .5rem;
+  color:var(--text-muted);font-size:.68rem;letter-spacing:.1em;text-transform:uppercase;
+  font-weight:600;transition:.15s}
+.tabs button:hover{background:var(--bg-card2);color:var(--text-white)}
+.tabs button.on{background:var(--purple);color:#fff}
+
+/* Liste */
+.v{background:var(--bg-card);border:1px solid var(--border);border-radius:11px;
+  padding:.8rem .9rem;margin-bottom:.5rem;min-width:0}
+.v.open{border-left:2px solid var(--purple)}
+.v.redeemed{border-left:2px solid var(--green);opacity:.75}
+.v.expired{border-left:2px solid var(--text-dim);opacity:.55}
+.v.void{border-left:2px solid var(--red);opacity:.6}
+.v .top{display:flex;justify-content:space-between;gap:.8rem;align-items:flex-start;flex-wrap:wrap}
+.v .code{font-family:Consolas,Menlo,monospace;font-size:1.05rem;font-weight:700;
+  letter-spacing:2px;color:var(--text-white)}
+.v .pct{font-family:var(--serif);font-size:1.3rem;font-weight:700;color:var(--purple-bright);
+  flex:0 0 auto}
+.v .who{font-size:.78rem;color:var(--text-muted);margin-top:.2rem;
+  overflow-wrap:anywhere}
+.v .meta{font-size:.68rem;color:var(--text-dim);margin-top:.4rem;line-height:1.7}
+.v .st{display:inline-block;font-size:.56rem;letter-spacing:.12em;text-transform:uppercase;
+  padding:.15rem .5rem;border-radius:20px;margin-left:.4rem;vertical-align:middle}
+.st.open{background:rgba(139,43,226,.18);color:var(--purple-bright)}
+.st.redeemed{background:rgba(130,180,92,.16);color:var(--green)}
+.st.expired{background:rgba(120,120,120,.14);color:var(--text-dim)}
+.st.void{background:rgba(192,96,63,.16);color:var(--red)}
+.v .act{display:flex;gap:.4rem;margin-top:.6rem;flex-wrap:wrap}
+.v .act button{padding:.42rem .85rem;border-radius:7px;font-size:.68rem;font-weight:600;
+  letter-spacing:.05em;background:var(--bg-card2);border:1px solid var(--border);color:var(--text-muted)}
+.v .act button:hover{color:var(--text-white);border-color:var(--purple)}
+.v .act .ok{background:var(--green);color:#12200a;border-color:var(--green)}
+.v .act .ok:hover{color:#12200a;filter:brightness(1.12)}
+
+.empty{color:var(--text-dim);font-size:.82rem;text-align:center;padding:2.5rem 1rem;line-height:1.8}
+.note{background:var(--bg-card);border:1px solid var(--border);border-radius:11px;
+  padding:.9rem 1.1rem;margin-top:1.4rem}
+.note h3{font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--purple-bright)}
+.note p{font-size:.76rem;color:var(--text-muted);line-height:1.75;margin-top:.4rem}
+.note b{color:var(--text-white)}
+.toast{position:fixed;left:50%;bottom:1.2rem;transform:translateX(-50%);z-index:300;
+  background:var(--bg-card2);border:1px solid var(--purple);color:var(--text-white);
+  padding:.6rem 1.1rem;border-radius:8px;font-size:.8rem;opacity:0;transition:opacity .3s;
+  max-width:92vw;text-align:center;box-shadow:0 0 30px rgba(139,43,226,.35)}
+.toast.on{opacity:1}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header>
+    <div class="t">
+      <div class="lbl">Wunsch-Fabrik.dk</div>
+      <h1>Gutscheine aus den Spielen</h1>
+    </div>
+    <a href="../admin.html">← Admin</a>
+  </header>
+
+  <!-- Code prüfen und einlösen -->
+  <div class="check">
+    <div class="lbl">Code prüfen &amp; einlösen</div>
+    <div class="row">
+      <input id="code" type="text" placeholder="WF-XXXX-XXXX" autocomplete="off" spellcheck="false">
+      <button id="checkBtn">Prüfen</button>
+    </div>
+    <div class="result" id="result"></div>
+  </div>
+
+  <div class="stats">
+    <div class="o"><b id="sOpen">–</b><span>Offen</span></div>
+    <div class="r"><b id="sRed">–</b><span>Eingelöst</span></div>
+    <div class="e"><b id="sExp">–</b><span>Abgelaufen</span></div>
+    <div class="v"><b id="sVoid">–</b><span>Gesperrt</span></div>
+  </div>
+
+  <div class="tabs">
+    <button class="on" data-f="">Alle</button>
+    <button data-f="open">Offen</button>
+    <button data-f="redeemed">Eingelöst</button>
+    <button data-f="expired">Abgelaufen</button>
+    <button data-f="void">Gesperrt</button>
+  </div>
+
+  <div id="list"><div class="empty">Wird geladen …</div></div>
+
+  <div class="note">
+    <h3>Wie die Einmaligkeit sichergestellt ist</h3>
+    <p>Jeder Code steht genau einmal in der Datenbank. Sobald du auf
+    <b>Einlösen</b> tippst, wechselt sein Status auf <b>eingelöst</b> – ein zweites Mal
+    lässt er sich nicht verwenden, die Prüfung meldet dann sofort
+    „bereits eingelöst“. Nach 30 Tagen laufen offene Codes automatisch ab.</p>
+    <p>Wichtig: Ein Gutschein gilt erst als verbraucht, wenn du ihn hier einlöst.
+    Am besten direkt beim Schreiben der Rechnung – dann kann er nicht versehentlich
+    zweimal angerechnet werden.</p>
+    <h3 style="margin-top:1rem">Automatische Löschung</h3>
+    <p>Eingelöste Gutscheine werden <b>eine Woche nach der Einlösung</b> vollständig
+    aus der Datenbank entfernt – mitsamt Name und E-Mail-Adresse. Abgelaufene und
+    gesperrte ebenso, eine Woche nach ihrem Ablaufdatum. Bei jedem Eintrag steht,
+    wann das sein wird. Es läuft von selbst, du musst nichts anstoßen.</p>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+"use strict";
+var API="gutschein_api.php";
+var $=function(i){return document.getElementById(i)};
+var filter="", daten=[];
+
+var tT;function toast(m){var t=$("toast");t.textContent=m;t.classList.add("on");
+  clearTimeout(tT);tT=setTimeout(function(){t.classList.remove("on")},2600)}
+function esc(t){return String(t==null?"":t).replace(/[&<>"]/g,function(c){
+  return {"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]})}
+function datum(s){
+  if(!s)return "–";
+  var d=new Date(s.replace(" ","T"));
+  if(isNaN(d))return esc(s);
+  return d.toLocaleDateString("de-DE",{day:"2-digit",month:"2-digit",year:"numeric"});
+}
+var STATUS={open:"Offen",redeemed:"Eingelöst",expired:"Abgelaufen",void:"Gesperrt"};
+
+/* ─── Code prüfen ─── */
+function pruefe(){
+  var c=$("code").value.trim().toUpperCase();
+  if(!c){toast("Bitte einen Code eingeben");return}
+  var r=$("result");
+  r.className="result on";r.innerHTML="Wird geprüft …";
+  fetch(API+"?action=check&code="+encodeURIComponent(c))
+    .then(function(x){return x.json()})
+    .then(function(d){
+      if(!d||!d.ok){
+        r.className="result on bad";
+        r.innerHTML="<b>Unbekannter Code</b><br>Diesen Gutschein gibt es nicht.";
+        return;
+      }
+      if(d.valid){
+        r.className="result on good";
+        r.innerHTML="<b>"+d.percent+" % – gültig</b><br>"+
+          "Ab "+d.min_order+" kr Bestellwert · gültig bis "+esc(d.expires)+"<br>"+
+          "<span style='color:#9a9a9a'>Erspielt durch: "+esc(d.reason)+"</span>"+
+          "<div class='act'><button class='ok' id='doRedeem'>Jetzt einlösen</button>"+
+          "<button class='no' id='later'>Später</button></div>";
+        $("doRedeem").onclick=function(){einloesen(c)};
+        $("later").onclick=function(){r.className="result"};
+      }else{
+        r.className="result on bad";
+        r.innerHTML="<b>Nicht einlösbar</b><br>"+esc(d.message)+
+          "<br><span style='color:#9a9a9a'>"+d.percent+" % · Status: "+
+          (STATUS[d.status]||d.status)+"</span>";
+      }
+    })
+    .catch(function(){
+      r.className="result on bad";
+      r.innerHTML="<b>Keine Verbindung</b><br>Liegt gutschein_api.php im selben Ordner?";
+    });
+}
+function einloesen(code,note){
+  var n=note!==undefined?note:prompt("Notiz zur Einlösung (z. B. Rechnungsnummer) – optional:","");
+  if(n===null)return;
+  fetch(API+"?action=redeem&code="+encodeURIComponent(code)+"&note="+encodeURIComponent(n||""))
+    .then(function(x){return x.json()})
+    .then(function(d){
+      if(d&&d.ok){
+        toast("Eingelöst – "+d.percent+" % gewährt");
+        $("result").className="result";$("code").value="";
+        laden();
+      }else if(d&&d.error==="unauthorized"){
+        toast("Bitte zuerst im Admin-Bereich anmelden");
+      }else if(d&&d.error==="not_open"){
+        toast("Dieser Gutschein ist bereits "+(STATUS[d.status]||d.status).toLowerCase());
+        laden();
+      }else toast("Das hat nicht geklappt");
+    })
+    .catch(function(){toast("Keine Verbindung")});
+}
+$("checkBtn").addEventListener("click",pruefe);
+$("code").addEventListener("keydown",function(e){if(e.key==="Enter")pruefe()});
+
+/* ─── Liste ─── */
+function laden(){
+  fetch(API+"?action=list",{cache:"no-store"})
+    .then(function(x){return x.json()})
+    .then(function(d){
+      if(!d||!d.ok){
+        $("list").innerHTML='<div class="empty">'+
+          (d&&d.error==="unauthorized"
+            ? 'Bitte zuerst im <a href="../admin.html" style="color:var(--purple-bright)">Admin-Bereich</a> anmelden.'
+            : 'Die Liste konnte nicht geladen werden.')+'</div>';
+        return;
+      }
+      daten=d.vouchers||[];
+      var s=d.summary||{};
+      $("sOpen").textContent=s.open||0;
+      $("sRed").textContent=s.redeemed||0;
+      $("sExp").textContent=s.expired||0;
+      $("sVoid").textContent=s.void||0;
+      zeichne();
+    })
+    .catch(function(){
+      $("list").innerHTML='<div class="empty">Keine Verbindung zum Server.</div>';
+    });
+}
+function zeichne(){
+  var rows=daten.filter(function(v){return !filter||v.status===filter});
+  if(!rows.length){
+    $("list").innerHTML='<div class="empty">Keine Gutscheine in dieser Ansicht.</div>';
+    return;
+  }
+  $("list").innerHTML=rows.map(function(v){
+    var offen=(v.status==="open");
+    return '<div class="v '+v.status+'">'+
+      '<div class="top"><div style="min-width:0">'+
+        '<span class="code">'+esc(v.code)+'</span>'+
+        '<span class="st '+v.status+'">'+(STATUS[v.status]||v.status)+'</span>'+
+        '<div class="who">'+esc(v.name)+' · '+esc(v.email)+'</div>'+
+      '</div><div class="pct">'+v.percent+' %</div></div>'+
+      '<div class="meta">'+
+        'Erspielt: '+esc(v.reason)+'<br>'+
+        'Ausgestellt '+datum(v.created_at)+' · gültig bis '+datum(v.expires_at)+
+        ' · ab '+v.min_order+' kr'+
+        (v.redeemed_at?'<br>Eingelöst am '+datum(v.redeemed_at)+
+          (v.redeemed_note?' · '+esc(v.redeemed_note):''):'')+
+        (v.delete_at?'<br><span style="color:#6a6a6a">Wird automatisch gelöscht am '+
+          datum(v.delete_at)+'</span>':'')+
+      '</div>'+
+      '<div class="act">'+
+        (offen?'<button class="ok" data-red="'+esc(v.code)+'">Einlösen</button>':'')+
+        (v.status!=="void"
+          ? '<button data-void="'+v.id+'">Sperren</button>'
+          : '<button data-undo="'+v.id+'">Entsperren</button>')+
+      '</div></div>';
+  }).join("");
+}
+$("list").addEventListener("click",function(e){
+  var r=e.target.closest("[data-red]");
+  if(r){einloesen(r.getAttribute("data-red"));return}
+  var v=e.target.closest("[data-void]");
+  if(v){
+    if(!confirm("Diesen Gutschein sperren? Er lässt sich danach nicht mehr einlösen."))return;
+    sperre(v.getAttribute("data-void"),false);return;
+  }
+  var u=e.target.closest("[data-undo]");
+  if(u)sperre(u.getAttribute("data-undo"),true);
+});
+function sperre(id,undo){
+  fetch(API+"?action=void&id="+id+(undo?"&undo=1":""))
+    .then(function(x){return x.json()})
+    .then(function(d){
+      if(d&&d.ok){toast(undo?"Wieder freigegeben":"Gesperrt");laden()}
+      else if(d&&d.error==="unauthorized")toast("Bitte zuerst im Admin-Bereich anmelden");
+      else toast("Das hat nicht geklappt");
+    })
+    .catch(function(){toast("Keine Verbindung")});
+}
+document.querySelectorAll(".tabs button").forEach(function(b){
+  b.addEventListener("click",function(){
+    document.querySelectorAll(".tabs button").forEach(function(x){x.classList.remove("on")});
+    b.classList.add("on");filter=b.getAttribute("data-f");zeichne();
+  });
+});
+
+laden();
+setInterval(laden,60000);
+</script>
+</body>
+</html>

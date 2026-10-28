@@ -1,0 +1,30 @@
+# Wunsch-Fabrik.dk – Sicherheits-Konfiguration
+
+# ─── db.php direkten Zugriff verweigern ─────────────────────────────
+# db.php enthält die Datenbank-Zugangsdaten und wird nur von anderen
+# PHP-Dateien per require_once eingebunden – ein direkter Aufruf von
+# außen (z.B. https://www.wunsch-fabrik.dk/db.php) wird blockiert.
+<Files "db.php">
+    Order Allow,Deny
+    Deny from all
+</Files>
+
+# Falls obige Syntax (Apache 2.2) nicht greift, zusätzlich Apache 2.4 Syntax:
+<Files "db.php">
+    Require all denied
+</Files>
+
+# ─── Schutz weiterer sensibler Dateien (optional, falls vorhanden) ──
+<FilesMatch "\.(env|sql|log|bak|config)$">
+    Order Allow,Deny
+    Deny from all
+    Require all denied
+</FilesMatch>
+
+# ─── Upload-Limits für Video-Uploads (Impressionen, Werkstatt-Fotos) ─
+<IfModule mod_php.c>
+    php_value upload_max_filesize 55M
+    php_value post_max_size 60M
+    php_value max_execution_time 180
+    php_value memory_limit 384M
+</IfModule>
