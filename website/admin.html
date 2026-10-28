@@ -749,7 +749,6 @@ body { background: radial-gradient(1200px 600px at 85% -10%, rgba(139,43,226,0.1
         <div class="sb-group-title">Kunden &amp; Aufträge</div>
         <button class="main-tab" data-tab="inquiries" onclick="switchTab('inquiries')"><span class="ic">✉️</span>Anfragen<span class="badge-count" id="navBadgeInquiries"></span></button>
         <button class="main-tab" data-tab="auftraege" onclick="switchTab('auftraege')"><span class="ic">🧾</span>Aufträge &amp; Rechnungen</button>
-        <button class="main-tab" data-tab="calculator" onclick="switchTab('calculator')"><span class="ic">💰</span>Preis-Kalkulator</button>
       </div>
       <div class="sb-group">
         <div class="sb-group-title">Webseite</div>
@@ -1032,7 +1031,8 @@ body { background: radial-gradient(1200px 600px at 85% -10%, rgba(139,43,226,0.1
 
     <!-- TAB: PREIS-KALKULATOR -->
     <div class="tab-content" id="tab-calculator">
-      <iframe id="calculatorFrame" style="width:100%; height:100vh; border:none; border-radius:12px;" src="preis-kalkulator-v2.html"></iframe>
+      <!-- Preis-Kalkulator aus dem Menü genommen: Kalkulation läuft jetzt im Auftragsprogramm (Produkte → „Selbst kalkulieren“).
+           Die Datei preis-kalkulator-v2.html bleibt auf dem Server, falls man sie doch noch braucht. -->
     </div>
 
     <!-- TAB: AUFTRÄGE & RECHNUNGEN (neue Auftrags-App) -->
@@ -1459,7 +1459,7 @@ function showDashboard(username) {
   startWelcomeCanvas();
   let start = 'overview';
   try { start = localStorage.getItem('wfAdminTab') || 'overview'; } catch (e) { /* kein Speicher */ }
-  if (!can(start)) start = Object.keys(TAB_TITLES).find(can) || 'settings';
+  if (!can(start) || !TAB_TITLES[start]) start = Object.keys(TAB_TITLES).find(can) || 'settings';
   if (can('inquiries')) loadInquiries();
   switchTab(start);
 }
@@ -3125,7 +3125,7 @@ setInterval(() => {
 let ME = null;             // angemeldeter Benutzer {id, name, role, perms, color}
 let AREAS = {};            // Bereich → Bezeichnung
 const TAB_TITLES = {
-  overview: '📊 Übersicht', inquiries: '✉️ Anfragen', auftraege: '🧾 Aufträge & Rechnungen', calculator: '💰 Preis-Kalkulator',
+  overview: '📊 Übersicht', inquiries: '✉️ Anfragen', auftraege: '🧾 Aufträge & Rechnungen',
   reviews: '⭐ Bewertungen', impressionen: '📸 Impressionen', logos: '🏢 Kunden-Logos', workshop: '🔧 Werkstatt-Fotos',
   shop: '🛒 Shop', sitetexts: '📝 Website-Texte', legal: '📄 Rechtstexte', popup: '📢 Popup',
   team: '👥 Mitarbeiter', settings: '⚙️ Einstellungen'

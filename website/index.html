@@ -1246,12 +1246,21 @@
   .ref-logo-img {
     height: 50px;
     width: auto;
+    max-width: 150px;
     flex-shrink: 0;
     object-fit: contain;
     opacity: 0.6;
     filter: grayscale(30%);
     transition: opacity 0.2s, filter 0.2s, transform 0.2s;
     cursor: pointer;
+  }
+  @media (max-width: 600px) {
+    .ref-logo-img { height: 40px; max-width: 110px; }
+    /* Kopfzeile: nur das Logo zeigen, damit Name, Flaggen und Menü nicht umbrechen */
+    .nav-logo > span[data-i18n="brand_name"] { display: none; }
+    .jingle-tooltip { display: none; }
+    /* Info-Leiste einzeilig halten, sonst verdeckt sie das Logo in der Kopfzeile */
+    .top-bar { font-size: 0.66rem; letter-spacing: 0.01em; padding: 0.5rem 0.5rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   }
   .ref-logo-img:hover {
     opacity: 1;
@@ -2733,8 +2742,13 @@ function loadWorkshopStats() {
   fetch('reviews_api.php?action=workshop_stats')
     .then(r => r.json())
     .then(data => {
-      if (data.ok) {
+      // Zähler erst ab 3 bearbeiteten Anfragen zeigen – „1 Anfragen“ wirkt eher klein
+      const statBox = countEl.closest('.workshop-stat');
+      if (data.ok && data.processed_this_week >= 3) {
         countEl.textContent = data.processed_this_week.toLocaleString('de-DE');
+        if (statBox) statBox.style.display = '';
+      } else if (statBox) {
+        statBox.style.display = 'none';
       }
       // Werkstatt-Fotos haben Vorrang vor automatischen Text-Kacheln
       return fetch('workshop_photos_api.php?action=list').then(r => r.json());
@@ -2765,6 +2779,9 @@ function loadWorkshopStats() {
               en: "Soon you'll get a glimpse into our current production here.",
             };
             gridEl.innerHTML = `<div class="recent-work-empty">${emptyTexts[currentLang] || emptyTexts.de}</div>`;
+            // Weder Fotos noch Zähler: ganzen Abschnitt ausblenden statt einer leeren Ecke
+            const statBox = countEl.closest('.workshop-stat');
+            if (!statBox || statBox.style.display === 'none') document.getElementById('werkstatt').style.display = 'none';
             return;
           }
           gridEl.innerHTML = data.recent_work.map(item => {

@@ -111,7 +111,7 @@ function wf_need($area) {
 $areaOf = [
     'inquiries' => 'inquiries', 'set_status' => 'inquiries', 'delete_inquiry' => 'inquiries',
     'stats' => 'overview', 'live_monitor' => 'overview', 'visitor_countries' => 'overview',
-    'template_list' => 'calculator', 'template_load' => 'calculator', 'template_save' => 'calculator', 'template_delete' => 'calculator',
+    'template_list' => 'auftraege', 'template_load' => 'auftraege', 'template_save' => 'auftraege', 'template_delete' => 'auftraege',
     'debug_push' => 'owner', 'debug_mail' => 'owner', 'debug_geo' => 'owner',
     'get_notify_settings' => 'owner', 'set_notify_settings' => 'owner', 'send_test_push' => 'owner',
     'team_list' => 'owner', 'team_save' => 'owner', 'team_password' => 'owner', 'team_delete' => 'owner', 'activity' => 'owner',

@@ -315,7 +315,6 @@ function wf_admin_areas() {
         'overview'     => 'Übersicht & Besucher',
         'inquiries'    => 'Anfragen',
         'auftraege'    => 'Aufträge & Rechnungen',
-        'calculator'   => 'Preis-Kalkulator',
         'reviews'      => 'Bewertungen',
         'impressionen' => 'Impressionen',
         'logos'        => 'Kunden-Logos',
@@ -330,7 +329,7 @@ function wf_admin_areas() {
 
 /** Standard-Rechte für neue Mitarbeiter. */
 function wf_admin_default_perms() {
-    return ['overview', 'inquiries', 'auftraege', 'calculator', 'workshop'];
+    return ['overview', 'inquiries', 'auftraege', 'workshop'];
 }
 
 function wf_ensure_team_tables($mysqli) {
