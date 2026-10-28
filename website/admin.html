@@ -9,19 +9,20 @@
 <link rel="stylesheet" href="fonts/fonts.css">
 <style>
 :root {
+  /* Farben wie im Auftragsprogramm (auftraege/assets/app.css): hellgrau mit lila Akzenten */
   --purple: #8B2BE2;
-  --purple-bright: #A855F7;
-  --purple-soft: rgba(168,85,247,0.12);
-  --bg-deep: #090909;
-  --bg-card: #161616;
-  --bg-card2: #1c1c1c;
-  --text-white: #F0EEF5;
-  --text-muted: #999;
-  --text-dim: #555;
-  --border: rgba(139,43,226,0.2);
-  --green: #22c55e;
-  --orange: #f59e0b;
-  --red: #f87171;
+  --purple-bright: #7E22CE;
+  --purple-soft: rgba(139,43,226,0.10);
+  --bg-deep: #ebe9f0;
+  --bg-card: #f8f7fb;
+  --bg-card2: #f1eef7;
+  --text-white: #1f1a2b;
+  --text-muted: #5f5872;
+  --text-dim: #8a83a0;
+  --border: rgba(124,34,201,0.16);
+  --green: #059669;
+  --orange: #b45309;
+  --red: #dc2626;
 }
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
@@ -702,6 +703,32 @@ body { background: radial-gradient(1200px 600px at 85% -10%, rgba(139,43,226,0.1
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; }
 }
+
+/* ═══ Heller Admin-Bereich (Farben wie im Auftragsprogramm) ═══ */
+:root { --bg-glass: rgba(248,247,251,0.88); --shadow-lg: 0 20px 50px rgba(60,30,90,0.14); }
+body { background: radial-gradient(1200px 500px at 85% -10%, rgba(139,43,226,0.10), transparent 60%), var(--bg-deep); background-attachment: fixed; }
+.sidebar { background: rgba(248,247,251,0.97); border-right: 1px solid var(--border); }
+.main-tab:hover { background: rgba(139,43,226,0.07); color: var(--text-white); }
+.main-tab.active { background: linear-gradient(90deg, #8B2BE2, #9333EA); color: #fff; border-color: transparent; box-shadow: 0 6px 16px rgba(139,43,226,0.22); }
+.dashboard header { background: rgba(248,247,251,0.9); border-bottom: 1px solid var(--border); }
+.panel, .stat-card { box-shadow: 0 1px 2px rgba(60,30,90,0.05), 0 8px 24px rgba(60,30,90,0.08); }
+.avatar { box-shadow: 0 0 0 2px #fff, 0 3px 10px rgba(60,30,90,0.2); }
+.welcome { background: linear-gradient(120deg, #f3eafd 0%, #ece4f7 50%, #f8f7fb 100%); border-color: var(--border); }
+.welcome h2 { color: var(--text-white); }
+.welcome p { color: var(--text-muted); }
+.welcome p a { color: var(--purple-bright) !important; }
+.qa-btn { background: #fff; border: 1px solid var(--border); color: var(--text-white); }
+.qa-btn:hover { background: var(--purple-soft); }
+.qa-btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; }
+.chart-tip, .toast { background: #fff; color: var(--text-white); border-color: var(--border); box-shadow: 0 8px 24px rgba(60,30,90,0.15); }
+.activity-list li { border-bottom-color: var(--border); }
+.status-archived { background: rgba(60,30,90,0.07); }
+.country-row-header:hover { background: rgba(139,43,226,0.04); }
+.color-dot.sel { border-color: #fff; box-shadow: 0 0 0 2px var(--purple); }
+.sb-backdrop.open { background: rgba(31,26,43,0.35); }
+input:not([type=checkbox]):not([type=radio]):not([type=file]):not([type=color]), select, textarea { background: #fff; color: var(--text-white); }
+input::placeholder, textarea::placeholder { color: var(--text-dim); }
+.modal-overlay { background: rgba(31,26,43,0.35); }
 </style>
 </head>
 <body>
@@ -2467,7 +2494,7 @@ function renderLogos() {
   }
   wrap.innerHTML = allLogos.map(l => `
     <div class="product-admin-card${l.active ? '' : ' inactive'}">
-      <div class="product-admin-img" style="background:#fff;">
+      <div class="product-admin-img" style="background:repeating-conic-gradient(#e6e0f1 0 25%,#fff 0 50%) 0 0/16px 16px;">
         <img src="${escapeHtml(l.image_small)}" alt="${escapeHtml(l.name)}" style="max-height:60px;width:auto;object-fit:contain;">
       </div>
       <div class="product-admin-body">
@@ -3397,7 +3424,7 @@ function drawChart(hover) {
   ctx.clearRect(0, 0, W, H);
   ctx.font = '12px Outfit, sans-serif';
   if (!chartData.length) {
-    ctx.fillStyle = '#555'; ctx.textAlign = 'center'; ctx.fillText('Noch keine Daten vorhanden.', W / 2, H / 2);
+    ctx.fillStyle = '#8a83a0'; ctx.textAlign = 'center'; ctx.fillText('Noch keine Daten vorhanden.', W / 2, H / 2);
     return;
   }
   const pad = { l: 36, r: 14, t: 16, b: 28 };
@@ -3406,7 +3433,7 @@ function drawChart(hover) {
   const x = (i) => pad.l + (W - pad.l - pad.r) * (chartData.length === 1 ? 0.5 : i / (chartData.length - 1));
   const y = (v) => pad.t + (H - pad.t - pad.b) * (1 - v / niceMax);
   // Raster
-  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.fillStyle = '#666'; ctx.textAlign = 'right'; ctx.lineWidth = 1;
+  ctx.strokeStyle = 'rgba(124,34,201,0.10)'; ctx.fillStyle = '#8a83a0'; ctx.textAlign = 'right'; ctx.lineWidth = 1;
   for (let k = 0; k <= 4; k++) {
     const v = niceMax * k / 4, yy = y(v);
     ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(W - pad.r, yy); ctx.stroke();
@@ -3433,7 +3460,7 @@ function drawChart(hover) {
     ctx.beginPath(); ctx.arc(px, py, i === hover ? 5 : 3, 0, Math.PI * 2); ctx.fill();
     if (i % step === 0 || i === pts.length - 1) {
       const d = new Date(chartData[i].date + 'T12:00:00');
-      ctx.fillStyle = '#777'; ctx.fillText(d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }), px, H - 8);
+      ctx.fillStyle = '#8a83a0'; ctx.fillText(d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }), px, H - 8);
     }
   });
   const tip = document.getElementById('visitorChartTip');
