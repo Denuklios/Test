@@ -149,7 +149,7 @@ header .t .lbl{font-size:.54rem;letter-spacing:.2em;text-transform:uppercase;col
   border:1px solid var(--border);margin-top:.5rem}
 .btn-ghost:hover{color:var(--text-white);border-color:var(--purple)}
 .legend{display:grid;gap:.4rem;margin:.8rem 0 .2rem}
-.legend div{display:flex;gap:.6rem;align-items:flex-start;background:var(--bg-card2);
+.legend>div{display:flex;gap:.6rem;align-items:flex-start;background:var(--bg-card2);
   border:1px solid var(--border);border-radius:8px;padding:.5rem .7rem;font-size:.76rem;
   color:var(--text-muted);line-height:1.55}
 .legend .k{flex:0 0 auto;font-weight:700;color:var(--purple-bright);min-width:52px}
@@ -223,6 +223,9 @@ footer a{color:var(--purple-bright);text-decoration:none}
   max-width:92vw;text-align:center;box-shadow:0 0 30px rgba(139,43,226,.35)}
 .toast.on{opacity:1}
 </style>
+<script src="wf-i18n.js"></script>
+<script src="i18n/common.js"></script>
+<script src="i18n/nadel.js"></script>
 <link rel="stylesheet" href="wf-game.css">
 <script src="wf-gfx.js"></script>
 <script>document.addEventListener("DOMContentLoaded",function(){WFG.nav({})});</script>
@@ -856,7 +859,7 @@ function buildClaim(pct,key,ticket){
     var btn=$("vSend");btn.disabled=true;btn.textContent="Wird gesendet …";
     var b=new URLSearchParams();
     b.set("reward",key);b.set("name",nm);b.set("email",ml);
-    b.set("lang","de");b.set("consent","1");
+    b.set("lang",(window.WFI18N&&WFI18N.lang)||"de");b.set("consent","1");
     if(ticket)b.set("ticket",ticket);else b.set("play",WFG.ticket());
     b.set("level",levelDone());
     b.set("proof","Punkte "+Math.floor(score)+" · Level "+levelDone());

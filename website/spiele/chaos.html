@@ -196,6 +196,9 @@ footer a{color:var(--purple-bright);text-decoration:none}
   max-width:92vw;text-align:center;box-shadow:0 0 30px rgba(139,43,226,.35)}
 .toast.on{opacity:1}
 </style>
+<script src="wf-i18n.js"></script>
+<script src="i18n/common.js"></script>
+<script src="i18n/chaos.js"></script>
 <link rel="stylesheet" href="wf-game.css">
 <script src="wf-gfx.js"></script>
 <script>document.addEventListener("DOMContentLoaded",function(){WFG.nav({})});</script>
@@ -759,7 +762,7 @@ function buildClaim(pct,key,ticket){
     var btn=$("vSend");btn.disabled=true;btn.textContent="Wird gesendet …";
     var b=new URLSearchParams();
     b.set("reward",key);b.set("name",nm);b.set("email",ml);
-    b.set("lang","de");b.set("consent","1");b.set("level",levelDone());
+    b.set("lang",(window.WFI18N&&WFI18N.lang)||"de");b.set("consent","1");b.set("level",levelDone());
     if(ticket)b.set("ticket",ticket);else b.set("play",WFG.ticket());
     b.set("proof","Punkte "+Math.floor(score)+" · Schicht "+level);
 

@@ -40,23 +40,23 @@ $WF_REWARDS = [
     // Die Schwellen sind so gewählt, dass nicht jeder sofort einen Gutschein bekommt
     // (per Simulation verschiedener Spielertypen geprüft, siehe LIESMICH.md).
     'nadel_5'      => ['pct' => 5,  'game' => 'nadel', 'need' => 30000, 'lvl' => 5, 'min_sec' => 90,
-                       'text' => '30.000 Punkte bei Nadel & Faden'],
+                       'text' => '30.000 Punkte bei Nadel & Faden', 'text_da' => '30.000 point i Nål & Tråd', 'text_en' => '30,000 points in Needle & Thread'],
     'nadel_ziehung'=> ['pct' => 10, 'game' => 'nadel', 'need' => 60000, 'lvl' => 7, 'min_sec' => 150,
-                       'text' => 'die Nadel-Ziehung bei Nadel & Faden'],
+                       'text' => 'die Nadel-Ziehung bei Nadel & Faden', 'text_da' => 'nål-lodtrækningen i Nål & Tråd', 'text_en' => 'the needle draw in Needle & Thread'],
     'chaos_5'      => ['pct' => 5,  'game' => 'chaos', 'need' => 40000, 'lvl' => 8, 'min_sec' => 90,
-                       'text' => '40.000 Punkte im Auftrags-Chaos'],
+                       'text' => '40.000 Punkte im Auftrags-Chaos', 'text_da' => '40.000 point i Ordre-kaos', 'text_en' => '40,000 points in Order Chaos'],
     'chaos_ziehung'=> ['pct' => 10, 'game' => 'chaos', 'need' => 80000, 'lvl' => 10, 'min_sec' => 120,
-                       'text' => 'die Ziehung im Auftrags-Chaos'],
+                       'text' => 'die Ziehung im Auftrags-Chaos', 'text_da' => 'lodtrækningen i Ordre-kaos', 'text_en' => 'the draw in Order Chaos'],
     'spuli_5'      => ['pct' => 5,  'game' => 'spuli', 'need' => 0, 'lvl' => 6, 'min_sec' => 30,
-                       'text' => 'alle sechs Hallen bei Spuli auf Abwegen'],
+                       'text' => 'alle sechs Hallen bei Spuli auf Abwegen', 'text_da' => 'alle seks haller i Spuli på afveje', 'text_en' => 'all six halls in Spuli Gone Astray'],
     'spuli_ziehung'=> ['pct' => 10, 'game' => 'spuli', 'need' => 0, 'lvl' => 6, 'garn' => true, 'min_sec' => 30,
-                       'text' => 'die Ziehung bei Spuli auf Abwegen (alles Garn gesammelt)'],
+                       'text' => 'die Ziehung bei Spuli auf Abwegen (alles Garn gesammelt)', 'text_da' => 'lodtrækningen i Spuli på afveje (alt garn samlet)', 'text_en' => 'the draw in Spuli Gone Astray (all yarn collected)'],
     'faden_5'      => ['pct' => 5,  'game' => 'faden', 'need' => 0, 'faden_best' => 16, 'min_sec' => 20,
-                       'text' => 'alle 24 Fadenbilder bei Fadenlauf, davon 16 mit Bestlösung'],
+                       'text' => 'alle 24 Fadenbilder bei Fadenlauf, davon 16 mit Bestlösung', 'text_da' => 'alle 24 trådbilleder i Trådløbet, heraf 16 med bedste løsning', 'text_en' => 'all 24 pictures in Thread Run, 16 with the best solution'],
     'faden_ziehung'=> ['pct' => 10, 'game' => 'faden', 'need' => 0, 'faden_best' => 24, 'min_sec' => 20, 'draws_per_day' => 1,
-                       'text' => 'die Ziehung bei Fadenlauf (alle 24 mit Bestlösung)'],
+                       'text' => 'die Ziehung bei Fadenlauf (alle 24 mit Bestlösung)', 'text_da' => 'lodtrækningen i Trådløbet (alle 24 med bedste løsning)', 'text_en' => 'the draw in Thread Run (all 24 with the best solution)'],
     'tycoon_mrd'   => ['pct' => 5,  'game' => 'tycoon', 'need' => 1e9, 'min_sec' => 60,
-                       'text' => '1 Mrd. kr Umsatz im Veredelungs-Tycoon'],
+                       'text' => '1 Mrd. kr Umsatz im Veredelungs-Tycoon', 'text_da' => '1 mia. kr omsætning i Forædlings-tycoon', 'text_en' => '1 billion kr revenue in Finishing Tycoon'],
 ];
 
 
@@ -483,6 +483,7 @@ if ($action === 'claim') {
     $pct     = (int)$reward['pct'];
     $minOrd  = (int)$WF_VOUCHER['min_bestellung'];
     $reason  = $reward['text'];
+    $reasonMail = $reward['text_' . $lang] ?? $reason;   // Text in der Sprache der Mail
 
     $stmt = $mysqli->prepare("
         INSERT INTO game_vouchers
@@ -498,7 +499,7 @@ if ($action === 'claim') {
     if (!empty($playId)) $mysqli->query("UPDATE game_plays SET used = 1 WHERE id = $playId");
 
     /* Mail an den Gewinner */
-    $sent = wf_send_voucher_mail($email, $name, $lang, $code, $pct, $expires, $minOrd, $reason);
+    $sent = wf_send_voucher_mail($email, $name, $lang, $code, $pct, $expires, $minOrd, $reasonMail);
 
     /* Kurze Info an dich – aber nicht doppelt, wenn der Gutschein
        ohnehin an dieselbe Adresse geht. */

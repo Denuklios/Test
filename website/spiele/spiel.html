@@ -441,6 +441,9 @@ footer .meta{font-size:.7rem;color:var(--text-dim)}
 footer a{color:var(--purple-bright);text-decoration:none}
 footer a:hover{color:var(--purple)}
 </style>
+<script src="wf-i18n.js"></script>
+<script src="i18n/common.js"></script>
+<script src="i18n/spiel.js"></script>
 <link rel="stylesheet" href="wf-game.css">
 <script src="wf-gfx.js"></script>
 <script>document.addEventListener("DOMContentLoaded",function(){
@@ -735,7 +738,10 @@ var store={
 };
 
 /* ---------- Formatierung ---------- */
-var UNITS=[[1e18,"Trd"],[1e15,"Brd"],[1e12,"Bio"],[1e9,"Mrd"],[1e6,"Mio"],[1e3,"Tsd"]];
+/* Zahlenkürzel je Sprache (Deutsch, Dänisch, Englisch) */
+var UNITS_L={de:["Trd","Brd","Bio","Mrd","Mio","Tsd"],da:["trill.","bill.","bio.","mia.","mio.","t."],en:["Qi","Qa","T","B","M","K"]};
+var UL=UNITS_L[(window.WFI18N&&WFI18N.lang)||"de"]||UNITS_L.de;
+var UNITS=[[1e18,UL[0]],[1e15,UL[1]],[1e12,UL[2]],[1e9,UL[3]],[1e6,UL[4]],[1e3,UL[5]]];
 function fmt(n){
   if(!isFinite(n))return "∞";
   if(n<0)return "-"+fmt(-n);
@@ -1060,7 +1066,7 @@ function checkAch(){
 function addLog(html){
   S.logs.unshift(html);if(S.logs.length>40)S.logs.pop();
   var l=document.getElementById("log");
-  if(l)l.innerHTML=S.logs.map(function(x){return "· "+x}).join("<br>");
+  if(l)l.innerHTML=S.logs.map(function(x){return "<div>· "+x+"</div>"}).join("");
 }
 var tT;
 function toast(m){
@@ -1668,7 +1674,7 @@ window.addEventListener("beforeunload",function(){
 /* ---------- Start ---------- */
 $("yr").textContent=new Date().getFullYear();
 load();recalc();
-if(S.logs&&S.logs.length)$("log").innerHTML=S.logs.map(function(x){return "· "+x}).join("<br>");
+if(S.logs&&S.logs.length)$("log").innerHTML=S.logs.map(function(x){return "<div>· "+x+"</div>"}).join("");
 render();
 setTimeout(function(){
   $("splash").classList.add("out");

@@ -545,7 +545,12 @@
       '#wfNav a:hover{background:rgba(168,85,247,.25);border-color:#A855F7}' +
       '#wfNav .wfn-home img{height:16px;width:auto}' +
       '.wfg-inline{width:1.7em;height:1.7em;vertical-align:middle;object-fit:contain}' +
-      '@media(max-width:420px){#wfNav{font-size:.72rem}#wfNav a{padding:.3rem .55rem}}';
+      '#wfNav .wfn-right{display:flex;align-items:center;gap:.45rem}' +
+      '#wfNav .wfn-lang{display:flex;gap:3px;padding:3px;border-radius:999px;background:rgba(255,255,255,.75);border:2px solid #fff}' +
+      '#wfNav .wfn-lang button{border:0;background:none;padding:3px 4px;border-radius:999px;cursor:pointer;opacity:.5;line-height:0}' +
+      '#wfNav .wfn-lang button.on{opacity:1;background:#fff;box-shadow:0 1px 3px rgba(0,0,0,.2)}' +
+      '#wfNav .wfn-lang img{width:22px;height:16px;border-radius:3px;display:block}' +
+      '@media(max-width:420px){#wfNav{font-size:.72rem}#wfNav a{padding:.3rem .55rem}#wfNav .wfn-lang img{width:18px;height:13px}}';
     document.head.appendChild(css);
     var bar = document.createElement('div');
     bar.id = 'wfNav';
@@ -553,7 +558,8 @@
     var all = opt.all || 'spiele.html';
     bar.innerHTML =
       '<a class="wfn-home" href="' + home + '"><span aria-hidden="true">←</span> Wunsch-Fabrik.dk</a>' +
-      (opt.hideAll ? '' : '<a href="' + all + '"><span aria-hidden="true">🎮</span> Alle Spiele</a>');
+      '<span class="wfn-right">' + (window.WFI18N ? WFI18N.switcher() : '') +
+      (opt.hideAll ? '' : '<a href="' + all + '"><span aria-hidden="true">🎮</span> Alle Spiele</a>') + '</span>';
     document.body.insertBefore(bar, document.body.firstChild);
     // Emojis in Anleitungen ebenfalls durch die Grafiken ersetzen
     swapEmojis('.guide .e', 30);

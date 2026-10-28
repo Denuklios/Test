@@ -219,3 +219,10 @@ Die Werte stehen in `gutschein_api.php` (`$WF_REWARDS`) und oben im jeweiligen S
   Mindest-Spielzeit alt ist und noch nicht benutzt wurde. Direktes Abrufen ohne zu spielen geht nicht mehr.
 - **Fadenlauf:** Der Server rechnet jede eingereichte Lösung Strecke für Strecke nach. Gefälschte Lösungen werden abgelehnt.
 - Weiterhin: ein Gutschein pro E-Mail-Adresse alle 30 Tage, höchstens 3 pro Anschluss und Tag, höchstens 5 Ziehungen am Tag.
+
+## Sprachen (Deutsch, Dänisch, Englisch)
+- `wf-i18n.js` übersetzt jede Spielseite beim Laden und während des Spiels – auch Meldungen, Fenster und Text auf der Spielfläche.
+- Die Sprache kommt von der Hauptseite (gleiche Einstellung `wf_lang`), sonst vom Browser. Oben in der Spiele-Leiste lässt sie sich per Flagge umschalten.
+- Texte stehen in `i18n/common.js` (für alle Spiele) und `i18n/<spiel>.js`. Ein Eintrag: `"Deutscher Text": ["Dansk", "English"]`, Platzhalter `{0}` für Zahlen und Namen.
+- Ändert man einen deutschen Text in einem Spiel, muss der Eintrag im Wörterbuch genauso angepasst werden – sonst bleibt der Text in den anderen Sprachen deutsch.
+- Die Gutschein-Mail kommt in der Sprache, in der gespielt wurde. Die Gutscheinverwaltung (für euch) bleibt deutsch.
