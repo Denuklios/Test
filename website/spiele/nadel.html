@@ -55,7 +55,7 @@ header .t .lbl{font-size:.54rem;letter-spacing:.2em;text-transform:uppercase;col
 .hud{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:1px;margin-bottom:.7rem;
   border:1px solid var(--border);border-radius:12px;overflow:hidden;background:var(--border)}
 .hud div{background:rgba(22,22,22,.92);padding:.55rem .5rem;text-align:center;min-width:0}
-.hud b{display:block;font-family:var(--serif);font-size:1.4rem;line-height:1.15;
+.hud b{display:block;font-family:Outfit,system-ui,sans-serif;font-weight:600;font-size:1.4rem;line-height:1.15;
   font-variant-numeric:tabular-nums;overflow-wrap:anywhere;transition:transform .18s ease}
 .hud b.bump{transform:scale(1.22)}
 .hud span{font-size:.54rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim)}
@@ -76,7 +76,7 @@ header .t .lbl{font-size:.54rem;letter-spacing:.2em;text-transform:uppercase;col
 #hoop{position:relative;width:min(310px,86vw);aspect-ratio:1/1;
   filter:drop-shadow(0 12px 30px rgba(0,0,0,.55))}
 #hoop canvas{position:absolute;inset:0;width:100%;height:100%}
-.hooplbl{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);text-align:center;
+.hooplbl{position:absolute;left:50%;top:69%;transform:translate(-50%,-50%);text-align:center;
   pointer-events:none;width:58%}
 .hooplbl .mot{font-family:var(--serif);font-size:.9rem;font-weight:600;line-height:1.25;
   color:rgba(240,238,245,.82);text-shadow:0 2px 12px rgba(0,0,0,.9)}
@@ -223,6 +223,9 @@ footer a{color:var(--purple-bright);text-decoration:none}
   max-width:92vw;text-align:center;box-shadow:0 0 30px rgba(139,43,226,.35)}
 .toast.on{opacity:1}
 </style>
+<link rel="stylesheet" href="wf-game.css">
+<script src="wf-gfx.js"></script>
+<script>document.addEventListener("DOMContentLoaded",function(){WFG.nav({})});</script>
 </head>
 <body>
 <div id="veil"></div>
@@ -344,14 +347,14 @@ $("splashLogo").src=LOGO;$("headLogo").src=LOGO;
 
 /* ---------- Motive: was gestickt wird ---------- */
 var MOTIVE=[
-  {nm:"Vereinswappen",   st:8,  sub:"Padborg Idrætsforening"},
-  {nm:"Firmenlogo",      st:10, sub:"Tischlerei Hansen"},
-  {nm:"Namenszug",       st:12, sub:"Børnehaven Solstrålen"},
-  {nm:"Feuerwehr-Emblem",st:14, sub:"Feuerwehr Aabenraa"},
-  {nm:"Cap-Stickerei",   st:16, sub:"Autohaus Bov"},
-  {nm:"Rallye-Abzeichen",st:18, sub:"Chrom-Helden e.V."},
-  {nm:"Segelclub-Wappen",st:20, sub:"Segelclub Flensborg"},
-  {nm:"Jubiläums-Motiv", st:22, sub:"Speditionsverband Padborg"}
+  {g:"heart",nm:"Vereinswappen",   st:8,  sub:"Padborg Idrætsforening"},
+  {g:"star",nm:"Firmenlogo",      st:10, sub:"Tischlerei Hansen"},
+  {g:"tshirt",nm:"Namenszug",       st:12, sub:"Børnehaven Solstrålen"},
+  {g:"jacket",nm:"Feuerwehr-Emblem",st:14, sub:"Feuerwehr Aabenraa"},
+  {g:"cap",nm:"Cap-Stickerei",   st:16, sub:"Autohaus Bov"},
+  {g:"coin",nm:"Rallye-Abzeichen",st:18, sub:"Chrom-Helden e.V."},
+  {g:"polo",nm:"Segelclub-Wappen",st:20, sub:"Segelclub Flensborg"},
+  {g:"stick",nm:"Jubiläums-Motiv", st:22, sub:"Speditionsverband Padborg"}
 ];
 
 /* ---------- Zustand ---------- */
@@ -360,7 +363,7 @@ try{Object.assign(P,JSON.parse(store.get(KEY)||"{}"))}catch(e){}
 function save(){store.set(KEY,JSON.stringify(P))}
 
 var running=false,score=0,combo=1,motIdx=0,stitch=0,thread=1,needStitches=8;
-var ang=0,speed=1.5,dir=1,target=0,zone=0.42,stitches=[],ripples=[],lastT=0,raf=null;
+var ang=0,speed=1.5,dir=1,target=0,zone=0.42,stitches=[],ripples=[],lastT=0,raf=null,sparks=new WFG.Sparks(),sparkT=0;
 
 /* ---------- Ton ---------- */
 var actx=null;
@@ -401,17 +404,34 @@ function drawHoop(now){
   /* ── Stoff im Rahmen: Leinenstruktur ── */
   ctx.save();
   ctx.beginPath();ctx.arc(cx,cy,rad-R*0.055,0,6.283);ctx.clip();
+  /* heller Leinenstoff mit zartem Vichy-Karo */
   var fab=ctx.createRadialGradient(cx-rad*0.3,cy-rad*0.35,rad*0.1,cx,cy,rad);
-  fab.addColorStop(0,"rgba(255,255,255,.055)");
-  fab.addColorStop(1,"rgba(255,255,255,.012)");
+  fab.addColorStop(0,"#fffdf6");
+  fab.addColorStop(1,"#f6ead4");
   ctx.fillStyle=fab;ctx.fillRect(0,0,w,w);
-  ctx.strokeStyle="rgba(255,255,255,.028)";ctx.lineWidth=1;
-  var step=Math.max(6,R*0.055);
-  for(var g=-w;g<w*2;g+=step){
-    ctx.beginPath();ctx.moveTo(g,0);ctx.lineTo(g,w);ctx.stroke();
-    ctx.beginPath();ctx.moveTo(0,g);ctx.lineTo(w,g);ctx.stroke();
-  }
+  var step=Math.max(10,R*0.11);
+  ctx.fillStyle="rgba(255,79,163,.07)";
+  for(var g=-w;g<w*2;g+=step*2){ctx.fillRect(g,0,step,w);ctx.fillRect(0,g,w,step)}
+  ctx.strokeStyle="rgba(150,110,60,.08)";ctx.lineWidth=1;
+  for(var g2=0;g2<w;g2+=4){ctx.beginPath();ctx.moveTo(g2,0);ctx.lineTo(g2,w);ctx.stroke()}
+  var sh=ctx.createRadialGradient(cx,cy,rad*.6,cx,cy,rad);
+  sh.addColorStop(0,"rgba(0,0,0,0)");sh.addColorStop(1,"rgba(120,70,20,.18)");
+  ctx.fillStyle=sh;ctx.fillRect(0,0,w,w);
   ctx.restore();
+
+  /* ── Motiv in der Mitte: vorgezeichnet, wird mit jedem Stich farbig ── */
+  var mo=MOTIVE[Math.min(motIdx,MOTIVE.length-1)];
+  if(mo&&mo.g){
+    var ms=rad*0.78,mxc=cx,myc=cy-rad*0.12,prog=running?Math.min(1,stitch/Math.max(1,needStitches)):0;
+    WFG.draw(ctx,mo.g,mxc,myc,ms,{alpha:0.22});
+    if(prog>0){
+      ctx.save();ctx.beginPath();ctx.rect(mxc-ms/2,myc+ms/2-ms*prog,ms,ms*prog);ctx.clip();
+      WFG.draw(ctx,mo.g,mxc,myc,ms,{alpha:0.95});ctx.restore();
+      /* Nählinie an der Füllkante */
+      ctx.save();ctx.setLineDash([4,3]);ctx.strokeStyle="rgba(245,197,66,.7)";ctx.lineWidth=1.2;
+      ctx.beginPath();ctx.moveTo(mxc-ms*0.42,myc+ms/2-ms*prog);ctx.lineTo(mxc+ms*0.42,myc+ms/2-ms*prog);ctx.stroke();ctx.restore();
+    }
+  }
 
   /* ── Trefferfeld: soll sofort ins Auge springen ── */
   if(running){
@@ -496,10 +516,17 @@ function drawHoop(now){
 
   /* ── Der Stickrahmen selbst: zwei Holzringe mit Schraube ── */
   var rg=ctx.createLinearGradient(cx-rad,cy-rad,cx+rad,cy+rad);
-  rg.addColorStop(0,"#4a3a5e");rg.addColorStop(.35,"#2b2138");
-  rg.addColorStop(.65,"#3d2f50");rg.addColorStop(1,"#1e1729");
+  rg.addColorStop(0,"#e2a06a");rg.addColorStop(.35,"#a8612f");
+  rg.addColorStop(.65,"#c8763f");rg.addColorStop(1,"#6b3818");
   ctx.beginPath();ctx.arc(cx,cy,rad,0,6.283);
   ctx.strokeStyle=rg;ctx.lineWidth=R*0.105;ctx.stroke();
+  /* Holzmaserung */
+  ctx.save();ctx.strokeStyle="rgba(70,30,8,.28)";ctx.lineWidth=1;
+  for(var gi=0;gi<26;gi++){var ga=gi*0.2417+0.3,gl2=0.12+((gi*7)%5)*0.06;
+    ctx.beginPath();ctx.arc(cx,cy,rad+((gi%3)-1)*R*0.025,ga,ga+gl2);ctx.stroke()}
+  ctx.restore();
+  ctx.beginPath();ctx.arc(cx,cy,rad-R*0.02,Math.PI*1.1,Math.PI*1.45);
+  ctx.strokeStyle="rgba(255,255,255,.25)";ctx.lineWidth=R*0.02;ctx.stroke();
   /* Kanten des Reifens */
   ctx.beginPath();ctx.arc(cx,cy,rad+R*0.052,0,6.283);
   ctx.strokeStyle="rgba(168,85,247,.28)";ctx.lineWidth=1;ctx.stroke();
@@ -508,10 +535,12 @@ function drawHoop(now){
 
   /* Spannschraube oben */
   ctx.save();ctx.translate(cx,cy-rad);
-  ctx.fillStyle="#3d2f50";ctx.strokeStyle="rgba(168,85,247,.35)";ctx.lineWidth=1;
+  var br=ctx.createLinearGradient(0,-R*0.08,0,R*0.04);br.addColorStop(0,"#fde68a");br.addColorStop(1,"#b8860b");
+  ctx.fillStyle=br;ctx.strokeStyle="rgba(80,50,5,.6)";ctx.lineWidth=1;
   ctx.beginPath();ctx.roundRect(-R*0.075,-R*0.075,R*0.15,R*0.11,3);ctx.fill();ctx.stroke();
   ctx.beginPath();ctx.arc(0,-R*0.02,R*0.028,0,6.283);
-  ctx.fillStyle="#A855F7";ctx.globalAlpha=.55;ctx.fill();ctx.globalAlpha=1;
+  ctx.fillStyle="#7c5a0a";ctx.fill();
+  ctx.strokeStyle="rgba(255,255,255,.6)";ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-R*0.018,-R*0.02);ctx.lineTo(R*0.018,-R*0.02);ctx.stroke();
   ctx.restore();
 
   /* ── Die Nadel ── */
@@ -553,6 +582,8 @@ function drawHoop(now){
     ctx.strokeStyle="rgba(255,255,255,.3)";ctx.lineWidth=.5;ctx.stroke();
     ctx.restore();
   }
+  /* Funken bei Treffern */
+  var nowMs=(now||0);sparks.draw(ctx,Math.min(40,nowMs-(sparkT||nowMs)));sparkT=nowMs;
 }
 
 /* ---------- Ablauf ---------- */
@@ -623,6 +654,7 @@ function tap(){
     stitches.push({a:ang,perfect:true,born:performance.now()/1000});stitch++;
     ripples.push({a:ang,good:true,born:performance.now()/1000});
     flash("Perfekt +"+pts,"#A855F7");
+    sparks.burst(R+Math.cos(ang)*R*0.74,R+Math.sin(ang)*R*0.74,16,["#D8B4FE","#F5C542","#fff"],2.4);
     blip(760+Math.min(combo,20)*22,.055);
   }else if(d<=half){
     /* Gut */
@@ -632,6 +664,7 @@ function tap(){
     stitches.push({a:ang,perfect:false,born:performance.now()/1000});stitch++;
     ripples.push({a:ang,good:true,born:performance.now()/1000});
     flash("+"+pts2,"#7d6a99");
+    sparks.burst(R+Math.cos(ang)*R*0.74,R+Math.sin(ang)*R*0.74,7,["#A855F7","#D8B4FE"],1.6);
     blip(520,.045);
   }else{
     /* Daneben */
@@ -648,6 +681,7 @@ function tap(){
     var bonus=200+motIdx*120;
     score+=bonus;thread=Math.min(1,thread+0.28);
     flash("Motiv fertig +"+bonus,"#F5C542");
+    for(var sb=0;sb<5;sb++)sparks.burst(R+(Math.random()-.5)*R*0.8,R-R*0.1+(Math.random()-.5)*R*0.6,14,["#F5C542","#fde68a","#fff","#EC4899"],3);
     blip(980,.06);setTimeout(function(){blip(1240,.05)},150);
     P.motMax=Math.max(P.motMax,motIdx+2);save();
     setTimeout(function(){if(running)startMotiv(motIdx+1)},420);

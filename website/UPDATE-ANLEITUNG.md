@@ -39,3 +39,8 @@
 - **Telefonnummer nur als Bild** (`kontakt-tel.png`). In Rechtstexten `[TELEFON]` schreiben. WhatsApp läuft über `whatsapp.php`, damit die Nummer nicht im Quelltext steht.
 - **Spamschutz im Kontaktformular:** unsichtbare Sicherheitsprüfung (Rechenarbeit im Browser, vom Server geprüft), verstecktes Fallen-Feld, max. 5 Anfragen pro Stunde je Anschluss, max. 2 Links pro Nachricht.
 - **Löschfristen** laufen automatisch einmal am Tag: Statistik 14 Monate, Anfragen 12 Monate, IP-Adressen bei Gutscheinen 30 Tage.
+
+## Spiele (Update Oktober 2026)
+- Oben auf jeder Spielseite: **„← Wunsch-Fabrik.dk“** (zurück zur Startseite) und **„Alle Spiele“**.
+- Alle fünf Spiele und die Spieleübersicht haben einen neuen, hellen und bunten Look: Himmel mit Wolken und Hügeln, plastische Knöpfe, Zähler mit Symbolen, Konfetti bei Gewinnen. Alle Grafiken werden im Browser gezeichnet, es gibt keine zusätzlichen Bilddateien.
+- Neue Dateien im Ordner `spiele/`: `wf-game.css`, `wf-gfx.js` – mit hochladen.

@@ -85,10 +85,19 @@ header .t .lbl{font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;col
   border-radius:14px;padding:.55rem;box-shadow:0 0 46px rgba(139,43,226,.15)}
 #board{display:grid;grid-template-columns:repeat(8,1fr);gap:4px;touch-action:none;
   position:relative}
-.cell{aspect-ratio:1/1;border-radius:22%;background:#111;border:1px solid rgba(139,43,226,.12);
+.cell{aspect-ratio:1/1;border-radius:22%;
+  background:radial-gradient(circle at 30% 25%,#2a2038 0%,#16111f 70%);
+  border:1px solid rgba(139,43,226,.18);box-shadow:inset 0 -3px 0 rgba(0,0,0,.35),inset 0 1px 0 rgba(255,255,255,.05);
   display:grid;place-items:center;font-size:min(6.2vw,34px);cursor:pointer;position:relative;
   transition:transform .14s ease,background .14s,border-color .14s,opacity .18s}
-.cell:hover{background:#181420}
+.cell:hover{background:radial-gradient(circle at 30% 25%,#352848 0%,#1c1527 70%)}
+.cell .tile-img{width:82%;height:82%;object-fit:contain;pointer-events:none;
+  filter:drop-shadow(0 2px 2px rgba(0,0,0,.45));transition:transform .15s}
+.cell:hover .tile-img{transform:translateY(-2px) scale(1.04)}
+.cell.sel .tile-img{animation:wiggle .6s ease-in-out infinite}
+@keyframes wiggle{0%,100%{transform:rotate(-6deg) scale(1.05)}50%{transform:rotate(6deg) scale(1.08)}}
+.goals .tile-img,#goals .tile-img{width:1.6em;height:1.6em;vertical-align:middle}
+.fx-layer{position:absolute;inset:0;pointer-events:none;z-index:4}
 .cell.sel{background:rgba(139,43,226,.28);border-color:var(--purple-bright);
   box-shadow:0 0 16px rgba(139,43,226,.5);transform:scale(1.06);z-index:2}
 .cell.hint{animation:hintPulse 1s ease-in-out 2}
@@ -102,7 +111,13 @@ header .t .lbl{font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;col
 .cell .sp{position:absolute;inset:0;border-radius:22%;pointer-events:none}
 .cell.row4 .sp{box-shadow:inset 0 0 0 2px var(--purple-bright),0 0 12px var(--purple-glow)}
 .cell.bomb .sp{box-shadow:inset 0 0 0 2px #F5C542,0 0 14px rgba(245,197,66,.5)}
-.cell.wish{background:radial-gradient(circle at 32% 30%,#3b2854,#161022)}
+.cell.wish{background:radial-gradient(circle at 32% 30%,#4a3168,#161022)}
+.cell.wish .tile-img{animation:wishSpin 3s linear infinite}
+@keyframes wishSpin{from{transform:rotate(0) scale(1)}50%{transform:rotate(180deg) scale(1.1)}to{transform:rotate(360deg) scale(1)}}
+.cell.row4 .sp::after,.cell.bomb .sp::after{content:"";position:absolute;inset:0;border-radius:inherit;
+  background:linear-gradient(115deg,transparent 30%,rgba(255,255,255,.25) 45%,transparent 60%);
+  background-size:250% 100%;animation:sheen 2.2s linear infinite}
+@keyframes sheen{from{background-position:120% 0}to{background-position:-120% 0}}
 .cell.wish .sp{box-shadow:inset 0 0 0 2px #fff,0 0 18px rgba(168,85,247,.8)}
 .combo-flash{position:absolute;left:50%;top:44%;transform:translate(-50%,-50%);
   font-family:var(--serif);font-weight:700;font-size:2rem;color:var(--purple-bright);
@@ -116,7 +131,7 @@ header .t .lbl{font-size:.56rem;letter-spacing:.2em;text-transform:uppercase;col
 .bar{display:flex;gap:.5rem;margin-top:.7rem}
 .bar .stat{flex:1;background:rgba(22,22,22,.9);border:1px solid var(--border);border-radius:10px;
   padding:.5rem .7rem;min-width:0}
-.bar .stat b{display:block;font-family:var(--serif);font-size:1.1rem;color:var(--text-white);
+.bar .stat b{display:block;font-family:Outfit,system-ui,sans-serif;font-weight:600;font-size:1.1rem;color:var(--text-white);
   font-variant-numeric:tabular-nums;line-height:1.2;overflow-wrap:anywhere}
 .bar .stat span{font-size:.56rem;letter-spacing:.14em;text-transform:uppercase;color:var(--text-dim)}
 
@@ -162,6 +177,9 @@ footer a{color:var(--purple-bright);text-decoration:none}
   max-width:92vw;text-align:center;box-shadow:0 0 30px rgba(139,43,226,.35)}
 .toast.on{opacity:1}
 </style>
+<link rel="stylesheet" href="wf-game.css">
+<script src="wf-gfx.js"></script>
+<script>document.addEventListener("DOMContentLoaded",function(){WFG.nav({})});</script>
 </head>
 <body>
 <div id="veil"></div>
@@ -275,14 +293,17 @@ var LOGO="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAWgAAACxCAMAAADefde0AAAA
 $("splashLogo").src=LOGO;$("headLogo").src=LOGO;
 
 /* ---------- Techniken (dieselben wie im Tycoon) ---------- */
+/* Steine: eigene Grafiken aus wf-gfx.js (statt Emojis) */
 var TILES=[
-  {e:"🧵",nm:"Stickerei"},
-  {e:"✂️",nm:"Flex &amp; Flock"},
-  {e:"🖨️",nm:"DTF Druck"},
-  {e:"🎨",nm:"Siebdruck"},
-  {e:"🔥",nm:"Gravur"},
-  {e:"♨️",nm:"Sublimation"}
+  {g:"stick",  nm:"Stickerei"},
+  {g:"flex",   nm:"Flex &amp; Flock"},
+  {g:"printer",nm:"DTF Druck"},
+  {g:"screen", nm:"Siebdruck"},
+  {g:"laser",  nm:"Gravur"},
+  {g:"press",  nm:"Sublimation"}
 ];
+TILES.forEach(function(t){t.e=WFG.img(t.g,44,"tile-img")});
+var WISH_IMG=WFG.img("star",44,"tile-img");
 
 /* ---------- Kunden & Aufträge aus der Region ---------- */
 var CUST=["Padborg Idrætsforening","Feuerwehr Aabenraa","Tischlerei Hansen, Kruså",
@@ -433,7 +454,7 @@ function draw(popSet,dropSet){
     if(sel===i)cls+=" sel";
     if(popSet&&popSet.has(i))cls+=" pop";
     if(dropSet&&dropSet.has(i))cls+=" drop";
-    var face=spec[i]==="wish"?"✨":TILES[grid[i]].e;
+    var face=spec[i]==="wish"?WISH_IMG:TILES[grid[i]].e;
     html+='<div class="'+cls+'" data-i="'+i+'"><span class="sp"></span>'+face+'</div>';
   }
   boardEl.innerHTML=html;
@@ -496,6 +517,22 @@ function trySwap(a,b){
   }
 }
 
+/* ---------- Funken beim Abräumen (Canvas über dem Brett) ---------- */
+var fxCv=document.createElement("canvas"),fxCtx=fxCv.getContext("2d"),fxSp=new WFG.Sparks(),fxOn=false,fxLast=0;
+fxCv.className="fx-layer";
+function fxSize(){var bb=$("boardbox"),d=Math.min(devicePixelRatio||1,2);
+  fxCv.width=bb.clientWidth*d;fxCv.height=bb.clientHeight*d;fxCv.style.width=bb.clientWidth+"px";fxCv.style.height=bb.clientHeight+"px";fxCtx.setTransform(d,0,0,d,0,0)}
+function fxLoop(now){var dt=Math.min(40,now-(fxLast||now));fxLast=now;
+  fxCtx.clearRect(0,0,fxCv.width,fxCv.height);fxSp.draw(fxCtx,dt);
+  if(fxSp.p.length)requestAnimationFrame(fxLoop);else{fxOn=false;fxLast=0}}
+function sparkCells(set,combo){
+  var bb=$("boardbox");if(!fxCv.parentNode){bb.appendChild(fxCv);fxSize();addEventListener("resize",fxSize)}
+  var box=bb.getBoundingClientRect(),cols=[["#D8B4FE","#A855F7","#fff"],["#F5C542","#fde68a","#fff"],["#EC4899","#f9a8d4","#fff"]][Math.min(2,combo-1)];
+  set.forEach(function(i){var el=boardEl.children[i];if(!el)return;var r=el.getBoundingClientRect();
+    fxSp.burst(r.left-box.left+r.width/2,r.top-box.top+r.height/2,6+combo*2,cols,2.2+combo*.4)});
+  if(!fxOn){fxOn=true;requestAnimationFrame(fxLoop)}
+}
+
 /* Ketten auflösen, nachfallen lassen, Kaskaden zählen */
 function resolve(hit,runs,combo,seed){
   pendingSpawns=[];
@@ -519,6 +556,7 @@ function resolve(hit,runs,combo,seed){
 
   draw(all,null);
   drawHud();
+  sparkCells(all,combo);
 
   setTimeout(function(){
     /* Entfernen und geplante Spezialsteine setzen */

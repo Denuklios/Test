@@ -69,7 +69,39 @@ footer{text-align:center;padding:2.4rem 1rem 0}
   color:var(--text-dim);margin:.35rem 0 .7rem}
 footer .m{font-size:.68rem;color:var(--text-dim);line-height:1.8}
 footer a{color:var(--purple-bright);text-decoration:none}
+
+/* ─── Spiele-Menü im fröhlichen Spiel-Look ─── */
+body .hero h1{font-family:var(--display);font-weight:800;font-size:clamp(2.2rem,8vw,3.6rem);line-height:1.02;color:#fff;
+  -webkit-text-stroke:8px var(--c-purple-dd);paint-order:stroke fill;text-shadow:0 6px 0 rgba(75,17,155,.5)}
+body .hero .eyebrow{display:inline-block;font-family:var(--display);font-weight:800;color:#fff;letter-spacing:.12em;
+  background:linear-gradient(180deg,#ffb35c,var(--c-orange));border:3px solid #fff;border-radius:999px;padding:.2rem .9rem;box-shadow:0 3px 0 var(--c-orange-d)}
+body .hero img{animation:wfgBounce 1.6s ease-in-out infinite;filter:drop-shadow(0 6px 0 rgba(75,17,155,.25))}
+body .hero p{color:var(--ink);font-weight:600;background:rgba(255,255,255,.75);border-radius:18px;padding:.6rem 1rem;border:3px solid #fff}
+body .divider{display:none}
+body .games{gap:1.3rem}
+body .game{padding:0;border-radius:30px;border:5px solid #fff;background:linear-gradient(180deg,#fffef8,#f4ecff);
+  box-shadow:0 8px 0 rgba(106,31,209,.25),0 18px 30px rgba(30,90,160,.2);transition:transform .25s cubic-bezier(.2,1.5,.4,1)}
+body .game:hover{transform:translateY(-6px) rotate(-.6deg);border-color:#fff;box-shadow:0 12px 0 rgba(106,31,209,.25),0 24px 40px rgba(30,90,160,.25)}
+body .game .cover{display:block;width:100%;aspect-ratio:16/9;border-radius:25px 25px 0 0}
+body .game h2,body .game .kind,body .game p,body .game .go{margin-left:1.2rem;margin-right:1.2rem}
+body .game h2{font-family:var(--display);font-weight:800;font-size:1.55rem;margin-top:.8rem;line-height:1.1;color:var(--c-purple-d)}
+body .game .kind{font-family:var(--display);font-weight:800;color:var(--c-orange);letter-spacing:.1em}
+body .game p{color:var(--ink2);font-size:.84rem}
+body .game .go{align-self:flex-start;margin-bottom:1.2rem;margin-top:1rem;padding:.6rem 1.3rem .55rem .6rem;border-radius:999px;border:3px solid #fff;
+  font-family:var(--display);font-weight:800;font-size:.95rem;letter-spacing:.04em;color:#fff;
+  background:linear-gradient(180deg,#a8ff8a,var(--c-green));box-shadow:0 5px 0 var(--c-green-d),0 8px 16px rgba(34,160,31,.3);text-shadow:0 1px 0 var(--c-green-d)}
+body .game .go .play{display:inline-grid;place-items:center;width:26px;height:26px;border-radius:50%;background:#fff;color:var(--c-green-d);font-size:.66rem;margin-right:.4rem;padding-left:2px;text-shadow:none}
+body .game:active .go{transform:translateY(4px);box-shadow:0 1px 0 var(--c-green-d)}
+body .game .tag{z-index:2;top:.7rem;right:.7rem;font-family:var(--display);font-weight:800;color:#7a3a00;border:3px solid #fff;
+  background:linear-gradient(180deg,#ffe680,var(--c-yellow));box-shadow:0 3px 0 var(--c-yellow-d);padding:.2rem .7rem;transform:rotate(4deg)}
+body .note{border-radius:26px;border:4px solid #fff;background:linear-gradient(180deg,#fff8d6,#ffeaa0);box-shadow:0 6px 0 var(--c-yellow-d)}
+body .note h3{font-family:var(--display);font-weight:800;color:var(--c-orange-d)}
+body .note p{color:#6b4a10}
+body .note b{color:#4a2a00}
 </style>
+<link rel="stylesheet" href="wf-game.css">
+<script src="wf-gfx.js"></script>
+<script>document.addEventListener("DOMContentLoaded",function(){WFG.nav({hideAll:true})});</script>
 </head>
 <body>
 <div id="veil"></div>
@@ -88,52 +120,52 @@ footer a{color:var(--purple-bright);text-decoration:none}
 
     <a class="game" href="nadel.html">
       <span class="tag">Gutscheine</span>
-      <div class="glyph">🪡</div>
+      <canvas class="cover" data-art="nadel" aria-hidden="true"></canvas>
       <h2>Nadel &amp; Faden</h2>
       <div class="kind">Geschick · 3 Minuten</div>
       <p>Die Nadel kreist über dem Stickrahmen – triff den Takt und sticke Motiv für Motiv.
          Ab 5.000 Punkten und Level 2 gibt es 5 %. Für die Nadel-Ziehung um 10 % brauchst du 15.000 Punkte und Level 4.</p>
-      <span class="go">Sticken →</span>
+      <span class="go"><span class="play">▶</span> Sticken →</span>
     </a>
 
     <a class="game" href="spuli.html">
       <span class="tag">Gutscheine</span>
-      <div class="glyph">🧶</div>
+      <canvas class="cover" data-art="spuli" aria-hidden="true"></canvas>
       <h2>Spuli auf Abwegen</h2>
       <div class="kind">Sprungspiel · 6 Hallen</div>
       <p>Eine Garnrolle ist vom Wagen gefallen. Bring sie über Plattformen, an Scheren
          und heißen Pressen vorbei zurück zur Veredelungsstation. Ab Halle 4 gibt es 5 %,
          wer alle sechs schafft, darf zur Ziehung um 10 %.</p>
-      <span class="go">Losrollen →</span>
+      <span class="go"><span class="play">▶</span> Losrollen →</span>
     </a>
 
     <a class="game" href="chaos.html">
       <span class="tag">Gutscheine</span>
-      <div class="glyph">📦</div>
+      <canvas class="cover" data-art="chaos" aria-hidden="true"></canvas>
       <h2>Auftrags-Chaos</h2>
       <div class="kind">Reaktion · schnell</div>
       <p>Ware läuft aufs Band – schick jedes Stück ans richtige Verfahren, bevor es
          herunterfällt. Ab 4.000 Punkten und Schicht 3 gibt es 5 %, die Ziehung um
          10 % ab 12.000 Punkten und Schicht 6.</p>
-      <span class="go">Schicht beginnen →</span>
+      <span class="go"><span class="play">▶</span> Schicht beginnen →</span>
     </a>
 
     <a class="game" href="rausch.html">
-      <div class="glyph">🧵</div>
+      <canvas class="cover" data-art="rausch" aria-hidden="true"></canvas>
       <h2>Veredelungs-Rausch</h2>
       <div class="kind">Kombination · endlos</div>
       <p>Verbinde Stickerei, Druck und Laser zu Dreierketten und erfülle Aufträge aus
          Padborg und Umgebung. Mit Nadelsteinen, Lasersteinen und dem Wunsch-Stein.</p>
-      <span class="go">Kombinieren →</span>
+      <span class="go"><span class="play">▶</span> Kombinieren →</span>
     </a>
 
     <a class="game" href="spiel.html">
-      <div class="glyph">🏭</div>
+      <canvas class="cover" data-art="tycoon" aria-hidden="true"></canvas>
       <h2>Veredelungs-Tycoon</h2>
       <div class="kind">Aufbau · Langzeit</div>
       <p>Bau deine eigene Textilveredlung auf – von der Handarbeit bis zur
          Veredelungsstraße. Mit Lager, Vertrieb, Team, Aufträgen und Online-Bestenliste.</p>
-      <span class="go">Fabrik aufbauen →</span>
+      <span class="go"><span class="play">▶</span> Fabrik aufbauen →</span>
     </a>
 
   </div>
@@ -167,6 +199,54 @@ footer a{color:var(--purple-bright);text-decoration:none}
 <script>
 document.getElementById("logo").src="wf-logo.png";
 document.getElementById("logo").onerror=function(){this.style.display="none"};
+/* Titelbilder der Spiele: kleine bewegte Szenen aus den Spielgrafiken */
+(function(){
+  var ART={
+    nadel:{bg:["#ffd6ea","#ff8cc3","#ff4fa3"],main:"stick",mini:["needle","spool","heart","star"]},
+    spuli:{bg:["#bfeaff","#49b8ff","#4fd94a"],main:"@spuli",mini:["scissors","spool","station","spool"]},
+    chaos:{bg:["#fff3c4","#ffd23f","#ff9a1f"],main:"crate",mini:["tshirt","cap","mug","truck"]},
+    rausch:{bg:["#d2ffc8","#7be873","#2f9bff"],main:"gem",mini:["printer","flex","stick","laser"]},
+    tycoon:{bg:["#efe2ff","#c79bff","#9b4dff"],main:"factory",mini:["coin","coin","press","truck"]}
+  };
+  var list=[];
+  document.querySelectorAll("canvas.cover").forEach(function(cv){
+    var a=ART[cv.getAttribute("data-art")];if(!a||!window.WFG)return;
+    list.push({cv:cv,a:a,c:cv.getContext("2d")});
+  });
+  var dpr=Math.min(2,window.devicePixelRatio||1);
+  function size(){list.forEach(function(o){var r=o.cv.getBoundingClientRect();o.w=r.width;o.h=r.height;o.cv.width=r.width*dpr;o.cv.height=r.height*dpr})}
+  size();addEventListener("resize",size);
+  var reduce=matchMedia("(prefers-reduced-motion: reduce)").matches;
+  function draw(t){
+    list.forEach(function(o,k){
+      var c=o.c,w=o.w,h=o.h,a=o.a;if(!w)return;
+      c.setTransform(dpr,0,0,dpr,0,0);
+      var g=c.createLinearGradient(0,0,w,h);g.addColorStop(0,a.bg[0]);g.addColorStop(.45,a.bg[1]);g.addColorStop(1,a.bg[2]);
+      c.fillStyle=g;c.fillRect(0,0,w,h);
+      /* Lichtstrahlen */
+      c.save();c.translate(w/2,h*.55);c.rotate(t/9000+k);c.globalAlpha=.22;c.fillStyle="#fff";
+      for(var i=0;i<10;i++){c.rotate(Math.PI/5);c.beginPath();c.moveTo(0,0);c.lineTo(w,-w*.12);c.lineTo(w,w*.12);c.closePath();c.fill()}
+      c.restore();
+      var rg=c.createRadialGradient(w/2,h*.55,0,w/2,h*.55,h*.6);rg.addColorStop(0,"rgba(255,255,255,.35)");rg.addColorStop(1,"rgba(255,255,255,0)");
+      c.fillStyle=rg;c.fillRect(0,0,w,h);
+      /* kleine Figuren schweben drumherum */
+      var pos=[[.16,.3],[.84,.28],[.2,.78],[.8,.76]];
+      a.mini.forEach(function(m,i){
+        var p=pos[i],bob=Math.sin(t/700+i*1.7)*h*.04;
+        WFG.draw(c,m,p[0]*w,p[1]*h+bob,h*.26,{rot:Math.sin(t/1100+i)*.25});
+      });
+      var s=h*.6,bob=Math.sin(t/600+k)*h*.03;
+      c.globalAlpha=.35;c.fillStyle="#000";c.beginPath();c.ellipse(w/2,h*.9,s*.38,s*.07,0,0,Math.PI*2);c.fill();c.globalAlpha=1;
+      if(a.main==="@spuli")WFG.spuli(c,w/2,h*.56+bob,s*.36,t/1000,{dir:1,roll:t/500,squash:Math.sin(t/300)*.05});
+      else WFG.draw(c,a.main,w/2,h*.55+bob,s,{rot:Math.sin(t/1500)*.06});
+      /* Glanz */
+      var sh=c.createLinearGradient(0,0,0,h*.5);sh.addColorStop(0,"rgba(255,255,255,.18)");sh.addColorStop(1,"rgba(255,255,255,0)");
+      c.fillStyle=sh;c.fillRect(0,0,w,h*.5);
+    });
+    if(!reduce)requestAnimationFrame(draw);
+  }
+  requestAnimationFrame(draw);
+})();
 </script>
 </body>
 </html>

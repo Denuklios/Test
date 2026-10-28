@@ -190,3 +190,7 @@ das sollte auch so bleiben, sonst wäre die Einwilligung unwirksam. Ein Satz daz
 in deiner Datenschutzerklärung wäre sinnvoll, etwa: *„Bei Teilnahme an unseren
 Onlinespielen speichern wir Name und E-Mail-Adresse, um den erspielten Gutschein
 zu versenden. Die Daten werden nach Ablauf des Gutscheins gelöscht."*
+
+## Grafik (Oktober 2026)
+- `wf-game.css` – gemeinsamer, fröhlicher Spiel-Look für alle Spiele (Himmel, Bonbon-Knöpfe, helle Karten). Farben stehen oben in `:root`.
+- `wf-gfx.js` – alle Spielgrafiken als Vektorzeichnungen (keine Bilddateien nötig), die Kulisse mit Sonne, Wolken und Hügeln, Konfetti bei Gewinnen und die Leiste „← Wunsch-Fabrik.dk / Alle Spiele“ oben auf jeder Spielseite.

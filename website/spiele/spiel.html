@@ -63,6 +63,7 @@ body{
 #clicker .techglyph{display:none;font-size:min(72px,19vw);line-height:1.1;
   filter:drop-shadow(0 0 22px var(--purple-glow));animation:techIn .45s ease both}
 #clicker.job .techglyph{display:block}
+#clicker .techglyph .tech-img{width:min(84px,22vw);height:auto;display:block;margin:0 auto;filter:drop-shadow(0 4px 12px rgba(168,85,247,.55))}
 #clicker.job .stitchlogo{display:none}
 @keyframes techIn{from{opacity:0;transform:scale(.82) rotate(-8deg)}to{opacity:1;transform:none}}
 #clicker .jobfor{display:none;font-size:clamp(.54rem,2.4vw,.62rem);color:var(--text-dim);
@@ -134,7 +135,7 @@ header{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
 .brand .lbl{font-size:clamp(.52rem,2.2vw,.62rem);letter-spacing:.18em;text-transform:uppercase;
   color:var(--purple-bright);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .money{margin-left:auto;text-align:right}
-.money .big{font-family:var(--serif);font-size:2rem;font-weight:700;line-height:1;color:var(--text-white);
+.money .big{font-family:Outfit,system-ui,sans-serif;font-weight:600;font-size:2rem;font-weight:700;line-height:1;color:var(--text-white);
   font-variant-numeric:tabular-nums;text-shadow:0 0 24px var(--purple-glow)}
 .money .sub{font-size:.74rem;color:var(--text-muted);margin-top:.25rem;font-variant-numeric:tabular-nums;letter-spacing:.03em}
 .hbtns{display:flex;gap:.4rem}
@@ -215,7 +216,7 @@ header{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
   border:1px solid var(--border);border-radius:10px;overflow:hidden;background:var(--border)}
 .kpi{background:var(--bg-card);padding:.6rem .7rem}
 .kpi{min-width:0;overflow:hidden}
-.kpi b{display:block;font-family:var(--serif);font-size:1.05rem;font-weight:700;color:var(--text-white);
+.kpi b{display:block;font-family:Outfit,system-ui,sans-serif;font-weight:600;font-size:1.05rem;font-weight:700;color:var(--text-white);
   font-variant-numeric:tabular-nums;line-height:1.2;overflow-wrap:anywhere}
 .kpi span{display:block;font-size:.58rem;color:var(--text-dim);text-transform:uppercase;
   letter-spacing:.1em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
@@ -227,7 +228,7 @@ header{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
 .boostbox div{font-size:.74rem;color:var(--text-muted);margin-top:.15rem}
 
 .mini{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:.9rem;margin-top:.8rem}
-.mini .n{font-family:var(--serif);font-size:2rem;font-weight:700;color:var(--purple-bright);line-height:1;
+.mini .n{font-family:Outfit,system-ui,sans-serif;font-weight:600;font-size:2rem;font-weight:700;color:var(--purple-bright);line-height:1;
   font-variant-numeric:tabular-nums;text-shadow:0 0 22px var(--purple-glow)}
 .mini p{font-size:.73rem;color:var(--text-muted);line-height:1.55;margin-top:.45rem}
 
@@ -270,8 +271,11 @@ header{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
 .item:hover:not(:disabled){background:var(--bg-card2);border-color:var(--purple);transform:translateX(3px)}
 .item:hover:not(:disabled) .ic{color:var(--purple-bright)}
 .item:disabled{opacity:.35;cursor:not-allowed}
-.item .ic{width:38px;height:38px;flex:0 0 auto;border-radius:8px;display:grid;place-items:center;
-  font-size:1.25rem;background:#0f0f0f;border:1px solid var(--border);color:var(--purple);transition:color .2s}
+.item .ic{width:42px;height:42px;flex:0 0 auto;border-radius:10px;display:grid;place-items:center;
+  font-size:1.25rem;background:radial-gradient(circle at 35% 30%,#2a1840,#0f0f0f 70%);border:1px solid var(--border);
+  color:var(--purple);transition:color .2s,transform .2s,box-shadow .2s}
+.item .ic .ic-img{width:30px;height:30px;display:block;filter:drop-shadow(0 2px 3px rgba(0,0,0,.5))}
+.item:hover:not(:disabled) .ic{transform:rotate(-6deg) scale(1.08);box-shadow:0 0 14px rgba(168,85,247,.45)}
 .item .mid{flex:1 1 auto;min-width:0}
 .item .nm{font-weight:600;font-size:.88rem;color:var(--text-white);letter-spacing:.02em;
   overflow-wrap:anywhere}
@@ -303,7 +307,7 @@ header{display:flex;align-items:center;gap:1rem;flex-wrap:wrap;
 .order .cust{font-family:var(--serif);font-weight:700;color:var(--text-white);font-size:1.02rem;
   line-height:1.2;overflow-wrap:anywhere}
 .order .what{font-size:.72rem;color:var(--text-muted);margin-top:.15rem}
-.order .pay{font-family:var(--serif);font-size:1.05rem;color:var(--purple-bright);font-weight:700;
+.order .pay{font-family:Outfit,system-ui,sans-serif;font-weight:600;font-size:1.05rem;color:var(--purple-bright);font-weight:700;
   font-variant-numeric:tabular-nums;white-space:nowrap;flex:0 0 auto}
 .order .need{font-size:.7rem;color:var(--text-dim);margin-top:.5rem;font-variant-numeric:tabular-nums}
 .order .tt{height:2px;background:#0d0d0d;border-radius:2px;margin-top:.45rem;overflow:hidden}
@@ -391,7 +395,7 @@ table.stats td:last-child{text-align:right;color:var(--text-white);font-weight:6
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rank .who .d{font-size:.66rem;color:var(--text-dim);margin-top:.1rem}
 .rank .val{flex:0 0 auto;text-align:right}
-.rank .val b{font-family:var(--serif);font-size:1rem;color:var(--purple-bright);
+.rank .val b{font-family:Outfit,system-ui,sans-serif;font-weight:600;font-size:1rem;color:var(--purple-bright);
   font-variant-numeric:tabular-nums;display:block;line-height:1.2}
 .rank .val span{font-size:.62rem;color:var(--text-dim)}
 #boardList{max-height:52vh;overflow-y:auto;padding-right:2px}
@@ -437,6 +441,18 @@ footer .meta{font-size:.7rem;color:var(--text-dim)}
 footer a{color:var(--purple-bright);text-decoration:none}
 footer a:hover{color:var(--purple)}
 </style>
+<link rel="stylesheet" href="wf-game.css">
+<script src="wf-gfx.js"></script>
+<script>document.addEventListener("DOMContentLoaded",function(){
+  WFG.nav({});
+  /* Spiel-Look: Münze am Kontostand, Symbole in den Reitern, goldene Nadel */
+  var cs=document.querySelector(".money .coinslot");if(cs)cs.outerHTML=WFG.img("coin",42,"coin");
+  var TI={prod:"press",sale:"truck",up:"gear",ord:"crate",team:"team",ach:"star",stat:"coin"};
+  document.querySelectorAll(".tab[data-t]").forEach(function(t){
+    var g=TI[t.getAttribute("data-t")];if(g)t.insertAdjacentHTML("afterbegin",WFG.img(g,24,"ti"));
+  });
+  var nd=document.getElementById("nadel");if(nd)nd.innerHTML=WFG.img("needle",44,"");
+});</script>
 </head>
 <body>
 
@@ -465,8 +481,11 @@ footer a:hover{color:var(--purple)}
       </div>
     </div>
     <div class="money">
-      <div class="big" id="kr">0 kr</div>
-      <div class="sub"><span id="krSec">0</span> kr/s · <span id="prodSec">0</span> Teile/s</div>
+      <span class="coinslot"></span>
+      <div>
+        <div class="big" id="kr">0 kr</div>
+        <div class="sub"><span id="krSec">0</span> kr/s · <span id="prodSec">0</span> Teile/s</div>
+      </div>
     </div>
     <div class="hbtns">
       <button class="icb" id="boardBtn" title="Bestenliste">🏆</button>
@@ -868,17 +887,17 @@ var GOODS=["Vereinstrikots besticken","Hoodies mit DTF bedrucken","Arbeitsjacken
 
 /* ---------- Technik je Auftrag: Symbol und Beschriftung ---------- */
 var TECHS=[
-  {k:"besticken",  ic:"🧵", lbl:"Sticken"},
-  {k:"DTF",        ic:"🖨️", lbl:"DTF Druck"},
-  {k:"Siebdruck",  ic:"🎨", lbl:"Siebdruck"},
-  {k:"gravieren",  ic:"🔥", lbl:"Gravieren"},
-  {k:"lasern",     ic:"⚡", lbl:"Lasern"},
-  {k:"schneiden",  ic:"✂️", lbl:"Laserschnitt"},
-  {k:"sublimieren",ic:"♨️", lbl:"Sublimation"},
-  {k:"beflocken",  ic:"🧶", lbl:"Flock"},
-  {k:"plotten",    ic:"📐", lbl:"Plotten"},
-  {k:"bedrucken",  ic:"🖨️", lbl:"Druck"},
-  {k:"veredeln",   ic:"✨", lbl:"Veredeln"}
+  {k:"besticken",  ic:"🧵", g:"stick", lbl:"Sticken"},
+  {k:"DTF",        ic:"🖨️", g:"printer", lbl:"DTF Druck"},
+  {k:"Siebdruck",  ic:"🎨", g:"screen", lbl:"Siebdruck"},
+  {k:"gravieren",  ic:"🔥", g:"laser", lbl:"Gravieren"},
+  {k:"lasern",     ic:"⚡", g:"laser", lbl:"Lasern"},
+  {k:"schneiden",  ic:"✂️", g:"scissors", lbl:"Laserschnitt"},
+  {k:"sublimieren",ic:"♨️", g:"mug", lbl:"Sublimation"},
+  {k:"beflocken",  ic:"🧶", g:"flex", lbl:"Flock"},
+  {k:"plotten",    ic:"📐", g:"flex", lbl:"Plotten"},
+  {k:"bedrucken",  ic:"🖨️", g:"printer", lbl:"Druck"},
+  {k:"veredeln",   ic:"✨", g:"star", lbl:"Veredeln"}
 ];
 function techOf(what){
   var t=String(what||"").toLowerCase();
@@ -1063,9 +1082,22 @@ function prestige(){
 
 /* ---------- Rendering ---------- */
 var $=function(i){return document.getElementById(i)};
+/* Vektor-Grafiken statt Schriftzeichen (wf-gfx.js) */
+var ICON_ID={hand:"hand",press:"press",plot:"flex",subli:"mug",dtf:"printer",stick:"stick",sieb:"screen",grav:"laser",
+  cut:"metaltag",str:"factory",wu:"star",theke:"crate",mail:"heart",shop:"tshirt",markt:"coin",messe:"team",b2b:"truck",
+  gross:"crate",nord:"truck",welt:"truck",regal:"crate",pal:"crate",hoch:"crate",halle:"factory",zentr:"factory",jit:"truck",
+  nae:"needle",graf:"screen",verk:"coin",lag:"crate",tech:"gear",meis:"star"};
+var ICON_GLY={"✧":"hand","▤":"press","✂":"scissors","◈":"mug","▣":"printer","✦":"stick","⊞":"screen","◇":"laser",
+  "◎":"metaltag","❖":"factory","✺":"star","⌂":"crate","✉":"heart","⊕":"tshirt","⊟":"coin","⌘":"team","⇄":"truck",
+  "⛁":"crate","❈":"truck","✈":"truck","▥":"crate","▦":"crate","▧":"crate","▨":"factory","▩":"factory","◫":"truck",
+  "⚙":"gear","★":"star","♡":"heart","◐":"gem","❋":"gem"};
+function iconHTML(id,ic){
+  var g=ICON_ID[id]||ICON_GLY[ic];
+  return (g&&window.WFG)?WFG.img(g,30,"ic-img"):ic;
+}
 function itemHTML(attr,id,ic,nm,ds,price,own,can,extra){
   return '<button class="item" '+attr+'="'+id+'" '+(can?"":"disabled")+'>'+
-    '<div class="ic">'+ic+'</div><div class="mid"><div class="nm">'+nm+(extra||"")+'</div>'+
+    '<div class="ic">'+iconHTML(attr==="data-u"?"":id,ic)+'</div><div class="mid"><div class="nm">'+nm+(extra||"")+'</div>'+
     '<div class="ds">'+ds+'</div></div><div class="rt"><div class="pr">'+price+'</div>'+
     (own?'<div class="ow">'+own+'</div>':'')+'</div></button>';
 }
@@ -1147,7 +1179,7 @@ function renderTeam(){
 function renderAch(){
   $("listAch").innerHTML=ACHS.map(function(a){
     var g=S.achs.indexOf(a.id)>=0;
-    return '<div class="'+(g?"got":"")+'"><div class="e">'+(g?a.e:"◌")+'</div><div class="t">'+a.t+'</div></div>';
+    return '<div class="'+(g?"got":"")+'"><div class="e">'+(window.WFG?WFG.img(g?"star":"gem",32,""):(g?a.e:"◌"))+'</div><div class="t">'+a.t+'</div></div>';
   }).join("");
 }
 function renderStat(){
@@ -1217,7 +1249,7 @@ function updatePress(){
   if(job){
     cl.classList.add("job");
     var g=$("pressGlyph");
-    g.textContent=tech.ic;
+    if(window.WFG&&tech.g)g.innerHTML=WFG.img(tech.g,84,"tech-img");else g.textContent=tech.ic;
     g.style.animation="none";void g.offsetWidth;g.style.animation="";
     $("pressLbl").textContent=tech.lbl;
     $("pressJob").textContent="für "+job.cust;
