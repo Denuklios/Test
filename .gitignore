@@ -2,3 +2,8 @@ data/
 node_modules/
 dist/
 __pycache__/
+
+# Auftraege-App: Laufzeitdaten
+auftraege/data/*
+!auftraege/data/.htaccess
+auftraege/inc/config.local.php

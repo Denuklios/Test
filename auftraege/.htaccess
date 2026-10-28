@@ -1,0 +1,27 @@
+# Wunsch-Fabrik Auftraege – Schutz auf one.com (Apache)
+Options -Indexes
+
+# Keine internen Dateien ausliefern
+<FilesMatch "\.(sqlite|sqlite-wal|sqlite-shm|sql|md|log|dat)$">
+  Require all denied
+</FilesMatch>
+<FilesMatch "^config\.local\.php$">
+  Require all denied
+</FilesMatch>
+
+# Sicherheits-Header
+<IfModule mod_headers.c>
+  Header always set X-Content-Type-Options "nosniff"
+  Header always set X-Frame-Options "SAMEORIGIN"
+  Header always set Referrer-Policy "same-origin"
+  Header always set Permissions-Policy "camera=(self), geolocation=(), microphone=()"
+</IfModule>
+
+# Service Worker darf nicht lange gecacht werden
+<Files "sw.js">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "no-cache"
+  </IfModule>
+</Files>
+
+AddType application/manifest+json .webmanifest
