@@ -10,3 +10,6 @@ auftraege/inc/config.local.php
 
 # Website: Zugangsdaten
 website/db_config.php
+
+# Upload-Paket (enthält Zugangsdaten)
+website-paket/
