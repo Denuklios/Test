@@ -60,6 +60,12 @@ if ($action === 'submit') {
 }
 
 // ─── ÖFFENTLICH: Freigegebene Bewertungen abrufen ───────────────────
+// ─── ÖFFENTLICH: Link zum Bewerten bei Google (aus der Auftrags-App) ──
+if ($action === 'links') {
+    echo json_encode(['ok' => true, 'google' => wf_google_review_url()]);
+    exit;
+}
+
 if ($action === 'list_approved') {
     $result = $mysqli->query("
         SELECT id, name, company, initials_only, text, created_at

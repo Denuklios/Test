@@ -430,6 +430,41 @@ function wf_admin_log($mysqli, $area, $what) {
     }
 }
 
+/** Verbindung zur Datenbank der Auftrags-App (auftraege/) oder null, falls nicht vorhanden. */
+function wf_orders_app_pdo() {
+    $cfgFile = __DIR__ . '/auftraege/inc/config.php';
+    if (!is_file($cfgFile) || !extension_loaded('pdo_sqlite')) return null;
+    try {
+        $cfg = require $cfgFile;
+        $local = __DIR__ . '/auftraege/inc/config.local.php';
+        if (is_file($local)) $cfg = array_replace($cfg, require $local);
+        $dbFile = rtrim((string)$cfg['data_dir'], '/') . '/auftraege.sqlite';
+        if (!is_file($dbFile)) return null;
+        $pdo = new PDO('sqlite:' . $dbFile, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo->exec('PRAGMA busy_timeout = 5000');
+        return $pdo;
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
+/**
+ * Google-Bewertungslink aus den Firmendaten der Auftrags-App (Einstellungen → E-Mails an Kunden).
+ * So wird der Link nur an einer Stelle gepflegt. Leer, wenn keiner hinterlegt ist.
+ */
+function wf_google_review_url() {
+    $pdo = wf_orders_app_pdo();
+    if (!$pdo) return '';
+    try {
+        $raw = $pdo->query("SELECT value FROM meta WHERE key = 'company'")->fetchColumn();
+        $c = $raw ? json_decode((string)$raw, true) : [];
+        $u = trim((string)($c['review_url'] ?? ''));
+        return preg_match('~^https://[^\s"<>]+$~i', $u) ? $u : '';
+    } catch (Throwable $e) {
+        return '';
+    }
+}
+
 /**
  * $name = Anzeigename aus dem Admin-Bereich (leer = Namen in der App nicht ändern).
  * Überträgt einen Mitarbeiter in die Auftrags-App (auftraege/), damit dort bei

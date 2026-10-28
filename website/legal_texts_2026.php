@@ -120,6 +120,9 @@ Wenn du eine Bewertung schreibst, veröffentlichen wir nach Prüfung deinen Name
 Spiele und Gutscheine
 Für die Bestenliste speichern wir den von dir gewählten Spielernamen und dein Ergebnis. Wenn du einen Gutschein gewinnst, speichern wir Name, E-Mail und den Gutscheincode, um ihn dir zu schicken und einzulösen, sowie zum Schutz vor Missbrauch die IP-Adresse für 30 Tage.
 
+Google-Bewertung
+Der Knopf „Auch auf Google bewerten“ ist ein einfacher Link. Erst wenn du ihn anklickst, öffnet sich Google (Google Ireland Ltd.); dann gelten die Datenschutzbestimmungen von Google.
+
 WhatsApp
 Der WhatsApp-Knopf ist ein einfacher Link. Erst wenn du ihn anklickst, öffnet sich WhatsApp (Meta Platforms Ireland Ltd.); dann gelten die Datenschutzbestimmungen von WhatsApp.
 
@@ -164,6 +167,9 @@ Når du skriver en anmeldelse, offentliggør vi efter godkendelse dit navn (elle
 Spil og gavekort
 Til topliste gemmer vi dit valgte spillernavn og resultat. Vinder du et gavekort, gemmer vi navn, e-mail og koden for at sende og indløse det, og for at forhindre misbrug IP-adressen i 30 dage.
 
+Google-anmeldelse
+Knappen „Bedøm os også på Google“ er et almindeligt link. Først når du klikker, åbnes Google (Google Ireland Ltd.), og så gælder Googles privatlivspolitik.
+
 WhatsApp
 WhatsApp-knappen er et almindeligt link. Først når du klikker, åbnes WhatsApp (Meta Platforms Ireland Ltd.), og så gælder WhatsApps privatlivspolitik.
 
@@ -207,6 +213,9 @@ If you write a review, we publish your name (or only initials), optionally your 
 
 Games and vouchers
 For the leaderboard we store the player name you choose and your score. If you win a voucher, we store name, email and the code to send and redeem it, and the IP address for 30 days to prevent abuse.
+
+Google review
+The “Also review us on Google” button is a plain link. Only when you click it does Google (Google Ireland Ltd.) open; Google's privacy policy then applies.
 
 WhatsApp
 The WhatsApp button is a plain link. Only when you click it does WhatsApp (Meta Platforms Ireland Ltd.) open; WhatsApp's privacy policy then applies.

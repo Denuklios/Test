@@ -69,7 +69,7 @@ function wf_cm_text(string $lang): array
 {
     $T = [
         'de' => [
-            'buttons' => ['sign' => 'Angebot ansehen & unterschreiben', 'track' => 'Auftrag verfolgen', 'ship' => 'Sendung verfolgen', 'review' => 'Bewertung schreiben', 'unsub' => 'hier abmelden', 'conf' => 'Auftragsbestätigung ansehen'],
+            'buttons' => ['sign' => 'Angebot ansehen & unterschreiben', 'track' => 'Auftrag verfolgen', 'ship' => 'Sendung verfolgen', 'review_site' => 'Auf unserer Webseite bewerten', 'review' => 'Bewertung schreiben', 'unsub' => 'hier abmelden', 'conf' => 'Auftragsbestätigung ansehen'],
             'hello' => 'Hallo {name},', 'regards' => "Viele Grüße\n{owner}\n{company}",
             'offer_subj' => 'Dein Angebot {nr} – bitte prüfen und unterschreiben',
             'offer_body' => "vielen Dank für deine Anfrage! Dein Angebot „{title}“ ist fertig. Bitte prüfe Motiv, Menge, Preis und Termin und bestätige es mit deiner Unterschrift:\n\n{sign}\n\nDer Link ist 30 Tage gültig. Erst mit deiner Unterschrift wird das Angebot zum verbindlichen Auftrag.",
@@ -89,7 +89,7 @@ function wf_cm_text(string $lang): array
             'unsub' => 'Du bekommst diese Nachricht, weil du bei uns bestellt hast. Keine solchen E-Mails mehr: {unsub}',
         ],
         'da' => [
-            'buttons' => ['sign' => 'Se tilbud & underskriv', 'track' => 'Følg ordren', 'ship' => 'Følg forsendelsen', 'review' => 'Skriv en anmeldelse', 'unsub' => 'afmeld her', 'conf' => 'Se ordrebekræftelsen'],
+            'buttons' => ['sign' => 'Se tilbud & underskriv', 'track' => 'Følg ordren', 'ship' => 'Følg forsendelsen', 'review_site' => 'Bedøm os på hjemmesiden', 'review' => 'Skriv en anmeldelse', 'unsub' => 'afmeld her', 'conf' => 'Se ordrebekræftelsen'],
             'hello' => 'Hej {name},', 'regards' => "Venlig hilsen\n{owner}\n{company}",
             'offer_subj' => 'Dit tilbud {nr} – gennemse og underskriv',
             'offer_body' => "tak for din forespørgsel! Dit tilbud „{title}“ er klar. Tjek motiv, antal, pris og termin, og bekræft med din underskrift:\n\n{sign}\n\nLinket er gyldigt i 30 dage. Først med din underskrift bliver tilbuddet til en bindende ordre.",
@@ -109,7 +109,7 @@ function wf_cm_text(string $lang): array
             'unsub' => 'Du modtager denne besked, fordi du har handlet hos os. Ingen flere af denne slags e-mails: {unsub}',
         ],
         'en' => [
-            'buttons' => ['sign' => 'View quote & sign', 'track' => 'Track order', 'ship' => 'Track shipment', 'review' => 'Write a review', 'unsub' => 'unsubscribe here', 'conf' => 'View order confirmation'],
+            'buttons' => ['sign' => 'View quote & sign', 'track' => 'Track order', 'ship' => 'Track shipment', 'review_site' => 'Review us on our website', 'review' => 'Write a review', 'unsub' => 'unsubscribe here', 'conf' => 'View order confirmation'],
             'hello' => 'Hello {name},', 'regards' => "Kind regards\n{owner}\n{company}",
             'offer_subj' => 'Your quote {nr} – please review and sign',
             'offer_body' => "thank you for your enquiry! Your quote \"{title}\" is ready. Please check design, quantity, price and date and confirm with your signature:\n\n{sign}\n\nThe link is valid for 30 days. Only your signature turns the quote into a binding order.",
@@ -166,6 +166,9 @@ function wf_cm_html(string $text, array $B, string $track): string
         }
         if ($u === $track) {
             return $B['track'];
+        }
+        if (str_contains($u, 'bewerten=1')) {
+            return $B['review_site'] ?? $B['review'];   // Bewertung auf der eigenen Webseite
         }
         return str_contains($u, 'verfolgen.php') ? $B['track'] : (preg_match('~g\.page|google\.|trustpilot|review~i', $u) ? $B['review'] : $B['ship']);
     };
@@ -262,9 +265,11 @@ function wf_cm_followup(PDO $db, int $orderId): ?bool
         return $list[($seed >> ($i * 3)) % count($list)];
     };
     $review = wf_mail_settings()['review_url'];
+    // Bewertung auf der eigenen Webseite (Hauptseite = Adresse vor /auftraege/), dazu Google, falls hinterlegt
+    $site = preg_match('~^(https?://.+?)/auftraege/~', (string)$x['track'], $sm) ? $sm[1] . '/index.html?bewerten=1' : '';
     $parts = [$pick('fu_open', 0) . ' ' . $pick('fu_mid', 1), $pick('fu_help', 2)];
-    if ($review !== '') {
-        $parts[] = $pick('fu_review', 3) . "\n" . $review;
+    if ($review !== '' || $site !== '') {
+        $parts[] = $pick('fu_review', 3) . "\n" . implode("\n", array_filter([$site, $review]));
     }
     $parts[] = $pick('fu_thanks', 4);
     $body = strtr(implode("\n\n", $parts), $x['vars']);

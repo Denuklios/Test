@@ -870,6 +870,19 @@
     transition: background 0.2s;
   }
   .btn-review-toggle:hover { background: var(--purple-bright); }
+  .review-form-wrap { display: flex; flex-wrap: wrap; gap: 0.7rem; justify-content: center; align-items: center; }
+  .btn-review-google {
+    display: inline-flex; align-items: center; gap: 0.5rem; text-decoration: none;
+    background: transparent; color: var(--text-white); border: 1px solid rgba(168,85,247,0.45);
+    padding: 0.72rem 1.3rem; border-radius: 8px; font-family: 'Outfit', sans-serif; font-size: 0.88rem; font-weight: 600;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .btn-review-google:hover { border-color: var(--purple-bright); background: rgba(168,85,247,0.12); }
+  .btn-review-google .g-icon {
+    width: 1.3rem; height: 1.3rem; border-radius: 50%; background: #fff; color: #4285F4;
+    font-weight: 800; font-size: 0.8rem; display: inline-flex; align-items: center; justify-content: center; font-family: Arial, sans-serif;
+  }
+  .review-google-after { display: block; margin-top: 0.8rem; text-align: center; }
 
   /* ─── REVIEW MODAL ─── */
   .review-modal-overlay {
@@ -1972,6 +1985,8 @@
     <!-- BEWERTUNG SCHREIBEN -->
     <div class="review-form-wrap reveal">
       <button class="btn-review-toggle" id="reviewToggleBtn" onclick="openReviewModal()" data-i18n="review_cta">✍ Bewertung schreiben</button>
+      <!-- erscheint nur, wenn im Auftragsprogramm ein Google-Link hinterlegt ist -->
+      <a class="btn-review-google" id="googleReviewBtn" href="#" target="_blank" rel="noopener nofollow" style="display:none;"><span class="g-icon">G</span> <span data-i18n="review_google">Auch auf Google bewerten</span></a>
     </div>
 
     <!-- REVIEW MODAL -->
@@ -2356,6 +2371,7 @@ const translations = {
     workshop_label: "Aus der Werkstatt", workshop_title: "Frisch aus der Werkstatt",
     workshop_week_label: "Anfragen diese Woche bearbeitet",
     review_cta: "✍ Bewertung schreiben",
+    review_google: "Auch auf Google bewerten", review_google_after: "Magst du uns auch auf Google bewerten? Das hilft uns sehr 💜",
     review_name_label: "Dein Name",
     review_company_label: "Firma (optional)",
     review_initials_label: "Nur Initialen anzeigen (z.B. „M.S.“)",
@@ -2423,6 +2439,7 @@ const translations = {
     workshop_label: "Fra værkstedet", workshop_title: "Friskt fra værkstedet",
     workshop_week_label: "Forespørgsler behandlet denne uge",
     review_cta: "✍ Skriv en anmeldelse",
+    review_google: "Bedøm os også på Google", review_google_after: "Vil du også bedømme os på Google? Det hjælper os meget 💜",
     review_name_label: "Dit navn",
     review_company_label: "Firma (valgfrit)",
     review_initials_label: "Vis kun initialer (f.eks. „M.S.“)",
@@ -2490,6 +2507,7 @@ const translations = {
     workshop_label: "From the workshop", workshop_title: "Fresh from the workshop",
     workshop_week_label: "Requests processed this week",
     review_cta: "✍ Write a review",
+    review_google: "Also review us on Google", review_google_after: "Would you also review us on Google? It helps us a lot 💜",
     review_name_label: "Your name",
     review_company_label: "Company (optional)",
     review_initials_label: "Show initials only (e.g. „M.S.“)",
@@ -2957,6 +2975,21 @@ function insertEmoji(emoji) {
   updateReviewCharCount();
 }
 
+// Google-Bewertungslink kommt aus dem Auftragsprogramm (dort einmal eintragen)
+let googleReviewUrl = '';
+function loadReviewLinks() {
+  fetch('reviews_api.php?action=links')
+    .then(r => r.json())
+    .then(d => {
+      if (!d.ok || !d.google) return;
+      googleReviewUrl = d.google;
+      const btn = document.getElementById('googleReviewBtn');
+      btn.href = googleReviewUrl;
+      btn.style.display = '';
+    })
+    .catch(() => {});
+}
+
 function submitReview(event) {
   event.preventDefault();
   const name = document.getElementById('reviewName').value.trim();
@@ -2984,10 +3017,21 @@ function submitReview(event) {
         msg.textContent = t.ok;
         msg.classList.add('ok', 'show');
         document.getElementById('reviewForm').reset();
-        setTimeout(() => {
-          closeReviewModal();
-          msg.classList.remove('show');
-        }, 2000);
+        if (googleReviewUrl) {
+          // Wer schon bewertet hat, ist am ehesten bereit, es auch bei Google zu tun
+          const T = translations[currentLang] || translations.de;
+          const a = document.createElement('a');
+          a.className = 'btn-review-google review-google-after';
+          a.href = googleReviewUrl; a.target = '_blank'; a.rel = 'noopener nofollow';
+          a.innerHTML = `<span class="g-icon">G</span> ${T.review_google_after}`;
+          a.addEventListener('click', () => setTimeout(closeReviewModal, 300));
+          msg.appendChild(a);
+        } else {
+          setTimeout(() => {
+            closeReviewModal();
+            msg.classList.remove('show');
+          }, 2000);
+        }
       } else {
         msg.textContent = t.error;
         msg.classList.add('error', 'show');
@@ -3003,6 +3047,11 @@ function submitReview(event) {
 window.addEventListener('DOMContentLoaded', () => {
   loadRefLogos();
   loadImpressionen();
+  loadReviewLinks();
+  // Link aus der Nachfrage-Mail: ?bewerten=1 öffnet gleich das Bewertungsfenster
+  if (new URLSearchParams(location.search).get('bewerten') === '1') {
+    setTimeout(() => { document.getElementById('referenzen').scrollIntoView({ behavior: 'smooth' }); openReviewModal(); }, 600);
+  }
   loadWorkshopStats();
   loadReviews();
 });
