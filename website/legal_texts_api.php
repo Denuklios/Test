@@ -8,7 +8,10 @@
 
 header('Content-Type: application/json');
 header('Access-Control-Allow-Origin: *');
-session_start();
+// Sitzung nur fortsetzen, wenn schon eine besteht (Admin angemeldet) – Besucher bekommen kein Cookie
+if (isset($_COOKIE[session_name()])) {
+    session_start();
+}
 require_once __DIR__ . '/db.php';
 
 $mysqli = wf_db_connect();
@@ -27,6 +30,8 @@ function wf_deepl_translate($text, $targetLang) {
         return null; // Kein Key hinterlegt – Übersetzung überspringen
     }
     if (trim($text) === '') return '';
+    // Platzhalter [TELEFON] darf nicht mitübersetzt werden
+    $text = str_replace('[TELEFON]', 'XTELEFONX', $text);
 
     $ch = curl_init('https://api-free.deepl.com/v2/translate');
     curl_setopt($ch, CURLOPT_POST, true);
@@ -46,7 +51,8 @@ function wf_deepl_translate($text, $targetLang) {
 
     if ($httpCode !== 200 || !$response) return null;
     $data = json_decode($response, true);
-    return $data['translations'][0]['text'] ?? null;
+    $out = $data['translations'][0]['text'] ?? null;
+    return $out === null ? null : str_replace('XTELEFONX', '[TELEFON]', $out);
 }
 
 // ─── ÖFFENTLICH: Text abrufen (für index.html) ───────────────────────

@@ -237,6 +237,9 @@ function wf_ensure_tables($mysqli) {
             INDEX idx_active (active)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
+    // Rechtstexte: neues Impressum und neue Datenschutzerklärung (Stand Oktober 2026) einmalig übernehmen
+    wf_legal_update_2026($mysqli);
+
     // Rechtstexte: Ortsteil Vilsbæk in der Adresse ergänzen (einmalig, danach findet die Abfrage nichts mehr)
     if ($mysqli->query("SHOW TABLES LIKE 'legal_texts'")->num_rows) {
         foreach (['content_de', 'content_da', 'content_en'] as $col) {
@@ -533,42 +536,76 @@ function wf_send_customer_mail($toEmail, $toName, $lang, $type) {
 }
 
 /**
- * Versucht anhand der IP-Adresse Land und Region/Stadt zu bestimmen,
- * über den kostenlosen Dienst ip-api.com (keine Anmeldung nötig).
- * Gibt ein Array mit country, countryCode, region zurück oder null.
+ * Ermittelt das Land eines Besuchers OHNE die IP-Adresse an Dritte zu schicken:
+ * 1. Zeitzone des Browsers (Parameter tz, z. B. "Europe/Copenhagen") → Land
+ * 2. sonst die Region aus der Browsersprache (Accept-Language, z. B. "de-AT" → AT)
+ * Der Parameter $ip wird nicht mehr verwendet (früher: Abfrage bei ip-api.com).
+ * Gibt ['country', 'country_code', 'region' => null, 'city' => null] zurück oder null.
  */
-function wf_geolocate_ip($ip) {
-    // Lokale/private IPs überspringen (z.B. eigene Tests, interne Proxys)
-    if (!$ip || !filter_var($ip, FILTER_VALIDATE_IP)) {
-        return null;
+function wf_geolocate_ip($ip = null) {
+    $code = null;
+    $tz = (string)($_REQUEST['tz'] ?? '');
+    if ($tz !== '' && preg_match('#^[A-Za-z_]+(/[A-Za-z0-9_+\-]+){1,2}$#', $tz)) {
+        try {
+            $loc = (new DateTimeZone($tz))->getLocation();
+            if (!empty($loc['country_code']) && $loc['country_code'] !== '??') $code = strtoupper($loc['country_code']);
+        } catch (Exception $e) {
+            $code = null;
+        }
     }
-    $isPrivate = !filter_var(
-        $ip,
-        FILTER_VALIDATE_IP,
-        FILTER_FLAG_NO_PRIV_RANGE | FILTER_FLAG_NO_RES_RANGE
-    );
-    if ($isPrivate) {
-        return null;
+    if (!$code && preg_match('/^[a-z]{2,3}-([A-Z]{2})\b/i', (string)($_SERVER['HTTP_ACCEPT_LANGUAGE'] ?? ''), $m)) {
+        $code = strtoupper($m[1]);
     }
+    if (!$code) return null;
+    return ['country' => wf_country_name($code), 'country_code' => $code, 'region' => null, 'city' => null];
+}
 
-    $ch = curl_init("http://ip-api.com/json/" . urlencode($ip) . "?fields=status,message,country,countryCode,regionName,city");
-    curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-    curl_setopt($ch, CURLOPT_TIMEOUT, 3);
-    curl_setopt($ch, CURLOPT_CONNECTTIMEOUT, 2);
-    curl_setopt($ch, CURLOPT_USERAGENT, 'Mozilla/5.0 (compatible; WunschFabrikBot/1.0)');
-    $response = @curl_exec($ch);
-    curl_close($ch);
+/**
+ * Löschfristen aus der Datenschutzerklärung umsetzen (läuft einmal pro Tag):
+ * Besucherstatistik 14 Monate, Kontaktanfragen 12 Monate, IP-Adressen bei Spielen/Gutscheinen 30 Tage.
+ */
+function wf_privacy_cleanup($mysqli) {
+    $mysqli->query("DELETE FROM visits WHERE last_seen < (NOW() - INTERVAL 14 MONTH)");
+    $mysqli->query("DELETE FROM inquiries WHERE created_at < (NOW() - INTERVAL 12 MONTH)");
+    foreach (['game_draws', 'game_vouchers'] as $t) {
+        if ($mysqli->query("SHOW TABLES LIKE '$t'")->num_rows) {
+            $mysqli->query("UPDATE $t SET ip = NULL WHERE ip IS NOT NULL AND created_at < (NOW() - INTERVAL 30 DAY)");
+        }
+    }
+}
 
-    if (!$response) return null;
-    $data = json_decode($response, true);
-    if (!$data || ($data['status'] ?? '') !== 'success') return null;
+/** Ländername (Deutsch) zum ISO-Code. */
+function wf_country_name($code) {
+    if (class_exists('Locale')) {
+        $n = Locale::getDisplayRegion('-' . $code, 'de');
+        if ($n && $n !== $code) return $n;
+    }
+    $map = ['DK' => 'Dänemark', 'DE' => 'Deutschland', 'AT' => 'Österreich', 'CH' => 'Schweiz', 'SE' => 'Schweden', 'NO' => 'Norwegen',
+            'NL' => 'Niederlande', 'BE' => 'Belgien', 'PL' => 'Polen', 'FR' => 'Frankreich', 'GB' => 'Vereinigtes Königreich', 'US' => 'Vereinigte Staaten'];
+    return $map[$code] ?? $code;
+}
 
-    return [
-        'country' => $data['country'] ?? null,
-        'country_code' => $data['countryCode'] ?? null,
-        'region' => $data['regionName'] ?? null,
-        'city' => $data['city'] ?? null,
-    ];
+/**
+ * Tages-Kennung eines Besuchers für die Statistik – ohne Cookie und ohne die IP zu speichern.
+ * Aus IP + Browser + einem täglich neuen Zufallswert wird ein Hash gebildet. Der Zufallswert
+ * des Vortags wird gelöscht, danach lässt sich der Hash keinem Menschen mehr zuordnen.
+ */
+function wf_visitor_hash($mysqli) {
+    $mysqli->query("CREATE TABLE IF NOT EXISTS visit_salt (day DATE PRIMARY KEY, salt CHAR(64) NOT NULL) ENGINE=InnoDB");
+    $today = date('Y-m-d');
+    $mysqli->query("DELETE FROM visit_salt WHERE day < '$today'");
+    $res = $mysqli->query("SELECT salt FROM visit_salt WHERE day = '$today'");
+    $row = $res ? $res->fetch_assoc() : null;
+    if (!$row) {
+        $salt = bin2hex(random_bytes(32));
+        $mysqli->query("INSERT IGNORE INTO visit_salt (day, salt) VALUES ('$today', '$salt')");
+        wf_privacy_cleanup($mysqli);   // einmal am Tag: alte Daten löschen, wie in der Datenschutzerklärung zugesagt
+        $res = $mysqli->query("SELECT salt FROM visit_salt WHERE day = '$today'");
+        $row = $res ? $res->fetch_assoc() : ['salt' => $salt];
+    }
+    $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '');
+    $ua = substr((string)($_SERVER['HTTP_USER_AGENT'] ?? ''), 0, 300);
+    return substr(hash('sha256', $row['salt'] . '|' . $ip . '|' . $ua), 0, 40);
 }
 
 /**
@@ -654,6 +691,33 @@ function wf_check_push_notification($mysqli, $onlineCount) {
 // ─── Rechtstexte (Impressum, AGB, Datenschutz) ──────────────────────
 // DE ist der Master-Text (vom Kunden im Admin editiert), DA/EN werden
 // per DeepL automatisch übersetzt und hier als Cache mitgespeichert.
+/**
+ * Übernimmt einmalig Impressum und Datenschutzerklärung aus legal_texts_2026.php
+ * und ersetzt in allen Rechtstexten die Telefonnummer durch das Bild ([TELEFON])
+ * sowie den Platzhalter der CVR-Nummer in den AGB. Danach nie wieder (Merker in wf_meta).
+ */
+function wf_legal_update_2026($mysqli) {
+    $mysqli->query("CREATE TABLE IF NOT EXISTS wf_meta (k VARCHAR(64) PRIMARY KEY, v VARCHAR(255) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $done = $mysqli->query("SELECT v FROM wf_meta WHERE k = 'legal_2026'");
+    if (($done && $done->num_rows) || !$mysqli->query("SHOW TABLES LIKE 'legal_texts'")->num_rows) return;
+    $file = __DIR__ . '/legal_texts_2026.php';
+    if (!is_file($file)) return;
+    $texts = require $file;
+    foreach ($texts as $type => $t) {
+        $stmt = $mysqli->prepare("UPDATE legal_texts SET title_de = ?, content_de = ?, title_da = ?, content_da = ?, title_en = ?, content_en = ? WHERE type = ?");
+        $stmt->bind_param('sssssss', $t['title_de'], $t['content_de'], $t['title_da'], $t['content_da'], $t['title_en'], $t['content_en'], $type);
+        $stmt->execute();
+        $stmt->close();
+    }
+    foreach (['content_de', 'content_da', 'content_en'] as $col) {
+        foreach (['+45 939 00 939', '+45 93900939', '+4593900939'] as $num) {
+            $mysqli->query("UPDATE legal_texts SET $col = REPLACE($col, '$num', '[TELEFON]')");
+        }
+        $mysqli->query("UPDATE legal_texts SET $col = REPLACE($col, '[CVR-NUMMER EINTRAGEN]', '46733428')");
+    }
+    $mysqli->query("INSERT INTO wf_meta (k, v) VALUES ('legal_2026', NOW())");
+}
+
 function wf_ensure_legal_texts_table($mysqli) {
     $mysqli->query("
         CREATE TABLE IF NOT EXISTS legal_texts (

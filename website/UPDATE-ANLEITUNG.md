@@ -31,3 +31,11 @@
 - Ladezeit: Logo auf der Startseite 718 KB → 17 KB (Menü/Fußzeile) bzw. 59 KB (groß, WebP); Jingle lädt erst beim Abspielen; Bilder laden erst beim Scrollen; Komprimierung und Browser-Cache per `.htaccess`.
 - Barrierefreiheit: Zoomen auf dem Handy ist wieder erlaubt.
 - Admin-Bereich neu gestaltet: Seitenleiste mit Gruppen, Begrüßung mit animierter Faden-Grafik, Besucher-Diagramm, Zähler für neue Anfragen/Bewertungen, Login mit animiertem Stich-Hintergrund, auf dem Handy mit ausklappbarem Menü.
+
+## Datenschutz & Recht (Update Oktober 2026)
+- **Keine Cookies mehr für Besucher:** Die Besucherzählung arbeitet mit einer täglich wechselnden, nicht zurückverfolgbaren Prüfsumme. PHP-Sitzungen starten nur noch für angemeldete Mitarbeiter.
+- **Keine Fremdserver:** Schriften (Ordner `fonts/`) und Flaggen (`flags/`) liegen auf dem eigenen Server; das Land der Besucher kommt aus der Browser-Zeitzone statt von ip-api.com.
+- **Impressum und Datenschutzerklärung** werden beim ersten Aufruf automatisch neu eingespielt (Datei `legal_texts_2026.php`, nur einmal). Danach wie gewohnt unter Admin → Rechtstexte ändern.
+- **Telefonnummer nur als Bild** (`kontakt-tel.png`). In Rechtstexten `[TELEFON]` schreiben. WhatsApp läuft über `whatsapp.php`, damit die Nummer nicht im Quelltext steht.
+- **Spamschutz im Kontaktformular:** unsichtbare Sicherheitsprüfung (Rechenarbeit im Browser, vom Server geprüft), verstecktes Fallen-Feld, max. 5 Anfragen pro Stunde je Anschluss, max. 2 Links pro Nachricht.
+- **Löschfristen** laufen automatisch einmal am Tag: Statistik 14 Monate, Anfragen 12 Monate, IP-Adressen bei Gutscheinen 30 Tage.

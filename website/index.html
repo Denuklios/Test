@@ -68,9 +68,7 @@
 </script>
 -->
 
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400;1,600;1,700&family=Outfit:wght@300;400;500;600;700&family=Playfair+Display:ital,wght@1,700;1,800;1,900&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="fonts/fonts.css">
 <style>
   :root {
     --purple: #8B2BE2;
@@ -968,6 +966,14 @@
     margin-top: 3rem;
   }
   .contact-items { display: flex; flex-direction: column; gap: 1.2rem; }
+  .steps { margin-top: 0.8rem; padding: 1.4rem 1.4rem 0.6rem; border: 1px dashed rgba(168,85,247,0.35); border-radius: 14px; position: relative; }
+  .steps-title { font-size: 0.7rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--purple-bright); margin-bottom: 1rem; }
+  .step { display: flex; gap: 0.9rem; position: relative; padding-bottom: 1rem; }
+  .step:not(:last-child)::before { content: ''; position: absolute; left: 15px; top: 34px; bottom: 2px; border-left: 2px dashed rgba(168,85,247,0.35); }
+  .step-nr { flex-shrink: 0; width: 32px; height: 32px; border-radius: 50%; display: flex; align-items: center; justify-content: center;
+    background: linear-gradient(135deg, #8B2BE2, #A855F7); color: #fff; font-weight: 700; font-size: 0.85rem; box-shadow: 0 4px 14px rgba(139,43,226,0.35); }
+  .step b { display: block; font-size: 0.92rem; color: var(--text-white); margin-bottom: 0.15rem; }
+  .step p { font-size: 0.82rem; color: var(--text-muted); line-height: 1.55; margin: 0; }
   .contact-item {
     display: flex; align-items: flex-start; gap: 1rem;
     padding: 1.2rem;
@@ -988,6 +994,8 @@
   }
   .contact-item-label { font-size: 0.72rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--purple-bright); margin-bottom: 0.2rem; }
   .contact-item-value { font-size: 0.9rem; color: var(--text-white); }
+  .tel-img { height: 1.05em; width: auto; vertical-align: -0.18em; display: inline-block; }
+  #legalContent .tel-img { opacity: 0.72; height: 1em; }
   .contact-form { display: flex; flex-direction: column; gap: 1rem; }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
   .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
@@ -1811,13 +1819,13 @@
     </ul>
     <div class="lang-switcher">
       <button class="lang-btn active" onclick="setLang('de')" title="Deutsch">
-        <img src="https://flagcdn.com/24x18/de.png" alt="Deutsch" width="24" height="18">
+        <img src="flags/de.svg" alt="Deutsch" width="24" height="18">
       </button>
       <button class="lang-btn" onclick="setLang('da')" title="Dansk">
-        <img src="https://flagcdn.com/24x18/dk.png" alt="Dansk" width="24" height="18">
+        <img src="flags/dk.svg" alt="Dansk" width="24" height="18">
       </button>
       <button class="lang-btn" onclick="setLang('en')" title="English">
-        <img src="https://flagcdn.com/24x18/gb.png" alt="English" width="24" height="18">
+        <img src="flags/gb.svg" alt="English" width="24" height="18">
       </button>
     </div>
     <button class="hamburger-btn" id="hamburgerBtn" onclick="toggleMobileMenu()" aria-label="Menü">
@@ -2063,13 +2071,14 @@
             <div class="contact-item-value">hej@wunsch-fabrik.dk</div>
           </div>
         </a>
-        <a class="contact-item" href="tel:+4593900939">
+        <div class="contact-item">
           <span class="contact-item-icon">📞</span>
           <div>
             <div class="contact-item-label" data-i18n="ci_phone">Telefon</div>
-            <div class="contact-item-value">+45 939 00 939</div>
+            <!-- Nummer nur als Bild, damit Spam-Programme sie nicht auslesen -->
+            <div class="contact-item-value"><img src="kontakt-tel.png" alt="Telefonnummer (als Bild)" class="tel-img" width="166" height="20"></div>
           </div>
-        </a>
+        </div>
         <a class="contact-item" href="https://maps.google.com/?q=Teglgård+1,+Vilsbæk,+6330+Padborg,+Danmark" target="_blank" rel="noopener">
           <span class="contact-item-icon">📍</span>
           <div>
@@ -2077,6 +2086,14 @@
             <div class="contact-item-value" data-i18n="contact_address">Teglgård 1, Vilsbæk, 6330 Padborg, Dänemark</div>
           </div>
         </a>
+
+        <!-- SO LÄUFT'S: drei Schritte von der Anfrage bis zum fertigen Stück -->
+        <div class="steps">
+          <div class="steps-title" data-i18n="steps_title">So läuft's</div>
+          <div class="step"><span class="step-nr">1</span><div><b data-i18n="step1_t">Kurz schreiben</b><p data-i18n="step1_d">Erzähl uns deine Idee – gern mit Foto oder Logo. Mehr brauchen wir nicht.</p></div></div>
+          <div class="step"><span class="step-nr">2</span><div><b data-i18n="step2_t">Angebot &amp; Entwurf</b><p data-i18n="step2_d">Du bekommst Preis, Termin und einen Entwurf – und bestätigst bequem am Handy.</p></div></div>
+          <div class="step"><span class="step-nr">3</span><div><b data-i18n="step3_t">Wir fertigen</b><p data-i18n="step3_d">Mit Verfolgungslink siehst du jederzeit, wie weit dein Auftrag ist – bis zur Abholung oder zum Versand.</p></div></div>
+        </div>
       </div>
       <div class="contact-form reveal">
         <div class="form-row">
@@ -2095,14 +2112,14 @@
             <input class="form-input" id="field-phone" type="tel" name="phone" data-i18n-placeholder="form_phone_ph" placeholder="+45 000 00 000">
           </div>
           <div class="form-group">
-            <label class="form-label" data-i18n="form_qty">Stückzahl *</label>
-            <input class="form-input" id="field-qty" type="number" name="qty" min="1" required placeholder="z.B. 10">
+            <label class="form-label" data-i18n="form_qty">Stückzahl</label>
+            <input class="form-input" id="field-qty" type="number" name="qty" min="1" data-i18n-placeholder="form_qty_ph" placeholder="z. B. 10 – falls bekannt">
           </div>
         </div>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" data-i18n="form_product">Produktart *</label>
-            <select class="form-input" id="field-product" name="product" required>
+            <select class="form-input" id="field-product" name="product">
               <option value="" data-i18n="form_product_ph">– bitte wählen –</option>
               <option data-i18n="prod_sticken">Sticken</option>
               <option data-i18n="prod_plotten">Plotten</option>
@@ -2132,11 +2149,6 @@
           <input type="file" id="field-file" name="file" accept="image/*,.pdf,.ai,.eps,.svg,.zip" style="display:none">
           <!-- Spam-Falle: für Menschen unsichtbar, Bots füllen sie aus -->
           <input type="text" id="field-website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
-        </div>
-        <!-- CAPTCHA -->
-        <div class="form-group captcha-group">
-          <label class="form-label"><span data-i18n="form_captcha">Sicherheitsfrage:</span> <span id="captchaQuestion" style="color:var(--purple-bright);font-weight:700"></span></label>
-          <input class="form-input" id="field-captcha" type="number" data-i18n-placeholder="form_captcha_ph" placeholder="Deine Antwort" style="max-width:160px">
         </div>
         <button class="btn-primary" id="send-btn" style="align-self: flex-start; animation: none;">
           <span data-i18n="form_send">Angebot anfragen</span> <span class="btn-arrow">→</span>
@@ -2221,6 +2233,7 @@
     <a href="#referenzen" data-i18n="nav_references">Referenzen</a>
     <a href="#faq" data-i18n="nav_faq">FAQ</a>
     <a href="shop.html" data-i18n="nav_shop">Shop</a>
+    <a href="spiele/spiele.html" data-i18n="footer_games">Spiele &amp; Gutscheine</a>
     <a href="#kontakt" data-i18n="nav_contact">Kontakt</a>
   </div>
   <div class="footer-legal">
@@ -2263,7 +2276,7 @@
 </div>
 
 <!-- WHATSAPP BUTTON -->
-<a class="wa-btn" href="https://wa.me/4593900939" target="_blank" rel="noopener" title="WhatsApp">
+<a class="wa-btn" href="whatsapp.php" target="_blank" rel="noopener nofollow" title="WhatsApp">
   <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
   </svg>
@@ -2272,12 +2285,10 @@
 <!-- COOKIE BANNER -->
 <div id="cookieBanner">
   <p class="cookie-text">
-    <span data-i18n="cookie_text">🍪 Diese Website verwendet den lokalen Browserspeicher für Spracheinstellungen. Keine Tracking-Cookies.
-    Mehr dazu in unserer <a href="#" onclick="openLegal('datenschutz'); return false;">Datenschutzerklärung</a>.</span>
+    <span data-i18n="cookie_text">🍪 Keine Cookies, kein Tracking: Wir zählen Besuche anonym und speichern nur deine Sprachwahl in deinem Browser. Mehr in der <a href="#" onclick="openLegal('datenschutz'); return false;">Datenschutzerklärung</a>.</span>
   </p>
   <div class="cookie-btns">
-    <button class="cookie-decline" onclick="cookieDecline()" data-i18n="cookie_decline">Nur Notwendige</button>
-    <button class="cookie-accept" onclick="cookieAccept()" data-i18n="cookie_accept">Verstanden ✓</button>
+    <button class="cookie-accept" onclick="cookieAccept()" data-i18n="cookie_accept">OK ✓</button>
   </div>
 </div>
 
@@ -2291,9 +2302,9 @@ const translations = {
     hero_location: "Vilsbæk · Dänemark",
     jingle_tooltip: "🎵 Hör unseren Jingle!",
     contact_address: "Teglgård 1, Vilsbæk, 6330 Padborg, Dänemark",
-    cookie_text: "🍪 Diese Website verwendet den lokalen Browserspeicher für Spracheinstellungen. Keine Tracking-Cookies. Mehr dazu in unserer <a href=\"#\" onclick=\"openLegal('datenschutz'); return false;\">Datenschutzerklärung</a>.",
-    cookie_decline: "Nur Notwendige",
-    cookie_accept: "Verstanden ✓",
+    steps_title: "So läuft's", step1_t: "Kurz schreiben", step1_d: "Erzähl uns deine Idee – gern mit Foto oder Logo. Mehr brauchen wir nicht.", step2_t: "Angebot & Entwurf", step2_d: "Du bekommst Preis, Termin und einen Entwurf – und bestätigst bequem am Handy.", step3_t: "Wir fertigen", step3_d: "Mit Verfolgungslink siehst du jederzeit, wie weit dein Auftrag ist – bis zur Abholung oder zum Versand.", footer_games: "Spiele & Gutscheine",
+    cookie_text: "🍪 Keine Cookies, kein Tracking: Wir zählen Besuche anonym und speichern nur deine Sprachwahl in deinem Browser. Mehr in der <a href=\"#\" onclick=\"openLegal('datenschutz'); return false;\">Datenschutzerklärung</a>.",
+    cookie_accept: "OK ✓",
     reviews_empty: "Noch keine Bewertungen – sei die oder der Erste und erzähl, wie dein Wunschstück geworden ist! 💜",
     brand_name: "WUNSCH-FABRIK.DK",
     hero_copy_1: "Damit", hero_copy_2: "<span class='grad-word animate-shiny'>Dein Wunsch</span>", hero_copy_3: "kein Wunsch bleiben muss.",
@@ -2320,7 +2331,8 @@ const translations = {
     form_email: "E-Mail", form_email_ph: "deine@email.dk",
     form_phone: "Telefon (optional)", form_phone_ph: "+49 oder +45 ...",
     form_qty: "Stückzahl", form_subject: "Betreff", form_subject_ph: "Worum geht es?",
-    form_product: "Produktart", form_product_ph: "– bitte wählen –",
+    form_product: "Was möchtest du?", form_product_ph: "Weiß ich noch nicht – berate mich", form_qty_ph: "z. B. 10 – falls bekannt",
+    form_err_required: "⚠️ Bitte gib deinen Namen, deine E-Mail und eine kurze Nachricht an.", form_err_email: "⚠️ Bitte prüfe deine E-Mail-Adresse.", form_err_captcha_wrong: "⚠️ Die Sicherheitsprüfung hat nicht geklappt – bitte einfach noch einmal senden.", form_err_links: "⚠️ Bitte höchstens 2 Links in die Nachricht – häng Bilder lieber als Datei an.", form_err_file: "⚠️ Die Datei ist zu groß – höchstens 30 MB.", form_sending: "Wird gesendet …", form_sent: "✓ Danke! Wir melden uns bald.", form_err_send: "❌ Das hat leider nicht geklappt. Schreib uns direkt:",
     form_date: "Wunschdatum",
     prod_sticken: "Sticken", prod_plotten: "Plotten", prod_lasern: "Lasern",
     prod_gravieren: "Gravieren", prod_siebdruck: "Siebdruck", prod_dtf: "DTF Druck", prod_other: "Sonstiges",
@@ -2357,9 +2369,9 @@ const translations = {
     hero_location: "Vilsbæk · Danmark",
     jingle_tooltip: "🎵 Hør vores jingle!",
     contact_address: "Teglgård 1, Vilsbæk, 6330 Padborg, Danmark",
-    cookie_text: "🍪 Denne hjemmeside bruger browserens lokale lager til sprogindstillinger. Ingen sporingscookies. Læs mere i vores <a href=\"#\" onclick=\"openLegal('datenschutz'); return false;\">privatlivspolitik</a>.",
-    cookie_decline: "Kun nødvendige",
-    cookie_accept: "Forstået ✓",
+    steps_title: "Sådan foregår det", step1_t: "Skriv kort til os", step1_d: "Fortæl os din idé – gerne med foto eller logo. Mere skal vi ikke bruge.", step2_t: "Tilbud & udkast", step2_d: "Du får pris, tidspunkt og et udkast – og bekræfter nemt på mobilen.", step3_t: "Vi producerer", step3_d: "Med et sporingslink kan du altid se, hvor langt din ordre er – indtil afhentning eller forsendelse.", footer_games: "Spil & gavekort",
+    cookie_text: "🍪 Ingen cookies, ingen sporing: Vi tæller besøg anonymt og gemmer kun dit sprogvalg i din browser. Læs mere i vores <a href=\"#\" onclick=\"openLegal('datenschutz'); return false;\">privatlivspolitik</a>.",
+    cookie_accept: "OK ✓",
     reviews_empty: "Endnu ingen anmeldelser – vær den første og fortæl, hvordan dit ønskeprodukt blev! 💜",
     brand_name: "ØNSKE-FABRIK.DK",
     hero_copy_1: "Så", hero_copy_2: "<span class='grad-word animate-shiny'>dit ønske</span>", hero_copy_3: "ikke forbliver et ønske.",
@@ -2386,7 +2398,8 @@ const translations = {
     form_email: "E-mail", form_email_ph: "din@email.dk",
     form_phone: "Telefon (valgfrit)", form_phone_ph: "+45 ...",
     form_qty: "Antal", form_subject: "Emne", form_subject_ph: "Hvad handler det om?",
-    form_product: "Produkttype", form_product_ph: "– vælg venligst –",
+    form_product: "Hvad ønsker du?", form_product_ph: "Ved ikke endnu – rådgiv mig", form_qty_ph: "fx 10 – hvis du ved det",
+    form_err_required: "⚠️ Skriv venligst dit navn, din e-mail og en kort besked.", form_err_email: "⚠️ Tjek venligst din e-mailadresse.", form_err_captcha_wrong: "⚠️ Sikkerhedstjekket mislykkedes – send venligst igen.", form_err_links: "⚠️ Højst 2 links i beskeden – vedhæft hellere billeder som fil.", form_err_file: "⚠️ Filen er for stor – højst 30 MB.", form_sending: "Sender …", form_sent: "✓ Tak! Vi vender snart tilbage.", form_err_send: "❌ Det lykkedes desværre ikke. Skriv direkte til os:",
     form_date: "Ønsket leveringsdato",
     prod_sticken: "Broderi", prod_plotten: "Plotning", prod_lasern: "Lasergravering",
     prod_gravieren: "Gravering", prod_siebdruck: "Silketryk", prod_dtf: "DTF-tryk", prod_other: "Andet",
@@ -2423,9 +2436,9 @@ const translations = {
     hero_location: "Vilsbæk · Denmark",
     jingle_tooltip: "🎵 Listen to our jingle!",
     contact_address: "Teglgård 1, Vilsbæk, 6330 Padborg, Denmark",
-    cookie_text: "🍪 This website uses your browser's local storage for language settings. No tracking cookies. Learn more in our <a href=\"#\" onclick=\"openLegal('datenschutz'); return false;\">privacy policy</a>.",
-    cookie_decline: "Essential only",
-    cookie_accept: "Got it ✓",
+    steps_title: "How it works", step1_t: "Drop us a line", step1_d: "Tell us your idea – a photo or logo helps. That's all we need.", step2_t: "Quote & design", step2_d: "You get a price, a date and a design – and confirm it easily on your phone.", step3_t: "We make it", step3_d: "A tracking link shows you how far your order is at any time – until pickup or shipping.", footer_games: "Games & vouchers",
+    cookie_text: "🍪 No cookies, no tracking: we count visits anonymously and only store your language choice in your browser. More in our <a href=\"#\" onclick=\"openLegal('datenschutz'); return false;\">privacy policy</a>.",
+    cookie_accept: "OK ✓",
     reviews_empty: "No reviews yet – be the first to tell us how your custom piece turned out! 💜",
     brand_name: "WUNSCH-FABRIK.DK",
     hero_copy_1: "So", hero_copy_2: "<span class='grad-word animate-shiny'>your wish</span>", hero_copy_3: "doesn't stay just a wish.",
@@ -2452,7 +2465,8 @@ const translations = {
     form_email: "Email", form_email_ph: "your@email.com",
     form_phone: "Phone (optional)", form_phone_ph: "+44 or +45 ...",
     form_qty: "Quantity", form_subject: "Subject", form_subject_ph: "What's it about?",
-    form_product: "Product type", form_product_ph: "– please select –",
+    form_product: "What would you like?", form_product_ph: "Not sure yet – advise me", form_qty_ph: "e.g. 10 – if you know",
+    form_err_required: "⚠️ Please enter your name, email and a short message.", form_err_email: "⚠️ Please check your email address.", form_err_captcha_wrong: "⚠️ The security check failed – please just send again.", form_err_links: "⚠️ Max. 2 links in the message, please – attach images as a file instead.", form_err_file: "⚠️ The file is too large – max. 30 MB.", form_sending: "Sending …", form_sent: "✓ Thank you! We'll be in touch soon.", form_err_send: "❌ Sorry, that didn't work. Write to us directly:",
     form_date: "Desired delivery date",
     prod_sticken: "Embroidery", prod_plotten: "Plotting", prod_lasern: "Laser engraving",
     prod_gravieren: "Engraving", prod_siebdruck: "Screen printing", prod_dtf: "DTF Print", prod_other: "Other",
@@ -2721,7 +2735,7 @@ document.addEventListener('DOMContentLoaded', updateStickyCta);
 (function() {
   function updateCounters() {
     // Zählt den Besuch (Zahlen sieht man nur im Admin-Bereich)
-    fetch('track.php', { credentials: 'same-origin' }).catch(() => {});
+    fetch('track.php?tz=' + encodeURIComponent((() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; } })()), { credentials: 'same-origin' }).catch(() => {});
   }
 
   window.addEventListener('DOMContentLoaded', () => {
@@ -2835,9 +2849,9 @@ function detectReviewLang(text) {
 }
 
 const reviewLangFlags = {
-  de: 'https://flagcdn.com/24x18/de.png',
-  da: 'https://flagcdn.com/24x18/dk.png',
-  en: 'https://flagcdn.com/24x18/gb.png',
+  de: 'flags/de.svg',
+  da: 'flags/dk.svg',
+  en: 'flags/gb.svg',
 };
 
 function loadReviews() {
@@ -3003,12 +3017,9 @@ window.addEventListener('DOMContentLoaded', () => {
 })();
 
 // ─── COOKIE BANNER ───────────────────────────────────────────────
+// Reiner Hinweis: Es gibt nichts einzuwilligen, weil die Seite keine Cookies und kein Tracking nutzt.
 function cookieAccept() {
-  localStorage.setItem('wf_cookie', 'accepted');
-  document.getElementById('cookieBanner').classList.remove('show');
-}
-function cookieDecline() {
-  localStorage.setItem('wf_cookie', 'declined');
+  try { localStorage.setItem('wf_notice', '2'); localStorage.removeItem('wf_cookie'); } catch (e) { /* ohne Speicher */ }
   document.getElementById('cookieBanner').classList.remove('show');
 }
 // ─── Editierbare Website-Texte aus der Datenbank laden ─────────────
@@ -3038,7 +3049,11 @@ window.addEventListener('DOMContentLoaded', () => {
   buildFaq(currentLang);
   generateCaptcha();
   loadEditableSiteTexts();
-  if (!localStorage.getItem('wf_cookie')) {
+  const legalParam = new URLSearchParams(location.search).get('legal');
+  if (['impressum', 'agb', 'datenschutz'].includes(legalParam)) setTimeout(() => openLegal(legalParam), 300);
+  let noticeSeen = false;
+  try { noticeSeen = localStorage.getItem('wf_notice') === '2'; } catch (e) { /* ohne Speicher */ }
+  if (!noticeSeen) {
     setTimeout(() => document.getElementById('cookieBanner').classList.add('show'), 1500);
   }
 });
@@ -3386,13 +3401,57 @@ document.addEventListener('keydown', e => {
 });
 
 // ─── CAPTCHA ─────────────────────────────────────────────────────
-let captchaAnswer = 0;
-function generateCaptcha() {
-  const a = Math.floor(Math.random() * 10) + 1;
-  const b = Math.floor(Math.random() * 10) + 1;
-  captchaAnswer = a + b;
-  const el = document.getElementById('captchaQuestion');
-  if (el) el.textContent = `${a} + ${b} = ?`;
+// ─── Unsichtbare Sicherheitsprüfung gegen Spam ───────────────────
+// Der Server gibt eine Prüfsumme vor, der Browser sucht im Hintergrund die passende Zahl (ca. 1 Sekunde).
+// Geprüft wird auf dem Server – Spam-Programme, die das Formular direkt abschicken, kommen nicht durch.
+let powPromise = null;
+function sha256Fallback(str) {
+  // Nur für alte Browser ohne crypto.subtle (z. B. Aufruf ohne https)
+  const K = [0x428a2f98,0x71374491,0xb5c0fbcf,0xe9b5dba5,0x3956c25b,0x59f111f1,0x923f82a4,0xab1c5ed5,0xd807aa98,0x12835b01,0x243185be,0x550c7dc3,0x72be5d74,0x80deb1fe,0x9bdc06a7,0xc19bf174,0xe49b69c1,0xefbe4786,0x0fc19dc6,0x240ca1cc,0x2de92c6f,0x4a7484aa,0x5cb0a9dc,0x76f988da,0x983e5152,0xa831c66d,0xb00327c8,0xbf597fc7,0xc6e00bf3,0xd5a79147,0x06ca6351,0x14292967,0x27b70a85,0x2e1b2138,0x4d2c6dfc,0x53380d13,0x650a7354,0x766a0abb,0x81c2c92e,0x92722c85,0xa2bfe8a1,0xa81a664b,0xc24b8b70,0xc76c51a3,0xd192e819,0xd6990624,0xf40e3585,0x106aa070,0x19a4c116,0x1e376c08,0x2748774c,0x34b0bcb5,0x391c0cb3,0x4ed8aa4a,0x5b9cca4f,0x682e6ff3,0x748f82ee,0x78a5636f,0x84c87814,0x8cc70208,0x90befffa,0xa4506ceb,0xbef9a3f7,0xc67178f2];
+  const bytes = new TextEncoder().encode(str);
+  const l = bytes.length, withPad = ((l + 9 + 63) >> 6) << 6;
+  const m = new Uint8Array(withPad); m.set(bytes); m[l] = 0x80;
+  const dv = new DataView(m.buffer); dv.setUint32(withPad - 4, l * 8);
+  let h = [0x6a09e667,0xbb67ae85,0x3c6ef372,0xa54ff53a,0x510e527f,0x9b05688c,0x1f83d9ab,0x5be0cd19];
+  const w = new Uint32Array(64), r = (x, n) => (x >>> n) | (x << (32 - n));
+  for (let o = 0; o < withPad; o += 64) {
+    for (let i = 0; i < 16; i++) w[i] = dv.getUint32(o + i * 4);
+    for (let i = 16; i < 64; i++) {
+      const s0 = r(w[i-15], 7) ^ r(w[i-15], 18) ^ (w[i-15] >>> 3), s1 = r(w[i-2], 17) ^ r(w[i-2], 19) ^ (w[i-2] >>> 10);
+      w[i] = (w[i-16] + s0 + w[i-7] + s1) | 0;
+    }
+    let [a, b, c, d, e, f, g, hh] = h;
+    for (let i = 0; i < 64; i++) {
+      const t1 = (hh + (r(e, 6) ^ r(e, 11) ^ r(e, 25)) + ((e & f) ^ (~e & g)) + K[i] + w[i]) | 0;
+      const t2 = ((r(a, 2) ^ r(a, 13) ^ r(a, 22)) + ((a & b) ^ (a & c) ^ (b & c))) | 0;
+      hh = g; g = f; f = e; e = (d + t1) | 0; d = c; c = b; b = a; a = (t1 + t2) | 0;
+    }
+    h = h.map((v, i) => (v + [a, b, c, d, e, f, g, hh][i]) | 0);
+  }
+  return h.map(v => (v >>> 0).toString(16).padStart(8, '0')).join('');
+}
+async function solvePow(c) {
+  const target = c.challenge;
+  const subtle = window.crypto && window.crypto.subtle;
+  const enc = new TextEncoder();
+  const toHex = (buf) => Array.from(new Uint8Array(buf), b => b.toString(16).padStart(2, '0')).join('');
+  for (let start = 0; start <= c.max; start += 400) {
+    const nums = [];
+    for (let n = start; n < start + 400 && n <= c.max; n++) nums.push(n);
+    const hashes = subtle
+      ? await Promise.all(nums.map(n => subtle.digest('SHA-256', enc.encode(c.salt + n)).then(toHex)))
+      : nums.map(n => sha256Fallback(c.salt + n));
+    const i = hashes.indexOf(target);
+    if (i >= 0) return { ...c, number: nums[i] };
+  }
+  throw new Error('pow_not_found');
+}
+function generateCaptcha(force) {
+  if (powPromise && !force) return;   // läuft schon bzw. ist fertig
+  powPromise = fetch('send.php?action=challenge', { cache: 'no-store' })
+    .then(r => r.json())
+    .then(c => { if (!c.ok) throw new Error('challenge'); return solvePow(c); });
+  powPromise.catch(() => {});
 }
 
 // ─── FILE UPLOAD ─────────────────────────────────────────────────
@@ -3573,7 +3632,9 @@ function formatLegalText(text) {
     if (lines.length === 0) return '';
     const [heading, ...rest] = lines;
     const headingHtml = `<h3 style="color:var(--purple-bright);font-family:'Cormorant Garamond',serif;font-size:1.1rem;margin:1.2rem 0 0.4rem">${escapeHtml(heading)}</h3>`;
-    const bodyHtml = rest.length > 0 ? `<p>${rest.map(escapeHtml).join('<br>')}</p>` : '';
+    // Platzhalter [TELEFON] zeigt die Nummer als Bild (nicht auslesbar für Spam-Programme)
+    const tel = (line) => escapeHtml(line).replace(/\[TELEFON\]/g, '<img src="kontakt-tel.png" alt="Telefonnummer (als Bild)" class="tel-img" width="166" height="20">');
+    const bodyHtml = rest.length > 0 ? `<p>${rest.map(tel).join('<br>')}</p>` : '';
     return headingHtml + bodyHtml;
   }).join('');
 }
@@ -3664,33 +3725,22 @@ document.getElementById('send-btn').addEventListener('click', async () => {
   const date    = document.getElementById('field-date').value.trim();
   const message = document.getElementById('field-message').value.trim();
   const file    = document.getElementById('field-file').files[0];
-  const captcha = parseInt(document.getElementById('field-captcha').value);
+  const T = translations[currentLang] || translations.de;
+  const showErr = (msg) => { status.innerHTML = msg; status.style.color = '#f87171'; status.style.display = 'block'; };
 
-  if (!name || !email || !message || !qty || !product) {
-    status.innerHTML = '⚠️ Bitte füll alle Pflichtfelder (*) aus.';
-    status.style.color = '#f87171';
-    status.style.display = 'block';
-    return;
-  }
-
-  if (captcha !== captchaAnswer) {
-    status.innerHTML = '⚠️ Sicherheitsfrage falsch beantwortet.';
-    status.style.color = '#f87171';
-    status.style.display = 'block';
-    generateCaptcha();
-    document.getElementById('field-captcha').value = '';
-    return;
-  }
+  // Nur Name, E-Mail und Nachricht sind Pflicht – alles andere klären wir gern im Gespräch
+  if (!name || !email || !message) { showErr(T.form_err_required); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { showErr(T.form_err_email); return; }
 
   if (file && file.size > 30 * 1024 * 1024) {
-    status.innerHTML = '⚠️ Datei zu groß – max. 30 MB.';
+    status.innerHTML = T.form_err_file;
     status.style.color = '#f87171';
     status.style.display = 'block';
     return;
   }
 
   btn.disabled = true;
-  btn.innerHTML = '<span>Wird gesendet…</span>';
+  btn.innerHTML = `<span>${T.form_sending}</span>`;
 
   try {
     const formData = new FormData();
@@ -3704,13 +3754,19 @@ document.getElementById('send-btn').addEventListener('click', async () => {
     formData.append('lang', currentLang);
     formData.append('website', document.getElementById('field-website') ? document.getElementById('field-website').value : '');
     formData.append('t', String(Math.round((Date.now() - (window.__wfFormStart || Date.now())) / 1000)));
+    if (!powPromise) generateCaptcha(true);
+    const pow = await powPromise;   // meist längst fertig, sonst wenige Sekunden warten
+    formData.append('pow_salt', pow.salt);
+    formData.append('pow_challenge', pow.challenge);
+    formData.append('pow_number', String(pow.number));
+    formData.append('pow_sig', pow.sig);
     if (file) formData.append('file', file);
 
     const res = await fetch('send.php', { method: 'POST', body: formData });
     const data = await res.json();
 
     if (data.ok) {
-      btn.innerHTML = '✓ Anfrage gesendet!';
+      btn.innerHTML = T.form_sent;
       btn.style.background = '#22c55e';
       status.style.display = 'none';
       ['field-name','field-email','field-phone','field-qty','field-product','field-date','field-message','field-captcha'].forEach(id => {
@@ -3719,20 +3775,26 @@ document.getElementById('send-btn').addEventListener('click', async () => {
       });
       document.getElementById('fileUploadText').textContent = document.getElementById('fileUploadText').getAttribute('data-i18n') || 'Datei auswählen';
       document.getElementById('fileUploadText').style.color = '';
-      generateCaptcha();
+      generateCaptcha(true);
       setTimeout(() => {
         btn.innerHTML = `<span data-i18n="form_send">${translations[currentLang].form_send}</span> <span class="btn-arrow">→</span>`;
         btn.style.background = '';
         btn.disabled = false;
       }, 4000);
+    } else if (data.error === 'captcha' || data.error === 'links') {
+      btn.innerHTML = `<span data-i18n="form_send">${translations[currentLang].form_send}</span> <span class="btn-arrow">→</span>`;
+      btn.disabled = false;
+      showErr(data.error === 'captcha' ? T.form_err_captcha_wrong : T.form_err_links);
+      generateCaptcha(true);
+      return;
     } else {
       throw new Error(data.error || 'Fehler');
     }
   } catch(e) {
     btn.innerHTML = `<span data-i18n="form_send">${translations[currentLang].form_send}</span> <span class="btn-arrow">→</span>`;
     btn.disabled = false;
-    generateCaptcha();
-    status.innerHTML = `❌ Fehler beim Senden. Schreib uns direkt: <a href="mailto:hej@wunsch-fabrik.dk" style="color:var(--purple-bright);font-weight:600;">hej@wunsch-fabrik.dk</a>`;
+    generateCaptcha(true);
+    status.innerHTML = `${T.form_err_send} <a href="mailto:hej@wunsch-fabrik.dk" style="color:var(--purple-bright);font-weight:600;">hej@wunsch-fabrik.dk</a>`;
     status.style.color = '#f87171';
     status.style.display = 'block';
   }

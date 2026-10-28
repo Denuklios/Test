@@ -6,9 +6,7 @@
 <title>Shop – Wunsch-Fabrik.dk</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <meta name="description" content="Unser Online-Shop ist bald da! Bald kannst du hier Produkte direkt bestellen – aktuell sind wir noch fleißig am Aufbauen.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700;1,400&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="fonts/fonts.css">
 <style>
 :root {
   --purple: #8B2BE2;
@@ -355,14 +353,14 @@ footer {
     <a href="index.html#kontakt" data-i18n="nav_contact">Kontakt</a>
   </div>
   <div class="footer-legal">
-    <a href="#" onclick="openLegal('impressum'); return false;" data-i18n="legal_impressum">Impressum</a>
+    <a href="index.html?legal=impressum" data-i18n="legal_impressum">Impressum</a>
     <span>·</span>
-    <a href="#" onclick="openLegal('agb'); return false;" data-i18n="legal_agb">AGB</a>
+    <a href="index.html?legal=agb" data-i18n="legal_agb">AGB</a>
     <span>·</span>
-    <a href="#" onclick="openLegal('datenschutz'); return false;" data-i18n="legal_privacy">Datenschutz</a>
+    <a href="index.html?legal=datenschutz" data-i18n="legal_privacy">Datenschutz</a>
   </div>
   <div class="footer-copy">© 2026 Wunsch-Fabrik.dk · Ønske-Fabrik.dk · Teglgård 1, Vilsbæk, 6330 Padborg</div>
-  <div class="visitor-counter" id="visitorCounter">
+  <div class="visitor-counter" id="visitorCounter" style="display:none;">
     <span class="vc-item"><span class="vc-dot vc-online"></span><span id="vcOnline">–</span> <span data-i18n="vc_online">online</span></span>
     <span class="vc-sep">·</span>
     <span class="vc-item"><span id="vcTotal">–</span> <span data-i18n="vc_total">Besucher gesamt</span></span>
@@ -623,22 +621,8 @@ function buyProduct(productId) {
 // ─── BESUCHERZÄHLER (eigene Datenbank) ──────────────────────────
 (function() {
   function updateCounters() {
-    const onlineEl = document.getElementById('vcOnline');
-    const totalEl  = document.getElementById('vcTotal');
-    if (!onlineEl || !totalEl) return;
-
-    fetch('track.php', { credentials: 'same-origin' })
-      .then(r => r.json())
-      .then(data => {
-        if (data.ok) {
-          onlineEl.textContent = data.online.toLocaleString('de-DE');
-          totalEl.textContent  = data.total.toLocaleString('de-DE');
-        }
-      })
-      .catch(() => {
-        onlineEl.textContent = '–';
-        totalEl.textContent  = '–';
-      });
+    // Zählt den Besuch ohne Cookie (Zahlen sieht man nur im Admin-Bereich)
+    fetch('track.php?tz=' + encodeURIComponent((() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || ''; } catch (e) { return ''; } })()), { credentials: 'same-origin' }).catch(() => {});
   }
 
   window.addEventListener('DOMContentLoaded', () => {

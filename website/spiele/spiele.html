@@ -5,9 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Spiele – Wunsch-Fabrik.dk</title>
 <meta name="description" content="Die Spiele der Wunsch-Fabrik: Veredelungs-Tycoon, Veredelungs-Rausch und Nadel &amp; Faden. Mit Gutscheinen zum Gewinnen.">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@400;600;700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../fonts/fonts.css">
 <style>
 :root{
   --purple:#8B2BE2; --purple-bright:#A855F7; --purple-glow:rgba(139,43,226,0.35);
@@ -38,7 +36,8 @@ body{background:var(--bg-deep) url('bg-pattern.jpg') center top / cover fixed;
 
 .games{display:grid;grid-template-columns:minmax(0,1fr);gap:1rem}
 @media(min-width:640px){.games{grid-template-columns:repeat(2,minmax(0,1fr))}}
-@media(min-width:1000px){.games{grid-template-columns:repeat(4,minmax(0,1fr))}}
+@media(min-width:640px) and (max-width:999px){.games>:last-child:nth-child(odd){grid-column:1/-1}}
+@media(min-width:1000px){.games{grid-template-columns:repeat(6,minmax(0,1fr))}.games>*{grid-column:span 2}.games>:nth-child(4):nth-last-child(2){grid-column:2/span 2}}
 .game{display:flex;flex-direction:column;background:rgba(22,22,22,.9);
   border:1px solid var(--border);border-radius:14px;padding:1.3rem 1.2rem 1.2rem;
   text-decoration:none;color:inherit;transition:transform .2s,border-color .2s,box-shadow .2s;
@@ -157,6 +156,9 @@ footer a{color:var(--purple-bright);text-decoration:none}
       Teglgård 1 · Vilsbæk · 6330 Padborg · Danmark<br>
       <a href="https://www.wunsch-fabrik.dk">wunsch-fabrik.dk</a> ·
       <a href="mailto:hej@wunsch-fabrik.dk">hej@wunsch-fabrik.dk</a><br>
+      <a href="../index.html?legal=impressum">Impressum</a> ·
+      <a href="../index.html?legal=agb">AGB</a> ·
+      <a href="../index.html?legal=datenschutz">Datenschutz</a><br>
       <a href="gutscheine.html" style="font-size:.6rem;opacity:.45">Gutscheinverwaltung</a>
     </div>
   </footer>

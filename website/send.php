@@ -1,7 +1,36 @@
 <?php
 header('Content-Type: application/json');
-header('Access-Control-Allow-Origin: *');
+header('Cache-Control: no-store');
 require_once __DIR__ . '/db.php';
+
+/**
+ * Geheimer Schlüssel für die Rechenaufgabe (wird einmalig zufällig erzeugt und in der Datenbank gespeichert).
+ */
+function wf_form_secret($mysqli) {
+    $mysqli->query("CREATE TABLE IF NOT EXISTS wf_meta (k VARCHAR(64) PRIMARY KEY, v VARCHAR(255) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $r = $mysqli->query("SELECT v FROM wf_meta WHERE k = 'form_secret'");
+    if ($r && ($row = $r->fetch_assoc())) return $row['v'];
+    $secret = bin2hex(random_bytes(32));
+    $mysqli->query("INSERT IGNORE INTO wf_meta (k, v) VALUES ('form_secret', '$secret')");
+    $r = $mysqli->query("SELECT v FROM wf_meta WHERE k = 'form_secret'");
+    return ($r && ($row = $r->fetch_assoc())) ? $row['v'] : $secret;
+}
+
+// ─── Sicherheitsprüfung abholen (GET) ───────────────────────────────
+// Unsichtbare Rechenarbeit (Proof-of-Work, Prinzip wie ALTCHA): Der Server denkt sich eine geheime Zahl aus
+// und gibt nur deren SHA-256-Prüfsumme heraus. Der Browser probiert im Hintergrund alle Zahlen durch, bis er
+// sie gefunden hat (ca. 1 Sekunde). Für einzelne Besucher unmerklich, für Spam-Programme mit tausenden
+// Anfragen teuer. Signiert mit geheimem Schlüssel, 2 Stunden gültig, jeder Schein nur einmal verwendbar.
+const WF_POW_MAX = 60000;
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && ($_GET['action'] ?? '') === 'challenge') {
+    $mysqli = wf_db_connect();
+    if (!$mysqli) { echo json_encode(['ok' => false]); exit; }
+    $salt = time() . '.' . bin2hex(random_bytes(8));
+    $challenge = hash('sha256', $salt . random_int(0, WF_POW_MAX));
+    $sig = hash_hmac('sha256', $salt . '|' . $challenge, wf_form_secret($mysqli));
+    echo json_encode(['ok' => true, 'salt' => $salt, 'challenge' => $challenge, 'max' => WF_POW_MAX, 'sig' => $sig]);
+    exit;
+}
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     echo json_encode(['ok' => false, 'error' => 'Method not allowed']);
@@ -9,9 +38,41 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
 }
 
 // ─── Spam-Schutz ────────────────────────────────────────────────────
-// Unsichtbares Feld ausgefüllt oder in unter 3 Sekunden abgeschickt = Bot. Wir tun so, als wäre alles gut.
-if (trim($_POST['website'] ?? '') !== '' || (isset($_POST['t']) && (int)$_POST['t'] < 3)) {
+// 1. Unsichtbares Feld ausgefüllt = Bot. Wir tun so, als wäre alles gut (Bot merkt nichts).
+if (trim($_POST['website'] ?? '') !== '') {
     echo json_encode(['ok' => true]);
+    exit;
+}
+// 2. Unsichtbare Rechenarbeit muss gelöst sein, frühestens 3 Sekunden nach dem Laden der Seite
+$captchaOk = false;
+$mysqliCheck = wf_db_connect();
+$salt = (string)($_POST['pow_salt'] ?? '');
+$challenge = (string)($_POST['pow_challenge'] ?? '');
+$number = (string)($_POST['pow_number'] ?? '');
+$sig = (string)($_POST['pow_sig'] ?? '');
+if ($mysqliCheck && preg_match('/^(\d{10})\.([0-9a-f]{16})$/', $salt, $m) && preg_match('/^[0-9a-f]{64}$/', $challenge) && preg_match('/^[0-9a-f]{64}$/', $sig)
+    && preg_match('/^\d{1,6}$/', $number) && (int)$number <= WF_POW_MAX) {
+    $age = time() - (int)$m[1];
+    $sigOk = hash_equals(hash_hmac('sha256', $salt . '|' . $challenge, wf_form_secret($mysqliCheck)), $sig);
+    if ($age >= 3 && $age <= 7200 && $sigOk && hash_equals($challenge, hash('sha256', $salt . $number))) {
+        // Jeder Schein nur einmal verwendbar
+        $mysqliCheck->query("CREATE TABLE IF NOT EXISTS form_tokens_used (nonce CHAR(16) PRIMARY KEY, at DATETIME NOT NULL) ENGINE=InnoDB");
+        $mysqliCheck->query("DELETE FROM form_tokens_used WHERE at < (NOW() - INTERVAL 1 DAY)");
+        $stmt = $mysqliCheck->prepare("INSERT IGNORE INTO form_tokens_used (nonce, at) VALUES (?, NOW())");
+        $stmt->bind_param('s', $m[2]);
+        $stmt->execute();
+        $captchaOk = $stmt->affected_rows === 1;
+        $stmt->close();
+    }
+}
+if (!$captchaOk) {
+    echo json_encode(['ok' => false, 'error' => 'captcha']);
+    exit;
+}
+// 3. Typischer Werbe-Spam: viele Links oder Links ohne sonstigen Inhalt
+$msgRaw = (string)($_POST['message'] ?? '');
+if (preg_match_all('#https?://|www\.#i', $msgRaw) > 2) {
+    echo json_encode(['ok' => false, 'error' => 'links']);
     exit;
 }
 
@@ -28,7 +89,9 @@ $message = strip_tags(trim($_POST['message'] ?? ''));
 $lang    = strip_tags(trim($_POST['lang'] ?? 'de'));
 if (!in_array($lang, ['de', 'da', 'en'], true)) $lang = 'de';
 
-if (!$name || !$email || !$message || !$qty || !$product) {
+// Pflicht sind nur Name, E-Mail und Nachricht; Produkt und Menge sind freiwillig
+if ($product === '') $product = 'Beratung';
+if (!$name || !$email || !$message) {
     echo json_encode(['ok' => false, 'error' => 'Pflichtfelder fehlen']);
     exit;
 }

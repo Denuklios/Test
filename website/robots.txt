@@ -12,5 +12,8 @@ Disallow: /stripe_checkout.php
 Disallow: /product-images/
 Disallow: /workshop-images/
 Disallow: /uploads/
+Disallow: /runa.html
+Disallow: /auftraege/
+Disallow: /spiele/gutscheine.html
 
 Sitemap: https://www.wunsch-fabrik.dk/sitemap.xml

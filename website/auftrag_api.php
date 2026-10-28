@@ -14,7 +14,10 @@
  */
 
 header('Content-Type: application/json; charset=utf-8');
-session_start();
+// Sitzung nur fortsetzen, wenn schon eine besteht (Admin angemeldet) – Besucher bekommen kein Cookie
+if (isset($_COOKIE[session_name()])) {
+    session_start();
+}
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/fpdf.php';
 

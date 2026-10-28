@@ -12,7 +12,10 @@
 
 header('Content-Type: application/json; charset=utf-8');
 header('Access-Control-Allow-Origin: *');
-session_start();
+// Sitzung nur fortsetzen, wenn schon eine besteht (Admin angemeldet) – Besucher bekommen kein Cookie
+if (isset($_COOKIE[session_name()])) {
+    session_start();
+}
 /* db.php finden – egal ob dieses Verzeichnis das Web-Root ist
    oder die Spiele in einem Unterordner wie /spiele/ liegen. */
 $wf_db = null;

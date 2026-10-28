@@ -6,9 +6,7 @@
 <title>Admin – Wunsch-Fabrik.dk</title>
 <link rel="icon" type="image/png" href="wf-logo.png">
 <meta name="robots" content="noindex, nofollow">
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,600;0,700&family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="fonts/fonts.css">
 <style>
 :root {
   --purple: #8B2BE2;
@@ -1167,7 +1165,11 @@ body { background: radial-gradient(1200px 600px at 85% -10%, rgba(139,43,226,0.1
         <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.2rem;">
           Du bearbeitest nur den deutschen Text. Dänisch und Englisch werden beim Speichern
           automatisch übersetzt und auf der Website aktualisiert – du musst dich um nichts
-          weiter kümmern. Leerzeilen erzeugen einen Absatz.
+          weiter kümmern. Leerzeilen erzeugen einen Absatz, die erste Zeile eines Absatzes wird zur Überschrift.
+        </p>
+        <p style="color:var(--text-muted); font-size:0.85rem; margin:-0.6rem 0 1.2rem;">
+          📞 Schreib <code style="color:var(--purple-bright);">[TELEFON]</code>, wo die Telefonnummer stehen soll – auf der Webseite erscheint sie dann als Bild,
+          das Spam-Programme nicht auslesen können.
         </p>
 
         <div class="main-tabs" style="margin-bottom:1.2rem;">
@@ -1196,7 +1198,7 @@ body { background: radial-gradient(1200px 600px at 85% -10%, rgba(139,43,226,0.1
         <div class="panel-title">📝 Website-Texte</div>
         <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1.2rem;">
           Du bearbeitest nur den deutschen Text. Dänisch und Englisch werden beim Speichern
-          automatisch übersetzt und live auf der Website aktualisiert.
+          automatisch übersetzt und live auf der Website aktualisiert. Neue Zeile = einfach Enter drücken.
         </p>
 
         <div class="main-tabs" style="margin-bottom:1.2rem;">
@@ -1505,6 +1507,12 @@ function fetchLiveMonitor() {
     });
 }
 
+/** Länderflagge als Emoji aus dem Ländercode (kein externes Bild nötig). */
+function flagEmoji(code) {
+  if (!code || !/^[a-z]{2}$/i.test(code)) return '🌍';
+  return String.fromCodePoint(...code.toUpperCase().split('').map(c => 0x1F1E6 + c.charCodeAt(0) - 65));
+}
+
 function renderOnlineLocations(list) {
   const wrap = document.getElementById('onlineLocations');
   if (!wrap) return;
@@ -1513,11 +1521,11 @@ function renderOnlineLocations(list) {
     return;
   }
   wrap.innerHTML = list.map(loc => {
-    const flagUrl = loc.country_code ? `https://flagcdn.com/24x18/${loc.country_code.toLowerCase()}.png` : '';
+    const flagUrl = '';
     const label = [loc.city, loc.region, loc.country].filter(Boolean).join(', ') || 'Unbekannt';
     return `
       <div class="online-location-chip">
-        ${flagUrl ? `<img src="${flagUrl}" alt="${loc.country_code}">` : '🌍'}
+        ${flagEmoji(loc.country_code)}
         ${escapeHtml(label)}
       </div>`;
   }).join('');
@@ -1579,7 +1587,7 @@ function renderCountryList(countries, regionsByCountry, unknownCount) {
   }
 
   wrap.innerHTML = countries.map((c, i) => {
-    const flagUrl = c.country_code ? `https://flagcdn.com/24x18/${c.country_code.toLowerCase()}.png` : '';
+    const flagUrl = '';
     const regions = regionsByCountry[c.country] || [];
     const regionsHtml = regions.slice(0, 8).map(r => {
       const place = [r.city, r.region].filter(Boolean).join(', ') || 'Unbekannt';
@@ -1589,7 +1597,7 @@ function renderCountryList(countries, regionsByCountry, unknownCount) {
     return `
       <div class="country-row" id="countryRow${i}">
         <div class="country-row-header" onclick="toggleCountryRow(${i})">
-          ${flagUrl ? `<img src="${flagUrl}" alt="${c.country_code}">` : '🌍'}
+          ${flagEmoji(c.country_code)}
           <span class="country-row-name">${escapeHtml(c.country)}</span>
           <span class="country-row-count">${c.total_visits} Besuche</span>
           <span class="country-row-chevron">▾</span>
@@ -2953,11 +2961,13 @@ function switchSiteTextSubtab(group) {
 function renderSiteTextSubtab() {
   const wrap = document.getElementById('siteTextFields');
   const fields = allSiteTexts.filter(t => t.group_key === currentSiteTextGroup);
+  // Zeilenumbrüche normal mit Enter tippen – <br> wird beim Speichern automatisch gesetzt
+  const toEdit = (v) => String(v || '').replace(/<br\s*\/?>/gi, '\n');
   wrap.innerHTML = fields.map(f => {
     const meta = SITETEXT_FIELD_META[f.text_key] || { label: f.text_key, rows: 2 };
-    const isLong = meta.rows > 1;
+    const isLong = meta.rows > 1 || /<br/i.test(f.content_de || '');
     const fieldHtml = isLong
-      ? `<textarea data-key="${f.text_key}" rows="${meta.rows}" style="width:100%; font-family:inherit; font-size:0.9rem; line-height:1.5; padding:0.7rem; background:var(--bg-dark); border:1px solid var(--border); border-radius:8px; color:var(--text-white); resize:vertical;">${escapeHtml(f.content_de || '')}</textarea>`
+      ? `<textarea data-key="${f.text_key}" rows="${Math.max(meta.rows, 3)}" style="width:100%; font-family:inherit; font-size:0.9rem; line-height:1.5; padding:0.7rem; background:var(--bg-dark); border:1px solid var(--border); border-radius:8px; color:var(--text-white); resize:vertical;">${escapeHtml(toEdit(f.content_de) || '')}</textarea>`
       : `<input type="text" data-key="${f.text_key}" value="${escapeHtml(f.content_de || '')}">`;
     return `
       <div class="login-field">
@@ -2975,7 +2985,7 @@ function saveSiteTextGroup() {
 
   const fields = {};
   document.querySelectorAll('#siteTextFields [data-key]').forEach(el => {
-    fields[el.dataset.key] = el.value;
+    fields[el.dataset.key] = el.value.trim().replace(/\r?\n/g, '<br>');
   });
 
   if (Object.keys(fields).length === 0) return;
