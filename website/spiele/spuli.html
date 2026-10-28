@@ -267,9 +267,9 @@ footer a{color:var(--purple-bright);text-decoration:none}
       ist das Ziel.</div></div>
   </div>
   <p>Drei Rollen pro Halle. Sind sie aufgebraucht, beginnt die Halle von vorn.</p>
-  <p style="color:var(--purple-bright)">Wer <b>Halle 4</b> schafft, bekommt einen
-  <b>5 %-Gutschein</b>. Wer alle <b>sechs Hallen</b> durchspielt, darf zur
-  <b>Ziehung</b> um <b>10 %</b>.</p>
+  <p style="color:var(--purple-bright)">Wer alle <b>sechs Hallen</b> schafft, bekommt einen
+  <b>5 %-Gutschein</b>. Wer dabei in <b>jeder Halle alles Garn</b> einsammelt – mit einer Rolle,
+  ohne zwischendurch zu verlieren –, darf zur <b>Ziehung</b> um <b>10 %</b>.</p>
   <button class="btn-primary" id="helpClose">Los geht's</button>
 </div></div>
 
@@ -294,8 +294,8 @@ footer a{color:var(--purple-bright);text-decoration:none}
 
 var WF={
   gutschein:"gutschein_api.php",
-  levelFuer5:4,          /* Halle 4 geschafft  -> 5 %  */
-  levelFuerZiehung:6     /* alle sechs Hallen  -> Ziehung um 10 % */
+  levelFuer5:6,          /* alle sechs Hallen geschafft -> 5 % */
+  levelFuerZiehung:6     /* ... und in jeder Halle alles Garn -> Ziehung um 10 % */
 };
 
 var mem={},KEY="wf_spuli_v1";
@@ -717,6 +717,7 @@ function winLevel(){
   if(isBest)P.best["l"+lvl]=t;
   P.garn["l"+lvl]=Math.max(P.garn["l"+lvl]||0,collected);
   P.maxLvl=Math.max(P.maxLvl,Math.min(LEVELS.length,lvl+1));
+  if(lvl>=LEVELS.length)P.allDone=true;
   save();
   blip(880,.06,"square",.14);
   setTimeout(function(){blip(1170,.055,"square",.18)},150);
@@ -936,6 +937,7 @@ function hud(){
   $("sndBtn").className="icb "+(P.snd?"lit":"off");
 }
 function startLevel(n){
+  WFG.play("spuli");
   lives=3;runScore=0;
   loadLevel(n);
   cam.x=Math.max(0,pl.x-3);cam.y=Math.max(0,pl.y-4);
@@ -969,16 +971,21 @@ $("helpOv").addEventListener("click",function(e){if(e.target===this)this.classLi
 $("sndBtn").addEventListener("click",function(){P.snd=!P.snd;save();blip(700,.04);hud()});
 
 /* ═══════════ Gutscheine ═══════════ */
-function levelDone(){return P.maxLvl>LEVELS.length?LEVELS.length:P.maxLvl-1}
+function levelDone(){
+  /* Erst wenn die letzte Halle geschafft ist, zählt sie: maxLvl bleibt dort stehen, deshalb P.allDone */
+  return P.allDone?LEVELS.length:Math.min(LEVELS.length-1,P.maxLvl-1)}
+/* Garn je Halle im Plan zählen – für die Ziehung muss in jeder Halle alles eingesammelt sein */
+function garnIn(n){return LEVELS[n-1].map.join("").split("o").length-1}
+function allGarn(){for(var n=1;n<=LEVELS.length;n++)if((P.garn["l"+n]||0)<garnIn(n))return false;return true}
 function buildVoucher(){
   var area=$("voucherArea");
   if(!WF.gutschein){area.innerHTML="";return}
   var done=levelDone();
-  if(done>=WF.levelFuerZiehung){buildDraw();return}
-  if(done>=WF.levelFuer5){buildClaim(5,"spuli_h4",null);return}
+  if(done>=WF.levelFuerZiehung&&allGarn()){buildDraw();return}
+  if(done>=WF.levelFuer5){buildClaim(5,"spuli_5",null);return}
   area.innerHTML='<p style="margin-top:.7rem;color:var(--text-dim);font-size:.75rem;line-height:1.8">'+
-    'Ab <b style="color:var(--purple-bright)">Halle '+WF.levelFuer5+'</b> gibt es einen 5 %-Gutschein.<br>'+
-    'Wer alle <b style="color:var(--gold)">'+LEVELS.length+' Hallen</b> schafft, darf zur Ziehung um 10 %.</p>';
+    'Wer alle <b style="color:var(--purple-bright)">'+LEVELS.length+' Hallen</b> schafft, bekommt einen 5 %-Gutschein.<br>'+
+    'Wer dabei in <b style="color:var(--gold)">jeder Halle alles Garn</b> einsammelt, darf zur Ziehung um 10 %.</p>';
 }
 function buildDraw(){
   var area=$("voucherArea");
@@ -992,7 +999,7 @@ function buildDraw(){
     '</div><div class="drawinfo" id="drawMsg">Wähle eine Spule</div>';
   var picked=false,ticket=null;
   var body=new URLSearchParams();
-  body.set("reward","spuli_ziehung");body.set("score",1);body.set("level",levelDone());
+  body.set("reward","spuli_ziehung");body.set("score",1);body.set("level",levelDone());body.set("play",WFG.ticket());
   fetch(WF.gutschein+"?action=draw_start",{method:"POST",body:body})
     .then(function(r){return r.json()})
     .then(function(d){
@@ -1066,7 +1073,7 @@ function buildClaim(pct,key,ticket){
     var b=new URLSearchParams();
     b.set("reward",key);b.set("name",nm);b.set("email",ml);
     b.set("lang","de");b.set("consent","1");b.set("level",levelDone());b.set("score",1);
-    if(ticket)b.set("ticket",ticket);
+    if(ticket)b.set("ticket",ticket);else b.set("play",WFG.ticket());
     b.set("proof","Halle "+levelDone()+" geschafft");
     fetch(WF.gutschein+"?action=claim",{method:"POST",body:b})
       .then(function(r){return r.json()})

@@ -364,3 +364,16 @@ body #stage:has(#hoop) .threadrow .lbl,body #stage:has(#hoop) .threadrow .forwho
 /* Eingabefelder (Bestenliste, Gutscheine) */
 body input:not([type=checkbox]):not([type=radio]),body select,body textarea{background:#fff;color:var(--ink);border:3px solid #e2d6f7;border-radius:14px;font-family:var(--display);font-weight:700}
 body input::placeholder{color:var(--ink3)}
+
+/* Ziehungskarten (alle Spiele) */
+body .card .back{background:repeating-linear-gradient(45deg,#ff8cc3 0 12px,#ff6fb0 12px 24px);border:4px solid #fff;box-shadow:0 6px 0 #c81f73,0 10px 18px rgba(200,30,110,.25)}
+body .card .back span{color:#fff;filter:drop-shadow(0 2px 0 rgba(0,0,0,.2))}
+body .card .front{background:linear-gradient(180deg,#fff,#f1ebfa);border:4px solid #fff;box-shadow:0 6px 0 #c9b8ea}
+body .card .front .tx{font-family:var(--display);font-weight:800;color:var(--ink2)}
+body .card.win .front{background:linear-gradient(180deg,#fff3a8,#ffd23f);box-shadow:0 6px 0 #d39a00,0 0 30px rgba(255,210,63,.9)}
+body .card.win .front .tx{color:#7a3a00}
+body .card:hover:not(.done){box-shadow:none}
+body .drawinfo{color:var(--ink2)}
+body .field label{font-family:var(--display);font-weight:800;color:var(--ink2)}
+body .consent,body .small{color:var(--ink2)}
+body #wfNav{z-index:150}

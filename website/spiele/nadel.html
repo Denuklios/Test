@@ -310,8 +310,8 @@ footer a{color:var(--purple-bright);text-decoration:none}
     ab ×10 wird es richtig lohnend.</p>
     <p>Jedes fertig gestickte Motiv ist ein <b>Level</b>. Erst wenn das letzte Stich sitzt,
     zählt es als geschafft.</p>
-    <p style="color:var(--purple-bright)">Ab <b>5.000 Punkten</b> und <b>Level 2</b> gibt es
-    einen <b>5 %-Gutschein</b>. Wer <b>15.000 Punkte</b> und <b>Level 4</b> schafft, darf zur
+    <p style="color:var(--purple-bright)">Ab <b>30.000 Punkten</b> und <b>Level 5</b> gibt es
+    einen <b>5 %-Gutschein</b>. Wer <b>60.000 Punkte</b> und <b>Level 7</b> schafft, darf zur
     <b>Nadel-Ziehung</b>: drei Stickrahmen, in einem steckt die goldene Nadel für <b>10 %</b>.</p>
     <button class="btn-primary" id="helpClose">Los geht's</button>
   </div>
@@ -328,10 +328,10 @@ footer a{color:var(--purple-bright);text-decoration:none}
 
 var WF={
   gutschein:"gutschein_api.php",   // leer lassen = Gutscheine aus
-  schwelle5:5000,                  // muss zu gutschein_api.php passen
-  levelFuer5:2,                    // Mindestlevel für die 5 %
-  schwelleZiehung:15000,           // Punkte für die Ziehung
-  levelFuerZiehung:4               // ... und mindestens dieses Level
+  schwelle5:30000,                 // muss zu gutschein_api.php passen
+  levelFuer5:5,                    // Mindestlevel für die 5 %
+  schwelleZiehung:60000,           // Punkte für die Ziehung
+  levelFuerZiehung:7               // ... und mindestens dieses Level
 };
 
 var mem={},KEY="wf_nadel_v1";
@@ -608,6 +608,7 @@ function startMotiv(i){
   newTarget();
 }
 function startGame(){
+  WFG.play("nadel");
   running=true;score=0;combo=1;thread=1;ang=0;dir=1;
   $("tapBtn").disabled=false;
   $("tapBtn").textContent="Sticken";
@@ -741,7 +742,7 @@ function buildDraw(){
   /* Los beim Server holen – die Gewinnkarte steht damit schon fest */
   var body=new URLSearchParams();
   body.set("reward","nadel_ziehung");body.set("score",Math.floor(score));
-  body.set("level",levelDone());
+  body.set("level",levelDone());body.set("play",WFG.ticket());
   var ticket=null;
   fetch(WF.gutschein+"?action=draw_start",{method:"POST",body:body})
     .then(function(r){return r.json()})
@@ -808,7 +809,7 @@ function buildVoucher(){
   var lvl=levelDone();   /* abgeschlossene Level */
 
   if(score>=WF.schwelleZiehung&&lvl>=WF.levelFuerZiehung){buildDraw();return}
-  if(score>=WF.schwelle5&&lvl>=WF.levelFuer5){buildClaim(5,"nadel_5000",null);return}
+  if(score>=WF.schwelle5&&lvl>=WF.levelFuer5){buildClaim(5,"nadel_5",null);return}
 
   /* Was fehlt noch? Punkte, Level oder beides */
   var teile=[];
@@ -856,7 +857,7 @@ function buildClaim(pct,key,ticket){
     var b=new URLSearchParams();
     b.set("reward",key);b.set("name",nm);b.set("email",ml);
     b.set("lang","de");b.set("consent","1");
-    if(ticket)b.set("ticket",ticket);
+    if(ticket)b.set("ticket",ticket);else b.set("play",WFG.ticket());
     b.set("level",levelDone());
     b.set("proof","Punkte "+Math.floor(score)+" · Level "+levelDone());
 

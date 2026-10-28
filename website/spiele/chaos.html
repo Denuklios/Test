@@ -274,8 +274,8 @@ footer a{color:var(--purple-bright);text-decoration:none}
     vom Band gefallen ist <b>Ausschuss</b> – nach drei Fehlern ist Feierabend.</p>
     <p>Alle 12 Stück beginnt die nächste <b>Schicht</b>: Das Band läuft schneller und
     es kommt mehr auf einmal.</p>
-    <p style="color:var(--purple-bright)">Ab <b>4.000 Punkten</b> und <b>Schicht 3</b> gibt es
-    einen <b>5 %-Gutschein</b>. Mit <b>12.000 Punkten</b> und <b>Schicht 6</b> darfst du zur
+    <p style="color:var(--purple-bright)">Ab <b>40.000 Punkten</b> und <b>Schicht 8</b> gibt es
+    einen <b>5 %-Gutschein</b>. Mit <b>80.000 Punkten</b> und <b>Schicht 10</b> darfst du zur
     <b>Ziehung</b> um <b>10 %</b>.</p>
     <button class="btn-primary" id="helpClose">Los geht's</button>
   </div>
@@ -292,8 +292,8 @@ footer a{color:var(--purple-bright);text-decoration:none}
 
 var WF={
   gutschein:"gutschein_api.php",
-  schwelle5:4000,     levelFuer5:3,
-  schwelleZiehung:12000, levelFuerZiehung:6
+  schwelle5:40000,    levelFuer5:8,
+  schwelleZiehung:80000, levelFuerZiehung:10
 };
 
 var mem={},KEY="wf_chaos_v1";
@@ -526,6 +526,7 @@ function spawn(){
   items.push({w:Math.floor(Math.random()*WARE.length),x:-CW*0.1,fly:null,tx:0});
 }
 function startGame(){
+  WFG.play("chaos");
   running=true;score=0;combo=1;lives=3;doneCount=0;items=[];burst=[];
   setLevel(1);hud();sizeCanvas();
   $("startBtn").textContent="Läuft …";
@@ -650,7 +651,7 @@ function buildVoucher(){
   if(!WF.gutschein){area.innerHTML="";return}
   var lvl=levelDone();
   if(score>=WF.schwelleZiehung&&lvl>=WF.levelFuerZiehung){buildDraw();return}
-  if(score>=WF.schwelle5&&lvl>=WF.levelFuer5){buildClaim(5,"chaos_4000",null);return}
+  if(score>=WF.schwelle5&&lvl>=WF.levelFuer5){buildClaim(5,"chaos_5",null);return}
 
   var teile=[];
   if(score<WF.schwelle5)teile.push('<b style="color:var(--purple-bright)">'+
@@ -678,7 +679,7 @@ function buildDraw(){
   var picked=false,ticket=null;
   var body=new URLSearchParams();
   body.set("reward","chaos_ziehung");body.set("score",Math.floor(score));
-  body.set("level",levelDone());
+  body.set("level",levelDone());body.set("play",WFG.ticket());
   fetch(WF.gutschein+"?action=draw_start",{method:"POST",body:body})
     .then(function(r){return r.json()})
     .then(function(d){
@@ -759,7 +760,7 @@ function buildClaim(pct,key,ticket){
     var b=new URLSearchParams();
     b.set("reward",key);b.set("name",nm);b.set("email",ml);
     b.set("lang","de");b.set("consent","1");b.set("level",levelDone());
-    if(ticket)b.set("ticket",ticket);
+    if(ticket)b.set("ticket",ticket);else b.set("play",WFG.ticket());
     b.set("proof","Punkte "+Math.floor(score)+" · Schicht "+level);
 
     fetch(WF.gutschein+"?action=claim",{method:"POST",body:b})

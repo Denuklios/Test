@@ -396,6 +396,16 @@
     badge(c, 34, 48, 22, C.gold);
     [24, 78].forEach(function (x) { c.fillStyle = '#111'; c.beginPath(); c.arc(x, 72, 9, 0, Math.PI * 2); c.fill(); c.fillStyle = '#9ca3af'; c.beginPath(); c.arc(x, 72, 3.5, 0, Math.PI * 2); c.fill(); });
   };
+  D.gstar = function (c) {                       // goldener Wertungsstern
+    c.save(); c.translate(50, 52); c.beginPath();
+    for (var i = 0; i < 10; i++) { var a = -Math.PI / 2 + i * Math.PI / 5, r = i % 2 ? 19 : 42; c.lineTo(Math.cos(a) * r, Math.sin(a) * r); }
+    c.closePath(); c.lineJoin = 'round';
+    c.strokeStyle = '#fff'; c.lineWidth = 10; c.stroke();
+    c.fillStyle = lg(c, 0, -42, 0, 42, ['#fff3a8', '#ffd23f', '#ff9a1f']); c.fill();
+    c.strokeStyle = '#c86400'; c.lineWidth = 3; c.stroke();
+    c.fillStyle = 'rgba(255,255,255,.65)'; c.beginPath(); c.ellipse(-10, -14, 8, 5, -.6, 0, 7); c.fill();
+    c.restore();
+  };
   D.hand = function (c) {                         // Handarbeit: Hand mit Nadel und Faden
     c.strokeStyle = C.pink; c.lineWidth = 3; c.lineCap = 'round';
     c.beginPath(); c.moveTo(70, 14); c.bezierCurveTo(96, 24, 92, 52, 72, 54); c.bezierCurveTo(56, 56, 60, 76, 80, 84); c.stroke();
@@ -678,13 +688,14 @@
   /* ── Sterne-Wertung als HTML ── */
   function stars(n) {
     var h = '<div class="wfg-stars">';
-    for (var i = 0; i < 3; i++) h += '<img src="' + url('star', 120) + '" alt="" class="' + (i < n ? 'on' : '') + '">';
+    for (var i = 0; i < 3; i++) h += '<img src="' + url('gstar', 120) + '" alt="" class="' + (i < n ? 'on' : '') + '">';
     return h + '</div>';
   }
 
   /* ── Symbole in die Zähler setzen (nach Beschriftung) ── */
   var HUD_ICON = { 'Punkte': 'star', 'Serie': 'gem', 'Level': 'stick', 'Schicht': 'factory', 'Halle': 'factory', 'Garn': 'spool',
-    'Rollen': 'heart', 'Ausschuss': 'heart', 'Zeit': 'gear', 'Bestpunktzahl': 'star', 'Sterne gesamt': 'star', 'Höchstes Level': 'gem' };
+    'Rollen': 'heart', 'Ausschuss': 'heart', 'Zeit': 'gear', 'Bestpunktzahl': 'star', 'Sterne gesamt': 'star', 'Höchstes Level': 'gem',
+    'Fadenbild': 'stick', 'Strecken': 'spool', 'Perlen': 'gem', 'Sterne': 'star' };
   function hudIcons(sel) {
     document.querySelectorAll(sel || '.hud > div, .bar .stat').forEach(function (d) {
       var s = d.querySelector('span'); if (!s || d.querySelector('.hi')) return;
@@ -739,5 +750,17 @@
     });
   }
 
-  window.WFG = { sprite: sprite, draw: draw, url: url, img: img, spuli: spuli, nav: nav, Sparks: Sparks, swapEmojis: swapEmojis, bg: bg, confetti: confetti, stars: stars, hudIcons: hudIcons, C: C, names: Object.keys(D) };
+  /* ── Spielmarke für Gutscheine: beim Start jeder Runde holen ── */
+  var playTicket = '';
+  function play(game, api) {
+    playTicket = '';
+    try {
+      var b = new URLSearchParams(); b.set('game', game);
+      fetch((api || 'gutschein_api.php') + '?action=play_start', { method: 'POST', body: b })
+        .then(function (r) { return r.json(); })
+        .then(function (d) { if (d && d.ok) playTicket = d.play; })
+        .catch(function () {});
+    } catch (e) {}
+  }
+  window.WFG = { play: play, ticket: function () { return playTicket; }, sprite: sprite, draw: draw, url: url, img: img, spuli: spuli, nav: nav, Sparks: Sparks, swapEmojis: swapEmojis, bg: bg, confetti: confetti, stars: stars, hudIcons: hudIcons, C: C, names: Object.keys(D) };
 })();

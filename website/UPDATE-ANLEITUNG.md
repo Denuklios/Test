@@ -43,5 +43,6 @@
 ## Spiele (Update Oktober 2026)
 - Oben auf jeder Spielseite: **„← Wunsch-Fabrik.dk“** (zurück zur Startseite) und **„Alle Spiele“**.
 - Alle fünf Spiele und die Spieleübersicht haben einen neuen, hellen und bunten Look: Himmel mit Wolken und Hügeln, plastische Knöpfe, Zähler mit Symbolen, Konfetti bei Gewinnen. Alle Grafiken werden im Browser gezeichnet, es gibt keine zusätzlichen Bilddateien.
-- Neue Dateien im Ordner `spiele/`: `wf-game.css`, `wf-gfx.js`, `faden.html` – mit hochladen.
-- **Neues Spiel „Fadenlauf“** (`spiele/faden.html`): ruhiges Knobelspiel mit 24 Fadenbildern, steht in der Spieleübersicht ganz vorn.
+- Neue Dateien im Ordner `spiele/`: `wf-game.css`, `wf-gfx.js`, `faden.html`, `faden_levels.json` – mit hochladen.
+- **Neues Spiel „Fadenlauf“** (`spiele/faden.html`): Knobelspiel mit 24 Fadenbildern im gleichen bunten Look, steht in der Spieleübersicht ganz vorn, mit Gutscheinen.
+- **Gutscheine schwerer und sicherer:** Die Schwellen in Nadel & Faden, Auftrags-Chaos und Spuli sind deutlich höher (Übersicht in `spiele/LIESMICH.md`). Der Server gibt Gutscheine nur noch nach einer echten Spielrunde aus (Spielmarke mit Mindest-Spielzeit); bei Fadenlauf rechnet er jede Lösung nach. Die nötige Tabelle `game_plays` legt er selbst an.

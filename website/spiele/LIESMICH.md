@@ -196,6 +196,26 @@ zu versenden. Die Daten werden nach Ablauf des Gutscheins gelöscht."*
 - `wf-gfx.js` – alle Spielgrafiken als Vektorzeichnungen (keine Bilddateien nötig), die Kulisse mit Sonne, Wolken und Hügeln, Konfetti bei Gewinnen und die Leiste „← Wunsch-Fabrik.dk / Alle Spiele“ oben auf jeder Spielseite.
 
 ## Fadenlauf (faden.html)
-Knobelspiel: Ein Faden wird von Nagel zu Nagel gespannt und muss alle Perlen auffädeln, ohne an Dornen hängenzubleiben.
-24 Level, jedes per Computer auf Lösbarkeit geprüft; „par“ ist die kürzeste Lösung (3 Sterne). Fortschritt bleibt nur im Browser
-(localStorage), es werden keine Daten an den Server geschickt. Keine Gutscheine – lässt sich bei Bedarf ergänzen.
+Knobelspiel: Ein Faden wird von Nagel zu Nagel gespannt und muss alle Perlen auffädeln, ohne an Disteln hängenzubleiben.
+24 Level, jedes per Computer auf Lösbarkeit geprüft; „par“ ist die kürzeste Lösung (3 Sterne). Die Leveldaten liegen in
+`faden_levels.json` – die braucht der Server, um eingereichte Lösungen nachzurechnen.
+
+## Gutscheine: Schwellen (Oktober 2026 erhöht)
+Die Schwellen wurden per Simulation verschiedener Spielertypen geprüft (durchschnittlich / gut / sehr gut). Vorher bekam ein
+durchschnittlicher Spieler bei Nadel & Faden in 3 von 4 Runden einen Gutschein, bei Auftrags-Chaos sogar Gelegenheitsspieler in
+jeder zweiten Runde.
+
+| Spiel | 5 % | Ziehung um 10 % (1 von 3 Spulen gewinnt) |
+|---|---|---|
+| Nadel & Faden | 30.000 Punkte und Level 5 | 60.000 Punkte und Level 7 |
+| Auftrags-Chaos | 40.000 Punkte und Schicht 8 | 80.000 Punkte und Schicht 10 |
+| Spuli auf Abwegen | alle 6 Hallen | alle 6 Hallen und in jeder Halle alles Garn (in einem Durchgang) |
+| Fadenlauf | alle 24 Bilder, davon 16 mit Bestlösung ohne Tipp | alle 24 mit Bestlösung ohne Tipp (Ziehung 1× am Tag) |
+
+Die Werte stehen in `gutschein_api.php` (`$WF_REWARDS`) und oben im jeweiligen Spiel (`var WF={…}`) – beide müssen zusammenpassen.
+
+## Schutz gegen Abkürzungen
+- **Spielmarke:** Jede Runde holt beim Start eine Marke vom Server. Ein Gutschein gibt es nur mit einer Marke, die eine
+  Mindest-Spielzeit alt ist und noch nicht benutzt wurde. Direktes Abrufen ohne zu spielen geht nicht mehr.
+- **Fadenlauf:** Der Server rechnet jede eingereichte Lösung Strecke für Strecke nach. Gefälschte Lösungen werden abgelehnt.
+- Weiterhin: ein Gutschein pro E-Mail-Adresse alle 30 Tage, höchstens 3 pro Anschluss und Tag, höchstens 5 Ziehungen am Tag.

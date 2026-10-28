@@ -36,23 +36,29 @@ require_once $wf_db;
 /* ═══════════════ EINSTELLUNGEN ═══════════════
    Hier legst du fest, was wofür vergeben wird.  */
 $WF_REWARDS = [
-    // Schlüssel => [Prozent, Bedingung, Beschreibung für die Mail]
-    'rausch_10'  => ['pct' => 5,  'game' => 'rausch',  'need' => 10,  'text' => 'Level 10 im Veredelungs-Rausch'],
-    'rausch_25'  => ['pct' => 10, 'game' => 'rausch',  'need' => 25,  'text' => 'Level 25 im Veredelungs-Rausch'],
-    'nadel_5000'  => ['pct' => 5,  'game' => 'nadel', 'need' => 5000,  'lvl' => 2,
-                      'text' => '5.000 Punkte bei Nadel & Faden'],
-    'nadel_ziehung'=> ['pct' => 10, 'game' => 'nadel', 'need' => 15000, 'lvl' => 4,
-                      'text' => 'die Nadel-Ziehung bei Nadel & Faden'],
-    'chaos_4000'  => ['pct' => 5,  'game' => 'chaos', 'need' => 4000,  'lvl' => 3,
-                      'text' => '4.000 Punkte im Auftrags-Chaos'],
-    'chaos_ziehung'=> ['pct' => 10, 'game' => 'chaos', 'need' => 12000, 'lvl' => 6,
-                      'text' => 'die Ziehung im Auftrags-Chaos'],
-    'spuli_h4'    => ['pct' => 5,  'game' => 'spuli', 'need' => 0, 'lvl' => 4,
-                      'text' => 'Halle 4 bei Spuli auf Abwegen'],
-    'spuli_ziehung'=> ['pct' => 10, 'game' => 'spuli', 'need' => 0, 'lvl' => 6,
-                      'text' => 'die Ziehung bei Spuli auf Abwegen'],
-    'tycoon_mrd' => ['pct' => 5,  'game' => 'tycoon',  'need' => 1e9, 'text' => '1 Mrd. kr Umsatz im Veredelungs-Tycoon'],
+    // Schlüssel => Prozent, Spiel, Bedingung, Mindest-Spielzeit (Sekunden) und Text für die Mail.
+    // Die Schwellen sind so gewählt, dass nicht jeder sofort einen Gutschein bekommt
+    // (per Simulation verschiedener Spielertypen geprüft, siehe LIESMICH.md).
+    'nadel_5'      => ['pct' => 5,  'game' => 'nadel', 'need' => 30000, 'lvl' => 5, 'min_sec' => 90,
+                       'text' => '30.000 Punkte bei Nadel & Faden'],
+    'nadel_ziehung'=> ['pct' => 10, 'game' => 'nadel', 'need' => 60000, 'lvl' => 7, 'min_sec' => 150,
+                       'text' => 'die Nadel-Ziehung bei Nadel & Faden'],
+    'chaos_5'      => ['pct' => 5,  'game' => 'chaos', 'need' => 40000, 'lvl' => 8, 'min_sec' => 90,
+                       'text' => '40.000 Punkte im Auftrags-Chaos'],
+    'chaos_ziehung'=> ['pct' => 10, 'game' => 'chaos', 'need' => 80000, 'lvl' => 10, 'min_sec' => 120,
+                       'text' => 'die Ziehung im Auftrags-Chaos'],
+    'spuli_5'      => ['pct' => 5,  'game' => 'spuli', 'need' => 0, 'lvl' => 6, 'min_sec' => 30,
+                       'text' => 'alle sechs Hallen bei Spuli auf Abwegen'],
+    'spuli_ziehung'=> ['pct' => 10, 'game' => 'spuli', 'need' => 0, 'lvl' => 6, 'garn' => true, 'min_sec' => 30,
+                       'text' => 'die Ziehung bei Spuli auf Abwegen (alles Garn gesammelt)'],
+    'faden_5'      => ['pct' => 5,  'game' => 'faden', 'need' => 0, 'faden_best' => 16, 'min_sec' => 20,
+                       'text' => 'alle 24 Fadenbilder bei Fadenlauf, davon 16 mit Bestlösung'],
+    'faden_ziehung'=> ['pct' => 10, 'game' => 'faden', 'need' => 0, 'faden_best' => 24, 'min_sec' => 20, 'draws_per_day' => 1,
+                       'text' => 'die Ziehung bei Fadenlauf (alle 24 mit Bestlösung)'],
+    'tycoon_mrd'   => ['pct' => 5,  'game' => 'tycoon', 'need' => 1e9, 'min_sec' => 60,
+                       'text' => '1 Mrd. kr Umsatz im Veredelungs-Tycoon'],
 ];
+
 
 $WF_VOUCHER = [
     'gueltig_tage'   => 30,     // Laufzeit
@@ -115,8 +121,108 @@ function wf_ensure_draw_table($mysqli) {
 }
 wf_ensure_draw_table($mysqli);
 
+/* Spielmarken: Beim Start eines Spiels holt die Seite eine Marke. Ein Gutschein
+   wird nur gegen eine Marke ausgegeben, die alt genug ist (Mindest-Spielzeit)
+   und noch nicht benutzt wurde. So lässt sich kein Gutschein „einfach so“
+   abrufen, ohne das Spiel überhaupt zu spielen. */
+function wf_ensure_play_table($mysqli) {
+    $mysqli->query("
+        CREATE TABLE IF NOT EXISTS game_plays (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            created_at DATETIME NOT NULL,
+            ticket VARCHAR(40) NOT NULL UNIQUE,
+            game VARCHAR(20) NOT NULL,
+            used TINYINT(1) NOT NULL DEFAULT 0,
+            ip VARCHAR(45) DEFAULT NULL,
+            INDEX idx_ip_time (ip, created_at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+}
+wf_ensure_play_table($mysqli);
+$mysqli->query("DELETE FROM game_plays WHERE created_at < DATE_SUB(NOW(), INTERVAL 2 DAY)");
+
+/* Prüft die Spielmarke. Gibt die Datensatz-ID zurück oder beendet mit Fehler. */
+function wf_require_play($mysqli, $reward) {
+    $t = preg_replace('/[^a-f0-9]/i', '', (string)($_POST['play'] ?? ''));
+    $stmt = $mysqli->prepare("SELECT id, game, used, TIMESTAMPDIFF(SECOND, created_at, NOW()) AS age
+        FROM game_plays WHERE ticket = ? LIMIT 1");
+    $stmt->bind_param('s', $t);
+    $stmt->execute();
+    $p = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$p || $p['game'] !== $reward['game']) {
+        echo json_encode(['ok'=>false,'error'=>'no_play',
+            'message'=>'Bitte lade das Spiel neu und spiel die Runde noch einmal.']); exit;
+    }
+    if ((int)$p['used'] === 1) {
+        echo json_encode(['ok'=>false,'error'=>'play_used',
+            'message'=>'Für diese Spielrunde wurde schon ein Gutschein angefordert.']); exit;
+    }
+    if ((int)$p['age'] < (int)($reward['min_sec'] ?? 0) || (int)$p['age'] > 12 * 3600) {
+        echo json_encode(['ok'=>false,'error'=>'play_time',
+            'message'=>'Diese Runde lässt sich nicht bestätigen. Bitte spiel sie noch einmal.']); exit;
+    }
+    return (int)$p['id'];
+}
+
+/* Fadenlauf: Die eingereichten Lösungen werden hier Strecke für Strecke nachgerechnet –
+   gleiche Regeln wie im Spiel. Gefälschte Lösungen fallen auf. */
+function wf_faden_seg($a, $b, $p) {
+    $dx = $b[0] - $a[0]; $dy = $b[1] - $a[1]; $l2 = $dx * $dx + $dy * $dy;
+    $t = $l2 ? (($p[0] - $a[0]) * $dx + ($p[1] - $a[1]) * $dy) / $l2 : 0;
+    $t = max(0, min(1, $t));
+    return hypot($a[0] + $t * $dx - $p[0], $a[1] + $t * $dy - $p[1]);
+}
+function wf_faden_check($needBest) {
+    $levels = json_decode((string)@file_get_contents(__DIR__ . '/faden_levels.json'), true);
+    $paths  = json_decode((string)($_POST['paths'] ?? ''), true);
+    $tips   = json_decode((string)($_POST['tips'] ?? '[]'), true);
+    if (!is_array($levels) || !is_array($paths)) return [false, 0];
+    $tips = is_array($tips) ? array_map('intval', $tips) : [];
+    $best = 0;
+    foreach ($levels as $i => $L) {
+        $path = $paths[$i] ?? $paths[(string)$i] ?? null;
+        if (!is_array($path) || count($path) < 2 || count($path) > 12) return [false, $best];
+        $path = array_map('intval', $path);
+        if ($path[0] !== (int)$L['start']) return [false, $best];
+        $mask = 0; $n = count($L['nails']);
+        for ($k = 1; $k < count($path); $k++) {
+            $u = $path[$k - 1]; $v = $path[$k];
+            if ($u === $v || $u < 0 || $v < 0 || $u >= $n || $v >= $n) return [false, $best];
+            $a = $L['nails'][$u]; $b = $L['nails'][$v];
+            foreach ($L['snags'] as $sn) if (wf_faden_seg($a, $b, $sn) < 0.03) return [false, $best];
+            foreach ($L['beads'] as $j => $bd) if (wf_faden_seg($a, $b, $bd) < 0.03) $mask |= 1 << $j;
+        }
+        if ($mask !== (1 << count($L['beads'])) - 1) return [false, $best];
+        if (count($path) - 1 <= (int)$L['par'] && !in_array($i, $tips, true)) $best++;
+    }
+    return [$best >= $needBest, $best];
+}
+
 $action  = $_REQUEST['action'] ?? '';
 $isAdmin = function_exists('wf_admin_can') ? wf_admin_can('spiele', $mysqli) : !empty($_SESSION['wf_admin_id']);
+
+/* ─── ÖFFENTLICH: Spielmarke holen (beim Start einer Runde) ─────────── */
+if ($action === 'play_start') {
+    $game = (string)($_POST['game'] ?? $_REQUEST['game'] ?? '');
+    $games = array_unique(array_column($WF_REWARDS, 'game'));
+    if (!in_array($game, $games, true)) { echo json_encode(['ok'=>false,'error'=>'unknown_game']); exit; }
+    $ip = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '')[0]);
+    $stmt = $mysqli->prepare("SELECT COUNT(*) AS c FROM game_plays WHERE ip = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)");
+    $stmt->bind_param('s', $ip);
+    $stmt->execute();
+    $c = (int)$stmt->get_result()->fetch_assoc()['c'];
+    $stmt->close();
+    if ($c >= 300) { echo json_encode(['ok'=>false,'error'=>'rate_limit']); exit; }
+    $ticket = bin2hex(random_bytes(12));
+    $now = date('Y-m-d H:i:s');
+    $stmt = $mysqli->prepare("INSERT INTO game_plays (created_at, ticket, game, ip) VALUES (?,?,?,?)");
+    $stmt->bind_param('ssss', $now, $ticket, $game, $ip);
+    $stmt->execute();
+    $stmt->close();
+    echo json_encode(['ok'=>true,'play'=>$ticket]);
+    exit;
+}
 
 /* ─── ÖFFENTLICH: Ziehung eröffnen ──────────────────────────────── */
 if ($action === 'draw_start') {
@@ -132,6 +238,13 @@ if ($action === 'draw_start') {
             'message'=>'Dafür muss mindestens Level ' . (int)$WF_REWARDS[$key]['lvl'] . ' geschafft sein.']); exit;
     }
 
+    if (!empty($WF_REWARDS[$key]['faden_best'])) {
+        [$okF] = wf_faden_check((int)$WF_REWARDS[$key]['faden_best']);
+        if (!$okF) { echo json_encode(['ok'=>false,'error'=>'not_earned',
+            'message'=>'Die Lösungen ließen sich nicht bestätigen.']); exit; }
+    }
+    $playId = wf_require_play($mysqli, $WF_REWARDS[$key]);
+
     $ip = trim(explode(',', $_SERVER['HTTP_X_FORWARDED_FOR'] ?? $_SERVER['REMOTE_ADDR'] ?? '')[0]);
 
     /* Bremse: höchstens ein paar Ziehungen pro Tag und Leitung */
@@ -141,6 +254,19 @@ if ($action === 'draw_start') {
     $stmt->execute();
     $c = (int)$stmt->get_result()->fetch_assoc()['c'];
     $stmt->close();
+    /* Manche Ziehungen lassen sich ohne neue Leistung wiederholen (Fadenlauf) – dort nur einmal am Tag */
+    if (!empty($WF_REWARDS[$key]['draws_per_day'])) {
+        $stmt = $mysqli->prepare("SELECT COUNT(*) AS c FROM game_draws
+            WHERE ip = ? AND reward_key = ? AND created_at > DATE_SUB(NOW(), INTERVAL 1 DAY)");
+        $stmt->bind_param('ss', $ip, $key);
+        $stmt->execute();
+        $cK = (int)$stmt->get_result()->fetch_assoc()['c'];
+        $stmt->close();
+        if ($cK >= (int)$WF_REWARDS[$key]['draws_per_day']) {
+            echo json_encode(['ok'=>false,'error'=>'rate_limit',
+                'message'=>'Die Ziehung gibt es einmal am Tag. Morgen gerne wieder!']); exit;
+        }
+    }
     if ($c >= 5) {
         echo json_encode(['ok'=>false,'error'=>'rate_limit',
             'message'=>'Heute wurde von hier schon mehrfach gezogen. Morgen gerne wieder.']); exit;
@@ -155,6 +281,7 @@ if ($action === 'draw_start') {
     $stmt->bind_param('sssiis', $now, $ticket, $key, $win, $score, $ip);
     $stmt->execute();
     $stmt->close();
+    $mysqli->query("UPDATE game_plays SET used = 1 WHERE id = $playId");
 
     echo json_encode(['ok'=>true,'ticket'=>$ticket]);
     exit;
@@ -234,7 +361,7 @@ if ($action === 'ping') {
     $c = $mysqli->query("SELECT COUNT(*) AS c FROM game_vouchers");
     echo json_encode([
         'ok'        => true,
-        'version'   => 'v3',
+        'version'   => 'v4',
         'loeschfrist_tage' => (int)$WF_VOUCHER['loeschen_tage'],
         'php'       => PHP_VERSION,
         'vouchers'  => (int)($c ? $c->fetch_assoc()['c'] : -1),
@@ -282,6 +409,17 @@ if ($action === 'claim') {
             echo json_encode(['ok'=>false,'error'=>'already_claimed']); exit;
         }
         $drawId = (int)$d['id'];
+    } else {
+        /* Direkte Gutscheine: Spielmarke und – wo möglich – Nachweis prüfen */
+        $playId = wf_require_play($mysqli, $reward);
+        if (!empty($reward['faden_best'])) {
+            [$okF, $bestF] = wf_faden_check((int)$reward['faden_best']);
+            if (!$okF) { echo json_encode(['ok'=>false,'error'=>'not_earned',
+                'message'=>'Die Lösungen ließen sich nicht bestätigen ('.$bestF.' Bestlösungen).']); exit; }
+        }
+        if ((int)($_POST['level'] ?? 0) < (int)($reward['lvl'] ?? 0)) {
+            echo json_encode(['ok'=>false,'error'=>'level_too_low']); exit;
+        }
     }
 
     /* Sperrfrist je E-Mail-Adresse */
@@ -357,6 +495,7 @@ if ($action === 'claim') {
     $stmt->close();
 
     if ($drawId) $mysqli->query("UPDATE game_draws SET claimed = 1 WHERE id = $drawId");
+    if (!empty($playId)) $mysqli->query("UPDATE game_plays SET used = 1 WHERE id = $playId");
 
     /* Mail an den Gewinner */
     $sent = wf_send_voucher_mail($email, $name, $lang, $code, $pct, $expires, $minOrd, $reason);
