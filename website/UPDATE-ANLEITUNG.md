@@ -35,7 +35,7 @@
 ## Datenschutz & Recht (Update Oktober 2026)
 - **Keine Cookies mehr für Besucher:** Die Besucherzählung arbeitet mit einer täglich wechselnden, nicht zurückverfolgbaren Prüfsumme. PHP-Sitzungen starten nur noch für angemeldete Mitarbeiter.
 - **Keine Fremdserver:** Schriften (Ordner `fonts/`) und Flaggen (`flags/`) liegen auf dem eigenen Server; das Land der Besucher kommt aus der Browser-Zeitzone statt von ip-api.com.
-- **Impressum und Datenschutzerklärung** werden beim ersten Aufruf automatisch neu eingespielt (Datei `legal_texts_2026.php`, nur einmal). Danach wie gewohnt unter Admin → Rechtstexte ändern.
+- **Impressum, Datenschutzerklärung und AGB** werden beim ersten Aufruf automatisch neu eingespielt (Datei `legal_texts_2026.php`, jeder Text nur einmal). Danach wie gewohnt unter Admin → Rechtstexte ändern. Die AGB gelten für Privat- und Firmenkunden, mit Widerrufsrecht für Standardware und Ausschluss für Sonderanfertigungen.
 - **Telefonnummer nur als Bild** (`kontakt-tel.png`). In Rechtstexten `[TELEFON]` schreiben. WhatsApp läuft über `whatsapp.php`, damit die Nummer nicht im Quelltext steht.
 - **Spamschutz im Kontaktformular:** unsichtbare Sicherheitsprüfung (Rechenarbeit im Browser, vom Server geprüft), verstecktes Fallen-Feld, max. 5 Anfragen pro Stunde je Anschluss, max. 2 Links pro Nachricht.
 - **Löschfristen** laufen automatisch einmal am Tag: Statistik 14 Monate, Anfragen 12 Monate, IP-Adressen bei Gutscheinen 30 Tage.

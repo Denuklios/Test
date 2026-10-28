@@ -692,18 +692,29 @@ function wf_check_push_notification($mysqli, $onlineCount) {
 // DE ist der Master-Text (vom Kunden im Admin editiert), DA/EN werden
 // per DeepL automatisch übersetzt und hier als Cache mitgespeichert.
 /**
- * Übernimmt einmalig Impressum und Datenschutzerklärung aus legal_texts_2026.php
+ * Übernimmt einmalig Impressum, Datenschutzerklärung und AGB aus legal_texts_2026.php
  * und ersetzt in allen Rechtstexten die Telefonnummer durch das Bild ([TELEFON])
  * sowie den Platzhalter der CVR-Nummer in den AGB. Danach nie wieder (Merker in wf_meta).
  */
 function wf_legal_update_2026($mysqli) {
     $mysqli->query("CREATE TABLE IF NOT EXISTS wf_meta (k VARCHAR(64) PRIMARY KEY, v VARCHAR(255) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    $done = $mysqli->query("SELECT v FROM wf_meta WHERE k = 'legal_2026'");
-    if (($done && $done->num_rows) || !$mysqli->query("SHOW TABLES LIKE 'legal_texts'")->num_rows) return;
+    if (!$mysqli->query("SHOW TABLES LIKE 'legal_texts'")->num_rows) return;
     $file = __DIR__ . '/legal_texts_2026.php';
     if (!is_file($file)) return;
     $texts = require $file;
+    // Jeder Text wird genau einmal übernommen (Merker je Text), spätere Änderungen im Admin bleiben erhalten
+    $pending = [];
     foreach ($texts as $type => $t) {
+        $done = $mysqli->query("SELECT v FROM wf_meta WHERE k = 'legal_2026_" . $mysqli->real_escape_string($type) . "'");
+        if (!($done && $done->num_rows)) $pending[$type] = $t;
+    }
+    $old = $mysqli->query("SELECT v FROM wf_meta WHERE k = 'legal_2026'");
+    if ($old && $old->num_rows) {
+        // Frühere Version hat Impressum und Datenschutz schon übernommen
+        unset($pending['impressum'], $pending['datenschutz']);
+    }
+    if (!$pending) return;
+    foreach ($pending as $type => $t) {
         $stmt = $mysqli->prepare("UPDATE legal_texts SET title_de = ?, content_de = ?, title_da = ?, content_da = ?, title_en = ?, content_en = ? WHERE type = ?");
         $stmt->bind_param('sssssss', $t['title_de'], $t['content_de'], $t['title_da'], $t['content_da'], $t['title_en'], $t['content_en'], $type);
         $stmt->execute();
@@ -715,7 +726,10 @@ function wf_legal_update_2026($mysqli) {
         }
         $mysqli->query("UPDATE legal_texts SET $col = REPLACE($col, '[CVR-NUMMER EINTRAGEN]', '46733428')");
     }
-    $mysqli->query("INSERT INTO wf_meta (k, v) VALUES ('legal_2026', NOW())");
+    foreach (array_keys($pending) as $type) {
+        $k = 'legal_2026_' . $mysqli->real_escape_string($type);
+        $mysqli->query("INSERT IGNORE INTO wf_meta (k, v) VALUES ('$k', NOW())");
+    }
 }
 
 function wf_ensure_legal_texts_table($mysqli) {
