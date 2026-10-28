@@ -19,7 +19,7 @@ if (!$mysqli) {
 wf_ensure_tables($mysqli);
 
 $action = $_REQUEST['action'] ?? '';
-$isAdmin = !empty($_SESSION['wf_admin_id']);
+$isAdmin = wf_admin_can('reviews', $mysqli);
 
 // ─── ÖFFENTLICH: Bewertung einreichen ───────────────────────────────
 if ($action === 'submit') {

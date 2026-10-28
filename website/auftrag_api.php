@@ -14,7 +14,7 @@
  */
 
 header('Content-Type: application/json; charset=utf-8');
-header('Access-Control-Allow-Origin: *');
+session_start();
 require_once __DIR__ . '/db.php';
 require_once __DIR__ . '/fpdf.php';
 
@@ -362,6 +362,13 @@ function send_mail_with_pdf($to, $subject, $bodyText, $pdfContent, $pdfFilename)
     $body .= "--$boundary--";
 
     return @mail($to, '=?UTF-8?B?' . base64_encode($subject) . '?=', $body, $headers);
+}
+
+// Anlegen, Auflisten und Löschen nur für angemeldete Mitarbeiter mit Recht "Aufträge".
+// Kunden-Aufrufe (get, sign, pdf) laufen weiter über den geheimen Token im Link.
+if (in_array($action, ['create', 'list', 'delete'], true) && !wf_admin_can('auftraege', $mysqli)) {
+    echo json_encode(['ok' => false, 'error' => 'Nicht angemeldet']);
+    exit;
 }
 
 switch ($action) {

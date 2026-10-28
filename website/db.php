@@ -298,9 +298,176 @@ function wf_ensure_tables($mysqli) {
         $stmt->close();
     }
 
+    wf_ensure_team_tables($mysqli);
     wf_ensure_legal_texts_table($mysqli);
     wf_ensure_site_texts_table($mysqli);
     wf_ensure_popup_settings_table($mysqli);
+}
+
+// ─── MITARBEITER / RECHTE ─────────────────────────────────────────
+
+/**
+ * Bereiche des Admin-Bereichs. Schlüssel = Reiter-Name in admin.html.
+ * Der Inhaber (Rolle "admin") darf alles, Mitarbeiter nur die angehakten Bereiche.
+ */
+function wf_admin_areas() {
+    return [
+        'overview'     => 'Übersicht & Besucher',
+        'inquiries'    => 'Anfragen',
+        'auftraege'    => 'Aufträge & Rechnungen',
+        'calculator'   => 'Preis-Kalkulator',
+        'reviews'      => 'Bewertungen',
+        'impressionen' => 'Impressionen',
+        'logos'        => 'Kunden-Logos',
+        'workshop'     => 'Werkstatt-Fotos',
+        'shop'         => 'Shop',
+        'sitetexts'    => 'Website-Texte',
+        'legal'        => 'Rechtstexte',
+        'popup'        => 'Popup',
+        'spiele'       => 'Spiele & Gutscheine',
+    ];
+}
+
+/** Standard-Rechte für neue Mitarbeiter. */
+function wf_admin_default_perms() {
+    return ['overview', 'inquiries', 'auftraege', 'calculator', 'workshop'];
+}
+
+function wf_ensure_team_tables($mysqli) {
+    // admin_users um Mitarbeiter-Felder erweitern (einmalig)
+    $have = [];
+    $res = $mysqli->query("SHOW COLUMNS FROM admin_users");
+    while ($res && ($c = $res->fetch_assoc())) $have[$c['Field']] = true;
+    $add = [
+        'display_name' => "VARCHAR(100) NOT NULL DEFAULT ''",
+        'email'        => "VARCHAR(255) NOT NULL DEFAULT ''",
+        'role'         => "VARCHAR(20) NOT NULL DEFAULT 'admin'",
+        'perms'        => "TEXT NULL",
+        'color'        => "VARCHAR(16) NOT NULL DEFAULT '#A855F7'",
+        'active'       => "TINYINT(1) NOT NULL DEFAULT 1",
+        'last_login'   => "DATETIME NULL",
+        'created_by'   => "VARCHAR(100) NOT NULL DEFAULT ''",
+    ];
+    foreach ($add as $col => $def) {
+        if (!isset($have[$col])) {
+            $mysqli->query("ALTER TABLE admin_users ADD COLUMN $col $def");
+        }
+    }
+
+    // Fehlversuche beim Login (Schutz gegen Passwort-Raten)
+    $mysqli->query("
+        CREATE TABLE IF NOT EXISTS admin_login_attempts (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            ip VARCHAR(64) NOT NULL,
+            username VARCHAR(64) NOT NULL DEFAULT '',
+            at DATETIME NOT NULL,
+            INDEX idx_ip_at (ip, at)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+
+    // Aktivitäten: wer hat wann was im Admin-Bereich gemacht
+    $mysqli->query("
+        CREATE TABLE IF NOT EXISTS admin_activity (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            at DATETIME NOT NULL,
+            user_id INT NULL,
+            user_name VARCHAR(100) NOT NULL DEFAULT '',
+            area VARCHAR(32) NOT NULL DEFAULT '',
+            what VARCHAR(255) NOT NULL,
+            INDEX idx_at (at),
+            INDEX idx_user (user_id)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
+}
+
+/** Angemeldeter Admin-Benutzer (aus der DB, damit Sperren sofort wirken) oder null. */
+function wf_admin_current($mysqli) {
+    static $cache = [];
+    $id = (int)($_SESSION['wf_admin_id'] ?? 0);
+    if ($id <= 0) return null;
+    if (array_key_exists($id, $cache)) return $cache[$id];
+    $stmt = $mysqli->prepare("SELECT id, username, display_name, role, perms, color, active FROM admin_users WHERE id = ?");
+    if (!$stmt) return $cache[$id] = null;
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $u = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$u || !(int)$u['active']) {
+        return $cache[$id] = null;
+    }
+    $u['perms'] = $u['role'] === 'admin' ? array_keys(wf_admin_areas()) : (json_decode((string)$u['perms'], true) ?: []);
+    $u['name'] = $u['display_name'] !== '' ? $u['display_name'] : $u['username'];
+    return $cache[$id] = $u;
+}
+
+/**
+ * Darf der angemeldete Benutzer diesen Bereich bearbeiten?
+ * Ohne $area: irgendein gültiger, aktiver Admin-Login.
+ */
+function wf_admin_can($area = null, $mysqli = null) {
+    if (empty($_SESSION['wf_admin_id'])) return false;
+    if (!$mysqli) $mysqli = wf_db_connect();
+    if (!$mysqli) return false;
+    $u = wf_admin_current($mysqli);
+    if (!$u) return false;
+    if ($area === null || $u['role'] === 'admin') return true;
+    return in_array($area, $u['perms'], true);
+}
+
+/** Eintrag ins Aktivitäten-Protokoll. */
+function wf_admin_log($mysqli, $area, $what) {
+    $u = wf_admin_current($mysqli);
+    $now = date('Y-m-d H:i:s');
+    $uid = $u ? (int)$u['id'] : null;
+    $name = $u ? $u['name'] : '';
+    $what = mb_substr((string)$what, 0, 255);
+    $stmt = $mysqli->prepare("INSERT INTO admin_activity (at, user_id, user_name, area, what) VALUES (?, ?, ?, ?, ?)");
+    if ($stmt) {
+        $stmt->bind_param('sisss', $now, $uid, $name, $area, $what);
+        $stmt->execute();
+        $stmt->close();
+    }
+}
+
+/**
+ * $name = Anzeigename aus dem Admin-Bereich (leer = Namen in der App nicht ändern).
+ * Überträgt einen Mitarbeiter in die Auftrags-App (auftraege/), damit dort bei
+ * jedem Auftrag, jeder Rechnung und jedem Beleg der richtige Name steht.
+ * Gesperrte Mitarbeiter oder solche ohne Recht "Aufträge" werden dort deaktiviert
+ * und ihre gemerkten Geräte abgemeldet.
+ */
+function wf_orders_app_sync($adminId, $name, $enabled) {
+    $cfgFile = __DIR__ . '/auftraege/inc/config.php';
+    if (!is_file($cfgFile) || !extension_loaded('pdo_sqlite')) return false;
+    try {
+        $cfg = require $cfgFile;
+        $local = __DIR__ . '/auftraege/inc/config.local.php';
+        if (is_file($local)) $cfg = array_replace($cfg, require $local);
+        $dbFile = rtrim((string)$cfg['data_dir'], '/') . '/auftraege.sqlite';
+        if (!is_file($dbFile)) return false;   // App wurde noch nie geöffnet – legt den Benutzer selbst an
+        $pdo = new PDO('sqlite:' . $dbFile, null, null, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+        $pdo->exec('PRAGMA busy_timeout = 5000');
+        $wid = (string)(int)$adminId;
+        $name = mb_substr(trim((string)$name), 0, 60);
+        $st = $pdo->prepare('SELECT id FROM users WHERE wf_admin_id = ?');
+        $st->execute([$wid]);
+        $uid = $st->fetchColumn();
+        if ($uid && $name !== '') {
+            $pdo->prepare('UPDATE users SET name = ?, active = ? WHERE id = ?')->execute([$name, $enabled ? 1 : 0, $uid]);
+        } elseif ($uid) {
+            // Noch kein Name im Admin-Bereich: den in der App eingetragenen Namen behalten
+            $pdo->prepare('UPDATE users SET active = ? WHERE id = ?')->execute([$enabled ? 1 : 0, $uid]);
+        } else {
+            // Gesperrte bekommen einen inaktiven Eintrag, damit gemerkte Geräte nicht mehr reinkommen
+            $pdo->prepare('INSERT INTO users (name, wf_admin_id, active) VALUES (?, ?, ?)')->execute([$name !== '' ? $name : 'Admin ' . $wid, $wid, $enabled ? 1 : 0]);
+        }
+        if (!$enabled) {
+            $pdo->prepare('DELETE FROM app_devices WHERE admin_id = ?')->execute([$wid]);
+        }
+        return true;
+    } catch (Throwable $e) {
+        return false;
+    }
 }
 
 /**

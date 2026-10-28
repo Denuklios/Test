@@ -2,7 +2,8 @@
 <html lang="de">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="theme-color" content="#090909">
 <title>Wunsch-Fabrik.dk – Damit Dein Wunsch kein Wunsch bleiben muss.</title>
 
 <!-- ─── SEO ─── -->
@@ -51,7 +52,9 @@
 </script>
 
 <!-- ─── ANIMATED FAVICON ─── -->
-<link rel="icon" type="image/png" href="wf-logo.png">
+<link rel="icon" type="image/svg+xml" href="favicon.svg">
+<link rel="icon" type="image/png" href="wf-logo-160.png">
+<link rel="apple-touch-icon" href="wf-logo-160.png">
 
 <!-- ─── GOOGLE ANALYTICS ─── -->
 <!-- Ersetze G-XXXXXXXXXX mit deiner echten Tracking-ID von analytics.google.com -->
@@ -1785,7 +1788,7 @@
 <!-- NAV -->
 <nav>
   <a class="nav-logo" href="#" id="navLogo" onclick="playJingle(true); return false;" title="♪ Jingle">
-    <img src="wf-logo.png" alt="WF Logo" style="height: 38px; width: auto; object-fit: contain;"><span data-i18n="brand_name">WUNSCH-FABRIK.DK</span>
+    <img src="wf-logo-160.png" alt="WF Logo" width="69" height="38" style="height: 38px; width: auto; object-fit: contain;"><span data-i18n="brand_name">WUNSCH-FABRIK.DK</span>
     <span class="jingle-tooltip" id="jingleTooltip" data-i18n="jingle_tooltip">🎵 Hör unseren Jingle!</span>
   </a>
   <div class="nav-right">
@@ -1831,7 +1834,7 @@
 <section class="hero">
   <div class="hero-bg"></div>
 
-  <img src="wf-logo.png" alt="WF Logo" style="height: 200px; width: auto; object-fit: contain; animation: fadeUp 0.9s ease 0.1s both;">
+  <picture><source srcset="wf-logo-728.webp" type="image/webp"><img src="wf-logo-728.png" alt="Wunsch-Fabrik Logo" width="364" height="200" fetchpriority="high" style="height: 200px; width: auto; object-fit: contain; animation: fadeUp 0.9s ease 0.1s both;"></picture>
   <div class="hero-brand" data-i18n="brand_name">Wunsch-Fabrik.dk</div>
   <div class="hero-tagline" data-i18n="hero_location">Vilsbæk · Dänemark</div>
   <div class="hero-text-backdrop">
@@ -2118,6 +2121,8 @@
             <span class="file-upload-hint" data-i18n="form_file_hint">JPG, PNG, PDF, AI, EPS, SVG – max. 30 MB</span>
           </div>
           <input type="file" id="field-file" name="file" accept="image/*,.pdf,.ai,.eps,.svg,.zip" style="display:none">
+          <!-- Spam-Falle: für Menschen unsichtbar, Bots füllen sie aus -->
+          <input type="text" id="field-website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
         </div>
         <!-- CAPTCHA -->
         <div class="form-group captcha-group">
@@ -2199,7 +2204,7 @@
 
 <!-- FOOTER -->
 <footer>
-  <div class="footer-logo"><img src="wf-logo.png" alt="WF" style="height:32px;width:auto;vertical-align:middle;margin-right:0.5rem;opacity:0.85;"> <span data-i18n="brand_name">WUNSCH-FABRIK.DK</span></div>
+  <div class="footer-logo"><img src="wf-logo-160.png" alt="WF" width="58" height="32" loading="lazy" style="height:32px;width:auto;vertical-align:middle;margin-right:0.5rem;opacity:0.85;"> <span data-i18n="brand_name">WUNSCH-FABRIK.DK</span></div>
   <div class="footer-tag" data-i18n="footer_tag">Damit Dein Wunsch kein Wunsch bleiben muss.</div>
   <div class="footer-links">
     <a href="#leistungen" data-i18n="nav_services">Leistungen</a>
@@ -2234,14 +2239,14 @@
 </div>
 
 <!-- JINGLE -->
-<audio id="jingle" src="jingle.mp3" preload="auto"></audio>
+<audio id="jingle" src="jingle.mp3" preload="none"></audio>
 
 <!-- JULEKONTOR BUTTON -->
 <div class="jule-btn" id="juleBtn">
   <button class="jule-close" onclick="document.getElementById('juleBtn').style.display='none'" title="Schließen">✕</button>
   <a href="https://www.julekontor.dk" target="_blank" rel="noopener" title="Julekontor.dk">
     <div class="jule-snow-wrap">
-      <img src="julekontor-logo.jpg" alt="Julekontor">
+      <img src="julekontor-logo.jpg" alt="Julekontor" loading="lazy" decoding="async">
       <canvas class="jule-snow" id="juleSnow"></canvas>
     </div>
     <span class="jule-tagline" data-i18n="jule_tagline">Weihnachten kommt früher als du denkst 🎄</span>
@@ -2741,7 +2746,7 @@ function loadWorkshopStats() {
           const thumbSrc = isVideo ? (p.video_thumb || p.image) : p.image;
           return `
           <div class="recent-work-photo" data-src="${escapeHtml(p.image)}" data-caption="${escapeHtml(p.caption || '')}" data-type="${isVideo ? 'video' : 'image'}" onclick="openWorkshopPhoto(this.dataset.src, this.dataset.caption, this.dataset.type)" style="position:relative;">
-            <img src="${escapeHtml(thumbSrc)}" alt="${escapeHtml(p.caption || '')}">
+            <img src="${escapeHtml(thumbSrc)}" alt="${escapeHtml(p.caption || '')}" loading="lazy" decoding="async">
             ${isVideo ? '<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;background:rgba(0,0,0,0.65);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.9rem;pointer-events:none;">▶</span>' : ''}
             ${p.caption ? `<div class="rw-caption">${escapeHtml(p.caption)}</div>` : ''}
           </div>
@@ -3257,7 +3262,7 @@ function loadRefLogos() {
       if (!logos) return; // Fallback: static HTML bleibt (falls DB noch leer)
       // Doppeln für nahtlosen Loop
       const html = [...logos, ...logos].map(l => `
-        <img class="ref-logo-img" src="${escapeHtml(l.image_small)}" alt="${escapeHtml(l.name)}" title="${escapeHtml(l.name)}"
+        <img class="ref-logo-img" loading="lazy" decoding="async" src="${escapeHtml(l.image_small)}" alt="${escapeHtml(l.name)}" title="${escapeHtml(l.name)}"
           data-logo="${escapeHtml(l.image_full)}" data-name="${escapeHtml(l.name)}" data-website="${escapeHtml(l.website || '')}"
           onclick="handleLogoClick(this)">
       `).join('');
@@ -3299,7 +3304,7 @@ function renderSliderTrack(items) {
   const allItems = [...items, ...items];
   track.innerHTML = allItems.map((item, idx) => `
     <div class="slide" style="position:relative;" onclick="openLightbox(${idx % items.length})">
-      <img src="${escapeHtml(item.thumb)}" alt="">
+      <img src="${escapeHtml(item.thumb)}" alt="" loading="lazy" decoding="async">
       ${item.type === 'video' ? '<span style="position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);width:36px;height:36px;background:rgba(0,0,0,0.65);border-radius:50%;display:flex;align-items:center;justify-content:center;color:#fff;font-size:0.9rem;pointer-events:none;">▶</span>' : ''}
     </div>
   `).join('');
@@ -3665,6 +3670,8 @@ document.getElementById('send-btn').addEventListener('click', async () => {
     formData.append('date', date);
     formData.append('message', message);
     formData.append('lang', currentLang);
+    formData.append('website', document.getElementById('field-website') ? document.getElementById('field-website').value : '');
+    formData.append('t', String(Math.round((Date.now() - (window.__wfFormStart || Date.now())) / 1000)));
     if (file) formData.append('file', file);
 
     const res = await fetch('send.php', { method: 'POST', body: formData });
@@ -3698,6 +3705,7 @@ document.getElementById('send-btn').addEventListener('click', async () => {
     status.style.display = 'block';
   }
 });
+window.__wfFormStart = Date.now();
 </script>
 </body>
 </html>

@@ -20,20 +20,60 @@ $action = $_REQUEST['action'] ?? '';
 // ─── LOGIN ─────────────────────────────────────────────────────────
 if ($action === 'login') {
     $username = trim($_POST['username'] ?? '');
-    $password = trim($_POST['password'] ?? '');
+    $password = (string)($_POST['password'] ?? '');
+    $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 64);
 
-    $stmt = $mysqli->prepare("SELECT id, password_hash FROM admin_users WHERE username = ?");
+    // Schutz gegen Passwort-Raten: max. 8 Fehlversuche je IP in 15 Minuten
+    $mysqli->query("DELETE FROM admin_login_attempts WHERE at < (NOW() - INTERVAL 1 DAY)");
+    $stmt = $mysqli->prepare("SELECT COUNT(*) AS c FROM admin_login_attempts WHERE ip = ? AND at >= (NOW() - INTERVAL 15 MINUTE)");
+    $stmt->bind_param('s', $ip);
+    $stmt->execute();
+    $fails = (int)($stmt->get_result()->fetch_assoc()['c'] ?? 0);
+    $stmt->close();
+    if ($fails >= 8) {
+        echo json_encode(['ok' => false, 'error' => 'Zu viele Fehlversuche. Bitte in 15 Minuten erneut versuchen.']);
+        exit;
+    }
+
+    $stmt = $mysqli->prepare("SELECT id, password_hash, active FROM admin_users WHERE username = ?");
     $stmt->bind_param('s', $username);
     $stmt->execute();
     $result = $stmt->get_result();
     $user = $result->fetch_assoc();
     $stmt->close();
 
-    if ($user && password_verify($password, $user['password_hash'])) {
+    // Alte Logins haben das Passwort beim Speichern getrimmt – beides zulassen
+    $okPass = $user && (password_verify($password, $user['password_hash']) || password_verify(trim($password), $user['password_hash']));
+    if ($okPass && !(int)$user['active']) {
+        echo json_encode(['ok' => false, 'error' => 'Dieses Konto ist gesperrt. Bitte an den Inhaber wenden.']);
+        exit;
+    }
+    if ($okPass) {
+        session_regenerate_id(true);
         $_SESSION['wf_admin_id'] = $user['id'];
         $_SESSION['wf_admin_user'] = $username;
+        $me = wf_admin_current($mysqli);
+        $_SESSION['wf_admin_name'] = $me['display_name'];
+        $_SESSION['wf_admin_orders'] = in_array('auftraege', $me['perms'], true);
+        $now = date('Y-m-d H:i:s');
+        $stmt = $mysqli->prepare("UPDATE admin_users SET last_login = ? WHERE id = ?");
+        $stmt->bind_param('si', $now, $user['id']);
+        $stmt->execute();
+        $stmt->close();
+        $stmt = $mysqli->prepare("DELETE FROM admin_login_attempts WHERE ip = ?");
+        $stmt->bind_param('s', $ip);
+        $stmt->execute();
+        $stmt->close();
+        wf_orders_app_sync($me['id'], $me['display_name'], $_SESSION['wf_admin_orders']);
+        wf_admin_log($mysqli, 'login', 'Angemeldet');
         echo json_encode(['ok' => true]);
     } else {
+        $now = date('Y-m-d H:i:s');
+        $stmt = $mysqli->prepare("INSERT INTO admin_login_attempts (ip, username, at) VALUES (?, ?, ?)");
+        $u64 = mb_substr($username, 0, 64);
+        $stmt->bind_param('sss', $ip, $u64, $now);
+        $stmt->execute();
+        $stmt->close();
         echo json_encode(['ok' => false, 'error' => 'Benutzername oder Passwort falsch']);
     }
     exit;
@@ -43,19 +83,199 @@ if ($action === 'login') {
 if ($action === 'logout') {
     $_SESSION = [];
     session_destroy();
+    // Auch die Auftrags-App auf diesem Gerät abmelden (Cookie „Gerät merken“ gilt nur im Ordner auftraege/)
+    $appPath = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'] ?? '/')), '/') . '/auftraege/';
+    setcookie('wf_auftraege_device', '', ['expires' => time() - 3600, 'path' => $appPath, 'httponly' => true, 'samesite' => 'Lax', 'secure' => !empty($_SERVER['HTTPS'])]);
     echo json_encode(['ok' => true]);
     exit;
 }
 
 // ─── AUTH CHECK für alle weiteren Aktionen ──────────────────────────
-if (empty($_SESSION['wf_admin_id'])) {
+$me = wf_admin_current($mysqli);
+if (!$me) {
+    $_SESSION = [];
     echo json_encode(['ok' => false, 'error' => 'Nicht angemeldet', 'auth' => false]);
     exit;
 }
 
+/** Bricht ab, wenn der Benutzer den Bereich nicht bearbeiten darf. */
+function wf_need($area) {
+    global $me;
+    if ($me['role'] === 'admin') return;
+    if ($area === 'owner' || !in_array($area, $me['perms'], true)) {
+        echo json_encode(['ok' => false, 'error' => 'Dafür fehlt dir die Berechtigung.', 'forbidden' => true]);
+        exit;
+    }
+}
+
+$areaOf = [
+    'inquiries' => 'inquiries', 'set_status' => 'inquiries', 'delete_inquiry' => 'inquiries',
+    'stats' => 'overview', 'live_monitor' => 'overview', 'visitor_countries' => 'overview',
+    'template_list' => 'calculator', 'template_load' => 'calculator', 'template_save' => 'calculator', 'template_delete' => 'calculator',
+    'debug_push' => 'owner', 'debug_mail' => 'owner', 'debug_geo' => 'owner',
+    'get_notify_settings' => 'owner', 'set_notify_settings' => 'owner', 'send_test_push' => 'owner',
+    'team_list' => 'owner', 'team_save' => 'owner', 'team_password' => 'owner', 'team_delete' => 'owner', 'activity' => 'owner',
+];
+if (isset($areaOf[$action])) {
+    wf_need($areaOf[$action]);
+}
+
 // ─── CHECK SESSION (für Page-Load) ──────────────────────────────────
 if ($action === 'check') {
-    echo json_encode(['ok' => true, 'user' => $_SESSION['wf_admin_user'] ?? '']);
+    $_SESSION['wf_admin_name'] = $me['display_name'];
+    $_SESSION['wf_admin_orders'] = in_array('auftraege', $me['perms'], true);
+    echo json_encode([
+        'ok' => true,
+        'user' => $me['name'],
+        'me' => ['id' => (int)$me['id'], 'username' => $me['username'], 'name' => $me['name'], 'role' => $me['role'], 'perms' => $me['perms'], 'color' => $me['color']],
+        'areas' => wf_admin_areas(),
+    ]);
+    exit;
+}
+
+// ─── MITARBEITER: Liste ─────────────────────────────────────────────
+if ($action === 'team_list') {
+    $rows = [];
+    $res = $mysqli->query("SELECT id, username, display_name, email, role, perms, color, active, last_login, created_at, created_by FROM admin_users ORDER BY role = 'admin' DESC, active DESC, display_name, username");
+    while ($r = $res->fetch_assoc()) {
+        $r['id'] = (int)$r['id'];
+        $r['active'] = (int)$r['active'];
+        $r['perms'] = $r['role'] === 'admin' ? array_keys(wf_admin_areas()) : (json_decode((string)$r['perms'], true) ?: []);
+        $rows[] = $r;
+    }
+    // Aktivität der letzten 30 Tage je Benutzer (für die Karten)
+    $counts = [];
+    $res = $mysqli->query("SELECT user_id, COUNT(*) AS c, MAX(at) AS last FROM admin_activity WHERE at >= (NOW() - INTERVAL 30 DAY) GROUP BY user_id");
+    while ($r = $res->fetch_assoc()) $counts[(int)$r['user_id']] = ['count' => (int)$r['c'], 'last' => $r['last']];
+    echo json_encode(['ok' => true, 'team' => $rows, 'activity' => $counts, 'areas' => wf_admin_areas(), 'defaults' => wf_admin_default_perms(), 'me' => (int)$me['id']]);
+    exit;
+}
+
+// ─── MITARBEITER: anlegen / ändern ──────────────────────────────────
+if ($action === 'team_save') {
+    $id       = (int)($_POST['id'] ?? 0);
+    $username = mb_strtolower(trim($_POST['username'] ?? ''));
+    $name     = mb_substr(trim($_POST['display_name'] ?? ''), 0, 100);
+    $email    = mb_substr(trim($_POST['email'] ?? ''), 0, 255);
+    $role     = ($_POST['role'] ?? '') === 'admin' ? 'admin' : 'mitarbeiter';
+    $color    = preg_match('/^#[0-9a-fA-F]{6}$/', $_POST['color'] ?? '') ? $_POST['color'] : '#A855F7';
+    $active   = !empty($_POST['active']) ? 1 : 0;
+    $password = (string)($_POST['password'] ?? '');
+    $perms    = array_values(array_intersect(array_keys(wf_admin_areas()), (array)json_decode($_POST['perms'] ?? '[]', true)));
+
+    if (!preg_match('/^[a-z0-9._-]{3,32}$/', $username)) {
+        echo json_encode(['ok' => false, 'error' => 'Benutzername: 3–32 Zeichen, nur Buchstaben, Zahlen, Punkt, Minus, Unterstrich.']);
+        exit;
+    }
+    if ($name === '') {
+        echo json_encode(['ok' => false, 'error' => 'Bitte einen Namen eintragen (erscheint bei Aufträgen und Rechnungen).']);
+        exit;
+    }
+    if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+        echo json_encode(['ok' => false, 'error' => 'E-Mail-Adresse ist ungültig.']);
+        exit;
+    }
+    if ($id === 0 && mb_strlen($password) < 8) {
+        echo json_encode(['ok' => false, 'error' => 'Startpasswort: mindestens 8 Zeichen.']);
+        exit;
+    }
+    $stmt = $mysqli->prepare("SELECT id FROM admin_users WHERE username = ? AND id <> ?");
+    $stmt->bind_param('si', $username, $id);
+    $stmt->execute();
+    $taken = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if ($taken) {
+        echo json_encode(['ok' => false, 'error' => 'Dieser Benutzername ist schon vergeben.']);
+        exit;
+    }
+    // Sich selbst nicht aussperren
+    if ($id === (int)$me['id'] && ($role !== 'admin' || !$active)) {
+        echo json_encode(['ok' => false, 'error' => 'Du kannst dich nicht selbst sperren oder dir die Inhaber-Rechte nehmen.']);
+        exit;
+    }
+    $permsJson = json_encode($perms);
+    if ($id > 0) {
+        $stmt = $mysqli->prepare("UPDATE admin_users SET username = ?, display_name = ?, email = ?, role = ?, perms = ?, color = ?, active = ? WHERE id = ?");
+        $stmt->bind_param('ssssssii', $username, $name, $email, $role, $permsJson, $color, $active, $id);
+        $stmt->execute();
+        $stmt->close();
+        wf_admin_log($mysqli, 'team', 'Mitarbeiter geändert: ' . $name . ($active ? '' : ' (gesperrt)'));
+    } else {
+        $hash = password_hash($password, PASSWORD_DEFAULT);
+        $now = date('Y-m-d H:i:s');
+        $by = $me['name'];
+        $stmt = $mysqli->prepare("INSERT INTO admin_users (username, password_hash, created_at, display_name, email, role, perms, color, active, created_by) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->bind_param('ssssssssis', $username, $hash, $now, $name, $email, $role, $permsJson, $color, $active, $by);
+        $stmt->execute();
+        $id = (int)$stmt->insert_id;
+        $stmt->close();
+        wf_admin_log($mysqli, 'team', 'Mitarbeiter angelegt: ' . $name);
+    }
+    wf_orders_app_sync($id, $name, $active && ($role === 'admin' || in_array('auftraege', $perms, true)));
+    echo json_encode(['ok' => true, 'id' => $id]);
+    exit;
+}
+
+// ─── MITARBEITER: Passwort neu setzen ───────────────────────────────
+if ($action === 'team_password') {
+    $id = (int)($_POST['id'] ?? 0);
+    $password = (string)($_POST['password'] ?? '');
+    if (mb_strlen($password) < 8) {
+        echo json_encode(['ok' => false, 'error' => 'Neues Passwort: mindestens 8 Zeichen.']);
+        exit;
+    }
+    $hash = password_hash($password, PASSWORD_DEFAULT);
+    $stmt = $mysqli->prepare("UPDATE admin_users SET password_hash = ? WHERE id = ?");
+    $stmt->bind_param('si', $hash, $id);
+    $stmt->execute();
+    $stmt->close();
+    wf_admin_log($mysqli, 'team', 'Passwort neu gesetzt für Benutzer #' . $id);
+    echo json_encode(['ok' => true]);
+    exit;
+}
+
+// ─── MITARBEITER: löschen ───────────────────────────────────────────
+if ($action === 'team_delete') {
+    $id = (int)($_POST['id'] ?? 0);
+    if ($id === (int)$me['id']) {
+        echo json_encode(['ok' => false, 'error' => 'Du kannst dich nicht selbst löschen.']);
+        exit;
+    }
+    $stmt = $mysqli->prepare("SELECT display_name, username FROM admin_users WHERE id = ?");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $u = $stmt->get_result()->fetch_assoc();
+    $stmt->close();
+    if (!$u) {
+        echo json_encode(['ok' => false, 'error' => 'Benutzer nicht gefunden.']);
+        exit;
+    }
+    $stmt = $mysqli->prepare("DELETE FROM admin_users WHERE id = ?");
+    $stmt->bind_param('i', $id);
+    $stmt->execute();
+    $stmt->close();
+    $name = $u['display_name'] ?: $u['username'];
+    // In der Auftrags-App bleibt der Name in der Historie stehen, das Konto wird dort nur deaktiviert.
+    wf_orders_app_sync($id, $name, false);
+    wf_admin_log($mysqli, 'team', 'Mitarbeiter gelöscht: ' . $name);
+    echo json_encode(['ok' => true]);
+    exit;
+}
+
+// ─── AKTIVITÄTEN-PROTOKOLL ──────────────────────────────────────────
+if ($action === 'activity') {
+    $uid = (int)($_REQUEST['user_id'] ?? 0);
+    $rows = [];
+    if ($uid > 0) {
+        $stmt = $mysqli->prepare("SELECT at, user_id, user_name, area, what FROM admin_activity WHERE user_id = ? ORDER BY at DESC LIMIT 100");
+        $stmt->bind_param('i', $uid);
+        $stmt->execute();
+        $res = $stmt->get_result();
+    } else {
+        $res = $mysqli->query("SELECT at, user_id, user_name, area, what FROM admin_activity ORDER BY at DESC LIMIT 100");
+    }
+    while ($r = $res->fetch_assoc()) $rows[] = $r;
+    echo json_encode(['ok' => true, 'activity' => $rows]);
     exit;
 }
 
@@ -83,6 +303,7 @@ if ($action === 'set_status') {
     $stmt->bind_param('si', $status, $id);
     $stmt->execute();
     $stmt->close();
+    wf_admin_log($mysqli, 'inquiries', 'Anfrage #' . $id . ' → ' . $status);
 
     // Kunde automatisch benachrichtigen bei "in Bearbeitung" oder "erledigt"
     if (in_array($status, ['in_progress', 'done'], true)) {
@@ -111,6 +332,7 @@ if ($action === 'delete_inquiry') {
     $stmt->bind_param('i', $id);
     $stmt->execute();
     $stmt->close();
+    wf_admin_log($mysqli, 'inquiries', 'Anfrage #' . $id . ' gelöscht');
     echo json_encode(['ok' => true]);
     exit;
 }
@@ -439,11 +661,11 @@ if ($action === 'send_test_push') {
 
 // ─── ÄNDERE PASSWORT ────────────────────────────────────────────────
 if ($action === 'change_password') {
-    $current = trim($_POST['current_password'] ?? '');
-    $new     = trim($_POST['new_password'] ?? '');
+    $current = (string)($_POST['current_password'] ?? '');
+    $new     = (string)($_POST['new_password'] ?? '');
 
-    if (strlen($new) < 6) {
-        echo json_encode(['ok' => false, 'error' => 'Neues Passwort muss mind. 6 Zeichen haben']);
+    if (mb_strlen($new) < 8) {
+        echo json_encode(['ok' => false, 'error' => 'Neues Passwort muss mind. 8 Zeichen haben']);
         exit;
     }
 
@@ -453,7 +675,7 @@ if ($action === 'change_password') {
     $user = $stmt->get_result()->fetch_assoc();
     $stmt->close();
 
-    if (!$user || !password_verify($current, $user['password_hash'])) {
+    if (!$user || !(password_verify($current, $user['password_hash']) || password_verify(trim($current), $user['password_hash']))) {
         echo json_encode(['ok' => false, 'error' => 'Aktuelles Passwort falsch']);
         exit;
     }

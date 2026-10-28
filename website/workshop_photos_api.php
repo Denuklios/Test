@@ -19,7 +19,7 @@ wf_ensure_tables($mysqli);
 wf_cleanup_workshop_photos($mysqli);
 
 $action = $_REQUEST['action'] ?? 'list';
-$isAdmin = !empty($_SESSION['wf_admin_id']);
+$isAdmin = wf_admin_can('workshop', $mysqli);
 
 // ─── Aufräum-Funktion: alte Fotos (>7 Tage) löschen + Bild-Dateien entfernen ──
 function wf_cleanup_workshop_photos($mysqli) {

@@ -14,8 +14,15 @@
     Require all denied
 </Files>
 
+# Zugangsdaten (db_config.php) und Vorlage ebenso sperren
+<FilesMatch "^db_config(\.example)?\.php$">
+    Order Allow,Deny
+    Deny from all
+    Require all denied
+</FilesMatch>
+
 # ─── Schutz weiterer sensibler Dateien (optional, falls vorhanden) ──
-<FilesMatch "\.(env|sql|log|bak|config)$">
+<FilesMatch "\.(env|sql|log|bak|config|md|txt\.bak|zip)$|\.php\s|\s\.txt$">
     Order Allow,Deny
     Deny from all
     Require all denied
@@ -27,4 +34,29 @@
     php_value post_max_size 60M
     php_value max_execution_time 180
     php_value memory_limit 384M
+</IfModule>
+
+# ─── Sicherheits-Header ──────────────────────────────────────────────
+# (Falls die Seite nach dem Hochladen „500 Internal Server Error“ zeigt:
+#  die drei Blöcke ab hier löschen – dann erlaubt das Hosting sie nicht.)
+<IfModule mod_headers.c>
+    Header always set X-Content-Type-Options "nosniff"
+    Header always set Referrer-Policy "strict-origin-when-cross-origin"
+</IfModule>
+
+# ─── Komprimierung (schnelleres Laden) ──────────────────────────────
+<IfModule mod_deflate.c>
+    AddOutputFilterByType DEFLATE text/html text/plain text/css text/xml application/javascript application/json application/xml image/svg+xml
+</IfModule>
+
+# ─── Browser-Cache für Bilder, Schriften, Audio ─────────────────────
+<IfModule mod_expires.c>
+    ExpiresActive On
+    ExpiresByType image/jpeg "access plus 30 days"
+    ExpiresByType image/png "access plus 30 days"
+    ExpiresByType image/webp "access plus 30 days"
+    ExpiresByType image/svg+xml "access plus 30 days"
+    ExpiresByType audio/mpeg "access plus 30 days"
+    ExpiresByType font/woff2 "access plus 1 year"
+    ExpiresByType text/html "access plus 0 seconds"
 </IfModule>

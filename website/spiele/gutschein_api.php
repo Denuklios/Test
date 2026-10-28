@@ -113,7 +113,7 @@ function wf_ensure_draw_table($mysqli) {
 wf_ensure_draw_table($mysqli);
 
 $action  = $_REQUEST['action'] ?? '';
-$isAdmin = !empty($_SESSION['wf_admin_id']);
+$isAdmin = function_exists('wf_admin_can') ? wf_admin_can('spiele', $mysqli) : !empty($_SESSION['wf_admin_id']);
 
 /* ─── ÖFFENTLICH: Ziehung eröffnen ──────────────────────────────── */
 if ($action === 'draw_start') {

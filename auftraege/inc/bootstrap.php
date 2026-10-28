@@ -89,6 +89,9 @@ function wf_user(): ?array
         return $cache;
     }
     $adminId = $_SESSION[wf_cfg('session_key')] ?? null;
+    if ($adminId && !wf_user_sync_session((string)$adminId)) {
+        return $cache = null;   // gesperrt oder ohne Recht „Aufträge“ im Admin-Bereich
+    }
     if ($adminId) {
         wf_device_remember((string)$adminId);
     } else {
@@ -106,14 +109,50 @@ function wf_user(): ?array
     if (!$adminId) {
         return $cache = null;
     }
-    $st = wf_db()->prepare('SELECT id, name, wf_admin_id, active FROM users WHERE wf_admin_id = ? AND active = 1');
+    $st = wf_db()->prepare('SELECT id, name, wf_admin_id, active FROM users WHERE wf_admin_id = ?');
     $st->execute([(string)$adminId]);
     $u = $st->fetch();
+    if ($u && !(int)$u['active']) {
+        return $cache = null;   // im Admin-Bereich gesperrter Mitarbeiter
+    }
     if (!$u) {
         // Eingeloggter Admin der Hauptseite ohne Zuordnung: darf nutzen, Name = "Admin <id>".
         $u = ['id' => 0, 'name' => 'Admin ' . $adminId, 'wf_admin_id' => (string)$adminId, 'active' => 1];
     }
     return $cache = $u;
+}
+
+/**
+ * Mitarbeiter aus dem Admin-Bereich der Hauptseite übernehmen: Name (wf_admin_name) und
+ * Recht „Aufträge“ (wf_admin_orders) setzt admin_api.php beim Anmelden in die Session.
+ * Legt den Benutzer hier an bzw. hält den Namen aktuell, damit der Verlauf zeigt, wer was angelegt hat.
+ * false = kein Zugang zur App.
+ */
+function wf_user_sync_session(string $adminId): bool
+{
+    if (isset($_SESSION['wf_admin_orders']) && !$_SESSION['wf_admin_orders']) {
+        return false;
+    }
+    $name = mb_substr(trim((string)($_SESSION['wf_admin_name'] ?? '')), 0, 60);
+    if ($name === '') {
+        return true;   // ältere Hauptseite ohne Mitarbeiter-Verwaltung: wie bisher
+    }
+    try {
+        $db = wf_db();
+        $st = $db->prepare('SELECT id, name, active FROM users WHERE wf_admin_id = ?');
+        $st->execute([$adminId]);
+        $u = $st->fetch();
+        if (!$u) {
+            $db->prepare('INSERT INTO users (name, wf_admin_id, active) VALUES (?,?,1)')->execute([$name, $adminId]);
+        } elseif (!(int)$u['active']) {
+            return false;
+        } elseif ($u['name'] !== $name) {
+            $db->prepare('UPDATE users SET name = ? WHERE id = ?')->execute([$name, $u['id']]);
+        }
+    } catch (Throwable $e) {
+        // ohne Abgleich weiter wie bisher
+    }
+    return true;
 }
 
 const WF_DEVICE_COOKIE = 'wf_auftraege_device';

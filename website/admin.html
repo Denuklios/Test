@@ -481,82 +481,362 @@ input[type="file"] {
   .main-tabs { gap: 0.4rem; }
   .main-tab { padding: 0.5rem 1rem; font-size: 0.78rem; }
 }
+
+/* ═══════════════════════════════════════════════════════════════
+   NEUES LAYOUT: Seitenleiste, Kopfzeile, Begrüßung, Mitarbeiter
+   ═══════════════════════════════════════════════════════════════ */
+:root {
+  --sidebar-w: 248px;
+  --bg-glass: rgba(22,22,22,0.72);
+  --shadow-lg: 0 20px 60px rgba(0,0,0,0.45);
+  --radius: 14px;
+}
+body { background: radial-gradient(1200px 600px at 85% -10%, rgba(139,43,226,0.16), transparent 60%), var(--bg-deep); background-attachment: fixed; }
+:focus-visible { outline: 2px solid var(--purple-bright); outline-offset: 2px; }
+
+/* Login mit Canvas-Hintergrund */
+.login-screen { position: relative; overflow: hidden; }
+#loginCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.login-box {
+  position: relative; z-index: 1;
+  background: var(--bg-glass); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  box-shadow: var(--shadow-lg);
+}
+.login-box img { height: 56px; filter: drop-shadow(0 6px 18px rgba(168,85,247,0.45)); }
+.login-pass-wrap { position: relative; }
+.login-pass-wrap button {
+  position: absolute; right: 0.5rem; top: 50%; transform: translateY(-50%);
+  background: none; border: none; color: var(--text-muted); cursor: pointer; font-size: 0.95rem; padding: 0.3rem;
+}
+.login-foot { margin-top: 1.4rem; font-size: 0.72rem; color: var(--text-dim); }
+
+/* Rahmen */
+.dashboard.show { display: flex; min-height: 100vh; }
+.sidebar {
+  width: var(--sidebar-w); flex-shrink: 0;
+  position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  background: linear-gradient(180deg, rgba(20,14,28,0.96), rgba(12,12,12,0.96));
+  border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 1.1rem 0.8rem; z-index: 60;
+}
+.sb-brand { display: flex; align-items: center; gap: 0.7rem; padding: 0.3rem 0.6rem 1.1rem; }
+.sb-brand img { height: 30px; }
+.sb-brand b { font-family: 'Cormorant Garamond', serif; font-size: 1.15rem; letter-spacing: 0.02em; line-height: 1.1; }
+.sb-brand small { display: block; font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-muted); font-family: 'Outfit', sans-serif; }
+.sb-group { margin-top: 0.9rem; }
+.sb-group-title { font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); padding: 0 0.8rem 0.35rem; }
+.main-tab {
+  /* überschreibt die alten Pillen-Reiter */
+  display: flex; align-items: center; gap: 0.7rem; width: 100%;
+  text-align: left; border: 1px solid transparent; border-radius: 10px;
+  padding: 0.55rem 0.8rem; margin: 1px 0; font-size: 0.86rem; font-weight: 500;
+  color: var(--text-muted); background: none;
+}
+.main-tab .ic { width: 1.3rem; text-align: center; font-size: 1rem; flex-shrink: 0; }
+.main-tab .badge-count {
+  margin-left: auto; background: var(--purple); color: #fff; font-size: 0.66rem; font-weight: 700;
+  border-radius: 50px; padding: 0.05rem 0.45rem; min-width: 1.3rem; text-align: center;
+}
+.main-tab .badge-count:empty { display: none; }
+.main-tab:hover { border-color: transparent; background: rgba(168,85,247,0.08); color: var(--text-white); }
+.main-tab.active { background: linear-gradient(90deg, rgba(139,43,226,0.85), rgba(168,85,247,0.55)); color: #fff; border-color: rgba(168,85,247,0.6); box-shadow: 0 6px 18px rgba(139,43,226,0.25); }
+.main-tab.hidden-perm { display: none; }
+.sb-user {
+  margin-top: auto; display: flex; align-items: center; gap: 0.7rem;
+  padding: 0.8rem 0.6rem 0.2rem; border-top: 1px solid var(--border);
+}
+.sb-user-info { min-width: 0; flex: 1; }
+.sb-user-name { font-weight: 600; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-user-role { font-size: 0.7rem; color: var(--text-muted); }
+.sb-logout { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; cursor: pointer; padding: 0.35rem 0.5rem; font-size: 0.85rem; }
+.sb-logout:hover { color: var(--red); border-color: var(--red); }
+
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.85rem; color: #fff; letter-spacing: 0.02em;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.08), 0 4px 14px rgba(0,0,0,0.35);
+}
+.avatar.lg { width: 54px; height: 54px; font-size: 1.15rem; }
+
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+.dashboard header {
+  padding: 0.9rem 1.6rem; background: rgba(9,9,9,0.75);
+  backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+}
+.top-title { font-family: 'Cormorant Garamond', serif; font-size: 1.45rem; font-weight: 700; display: flex; align-items: center; gap: 0.6rem; }
+.top-sub { font-size: 0.75rem; color: var(--text-muted); }
+.burger { display: none; background: none; border: 1px solid var(--border); color: var(--text-white); border-radius: 8px; padding: 0.4rem 0.6rem; cursor: pointer; font-size: 1.1rem; }
+.sb-backdrop { display: none; }
+.container { max-width: 1240px; width: 100%; padding: 1.6rem 1.6rem 3rem; }
+.main-tabs { display: none; } /* alte Reiterleiste nicht mehr genutzt */
+
+/* Karten etwas edler */
+.panel, .stat-card { box-shadow: 0 1px 0 rgba(255,255,255,0.03) inset, 0 10px 30px rgba(0,0,0,0.25); }
+.stat-card { position: relative; overflow: hidden; transition: transform 0.2s, border-color 0.2s; }
+.stat-card:hover { transform: translateY(-2px); border-color: rgba(168,85,247,0.45); }
+.stat-card::after {
+  content: ''; position: absolute; right: -30px; top: -30px; width: 110px; height: 110px; border-radius: 50%;
+  background: radial-gradient(circle, rgba(168,85,247,0.22), transparent 70%);
+}
+.stat-card .stat-ic { position: absolute; right: 1rem; bottom: 0.8rem; font-size: 1.5rem; opacity: 0.35; }
+.stat-card.clickable { cursor: pointer; }
+.tab-content.active { animation: tabIn 0.28s ease; }
+@keyframes tabIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: none; } }
+
+/* Begrüßung mit Canvas */
+.welcome {
+  position: relative; overflow: hidden; border-radius: 18px; margin-bottom: 1.5rem;
+  border: 1px solid rgba(168,85,247,0.35);
+  background: linear-gradient(120deg, #1d0f2e 0%, #140b20 45%, #0e0e0e 100%);
+  min-height: 170px; display: flex; align-items: center;
+}
+#welcomeCanvas { position: absolute; inset: 0; width: 100%; height: 100%; }
+.welcome-inner { position: relative; z-index: 1; padding: 1.6rem 1.8rem; width: 100%; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1.2rem; }
+.welcome h2 { font-family: 'Cormorant Garamond', serif; font-size: 2rem; line-height: 1.1; }
+.welcome p { color: #c9bfdc; font-size: 0.9rem; margin-top: 0.3rem; }
+.quick-actions { display: flex; flex-wrap: wrap; gap: 0.6rem; }
+.qa-btn {
+  display: inline-flex; align-items: center; gap: 0.45rem; text-decoration: none;
+  background: rgba(255,255,255,0.06); border: 1px solid rgba(255,255,255,0.12); color: #fff;
+  border-radius: 10px; padding: 0.6rem 0.95rem; font-size: 0.83rem; font-weight: 600; cursor: pointer;
+  font-family: 'Outfit', sans-serif; transition: background 0.2s, transform 0.15s;
+}
+.qa-btn:hover { background: rgba(168,85,247,0.35); transform: translateY(-1px); }
+.qa-btn.primary { background: var(--purple); border-color: var(--purple-bright); }
+
+/* Besucher-Diagramm (Canvas) */
+.chart-canvas-wrap { position: relative; width: 100%; height: 240px; }
+.chart-canvas-wrap canvas { width: 100%; height: 100%; display: block; }
+.chart-tip {
+  position: absolute; pointer-events: none; background: #241532; border: 1px solid var(--purple);
+  border-radius: 8px; padding: 0.3rem 0.6rem; font-size: 0.75rem; white-space: nowrap;
+  transform: translate(-50%, -120%); opacity: 0; transition: opacity 0.15s;
+}
+
+/* Aufträge-App eingebettet */
+.app-toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-bottom: 0.9rem; }
+.app-toolbar .spacer { flex: 1; }
+.app-frame-wrap { border: 1px solid var(--border); border-radius: var(--radius); overflow: hidden; background: #f8f7fb; box-shadow: var(--shadow-lg); }
+.app-frame-wrap iframe { display: block; width: 100%; height: calc(100vh - 190px); min-height: 560px; border: 0; }
+.legacy-box { margin-top: 1rem; }
+.legacy-box summary { cursor: pointer; color: var(--text-muted); font-size: 0.82rem; }
+.legacy-box iframe { width: 100%; height: 80vh; border: none; border-radius: 12px; margin-top: 0.8rem; background: #faf7f0; }
+
+/* Mitarbeiter */
+.team-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; margin-bottom: 1.2rem; }
+.team-note { color: var(--text-muted); font-size: 0.85rem; max-width: 720px; }
+.team-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 1rem; }
+.team-card {
+  background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius);
+  padding: 1.2rem; position: relative; overflow: hidden; transition: border-color 0.2s, transform 0.2s;
+}
+.team-card:hover { transform: translateY(-2px); }
+.team-card::before { content: ''; position: absolute; left: 0; top: 0; right: 0; height: 3px; background: var(--c, var(--purple)); }
+.team-card.inactive { opacity: 0.55; }
+.team-top { display: flex; gap: 0.9rem; align-items: center; }
+.team-name { font-weight: 700; font-size: 1.02rem; }
+.team-user { color: var(--text-muted); font-size: 0.78rem; }
+.role-badge { display: inline-block; font-size: 0.64rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 0.15rem 0.55rem; border-radius: 50px; margin-top: 0.25rem; }
+.role-admin { background: rgba(245,158,11,0.15); color: var(--orange); }
+.role-mitarbeiter { background: var(--purple-soft); color: var(--purple-bright); }
+.role-off { background: rgba(248,113,113,0.15); color: var(--red); }
+.team-meta { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem 0.8rem; margin: 1rem 0 0.8rem; font-size: 0.76rem; color: var(--text-muted); }
+.team-meta b { display: block; color: var(--text-white); font-size: 0.85rem; font-weight: 600; }
+.perm-chips { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.9rem; }
+.perm-chip { font-size: 0.68rem; padding: 0.15rem 0.5rem; border-radius: 50px; background: var(--bg-card2); border: 1px solid var(--border); color: var(--text-muted); }
+.team-actions { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.team-spark { width: 100%; height: 34px; display: block; margin-top: 0.2rem; }
+
+.perm-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 0.35rem 0.8rem; margin-top: 0.4rem; }
+.perm-grid label { display: flex; align-items: center; gap: 0.45rem; font-size: 0.84rem; text-transform: none; letter-spacing: 0; color: var(--text-white); cursor: pointer; }
+.perm-grid input { width: auto; accent-color: var(--purple); }
+.perm-grid.disabled { opacity: 0.45; pointer-events: none; }
+.color-row { display: flex; gap: 0.45rem; flex-wrap: wrap; }
+.color-dot { width: 28px; height: 28px; border-radius: 50%; border: 2px solid transparent; cursor: pointer; }
+.color-dot.sel { border-color: #fff; box-shadow: 0 0 0 2px var(--purple); }
+.role-switch { display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; }
+.role-opt { border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem; cursor: pointer; font-size: 0.82rem; color: var(--text-muted); }
+.role-opt b { display: block; color: var(--text-white); font-size: 0.9rem; margin-bottom: 0.15rem; }
+.role-opt.sel { border-color: var(--purple-bright); background: var(--purple-soft); }
+.input-row { display: flex; gap: 0.4rem; }
+.input-row input { flex: 1; }
+.modal-box.wide { max-width: 640px; }
+
+.activity-list { list-style: none; max-height: 420px; overflow-y: auto; }
+.activity-list li { display: flex; gap: 0.8rem; align-items: center; padding: 0.55rem 0; border-bottom: 1px solid rgba(255,255,255,0.04); font-size: 0.84rem; }
+.activity-list .when { color: var(--text-dim); font-size: 0.74rem; width: 7.5rem; flex-shrink: 0; }
+.activity-list .who { font-weight: 600; width: 9rem; flex-shrink: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.activity-list .what { color: var(--text-muted); }
+
+.inquiry-actions .btn-to-order {
+  background: var(--purple); color: #fff; border: none; border-radius: 7px; padding: 0.4rem 0.8rem;
+  font-size: 0.78rem; font-weight: 600; cursor: pointer; font-family: 'Outfit', sans-serif;
+}
+.inquiry-actions .btn-to-order:hover { background: var(--purple-bright); }
+
+.toast {
+  position: fixed; bottom: 1.4rem; left: 50%; transform: translate(-50%, 20px); opacity: 0;
+  background: #241532; border: 1px solid var(--purple); color: #fff; padding: 0.7rem 1.1rem; border-radius: 10px;
+  font-size: 0.86rem; z-index: 900; transition: all 0.25s; pointer-events: none; box-shadow: var(--shadow-lg);
+}
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
+
+@media (max-width: 980px) {
+  .sidebar { position: fixed; left: 0; top: 0; transform: translateX(-105%); transition: transform 0.25s; box-shadow: var(--shadow-lg); }
+  .sidebar.open { transform: none; }
+  .sb-backdrop.open { display: block; position: fixed; inset: 0; background: rgba(0,0,0,0.55); z-index: 55; }
+  .burger { display: inline-block; }
+  .container { padding: 1.1rem 1rem 2.5rem; }
+  .dashboard header { padding: 0.75rem 1rem; }
+  .welcome h2 { font-size: 1.6rem; }
+  .app-frame-wrap iframe { height: calc(100vh - 170px); }
+}
+.stat-value { font-family: 'Outfit', sans-serif; font-weight: 600; font-variant-numeric: tabular-nums; letter-spacing: -0.01em; }
+.live-monitor-number { font-family: 'Outfit', sans-serif; font-weight: 600; }
+@media (max-width: 600px) {
+  .stat-grid { grid-template-columns: repeat(2, 1fr); gap: 0.7rem; }
+  .stat-card { padding: 1rem; }
+  .stat-label { font-size: 0.62rem; }
+  .welcome-inner { padding: 1.3rem 1.2rem; }
+  .app-toolbar .top-sub { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; }
+}
 </style>
 </head>
 <body>
 
 <!-- LOGIN -->
 <div class="login-screen" id="loginScreen">
+  <canvas id="loginCanvas" aria-hidden="true"></canvas>
   <div class="login-box">
     <img src="wf-logo.png" alt="WF">
     <h1>Admin-Bereich</h1>
-    <p>Wunsch-Fabrik.dk</p>
+    <p>Wunsch-Fabrik.dk · Team-Login</p>
     <div class="login-field">
       <label>Benutzername</label>
       <input type="text" id="loginUser" autocomplete="username">
     </div>
     <div class="login-field">
       <label>Passwort</label>
-      <input type="password" id="loginPass" autocomplete="current-password">
+      <div class="login-pass-wrap">
+        <input type="password" id="loginPass" autocomplete="current-password">
+        <button type="button" onclick="togglePass(this)" aria-label="Passwort anzeigen">👁</button>
+      </div>
     </div>
     <button class="login-btn" onclick="doLogin()">Anmelden</button>
     <p class="login-error" id="loginError">Benutzername oder Passwort falsch.</p>
+    <p class="login-foot">Jede Person meldet sich mit dem eigenen Konto an.</p>
   </div>
 </div>
 
 <!-- DASHBOARD -->
 <div class="dashboard" id="dashboard">
+  <aside class="sidebar" id="sidebar" aria-label="Navigation">
+    <div class="sb-brand">
+      <img src="wf-logo.png" alt="WF">
+      <div><b>Wunsch-Fabrik</b><small>Admin-Bereich</small></div>
+    </div>
+
+    <nav class="main-tabs-nav">
+      <div class="sb-group">
+        <div class="sb-group-title">Start</div>
+        <button class="main-tab active" data-tab="overview" onclick="switchTab('overview')"><span class="ic">📊</span>Übersicht</button>
+      </div>
+      <div class="sb-group">
+        <div class="sb-group-title">Kunden &amp; Aufträge</div>
+        <button class="main-tab" data-tab="inquiries" onclick="switchTab('inquiries')"><span class="ic">✉️</span>Anfragen<span class="badge-count" id="navBadgeInquiries"></span></button>
+        <button class="main-tab" data-tab="auftraege" onclick="switchTab('auftraege')"><span class="ic">🧾</span>Aufträge &amp; Rechnungen</button>
+        <button class="main-tab" data-tab="calculator" onclick="switchTab('calculator')"><span class="ic">💰</span>Preis-Kalkulator</button>
+      </div>
+      <div class="sb-group">
+        <div class="sb-group-title">Webseite</div>
+        <button class="main-tab" data-tab="reviews" onclick="switchTab('reviews')"><span class="ic">⭐</span>Bewertungen<span class="badge-count" id="navBadgeReviews"></span></button>
+        <button class="main-tab" data-tab="impressionen" onclick="switchTab('impressionen')"><span class="ic">📸</span>Impressionen</button>
+        <button class="main-tab" data-tab="logos" onclick="switchTab('logos')"><span class="ic">🏢</span>Kunden-Logos</button>
+        <button class="main-tab" data-tab="workshop" onclick="switchTab('workshop')"><span class="ic">🔧</span>Werkstatt-Fotos</button>
+        <button class="main-tab" data-tab="shop" onclick="switchTab('shop')"><span class="ic">🛒</span>Shop</button>
+        <button class="main-tab" data-tab="sitetexts" onclick="switchTab('sitetexts')"><span class="ic">📝</span>Website-Texte</button>
+        <button class="main-tab" data-tab="legal" onclick="switchTab('legal')"><span class="ic">📄</span>Rechtstexte</button>
+        <button class="main-tab" data-tab="popup" onclick="switchTab('popup')"><span class="ic">📢</span>Popup</button>
+      </div>
+      <div class="sb-group">
+        <div class="sb-group-title">Team &amp; System</div>
+        <button class="main-tab" data-tab="team" data-owner="1" onclick="switchTab('team')"><span class="ic">👥</span>Mitarbeiter</button>
+        <button class="main-tab" data-tab="settings" onclick="switchTab('settings')"><span class="ic">⚙️</span>Einstellungen</button>
+      </div>
+    </nav>
+
+    <div class="sb-user">
+      <span class="avatar" id="sbAvatar">?</span>
+      <div class="sb-user-info">
+        <div class="sb-user-name" id="headerUser"></div>
+        <div class="sb-user-role" id="sbRole"></div>
+      </div>
+      <button class="sb-logout" onclick="doLogout()" title="Abmelden" aria-label="Abmelden">⏻</button>
+    </div>
+  </aside>
+  <div class="sb-backdrop" id="sbBackdrop" onclick="toggleSidebar(false)"></div>
+
+  <div class="main">
   <header>
     <div class="header-left">
-      <img src="wf-logo.png" alt="WF">
-      <h1>Admin-Bereich</h1>
+      <button class="burger" onclick="toggleSidebar(true)" aria-label="Menü öffnen">☰</button>
+      <div>
+        <div class="top-title" id="topTitle">Übersicht</div>
+        <div class="top-sub" id="topSub"></div>
+      </div>
     </div>
     <div class="header-right">
-      <span class="header-user" id="headerUser"></span>
-      <button class="btn-secondary" onclick="doLogout()">Abmelden</button>
+      <a class="btn-secondary" href="index.html" target="_blank" rel="noopener" style="text-decoration:none;">🌐 Webseite</a>
     </div>
   </header>
 
   <div class="container">
 
-    <!-- MAIN TABS -->
-    <div class="main-tabs">
-      <button class="main-tab active" onclick="switchTab('overview')">📊 Übersicht</button>
-      <button class="main-tab" onclick="switchTab('inquiries')">✉ Anfragen</button>
-      <button class="main-tab" onclick="switchTab('reviews')">★ Bewertungen</button>
-      <button class="main-tab" onclick="switchTab('impressionen')">📸 Impressionen</button>
-      <button class="main-tab" onclick="switchTab('logos')">🏢 Kunden-Logos</button>
-      <button class="main-tab" onclick="switchTab('workshop')">🔧 Werkstatt-Fotos</button>
-      <button class="main-tab" onclick="switchTab('calculator')">💰 Preis-Kalkulator</button>
-      <button class="main-tab" onclick="switchTab('auftraege')">📝 Aufträge</button>
-      <button class="main-tab" onclick="switchTab('shop')">🛒 Shop</button>
-      <button class="main-tab" onclick="switchTab('legal')">📄 Rechtstexte</button>
-      <button class="main-tab" onclick="switchTab('sitetexts')">📝 Website-Texte</button>
-      <button class="main-tab" onclick="switchTab('popup')">📢 Popup</button>
-      <button class="main-tab" onclick="switchTab('settings')">⚙ Einstellungen</button>
-    </div>
-
     <!-- TAB: ÜBERSICHT -->
     <div class="tab-content active" id="tab-overview">
+      <div class="welcome">
+        <canvas id="welcomeCanvas" aria-hidden="true"></canvas>
+        <div class="welcome-inner">
+          <div>
+            <h2 id="welcomeTitle">Willkommen!</h2>
+            <p id="welcomeText">Schön, dass du da bist.</p>
+          </div>
+          <div class="quick-actions">
+            <button class="qa-btn primary" data-need="auftraege" onclick="openOrdersApp('#/new')">＋ Neuer Auftrag</button>
+            <button class="qa-btn" data-need="auftraege" onclick="openOrdersApp('#/calendar')">📅 Kalender</button>
+            <button class="qa-btn" data-need="auftraege" onclick="openOrdersApp('#/invoices')">🧾 Rechnungen</button>
+            <button class="qa-btn" data-need="inquiries" onclick="switchTab('inquiries')">✉️ Anfragen</button>
+          </div>
+        </div>
+      </div>
       <!-- STATS -->
       <div class="stat-grid">
         <div class="stat-card">
+          <span class="stat-ic">🟢</span>
           <div class="stat-label">Online jetzt</div>
           <div class="stat-value"><span class="dot"></span><span id="statOnline">–</span></div>
         </div>
         <div class="stat-card">
+          <span class="stat-ic">👁</span>
           <div class="stat-label">Besucher gesamt</div>
           <div class="stat-value" id="statTotal">–</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card clickable" onclick="switchTab('inquiries')">
+          <span class="stat-ic">📨</span>
           <div class="stat-label">Anfragen gesamt</div>
           <div class="stat-value" id="statInquiries">–</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card clickable" onclick="switchTab('inquiries')">
+          <span class="stat-ic">✨</span>
           <div class="stat-label">Neue Anfragen</div>
           <div class="stat-value" id="statNew">–</div>
         </div>
-        <div class="stat-card">
+        <div class="stat-card clickable" onclick="switchTab('reviews')">
+          <span class="stat-ic">⭐</span>
           <div class="stat-label">Bewertungen offen</div>
           <div class="stat-value" id="statReviewsPending">–</div>
         </div>
@@ -594,8 +874,9 @@ input[type="file"] {
       <!-- CHART -->
       <div class="panel">
         <div class="panel-title">Besucher der letzten 14 Tage</div>
-        <div class="chart-wrap">
-          <div class="chart-bars" id="chartBars"></div>
+        <div class="chart-canvas-wrap" id="visitorChartWrap">
+          <canvas id="visitorChart" aria-label="Besucher der letzten 14 Tage"></canvas>
+          <div class="chart-tip" id="visitorChartTip"></div>
         </div>
       </div>
 
@@ -754,9 +1035,23 @@ input[type="file"] {
       <iframe id="calculatorFrame" style="width:100%; height:100vh; border:none; border-radius:12px;" src="preis-kalkulator-v2.html"></iframe>
     </div>
 
-    <!-- TAB: AUFTRÄGE -->
+    <!-- TAB: AUFTRÄGE & RECHNUNGEN (neue Auftrags-App) -->
     <div class="tab-content" id="tab-auftraege">
-      <iframe style="width:100%; height:100vh; border:none; border-radius:12px;" src="auftrag-admin.html"></iframe>
+      <div class="app-toolbar">
+        <button class="qa-btn primary" onclick="openOrdersApp('#/new')">＋ Neuer Auftrag</button>
+        <button class="qa-btn" onclick="openOrdersApp('#/calendar')">📅 Kalender</button>
+        <button class="qa-btn" onclick="openOrdersApp('#/invoices')">🧾 Rechnungen</button>
+        <span class="spacer"></span>
+        <span class="top-sub" id="ordersWho"></span>
+        <a class="qa-btn" href="auftraege/" target="_blank" rel="noopener">↗ Im eigenen Fenster</a>
+      </div>
+      <div class="app-frame-wrap">
+        <iframe id="ordersFrame" title="Aufträge &amp; Rechnungen" data-src="auftraege/index.php"></iframe>
+      </div>
+      <details class="legacy-box" id="legacyOrders">
+        <summary>Alte Auftragsbestätigungen (vor dem neuen Programm) anzeigen</summary>
+        <iframe data-src="auftrag-admin.html" title="Alte Auftragsbestätigungen"></iframe>
+      </details>
     </div>
 
     <!-- TAB: SHOP -->
@@ -968,6 +1263,59 @@ input[type="file"] {
       </div>
     </div>
 
+    <!-- TAB: MITARBEITER -->
+    <div class="tab-content" id="tab-team">
+      <div class="team-head">
+        <p class="team-note">
+          Jede Person bekommt ein eigenes Login. Im Auftrags- und Rechnungsprogramm steht dann bei jedem Auftrag,
+          jeder Statusänderung, Rechnung, Zahlung und jedem Beleg automatisch, <b>wer</b> es angelegt hat.
+          Mitarbeiter sehen nur die Bereiche, die du freigibst.
+        </p>
+        <button class="btn-publish is-hidden" onclick="openTeamModal()">＋ Mitarbeiter anlegen</button>
+      </div>
+      <div class="team-grid" id="teamGrid"><div class="empty-state">Wird geladen …</div></div>
+
+      <div class="panel" style="margin-top:1.5rem;">
+        <div class="panel-title">
+          🕑 Aktivitäten
+          <select class="status-select" id="activityFilter" onchange="loadActivity()"><option value="0">Alle Personen</option></select>
+        </div>
+        <ul class="activity-list" id="activityList"></ul>
+      </div>
+    </div>
+
+    <!-- MODAL: MITARBEITER -->
+    <div class="modal-overlay" id="teamModal" onclick="if(event.target===this)closeTeamModal()">
+      <div class="modal-box wide">
+        <button class="modal-close" onclick="closeTeamModal()" aria-label="Schließen">✕</button>
+        <div class="panel-title" id="teamModalTitle">Mitarbeiter anlegen</div>
+        <form class="settings-form" style="max-width:100%;" onsubmit="saveTeamMember(event)">
+          <input type="hidden" id="tmId">
+          <div class="form-row-2">
+            <div class="login-field"><label>Name (für Aufträge &amp; Rechnungen) *</label><input id="tmName" maxlength="100" required placeholder="z. B. Jeannine"></div>
+            <div class="login-field"><label>Benutzername (Login) *</label><input id="tmUser" maxlength="32" required placeholder="z. B. jeannine" autocomplete="off"></div>
+          </div>
+          <div class="form-row-2">
+            <div class="login-field"><label>E-Mail (optional)</label><input id="tmEmail" type="email" maxlength="255"></div>
+            <div class="login-field" id="tmPassField"><label>Startpasswort * (min. 8 Zeichen)</label>
+              <div class="input-row"><input id="tmPass" type="text" autocomplete="new-password"><button type="button" class="btn-mini" onclick="genPass('tmPass')">🎲</button></div>
+            </div>
+          </div>
+          <div class="login-field"><label>Farbe</label><div class="color-row" id="tmColors"></div></div>
+          <div class="login-field"><label>Rolle</label>
+            <div class="role-switch">
+              <div class="role-opt" data-role="mitarbeiter" onclick="setTeamRole('mitarbeiter')"><b>👤 Mitarbeiter</b>Nur freigegebene Bereiche</div>
+              <div class="role-opt" data-role="admin" onclick="setTeamRole('admin')"><b>👑 Inhaber</b>Alles, inkl. Mitarbeiter &amp; Einstellungen</div>
+            </div>
+          </div>
+          <div class="login-field"><label>Darf bearbeiten</label><div class="perm-grid" id="tmPerms"></div></div>
+          <div class="login-field checkbox-field"><label><input type="checkbox" id="tmActive" checked> Konto aktiv (ohne Haken ist das Konto gesperrt)</label></div>
+          <button class="login-btn" type="submit">Speichern</button>
+          <p class="settings-msg" id="teamMsg"></p>
+        </form>
+      </div>
+    </div>
+
     <!-- TAB: SETTINGS -->
     <div class="tab-content" id="tab-settings">
       <div class="panel">
@@ -987,7 +1335,7 @@ input[type="file"] {
       </div>
 
       <!-- PUSH-BENACHRICHTIGUNGEN -->
-      <div class="panel">
+      <div class="panel" data-owner-only>
         <div class="panel-title">📲 Push-Benachrichtigungen (ntfy.sh)</div>
         <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
           Erhalte Push-Benachrichtigungen auf dein Handy für zwei Ereignisse:
@@ -1031,6 +1379,7 @@ input[type="file"] {
     </div>
 
   </div>
+  </div>
 </div>
 
 <script>
@@ -1053,7 +1402,7 @@ function doLogin() {
     .then(data => {
       if (data.ok) {
         errEl.classList.remove('show');
-        showDashboard(username);
+        checkSession();
       } else {
         errEl.textContent = data.error || 'Anmeldung fehlgeschlagen.';
         errEl.classList.add('show');
@@ -1074,6 +1423,11 @@ function doLogout() {
   }).then(() => {
     document.getElementById('dashboard').classList.remove('show');
     document.getElementById('loginScreen').style.display = 'flex';
+    ME = null;
+    // eingebettete Seiten zurücksetzen, damit der nächste Benutzer nichts vom vorherigen sieht
+    document.querySelectorAll('#tab-auftraege iframe').forEach(f => f.removeAttribute('src'));
+    document.getElementById('legacyOrders').open = false;
+    startLoginCanvas();
     document.getElementById('loginUser').value = '';
     document.getElementById('loginPass').value = '';
   });
@@ -1088,18 +1442,26 @@ function checkSession() {
     .then(r => r.json())
     .then(data => {
       if (data.ok) {
+        ME = data.me; AREAS = data.areas || {};
         showDashboard(data.user);
+      } else {
+        startLoginCanvas();
       }
     })
-    .catch(() => {});
+    .catch(() => startLoginCanvas());
 }
 
 function showDashboard(username) {
   document.getElementById('loginScreen').style.display = 'none';
   document.getElementById('dashboard').classList.add('show');
-  document.getElementById('headerUser').textContent = '👤 ' + username;
-  loadStats();
-  loadInquiries();
+  applyPermissions();
+  updateWelcome();
+  startWelcomeCanvas();
+  let start = 'overview';
+  try { start = localStorage.getItem('wfAdminTab') || 'overview'; } catch (e) { /* kein Speicher */ }
+  if (!can(start)) start = Object.keys(TAB_TITLES).find(can) || 'settings';
+  if (can('inquiries')) loadInquiries();
+  switchTab(start);
 }
 
 // Enter-Taste im Login
@@ -1186,6 +1548,8 @@ function loadStats() {
       document.getElementById('statInquiries').textContent = data.inquiries_total.toLocaleString('de-DE');
       document.getElementById('statNew').textContent   = data.inquiries_new.toLocaleString('de-DE');
       document.getElementById('statReviewsPending').textContent = data.reviews_pending.toLocaleString('de-DE');
+      document.getElementById('navBadgeInquiries').textContent = data.inquiries_new > 0 ? data.inquiries_new : '';
+      document.getElementById('navBadgeReviews').textContent = data.reviews_pending > 0 ? data.reviews_pending : '';
       renderChart(data.visitors_daily);
       renderTopProducts(data.top_products);
     });
@@ -1345,6 +1709,7 @@ function renderInquiries() {
             <option value="done" ${i.status === 'done' ? 'selected' : ''}>Erledigt</option>
             <option value="archived" ${i.status === 'archived' ? 'selected' : ''}>Archiviert</option>
           </select>
+          ${can('auftraege') ? `<button class="btn-to-order" onclick="inquiryToOrder(${i.id})">🧾 Als Auftrag übernehmen</button>` : ''}
           <button class="btn-delete" onclick="deleteInquiry(${i.id})">🗑 Löschen</button>
         </div>
       </div>`;
@@ -1379,23 +1744,6 @@ function deleteInquiry(id) {
       renderInquiries();
     }
   });
-}
-
-// ─── TABS ────────────────────────────────────────────────────────
-function switchTab(tabName) {
-  document.querySelectorAll('.main-tab').forEach(t => t.classList.remove('active'));
-  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
-  event.target.classList.add('active');
-  document.getElementById('tab-' + tabName).classList.add('active');
-  if (tabName === 'shop') loadProducts();
-  if (tabName === 'reviews') loadReviews();
-  if (tabName === 'workshop') loadWorkshopPhotos();
-  if (tabName === 'impressionen') loadImpressionen();
-  if (tabName === 'logos') loadLogos();
-  if (tabName === 'settings') loadNotifySettings();
-  if (tabName === 'legal') loadLegalTexts();
-  if (tabName === 'sitetexts') loadSiteTexts();
-  if (tabName === 'popup') loadPopupSettings();
 }
 
 function changePassword() {
@@ -2770,6 +3118,527 @@ setInterval(() => {
     loadStats();
   }
 }, 30000);
+
+// ═══════════════════════════════════════════════════════════════
+// NEUES LAYOUT: Rechte, Navigation, Canvas-Grafiken, Mitarbeiter
+// ═══════════════════════════════════════════════════════════════
+let ME = null;             // angemeldeter Benutzer {id, name, role, perms, color}
+let AREAS = {};            // Bereich → Bezeichnung
+const TAB_TITLES = {
+  overview: '📊 Übersicht', inquiries: '✉️ Anfragen', auftraege: '🧾 Aufträge & Rechnungen', calculator: '💰 Preis-Kalkulator',
+  reviews: '⭐ Bewertungen', impressionen: '📸 Impressionen', logos: '🏢 Kunden-Logos', workshop: '🔧 Werkstatt-Fotos',
+  shop: '🛒 Shop', sitetexts: '📝 Website-Texte', legal: '📄 Rechtstexte', popup: '📢 Popup',
+  team: '👥 Mitarbeiter', settings: '⚙️ Einstellungen'
+};
+const TEAM_COLORS = ['#A855F7', '#EC4899', '#38BDF8', '#34D399', '#F59E0B', '#F87171', '#FB923C', '#818CF8', '#2DD4BF', '#E879F9'];
+
+function isOwner() { return ME && ME.role === 'admin'; }
+function can(area) {
+  if (!ME) return false;
+  if (isOwner()) return true;
+  if (area === 'settings') return true;      // eigenes Passwort ändern darf jeder
+  if (area === 'team') return false;
+  return (ME.perms || []).includes(area);
+}
+
+function initials(name) {
+  const parts = String(name || '?').trim().split(/\s+/);
+  return ((parts[0] || '?')[0] + (parts.length > 1 ? parts[parts.length - 1][0] : (parts[0][1] || ''))).toUpperCase();
+}
+function avatarStyle(color) {
+  return `background: linear-gradient(135deg, ${color}, ${shade(color, -35)});`;
+}
+function shade(hex, pct) {
+  const n = parseInt(hex.slice(1), 16);
+  const f = (c) => Math.max(0, Math.min(255, Math.round(c + c * pct / 100)));
+  return '#' + [f(n >> 16), f((n >> 8) & 255), f(n & 255)].map(v => v.toString(16).padStart(2, '0')).join('');
+}
+
+function toast(text) {
+  let el = document.getElementById('toast');
+  if (!el) { el = document.createElement('div'); el.id = 'toast'; el.className = 'toast'; document.body.appendChild(el); }
+  el.textContent = text;
+  el.classList.add('show');
+  clearTimeout(el._t);
+  el._t = setTimeout(() => el.classList.remove('show'), 2600);
+}
+
+function toggleSidebar(open) {
+  document.getElementById('sidebar').classList.toggle('open', open);
+  document.getElementById('sbBackdrop').classList.toggle('open', open);
+}
+
+function togglePass(btn) {
+  const inp = document.getElementById('loginPass');
+  inp.type = inp.type === 'password' ? 'text' : 'password';
+  btn.textContent = inp.type === 'password' ? '👁' : '🙈';
+}
+
+/** Rechte auf Navigation und Bedienelemente anwenden. */
+function applyPermissions() {
+  document.querySelectorAll('.main-tab[data-tab]').forEach(b => b.classList.toggle('hidden-perm', !can(b.dataset.tab)));
+  document.querySelectorAll('[data-need]').forEach(el => { el.style.display = can(el.dataset.need) ? '' : 'none'; });
+  const owner = isOwner();
+  document.querySelectorAll('[data-owner-only]').forEach(el => { el.style.display = owner ? '' : 'none'; });
+  document.getElementById('headerUser').textContent = ME.name;
+  document.getElementById('sbRole').textContent = owner ? '👑 Inhaber' : '👤 Mitarbeiter';
+  const av = document.getElementById('sbAvatar');
+  av.textContent = initials(ME.name);
+  av.setAttribute('style', avatarStyle(ME.color || '#A855F7'));
+}
+
+function updateWelcome() {
+  const h = new Date().getHours();
+  const hi = h < 5 ? 'Gute Nacht' : h < 11 ? 'Guten Morgen' : h < 17 ? 'Hallo' : h < 22 ? 'Guten Abend' : 'Gute Nacht';
+  document.getElementById('welcomeTitle').textContent = `${hi}, ${ME.name.split(' ')[0]}!`;
+  document.getElementById('welcomeText').textContent = new Date().toLocaleDateString('de-DE', { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' }) + ' · Damit Dein Wunsch kein Wunsch bleiben muss.';
+  if (isOwner() && ME.name === ME.username) {
+    document.getElementById('welcomeText').innerHTML += '<br>💡 Tipp: Unter <a href="#" onclick="switchTab(\'team\');return false;" style="color:#e9d5ff;">Mitarbeiter</a> deinen richtigen Namen eintragen – er erscheint dann bei Aufträgen und Rechnungen.';
+  }
+  document.getElementById('topSub').textContent = new Date().toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit', year: 'numeric' });
+}
+
+// ─── Tabs ─────────────────────────────────────────────────────────
+function switchTab(tabName) {
+  if (!can(tabName)) { toast('Dafür fehlt dir die Berechtigung.'); return; }
+  document.querySelectorAll('.main-tab').forEach(t => t.classList.toggle('active', t.dataset.tab === tabName));
+  document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
+  document.getElementById('tab-' + tabName).classList.add('active');
+  document.getElementById('topTitle').textContent = TAB_TITLES[tabName] || '';
+  toggleSidebar(false);
+  try { localStorage.setItem('wfAdminTab', tabName); } catch (e) { /* kein Speicher */ }
+  window.scrollTo({ top: 0 });
+  if (tabName === 'overview') { loadStats(); }
+  if (tabName === 'shop') loadProducts();
+  if (tabName === 'reviews') loadReviews();
+  if (tabName === 'workshop') loadWorkshopPhotos();
+  if (tabName === 'impressionen') loadImpressionen();
+  if (tabName === 'logos') loadLogos();
+  if (tabName === 'settings' && isOwner()) loadNotifySettings();
+  if (tabName === 'legal') loadLegalTexts();
+  if (tabName === 'sitetexts') loadSiteTexts();
+  if (tabName === 'popup') loadPopupSettings();
+  if (tabName === 'team') loadTeam();
+  if (tabName === 'auftraege') ensureOrdersFrame();
+}
+
+// ─── Aufträge-App ─────────────────────────────────────────────────
+let ordersPendingHash = '';
+function ensureOrdersFrame() {
+  document.getElementById('ordersWho').textContent = 'Du arbeitest als ' + ME.name + ' – so steht es bei Aufträgen und Rechnungen.';
+  const fr = document.getElementById('ordersFrame');
+  const hash = ordersPendingHash; ordersPendingHash = '';
+  if (!fr.getAttribute('src')) {
+    fr.setAttribute('src', fr.dataset.src + (hash || ''));
+  } else if (hash) {
+    try { fr.contentWindow.location.hash = hash; } catch (e) { fr.setAttribute('src', fr.dataset.src + hash); }
+  }
+}
+function openOrdersApp(hash) {
+  ordersPendingHash = hash || '#/';
+  switchTab('auftraege');
+}
+document.addEventListener('toggle', (e) => {
+  if (e.target.id === 'legacyOrders' && e.target.open) {
+    const fr = e.target.querySelector('iframe');
+    if (!fr.getAttribute('src')) fr.setAttribute('src', fr.dataset.src);
+  }
+}, true);
+
+/** Anfrage als Notiz an die Auftrags-App geben – sie füllt Kunde, Menge, Termin usw. selbst aus. */
+function inquiryToOrder(id) {
+  const i = allInquiries.find(x => x.id == id);
+  if (!i) return;
+  const lines = [
+    i.name, i.email, i.phone,
+    i.product ? `${i.qty ? parseInt(i.qty, 10) + 'x ' : ''}${i.product}` : (i.qty ? `Menge: ${i.qty}` : ''),
+    i.wish_date ? `Termin ${new Date(i.wish_date).toLocaleDateString('de-DE')}` : '',
+    i.message
+  ].filter(Boolean);
+  openOrdersApp('#/new?note=' + encodeURIComponent(lines.join('\n')));
+  if (i.status === 'new') setStatus(i.id, 'in_progress');
+}
+
+// ─── Canvas: Login-Hintergrund (Fäden, die sich wie Stiche über die Fläche ziehen) ──
+function startLoginCanvas() {
+  const cv = document.getElementById('loginCanvas');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W, H, dpr, threads = [];
+  function resize() {
+    dpr = Math.min(window.devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = cv.clientHeight;
+    cv.width = W * dpr; cv.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    threads = Array.from({ length: Math.max(6, Math.round(W / 160)) }, (_, i) => newThread(i));
+  }
+  function newThread(i) {
+    const hue = 268 + Math.random() * 40;
+    return {
+      y: Math.random() * H, amp: 20 + Math.random() * 60, freq: 0.002 + Math.random() * 0.004,
+      phase: Math.random() * Math.PI * 2, speed: 0.15 + Math.random() * 0.35, prog: Math.random() * W,
+      color: `hsla(${hue}, 85%, ${55 + Math.random() * 15}%, ${0.25 + Math.random() * 0.35})`,
+      width: 1 + Math.random() * 1.6, stitch: 8 + Math.random() * 8
+    };
+  }
+  function pathY(t, x, time) { return t.y + Math.sin(x * t.freq + t.phase + time * 0.0003) * t.amp; }
+  function frame(time) {
+    ctx.clearRect(0, 0, W, H);
+    // Stoffstruktur: feines Rautenmuster
+    ctx.strokeStyle = 'rgba(139,43,226,0.06)'; ctx.lineWidth = 1;
+    for (let k = -H; k < W; k += 38) {
+      ctx.beginPath(); ctx.moveTo(k, 0); ctx.lineTo(k + H, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(k + H, 0); ctx.lineTo(k, H); ctx.stroke();
+    }
+    threads.forEach(t => {
+      t.prog += t.speed * (reduce ? 0 : 1.6);
+      const end = Math.min(W + 40, t.prog);
+      ctx.strokeStyle = t.color; ctx.lineWidth = t.width; ctx.lineCap = 'round';
+      ctx.setLineDash([t.stitch, t.stitch * 0.55]);
+      ctx.beginPath();
+      for (let x = -20; x <= end; x += 6) { const y = pathY(t, x, time); x === -20 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      ctx.stroke();
+      ctx.setLineDash([]);
+      // Nadel mit Glanz an der Spitze
+      if (end < W + 30) {
+        const ny = pathY(t, end, time);
+        const g = ctx.createRadialGradient(end, ny, 0, end, ny, 14);
+        g.addColorStop(0, 'rgba(232,200,255,0.9)'); g.addColorStop(1, 'rgba(168,85,247,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(end, ny, 14, 0, Math.PI * 2); ctx.fill();
+      }
+      if (t.prog > W + 260) Object.assign(t, newThread(0), { prog: -40 });
+    });
+    if (document.getElementById('loginScreen').style.display !== 'none') requestAnimationFrame(frame);
+  }
+  resize();
+  window.addEventListener('resize', resize);
+  requestAnimationFrame(frame);
+}
+
+// ─── Canvas: Begrüßungskarte (fließende Fäden + Funken) ─────────────
+let welcomeAnim = null;
+function startWelcomeCanvas() {
+  const cv = document.getElementById('welcomeCanvas');
+  if (!cv || welcomeAnim) return;
+  const ctx = cv.getContext('2d');
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  const sparks = Array.from({ length: 28 }, () => ({ x: Math.random(), y: Math.random(), r: Math.random() * 1.6 + 0.4, s: Math.random() * 0.002 + 0.0005, p: Math.random() * 6 }));
+  function frame(time) {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const W = cv.clientWidth, H = cv.clientHeight;
+    if (cv.width !== W * dpr || cv.height !== H * dpr) { cv.width = W * dpr; cv.height = H * dpr; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, W, H);
+    const t = reduce ? 0 : time * 0.0004;
+    const cols = ['rgba(168,85,247,0.55)', 'rgba(236,72,153,0.35)', 'rgba(139,43,226,0.45)', 'rgba(56,189,248,0.22)'];
+    cols.forEach((c, i) => {
+      ctx.beginPath();
+      for (let x = 0; x <= W; x += 8) {
+        const y = H * (0.68 + i * 0.07) + Math.sin(x * 0.006 + t * (1 + i * 0.3) + i) * (18 + i * 6) + Math.sin(x * 0.017 - t * 1.7) * 6;
+        x === 0 ? ctx.moveTo(x, y) : ctx.lineTo(x, y);
+      }
+      ctx.strokeStyle = c; ctx.lineWidth = 2.2 - i * 0.35;
+      ctx.setLineDash(i % 2 ? [10, 6] : []);
+      ctx.stroke();
+    });
+    ctx.setLineDash([]);
+    sparks.forEach(s => {
+      const a = 0.35 + 0.35 * Math.sin(time * s.s * 3 + s.p);
+      ctx.fillStyle = `rgba(233,213,255,${reduce ? 0.4 : a})`;
+      ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2); ctx.fill();
+    });
+    // großer „WF“-Faden-Kreis rechts
+    const cx = W - 90, cy = H / 2, R = Math.min(H * 0.38, 70);
+    ctx.strokeStyle = 'rgba(168,85,247,0.25)'; ctx.lineWidth = 1.4; ctx.setLineDash([6, 5]);
+    ctx.beginPath(); ctx.arc(cx, cy, R, t, t + Math.PI * 1.75); ctx.stroke(); ctx.setLineDash([]);
+    welcomeAnim = requestAnimationFrame(frame);
+  }
+  welcomeAnim = requestAnimationFrame(frame);
+}
+
+// ─── Canvas: Besucher-Diagramm (Fläche mit Verlauf, Tooltip) ───────
+let chartData = [];
+function renderChart(daily) {
+  chartData = (daily || []).slice();
+  // Lücken (Tage ohne Besuch) auffüllen, damit die Linie 14 Tage zeigt
+  if (chartData.length) {
+    const map = Object.fromEntries(chartData.map(d => [d.date, d.count]));
+    const out = [];
+    const today = new Date(); today.setHours(12, 0, 0, 0);
+    for (let i = 13; i >= 0; i--) {
+      const d = new Date(today); d.setDate(d.getDate() - i);
+      const key = d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+      out.push({ date: key, count: map[key] || 0 });
+    }
+    chartData = out;
+  }
+  drawChart(-1);
+}
+function drawChart(hover) {
+  const cv = document.getElementById('visitorChart');
+  if (!cv) return;
+  const ctx = cv.getContext('2d');
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  const W = cv.clientWidth, H = cv.clientHeight;
+  if (!W) return;
+  cv.width = W * dpr; cv.height = H * dpr;
+  ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+  ctx.clearRect(0, 0, W, H);
+  ctx.font = '12px Outfit, sans-serif';
+  if (!chartData.length) {
+    ctx.fillStyle = '#555'; ctx.textAlign = 'center'; ctx.fillText('Noch keine Daten vorhanden.', W / 2, H / 2);
+    return;
+  }
+  const pad = { l: 36, r: 14, t: 16, b: 28 };
+  const max = Math.max(...chartData.map(d => d.count), 4);
+  const niceMax = Math.ceil(max / 4) * 4;
+  const x = (i) => pad.l + (W - pad.l - pad.r) * (chartData.length === 1 ? 0.5 : i / (chartData.length - 1));
+  const y = (v) => pad.t + (H - pad.t - pad.b) * (1 - v / niceMax);
+  // Raster
+  ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.fillStyle = '#666'; ctx.textAlign = 'right'; ctx.lineWidth = 1;
+  for (let k = 0; k <= 4; k++) {
+    const v = niceMax * k / 4, yy = y(v);
+    ctx.beginPath(); ctx.moveTo(pad.l, yy); ctx.lineTo(W - pad.r, yy); ctx.stroke();
+    ctx.fillText(String(Math.round(v)), pad.l - 8, yy + 4);
+  }
+  // Fläche
+  const pts = chartData.map((d, i) => [x(i), y(d.count)]);
+  const grad = ctx.createLinearGradient(0, pad.t, 0, H - pad.b);
+  grad.addColorStop(0, 'rgba(168,85,247,0.45)'); grad.addColorStop(1, 'rgba(168,85,247,0)');
+  ctx.beginPath(); ctx.moveTo(pts[0][0], H - pad.b);
+  smoothPath(ctx, pts, true);
+  ctx.lineTo(pts[pts.length - 1][0], H - pad.b); ctx.closePath();
+  ctx.fillStyle = grad; ctx.fill();
+  // Linie
+  ctx.beginPath(); smoothPath(ctx, pts, false);
+  const lg = ctx.createLinearGradient(pad.l, 0, W - pad.r, 0);
+  lg.addColorStop(0, '#8B2BE2'); lg.addColorStop(1, '#EC4899');
+  ctx.strokeStyle = lg; ctx.lineWidth = 2.6; ctx.stroke();
+  // Punkte + Beschriftung
+  ctx.textAlign = 'center';
+  const step = W < 520 ? 2 : 1;
+  pts.forEach(([px, py], i) => {
+    ctx.fillStyle = i === hover ? '#fff' : '#A855F7';
+    ctx.beginPath(); ctx.arc(px, py, i === hover ? 5 : 3, 0, Math.PI * 2); ctx.fill();
+    if (i % step === 0 || i === pts.length - 1) {
+      const d = new Date(chartData[i].date + 'T12:00:00');
+      ctx.fillStyle = '#777'; ctx.fillText(d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' }), px, H - 8);
+    }
+  });
+  const tip = document.getElementById('visitorChartTip');
+  if (hover >= 0) {
+    const d = new Date(chartData[hover].date + 'T12:00:00');
+    tip.textContent = `${d.toLocaleDateString('de-DE', { weekday: 'short', day: '2-digit', month: '2-digit' })}: ${chartData[hover].count} Besucher`;
+    tip.style.left = pts[hover][0] + 'px'; tip.style.top = pts[hover][1] + 'px'; tip.style.opacity = 1;
+  } else { tip.style.opacity = 0; }
+  cv._pts = pts;
+}
+function smoothPath(ctx, pts, cont) {
+  pts.forEach(([px, py], i) => {
+    if (i === 0) { cont ? ctx.lineTo(px, py) : ctx.moveTo(px, py); return; }
+    const [qx, qy] = pts[i - 1];
+    const mx = (qx + px) / 2;
+    ctx.bezierCurveTo(mx, qy, mx, py, px, py);
+  });
+}
+(function bindChartHover() {
+  document.addEventListener('mousemove', (e) => {
+    const cv = document.getElementById('visitorChart');
+    if (!cv || !cv._pts || e.target !== cv) return;
+    const r = cv.getBoundingClientRect(), mx = e.clientX - r.left;
+    let best = 0;
+    cv._pts.forEach(([px], i) => { if (Math.abs(px - mx) < Math.abs(cv._pts[best][0] - mx)) best = i; });
+    drawChart(best);
+  });
+  document.addEventListener('mouseout', (e) => { if (e.target && e.target.id === 'visitorChart') drawChart(-1); });
+  window.addEventListener('resize', () => drawChart(-1));
+})();
+
+// ─── Mitarbeiter ──────────────────────────────────────────────────
+let TEAM = [], TEAM_ACT = {}, TEAM_DEFAULTS = [], tmRole = 'mitarbeiter', tmColor = TEAM_COLORS[0];
+
+function apiPost(params) {
+  const body = new URLSearchParams(params);
+  return fetch(API, { method: 'POST', headers: { 'Content-Type': 'application/x-www-form-urlencoded' }, body: body.toString() }).then(r => r.json());
+}
+
+function relTime(s) {
+  if (!s) return 'noch nie';
+  const d = new Date(s.replace(' ', 'T'));
+  const diff = (Date.now() - d.getTime()) / 1000;
+  if (diff < 60) return 'gerade eben';
+  if (diff < 3600) return `vor ${Math.round(diff / 60)} Min.`;
+  if (diff < 86400) return `vor ${Math.round(diff / 3600)} Std.`;
+  if (diff < 86400 * 7) return `vor ${Math.round(diff / 86400)} Tagen`;
+  return d.toLocaleDateString('de-DE');
+}
+
+function loadTeam() {
+  apiPost({ action: 'team_list' }).then(d => {
+    if (!d.ok) { document.getElementById('teamGrid').innerHTML = `<div class="empty-state">${escapeHtml(d.error || 'Fehler')}</div>`; return; }
+    TEAM = d.team; TEAM_ACT = d.activity || {}; AREAS = d.areas; TEAM_DEFAULTS = d.defaults || [];
+    renderTeam();
+    const sel = document.getElementById('activityFilter');
+    const cur = sel.value;
+    sel.innerHTML = '<option value="0">Alle Personen</option>' + TEAM.map(u => `<option value="${u.id}">${escapeHtml(u.display_name || u.username)}</option>`).join('');
+    sel.value = cur || '0';
+    loadActivity();
+  });
+}
+
+function renderTeam() {
+  const grid = document.getElementById('teamGrid');
+  grid.innerHTML = TEAM.map(u => {
+    const name = u.display_name || u.username;
+    const act = TEAM_ACT[u.id] || { count: 0 };
+    const owner = u.role === 'admin';
+    const chips = owner ? '<span class="perm-chip">Alle Bereiche</span>'
+      : (u.perms.length ? u.perms.map(p => `<span class="perm-chip">${escapeHtml(AREAS[p] || p)}</span>`).join('') : '<span class="perm-chip">Keine Bereiche</span>');
+    const isMe = u.id === ME.id;
+    return `
+      <div class="team-card${u.active ? '' : ' inactive'}" style="--c:${u.color}">
+        <div class="team-top">
+          <span class="avatar lg" style="${avatarStyle(u.color)}">${escapeHtml(initials(name))}</span>
+          <div>
+            <div class="team-name">${escapeHtml(name)}${isMe ? ' <span style="color:var(--text-dim);font-weight:400;">(du)</span>' : ''}</div>
+            <div class="team-user">@${escapeHtml(u.username)}${u.email ? ' · ' + escapeHtml(u.email) : ''}</div>
+            <span class="role-badge ${u.active ? (owner ? 'role-admin' : 'role-mitarbeiter') : 'role-off'}">${u.active ? (owner ? '👑 Inhaber' : 'Mitarbeiter') : '⛔ Gesperrt'}</span>
+          </div>
+        </div>
+        <div class="team-meta">
+          <div>Zuletzt angemeldet<b>${relTime(u.last_login)}</b></div>
+          <div>Aktionen (30 Tage)<b>${act.count}</b></div>
+          <div>Angelegt<b>${u.created_at ? new Date(u.created_at.replace(' ', 'T')).toLocaleDateString('de-DE') : '–'}</b></div>
+          <div>von<b>${escapeHtml(u.created_by || '–')}</b></div>
+        </div>
+        <div class="perm-chips">${chips}</div>
+        <div class="team-actions">
+          <button class="btn-mini" onclick="openTeamModal(${u.id})">✏️ Bearbeiten</button>
+          <button class="btn-mini" onclick="resetTeamPassword(${u.id})">🔑 Passwort</button>
+          ${isMe ? '' : `<button class="btn-mini" onclick="toggleTeamActive(${u.id})">${u.active ? '⛔ Sperren' : '✅ Entsperren'}</button>
+          <button class="btn-mini danger" onclick="deleteTeamMember(${u.id})">🗑</button>`}
+        </div>
+      </div>`;
+  }).join('') || '<div class="empty-state">Noch keine Mitarbeiter.</div>';
+}
+
+function loadActivity() {
+  const uid = document.getElementById('activityFilter').value;
+  apiPost({ action: 'activity', user_id: uid }).then(d => {
+    const list = document.getElementById('activityList');
+    if (!d.ok || !d.activity.length) { list.innerHTML = '<li class="empty-state" style="display:block;">Noch keine Einträge.</li>'; return; }
+    list.innerHTML = d.activity.map(a => {
+      const u = TEAM.find(t => t.id == a.user_id);
+      const color = u ? u.color : '#555';
+      return `<li><span class="when">${new Date(a.at.replace(' ', 'T')).toLocaleString('de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' })}</span>
+        <span class="who"><span class="avatar" style="width:22px;height:22px;font-size:0.6rem;margin-right:0.4rem;vertical-align:middle;${avatarStyle(color)}">${escapeHtml(initials(a.user_name))}</span>${escapeHtml(a.user_name || '–')}</span>
+        <span class="what">${escapeHtml(a.what)}</span></li>`;
+    }).join('');
+  });
+}
+
+function openTeamModal(id) {
+  const u = id ? TEAM.find(t => t.id === id) : null;
+  document.getElementById('teamModalTitle').textContent = u ? 'Mitarbeiter bearbeiten' : 'Mitarbeiter anlegen';
+  document.getElementById('tmId').value = u ? u.id : '';
+  document.getElementById('tmName').value = u ? (u.display_name || u.username) : '';
+  document.getElementById('tmUser').value = u ? u.username : '';
+  document.getElementById('tmEmail').value = u ? u.email : '';
+  document.getElementById('tmPass').value = '';
+  document.getElementById('tmPassField').style.display = u ? 'none' : '';
+  document.getElementById('tmActive').checked = u ? !!u.active : true;
+  const used = TEAM.map(t => t.color);
+  tmColor = u ? u.color : (TEAM_COLORS.find(c => !used.includes(c)) || TEAM_COLORS[0]);
+  document.getElementById('tmColors').innerHTML = TEAM_COLORS.map(c => `<span class="color-dot${c === tmColor ? ' sel' : ''}" style="background:${c}" onclick="pickTeamColor('${c}', this)"></span>`).join('');
+  const perms = u ? u.perms : TEAM_DEFAULTS;
+  document.getElementById('tmPerms').innerHTML = Object.entries(AREAS).map(([k, label]) =>
+    `<label><input type="checkbox" value="${k}" ${perms.includes(k) ? 'checked' : ''}> ${escapeHtml(label)}</label>`).join('');
+  setTeamRole(u ? u.role : 'mitarbeiter');
+  if (!u) genPass('tmPass');
+  const msg = document.getElementById('teamMsg'); msg.className = 'settings-msg';
+  document.getElementById('teamModal').classList.add('open');
+  setTimeout(() => document.getElementById('tmName').focus(), 50);
+}
+function closeTeamModal() { document.getElementById('teamModal').classList.remove('open'); }
+function pickTeamColor(c, el) {
+  tmColor = c;
+  document.querySelectorAll('#tmColors .color-dot').forEach(d => d.classList.remove('sel'));
+  el.classList.add('sel');
+}
+function setTeamRole(role) {
+  tmRole = role;
+  document.querySelectorAll('.role-opt').forEach(o => o.classList.toggle('sel', o.dataset.role === role));
+  document.getElementById('tmPerms').classList.toggle('disabled', role === 'admin');
+}
+function genPass(inputId) {
+  const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const arr = new Uint32Array(12); crypto.getRandomValues(arr);
+  document.getElementById(inputId).value = Array.from(arr, n => chars[n % chars.length]).join('');
+}
+// Benutzername aus dem Namen vorschlagen
+document.addEventListener('input', (e) => {
+  if (e.target.id !== 'tmName' || document.getElementById('tmId').value) return;
+  const u = e.target.value.toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '')
+    .replace(/æ/g, 'ae').replace(/ø/g, 'oe').replace(/å/g, 'aa').replace(/ß/g, 'ss')
+    .trim().replace(/\s+/g, '.').replace(/[^a-z0-9._-]/g, '').slice(0, 32);
+  document.getElementById('tmUser').value = u;
+});
+
+function saveTeamMember(ev) {
+  ev.preventDefault();
+  const id = document.getElementById('tmId').value;
+  const perms = Array.from(document.querySelectorAll('#tmPerms input:checked')).map(i => i.value);
+  const pass = document.getElementById('tmPass').value;
+  const data = {
+    action: 'team_save', id: id || 0,
+    display_name: document.getElementById('tmName').value.trim(),
+    username: document.getElementById('tmUser').value.trim(),
+    email: document.getElementById('tmEmail').value.trim(),
+    role: tmRole, color: tmColor, perms: JSON.stringify(perms),
+    active: document.getElementById('tmActive').checked ? 1 : 0,
+    password: pass
+  };
+  apiPost(data).then(d => {
+    const msg = document.getElementById('teamMsg');
+    if (!d.ok) { msg.textContent = d.error || 'Fehler beim Speichern.'; msg.className = 'settings-msg error show'; return; }
+    closeTeamModal();
+    loadTeam();
+    if (!id) {
+      prompt('✓ Mitarbeiter angelegt. Zugangsdaten zum Weitergeben (bitte jetzt kopieren):',
+        `Login: ${location.origin}${location.pathname}  ·  Benutzer: ${data.username}  ·  Passwort: ${pass}`);
+    } else {
+      toast('✓ Gespeichert');
+      if (+id === ME.id) checkSession();
+    }
+  });
+}
+
+function resetTeamPassword(id) {
+  const u = TEAM.find(t => t.id === id);
+  const chars = 'abcdefghjkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  const arr = new Uint32Array(12); crypto.getRandomValues(arr);
+  const suggestion = Array.from(arr, n => chars[n % chars.length]).join('');
+  const pw = prompt(`Neues Passwort für ${u.display_name || u.username} (min. 8 Zeichen):`, suggestion);
+  if (pw === null) return;
+  apiPost({ action: 'team_password', id, password: pw }).then(d => {
+    if (d.ok) { prompt('✓ Passwort geändert. Zum Weitergeben kopieren:', `Benutzer: ${u.username}  ·  Passwort: ${pw}`); loadActivity(); }
+    else toast(d.error || 'Fehler');
+  });
+}
+
+function toggleTeamActive(id) {
+  const u = TEAM.find(t => t.id === id);
+  if (u.active && !confirm(`${u.display_name || u.username} sperren? Die Person kann sich dann nicht mehr anmelden und wird im Auftragsprogramm abgemeldet.`)) return;
+  apiPost({ action: 'team_save', id, display_name: u.display_name || u.username, username: u.username, email: u.email, role: u.role, color: u.color, perms: JSON.stringify(u.perms), active: u.active ? 0 : 1 })
+    .then(d => { if (d.ok) { toast(u.active ? 'Gesperrt' : 'Entsperrt'); loadTeam(); } else toast(d.error || 'Fehler'); });
+}
+
+function deleteTeamMember(id) {
+  const u = TEAM.find(t => t.id === id);
+  if (!confirm(`${u.display_name || u.username} wirklich löschen?\n\nTipp: „Sperren“ ist meist besser – dann bleibt der Name in der Übersicht. In Aufträgen und Rechnungen bleibt der Name in jedem Fall erhalten.`)) return;
+  apiPost({ action: 'team_delete', id }).then(d => { if (d.ok) { toast('Gelöscht'); loadTeam(); } else toast(d.error || 'Fehler'); });
+}
 </script>
 </body>
 </html>

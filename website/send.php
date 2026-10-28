@@ -8,11 +8,21 @@ if ($_SERVER['REQUEST_METHOD'] !== 'POST') {
     exit;
 }
 
-$name    = strip_tags(trim($_POST['name'] ?? ''));
+// ─── Spam-Schutz ────────────────────────────────────────────────────
+// Unsichtbares Feld ausgefüllt oder in unter 3 Sekunden abgeschickt = Bot. Wir tun so, als wäre alles gut.
+if (trim($_POST['website'] ?? '') !== '' || (isset($_POST['t']) && (int)$_POST['t'] < 3)) {
+    echo json_encode(['ok' => true]);
+    exit;
+}
+
+// Zeilenumbrüche aus Feldern entfernen, die in Mail-Kopfzeilen landen (Schutz vor Header-Injection)
+function wf_one_line($s) { return trim(preg_replace('/[\r\n\t]+/', ' ', (string)$s)); }
+
+$name    = wf_one_line(strip_tags(trim($_POST['name'] ?? '')));
 $email   = strip_tags(trim($_POST['email'] ?? ''));
 $phone   = strip_tags(trim($_POST['phone'] ?? ''));
 $qty     = strip_tags(trim($_POST['qty'] ?? ''));
-$product = strip_tags(trim($_POST['product'] ?? ''));
+$product = wf_one_line(strip_tags(trim($_POST['product'] ?? '')));
 $date    = strip_tags(trim($_POST['date'] ?? ''));
 $message = strip_tags(trim($_POST['message'] ?? ''));
 $lang    = strip_tags(trim($_POST['lang'] ?? 'de'));
@@ -33,6 +43,23 @@ $fileName = !empty($_FILES['file']['name']) ? basename($_FILES['file']['name']) 
 $mysqli = wf_db_connect();
 if ($mysqli) {
     wf_ensure_tables($mysqli);
+    // Höchstens 5 Anfragen pro Stunde und IP-Adresse
+    $mysqli->query("CREATE TABLE IF NOT EXISTS inquiry_rate (ip VARCHAR(64) NOT NULL, at DATETIME NOT NULL, INDEX idx_ip_at (ip, at)) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $mysqli->query("DELETE FROM inquiry_rate WHERE at < (NOW() - INTERVAL 1 DAY)");
+    $ip = substr((string)($_SERVER['REMOTE_ADDR'] ?? ''), 0, 64);
+    $stmt = $mysqli->prepare("SELECT COUNT(*) AS c FROM inquiry_rate WHERE ip = ? AND at >= (NOW() - INTERVAL 1 HOUR)");
+    $stmt->bind_param('s', $ip);
+    $stmt->execute();
+    $recent = (int)($stmt->get_result()->fetch_assoc()['c'] ?? 0);
+    $stmt->close();
+    if ($recent >= 5) {
+        echo json_encode(['ok' => false, 'error' => 'Zu viele Anfragen in kurzer Zeit. Bitte später erneut versuchen oder per E-Mail an hej@wunsch-fabrik.dk schreiben.']);
+        exit;
+    }
+    $stmt = $mysqli->prepare("INSERT INTO inquiry_rate (ip, at) VALUES (?, NOW())");
+    $stmt->bind_param('s', $ip);
+    $stmt->execute();
+    $stmt->close();
     $now = date('Y-m-d H:i:s');
     $stmt = $mysqli->prepare("
         INSERT INTO inquiries (created_at, name, email, phone, product, qty, wish_date, message, file_name, lang, status)

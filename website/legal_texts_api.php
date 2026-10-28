@@ -16,7 +16,7 @@ if (!$mysqli) { echo json_encode(['ok' => false, 'error' => 'DB error']); exit; 
 wf_ensure_tables($mysqli);
 
 $action = $_REQUEST['action'] ?? 'get';
-$isAdmin = !empty($_SESSION['wf_admin_id']);
+$isAdmin = wf_admin_can('legal', $mysqli);
 
 // ─── DeepL-Konfiguration ────────────────────────────────────────────
 // Key wird in db.php als Konstante WF_DEEPL_API_KEY hinterlegt.

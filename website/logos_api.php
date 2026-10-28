@@ -15,7 +15,7 @@ if (!$mysqli) { echo json_encode(['ok' => false, 'error' => 'DB error']); exit; 
 wf_ensure_tables($mysqli);
 
 $action = $_REQUEST['action'] ?? 'list';
-$isAdmin = !empty($_SESSION['wf_admin_id']);
+$isAdmin = wf_admin_can('logos', $mysqli);
 
 // ─── ÖFFENTLICH: Aktive Logos ─────────────────────────────────────────
 if ($action === 'list') {

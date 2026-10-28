@@ -76,7 +76,7 @@ if (($_REQUEST['action'] ?? '') === 'ping') {
 }
 
 $action  = $_REQUEST['action'] ?? '';
-$isAdmin = !empty($_SESSION['wf_admin_id']);
+$isAdmin = function_exists('wf_admin_can') ? wf_admin_can('spiele', $mysqli) : !empty($_SESSION['wf_admin_id']);
 
 /* Namen säubern: keine Tags, keine Steuerzeichen, sinnvolle Länge */
 function wf_clean_name($raw) {

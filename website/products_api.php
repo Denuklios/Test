@@ -18,7 +18,7 @@ if (!$mysqli) {
 wf_ensure_tables($mysqli);
 
 $action = $_REQUEST['action'] ?? 'list';
-$isAdmin = !empty($_SESSION['wf_admin_id']);
+$isAdmin = wf_admin_can('shop', $mysqli);
 
 // ─── ÖFFENTLICH: Shop-Status abfragen ───────────────────────────────
 if ($action === 'shop_status') {
