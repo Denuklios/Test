@@ -103,10 +103,7 @@ $total = (int)($totalResult->fetch_assoc()['cnt'] ?? 0);
 // ─── Push-Benachrichtigung bei Schwellenwert (ntfy.sh) ────────────
 wf_check_push_notification($mysqli, max(1, $online));
 
-echo json_encode([
-    'ok'     => true,
-    'online' => max(1, $online),
-    'total'  => $total,
-]);
+// Zahlen nicht mehr öffentlich ausgeben – sie stehen nur noch im Admin-Bereich
+echo json_encode(['ok' => true]);
 
 $mysqli->close();

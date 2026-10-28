@@ -639,7 +639,7 @@ function wf_send_voucher_mail($email, $name, $lang, $code, $pct, $expires, $minO
   </td></tr>
   <tr><td style="padding:22px 26px 24px;border-top:1px solid rgba(139,43,226,0.2);margin-top:16px;
     color:#555;font-size:11px;line-height:1.7;text-align:center;">
-    Wunsch-Fabrik · Teglgård 1 · 6330 Padborg · Danmark<br>
+    Wunsch-Fabrik · Teglgård 1 · Vilsbæk · 6330 Padborg · Danmark<br>
     <a href="https://www.wunsch-fabrik.dk" style="color:#A855F7;text-decoration:none;">wunsch-fabrik.dk</a>
     · <a href="mailto:hej@wunsch-fabrik.dk" style="color:#A855F7;text-decoration:none;">hej@wunsch-fabrik.dk</a>
   </td></tr>

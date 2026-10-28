@@ -237,16 +237,8 @@ function wf_ensure_tables($mysqli) {
             INDEX idx_active (active)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
     ");
-    // Vorab-Bewertungen (die 3 bisherigen) eintragen wenn noch keine da
-    $srCheck = $mysqli->query("SELECT COUNT(*) AS c FROM static_reviews");
-    if ((int)($srCheck->fetch_assoc()['c'] ?? 0) === 0) {
-        $now = date('Y-m-d H:i:s');
-        $mysqli->query("INSERT INTO static_reviews (created_at, updated_at, name, company, text, sort_order, active) VALUES
-            ('$now','$now','Michael H.','H&H Montage','Top Qualität, schnelle Umsetzung und ein mega Ergebnis! Unsere Arbeitskleidung sieht jetzt nicht nur professionell aus, sondern fühlt sich auch so an.',1,1),
-            ('$now','$now','Lena K.','Event Solutions GmbH','Wir haben unsere gesamte Teamkleidung bei Wunsch-Fabrik bestellen lassen – absolute Empfehlung! Schnell, zuverlässig und das Design war genau so, wie wir uns das vorgestellt haben.',2,1),
-            ('$now','$now','Thomas B.','Royal Events','Erstklassige Beratung und ein Endprodukt, das wirklich beeindruckt. Unsere Caps mit dem gestickten Logo sind ein echter Hingucker geworden.',3,1)
-        ");
-    }
+    // Früher automatisch eingetragene Beispiel-Bewertungen entfernen (keine echten Kunden)
+    $mysqli->query("DELETE FROM static_reviews WHERE (name, company) IN (('Michael H.','H&H Montage'),('Lena K.','Event Solutions GmbH'),('Thomas B.','Royal Events'))");
 
     // Live-Monitor / Push-Benachrichtigungs-Einstellungen
     $mysqli->query("
