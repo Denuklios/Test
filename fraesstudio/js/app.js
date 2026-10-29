@@ -1935,7 +1935,7 @@
     if (mach.spindle === 'manual') { const d = TL.dialFor(rpm, mach); if (d) rpm = d.rpm; }
     const feed = op.feed || auto.feed;
     if (!(rpm > 0 && feed > 0)) return '';
-    const fz = feed / (rpm * flutes), lo = 0.009 * tool.d, hi = 0.03 * tool.d;
+    const fz = feed / (rpm * flutes), lo = 0.008 * tool.d, hi = 0.03 * tool.d;
     const aim = mach.power <= 100 ? 1.2 : 1.5; // kleiner Motor: nur knapp über die Untergrenze, sonst würgt er ab
     if (fz >= lo && fz <= hi) return `<p class="muted small">Spanlast ${fz.toFixed(3)} mm/Zahn ✓ (Vorschub ${feed} mm/min bei ${rpm} U/min)</p>`;
     if (fz > hi) return `<div class="warnbox">Spanlast ${fz.toFixed(3)} mm/Zahn ist hoch (Ausbrüche, Fräserbruch). Vorschub senken oder Drehzahl erhöhen.</div>`;

@@ -23,12 +23,21 @@ let pts = allXY(r);
 let b = G.bounds([pts]);
 ok(near(b.w, 40 + 3.175, 0.05), `Kontur außen: Bahnbreite ${b.w.toFixed(3)} = 43,175`);
 ok(near(Math.min(...pts.map((p) => p.z)), -3), 'Kontur außen: Endtiefe -3');
-ok(r.chains.length === 1, 'Kontur: eine Kette (alle Zustellungen am Stück)');
+ok(r.chains.length === 2 && Math.min(...r.chains[0].pts.map((p) => p.z)) > -0.6, 'Kontur: Ritzgang (0,5 mm) und dann eine Kette mit allen Zustellungen');
 const zs = [...new Set(pts.map((p) => +p.z.toFixed(3)))].sort((a, c) => a - c);
 ok(zs.length >= 3, `Kontur: ${zs.length - 1} Zustellungen bei 1 mm`);
-// Gleichlauf außen: im Uhrzeigersinn -> negative Fläche
+// Gleichlauf (Spindel im Uhrzeigersinn, Material links der Fahrtrichtung): außen gegen den Uhrzeigersinn
 const lvl = pts.filter((p) => near(p.z, -3, 1e-6));
-ok(G.signedArea(lvl) < 0, 'Kontur außen im Gleichlauf läuft im Uhrzeigersinn');
+ok(G.signedArea(lvl) > 0, 'Kontur außen im Gleichlauf läuft gegen den Uhrzeigersinn');
+{
+  const dirOf = (o) => { const rr = FS.cam.compute(o, ctx); const q = rr.chains.flatMap((c) => c.pts).filter((p) => near(p.z, -2, 1e-6)); return G.signedArea(q); };
+  const oi = FS.cam.makeOp('profile', [sq.id], 't1'); oi.side = 'inside'; oi.depth = 2; oi.ramp = false;
+  ok(dirOf(oi) < 0, 'Kontur innen im Gleichlauf: im Uhrzeigersinn');
+  ok(dirOf({ ...oi, direction: 'conventional' }) > 0, 'Kontur innen im Gegenlauf: gegen den Uhrzeigersinn');
+  const opk = FS.cam.makeOp('pocket', [sq.id], 't1'); opk.depth = 2; opk.ramp = false;
+  ok(dirOf(opk) < 0, 'Tasche im Gleichlauf: Außenrand im Uhrzeigersinn');
+  ok(dirOf({ ...opk, strategy: 'raster' }) < 0, 'Tasche (Zeilen): Randbahn im Gleichlauf im Uhrzeigersinn');
+}
 
 // Kontur innen
 op = FS.cam.makeOp('profile', [circ.id], 't1'); op.side = 'inside'; op.depth = 2; op.ramp = true;

@@ -18,7 +18,7 @@
   };
 
   const OP_DEFAULTS = {
-    profile: { depth: 3, side: 'outside', direction: 'climb', tabs: false, tabCount: 4, tabWidth: 6, tabHeight: 1.5, ramp: true, rampLen: 10, allowance: 0, finishPass: false, score: false, scoreDepth: 0.5 },
+    profile: { depth: 3, side: 'outside', direction: 'climb', tabs: false, tabCount: 4, tabWidth: 6, tabHeight: 1.5, ramp: true, rampLen: 10, allowance: 0, finishPass: false, score: true, scoreDepth: 0.5 },
     pocket: { depth: 2, strategy: 'offset', angle: 0, direction: 'climb', allowance: 0, ramp: true, rampLen: 10 },
     drill: { depth: 5, peck: 2, ramp: true },
     vcarve: { maxDepth: 0, clearToolId: '', step: 0.2 },
@@ -198,37 +198,50 @@
       if (op.score && op.depth > 0.4) passes.unshift({ rings: poly.offset(region, op.side === 'outside' ? r : op.side === 'inside' ? -r : 0), rough: false, depth: scoreD, score: true });
       if (!passes[0].rings.length) warnings.push('Form ist zu klein für dieses Werkzeug.');
     }
+    // Teil für Teil in Leserichtung: alle Durchgänge (Ritzen, Schruppen, Schlichten) eines Teils, dann das nächste.
+    // Bezugsliste sind die Teile des Schrupp-Durchgangs; die anderen Durchgänge werden dem nächstliegenden Teil zugeordnet.
+    const center = (g) => { const bb = ringBox(g.outer); return { x: (bb.x0 + bb.x1) / 2, y: (bb.y0 + bb.y1) / 2 }; };
+    const rough = passes.find((q) => q.rough);
+    const parts = rough ? orderGroups(groupRings(rough.rings)).map((g) => ({ c: center(g), items: [] })) : [];
     for (const pass of passes) {
-      // Teil für Teil in Leserichtung; bei jedem Teil zuerst die Innenkonturen (Löcher), zuletzt die Außenkontur,
-      // damit sich das Teil nicht vorzeitig löst
-      const orient = (ring) => {
-        const isOuter = geo.signedArea(ring) > 0; // Clipper: außen gegen den Uhrzeigersinn
-        // Gleichlauf: außen im Uhrzeigersinn, innen dagegen
-        let ccw;
-        if (op.side === 'inside') ccw = climb ? isOuter : !isOuter;
-        else ccw = climb ? !isOuter : isOuter;
-        return geo.orient(ring, ccw);
-      };
-      paths = [];
-      for (const g of orderGroups(groupRings(pass.rings))) {
+      for (const g of groupRings(pass.rings)) {
+        const c = center(g);
+        let best = null, bd = Infinity;
+        for (const pt of parts) { const d = Math.hypot(pt.c.x - c.x, pt.c.y - c.y); if (d < bd) { bd = d; best = pt; } }
+        if (best) best.items.push({ pass, g });
+      }
+    }
+    // Gleichlauf (Material links der Fahrtrichtung, Spindel im Uhrzeigersinn): außen um das Teil gegen den Uhrzeigersinn,
+    // in Löchern und Taschen im Uhrzeigersinn
+    const orient = (ring) => {
+      const isOuter = geo.signedArea(ring) > 0; // Clipper: außen gegen den Uhrzeigersinn
+      let ccw;
+      if (op.side === 'inside') ccw = climb ? !isOuter : isOuter;
+      else ccw = climb ? isOuter : !isOuter;
+      return geo.orient(ring, ccw);
+    };
+    for (const pt of parts) {
+      for (const { pass, g } of pt.items) {
+        // zuerst die Innenkonturen (Löcher), zuletzt die Außenkontur, damit sich das Teil nicht vorzeitig löst
+        paths = [];
         for (const h of g.holes.slice().sort((x, y) => Math.abs(geo.signedArea(x)) - Math.abs(geo.signedArea(y)))) paths.push({ ring: orient(h) });
         paths.push({ ring: orient(g.outer) });
-      }
-      for (const { ring } of paths) {
-        const useTabs = !!op.tabs && ring.length > 2 && !pass.score;
-        const tabTop = useTabs ? -(op.depth - op.tabHeight) : null;
-        const tr = useTabs ? insertTabs(ring, op.tabCount, op.tabWidth + tool.d) : ring;
-        if (useTabs) tr.forEach((v, i) => { if (v.tabStart) { const e = tr.slice(i).find((w) => w.tabEnd); if (e) tabsShown.push([{ x: v.x, y: v.y }, { x: e.x, y: e.y }]); } });
-        const zl = pass.rough ? zs : [-(pass.depth || op.depth)];
-        let prev = -(op.startDepth || 0);
-        let pts = [];
-        for (const z of zl) {
-          const lc = loopChain(tr, pass.rough ? prev : -(op.startDepth || 0), z, op.ramp ? op.rampLen : 0, tabTop);
-          if (!pass.rough) { pts = lc; prev = z; continue; }
-          pts = pts.concat(lc);
-          prev = z;
+        for (const { ring } of paths) {
+          const useTabs = !!op.tabs && ring.length > 2 && !pass.score;
+          const tabTop = useTabs ? -(op.depth - op.tabHeight) : null;
+          const tr = useTabs ? insertTabs(ring, op.tabCount, op.tabWidth + tool.d) : ring;
+          if (useTabs) tr.forEach((v, i) => { if (v.tabStart) { const e = tr.slice(i).find((w) => w.tabEnd); if (e) tabsShown.push([{ x: v.x, y: v.y }, { x: e.x, y: e.y }]); } });
+          const zl = pass.rough ? zs : [-(pass.depth || op.depth)];
+          let prev = -(op.startDepth || 0);
+          let pts = [];
+          for (const z of zl) {
+            const lc = loopChain(tr, pass.rough ? prev : -(op.startDepth || 0), z, op.ramp ? op.rampLen : 0, tabTop);
+            if (!pass.rough) { pts = lc; prev = z; continue; }
+            pts = pts.concat(lc);
+            prev = z;
+          }
+          chains.push({ pts, clearZ: -(op.startDepth || 0) });
         }
-        chains.push({ pts, clearZ: -(op.startDepth || 0) });
       }
     }
     // offene Linien: auf der Linie fräsen, hin und zurück
@@ -298,16 +311,16 @@
         loops.push({ pts: flip ? k.sg.slice().reverse() : k.sg, closed: false });
       }
       // Randbahn zum Schluss
-      for (const ring of first) loops.push({ pts: geo.orient(ring, climb ? geo.signedArea(ring) > 0 : geo.signedArea(ring) < 0), closed: true, final: true });
+      for (const ring of first) loops.push({ pts: geo.orient(ring, climb ? geo.signedArea(ring) < 0 : geo.signedArea(ring) > 0), closed: true, final: true });
     } else {
       // konturparallel: von innen nach außen
       const rounds = [];
       let cur = first;
       for (let k = 0; cur.length && k < 2000; k++) { rounds.push(cur); cur = poly.offset(cur, -step); }
       for (let k = rounds.length - 1; k >= 0; k--) for (const ring of rounds[k]) {
-        // Tasche im Gleichlauf: Außenrand gegen den Uhrzeigersinn
+        // Tasche im Gleichlauf: Außenrand im Uhrzeigersinn, Inseln dagegen
         const outer = geo.signedArea(ring) > 0;
-        loops.push({ pts: geo.orient(ring, climb ? outer : !outer), closed: true });
+        loops.push({ pts: geo.orient(ring, climb ? !outer : outer), closed: true });
       }
     }
     let prev = z0;

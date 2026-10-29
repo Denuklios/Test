@@ -109,7 +109,7 @@ Hinweise: Ohne Endschalter ändert sich der Maschinen-Nullpunkt bei jedem Einsch
 ## Ausgefranste Kanten vermeiden
 
 1. **Spanlast prüfen:** FräsStudio zeigt bei Kontur, Tasche und Planfräsen die Spanlast (mm je Zahn). Zu klein = der Fräser reibt statt zu schneiden (Fransen, Brandspuren) – „Empfehlung übernehmen“ setzt Vorschub bzw. Drehzahl. Gerade mit dem 800-W-Motor (Drehregler) ist die Drehzahl für 3-mm-Fräser oft zu hoch.
-2. **Vorritzen** (Kontur): flacher Schnitt auf der Endkontur, dann tief – die Oberkante reißt nicht aus.
+2. **Vorritzen** (Kontur, standardmäßig an): flacher Schnitt auf der Endkontur, dann tief – die Oberkante reißt nicht aus. **Gleichlauf** ist der Standard (außen gegen, in Löchern und Taschen mit dem Uhrzeigersinn – bei Spindel M3).
 3. **Aufmaß + Schlichtgang** (Kontur): erst mit 0,2–0,3 mm Aufmaß schruppen, dann ein Gleichlauf-Durchgang auf Endmaß.
 4. **Fräser:** scharf, bei Sperrholz/Multiplex ein Kompressionsfräser (Up-/Down-Cut), bei MDF/Weichholz ein 2-Schneider-Spiralfräser. Stumpfe Fräser fransen immer.
 5. Werkstück fest einspannen (Vibration), Gleichlauf wählen, Z-Null stimmig setzen.
