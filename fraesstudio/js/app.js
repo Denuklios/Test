@@ -2230,17 +2230,30 @@
   function probeDialog() {
     if (!need()) return Promise.resolve();
     const p = store.get('fs.probe', { plate: 0, travel: 25, feed: 60 });
+    const onTable = S.doc.stock.zeroZ === 'bottom';
     return modal('Z antasten', `<ol class="small"><li>Fräser über die Messplatte fahren (ca. 5–10 mm darüber).</li><li>Krokodilklemme am Fräser anbringen.</li><li>„Antasten“ drücken – die Spindel fährt langsam nach unten.</li></ol>
-      ${field('Dicke der Messplatte', inputN('pbT', p.plate, 0.01), 'mm')}
+      <div class="field"><label>Messplatte liegt auf</label><div>
+        <label class="check"><input type="radio" name="pbOn" value="top" ${onTable ? '' : 'checked'}> dem Werkstück → Z0 = Werkstück-Oberseite</label>
+        <label class="check"><input type="radio" name="pbOn" value="bottom" ${onTable ? 'checked' : ''}> dem Tisch / der Opferplatte → Z0 = Tisch (Werkstückdicke ${fmt(S.doc.stock.t)} mm zählt dann mit)</label></div></div>
+      ${field('Höhe der Messplatte', inputN('pbT', p.plate, 0.01), 'mm')}
       ${field('Max. Weg nach unten', inputN('pbD', p.travel, 1), 'mm')}
       ${field('Geschwindigkeit', inputN('pbF', p.feed, 5), 'mm/min')}
-      <p class="muted small">Liegt die Platte auf dem Werkstück, wird Z=0 auf die Werkstückoberfläche gesetzt.</p>`,
+      <p class="muted small">Die Höhe der Messplatte (z. B. 19 mm) wird abgezogen: Z0 liegt danach auf der Fläche, auf der die Platte steht. Das Projekt wird passend dazu eingestellt – sonst fräst die Maschine in der Luft oder zu tief.</p>`,
     [{ label: 'Abbrechen', value: null }, { label: 'Antasten', primary: true, value: 'ok' }]).then(async (r) => {
       if (r !== 'ok') return;
       const v = { plate: val('pbT'), travel: Math.max(1, val('pbD')), feed: Math.max(5, val('pbF')) };
+      const ref = (document.querySelector('input[name=pbOn]:checked') || {}).value === 'bottom' ? 'bottom' : 'top';
       store.set('fs.probe', v);
-      try { await S.grbl.probeZ(v.plate, v.travel, v.feed); status('Z-Nullpunkt gesetzt. Klemme entfernen!'); log('Antasten erfolgreich.', 'info'); }
-      catch (e) { modal('Antasten fehlgeschlagen', `<p>${esc(e.message)}</p>`); }
+      try {
+        await S.grbl.probeZ(v.plate, v.travel, v.feed);
+        if (S.doc.stock.zeroZ !== ref) {
+          snapshot(); S.doc.stock.zeroZ = ref; changed();
+          if (S.jobOrigin && S.doc.ops.some((op) => op.enabled)) { try { await $('#jobFromProject').onclick(); } catch (err) { /* Auftrag bleibt alt */ } }
+        }
+        const t = S.doc.stock.t;
+        status(`Z-Nullpunkt gesetzt: Z0 = ${ref === 'bottom' ? `Tisch (Werkstück-Oberseite bei Z ${fmt(t)})` : 'Werkstück-Oberseite'}. Klemme entfernen!`);
+        log('Antasten erfolgreich.', 'info');
+      } catch (e) { modal('Antasten fehlgeschlagen', `<p>${esc(e.message)}</p>`); }
     });
   }
   function toolChangeDialog(msg) {
