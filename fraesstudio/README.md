@@ -106,6 +106,14 @@ Die Webcam findet das Werkstück auf dem Tisch, setzt **X/Y-Null auf die linke u
 
 Hinweise: Ohne Endschalter ändert sich der Maschinen-Nullpunkt bei jedem Einschalten – dann „Versatz nachmessen (1 Punkt)“. Bei wenig Kontrast (hell auf hell) hilft „Leerbild aufnehmen“ (Tisch leer). Gleichmäßiges Licht ohne harte Schatten verbessert die Erkennung. Erste Fahrt immer mit „Zum Nullpunkt“ prüfen.
 
+## Ausgefranste Kanten vermeiden
+
+1. **Spanlast prüfen:** FräsStudio zeigt bei Kontur, Tasche und Planfräsen die Spanlast (mm je Zahn). Zu klein = der Fräser reibt statt zu schneiden (Fransen, Brandspuren) – „Empfehlung übernehmen“ setzt Vorschub bzw. Drehzahl. Gerade mit dem 800-W-Motor (Drehregler) ist die Drehzahl für 3-mm-Fräser oft zu hoch.
+2. **Vorritzen** (Kontur): flacher Schnitt auf der Endkontur, dann tief – die Oberkante reißt nicht aus.
+3. **Aufmaß + Schlichtgang** (Kontur): erst mit 0,2–0,3 mm Aufmaß schruppen, dann ein Gleichlauf-Durchgang auf Endmaß.
+4. **Fräser:** scharf, bei Sperrholz/Multiplex ein Kompressionsfräser (Up-/Down-Cut), bei MDF/Weichholz ein 2-Schneider-Spiralfräser. Stumpfe Fräser fransen immer.
+5. Werkstück fest einspannen (Vibration), Gleichlauf wählen, Z-Null stimmig setzen.
+
 ## Größere Spindel (500 W / 800 W)
 
 Unter **Bearbeiten → Maschine…** das passende Profil wählen:

@@ -1795,6 +1795,7 @@
         h += chk('ramp', op.ramp, 'Schräg eintauchen (Rampe, schont Fräser)');
         h += `<div class="grid2">${field('Aufmaß', nIn('allowance', op.allowance, 0.05, 'min="0"'), 'mm')}</div>`;
         if (op.allowance > 0) h += chk('finishPass', op.finishPass, 'Schlichtgang auf Endmaß');
+        h += chk('score', op.score, 'Vorritzen (saubere Oberkante, gegen Ausfransen)');
         break;
       case 'pocket':
         h += depthF();
@@ -1846,6 +1847,7 @@
         ${field('Drehzahl', `<input data-k="rpm" type="number" step="100" placeholder="${auto.rpm}" value="${op.rpm || ''}">`, 'U/min')}
         ${field('Starttiefe', `<input data-k="startDepth" type="number" step="0.1" value="${op.startDepth || 0}">`, 'mm')}
       </div></details>`;
+    h += chipLoadHtml(op, tool, auto);
     if (op.type !== 'face') h += `<div class="row"><button data-act="assign" class="wide" title="Aktuelle Auswahl für diese Fräsbahn verwenden">Auswahl übernehmen (${S.sel.length})</button><button data-act="tools">Werkzeuge…</button></div>`;
     else h += `<div class="row"><button data-act="tools">Werkzeuge…</button></div>`;
     if (r && r.key === opKey(op)) {
@@ -1878,6 +1880,7 @@
       if (!S.sel.length) { status('Erst in der Zeichnung Objekte auswählen.', true); return; }
       snapshot(); op.objIds = S.sel.slice(); changed({ keepResults: true }); computeAll();
     }
+    if (a.dataset.act === 'fixcut' && op) { snapshot(); op[a.dataset.k] = +a.dataset.v; changed({ keepResults: true }); computeAll(); }
     if (a.dataset.act === 'tools') toolLibrary(op && op.toolId).then(() => computeAll());
   });
   $$('[data-addop]').forEach((b) => b.addEventListener('click', () => addOp(b.dataset.addop)));
@@ -1923,6 +1926,27 @@
       }
     }
     status('G-Code gespeichert.');
+  }
+  // Spanlast je Zahn: zu klein = Fräser reibt statt zu schneiden (Ausfransen, Brandspuren), zu groß = Ausbrüche, Fräserbruch
+  function chipLoadHtml(op, tool, auto) {
+    if (!['profile', 'pocket', 'face'].includes(op.type) || tool.type !== 'flat') return '';
+    const flutes = Math.max(1, tool.flutes || 2), mach = S.machine;
+    let rpm = op.rpm || auto.rpm;
+    if (mach.spindle === 'manual') { const d = TL.dialFor(rpm, mach); if (d) rpm = d.rpm; }
+    const feed = op.feed || auto.feed;
+    if (!(rpm > 0 && feed > 0)) return '';
+    const fz = feed / (rpm * flutes), lo = 0.009 * tool.d, hi = 0.03 * tool.d;
+    if (fz >= lo && fz <= hi) return `<p class="muted small">Spanlast ${fz.toFixed(3)} mm/Zahn ✓ (Vorschub ${feed} mm/min bei ${rpm} U/min)</p>`;
+    if (fz > hi) return `<div class="warnbox">Spanlast ${fz.toFixed(3)} mm/Zahn ist hoch (Ausbrüche, Fräserbruch). Vorschub senken oder Drehzahl erhöhen.</div>`;
+    const wantFeed = Math.round((lo * 1.5 * rpm * flutes) / 10) * 10;
+    let k, v, tip;
+    if (wantFeed <= mach.maxFeed) { k = 'feed'; v = wantFeed; tip = `Vorschub auf etwa <b>${v} mm/min</b> erhöhen.`; }
+    else {
+      k = 'rpm'; v = Math.max(mach.minRpm || 0, Math.round(feed / (lo * 1.5 * flutes) / 500) * 500);
+      tip = `Bei ${feed} mm/min passt eine Drehzahl von etwa <b>${v} U/min</b>${mach.spindle === 'manual' ? ' (Drehregler entsprechend zurückdrehen)' : ''}.`;
+    }
+    return `<div class="warnbox">Spanlast nur ${fz.toFixed(3)} mm/Zahn (Soll ${lo.toFixed(3)}–${hi.toFixed(3)}): Der Fräser reibt statt zu schneiden – das gibt <b>ausgefranste Kanten und Brandspuren</b>. ${tip}
+      <div class="row" style="margin-top:6px"><button data-act="fixcut" data-k="${k}" data-v="${v}">Empfehlung übernehmen</button></div></div>`;
   }
   const rpmText = (rpm) => {
     const d = S.machine.spindle === 'manual' ? TL.dialFor(rpm, S.machine) : null;

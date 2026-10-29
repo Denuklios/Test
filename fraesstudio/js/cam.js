@@ -18,7 +18,7 @@
   };
 
   const OP_DEFAULTS = {
-    profile: { depth: 3, side: 'outside', direction: 'climb', tabs: false, tabCount: 4, tabWidth: 6, tabHeight: 1.5, ramp: true, rampLen: 10, allowance: 0, finishPass: false },
+    profile: { depth: 3, side: 'outside', direction: 'climb', tabs: false, tabCount: 4, tabWidth: 6, tabHeight: 1.5, ramp: true, rampLen: 10, allowance: 0, finishPass: false, score: false, scoreDepth: 0.5 },
     pocket: { depth: 2, strategy: 'offset', angle: 0, direction: 'climb', allowance: 0, ramp: true, rampLen: 10 },
     drill: { depth: 5, peck: 2, ramp: true },
     vcarve: { maxDepth: 0, clearToolId: '', step: 0.2 },
@@ -192,7 +192,10 @@
       const region = poly.clip(rings, null, 'union');
       const off = op.side === 'outside' ? r + allow : op.side === 'inside' ? -(r + allow) : 0;
       passes.push({ rings: off ? poly.offset(region, off) : region, rough: true });
-      if (allow > 0 && op.finishPass && op.side !== 'on') passes.push({ rings: poly.offset(region, op.side === 'outside' ? r : -r), rough: false });
+      if (allow > 0 && op.finishPass && op.side !== 'on') passes.push({ rings: poly.offset(region, op.side === 'outside' ? r : -r), rough: false, depth: op.depth });
+      // Vorritzen: flacher Gleichlauf-Schnitt genau auf der Endkontur trennt die Fasern der Oberkante, bevor tief gefräst wird
+      const scoreD = Math.min(op.scoreDepth || 0.5, op.depth * 0.5);
+      if (op.score && op.depth > 0.4) passes.unshift({ rings: poly.offset(region, op.side === 'outside' ? r : op.side === 'inside' ? -r : 0), rough: false, depth: scoreD, score: true });
       if (!passes[0].rings.length) warnings.push('Form ist zu klein für dieses Werkzeug.');
     }
     for (const pass of passes) {
@@ -212,11 +215,11 @@
         paths.push({ ring: orient(g.outer) });
       }
       for (const { ring } of paths) {
-        const useTabs = !!op.tabs && ring.length > 2;
+        const useTabs = !!op.tabs && ring.length > 2 && !pass.score;
         const tabTop = useTabs ? -(op.depth - op.tabHeight) : null;
         const tr = useTabs ? insertTabs(ring, op.tabCount, op.tabWidth + tool.d) : ring;
         if (useTabs) tr.forEach((v, i) => { if (v.tabStart) { const e = tr.slice(i).find((w) => w.tabEnd); if (e) tabsShown.push([{ x: v.x, y: v.y }, { x: e.x, y: e.y }]); } });
-        const zl = pass.rough ? zs : [-op.depth];
+        const zl = pass.rough ? zs : [-(pass.depth || op.depth)];
         let prev = -(op.startDepth || 0);
         let pts = [];
         for (const z of zl) {

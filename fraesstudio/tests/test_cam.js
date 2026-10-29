@@ -156,6 +156,16 @@ ok(r.chains.length > 0 && Math.min(...pts.map((p) => p.z)) >= -5 + 0.5 - 1e-6, `
   ok(sim.warnings.size === 0, 'Relief aus Graustufenbild: keine Eilgänge im Material');
 }
 
+// Vorritzen: flacher Gleichlauf-Schnitt auf der Endkontur vor dem tiefen Fräsen
+{
+  const o1 = FS.cam.makeOp('profile', [sq.id], 't1'); o1.depth = 3; o1.score = true; o1.tabs = true;
+  const r1 = FS.cam.compute(o1, ctx), r0 = FS.cam.compute({ ...o1, score: false }, ctx);
+  const zmin = (c) => Math.min(...c.pts.map((p) => p.z));
+  ok(r1.chains.length === r0.chains.length + 1, 'Vorritzen: zusätzlicher Durchgang');
+  ok(near(zmin(r1.chains[0]), -0.5, 0.001), `Vorritzen: erster Durchgang nur 0,5 mm tief (${zmin(r1.chains[0]).toFixed(2)})`);
+  ok(near(zmin(r1.chains[1]), -3, 0.001) && r1.chains[0].pts.every((p) => p.z <= 0 && p.z >= -0.5 - 1e-9), 'Vorritzen: danach volle Tiefe, Ritzgang ohne Haltestege');
+}
+
 // G-Code
 const res = [FS.cam.compute(FS.cam.makeOp('profile', [sq.id], 't1'), ctx), FS.cam.compute(FS.cam.makeOp('vcarve', [small.id], 't7'), ctx)];
 const gc = FS.gcode.build(res, { ...ctx, name: 'Test' });
