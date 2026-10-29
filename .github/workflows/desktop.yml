@@ -4,6 +4,8 @@ on:
   workflow_dispatch:
   push:
     tags: ['fraesstudio-v*']
+    branches: [ccr-ac9b4630-omyr2l]
+    paths: ['fraesstudio-desktop/**', 'fraesstudio/**', '.github/workflows/desktop.yml']
 
 jobs:
   build:
