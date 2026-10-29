@@ -1936,13 +1936,14 @@
     const feed = op.feed || auto.feed;
     if (!(rpm > 0 && feed > 0)) return '';
     const fz = feed / (rpm * flutes), lo = 0.009 * tool.d, hi = 0.03 * tool.d;
+    const aim = mach.power <= 100 ? 1.2 : 1.5; // kleiner Motor: nur knapp über die Untergrenze, sonst würgt er ab
     if (fz >= lo && fz <= hi) return `<p class="muted small">Spanlast ${fz.toFixed(3)} mm/Zahn ✓ (Vorschub ${feed} mm/min bei ${rpm} U/min)</p>`;
     if (fz > hi) return `<div class="warnbox">Spanlast ${fz.toFixed(3)} mm/Zahn ist hoch (Ausbrüche, Fräserbruch). Vorschub senken oder Drehzahl erhöhen.</div>`;
-    const wantFeed = Math.round((lo * 1.5 * rpm * flutes) / 10) * 10;
+    const wantFeed = Math.round((lo * aim * rpm * flutes) / 10) * 10;
     let k, v, tip;
     if (wantFeed <= mach.maxFeed) { k = 'feed'; v = wantFeed; tip = `Vorschub auf etwa <b>${v} mm/min</b> erhöhen.`; }
     else {
-      k = 'rpm'; v = Math.max(mach.minRpm || 0, Math.round(feed / (lo * 1.5 * flutes) / 500) * 500);
+      k = 'rpm'; v = Math.max(mach.minRpm || 0, Math.round(feed / (lo * aim * flutes) / 500) * 500);
       tip = `Bei ${feed} mm/min passt eine Drehzahl von etwa <b>${v} U/min</b>${mach.spindle === 'manual' ? ' (Drehregler entsprechend zurückdrehen)' : ''}.`;
     }
     return `<div class="warnbox">Spanlast nur ${fz.toFixed(3)} mm/Zahn (Soll ${lo.toFixed(3)}–${hi.toFixed(3)}): Der Fräser reibt statt zu schneiden – das gibt <b>ausgefranste Kanten und Brandspuren</b>. ${tip}
