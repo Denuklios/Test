@@ -1,0 +1,35 @@
+name: FräsStudio Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    tags: ['fraesstudio-v*']
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, args: --win }
+          - { os: macos-latest, args: --mac }
+          - { os: ubuntu-latest, args: --linux }
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with: { node-version: 22 }
+      - run: npm ci || npm install
+        working-directory: fraesstudio-desktop
+      - run: npx electron-builder ${{ matrix.args }}
+        working-directory: fraesstudio-desktop
+        env:
+          CSC_IDENTITY_AUTO_DISCOVERY: 'false'
+      - uses: actions/upload-artifact@v4
+        with:
+          name: FraesStudio-${{ matrix.os }}
+          path: |
+            fraesstudio-desktop/dist/*.exe
+            fraesstudio-desktop/dist/*.dmg
+            fraesstudio-desktop/dist/*.AppImage
+            fraesstudio-desktop/dist/*.deb

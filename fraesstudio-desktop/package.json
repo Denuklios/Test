@@ -1,0 +1,33 @@
+{
+  "name": "fraesstudio-desktop",
+  "productName": "FräsStudio",
+  "version": "1.0.0",
+  "description": "FräsStudio – CAD, CAM und Maschinensteuerung für die Twotrees TTC450 (GRBL)",
+  "author": "FräsStudio",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "dist": "electron-builder",
+    "dist:win": "electron-builder --win",
+    "dist:mac": "electron-builder --mac",
+    "dist:linux": "electron-builder --linux"
+  },
+  "devDependencies": {
+    "electron": "33.2.1",
+    "electron-builder": "25.1.8"
+  },
+  "build": {
+    "appId": "de.fraesstudio.desktop",
+    "publish": null,
+    "productName": "FräsStudio",
+    "artifactName": "FraesStudio-${version}-${os}-${arch}.${ext}",
+    "directories": { "output": "dist", "buildResources": "build" },
+    "files": ["main.js", "bridge.js", "package.json"],
+    "extraResources": [{ "from": "../fraesstudio", "to": "www", "filter": ["**/*", "!tests/**", "!models/**", "!README.md"] }],
+    "win": { "target": [{ "target": "nsis", "arch": ["x64"] }, { "target": "portable", "arch": ["x64"] }] },
+    "nsis": { "oneClick": false, "allowToChangeInstallationDirectory": true, "perMachine": false, "createDesktopShortcut": true, "language": "1031" },
+    "mac": { "target": [{ "target": "dmg", "arch": ["x64", "arm64"] }], "category": "public.app-category.graphics-design" },
+    "linux": { "target": ["AppImage", "deb"], "category": "Graphics", "maintainer": "FräsStudio" }
+  }
+}

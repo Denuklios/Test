@@ -2002,7 +2002,7 @@
   let alarmHinted = false;
   function machineInit() {
     if (S.grbl) return;
-    const g = (S.grbl = new FS.Grbl());
+    const g = (S.grbl = FS.grbl = new FS.Grbl());
     g.on('connect', () => {
       alarmHinted = false;
       $('#mConnect').textContent = 'Trennen'; $('#mConnect').classList.remove('primary');
