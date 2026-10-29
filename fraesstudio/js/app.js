@@ -99,6 +99,16 @@
     renderSide();
     redraw();
     updUndo();
+    syncZRef();
+  }
+  // Z-Null: liegt auf der Werkstückoberfläche oder dem Tisch? (häufigste Fehlerquelle: Maschine und Projekt meinen Verschiedenes)
+  function syncZRef() {
+    const sel = $('#mZRef');
+    if (!sel) return;
+    sel.value = S.doc.stock.zeroZ === 'bottom' ? 'bottom' : 'top';
+    $('#mZNote').textContent = S.doc.stock.zeroZ === 'bottom'
+      ? `Fräser steht beim Nullen auf dem Tisch. Oberfläche des Werkstücks liegt dann bei Z = ${fmt(S.doc.stock.t)} mm.`
+      : `Fräser berührt beim Nullen die Werkstück-Oberseite. Der Tisch liegt dann bei Z = −${fmt(S.doc.stock.t)} mm (Dicke ${fmt(S.doc.stock.t)} mm).`;
   }
   function restore(json) {
     S.doc = revive(json);
@@ -2173,10 +2183,18 @@
     } else status('WLAN-Einstellungen gesendet. Maschine neu starten, damit sie wirken.');
   }
 
+  $('#mZRef').addEventListener('change', async (e) => {
+    snapshot();
+    S.doc.stock.zeroZ = e.target.value;
+    changed();
+    if (S.jobOrigin && S.doc.ops.some((op) => op.enabled)) { try { await $('#jobFromProject').onclick(); } catch (err) { /* Auftrag bleibt alt */ } }
+    status(e.target.value === 'bottom' ? 'Z-Null = Tisch. Fräser auf den Tisch fahren und „Z0“ drücken.' : 'Z-Null = Werkstück-Oberfläche. Fräser auf das Werkstück fahren und „Z0“ drücken.');
+  });
+  syncZRef();
   $$('[data-zero]').forEach((b) => b.addEventListener('click', () => {
     if (!need()) return;
     const ax = b.dataset.zero.split('').map((a) => a + '0').join(' ');
-    S.grbl.command('G10 L20 P1 ' + ax).then(() => status('Nullpunkt gesetzt: ' + ax)).catch(() => {});
+    S.grbl.command('G10 L20 P1 ' + ax).then(() => status('Nullpunkt gesetzt: ' + ax + (ax.includes('Z') ? (S.doc.stock.zeroZ === 'bottom' ? ' (Z0 = Tisch)' : ' (Z0 = Werkstück-Oberseite)') : ''))).catch(() => {});
   }));
   $('#mGoZero').onclick = () => {
     if (!need()) return;
@@ -2265,7 +2283,8 @@
       <li>Werkstück fest eingespannt, Spannmittel außerhalb der Fräsbahnen?</li>
       <li>Richtiges Werkzeug eingesetzt${firstTool ? `: <b>${esc(firstTool)}</b>` : ''}?</li>
       ${firstDial ? `<li>Drehregler am Fräsmotor auf <b>${esc(firstDial)}</b> gestellt und Motorschalter auf „Ein“ bzw. Steuerbox verbunden?</li>` : ''}
-      <li>X/Y-Nullpunkt am richtigen Punkt (${esc(zeroText(S.doc.stock.zeroXY))}) und Z genullt?</li>
+      <li>X/Y-Nullpunkt am richtigen Punkt (${esc(zeroText(S.doc.stock.zeroXY))})?</li>
+      <li>Z0 gesetzt, als der Fräser <b>${S.doc.stock.zeroZ === 'bottom' ? 'auf dem Tisch / der Opferplatte' : 'die Oberseite des Werkstücks'}</b> berührte? (Werkstück ${fmt(S.doc.stock.t)} mm dick. Das muss mit „Z-Null liegt auf“ im Fräsen-Schritt übereinstimmen, sonst fräst die Maschine in der Luft oder zu tief.)</li>
       ${workpieceCheck()}
       <li>Schutzbrille, Absaugung, Hände weg von der Spindel.</li></ul>`,
     [{ label: 'Abbrechen', value: false }, { label: '▶ Jetzt fräsen', primary: true, value: true }]);
