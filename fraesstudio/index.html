@@ -79,6 +79,11 @@
       <hr>
       <button data-cmd="camera">Kamera einrichten…</button>
       <button data-cmd="toggleCam">Kamerabild ein/aus <kbd>C</kbd></button>
+      <hr>
+      <button data-cmd="bedCal">Kamera mit Maschine einmessen…</button>
+      <button data-cmd="detectWork">Werkstück erkennen &amp; Nullpunkt setzen…</button>
+      <button data-cmd="camEmpty">Leerbild aufnehmen (Tisch leer)</button>
+      <button data-cmd="bedShift">Versatz nachmessen (1 Punkt)…</button>
     </div>
   </div>
   <div class="menu"><button>Hilfe</button>
@@ -138,7 +143,7 @@
       <button data-cmd="fit" title="Alles zeigen (F)">⤢</button>
       <button data-cmd="zoomIn" title="Vergrößern (+)">+</button>
     </div>
-    <div id="camBar" class="hidden"><span>Kamera</span><input id="camOpacity" type="range" min="10" max="100" value="80" title="Deckkraft"><label><input type="checkbox" id="camLive" checked> live</label><button data-cmd="camera">Einrichten</button><button data-cmd="toggleCam" title="Ausblenden">✕</button></div>
+    <div id="camBar" class="hidden"><span>Kamera</span><input id="camOpacity" type="range" min="10" max="100" value="80" title="Deckkraft"><label><input type="checkbox" id="camLive" checked> live</label><button data-cmd="camera">Einrichten</button><button data-cmd="detectWork" title="Werkstück auf dem Tisch erkennen und Nullpunkt links unten setzen">Werkstück erkennen</button><button data-cmd="toggleCam" title="Ausblenden">✕</button></div>
     <div id="dropHint" class="hidden">Datei hier loslassen<br><small>Bild, SVG, DXF, STL, G-Code oder Projekt</small></div>
     <div id="busy" class="hidden"><div class="spin"></div><span>Fräsbahnen werden berechnet …</span></div>
   </section>
@@ -241,6 +246,9 @@
         <div class="row">
           <button data-zero="XYZ" class="wide">Alle auf 0</button>
           <button id="mGoZero" class="wide">Zum Nullpunkt</button>
+        </div>
+        <div class="row">
+          <button data-cmd="detectWork" class="wide" title="Kamera erkennt das Werkstück und setzt X/Y-Null auf die linke untere Ecke">◉ Werkstück per Kamera erkennen</button>
         </div>
       </div>
       <div class="panel">

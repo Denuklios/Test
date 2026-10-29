@@ -38,15 +38,25 @@
     const date = new Date().toISOString().slice(0, 16).replace('T', ' ');
     L.push(`(FraesStudio - ${clean(ctx.name || 'Projekt')})`);
     L.push(`(Erstellt ${date} - Maschine: ${clean(mach.name)})`);
+    if (ctx.rot) L.push(`(Gedreht um ${num((ctx.rot * 180) / Math.PI, 2)} Grad - Werkstueck liegt schief)`);
     L.push(`(Werkstueck ${num(stock.w, 1)} x ${num(stock.h, 1)} x ${num(stock.t, 1)} mm - Nullpunkt ${stock.zeroXY || 'll'} / ${stock.zeroZ === 'bottom' ? 'Tisch' : 'Oberflaeche'})`);
     L.push('G21 G90 G94 G17');
     L.push('M5');
     L.push(`G0 Z${num(safeZ - O.z)}`);
 
+    // schief aufgelegtes Werkstück: Bahnen um den Nullpunkt in die Lage des Werkstücks drehen
+    const rc = Math.cos(ctx.rot || 0), rs = Math.sin(ctx.rot || 0);
     const out = (cmd, p, f) => {
       let s = cmd;
-      if (Math.abs(p.x - pos.x) > 1e-6) s += ' X' + num(p.x - O.x);
-      if (Math.abs(p.y - pos.y) > 1e-6) s += ' Y' + num(p.y - O.y);
+      if (ctx.rot) {
+        if (Math.abs(p.x - pos.x) > 1e-6 || Math.abs(p.y - pos.y) > 1e-6) {
+          const dx = p.x - O.x, dy = p.y - O.y;
+          s += ' X' + num(dx * rc - dy * rs) + ' Y' + num(dx * rs + dy * rc);
+        }
+      } else {
+        if (Math.abs(p.x - pos.x) > 1e-6) s += ' X' + num(p.x - O.x);
+        if (Math.abs(p.y - pos.y) > 1e-6) s += ' Y' + num(p.y - O.y);
+      }
       if (Math.abs(p.z - pos.z) > 1e-6) s += ' Z' + num(p.z - O.z);
       if (s === cmd) return;
       if (cmd === 'G1' && f !== lastF) { s += ' F' + Math.round(f); lastF = f; }

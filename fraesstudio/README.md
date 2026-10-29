@@ -96,6 +96,16 @@ Ohne Einrichtung öffnet die Maschine ein eigenes WLAN **MKS_DLC** (Adresse 192.
 
 **Wenn die Verbindung nicht klappt:** FräsStudio zeigt, welches Gerät es gefunden hat und was empfangen wurde. Typische Ursachen: Maschine aus (24 V!), Kabel nur zum Laden, CH340-Treiber fehlt, ein anderes Programm (Candle, UGS, LaserGRBL) hält den Anschluss, Platine hängt im Neustart (Maschine aus- und einschalten).
 
+## Werkstück per Kamera erkennen (Nullpunkt automatisch)
+
+Die Webcam findet das Werkstück auf dem Tisch, setzt **X/Y-Null auf die linke untere Ecke** und stellt Größe und Schräglage ein – ohne Anklicken und ohne Verschieben des Werkstücks.
+
+1. **Einmalig einmessen** (Menü Kamera → „Kamera mit Maschine einmessen“): Fräserspitze knapp über die Werkstückoberfläche an 4 Stellen fahren (möglichst weit auseinander), jeweils im Bild auf die Spitze klicken und „Punkt übernehmen“. Die Kamera muss fest montiert sein.
+2. **Werkstück auflegen**, Maschine verbinden, „Werkstück erkennen“ (Kamera-Leiste oder Fräsen-Schritt). Du siehst Umriss und Nullpunkt; mit „Setzen und zur Ecke fahren“ wird X/Y-Null per `G10 L2 P1` auf die Ecke gelegt (Z bleibt, Werkzeug wie gewohnt antasten).
+3. Liegt das Werkstück **schief**, werden alle Bahnen um den Winkel gedreht (G-Code-Kopf vermerkt ihn). Vor dem Start prüft FräsStudio, ob die Bahnen auf dem erkannten Werkstück liegen.
+
+Hinweise: Ohne Endschalter ändert sich der Maschinen-Nullpunkt bei jedem Einschalten – dann „Versatz nachmessen (1 Punkt)“. Bei wenig Kontrast (hell auf hell) hilft „Leerbild aufnehmen“ (Tisch leer). Gleichmäßiges Licht ohne harte Schatten verbessert die Erkennung. Erste Fahrt immer mit „Zum Nullpunkt“ prüfen.
+
 ## Größere Spindel (500 W / 800 W)
 
 Unter **Bearbeiten → Maschine…** das passende Profil wählen:

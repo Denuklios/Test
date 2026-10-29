@@ -170,6 +170,16 @@ const gc2 = FS.gcode.build(res, { ...ctx, stock: st2 });
 const back2 = FS.gcode.parse(gc2.text).filter((m) => !m.rapid);
 ok(back2.some((m) => near(m.x, 50 - 20 - 1.5875 - 100, 0.002) && near(m.z, 10 - 3, 0.002)), 'Nullpunkt Mitte / Tisch wird eingerechnet');
 ok(FS.gcode.parse('G0 X0 Y0\nG2 X10 Y0 I5 J0\n').length > 4, 'G2-Bögen werden aufgelöst');
+{
+  // schief aufgelegtes Werkstück: Bahnen werden um den Nullpunkt gedreht
+  const rot = (10 * Math.PI) / 180;
+  const gr = FS.gcode.build(res, { ...ctx, name: 'Test', rot });
+  const a = FS.gcode.parse(gc.text).filter((m) => !m.rapid), b2 = FS.gcode.parse(gr.text).filter((m) => !m.rapid);
+  ok(a.length === b2.length && /Gedreht um 10 Grad/.test(gr.text), 'Drehung: gleiche Anzahl Schnitte, Kommentar vorhanden');
+  const worst = a.reduce((w, m, i) => Math.max(w, Math.hypot(m.x * Math.cos(rot) - m.y * Math.sin(rot) - b2[i].x, m.x * Math.sin(rot) + m.y * Math.cos(rot) - b2[i].y)), 0);
+  ok(worst < 0.002, `Drehung um 10°: jeder Punkt stimmt (Abweichung ${worst.toFixed(4)} mm)`);
+  ok(Math.abs(gr.time - gc.time) < 1, 'Laufzeit durch Drehung unverändert');
+}
 
 // Simulation
 const sim = FS.sim.create(stock, 0.5);
@@ -361,5 +371,78 @@ ok(ras.nx > 40 && near(ras.zr, 5), 'STL: Dreieck gerastert');
   ok(/\(DREHREGLER Stufe \d/.test(g8.text) && /^M3 S1000$/m.test(g8.text) && /WERKZEUGWECHSEL:.*DREHREGLER Stufe/.test(g8.text), 'G-Code 800 W: Motor ein/aus, Reglerstufe als Hinweis und beim Werkzeugwechsel');
 }
 
+
+/* ---------- Kamera: Werkstück erkennen, Nullpunkt links unten ---------- */
+(function () {
+  require('../js/camera.js');
+  const C = FS.camera;
+  console.log('\n== Kamera: Werkstück-Erkennung ==');
+  const W = 1280, Hh = 720, aspect = W / Hh, k1 = 0.08;
+  // „wahre" Kamera: Maschine (mm) -> entzerrtes Bild (0..1) mit Perspektive
+  const truth = C.homography([{ x: 0, y: 0 }, { x: 450, y: 0 }, { x: 450, y: 400 }, { x: 0, y: 400 }], [{ x: 0.22, y: 0.93 }, { x: 0.80, y: 0.91 }, { x: 0.74, y: 0.08 }, { x: 0.27, y: 0.10 }]);
+  const toRaw = (m) => { const q = C.applyH(truth, m); return C.distort(q.x, q.y, k1, aspect); };
+  const fromTruth = C.invert3(truth);
+  function render(piece, shift) {
+    const data = new Uint8ClampedArray(W * Hh * 4);
+    let seed = 7; const rnd = () => ((seed = (seed * 16807) % 2147483647) / 2147483647);
+    const cs = piece ? Math.cos(piece.ang) : 1, sn = piece ? Math.sin(piece.ang) : 0;
+    for (let y = 0; y < Hh; y++) for (let x = 0; x < W; x++) {
+      const u = C.undistort({ x: (x + 0.5) / W, y: (y + 0.5) / Hh }, k1, aspect);
+      const m = C.applyH(fromTruth, u), o = (y * W + x) * 4;
+      let col = [176, 140, 96]; // Tisch (MDF)
+      if (piece) {
+        const dx = m.x - piece.x - (shift || 0), dy = m.y - piece.y;
+        const pu = dx * cs + dy * sn, pv = -dx * sn + dy * cs;
+        if (pu >= 0 && pu <= piece.w && pv >= 0 && pv <= piece.h) col = [214, 196, 160].map((c) => c - pu * 0.1);
+      }
+      const n = (rnd() - 0.5) * 10;
+      data[o] = col[0] + n; data[o + 1] = col[1] + n; data[o + 2] = col[2] + n; data[o + 3] = 255;
+    }
+    return { data, w: W, h: Hh };
+  }
+  // Einmessen: Fräserspitze an 4 Stellen, jeweils im Bild angeklickt
+  const spots = [{ x: 40, y: 40 }, { x: 400, y: 50 }, { x: 390, y: 350 }, { x: 50, y: 340 }];
+  const pairs = spots.map((m) => { const r = toRaw(m); return { u: r.x, v: r.y, mx: m.x, my: m.y }; });
+  const bed = C.bedFromPairs(pairs, k1, aspect);
+  ok(!!bed, 'Kamera mit 4 Maschinenpunkten eingemessen');
+  const back = C.rawToMachine(bed, toRaw({ x: 200, y: 150 }), k1, aspect);
+  ok(Math.hypot(back.x - 200, back.y - 150) < 0.05, `Rückrechnung Bild → Maschine (${back.x.toFixed(2)}, ${back.y.toFixed(2)})`);
+
+  const box = { x0: 0, y0: 0, x1: 450, y1: 400 }, res = 2;
+  const piece = { x: 120, y: 90, w: 160, h: 100, ang: (3 * Math.PI) / 180 };
+  const top = C.warpBed(render(piece), bed, box, res, k1);
+  const det = C.detectRect(top, {});
+  ok(!!det, 'Werkstück gefunden');
+  const mm = det.corners.map((p) => ({ x: box.x0 + p.x / res, y: box.y1 - p.y / res }));
+  const fr = C.frameFromCorners(mm);
+  ok(Math.hypot(fr.x - piece.x, fr.y - piece.y) < 1.0, `linke untere Ecke (${fr.x.toFixed(2)}, ${fr.y.toFixed(2)}) statt (${piece.x}, ${piece.y})`);
+  ok(Math.abs(fr.ang - piece.ang) < 0.01, `Schräglage ${(fr.ang * 57.296).toFixed(2)}° statt 3°`);
+  ok(Math.abs(fr.w - piece.w) < 1.5 && Math.abs(fr.h - piece.h) < 1.5, `Größe ${fr.w.toFixed(1)} × ${fr.h.toFixed(1)} statt ${piece.w} × ${piece.h}`);
+  ok(det.fill > 0.97, `Rechteckigkeit ${(det.fill * 100).toFixed(1)} %`);
+
+  // mit Leerbild als Referenz und stark verdrehtem Werkstück (−35°)
+  const empty = C.warpBed(render(null), bed, box, res, k1);
+  const p2 = { x: 220, y: 160, w: 120, h: 70, ang: (-35 * Math.PI) / 180 };
+  const d2 = C.detectRect(C.warpBed(render(p2), bed, box, res, k1), { ref: empty });
+  const f2 = C.frameFromCorners(d2.corners.map((p) => ({ x: p.x / res, y: box.y1 - p.y / res })));
+  ok(Math.abs(f2.ang - p2.ang) < 0.012 && Math.abs(f2.w - 120) < 1.5, `−35° → ${(f2.ang * 57.296).toFixed(1)}°, ${f2.w.toFixed(1)} × ${f2.h.toFixed(1)}`);
+
+  // Nullpunkt-Rückprojektion: Ecke -> Bild liegt dort, wo das Werkstück sichtbar ist
+  const raw = C.machineToRaw(bed, { x: fr.x, y: fr.y }, k1, aspect), want = toRaw({ x: piece.x, y: piece.y });
+  ok(Math.hypot((raw.x - want.x) * W, (raw.y - want.y) * Hh) < 2, 'Ecke im Kamerabild an der richtigen Stelle');
+
+  // leerer Tisch: nichts erkannt
+  ok(C.detectRect(empty, {}) === null, 'leerer Tisch: kein Werkstück');
+
+  // Maschinen-Versatz nach Neustart (kein Endschalter): Versatz korrigiert Ecke
+  const shifted = { ...bed, off: { x: 0, y: 0 } };
+  const shiftMM = 7.5;
+  // Maschine meldet nach Neustart andere Koordinaten: Spitze steht im Bild an alter Stelle, MPos ist aber um shiftMM größer
+  const tip = toRaw({ x: 200, y: 150 }), claimed = { x: 200 + shiftMM, y: 150 };
+  const before = C.rawToMachine(shifted, tip, k1, aspect);
+  shifted.off = { x: claimed.x - before.x, y: claimed.y - before.y };
+  const after = C.rawToMachine(shifted, tip, k1, aspect);
+  ok(Math.hypot(after.x - claimed.x, after.y - claimed.y) < 1e-6, 'Versatz-Korrektur mit einem Punkt');
+})();
 if (fails) { console.log(`\n${fails} Fehler`); process.exit(1); }
 console.log('\nAlle Prüfungen bestanden.');

@@ -29,7 +29,7 @@
     undo: [], redo: [], clip: null,
     draw: null, drag: null, hover: null, nodeSel: null,
     selOp: null, results: new Map(), computing: false,
-    machine: null, grbl: null, job: null, jobMoves: null, jogStep: 1,
+    machine: null, grbl: null, job: null, jobMoves: null, jogStep: 1, workRot: 0, workPiece: null,
     sim: null, simMoves: null, simPlaying: false, gc: null,
     cursor: null, snapMark: null,
   };
@@ -1271,7 +1271,7 @@
       if (isNew) {
         const d = newDoc(ns);
         d.name = $('#sName') ? $('#sName').value || 'Unbenannt' : 'Unbenannt';
-        S.doc = d; S.sel = []; S.results.clear(); S.undo = []; S.redo = [];
+        S.doc = d; S.sel = []; S.results.clear(); S.undo = []; S.redo = []; S.workRot = 0; S.workPiece = null;
         changed(); fit();
         setMode('design');
       } else { Object.assign(S.doc.stock, ns); changed(); fit(); }
@@ -1650,7 +1650,7 @@
   }
 
   // ---------------------------------------------------------------- Fräsbahnen
-  const ctxCam = () => ({ objects: S.doc.objects, tools: S.doc.tools, stock: S.doc.stock, machine: S.machine });
+  const ctxCam = () => ({ objects: S.doc.objects, tools: S.doc.tools, stock: S.doc.stock, machine: S.machine, rot: S.workRot || 0 });
   function opKey(op) {
     const objs = op.objIds.map(objById).filter(Boolean);
     const tool = S.doc.tools.find((t) => t.id === op.toolId);
@@ -2266,6 +2266,7 @@
       <li>Richtiges Werkzeug eingesetzt${firstTool ? `: <b>${esc(firstTool)}</b>` : ''}?</li>
       ${firstDial ? `<li>Drehregler am Fräsmotor auf <b>${esc(firstDial)}</b> gestellt und Motorschalter auf „Ein“ bzw. Steuerbox verbunden?</li>` : ''}
       <li>X/Y-Nullpunkt am richtigen Punkt (${esc(zeroText(S.doc.stock.zeroXY))}) und Z genullt?</li>
+      ${workpieceCheck()}
       <li>Schutzbrille, Absaugung, Hände weg von der Spindel.</li></ul>`,
     [{ label: 'Abbrechen', value: false }, { label: '▶ Jetzt fräsen', primary: true, value: true }]);
     if (!ok) return;
@@ -2473,6 +2474,241 @@
   }
   cmds.camera = cameraDialog;
   cmds.toggleCam = () => camShow(!cam.on);
+
+  /* ---------- Maschine einmessen und Werkstück automatisch erkennen ----------
+     Einmalig: Fräserspitze an 4 Stellen anfahren und im Kamerabild anklicken -> Bild und Maschinenkoordinaten sind verknüpft.
+     Danach: „Werkstück erkennen“ findet das Werkstück auf dem Tisch, setzt X/Y-Null auf seine linke untere Ecke (G54),
+     übernimmt Größe und Schräglage und stellt das Kamerabild passend ein. Z bleibt unberührt. */
+  const bedOf = () => {
+    const c = cam.cal;
+    if (!c.bed || c.bed.length < 4) return null;
+    const b = FS.camera.bedFromPairs(c.bed, c.bedK1 || 0, c.bedAspect || 16 / 9);
+    if (b && c.bedOff) b.off = { ...c.bedOff };
+    return b;
+  };
+  const bedBox = () => {
+    const xs = cam.cal.bed.map((p) => p.mx), ys = cam.cal.bed.map((p) => p.my);
+    const x0 = Math.min(...xs), x1 = Math.max(...xs), y0 = Math.min(...ys), y1 = Math.max(...ys);
+    const mx = Math.max(30, (x1 - x0) * 0.3), my = Math.max(30, (y1 - y0) * 0.3);
+    return { x0: x0 - mx, x1: x1 + mx, y0: y0 - my, y1: y1 + my };
+  };
+  async function camReady() {
+    if (!cam.stream) await camStart(cam.cal.deviceId);
+    for (let i = 0; i < 20 && !(cam.video && cam.video.videoWidth); i++) await new Promise((r) => setTimeout(r, 100));
+    await new Promise((r) => setTimeout(r, 300));
+    const fr = camFrame();
+    if (!fr) throw new Error('Kein Kamerabild.');
+    return fr;
+  }
+
+  async function bedDialog(shiftOnly) {
+    if (!need()) return;
+    try { await camReady(); } catch (e) { modal('Kamera nicht verfügbar', `<p>${esc(e.message)}</p>`); return; }
+    const old = bedOf();
+    if (shiftOnly && !old) shiftOnly = false;
+    const pairs = [];
+    let click = null, open = true;
+    const names = ['links vorne', 'rechts vorne', 'rechts hinten', 'links hinten'];
+    const html = `<div class="camstep" id="bcStep"></div>
+      <div class="camwrap" id="bcWrap"><canvas id="bcOver"></canvas></div>
+      <div class="row" style="margin-top:8px;align-items:center;gap:6px">
+        <span class="jogxy" style="display:inline-grid">
+          <button data-b="-1,1">↖</button><button data-b="0,1">Y+</button><button data-b="1,1">↗</button>
+          <button data-b="-1,0">X−</button><button data-b="0,0" title="Stopp">■</button><button data-b="1,0">X+</button>
+          <button data-b="-1,-1">↙</button><button data-b="0,-1">Y−</button><button data-b="1,-1">↘</button>
+        </span>
+        <span class="steps" id="bcSteps"><button data-s="1">1</button><button data-s="5">5</button><button data-s="20" class="active">20</button><button data-s="50">50 mm</button></span>
+        <button id="bcTake" class="primary" style="margin-left:auto">Punkt übernehmen</button>
+      </div>
+      <p class="muted small">${shiftOnly
+        ? 'Die Maschine hat seit dem Einmessen neu gestartet (oder wurde verschoben)? Dann genügt ein Punkt: Fräserspitze an eine beliebige sichtbare Stelle fahren, im Bild auf die Spitze klicken und „Punkt übernehmen“.'
+        : 'Webcam fest montieren (darf sich danach nicht mehr bewegen). Fahre die Fräserspitze bis knapp über die Werkstückoberfläche (Z ca. 1–2 mm) und klicke im Bild genau auf die Spitze. 4 Punkte möglichst weit auseinander, ungefähr in den Ecken des Arbeitsbereichs. Wiederholen nur nötig, wenn die Kamera bewegt wird.'}
+      Ohne Endschalter (Referenzfahrt) ändert sich der Maschinen-Nullpunkt bei jedem Einschalten – dann vorher kurz „1 Punkt“ nachmessen.</p>`;
+    let stepMm = 20;
+    const target = () => (shiftOnly ? 1 : 4);
+    const r = modal(shiftOnly ? 'Kamera: Versatz nachmessen' : 'Kamera mit Maschine einmessen', html, [{ label: 'Abbrechen', value: null }], {
+      wide: true, noFocus: true, noEnter: true,
+      onOpen: (body) => {
+        const wrap = $('#bcWrap', body), c = $('#bcOver', body);
+        wrap.insertBefore(camVideo(), c);
+        const pos = (e) => { const r2 = c.getBoundingClientRect(); return { x: (e.clientX - r2.left) / r2.width, y: (e.clientY - r2.top) / r2.height }; };
+        c.addEventListener('pointerdown', (e) => { click = pos(e); });
+        $$('[data-b]', body).forEach((b) => b.addEventListener('click', () => {
+          const [dx, dy] = b.dataset.b.split(',').map(Number);
+          if (!dx && !dy) { S.grbl.jogCancel(); return; }
+          S.grbl.jog(dx * stepMm, dy * stepMm, 0, Math.min(val('jogFeed') || 800, 1500));
+        }));
+        $('#bcSteps', body).addEventListener('click', (e) => {
+          const b = e.target.closest('button'); if (!b) return;
+          stepMm = +b.dataset.s;
+          $$('#bcSteps button', body).forEach((x) => x.classList.toggle('active', x === b));
+        });
+        $('#bcTake', body).onclick = () => {
+          if (!click) { status('Zuerst im Bild auf die Fräserspitze klicken.', true); return; }
+          if (!S.grbl.connected) { status('Maschine nicht verbunden.', true); return; }
+          const m = S.grbl.status.mpos;
+          if (shiftOnly) {
+            const b0 = { ...old, off: { x: 0, y: 0 } };
+            const k1 = cam.cal.bedK1 || 0, asp = cam.cal.bedAspect || 16 / 9;
+            const q = FS.camera.rawToMachine(b0, click, k1, asp);
+            cam.cal.bedOff = { x: m.x - q.x, y: m.y - q.y };
+            store.set('fs.cam', cam.cal);
+            open = false; $('#modalBtns button').click();
+            status(`Versatz gespeichert (${fmt(cam.cal.bedOff.x)} / ${fmt(cam.cal.bedOff.y)} mm).`);
+            return;
+          }
+          pairs.push({ u: click.x, v: click.y, mx: m.x, my: m.y });
+          click = null;
+          if (pairs.length >= 4) {
+            const k1 = cam.cal.k1 || 0, asp = camAspect();
+            if (!FS.camera.bedFromPairs(pairs, k1, asp)) { pairs.length = 0; status('Die Punkte liegen auf einer Linie – bitte weiter auseinander wählen.', true); return; }
+            cam.cal.bed = pairs.map((p) => ({ ...p })); cam.cal.bedK1 = k1; cam.cal.bedAspect = asp; cam.cal.bedOff = { x: 0, y: 0 };
+            store.set('fs.cam', cam.cal);
+            open = false; $('#modalBtns button').click();
+            status('Kamera eingemessen. Jetzt „Werkstück erkennen“.');
+          }
+        };
+        const draw = () => {
+          if (!open) return;
+          const dpr = window.devicePixelRatio || 1;
+          if (c.width !== Math.round(c.clientWidth * dpr)) { c.width = Math.round(c.clientWidth * dpr); c.height = Math.round(c.clientHeight * dpr); }
+          const x = c.getContext('2d');
+          x.clearRect(0, 0, c.width, c.height);
+          const mark = (p, col, txt) => {
+            const q = { x: p.x * c.width, y: p.y * c.height };
+            x.strokeStyle = col; x.fillStyle = col; x.lineWidth = 2 * dpr;
+            x.beginPath(); x.arc(q.x, q.y, 9 * dpr, 0, Math.PI * 2); x.moveTo(q.x - 15 * dpr, q.y); x.lineTo(q.x + 15 * dpr, q.y); x.moveTo(q.x, q.y - 15 * dpr); x.lineTo(q.x, q.y + 15 * dpr); x.stroke();
+            if (txt) { x.font = `bold ${13 * dpr}px system-ui`; x.fillText(txt, q.x + 12 * dpr, q.y - 10 * dpr); }
+          };
+          pairs.forEach((p, i) => mark({ x: p.u, y: p.v }, '#2b8a3e', String(i + 1)));
+          if (click) mark(click, '#e8590c');
+          const m = S.grbl && S.grbl.connected ? S.grbl.status.mpos : null;
+          $('#bcStep').textContent = shiftOnly
+            ? 'Fahre die Fräserspitze an eine sichtbare Stelle und klicke im Bild darauf.'
+            : `Punkt ${pairs.length + 1} von 4 (${names[pairs.length]}): Fräserspitze dorthin fahren, im Bild auf die Spitze klicken, dann „Punkt übernehmen“.`;
+          if (m) $('#bcStep').textContent += `   Maschine: X ${fmt(m.x)}  Y ${fmt(m.y)}`;
+          requestAnimationFrame(draw);
+        };
+        draw();
+      },
+    });
+    await r;
+    open = false;
+  }
+
+  let emptyFrame = null;
+  async function camEmpty() {
+    if (!cam.cal.bed) { status('Zuerst „Kamera mit Maschine einmessen“.', true); return; }
+    try { emptyFrame = await camReady(); } catch (e) { status(e.message, true); return; }
+    emptyFrame = { data: new Uint8ClampedArray(emptyFrame.data), w: emptyFrame.w, h: emptyFrame.h };
+    status('Leerbild gespeichert – der Tisch muss dabei leer sein. Erkennung vergleicht ab jetzt damit.');
+  }
+
+  let detecting = false;
+  async function detectWork() {
+    if (detecting) return;
+    detecting = true;
+    try { await detectWork2(); } finally { detecting = false; }
+  }
+  async function detectWork2() {
+    if (!cam.cal.bed) {
+      const go = await confirmBox('Kamera einmessen', 'Damit die Kamera Maschinenpositionen kennt, muss sie einmal eingemessen werden (Fräserspitze an 4 Stellen anklicken). Jetzt starten?', 'Einmessen');
+      if (go) await bedDialog(false);
+      if (!cam.cal.bed) return;
+    }
+    let fr;
+    try { fr = await camReady(); } catch (e) { modal('Kamera nicht verfügbar', `<p>${esc(e.message)}</p>`); return; }
+    const bed = bedOf(), k1 = cam.cal.bedK1 || 0;
+    const box = bedBox();
+    const res = Math.min(3, 1000 / Math.max(box.x1 - box.x0, box.y1 - box.y0));
+    const top = FS.camera.warpBed(fr, bed, box, res, k1);
+    const ref = emptyFrame && emptyFrame.w === fr.w && emptyFrame.h === fr.h ? FS.camera.warpBed(emptyFrame, bed, box, res, k1) : null;
+    const det = FS.camera.detectRect(top, { ref });
+    const toMM = (p) => ({ x: box.x0 + p.x / res, y: box.y1 - p.y / res });
+    const prev = document.createElement('canvas');
+    prev.width = top.w; prev.height = top.h;
+    prev.getContext('2d').putImageData(new ImageData(top.data, top.w, top.h), 0, 0);
+    const x = prev.getContext('2d');
+    if (!det) {
+      modal('Kein Werkstück gefunden', `<p>Auf dem Tisch wurde nichts erkannt, das sich vom Untergrund abhebt.</p>
+        <ul><li>Liegt das Werkstück im Bild und im eingemessenen Bereich?</li><li>Ist der Kontrast zu gering (hell auf hell)? Dann den Tisch leer fotografieren: Menü Kamera → „Leerbild aufnehmen“, danach Werkstück auflegen.</li><li>Gutes, gleichmäßiges Licht ohne harte Schatten hilft.</li></ul>
+        <div id="dvPrev"></div>`, [{ label: 'Schließen', primary: true }], { onOpen: (b) => { prev.style.cssText = 'width:100%;border-radius:6px'; $('#dvPrev', b).appendChild(prev); } });
+      return;
+    }
+    const mmc = det.corners.map(toMM);
+    const f = FS.camera.frameFromCorners(mmc);
+    const deg = (f.ang * 180) / Math.PI;
+    // Vorschau: Umriss und Nullpunkt einzeichnen
+    const px = (m) => ({ x: (m.x - box.x0) * res, y: (box.y1 - m.y) * res });
+    x.strokeStyle = '#ffd43b'; x.lineWidth = Math.max(2, res * 1.2);
+    x.beginPath(); det.corners.forEach((p, i) => (i ? x.lineTo(p.x, p.y) : x.moveTo(p.x, p.y))); x.closePath(); x.stroke();
+    const o = px(f);
+    x.fillStyle = '#e8590c'; x.beginPath(); x.arc(o.x, o.y, Math.max(5, res * 3), 0, Math.PI * 2); x.fill();
+    x.strokeStyle = '#e8590c'; x.lineWidth = Math.max(2, res * 1.2);
+    const ax = px({ x: f.x + f.u.x * 30, y: f.y + f.u.y * 30 }), ay = px({ x: f.x + f.v.x * 30, y: f.y + f.v.y * 30 });
+    x.beginPath(); x.moveTo(o.x, o.y); x.lineTo(ax.x, ax.y); x.moveTo(o.x, o.y); x.lineTo(ay.x, ay.y); x.stroke();
+    const st = S.doc.stock;
+    const small = f.w < 5 || f.h < 5;
+    const html = `<div id="dvPrev"></div>
+      <p>Gefunden: <b>${fmt(f.w)} × ${fmt(f.h)} mm</b>${Math.abs(deg) > 0.3 ? `, um <b>${deg.toFixed(1)}°</b> gedreht` : ', gerade'}. Nullpunkt (orange) = <b>linke untere Ecke</b> bei Maschine X ${fmt(f.x)} / Y ${fmt(f.y)}.</p>
+      ${det.fill < 0.9 ? `<p class="warn">Die Form ist kein sauberes Rechteck (${Math.round(det.fill * 100)} % gefüllt) – Schatten, Spannpratzen oder Reflexe? Prüfe die gelbe Linie.</p>` : ''}
+      ${small ? '<p class="warn">Das ist sehr klein – vermutlich nur ein Fleck. Prüfe das Bild.</p>' : ''}
+      <label class="check"><input type="checkbox" id="dvSize" checked> Größe als Werkstück übernehmen (jetzt ${fmt(st.w)} × ${fmt(st.h)} mm)</label>
+      <label class="check"><input type="checkbox" id="dvRot" ${Math.abs(deg) > 0.2 ? 'checked' : ''}> Bahnen an die Schräglage anpassen</label>
+      ${S.grbl && S.grbl.connected ? '' : '<p class="warn">Maschine nicht verbunden – der Nullpunkt kann erst nach dem Verbinden gesetzt werden.</p>'}
+      <p class="muted small">Z wird nicht verändert (Werkzeug wie gewohnt antasten). Nach dem Setzen mit „Zum Nullpunkt“ kontrollieren, dass die Spitze über der Ecke steht.</p>`;
+    const r = await modal('Werkstück erkannt', html, [
+      { label: 'Abbrechen', value: null },
+      { label: 'Nullpunkt setzen', value: 'set' },
+      { label: 'Setzen und zur Ecke fahren', primary: true, value: 'go' },
+    ], { wide: true, noFocus: true, onOpen: (b) => { prev.style.cssText = 'width:100%;max-height:50vh;object-fit:contain;border-radius:6px;background:#000'; $('#dvPrev', b).appendChild(prev); } });
+    const sizeOn = $('#dvSize') ? $('#dvSize').checked : true, rotOn = $('#dvRot') ? $('#dvRot').checked : true;
+    if (r !== 'set' && r !== 'go') return;
+    if (!need()) return;
+    try {
+      await S.grbl.command(`G10 L2 P1 X${f.x.toFixed(3)} Y${f.y.toFixed(3)}`);
+    } catch (e) { status('Nullpunkt konnte nicht gesetzt werden: ' + (e.message || e), true); return; }
+    snapshot();
+    const keepZero = S.doc.stock.zeroXY;
+    S.doc.stock.zeroXY = 'll';
+    if (sizeOn) { S.doc.stock.w = Math.round(f.w * 10) / 10; S.doc.stock.h = Math.round(f.h * 10) / 10; }
+    S.workRot = rotOn ? f.ang : 0;
+    S.workPiece = { w: f.w, h: f.h };
+    // Kamerabild passend zum Werkstück einstellen (ersetzt das Anklicken der 4 Ecken)
+    const sw = S.doc.stock.w, sh = S.doc.stock.h;
+    const C = (a, b) => FS.camera.machineToRaw(bed, { x: f.x + f.u.x * a + f.v.x * b, y: f.y + f.u.y * a + f.v.y * b }, k1, cam.cal.bedAspect || 16 / 9);
+    cam.cal.raw = [C(0, 0), C(sw, 0), C(sw, sh), C(0, sh)];
+    cam.cal.k1 = k1;
+    store.set('fs.cam', cam.cal);
+    changed(); fit();
+    if (S.jobOrigin && S.doc.ops.some((op) => op.enabled)) { try { await $('#jobFromProject').onclick(); } catch (e) { /* Auftrag bleibt alt */ } }
+    if (!cam.on) camShow(true); else camUpdate();
+    status(`Nullpunkt links unten gesetzt${rotOn && Math.abs(deg) > 0.2 ? ` · Bahnen um ${deg.toFixed(1)}° gedreht` : ''}${keepZero !== 'll' ? ' · Nullpunkt-Lage im Projekt auf „links unten“ gestellt' : ''}.`);
+    if (r === 'go') {
+      const z = S.doc.stock.safeZ || 5;
+      S.grbl.command('G90 G0 Z' + z).then(() => S.grbl.command('G0 X0 Y0')).catch(() => {});
+    }
+  }
+  cmds.bedCal = () => bedDialog(false);
+  cmds.bedShift = () => bedDialog(true);
+  cmds.detectWork = detectWork;
+  cmds.camEmpty = camEmpty;
+
+  // Bahnen liegen innerhalb des erkannten Werkstücks? (Mittelpunkt des Fräsers bei Schnitten unter der Oberfläche)
+  function workpieceCheck() {
+    const wp = S.workPiece, O = S.jobOrigin;
+    if (!wp || !O || !S.job) return '';
+    const c = Math.cos(-S.workRot), sn = Math.sin(-S.workRot);
+    let ox = 0, oy = 0, oxl = 0, oyl = 0;
+    for (const m of S.job.moves) {
+      if (m.rapid || m.z >= 0) continue;
+      const x = (m.x * c - m.y * sn) + O.x, y = (m.x * sn + m.y * c) + O.y;
+      ox = Math.max(ox, x - wp.w); oxl = Math.max(oxl, -x);
+      oy = Math.max(oy, y - wp.h); oyl = Math.max(oyl, -y);
+    }
+    const over = Math.max(ox, oxl, oy, oyl);
+    return over > 0.2 ? `<li class="warn"><b>Achtung:</b> Die Fräsbahn ragt bis zu <b>${fmt(over)} mm</b> über das erkannte Werkstück hinaus (Fräsermitte) – Entwurf verschieben oder verkleinern.</li>` : '<li>Alle Bahnen liegen auf dem erkannten Werkstück ✓</li>';
+  }
 
   // Dateien auf das Fenster ziehen
   {
@@ -2689,7 +2925,7 @@
     const dr = CAM.makeOp('drill', [h1.id, h2.id], 't1'); dr.depth = 10.3; dr.name = 'Bohrungen Ø 5';
     const p = CAM.makeOp('profile', [plate.id], 't1'); p.depth = 10.3; p.tabs = true; p.tabHeight = 2; p.name = 'Ausschneiden';
     d.ops.push(e, v, dr, p); // gleiche Werkzeuge hintereinander: nur ein Wechsel
-    S.doc = d; S.sel = []; S.results.clear(); S.undo = []; S.redo = []; S.selOp = v.id;
+    S.doc = d; S.sel = []; S.results.clear(); S.undo = []; S.redo = []; S.workRot = 0; S.workPiece = null; S.selOp = v.id;
     changed(); fit();
     setMode('cam');
     status('Beispiel geladen. Schau dir die Fräsbahnen an und dann die 3D-Vorschau (Taste 3).');
