@@ -38,40 +38,31 @@ public class PttWidget extends AppWidgetProvider {
 
         RemoteViews v = new RemoteViews(c.getPackageName(), R.layout.widget);
         RadioService s = RadioService.instance;
-        String big, small;
-        int bg;
+        String big, small, footer;
+        int color;
+        boolean active = false;
         PendingIntent click;
         if (s == null) {
-            big = "Funk AUS";
-            small = "Tippen zum Einschalten";
-            bg = R.drawable.widget_off;
+            big = "AUS"; small = "tippen = einschalten"; footer = "Funkgerät";
+            color = Art.GREY;
             Intent open = new Intent(c, MainActivity.class).putExtra(MainActivity.EXTRA_AUTOSTART, true)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK | Intent.FLAG_ACTIVITY_CLEAR_TOP);
             click = PendingIntent.getActivity(c, 3, open, PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         } else {
             click = toggleIntent(c);
             String sp = s.speakerName();
+            footer = "CH " + s.channel + (s.connected ? " · " + (s.members.size() + 1) + " online" : "");
             if (s.talking) {
-                big = "SENDET";
-                small = "Tippen = fertig";
-                bg = R.drawable.widget_tx;
+                big = "SENDET"; small = "tippen = fertig"; color = Art.RED; active = true;
             } else if (!s.connected) {
-                big = "Verbinde …";
-                small = "Kanal " + s.channel;
-                bg = R.drawable.widget_off;
+                big = "VERBINDE"; small = "bitte warten"; color = Art.AMBER;
             } else if (sp != null) {
-                big = sp;
-                small = "spricht …";
-                bg = R.drawable.widget_rx;
+                big = "EMPFANG"; small = sp; color = Art.GREEN; active = true;
             } else {
-                big = "SPRECHEN";
-                small = s.statusLine();
-                bg = R.drawable.widget_ready;
+                big = "SPRECHEN"; small = "tippen = senden"; color = Art.CYAN;
             }
         }
-        v.setTextViewText(R.id.w_big, big);
-        v.setTextViewText(R.id.w_small, small);
-        v.setInt(R.id.w_root, "setBackgroundResource", bg);
+        v.setImageViewBitmap(R.id.w_img, Art.widget(color, active, big, small, footer));
         v.setOnClickPendingIntent(R.id.w_root, click);
         m.updateAppWidget(ids, v);
     }

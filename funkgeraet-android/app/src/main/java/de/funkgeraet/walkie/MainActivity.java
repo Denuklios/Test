@@ -14,11 +14,9 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.PowerManager;
 import android.provider.Settings;
-import android.view.MotionEvent;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.Random;
@@ -28,12 +26,11 @@ public class MainActivity extends Activity implements RadioService.UiListener {
     private static final int REQ_PERM = 1;
 
     private EditText name, channel, server;
-    private Button power, ptt, widgetBtn, batteryBtn;
-    private TextView status, display, people;
+    private Button power, widgetBtn, batteryBtn, widgetBtn2, batteryBtn2;
+    private RadioView radio;
     private View setupBox, radioBox;
     private boolean autostart;
 
-    @SuppressLint("ClickableViewAccessibility")
     @Override
     protected void onCreate(Bundle b) {
         super.onCreate(b);
@@ -44,14 +41,13 @@ public class MainActivity extends Activity implements RadioService.UiListener {
         channel = findViewById(R.id.channel);
         server = findViewById(R.id.server);
         power = findViewById(R.id.power);
-        ptt = findViewById(R.id.ptt);
-        status = findViewById(R.id.status);
-        display = findViewById(R.id.display);
-        people = findViewById(R.id.people);
+        radio = findViewById(R.id.radio);
         setupBox = findViewById(R.id.setup_box);
         radioBox = findViewById(R.id.radio_box);
         widgetBtn = findViewById(R.id.add_widget);
         batteryBtn = findViewById(R.id.battery);
+        widgetBtn2 = findViewById(R.id.add_widget2);
+        batteryBtn2 = findViewById(R.id.battery2);
 
         SharedPreferences p = prefs();
         name.setText(p.getString("name", ""));
@@ -61,24 +57,13 @@ public class MainActivity extends Activity implements RadioService.UiListener {
         findViewById(R.id.random).setOnClickListener(v -> channel.setText(randomChannel()));
         findViewById(R.id.server_toggle).setOnClickListener(v ->
             server.setVisibility(server.getVisibility() == View.VISIBLE ? View.GONE : View.VISIBLE));
-        power.setOnClickListener(v -> {
-            if (RadioService.instance != null) RadioService.stop(this); else switchOn();
-        });
+        power.setOnClickListener(v -> switchOn());
+        findViewById(R.id.off).setOnClickListener(v -> { RadioService.stop(this); radioBox.postDelayed(this::onRadioChanged, 100); });
         findViewById(R.id.share).setOnClickListener(v -> share());
         widgetBtn.setOnClickListener(v -> addWidget());
+        widgetBtn2.setOnClickListener(v -> addWidget());
         batteryBtn.setOnClickListener(v -> askBattery());
-
-        // Sprechtaste: gedrückt halten = senden
-        ptt.setOnTouchListener((v, e) -> {
-            RadioService s = RadioService.instance;
-            if (s == null) return true;
-            switch (e.getActionMasked()) {
-                case MotionEvent.ACTION_DOWN: v.setPressed(true); s.setTalking(true); return true;
-                case MotionEvent.ACTION_UP:
-                case MotionEvent.ACTION_CANCEL: v.setPressed(false); s.setTalking(false); return true;
-                default: return true;
-            }
-        });
+        batteryBtn2.setOnClickListener(v -> askBattery());
 
         autostart = getIntent().getBooleanExtra(EXTRA_AUTOSTART, false);
     }
@@ -106,8 +91,7 @@ public class MainActivity extends Activity implements RadioService.UiListener {
         super.onPause();
         if (RadioService.ui == this) RadioService.ui = null;
         // Wer die App verlässt, während er die Taste hält, soll nicht weiter senden.
-        RadioService s = RadioService.instance;
-        if (s != null && ptt.isPressed()) { ptt.setPressed(false); s.setTalking(false); }
+        radio.release();
     }
 
     private SharedPreferences prefs() { return getSharedPreferences("funk", MODE_PRIVATE); }
@@ -130,7 +114,7 @@ public class MainActivity extends Activity implements RadioService.UiListener {
             return;
         }
         RadioService.start(this);
-        status.postDelayed(this::onRadioChanged, 300);
+        radioBox.postDelayed(this::onRadioChanged, 300);
     }
 
     @Override
@@ -138,7 +122,7 @@ public class MainActivity extends Activity implements RadioService.UiListener {
         if (code != REQ_PERM) return;
         if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) {
             RadioService.start(this);
-            status.postDelayed(this::onRadioChanged, 300);
+            radioBox.postDelayed(this::onRadioChanged, 300);
         } else {
             Toast.makeText(this, "Ohne Mikrofon-Erlaubnis kann das Funkgerät nicht senden.", Toast.LENGTH_LONG).show();
         }
@@ -146,44 +130,20 @@ public class MainActivity extends Activity implements RadioService.UiListener {
 
     @Override
     public void onRadioChanged() {
-        RadioService s = RadioService.instance;
-        boolean on = s != null;
+        boolean on = RadioService.instance != null;
         setupBox.setVisibility(on ? View.GONE : View.VISIBLE);
         radioBox.setVisibility(on ? View.VISIBLE : View.GONE);
-        power.setText(on ? "Funk ausschalten" : "Funk einschalten");
-        power.setBackgroundResource(on ? R.drawable.btn_grey : R.drawable.btn_blue);
 
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
-        batteryBtn.setVisibility(pm.isIgnoringBatteryOptimizations(getPackageName()) ? View.GONE : View.VISIBLE);
+        int bat = pm.isIgnoringBatteryOptimizations(getPackageName()) ? View.GONE : View.VISIBLE;
+        batteryBtn.setVisibility(bat);
+        batteryBtn2.setVisibility(bat);
         AppWidgetManager wm = AppWidgetManager.getInstance(this);
         int[] ids = wm.getAppWidgetIds(new ComponentName(this, PttWidget.class));
-        widgetBtn.setVisibility(ids != null && ids.length > 0 ? View.GONE : View.VISIBLE);
-
-        if (!on) return;
-        ((TextView) findViewById(R.id.chan_label)).setText("Kanal: " + s.channel);
-        status.setText(s.statusLine());
-        status.setTextColor(s.connected ? 0xff7bd88f : 0xffffb74d);
-
-        String sp = s.speakerName();
-        if (s.talking) {
-            display.setText("● Du sendest …");
-            display.setBackgroundResource(R.drawable.display_tx);
-        } else if (sp != null) {
-            display.setText("🔊 " + sp + " spricht");
-            display.setBackgroundResource(R.drawable.display_rx);
-        } else {
-            display.setText(s.connected ? "Bereit" : "Verbinde …");
-            display.setBackgroundResource(R.drawable.display_idle);
-        }
-        ptt.setEnabled(s.connected);
-        ptt.setAlpha(s.connected ? 1f : 0.45f);
-        ptt.setBackgroundResource(s.talking ? R.drawable.ptt_on : R.drawable.ptt_off);
-
-        StringBuilder sb = new StringBuilder("● ").append(s.name).append(" (du)");
-        for (RadioService.Member m : s.members.values()) {
-            sb.append("\n").append(m.talking ? "🔊 " : "● ").append(m.name.isEmpty() ? "Gerät" : m.name);
-        }
-        people.setText(sb);
+        int wid = ids != null && ids.length > 0 ? View.GONE : View.VISIBLE;
+        widgetBtn.setVisibility(wid);
+        widgetBtn2.setVisibility(wid);
+        radio.invalidate();
     }
 
     private void share() {

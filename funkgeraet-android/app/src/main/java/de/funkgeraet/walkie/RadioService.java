@@ -64,6 +64,21 @@ public class RadioService extends Service implements Mqtt.Listener {
     public volatile boolean connected, talking;
     public final Map<Integer, Member> members = new ConcurrentHashMap<>();
     public volatile int speaker;           // wer gerade empfangen wird (0 = niemand)
+    public volatile float level;           // Lautstärke 0..1 (eigenes Mikro oder Empfang) – für die Anzeige
+    public volatile long levelAt;
+
+    /** Aktuelle Lautstärke für die Anzeige (0, wenn gerade nichts kommt). */
+    public float currentLevel() {
+        return SystemClock.elapsedRealtime() - levelAt < 250 ? level : 0f;
+    }
+
+    private void setLevel(short[] pcm) {
+        double sum = 0;
+        for (short v : pcm) sum += (double) v * v;
+        double rms = Math.sqrt(sum / Math.max(1, pcm.length)) / 32768.0;
+        level = (float) Math.min(1.0, Math.pow(rms * 6, 0.6));
+        levelAt = SystemClock.elapsedRealtime();
+    }
 
     private final Handler main = new Handler(Looper.getMainLooper());
     private final int myId = new SecureRandom().nextInt() | 1;
@@ -267,6 +282,7 @@ public class RadioService extends Service implements Mqtt.Listener {
                 a.type = Packet.AUDIO; a.sender = myId; a.session = session; a.seq = seq++;
                 a.predictor = enc.predictor; a.index = enc.index;
                 a.audio = enc.encode(down, CHUNK);
+                setLevel(down);
                 send(a);
             }
         } catch (Exception e) {
@@ -385,7 +401,7 @@ public class RadioService extends Service implements Mqtt.Listener {
                     primed = true;
                 }
                 AudioTrack t = track;
-                if (t != null && !talking) t.write(c, 0, c.length);
+                if (t != null && !talking) { setLevel(c); t.write(c, 0, c.length); }
             } catch (InterruptedException e) {
                 return;
             } catch (Exception ignored) {}
@@ -459,7 +475,7 @@ public class RadioService extends Service implements Mqtt.Listener {
         PendingIntent open = PendingIntent.getActivity(this, 0, new Intent(this, MainActivity.class),
             PendingIntent.FLAG_IMMUTABLE | PendingIntent.FLAG_UPDATE_CURRENT);
         String sp = speakerName();
-        String title = talking ? "● Du sendest …" : sp != null ? sp + " spricht" : "Funk an – Kanal „" + channel + "“";
+        String title = talking ? "● Du sendest …" : sp != null ? sp + " spricht" : "Funk an – Kanal " + channel;
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CH_ID) : new Notification.Builder(this);
         b.setSmallIcon(R.drawable.ic_radio)
             .setContentTitle(title)

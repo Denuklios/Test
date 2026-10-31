@@ -6,25 +6,37 @@
     <style name="Label">
         <item name="android:layout_width">match_parent</item>
         <item name="android:layout_height">wrap_content</item>
-        <item name="android:textColor">#9aa6b8</item>
-        <item name="android:textSize">13sp</item>
-        <item name="android:layout_marginBottom">4dp</item>
+        <item name="android:textColor">#9000e5ff</item>
+        <item name="android:textSize">11sp</item>
+        <item name="android:letterSpacing">0.25</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:layout_marginBottom">6dp</item>
     </style>
     <style name="Field">
         <item name="android:layout_width">match_parent</item>
-        <item name="android:layout_height">52dp</item>
-        <item name="android:background">@drawable/btn_grey</item>
-        <item name="android:paddingStart">14dp</item>
-        <item name="android:paddingEnd">14dp</item>
+        <item name="android:layout_height">54dp</item>
+        <item name="android:background">@drawable/field</item>
+        <item name="android:paddingStart">16dp</item>
+        <item name="android:paddingEnd">16dp</item>
         <item name="android:textColor">#ffffff</item>
-        <item name="android:textColorHint">#5f6b7d</item>
+        <item name="android:textColorHint">#4a5a70</item>
         <item name="android:textSize">17sp</item>
         <item name="android:singleLine">true</item>
+        <item name="android:textCursorDrawable">@null</item>
+    </style>
+    <style name="Glass">
+        <item name="android:layout_height">50dp</item>
+        <item name="android:background">@drawable/btn_glass</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:textColor">#d6e6f5</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:fontFamily">sans-serif-medium</item>
+        <item name="android:stateListAnimator">@null</item>
     </style>
     <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
-        <item name="android:windowBackground">@color/icon_bg</item>
-        <item name="android:statusBarColor">#14181f</item>
-        <item name="android:navigationBarColor">#14181f</item>
+        <item name="android:windowBackground">@drawable/bg_main</item>
+        <item name="android:statusBarColor">#070a10</item>
+        <item name="android:navigationBarColor">#05070b</item>
         <item name="android:colorAccent">#2f6fed</item>
     </style>
 </resources>

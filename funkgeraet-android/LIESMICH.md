@@ -4,7 +4,7 @@ Zwei, drei oder mehr Handys (bis ca. 10) sprechen miteinander wie mit einem Funk
 Taste drücken, sprechen – alle anderen im selben Kanal hören es sofort aus dem Lautsprecher.
 
 ## Installieren
-1. `Funkgeraet-1.0.apk` aufs Handy laden und öffnen (einmalig „Installation aus unbekannten Quellen“ erlauben).
+1. `Funkgeraet-1.1.apk` aufs Handy laden und öffnen (einmalig „Installation aus unbekannten Quellen“ erlauben).
 2. Auf **jedem** Handy installieren.
 
 ## Benutzen

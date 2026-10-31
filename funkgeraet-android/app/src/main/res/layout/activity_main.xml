@@ -1,203 +1,185 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#14181f"
-    android:fillViewport="true">
+    android:background="@drawable/bg_main">
 
-    <LinearLayout
+    <!-- Einstellungen (Funk aus) -->
+    <ScrollView
+        android:id="@+id/setup_box"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:layout_height="match_parent"
+        android:fillViewport="true">
 
-        <TextView
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:text="📻 Funkgerät"
-            android:textColor="#ffffff"
-            android:textSize="24sp"
-            android:textStyle="bold" />
-
-        <!-- Einstellungen (nur sichtbar, wenn Funk aus ist) -->
         <LinearLayout
-            android:id="@+id/setup_box"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="16dp"
-            android:orientation="vertical">
-
-            <TextView style="@style/Label" android:text="Dein Name" />
-            <EditText
-                android:id="@+id/name"
-                style="@style/Field"
-                android:hint="z. B. Robert"
-                android:inputType="textPersonName|textCapWords"
-                android:maxLength="20" />
-
-            <TextView style="@style/Label" android:layout_marginTop="12dp"
-                android:text="Kanal – auf allen Handys genau gleich eintippen" />
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal">
-                <EditText
-                    android:id="@+id/channel"
-                    style="@style/Field"
-                    android:layout_width="0dp"
-                    android:layout_weight="1"
-                    android:hint="z. B. falke-4271"
-                    android:inputType="textNoSuggestions"
-                    android:maxLength="40" />
-                <Button
-                    android:id="@+id/random"
-                    android:layout_width="56dp"
-                    android:layout_height="52dp"
-                    android:layout_marginStart="8dp"
-                    android:background="@drawable/btn_grey"
-                    android:text="🎲"
-                    android:textSize="20sp" />
-            </LinearLayout>
-
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:text="Der Kanalname ist gleichzeitig das Passwort: Alles wird damit verschlüsselt. Nimm etwas Ausgefallenes."
-                android:textColor="#8a96a8"
-                android:textSize="13sp" />
-
-            <TextView
-                android:id="@+id/server_toggle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="10dp"
-                android:padding="4dp"
-                android:text="⚙ Vermittlungsserver (nur ändern, wenn es nicht klappt)"
-                android:textColor="#6f8fd8"
-                android:textSize="13sp" />
-            <EditText
-                android:id="@+id/server"
-                style="@style/Field"
-                android:hint="broker.hivemq.com:8883"
-                android:inputType="textUri"
-                android:visibility="gone" />
-        </LinearLayout>
-
-        <Button
-            android:id="@+id/power"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:layout_marginTop="16dp"
-            android:background="@drawable/btn_blue"
-            android:text="Funk einschalten"
-            android:textAllCaps="false"
-            android:textColor="#ffffff"
-            android:textSize="18sp"
-            android:textStyle="bold" />
-
-        <!-- Funkgerät (sichtbar, wenn eingeschaltet) -->
-        <LinearLayout
-            android:id="@+id/radio_box"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:gravity="center_horizontal"
             android:orientation="vertical"
-            android:visibility="gone">
+            android:paddingHorizontal="20dp"
+            android:paddingBottom="24dp">
 
-            <LinearLayout
+            <de.funkgeraet.walkie.OrbView
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="14dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-                <TextView
-                    android:id="@+id/chan_label"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:textColor="#ffffff"
-                    android:textSize="17sp"
-                    android:textStyle="bold" />
-                <Button
-                    android:id="@+id/share"
-                    android:layout_width="wrap_content"
-                    android:layout_height="44dp"
-                    android:background="@drawable/btn_grey"
-                    android:paddingHorizontal="14dp"
-                    android:text="Einladen"
-                    android:textAllCaps="false"
-                    android:textColor="#d6dde8" />
-            </LinearLayout>
+                android:layout_height="230dp" />
 
             <TextView
-                android:id="@+id/status"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="6dp"
+                android:layout_marginTop="-14dp"
+                android:fontFamily="sans-serif-black"
                 android:gravity="center"
-                android:textSize="15sp" />
+                android:letterSpacing="0.3"
+                android:shadowColor="#00e5ff"
+                android:shadowRadius="24"
+                android:text="FUNKGERÄT"
+                android:textColor="#ffffff"
+                android:textSize="28sp" />
 
             <TextView
-                android:id="@+id/display"
                 android:layout_width="match_parent"
-                android:layout_height="64dp"
-                android:layout_marginTop="12dp"
-                android:background="@drawable/display_idle"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="18dp"
                 android:fontFamily="monospace"
                 android:gravity="center"
-                android:textColor="#6dffa8"
-                android:textSize="20sp"
-                android:textStyle="bold" />
+                android:letterSpacing="0.2"
+                android:text="VERSCHLÜSSELT · WELTWEIT · SOFORT"
+                android:textColor="#8000e5ff"
+                android:textSize="11sp" />
 
-            <Button
-                android:id="@+id/ptt"
-                android:layout_width="240dp"
-                android:layout_height="240dp"
-                android:layout_marginTop="28dp"
-                android:background="@drawable/ptt_off"
-                android:text="SPRECHEN\n(gedrückt halten)"
-                android:textAllCaps="false"
-                android:textColor="#ffffff"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/people"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="22dp"
-                android:lineSpacingExtra="4dp"
-                android:textColor="#d6dde8"
-                android:textSize="16sp" />
+                android:background="@drawable/card"
+                android:orientation="vertical"
+                android:padding="18dp">
+
+                <TextView style="@style/Label" android:text="RUFNAME" />
+                <EditText
+                    android:id="@+id/name"
+                    style="@style/Field"
+                    android:hint="z. B. Robert"
+                    android:inputType="textPersonName|textCapWords"
+                    android:maxLength="20" />
+
+                <TextView style="@style/Label" android:layout_marginTop="14dp" android:text="KANAL" />
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
+                    <EditText
+                        android:id="@+id/channel"
+                        style="@style/Field"
+                        android:layout_width="0dp"
+                        android:layout_weight="1"
+                        android:fontFamily="monospace"
+                        android:hint="falke-4271"
+                        android:inputType="textNoSuggestions"
+                        android:maxLength="40" />
+                    <Button
+                        android:id="@+id/random"
+                        android:layout_width="54dp"
+                        android:layout_height="54dp"
+                        android:layout_marginStart="8dp"
+                        android:background="@drawable/btn_glass"
+                        android:text="🎲"
+                        android:textSize="20sp" />
+                </LinearLayout>
+
+                <TextView
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="10dp"
+                    android:text="🔒 Auf allen Handys genau gleich eintippen. Der Kanal ist zugleich das Passwort – alles wird damit verschlüsselt."
+                    android:textColor="#8a96a8"
+                    android:textSize="12sp" />
+
+                <TextView
+                    android:id="@+id/server_toggle"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="8dp"
+                    android:padding="4dp"
+                    android:text="⚙ Vermittlungsserver"
+                    android:textColor="#5aa9c9"
+                    android:textSize="12sp" />
+                <EditText
+                    android:id="@+id/server"
+                    style="@style/Field"
+                    android:fontFamily="monospace"
+                    android:hint="broker.hivemq.com:8883"
+                    android:inputType="textUri"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
+            </LinearLayout>
+
+            <Button
+                android:id="@+id/power"
+                android:layout_width="match_parent"
+                android:layout_height="62dp"
+                android:layout_marginTop="20dp"
+                android:background="@drawable/btn_glow"
+                android:fontFamily="sans-serif-black"
+                android:letterSpacing="0.15"
+                android:text="⏻  FUNK EINSCHALTEN"
+                android:textColor="#04121a"
+                android:textSize="17sp" />
+
+            <Button
+                android:id="@+id/add_widget"
+                style="@style/Glass"
+                android:layout_width="match_parent"
+                android:layout_marginTop="12dp"
+                android:text="▦  Widget auf den Startbildschirm" />
+
+            <Button
+                android:id="@+id/battery"
+                style="@style/Glass"
+                android:layout_width="match_parent"
+                android:layout_marginTop="10dp"
+                android:text="⚡  Akku-Optimierung ausschalten (empfohlen)"
+                android:textColor="#ffcc66" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="18dp"
+                android:lineSpacingExtra="3dp"
+                android:text="So geht's\n• Alle Handys: gleicher Kanal → Funk einschalten\n• In der App: Knopf gedrückt halten und sprechen\n• Widget: tippen = senden, nochmal tippen = fertig\n• Empfang läuft weiter, auch bei dunklem Bildschirm"
+                android:textColor="#7d8aa0"
+                android:textSize="13sp" />
         </LinearLayout>
+    </ScrollView>
 
-        <Button
-            android:id="@+id/add_widget"
+    <!-- Funkgerät (an) -->
+    <LinearLayout
+        android:id="@+id/radio_box"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:background="#05070b"
+        android:orientation="vertical"
+        android:visibility="gone">
+
+        <de.funkgeraet.walkie.RadioView
+            android:id="@+id/radio"
             android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:layout_marginTop="18dp"
-            android:background="@drawable/btn_grey"
-            android:text="Widget auf den Startbildschirm legen"
-            android:textAllCaps="false"
-            android:textColor="#d6dde8" />
+            android:layout_height="0dp"
+            android:layout_weight="1" />
 
-        <Button
-            android:id="@+id/battery"
-            android:layout_width="match_parent"
-            android:layout_height="50dp"
-            android:layout_marginTop="10dp"
-            android:background="@drawable/btn_grey"
-            android:text="Akku-Optimierung ausschalten (empfohlen)"
-            android:textAllCaps="false"
-            android:textColor="#ffb74d" />
-
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_marginTop="18dp"
-            android:text="So geht's:\n1. Auf allen Handys denselben Kanal eingeben und „Funk einschalten“.\n2. In der App: großen Knopf gedrückt halten und sprechen.\n3. Mit dem Widget: einmal tippen = senden, nochmal tippen = fertig (spätestens nach 1 Minute Schluss).\n\nDer Funk bleibt an, auch wenn der Bildschirm aus ist – bis du ihn ausschaltest (auch über die Benachrichtigung)."
-            android:textColor="#8a96a8"
-            android:textSize="13sp" />
+            android:orientation="horizontal"
+            android:paddingHorizontal="14dp"
+            android:paddingBottom="14dp">
+            <Button android:id="@+id/share" style="@style/Glass" android:layout_width="0dp" android:layout_weight="1"
+                android:text="➦ Einladen" />
+            <Button android:id="@+id/add_widget2" style="@style/Glass" android:layout_width="0dp" android:layout_weight="1"
+                android:layout_marginStart="8dp" android:text="▦ Widget" />
+            <Button android:id="@+id/battery2" style="@style/Glass" android:layout_width="0dp" android:layout_weight="1"
+                android:layout_marginStart="8dp" android:text="⚡ Akku" android:textColor="#ffcc66" />
+            <Button android:id="@+id/off" style="@style/Glass" android:layout_width="0dp" android:layout_weight="1"
+                android:layout_marginStart="8dp" android:background="@drawable/btn_off" android:text="⏻ Aus"
+                android:textColor="#ff8a80" />
+        </LinearLayout>
     </LinearLayout>
-</ScrollView>
+</FrameLayout>
