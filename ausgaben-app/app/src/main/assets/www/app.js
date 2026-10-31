@@ -452,7 +452,7 @@
       <p><b>4. Online-Bestellungen:</b> Mach einen Screenshot der Bestellbestätigung und lade ihn hoch – oder teile ihn direkt aus der Galerie/Mail mit „AusgabenKompass“.</p>
       <p class="muted">Alle Daten bleiben auf deinem Handy. Die Texterkennung funktioniert offline.</p></div>
     </div>
-    <div class="muted small" style="text-align:center">AusgabenKompass 1.6</div>`;
+    <div class="muted small" style="text-align:center">AusgabenKompass 1.7</div>`;
   }
 
   // ---------- Dialoge ----------
@@ -904,6 +904,12 @@
   });
 
   // Start
+  // Einmalig: Buchungen/Fixkosten unter "Sonstiges" mit der erweiterten Erkennung neu zuordnen
+  if ((S.catV || 1) < 2) {
+    S.tx.forEach(x => { if (x.type === 'expense' && x.category === 'sonstiges') x.category = guessCat(x.merchant + ' ' + (x.raw || '') + ' ' + (x.items || []).map(i => i.name).join(' ')); });
+    S.recurring.forEach(r => { if (r.type === 'expense' && r.category === 'sonstiges') r.category = guessCat(r.name); });
+    S.catV = 2; save();
+  }
   $$('.tabs button').forEach(b => b.insertAdjacentHTML('afterbegin', svg(b.dataset.tab)));
   applyRecurring();
   pullPayments();
