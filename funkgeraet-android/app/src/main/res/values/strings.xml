@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Funkgerät</string>
+    <string name="widget_desc">Sprechtaste: tippen = senden, nochmal tippen = fertig</string>
+    <color name="icon_bg">#1f2a3a</color>
+    <style name="Label">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:textColor">#9aa6b8</item>
+        <item name="android:textSize">13sp</item>
+        <item name="android:layout_marginBottom">4dp</item>
+    </style>
+    <style name="Field">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">52dp</item>
+        <item name="android:background">@drawable/btn_grey</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingEnd">14dp</item>
+        <item name="android:textColor">#ffffff</item>
+        <item name="android:textColorHint">#5f6b7d</item>
+        <item name="android:textSize">17sp</item>
+        <item name="android:singleLine">true</item>
+    </style>
+    <style name="AppTheme" parent="@android:style/Theme.Material.NoActionBar">
+        <item name="android:windowBackground">@color/icon_bg</item>
+        <item name="android:statusBarColor">#14181f</item>
+        <item name="android:navigationBarColor">#14181f</item>
+        <item name="android:colorAccent">#2f6fed</item>
+    </style>
+</resources>

@@ -1,0 +1,44 @@
+plugins { id 'com.android.application' }
+
+android {
+    namespace 'de.funkgeraet.walkie'
+    compileSdk 35
+
+    defaultConfig {
+        applicationId 'de.funkgeraet.walkie'
+        minSdk 26
+        targetSdk 35
+        versionCode 1
+        versionName '1.0'
+    }
+
+    signingConfigs {
+        // fester Schlüssel, damit spätere Versionen einfach drüber installiert werden können
+        funk {
+            storeFile file('funk.keystore')
+            storePassword 'funkgeraet'
+            keyAlias 'funk'
+            keyPassword 'funkgeraet'
+        }
+    }
+    buildTypes {
+        release {
+            minifyEnabled false
+            signingConfig signingConfigs.funk
+        }
+        debug { signingConfig signingConfigs.funk }
+    }
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
+    }
+}
+
+dependencies {
+    testImplementation 'junit:junit:4.13.2'
+}
+
+tasks.withType(Test).configureEach {
+    systemProperty 'mqtt.port', System.getenv('MQTT_PORT') ?: ''
+    testLogging { events 'passed', 'skipped', 'failed'; exceptionFormat 'full' }
+}
