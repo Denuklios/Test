@@ -390,6 +390,27 @@ public class MainActivity extends ComponentActivity {
         }
 
         @JavascriptInterface
+        public String takePayments() { return PaymentListener.take(MainActivity.this); }
+
+        @JavascriptInterface
+        public boolean hasNotificationAccess() {
+            return androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(MainActivity.this).contains(getPackageName());
+        }
+
+        @JavascriptInterface
+        public void openNotificationAccess() {
+            main.post(() -> {
+                try { startActivity(new Intent(android.provider.Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)); }
+                catch (Exception e) { toast("Einstellungen konnten nicht geöffnet werden"); }
+            });
+        }
+
+        @JavascriptInterface
+        public void openAppInfo() {
+            main.post(() -> startActivity(new Intent(android.provider.Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:" + getPackageName()))));
+        }
+
+        @JavascriptInterface
         public void toast(String msg) { MainActivity.this.toast(msg); }
     }
 }

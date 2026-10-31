@@ -200,3 +200,55 @@ select option { background: #0E2629; color: var(--text); }
 .onb li { margin: 6px 0; }
 details summary { cursor: pointer; }
 pre { color: var(--muted); }
+
+/* Eigene Symbole */
+.ic { display: inline-flex; align-items: center; justify-content: center; vertical-align: middle; }
+.ic svg { width: 20px; height: 20px; }
+.ic.inl svg { width: 18px; height: 18px; color: var(--brand-hi); vertical-align: -3px; }
+.ic.e-ico { display: flex; justify-content: center; margin-bottom: 8px; color: var(--brand-hi); }
+.ic.e-ico svg { width: 46px; height: 46px; filter: drop-shadow(0 0 10px rgba(94,234,212,.35)); }
+.ic.big svg { width: 34px; height: 34px; color: var(--brand-hi); }
+.hero-actions .ic svg, .btn .ic svg { width: 18px; height: 18px; vertical-align: -4px; }
+.modal h2 button svg { width: 22px; height: 22px; }
+.items-table td.x button svg { width: 18px; height: 18px; }
+.ok-ic svg { width: 16px; height: 16px; color: var(--green); vertical-align: -3px; }
+.sr { display: flex; align-items: center; gap: 12px; }
+.sr .ic svg { width: 22px; height: 22px; color: var(--brand-hi); }
+.set-row.red .sr .ic svg { color: var(--red); }
+.search-wrap { position: relative; }
+.search-wrap .ic { position: absolute; left: 12px; top: 12px; color: var(--muted); }
+.search-wrap .search { padding-left: 42px; }
+.onb-list { text-align: left; margin: 10px 0 14px; }
+.onb-list div { display: flex; align-items: center; gap: 12px; padding: 7px 0; color: #CDE7E3; }
+.onb-list .ic svg { width: 24px; height: 24px; color: var(--brand-hi); flex: none; }
+
+/* Kategorie-Auswahl */
+.cat-btn { display: flex; align-items: center; gap: 10px; width: 100%; padding: 7px 10px 7px 7px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.05); text-align: left; }
+.cat-btn .cb-ico { width: 34px; height: 34px; border-radius: 11px; display: flex; align-items: center; justify-content: center; flex: none; }
+.cat-btn .cb-ico svg { width: 20px; height: 20px; }
+.cat-btn .cb-name { flex: 1; font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.cat-btn .cb-arr { color: var(--muted); font-size: 20px; }
+.cat-btn.sm { width: auto; display: inline-flex; padding: 3px 9px 3px 3px; border-radius: 10px; margin-top: 5px; font-size: 12px; gap: 6px; }
+.cat-btn.sm .cb-ico { width: 24px; height: 24px; border-radius: 8px; }
+.cat-btn.sm .cb-ico svg { width: 15px; height: 15px; }
+.cat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }
+.cat-tile { display: flex; flex-direction: column; align-items: center; gap: 6px; padding: 12px 4px; border-radius: 16px; background: rgba(255,255,255,.04); border: 1px solid var(--line); font-size: 11.5px; font-weight: 600; text-align: center; line-height: 1.2; }
+.cat-tile.active { border-color: var(--brand-hi); background: var(--brand-l); }
+.cat-tile .ct-ico { width: 46px; height: 46px; border-radius: 15px; display: flex; align-items: center; justify-content: center; }
+.cat-tile .ct-ico svg { width: 26px; height: 26px; }
+
+/* Händler-Vorschläge */
+.sugg-chips { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
+.sugg-chips:empty { display: none; }
+.sugg-chips button { display: inline-flex; align-items: center; gap: 5px; padding: 5px 10px 5px 7px; border-radius: 16px; background: var(--brand-l); border: 1px solid var(--stroke); font-size: 13px; font-weight: 600; }
+.sugg-chips svg { width: 16px; height: 16px; }
+
+/* Handyzahlungen */
+.b-nfc { background: rgba(94,234,212,.18); color: var(--brand-hi); }
+.nfc-card { border-color: var(--stroke); background: linear-gradient(135deg, rgba(20,184,166,.16), rgba(19,52,56,.72)); }
+.nfc-card .item .main { cursor: pointer; }
+.mini { width: 34px; height: 34px; border-radius: 50%; display: flex; align-items: center; justify-content: center; flex: none; border: 1px solid var(--line); }
+.mini svg { width: 18px; height: 18px; }
+.mini.ok { background: var(--btn); color: #fff; border-color: rgba(94,234,212,.5); }
+.mini.no { background: rgba(255,255,255,.06); color: var(--muted); }
+.nfc-hero { display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 16px; background: var(--brand-l); border: 1px solid var(--stroke); margin-bottom: 10px; }

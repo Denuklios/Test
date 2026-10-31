@@ -178,9 +178,34 @@
       <text x="${c}" y="${c + (neg ? 9 : 3)}" text-anchor="middle" font-size="${neg ? 26 : 21}" font-weight="800" fill="#fff" font-family="Roboto Condensed, system-ui, sans-serif">${neg ? '!' : Math.round(p * 100) + '%'}</text>
       ${neg ? '' : `<text x="${c}" y="${c + 17}" text-anchor="middle" font-size="9.5" font-weight="700" fill="rgba(230,255,250,.7)" letter-spacing=".6">ÜBRIG</text>`}</svg>`;
   }
-  const SRC = { bank: ['Bank', 'b-bank'], bon: ['Bon', 'b-bon'], online: ['Online', 'b-online'], fix: ['Fix', 'b-fix'] };
+  const ic = (k, cls) => `<span class="ic ${cls || ''}">${svg(k)}</span>`;
+  const catBtn = (v, small) => { const c = CAT[v] || CAT.sonstiges; return `<button type="button" class="cat-btn${small ? ' sm' : ''}" data-action="pickCat" data-v="${c.id}"><span class="cb-ico" style="color:${c.color};background:${c.color}1f">${svg('c_' + c.id)}</span><span class="cb-name">${h(c.name)}</span><span class="cb-arr">›</span></button>`; };
+  function setCatBtn(btn, v) { const t = document.createElement('div'); t.innerHTML = catBtn(v, btn.classList.contains('sm')); const n = t.firstChild; if (btn.dataset.manual) n.dataset.manual = '1'; if (btn.id) n.id = btn.id; if (btn.dataset.c) n.dataset.c = btn.dataset.c; btn.replaceWith(n); return n; }
+  function catPicker(current, cb) {
+    const m = modal(`${head('Kategorie wählen')}<div class="cat-grid">${CATS.map(c => `<button class="cat-tile ${c.id === current ? 'active' : ''}" data-pick="${c.id}"><span class="ct-ico" style="color:${c.color};background:${c.color}1f">${svg('c_' + c.id)}</span><span>${h(c.name)}</span></button>`).join('')}</div>`);
+    m.addEventListener('click', e => { const b = e.target.closest('[data-pick]'); if (b) { closeModal(); cb(b.dataset.pick); } });
+  }
+  /** Gelernte Kategorie (was du früher für diesen Händler gewählt hast), sonst Erkennung über Stichwörter */
+  const learnKey = t => P.normalizePayee(t) || String(t || '').toLowerCase().trim();
+  function guessCat(text, income) {
+    if (income) return 'einnahme';
+    const k = learnKey(text);
+    if (k && S.learn && S.learn[k]) return S.learn[k];
+    return P.guessCategory(text);
+  }
+  function learn(merchant, cat) { const k = learnKey(merchant); if (!k || !cat) return; S.learn = S.learn || {}; S.learn[k] = cat; }
+  const KNOWN_SHOPS = ['REWE', 'EDEKA', 'Lidl', 'ALDI', 'Netto', 'Penny', 'Kaufland', 'Norma', 'Globus', 'dm', 'Rossmann', 'Müller', 'Amazon', 'Zalando', 'Otto', 'eBay', 'IKEA', 'OBI', 'Bauhaus', 'Hornbach', 'Action', 'Aral', 'Shell', 'Esso', 'JET', 'TotalEnergies', 'McDonald\'s', 'Burger King', 'Starbucks', 'Bäckerei', 'Apotheke', 'Deutsche Bahn', 'MediaMarkt', 'Saturn', 'H&M', 'C&A', 'Primark', 'Deichmann', 'Decathlon', 'Fressnapf', 'Føtex', 'Bilka', 'Rema 1000', 'Coop', 'Matas', 'Netflix', 'Spotify', 'Lieferando'];
+  function shopSuggestions(q) {
+    q = q.trim().toLowerCase(); if (!q) return [];
+    const freq = {};
+    S.tx.forEach(x => { if (x.merchant) freq[x.merchant] = (freq[x.merchant] || 0) + 1; });
+    const all = Object.keys(freq).sort((a, b) => freq[b] - freq[a]).concat(KNOWN_SHOPS);
+    const seen = new Set(), out = [];
+    for (const n of all) { const l = n.toLowerCase(); if (seen.has(l) || l === q) continue; if (l.startsWith(q) || (q.length >= 3 && l.includes(q))) { seen.add(l); out.push(n); } if (out.length >= 6) break; }
+    return out;
+  }
+  const SRC = { bank: ['Bank', 'b-bank'], bon: ['Bon', 'b-bon'], online: ['Online', 'b-online'], fix: ['Fix', 'b-fix'], nfc: ['Handy', 'b-nfc'] };
   const srcBadge = s => SRC[s] ? `<span class="badge ${SRC[s][1]}">${SRC[s][0]}</span>` : '';
-  const catOptions = (sel, incomeOk) => CATS.filter(c => incomeOk || c.id !== 'einnahme').map(c => `<option value="${c.id}"${c.id === sel ? ' selected' : ''}>${c.icon} ${h(c.name)}</option>`).join('');
 
   // ---------- Native Brücke ----------
   const hasNative = typeof window.AndroidBridge !== 'undefined';
@@ -263,6 +288,10 @@
     else if (s.free < 0) html += `<div class="warn danger">Achtung: Du liegst ${money(-s.free)} über deinem Budget.</div>`;
     else if (s.available > 0 && s.free / s.available < 0.15 && isCur) html += `<div class="warn">Nur noch ${Math.round(s.free / s.available * 100)} % deines Geldes stehen dir zur Verfügung.</div>`;
 
+    const pend = (S.pending || []);
+    if (pend.length && isCur) {
+      html += `<div class="card nfc-card"><h3><span>${ic('u_nfc', 'inl')} Neue Handyzahlungen</span>${pend.length > 1 ? '<button class="link" data-action="payAll">Alle übernehmen</button>' : ''}</h3><ul class="list">${pend.map(p => `<li class="item">${catIco(p.category)}<div class="main" data-action="payEdit" data-id="${p.id}"><div class="title">${h(p.merchant)}</div><div class="sub">${h(p.note || 'Handy')} · ${fmtShort(p.date)}</div></div><div class="amt out">${money(p.amount, 'out')}</div><button class="mini ok" data-action="payOk" data-id="${p.id}" aria-label="Übernehmen">${svg('u_check')}</button><button class="mini no" data-action="payNo" data-id="${p.id}" aria-label="Verwerfen">${svg('u_close')}</button></li>`).join('')}</ul></div>`;
+    }
     html += `<div class="quick">
       <button data-action="addManual">${rbtn('amount')}Betrag</button>
       <button data-action="scanPhoto">${rbtn('photo')}Foto</button>
@@ -295,7 +324,7 @@
 
     const recent = s.list.slice().sort(sortTx).slice(0, 6);
     html += `<div class="card"><h3>Letzte Buchungen <button class="link" data-action="go" data-tab="tx">Alle</button></h3>`;
-    html += recent.length ? `<ul class="list">${recent.map(txItem).join('')}</ul>` : `<div class="empty"><div class="e-ico">🧾</div>Noch nichts erfasst.<br>Fotografiere deinen ersten Bon oder importiere einen Kontoauszug.</div>`;
+    html += recent.length ? `<ul class="list">${recent.map(txItem).join('')}</ul>` : `<div class="empty">${ic('tx', 'e-ico')}Noch nichts erfasst.<br>Fotografiere deinen ersten Bon oder importiere einen Kontoauszug.</div>`;
     html += `</div>`;
     return html;
   }
@@ -314,9 +343,9 @@
     if (txFilter.cat) list = list.filter(x => x.category === txFilter.cat);
     if (q) list = list.filter(x => [x.merchant, x.note, ...(x.items || []).map(i => i.name)].join(' ').toLowerCase().includes(q) || String(x.amount).includes(q.replace(',', '.')));
     const used = Array.from(new Set(s.list.map(x => x.category)));
-    let html = `<input id="q" class="search" placeholder="🔍 Suchen (Händler, Artikel, Betrag)" value="${h(txFilter.q)}">
+    let html = `<div class="search-wrap">${ic('u_search')}<input id="q" class="search" placeholder="Suchen (Händler, Artikel, Betrag)" value="${h(txFilter.q)}"></div>
       <div class="chips"><button class="chip ${!txFilter.cat ? 'active' : ''}" data-action="filterCat" data-cat="">Alle</button>${used.map(id => `<button class="chip ${txFilter.cat === id ? 'active' : ''}" data-action="filterCat" data-cat="${id}">${CAT[id] ? `<span class="chip-ico" style="color:${CAT[id].color}">${svg('c_' + id)}</span>` + h(CAT[id].name) : id}</button>`).join('')}</div>`;
-    if (!list.length) return html + `<div class="card empty"><div class="e-ico">🔎</div>Keine Buchungen ${q || txFilter.cat ? 'gefunden' : 'in diesem Monat'}.</div>`;
+    if (!list.length) return html + `<div class="card empty">${ic('u_search', 'e-ico')}Keine Buchungen ${q || txFilter.cat ? 'gefunden' : 'in diesem Monat'}.</div>`;
     const sum = r2(list.reduce((t, x) => t + (x.type === 'expense' ? -x.amount : x.amount), 0));
     html += `<div class="muted small" style="margin:0 4px">${list.length} Buchungen · Saldo ${money(sum)}</div>`;
     let day = '';
@@ -343,7 +372,7 @@
     const total = r2(exp.filter(r => r.active).reduce((s, r) => s + monthly(r), 0));
     let html = `<div class="card hero"><div class="label">Fixkosten pro Monat</div><div class="big">${money(total)}</div>
       <div class="label">${exp.filter(r => r.active).length} aktive Verträge, Abos & Daueraufträge – werden jeden Monat automatisch gebucht.</div>
-      <div class="hero-actions"><button data-action="addRec">＋ Fixkosten anlegen</button><button data-action="importStatement">🏦 Aus Auszug erkennen</button></div></div>`;
+      <div class="hero-actions"><button data-action="addRec">${ic('u_plus')} Fixkosten anlegen</button><button data-action="importStatement">${ic('bank')} Aus Auszug erkennen</button></div></div>`;
     const block = (title, list) => {
       if (!list.length) return '';
       let b = `<div class="card"><h3>${title}</h3><ul class="list">`;
@@ -354,7 +383,7 @@
       return b + '</ul></div>';
     };
     html += block('Ausgaben', exp) + block('Regelmäßige Einnahmen', inc);
-    if (!S.recurring.length) html += `<div class="card empty"><div class="e-ico">🔁</div>Noch keine Fixkosten.<br>Importiere einen Kontoauszug – Miete, Versicherungen, Abos & Co. werden automatisch erkannt.</div>`;
+    if (!S.recurring.length) html += `<div class="card empty">${ic('fix', 'e-ico')}Noch keine Fixkosten.<br>Importiere einen Kontoauszug – Miete, Versicherungen, Abos & Co. werden automatisch erkannt.</div>`;
     return html;
   }
 
@@ -376,7 +405,7 @@
     if (cats.length) {
       html += `<div class="card"><h3>Ausgaben nach Kategorie</h3><div class="donut-wrap">${donut(cats, s.spent)}<div class="legend">${cats.slice(0, 8).map(([id, v]) => `<div><i style="background:${(CAT[id] || CAT.sonstiges).color}"></i><span>${h((CAT[id] || CAT.sonstiges).name)}</span><b>${Math.round(v / s.spent * 100)}%</b></div>`).join('')}</div></div>
       <ul class="list" style="margin-top:8px">${cats.map(([id, v]) => `<li class="item" data-action="filterCat" data-cat="${id}">${catIco(id)}<div class="main"><div class="title">${h((CAT[id] || CAT.sonstiges).name)}</div><div class="sub">${s.list.filter(x => x.category === id && x.type === 'expense').length} Buchungen${S.catLimits[id] ? ' · Limit ' + money(S.catLimits[id]) : ''}</div></div><div class="amt">${money(v)}</div></li>`).join('')}</ul></div>`;
-    } else html += `<div class="card empty"><div class="e-ico">📊</div>Für ${h(periodLabel(period))} gibt es noch keine Ausgaben.</div>`;
+    } else html += `<div class="card empty">${ic('stats', 'e-ico')}Für ${h(periodLabel(period))} gibt es noch keine Ausgaben.</div>`;
 
     // Verlauf 6 Monate
     const months = Array.from({ length: 6 }, (_, i) => shiftPeriod(period, i - 5));
@@ -406,13 +435,14 @@
       <button class="set-row" data-action="setDefaultBudget"><span>Standard-Startbetrag pro Monat</span><span class="v">${st.defaultBudget ? money(st.defaultBudget) : 'nicht gesetzt'} ›</span></button>
       <button class="set-row" data-action="setStartDay"><span>Monat beginnt am (z. B. Gehaltstag)</span><span class="v">${st.startDay}. ›</span></button>
       <button class="set-row" data-action="setCurrency"><span>Währung</span><span class="v">${st.currency} ›</span></button>
+      <button class="set-row" data-action="nfcSetup"><span class="sr">${ic('u_nfc')}Handyzahlungen automatisch erfassen</span><span class="v">${nfcActive() ? (S.settings.autoPay ? 'automatisch' : 'mit Nachfrage') : 'aus'} ›</span></button>
       <button class="set-row" data-action="setLimits"><span>Limits pro Kategorie</span><span class="v">${Object.values(S.catLimits).filter(Boolean).length} gesetzt ›</span></button>
     </div>
     <div class="card"><h3>Daten</h3>
-      <button class="set-row" data-action="backup"><span>💾 Sicherung speichern</span><span class="v">›</span></button>
-      <button class="set-row" data-action="restore"><span>📂 Sicherung laden</span><span class="v">›</span></button>
-      <button class="set-row" data-action="exportCsv"><span>📄 Buchungen als CSV (Excel)</span><span class="v">›</span></button>
-      <button class="set-row red" data-action="wipe"><span>🗑️ Alle Daten löschen</span><span class="v">›</span></button>
+      <button class="set-row" data-action="backup"><span class="sr">${ic('u_save')}Sicherung speichern</span><span class="v">›</span></button>
+      <button class="set-row" data-action="restore"><span class="sr">${ic('u_open')}Sicherung laden</span><span class="v">›</span></button>
+      <button class="set-row" data-action="exportCsv"><span class="sr">${ic('u_table')}Buchungen als CSV (Excel)</span><span class="v">›</span></button>
+      <button class="set-row red" data-action="wipe"><span class="sr">${ic('u_trash')}Alle Daten löschen</span><span class="v">›</span></button>
     </div>
     <div class="card"><h3>So funktioniert's</h3>
       <div class="small" style="color:#334155">
@@ -422,7 +452,7 @@
       <p><b>4. Online-Bestellungen:</b> Mach einen Screenshot der Bestellbestätigung und lade ihn hoch – oder teile ihn direkt aus der Galerie/Mail mit „AusgabenKompass“.</p>
       <p class="muted">Alle Daten bleiben auf deinem Handy. Die Texterkennung funktioniert offline.</p></div>
     </div>
-    <div class="muted small" style="text-align:center">AusgabenKompass 1.4</div>`;
+    <div class="muted small" style="text-align:center">AusgabenKompass 1.5</div>`;
   }
 
   // ---------- Dialoge ----------
@@ -439,7 +469,7 @@
   }
   function closeModal() { const m = modals.pop(); if (m) m.remove(); }
   function closeAll() { while (modals.length) closeModal(); }
-  const head = t => `<h2>${t}<button data-action="close">✕</button></h2>`;
+  const head = t => `<h2>${t}<button data-action="close" aria-label="Schließen">${svg('u_close')}</button></h2>`;
 
   window.handleBack = function () {
     if (!$('#busy').classList.contains('hidden')) return true;
@@ -459,7 +489,7 @@
     if (modals.length || S.onboarded) return;
     const m = modal(`<div class="onb"><div class="logo">${ringSvg(0.72, 96, false).replace('72%', '€')}</div><h1>Willkommen beim AusgabenKompass</h1>
       <p class="muted">Behalte dein Geld im Blick – ohne Bankzugang, alles bleibt auf deinem Handy.</p>
-      <ul><li>💶 Startbetrag am Monatsanfang eingeben</li><li>🏦 Kontoauszug hochladen – Fixkosten werden erkannt & monatlich automatisch gebucht</li><li>📷 Bon fotografieren – Artikel & Preise werden ausgelesen</li><li>🖼️ Screenshots von Online-Bestellungen hochladen</li></ul></div>
+      <div class="onb-list"><div>${ic('amount')}Startbetrag am Monatsanfang eingeben</div><div>${ic('bank')}Kontoauszug hochladen – Fixkosten werden erkannt & monatlich automatisch gebucht</div><div>${ic('photo')}Bon fotografieren – Artikel & Preise werden ausgelesen</div><div>${ic('upload')}Screenshots von Online-Bestellungen hochladen</div><div>${ic('u_nfc')}Handyzahlungen automatisch erfassen</div></div></div>
       <div class="field"><label>Wie viel Geld hast du diesen Monat zur Verfügung?</label><input id="ob" class="amount-input" inputmode="decimal" placeholder="z. B. 1.800,00"></div>
       <div class="field"><label>Dein Monat beginnt am … (Tag, an dem das Geld kommt)</label><select id="sd">${Array.from({ length: 28 }, (_, i) => `<option value="${i + 1}">${i + 1}.${i === 0 ? ' (Monatsanfang)' : ''}</option>`).join('')}</select></div>
       <div class="field"><label>Währung</label><select id="cur"><option>EUR</option><option>DKK</option><option>CHF</option><option>SEK</option><option>NOK</option><option>GBP</option><option>USD</option><option>PLN</option></select></div>
@@ -500,7 +530,7 @@
 
 
   function reviewReceipt(r, source) {
-    const tx = { id: uid(), date: r.date || today(), amount: r.total || 0, type: 'expense', merchant: r.merchant, category: r.category, source, items: r.items.slice(), note: '', created: Date.now() };
+    const tx = { id: uid(), date: r.date || today(), amount: r.total || 0, type: 'expense', merchant: r.merchant, category: (S.learn && S.learn[learnKey(r.merchant)]) || r.category, source, items: r.items.slice(), note: '', created: Date.now() };
     if (tx.date > today()) tx.date = today();
     txEditor(tx, true, r);
   }
@@ -518,30 +548,32 @@
       ${scan && !scan.totalFound ? `<div class="warn">Keine Gesamtsumme gefunden – bitte Betrag prüfen.</div>` : ''}
       <div class="seg"><button data-t="expense" class="${!isInc ? 'active' : ''}">Ausgabe</button><button data-t="income" class="${isInc ? 'active' : ''}">Einnahme</button></div>
       <div class="field"><input id="amt" class="amount-input" inputmode="decimal" value="${tx.amount ? num(tx.amount) : ''}" placeholder="0,00"></div>
-      <div class="field"><label>Händler / Beschreibung</label><input id="mer" value="${h(tx.merchant)}" placeholder="z. B. REWE"></div>
+      <div class="field"><label>Händler / Beschreibung</label><input id="mer" value="${h(tx.merchant)}" placeholder="z. B. REWE" autocomplete="off"><div class="sugg-chips" id="msug"></div></div>
       <div class="grid2"><div class="field"><label>Datum</label><input id="dt" type="date" value="${tx.date}"></div>
-      <div class="field"><label>Kategorie</label><select id="cat">${catOptions(tx.category, true)}</select></div></div>
+      <div class="field"><label>Kategorie</label>${catBtn(tx.category).replace('<button ', '<button id="cat" ')}</div></div>
       <div class="field"><label>Positionen <span class="muted">(optional)</span></label><table class="items-table" id="items"></table>
         <div class="sumline"><button class="btn ghost sm" id="addItem">＋ Position</button><span id="isum" class="muted"></span></div></div>
       <div class="field"><label>Notiz</label><input id="note" value="${h(tx.note)}" placeholder="optional"></div>
       ${tx.type === 'income' && !isNew ? `<label class="set-row"><span>Zum verfügbaren Geld zählen</span><span class="switch"><input type="checkbox" id="cnt" ${tx.excluded ? '' : 'checked'}><span></span></span></label>` : ''}
-      ${tx.recId ? `<p class="muted small">🔁 Automatisch gebucht aus Fixkosten.</p>` : ''}
+      ${tx.recId ? `<p class="muted small">${ic('fix', 'inl')} Automatisch gebucht aus Fixkosten.</p>` : ''}
       ${scan ? `<details class="small muted"><summary>Erkannter Text</summary><pre style="white-space:pre-wrap;font-size:11px">${h(scan.rawText)}</pre></details>` : ''}
       <div class="btns">${!isNew ? '<button class="btn red" id="del">Löschen</button>' : '<button class="btn sec" data-action="close">Abbrechen</button>'}<button class="btn" id="sv">Speichern</button></div>`);
     let type = tx.type;
+    const getCat = () => $('#cat', m).dataset.v, setCat = v => setCatBtn($('#cat', m), v);
+    if (!isNew) $('#cat', m).dataset.manual = '1';
     $$('.seg button', m).forEach(b => b.onclick = () => {
       type = b.dataset.t; $$('.seg button', m).forEach(x => x.classList.toggle('active', x === b));
-      if (type === 'income' && $('#cat', m).value !== 'einnahme') $('#cat', m).value = 'einnahme';
-      if (type === 'expense' && $('#cat', m).value === 'einnahme') $('#cat', m).value = P.guessCategory($('#mer', m).value);
+      if (type === 'income' && getCat() !== 'einnahme') setCat('einnahme');
+      if (type === 'expense' && getCat() === 'einnahme') setCat(guessCat($('#mer', m).value));
     });
     const drawItems = () => {
-      $('#items', m).innerHTML = items.map((it, i) => `<tr><td><input data-i="${i}" data-k="name" value="${h(it.name)}"></td><td class="p"><input data-i="${i}" data-k="price" inputmode="decimal" value="${num(it.price)}"></td><td class="x"><button data-del="${i}">✕</button></td></tr>`).join('');
+      $('#items', m).innerHTML = items.map((it, i) => `<tr><td><input data-i="${i}" data-k="name" value="${h(it.name)}"></td><td class="p"><input data-i="${i}" data-k="price" inputmode="decimal" value="${num(it.price)}"></td><td class="x"><button data-del="${i}" aria-label="Entfernen">${svg('u_close')}</button></td></tr>`).join('');
       updSum();
     };
     const updSum = () => {
       const s = r2(items.reduce((t, it) => t + (+it.price || 0), 0));
       const total = readNum($('#amt', m).value);
-      $('#isum', m).innerHTML = items.length ? `Summe Positionen: <b>${money(s)}</b>${Math.abs(s - total) > 0.01 ? ` <button class="btn ghost sm" id="useSum">übernehmen</button>` : ' ✓'}` : '';
+      $('#isum', m).innerHTML = items.length ? `Summe Positionen: <b>${money(s)}</b>${Math.abs(s - total) > 0.01 ? ` <button class="btn ghost sm" id="useSum">übernehmen</button>` : ` <span class="ok-ic">${svg('u_check')}</span>`}` : '';
       const u = $('#useSum', m); if (u) u.onclick = () => { $('#amt', m).value = num(s); updSum(); };
     };
     drawItems();
@@ -553,7 +585,14 @@
     $('#items', m).addEventListener('click', e => { const d = e.target.dataset.del; if (d != null) { items.splice(+d, 1); drawItems(); } });
     $('#addItem', m).onclick = () => { items.push({ name: '', price: 0 }); drawItems(); const ins = $$('#items input[data-k=name]', m); ins[ins.length - 1].focus(); };
     $('#amt', m).oninput = updSum;
-    $('#mer', m).onchange = () => { if (isNew && !scan && type === 'expense') { const g = P.guessCategory($('#mer', m).value); if (g !== 'sonstiges') $('#cat', m).value = g; } };
+    const autoCat = () => { if (type !== 'expense' || $('#cat', m).dataset.manual) return; const v = $('#mer', m).value; if (!v.trim()) return; const g = guessCat(v); if (g !== 'sonstiges' || getCat() === 'sonstiges') setCat(g); };
+    const drawSugg = () => {
+      const list = shopSuggestions($('#mer', m).value);
+      $('#msug', m).innerHTML = list.map(n => { const c = CAT[guessCat(n)] || CAT.sonstiges; return `<button type="button" data-shop="${h(n)}"><span style="color:${c.color}">${svg('c_' + c.id)}</span>${h(n)}</button>`; }).join('');
+    };
+    $('#mer', m).addEventListener('input', () => { autoCat(); drawSugg(); });
+    $('#mer', m).addEventListener('blur', () => setTimeout(() => { if ($('#msug', m)) $('#msug', m).innerHTML = ''; }, 200));
+    $('#msug', m).addEventListener('click', e => { const b = e.target.closest('[data-shop]'); if (!b) return; $('#mer', m).value = b.dataset.shop; $('#msug', m).innerHTML = ''; autoCat(); });
     if (isNew && !scan) setTimeout(() => $('#amt', m).focus(), 120);
     if (!isNew) $('#del', m).onclick = () => {
       if (!confirm('Buchung löschen?')) return;
@@ -565,11 +604,13 @@
       const amount = Math.abs(readNum($('#amt', m).value));
       if (!amount) { toast('Bitte einen Betrag eingeben'); $('#amt', m).focus(); return; }
       const upd = Object.assign(tx, {
-        amount, type, merchant: $('#mer', m).value.trim(), date: $('#dt', m).value || today(), category: $('#cat', m).value,
+        amount, type, merchant: $('#mer', m).value.trim(), date: $('#dt', m).value || today(), category: getCat(),
         note: $('#note', m).value.trim(), items: items.filter(i => i.name || i.price)
       });
       if ($('#cnt', m)) upd.excluded = !$('#cnt', m).checked;
+      if (upd.merchant && type === 'expense') learn(upd.merchant, upd.category);
       if (isNew) {
+        S.pending = (S.pending || []).filter(x => x.id !== upd.id);
         // Doppelt? (z. B. Bon bereits über Kontoauszug erfasst)
         const dup = findDuplicate(upd);
         if (dup) {
@@ -646,7 +687,7 @@
       else if (rec) { status = 'rec'; on = true; t.recId = rec.id; }
       if (type === 'income') on = false;
       t.status = status; t.on = on;
-      t.category = rec ? rec.category : P.guessCategory(r.text, type === 'income');
+      t.category = rec ? rec.category : (type === 'income' ? 'einnahme' : (S.learn && S.learn[learnKey(r.payee || P.prettyName(r.text))]) || P.guessCategory(r.text));
       t.merchant = P.prettyName(r.payee || r.text);
       return t;
     });
@@ -655,13 +696,13 @@
     const sum = r2(prepared.filter(p => p.type === 'expense').reduce((s, p) => s + p.amount, 0));
     const m = modal(`${head('Kontoauszug importieren')}
       <p class="muted small">${rows.length} Buchungen vom ${fmtShort(rows[0].date)} bis ${fmtShort(rows[rows.length - 1].date)} · ${expCount} Ausgaben (${money(sum)}).<br>Einnahmen sind abgewählt, weil dein Startbetrag sie schon enthält – bei Bedarf anhaken.</p>
-      ${sugg.length ? `<div class="card sugg-box"><h3>🔁 Erkannte Fixkosten</h3><p class="muted small" style="margin-top:-6px">Angehakte werden ab jetzt jeden Monat automatisch eingeplant und gebucht.</p><div id="sugg"></div></div>` : ''}
+      ${sugg.length ? `<div class="card sugg-box"><h3>${ic('fix', 'inl')} Erkannte Fixkosten</h3><p class="muted small" style="margin-top:-6px">Angehakte werden ab jetzt jeden Monat automatisch eingeplant und gebucht.</p><div id="sugg"></div></div>` : ''}
       <h3 style="font-size:15px;margin:8px 0 2px">Buchungen</h3><div class="chips"><button class="chip" data-sel="all">Alle wählen</button><button class="chip" data-sel="none">Keine</button><button class="chip" data-sel="exp">Nur Ausgaben</button></div>
       <div id="rows"></div>
       <div class="btns sticky-btns"><button class="btn sec" data-action="close">Abbrechen</button><button class="btn" id="imp">Importieren</button></div>`);
     const SL = { new: ['neu', 'b-new'], already: ['schon importiert', 'b-dup'], dup: ['doppelt (Bon)', 'b-dup'], rec: ['Fixkosten', 'b-fix'] };
     const drawRows = () => {
-      $('#rows', m).innerHTML = prepared.map((p, i) => `<div class="imp-row ${p.on ? '' : 'off'}"><input type="checkbox" data-i="${i}" ${p.on ? 'checked' : ''}><div class="main"><div class="title">${h(p.merchant)} <span class="badge ${SL[p.status][1]}">${SL[p.status][0]}</span></div><div class="sub small muted">${fmtShort(p.date)} · ${h(p.text.slice(0, 70))}</div><select data-c="${i}">${catOptions(p.category, true)}</select></div><div class="amt ${p.type === 'income' ? 'in' : 'out'}">${money(p.amount, p.type === 'income' ? 'in' : 'out')}</div></div>`).join('');
+      $('#rows', m).innerHTML = prepared.map((p, i) => `<div class="imp-row ${p.on ? '' : 'off'}"><input type="checkbox" data-i="${i}" ${p.on ? 'checked' : ''}><div class="main"><div class="title">${h(p.merchant)} <span class="badge ${SL[p.status][1]}">${SL[p.status][0]}</span></div><div class="sub small muted">${fmtShort(p.date)} · ${h(p.text.slice(0, 70))}</div>${catBtn(p.category, true).replace('data-action="pickCat"', `data-c="${i}"`)}</div><div class="amt ${p.type === 'income' ? 'in' : 'out'}">${money(p.amount, p.type === 'income' ? 'in' : 'out')}</div></div>`).join('');
       const btn = $('#imp', m); const n = prepared.filter(p => p.on).length; btn.textContent = n ? `${n} importieren` : 'Nur Fixkosten übernehmen';
     };
     const drawSugg = () => {
@@ -669,6 +710,7 @@
       $('#sugg', m).innerHTML = sugg.map((s, i) => `<div class="imp-row ${s.on ? '' : 'off'}"><input type="checkbox" data-s="${i}" ${s.on ? 'checked' : ''}><div class="main"><div class="title">${h(s.name)}</div><div class="sub small muted">${s.count}× gefunden · am ${s.day}. · ${h((CAT[s.category] || CAT.sonstiges).name)}${s.confidence < 2 ? ' · nur 1× gesehen' : ''}${s.type === 'income' ? ' · nur anhaken, wenn nicht im Startbetrag enthalten' : ''}</div></div><div class="amt ${s.type === 'income' ? 'in' : 'out'}">${money(s.amount, s.type === 'income' ? 'in' : 'out')}</div></div>`).join('');
     };
     drawRows(); drawSugg();
+    m.addEventListener('click', e => { const b = e.target.closest('.cat-btn[data-c]'); if (!b) return; const i = +b.dataset.c; catPicker(prepared[i].category, v => { prepared[i].category = v; drawRows(); }); });
     m.addEventListener('change', e => {
       const t = e.target;
       if (t.dataset.i != null) { prepared[+t.dataset.i].on = t.checked; t.closest('.imp-row').classList.toggle('off', !t.checked); drawRows(); }
@@ -700,6 +742,7 @@
           if (auto) { Object.assign(auto, { date: p.date, amount: p.amount, source: 'bank', raw: p.text }); n++; continue; }
           if (rec && rec.amount !== p.amount && per === periodOf(today())) rec.amount = p.amount;
         }
+        if (p.type === 'expense') learn(p.payee || p.merchant, p.category);
         S.tx.push({ id: uid(), date: p.date, amount: p.amount, type: p.type, merchant: p.merchant, category: p.category, source: 'bank', raw: p.text, recId: recId || undefined, items: [], note: '', created: Date.now() });
         n++;
       }
@@ -721,14 +764,15 @@
       <div class="field"><label>Name</label><input id="nm" value="${h(rec.name)}" placeholder="z. B. Miete, Netflix, Handyvertrag"></div>
       <div class="grid2"><div class="field"><label>Fällig am</label><select id="day">${Array.from({ length: 31 }, (_, i) => `<option value="${i + 1}" ${rec.day === i + 1 ? 'selected' : ''}>${i + 1}. des Monats</option>`).join('')}</select></div>
       <div class="field"><label>Rhythmus</label><select id="iv">${[[1, 'monatlich'], [3, 'vierteljährlich'], [6, 'halbjährlich'], [12, 'jährlich']].map(([v, t]) => `<option value="${v}" ${(rec.interval || 1) === v ? 'selected' : ''}>${t}</option>`).join('')}</select></div></div>
-      <div class="grid2"><div class="field"><label>Kategorie</label><select id="cat">${catOptions(rec.category, true)}</select></div>
+      <div class="field"><label>Kategorie</label>${catBtn(rec.category).replace('<button ', '<button id="cat" ')}</div><div class="grid2">
       <div class="field"><label>Erste Buchung im</label><select id="sp">${Array.from({ length: 15 }, (_, i) => shiftPeriod(periodOf(today()), i - 12)).map(k => `<option value="${k}" ${k === (rec.anchor || rec.startPeriod) ? 'selected' : ''}>${periodLabel(k)}</option>`).join('')}</select></div></div>
       <div class="field"><label>Erkennungswort im Kontoauszug <span class="muted">(optional)</span></label><input id="key" value="${h(rec.key)}" placeholder="wird automatisch gesetzt"></div>
       <label class="set-row"><span>Aktiv (wird automatisch gebucht)</span><span class="switch"><input type="checkbox" id="act" ${rec.active ? 'checked' : ''}><span></span></span></label>
       <div class="btns">${isNew ? '<button class="btn sec" data-action="close">Abbrechen</button>' : '<button class="btn red" id="del">Löschen</button>'}<button class="btn" id="sv">Speichern</button></div>`);
     let type = rec.type;
-    $$('.seg button', m).forEach(b => b.onclick = () => { type = b.dataset.t; $$('.seg button', m).forEach(x => x.classList.toggle('active', x === b)); if (type === 'income') $('#cat', m).value = 'einnahme'; });
-    $('#nm', m).onchange = () => { if ($('#cat', m).value === 'sonstiges') $('#cat', m).value = P.guessCategory($('#nm', m).value, type === 'income'); };
+    $$('.seg button', m).forEach(b => b.onclick = () => { type = b.dataset.t; $$('.seg button', m).forEach(x => x.classList.toggle('active', x === b)); if (type === 'income') setCatBtn($('#cat', m), 'einnahme'); });
+    $('#nm', m).addEventListener('input', () => { if ($('#cat', m).dataset.manual) return; const g = guessCat($('#nm', m).value, type === 'income'); if (g !== 'sonstiges') setCatBtn($('#cat', m), g); });
+    if (!isNew) $('#cat', m).dataset.manual = '1';
     if (isNew) setTimeout(() => $('#amt', m).focus(), 120);
     if (!isNew) $('#del', m).onclick = () => {
       const m2 = modal(`${head('Fixkosten löschen')}<p>„${h(rec.name)}“ wird nicht mehr automatisch gebucht.</p><div class="btns" style="flex-direction:column"><button class="btn red" id="d1">Löschen, bisherige Buchungen behalten</button><button class="btn sec" id="d2">Auch alle bisherigen Buchungen löschen</button></div>`);
@@ -739,13 +783,48 @@
       const amount = Math.abs(readNum($('#amt', m).value));
       const name = $('#nm', m).value.trim();
       if (!amount || !name) { toast('Bitte Name und Betrag eingeben'); return; }
-      Object.assign(rec, { amount, name, type, day: +$('#day', m).value, interval: +$('#iv', m).value, category: $('#cat', m).value, active: $('#act', m).checked, startPeriod: $('#sp', m).value, anchor: $('#sp', m).value, key: $('#key', m).value.trim() || P.normalizePayee(name) });
+      Object.assign(rec, { amount, name, type, day: +$('#day', m).value, interval: +$('#iv', m).value, category: $('#cat', m).dataset.v, active: $('#act', m).checked, startPeriod: $('#sp', m).value, anchor: $('#sp', m).value, key: $('#key', m).value.trim() || P.normalizePayee(name) });
       if (isNew) S.recurring.push(rec);
       // offene automatische Buchungen des laufenden Monats aktualisieren
       S.tx.forEach(x => { if (x.recId === rec.id && x.source === 'fix' && periodOf(x.date) === periodOf(today())) Object.assign(x, { amount, merchant: name, category: rec.category, type }); });
       const n = applyRecurring(); save(); closeModal(); render();
       toast(n ? `Gespeichert – ${n} fällige Buchung${n > 1 ? 'en' : ''} automatisch erstellt` : 'Gespeichert');
     };
+  }
+
+  // ----- Handyzahlungen (Benachrichtigungen von Google Wallet & Banking-Apps) -----
+  const nfcActive = () => { try { return !!(window.AndroidBridge && AndroidBridge.hasNotificationAccess && AndroidBridge.hasNotificationAccess()); } catch (e) { return false; } };
+  function pullPayments() {
+    if (!window.AndroidBridge || !AndroidBridge.takePayments) return 0;
+    let arr = [];
+    try { arr = JSON.parse(AndroidBridge.takePayments() || '[]'); } catch (e) { return 0; }
+    if (!arr.length) return 0;
+    S.pending = S.pending || [];
+    for (const p of arr) {
+      const merchant = p.merchant ? P.prettyName(p.merchant) : 'Kartenzahlung';
+      const t = { id: uid(), date: p.date || today(), amount: p.amount, type: 'expense', merchant, category: guessCat(merchant), source: 'nfc', items: [], note: p.app || '', created: p.time || Date.now() };
+      if (S.settings.autoPay) { S.tx.push(t); learn(merchant, t.category); } else S.pending.push(t);
+    }
+    save();
+    toast(arr.length === 1 ? `Handyzahlung erkannt: ${money(arr[0].amount)}` : `${arr.length} Handyzahlungen erkannt`);
+    return arr.length;
+  }
+  function nfcSetup() {
+    const on = nfcActive();
+    const m = modal(`${head('Handyzahlungen erfassen')}
+      <div class="nfc-hero">${ic('u_nfc', 'big')}<div><b>${on ? 'Aktiv' : 'Noch nicht aktiv'}</b><div class="muted small">${on ? 'Zahlungen werden automatisch erkannt.' : 'Einmal den Zugriff erlauben – dann geht alles von selbst.'}</div></div></div>
+      <p class="small">Wenn du mit dem Handy bezahlst (Google Wallet, Samsung Wallet) oder deine Banking-App eine Zahlung meldet, liest die App diese Benachrichtigung und erfasst <b>Händler und Betrag</b> automatisch – auch das Widget aktualisiert sich sofort.</p>
+      <p class="muted small">Gelesen werden nur Benachrichtigungen von Wallet- und Banking-Apps (z. B. Google Wallet, Samsung Wallet, PayPal, N26, DKB, ING, Sparkasse, Comdirect, C24, Revolut, Lunar, MobilePay). Nichts verlässt dein Handy. Doppelte Meldungen (Wallet + Bank) werden zusammengefasst.</p>
+      ${on ? '' : `<button class="btn block" id="grant">${ic('u_nfc')} Zugriff erlauben</button>
+      <details class="small" style="margin-top:12px"><summary><b>Geht der Schalter nicht an? („Eingeschränkte Einstellung“)</b></summary>
+      <p class="muted">Bei Apps, die nicht aus dem Play Store kommen, sperrt Android diese Einstellung zuerst. So entsperrst du sie:</p>
+      <ol class="muted"><li>Unten auf „App-Info öffnen“ tippen</li><li>Oben rechts auf <b>⋮</b> tippen → <b>„Eingeschränkte Einstellungen zulassen“</b></li><li>Zurück und erneut „Zugriff erlauben“ tippen</li></ol>
+      <button class="btn sec block" id="info">App-Info öffnen</button></details>`}
+      <label class="set-row" style="margin-top:10px"><span>Ohne Nachfrage übernehmen<div class="muted small">Sonst erscheinen neue Zahlungen zum Bestätigen auf der Übersicht.</div></span><span class="switch"><input type="checkbox" id="auto" ${S.settings.autoPay ? 'checked' : ''}><span></span></span></label>
+      <button class="btn block" data-action="close" style="margin-top:12px">Fertig</button>`);
+    const g = $('#grant', m); if (g) g.onclick = () => { closeModal(); AndroidBridge.openNotificationAccess(); };
+    const i = $('#info', m); if (i) i.onclick = () => AndroidBridge.openAppInfo();
+    $('#auto', m).onchange = e => { S.settings.autoPay = e.target.checked; save(); render(); };
   }
 
   // ----- Einstellungen -----
@@ -793,6 +872,12 @@
     editTx: el => { const x = S.tx.find(t => t.id === el.dataset.id); if (x) txEditor(x, false); },
     filterCat: el => { txFilter.cat = el.dataset.cat; txFilter.focus = false; tab = 'tx'; render(); },
     addRec: () => recEditor(null),
+    pickCat: el => catPicker(el.dataset.v, v => { const n = setCatBtn(el, v); n.dataset.manual = '1'; }),
+    payOk: el => { const p = (S.pending || []).find(x => x.id === el.dataset.id); if (!p) return; S.pending = S.pending.filter(x => x !== p); S.tx.push(p); learn(p.merchant, p.category); save(); render(); toast('Übernommen: ' + money(p.amount)); },
+    payNo: el => { S.pending = (S.pending || []).filter(x => x.id !== el.dataset.id); save(); render(); },
+    payEdit: el => { const p = (S.pending || []).find(x => x.id === el.dataset.id); if (p) txEditor(p, true); },
+    payAll: () => { const n = (S.pending || []).length; (S.pending || []).forEach(p => { S.tx.push(p); learn(p.merchant, p.category); }); S.pending = []; save(); render(); toast(n + ' Zahlungen übernommen'); },
+    nfcSetup,
     editRec: el => recEditor(S.recurring.find(r => r.id === el.dataset.id)),
     setDefaultBudget: () => askNumber('Standard-Startbetrag', S.settings.defaultBudget, 'Gilt für jeden Monat, für den du keinen eigenen Betrag eingibst.', v => { S.settings.defaultBudget = v; save(); }),
     setStartDay: () => {
@@ -821,9 +906,10 @@
   // Start
   $$('.tabs button').forEach(b => b.insertAdjacentHTML('afterbegin', svg(b.dataset.tab)));
   applyRecurring();
+  pullPayments();
   render();
   pushWidget();
   // Neuer Monat seit letztem Öffnen? -> Fixkosten buchen
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (applyRecurring()) render(); pushWidget(); } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { applyRecurring(); pullPayments(); render(); pushWidget(); } });
   window.__app = { S: () => S, periodOf, periodRange, summary, applyRecurring, reviewImport, reviewReceipt };
 })();
