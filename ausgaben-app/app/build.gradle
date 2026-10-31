@@ -1,0 +1,39 @@
+plugins { id 'com.android.application' }
+android {
+  namespace 'de.anderssohn.ausgaben'
+  compileSdk 35
+  defaultConfig {
+    applicationId 'de.anderssohn.ausgaben'
+    minSdk 24
+    targetSdk 35
+    versionCode 1
+    versionName '1.0'
+    ndk { abiFilters 'arm64-v8a', 'armeabi-v7a' }
+  }
+  // Signatur aus signing/keystore.properties (nicht im Repository)
+  def ks = rootProject.file('signing/keystore.properties')
+  if (ks.exists()) {
+    def props = new Properties(); ks.withInputStream { props.load(it) }
+    signingConfigs {
+      release {
+        storeFile rootProject.file(props['storeFile'])
+        storePassword props['storePassword']
+        keyAlias props['keyAlias']
+        keyPassword props['keyPassword']
+      }
+    }
+    buildTypes { release { minifyEnabled false; signingConfig signingConfigs.release } }
+  } else {
+    buildTypes { release { minifyEnabled false; signingConfig signingConfigs.debug } }
+  }
+  compileOptions { sourceCompatibility JavaVersion.VERSION_17; targetCompatibility JavaVersion.VERSION_17 }
+}
+dependencies {
+  implementation 'androidx.activity:activity:1.9.3'
+  implementation 'androidx.core:core:1.13.1'
+  implementation 'androidx.webkit:webkit:1.12.1'
+  implementation 'com.google.mlkit:text-recognition:16.0.1'
+}
+dependencies {
+  implementation platform('org.jetbrains.kotlin:kotlin-bom:1.8.22')
+}

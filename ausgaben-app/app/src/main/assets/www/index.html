@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, viewport-fit=cover">
+<title>AusgabenKompass</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="top">
+  <button class="month-btn" data-action="prevMonth" aria-label="Vorheriger Monat">‹</button>
+  <div class="month-title" id="monthTitle" data-action="thisMonth"></div>
+  <button class="month-btn" data-action="nextMonth" aria-label="Nächster Monat">›</button>
+</header>
+<main id="view"></main>
+<button class="fab" data-action="openAdd" aria-label="Hinzufügen">＋</button>
+<nav class="tabs">
+  <button data-tab="home" class="active"><span>🧭</span>Übersicht</button>
+  <button data-tab="tx"><span>🧾</span>Buchungen</button>
+  <button data-tab="fix"><span>🔁</span>Fixkosten</button>
+  <button data-tab="stats"><span>📊</span>Statistik</button>
+  <button data-tab="more"><span>⚙️</span>Mehr</button>
+</nav>
+<div id="modalRoot"></div>
+<div id="busy" class="busy hidden"><div class="spinner"></div><div id="busyText">Wird gelesen …</div></div>
+<div id="toast" class="toast hidden"></div>
+<script src="parsers.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
