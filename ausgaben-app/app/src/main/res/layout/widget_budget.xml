@@ -1,21 +1,50 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:id="@+id/w_root" android:layout_width="match_parent" android:layout_height="match_parent"
-    android:orientation="vertical" android:background="@drawable/widget_bg" android:padding="12dp">
+    android:orientation="vertical" android:background="@drawable/widget_bg"
+    android:paddingStart="16dp" android:paddingEnd="16dp" android:paddingTop="14dp" android:paddingBottom="12dp">
+
   <LinearLayout android:id="@+id/w_info" android:layout_width="match_parent" android:layout_height="0dp"
-      android:layout_weight="1" android:orientation="vertical" android:gravity="center_vertical">
-    <TextView android:id="@+id/w_label" android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="Noch frei" android:textColor="#D9FFFFFF" android:textSize="12sp" />
-    <TextView android:id="@+id/w_free" android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="–" android:textColor="#FFFFFF" android:textSize="26sp" android:textStyle="bold"
-        android:maxLines="1" />
-    <TextView android:id="@+id/w_sub" android:layout_width="wrap_content" android:layout_height="wrap_content"
-        android:text="App öffnen zum Einrichten" android:textColor="#D9FFFFFF" android:textSize="12sp" android:maxLines="1" />
+      android:layout_weight="1" android:orientation="horizontal" android:gravity="center_vertical">
+    <ImageView android:id="@+id/w_ring" android:layout_width="76dp" android:layout_height="76dp"
+        android:scaleType="fitCenter" android:src="@drawable/widget_ring_placeholder" />
+    <LinearLayout android:layout_width="0dp" android:layout_height="wrap_content" android:layout_weight="1"
+        android:layout_marginStart="14dp" android:orientation="vertical">
+      <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+          android:orientation="horizontal" android:gravity="center_vertical">
+        <TextView android:id="@+id/w_label" android:layout_width="0dp" android:layout_height="wrap_content"
+            android:layout_weight="1" android:text="NOCH FREI" android:textColor="#99E6FFFA"
+            android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.08" android:maxLines="1" />
+        <TextView android:id="@+id/w_chip" android:layout_width="wrap_content" android:layout_height="wrap_content"
+            android:background="@drawable/chip_ok" android:paddingStart="8dp" android:paddingEnd="8dp"
+            android:paddingTop="2dp" android:paddingBottom="2dp" android:text="Im Plan"
+            android:textColor="#FFFFFF" android:textSize="10sp" android:textStyle="bold" />
+      </LinearLayout>
+      <TextView android:id="@+id/w_free" android:layout_width="wrap_content" android:layout_height="wrap_content"
+          android:text="–" android:textColor="#FFFFFF" android:textSize="30sp" android:textStyle="bold"
+          android:fontFamily="sans-serif-condensed" android:maxLines="1" android:includeFontPadding="false"
+          android:layout_marginTop="2dp" />
+      <TextView android:id="@+id/w_sub" android:layout_width="wrap_content" android:layout_height="wrap_content"
+          android:text="App öffnen zum Einrichten" android:textColor="#CCE6FFFA" android:textSize="12sp"
+          android:maxLines="1" android:layout_marginTop="3dp" />
+    </LinearLayout>
   </LinearLayout>
-  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
-      android:orientation="horizontal" android:layout_marginTop="8dp">
-    <TextView android:id="@+id/w_amount" style="@style/WidgetBtn" android:text="✍️  Betrag" />
-    <TextView android:id="@+id/w_photo" style="@style/WidgetBtn" android:layout_marginStart="6dp" android:text="📷  Foto" />
-    <TextView android:id="@+id/w_upload" style="@style/WidgetBtn" android:layout_marginStart="6dp" android:text="🖼️  Hochladen" />
+
+  <FrameLayout android:layout_width="match_parent" android:layout_height="1dp" android:background="#1FFFFFFF"
+      android:layout_marginTop="8dp" android:layout_marginBottom="8dp" />
+
+  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal">
+    <LinearLayout android:id="@+id/w_amount" style="@style/WidgetBtn">
+      <ImageView style="@style/WidgetBtnIcon" android:src="@drawable/ic_w_amount" />
+      <TextView style="@style/WidgetBtnText" android:text="Betrag" />
+    </LinearLayout>
+    <LinearLayout android:id="@+id/w_photo" style="@style/WidgetBtn">
+      <ImageView style="@style/WidgetBtnIcon" android:src="@drawable/ic_w_photo" />
+      <TextView style="@style/WidgetBtnText" android:text="Foto" />
+    </LinearLayout>
+    <LinearLayout android:id="@+id/w_upload" style="@style/WidgetBtn">
+      <ImageView style="@style/WidgetBtnIcon" android:src="@drawable/ic_w_upload" />
+      <TextView style="@style/WidgetBtnText" android:text="Hochladen" />
+    </LinearLayout>
   </LinearLayout>
 </LinearLayout>

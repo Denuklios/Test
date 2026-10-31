@@ -397,7 +397,7 @@
       <p><b>4. Online-Bestellungen:</b> Mach einen Screenshot der Bestellbestätigung und lade ihn hoch – oder teile ihn direkt aus der Galerie/Mail mit „AusgabenKompass“.</p>
       <p class="muted">Alle Daten bleiben auf deinem Handy. Die Texterkennung funktioniert offline.</p></div>
     </div>
-    <div class="muted small" style="text-align:center">AusgabenKompass 1.1</div>`;
+    <div class="muted small" style="text-align:center">AusgabenKompass 1.2</div>`;
   }
 
   // ---------- Dialoge ----------
