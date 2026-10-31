@@ -4,6 +4,17 @@
     <item name="android:navigationBarColor">#FFFFFF</item>
     <item name="android:windowBackground">@color/bg</item>
   </style>
+  <style name="WidgetBtn">
+    <item name="android:layout_width">0dp</item>
+    <item name="android:layout_height">40dp</item>
+    <item name="android:layout_weight">1</item>
+    <item name="android:gravity">center</item>
+    <item name="android:background">@drawable/widget_btn</item>
+    <item name="android:textColor">#FFFFFF</item>
+    <item name="android:textSize">13sp</item>
+    <item name="android:textStyle">bold</item>
+    <item name="android:maxLines">1</item>
+  </style>
   <color name="bg">#F1F5F4</color>
   <color name="brand">#0F766E</color>
 </resources>

@@ -67,6 +67,7 @@ public class MainActivity extends ComponentActivity {
     private Uri photoUri;
     private boolean pageReady = false;
     private Intent pendingShare;
+    private String pendingWidget;
 
     private ActivityResultLauncher<Uri> takePicture;
     private ActivityResultLauncher<String> pickImages;
@@ -104,6 +105,7 @@ public class MainActivity extends ComponentActivity {
             public void onPageFinished(WebView view, String url) {
                 pageReady = true;
                 if (pendingShare != null) { Intent i = pendingShare; pendingShare = null; handleShare(i); }
+                if (pendingWidget != null) { String a = pendingWidget; pendingWidget = null; widgetAction(a); }
             }
         });
         web.addJavascriptInterface(new Bridge(), "AndroidBridge");
@@ -120,6 +122,17 @@ public class MainActivity extends ComponentActivity {
 
         Intent i = getIntent();
         if (isShare(i)) pendingShare = i;
+        String wa = widgetActionOf(i);
+        if (wa != null) pendingWidget = wa;
+    }
+
+    private String widgetActionOf(Intent i) {
+        if (i == null || i.getAction() == null || !i.getAction().startsWith(BudgetWidget.ACTION_PREFIX)) return null;
+        return i.getAction().substring(BudgetWidget.ACTION_PREFIX.length());
+    }
+
+    private void widgetAction(String a) {
+        js("window.Native && Native.onWidgetAction(" + JSONObject.quote(a) + ")");
     }
 
     @Override
@@ -128,6 +141,8 @@ public class MainActivity extends ComponentActivity {
         if (isShare(intent)) {
             if (pageReady) handleShare(intent); else pendingShare = intent;
         }
+        String wa = widgetActionOf(intent);
+        if (wa != null) { if (pageReady) widgetAction(wa); else pendingWidget = wa; }
     }
 
     private boolean isShare(Intent i) {
@@ -366,6 +381,12 @@ public class MainActivity extends ComponentActivity {
             main.post(() -> {
                 if (fileName.endsWith(".csv")) saveCsv.launch(fileName); else saveJson.launch(fileName);
             });
+        }
+
+        @JavascriptInterface
+        public void updateWidget(String json) {
+            getSharedPreferences(BudgetWidget.PREFS, MODE_PRIVATE).edit().putString("data", json).apply();
+            BudgetWidget.updateAll(MainActivity.this);
         }
 
         @JavascriptInterface

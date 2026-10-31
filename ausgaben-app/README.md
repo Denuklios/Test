@@ -15,6 +15,7 @@ Haushaltsbuch-App, die die Stärken der drei Testsieger 2026 (finanzwissen.de) v
 - Bon fotografieren → Händler, Datum, Artikel, Summe
 - Screenshots von Online-Bestellungen hochladen oder aus anderen Apps teilen
 - Statistik, Limits pro Kategorie, Sicherung (JSON), Export (CSV)
+- Homescreen-Widget: freies Geld + pro Tag, Knöpfe Betrag / Foto / Hochladen
 - Alle Daten bleiben lokal auf dem Handy
 
 ## Bauen

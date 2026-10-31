@@ -20,7 +20,15 @@
   try { S = Object.assign({}, DEFAULT, JSON.parse(localStorage.getItem(KEY) || 'null') || {}); }
   catch (e) { S = Object.assign({}, DEFAULT); }
   S.settings = Object.assign({}, DEFAULT.settings, S.settings);
-  function save() { localStorage.setItem(KEY, JSON.stringify(S)); }
+  function save() { localStorage.setItem(KEY, JSON.stringify(S)); pushWidget(); }
+  /** Stand fürs Homescreen-Widget an Android übergeben */
+  function pushWidget() {
+    if (!window.AndroidBridge || !window.AndroidBridge.updateWidget || typeof summary !== 'function') return;
+    try {
+      const k = periodOf(today()), s = summary(k);
+      window.AndroidBridge.updateWidget(JSON.stringify({ free: s.free, available: s.available, spent: s.spent, end: s.end, label: MONTHN[+k.slice(5) - 1], currency: S.settings.currency }));
+    } catch (e) { }
+  }
 
   // ---------- Datum & Zeitraum ----------
   const today = () => { const d = new Date(); return P.iso(d.getFullYear(), d.getMonth() + 1, d.getDate()); };
@@ -173,6 +181,12 @@
       if (!c) return;
       Object.keys(this.calls).forEach(k => { if (this.calls[k] === c) delete this.calls[k]; });
       c.rej(new Error(msg));
+    },
+    onWidgetAction(a) {
+      closeAll(); busy(false);
+      if (a === 'photo') scan('photo');
+      else if (a === 'upload') scan('images');
+      else if (a === 'amount') addManual('expense');
     },
     onShared(json) {
       const data = JSON.parse(json);
@@ -383,7 +397,7 @@
       <p><b>4. Online-Bestellungen:</b> Mach einen Screenshot der Bestellbestätigung und lade ihn hoch – oder teile ihn direkt aus der Galerie/Mail mit „AusgabenKompass“.</p>
       <p class="muted">Alle Daten bleiben auf deinem Handy. Die Texterkennung funktioniert offline.</p></div>
     </div>
-    <div class="muted small" style="text-align:center">AusgabenKompass 1.0</div>`;
+    <div class="muted small" style="text-align:center">AusgabenKompass 1.1</div>`;
   }
 
   // ---------- Dialoge ----------
@@ -782,7 +796,8 @@
   // Start
   applyRecurring();
   render();
+  pushWidget();
   // Neuer Monat seit letztem Öffnen? -> Fixkosten buchen
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (applyRecurring()) render(); } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { if (applyRecurring()) render(); pushWidget(); } });
   window.__app = { S: () => S, periodOf, periodRange, summary, applyRecurring, reviewImport, reviewReceipt };
 })();
