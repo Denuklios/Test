@@ -15,7 +15,7 @@ Haushaltsbuch-App, die die Stärken der drei Testsieger 2026 (finanzwissen.de) v
 - Bon fotografieren → Händler, Datum, Artikel, Summe
 - Screenshots von Online-Bestellungen hochladen oder aus anderen Apps teilen
 - Statistik, Limits pro Kategorie, Sicherung (JSON), Export (CSV)
-- Handyzahlungen (Google Wallet, Samsung Wallet, Banking-Apps) automatisch aus Benachrichtigungen erfassen
+- Handyzahlungen (Google Wallet, Samsung Wallet, Banking-Apps) automatisch erfassen – über die getrennte Helfer-App `zahlungen/` (Play Protect blockiert Benachrichtigungs-Zugriff bei Apps außerhalb des Play Stores; so bleibt die Haupt-App normal installierbar)
 - Händler-Vorschläge beim Tippen, Kategorie wird automatisch gewählt und gelernt
 - Homescreen-Widget: freies Geld + pro Tag, Knöpfe Betrag / Foto / Hochladen
 - Alle Daten bleiben lokal auf dem Handy
@@ -23,7 +23,7 @@ Haushaltsbuch-App, die die Stärken der drei Testsieger 2026 (finanzwissen.de) v
 ## Bauen
 ```
 echo "sdk.dir=/pfad/zum/android-sdk" > local.properties
-gradle assembleRelease      # -> app/build/outputs/apk/release/app-release.apk
+gradle assembleRelease      # -> app/build/outputs/apk/release/app-release.apk und zahlungen/build/outputs/apk/release/zahlungen-release.apk
 node tests/parsers.test.js  # Tests der Erkennungslogik
 ```
 Die Oberfläche liegt in `app/src/main/assets/www/`, die native Hülle (Kamera, OCR, Dateien) in `MainActivity.java`.

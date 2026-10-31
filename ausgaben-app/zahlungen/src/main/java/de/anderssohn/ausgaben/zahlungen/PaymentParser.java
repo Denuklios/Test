@@ -1,4 +1,4 @@
-package de.anderssohn.ausgaben;
+package de.anderssohn.ausgaben.zahlungen;
 
 import java.util.Arrays;
 import java.util.HashSet;

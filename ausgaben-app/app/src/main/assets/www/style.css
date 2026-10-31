@@ -252,3 +252,7 @@ pre { color: var(--muted); }
 .mini.ok { background: var(--btn); color: #fff; border-color: rgba(94,234,212,.5); }
 .mini.no { background: rgba(255,255,255,.06); color: var(--muted); }
 .nfc-hero { display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 16px; background: var(--brand-l); border: 1px solid var(--stroke); margin-bottom: 10px; }
+.steps { background: rgba(255,255,255,.04); border: 1px solid var(--line); border-radius: 14px; padding: 10px 12px; font-size: 13px; margin-bottom: 10px; }
+.steps ol { margin: 6px 0 10px; padding-left: 20px; color: #CDE7E3; }
+.steps li { margin: 3px 0; }
+code { background: rgba(255,255,255,.08); padding: 1px 5px; border-radius: 6px; font-size: 12px; }

@@ -435,7 +435,7 @@
       <button class="set-row" data-action="setDefaultBudget"><span>Standard-Startbetrag pro Monat</span><span class="v">${st.defaultBudget ? money(st.defaultBudget) : 'nicht gesetzt'} ›</span></button>
       <button class="set-row" data-action="setStartDay"><span>Monat beginnt am (z. B. Gehaltstag)</span><span class="v">${st.startDay}. ›</span></button>
       <button class="set-row" data-action="setCurrency"><span>Währung</span><span class="v">${st.currency} ›</span></button>
-      <button class="set-row" data-action="nfcSetup"><span class="sr">${ic('u_nfc')}Handyzahlungen automatisch erfassen</span><span class="v">${nfcActive() ? (S.settings.autoPay ? 'automatisch' : 'mit Nachfrage') : 'aus'} ›</span></button>
+      <button class="set-row" data-action="nfcSetup"><span class="sr">${ic('u_nfc')}Handyzahlungen automatisch erfassen</span><span class="v">${helperInstalled() && nfcActive() ? (S.settings.autoPay ? 'automatisch' : 'mit Nachfrage') : 'einrichten'} ›</span></button>
       <button class="set-row" data-action="setLimits"><span>Limits pro Kategorie</span><span class="v">${Object.values(S.catLimits).filter(Boolean).length} gesetzt ›</span></button>
     </div>
     <div class="card"><h3>Daten</h3>
@@ -452,7 +452,7 @@
       <p><b>4. Online-Bestellungen:</b> Mach einen Screenshot der Bestellbestätigung und lade ihn hoch – oder teile ihn direkt aus der Galerie/Mail mit „AusgabenKompass“.</p>
       <p class="muted">Alle Daten bleiben auf deinem Handy. Die Texterkennung funktioniert offline.</p></div>
     </div>
-    <div class="muted small" style="text-align:center">AusgabenKompass 1.5</div>`;
+    <div class="muted small" style="text-align:center">AusgabenKompass 1.6</div>`;
   }
 
   // ---------- Dialoge ----------
@@ -809,21 +809,21 @@
     toast(arr.length === 1 ? `Handyzahlung erkannt: ${money(arr[0].amount)}` : `${arr.length} Handyzahlungen erkannt`);
     return arr.length;
   }
+  const helperInstalled = () => { try { return !!(window.AndroidBridge && AndroidBridge.helperInstalled && AndroidBridge.helperInstalled()); } catch (e) { return false; } };
   function nfcSetup() {
-    const on = nfcActive();
+    const inst = helperInstalled(), on = inst && nfcActive();
     const m = modal(`${head('Handyzahlungen erfassen')}
-      <div class="nfc-hero">${ic('u_nfc', 'big')}<div><b>${on ? 'Aktiv' : 'Noch nicht aktiv'}</b><div class="muted small">${on ? 'Zahlungen werden automatisch erkannt.' : 'Einmal den Zugriff erlauben – dann geht alles von selbst.'}</div></div></div>
-      <p class="small">Wenn du mit dem Handy bezahlst (Google Wallet, Samsung Wallet) oder deine Banking-App eine Zahlung meldet, liest die App diese Benachrichtigung und erfasst <b>Händler und Betrag</b> automatisch – auch das Widget aktualisiert sich sofort.</p>
+      <div class="nfc-hero">${ic('u_nfc', 'big')}<div><b>${on ? 'Aktiv' : inst ? 'Helfer installiert – noch nicht freigeschaltet' : 'Helfer-App fehlt noch'}</b><div class="muted small">${on ? 'Zahlungen werden automatisch erkannt.' : 'Einmal einrichten – dann geht alles von selbst.'}</div></div></div>
+      <p class="small">Wenn du mit dem Handy bezahlst (Google Wallet, Samsung Wallet) oder deine Banking-App eine Zahlung meldet, werden <b>Händler und Betrag</b> automatisch erfasst – auch das Widget aktualisiert sich sofort.</p>
+      ${inst ? '' : `<p class="small">Dafür gibt es die kleine Helfer-App <b>„AusgabenKompass Zahlungen“</b>. Sie liest nur die Zahlungs-Benachrichtigungen und gibt sie an diese App weiter. Google blockiert solche Apps beim Installieren außerhalb des Play Stores zum Schutz vor Betrugs-Apps – deshalb ist sie getrennt, und nur sie braucht einen der beiden Wege:</p>
+      <div class="steps"><b>Weg A – am Handy (ca. 1 Minute)</b><ol><li>Play Store öffnen → Profilbild → <b>Play Protect</b> → Zahnrad → <b>„Apps mit Play Protect scannen“ aus</b></li><li>Helfer-APK antippen und installieren</li><li>Play Protect <b>wieder einschalten</b></li></ol>
+      <b>Weg B – am PC</b><ol><li>Am Handy USB-Debugging einschalten, per Kabel verbinden</li><li>Am PC: <code>adb install AusgabenKompass-Zahlungen.apk</code></li></ol></div>`}
+      ${inst && !on ? `<button class="btn block" id="helper">${ic('u_nfc')} Helfer öffnen und Zugriff erlauben</button>
+      <p class="muted small">Geht der Schalter nicht an („Eingeschränkte Einstellung“)? Im Helfer steht, wie du ihn entsperrst.</p>` : ''}
       <p class="muted small">Gelesen werden nur Benachrichtigungen von Wallet- und Banking-Apps (z. B. Google Wallet, Samsung Wallet, PayPal, N26, DKB, ING, Sparkasse, Comdirect, C24, Revolut, Lunar, MobilePay). Nichts verlässt dein Handy. Doppelte Meldungen (Wallet + Bank) werden zusammengefasst.</p>
-      ${on ? '' : `<button class="btn block" id="grant">${ic('u_nfc')} Zugriff erlauben</button>
-      <details class="small" style="margin-top:12px"><summary><b>Geht der Schalter nicht an? („Eingeschränkte Einstellung“)</b></summary>
-      <p class="muted">Bei Apps, die nicht aus dem Play Store kommen, sperrt Android diese Einstellung zuerst. So entsperrst du sie:</p>
-      <ol class="muted"><li>Unten auf „App-Info öffnen“ tippen</li><li>Oben rechts auf <b>⋮</b> tippen → <b>„Eingeschränkte Einstellungen zulassen“</b></li><li>Zurück und erneut „Zugriff erlauben“ tippen</li></ol>
-      <button class="btn sec block" id="info">App-Info öffnen</button></details>`}
-      <label class="set-row" style="margin-top:10px"><span>Ohne Nachfrage übernehmen<div class="muted small">Sonst erscheinen neue Zahlungen zum Bestätigen auf der Übersicht.</div></span><span class="switch"><input type="checkbox" id="auto" ${S.settings.autoPay ? 'checked' : ''}><span></span></span></label>
+      <label class="set-row" style="margin-top:6px"><span>Ohne Nachfrage übernehmen<div class="muted small">Sonst erscheinen neue Zahlungen zum Bestätigen auf der Übersicht.</div></span><span class="switch"><input type="checkbox" id="auto" ${S.settings.autoPay ? 'checked' : ''}><span></span></span></label>
       <button class="btn block" data-action="close" style="margin-top:12px">Fertig</button>`);
-    const g = $('#grant', m); if (g) g.onclick = () => { closeModal(); AndroidBridge.openNotificationAccess(); };
-    const i = $('#info', m); if (i) i.onclick = () => AndroidBridge.openAppInfo();
+    const hb = $('#helper', m); if (hb) hb.onclick = () => { closeModal(); AndroidBridge.openHelper(); };
     $('#auto', m).onchange = e => { S.settings.autoPay = e.target.checked; save(); render(); };
   }
 

@@ -1,6 +1,6 @@
-import de.anderssohn.ausgaben.PaymentParser;
+import de.anderssohn.ausgaben.zahlungen.PaymentParser;
 /** Test der Zahlungserkennung. Aufruf (im Ordner ausgaben-app):
- *  javac -d /tmp/pt app/src/main/java/de/anderssohn/ausgaben/PaymentParser.java tests/PaymentParserTest.java && java -cp /tmp/pt PaymentParserTest */
+ *  javac -d /tmp/pt zahlungen/src/main/java/de/anderssohn/ausgaben/zahlungen/PaymentParser.java tests/PaymentParserTest.java && java -cp /tmp/pt PaymentParserTest */
 public class PaymentParserTest {
   static int fails = 0;
   static void t(String pkg, String title, String text, Double amt, String mer) {

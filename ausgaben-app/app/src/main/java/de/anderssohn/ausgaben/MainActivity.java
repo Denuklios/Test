@@ -390,11 +390,25 @@ public class MainActivity extends ComponentActivity {
         }
 
         @JavascriptInterface
-        public String takePayments() { return PaymentListener.take(MainActivity.this); }
+        public String takePayments() { return PaymentReceiver.take(MainActivity.this); }
+
+        @JavascriptInterface
+        public boolean helperInstalled() {
+            try { getPackageManager().getPackageInfo(PaymentReceiver.HELPER, 0); return true; }
+            catch (Exception e) { return false; }
+        }
+
+        @JavascriptInterface
+        public void openHelper() {
+            main.post(() -> {
+                Intent i = getPackageManager().getLaunchIntentForPackage(PaymentReceiver.HELPER);
+                if (i != null) startActivity(i); else toast("Helfer-App ist nicht installiert");
+            });
+        }
 
         @JavascriptInterface
         public boolean hasNotificationAccess() {
-            return androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(MainActivity.this).contains(getPackageName());
+            return androidx.core.app.NotificationManagerCompat.getEnabledListenerPackages(MainActivity.this).contains(PaymentReceiver.HELPER);
         }
 
         @JavascriptInterface

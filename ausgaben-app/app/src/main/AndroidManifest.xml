@@ -1,6 +1,10 @@
 <?xml version="1.0" encoding="utf-8"?>
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
   <uses-feature android:name="android.hardware.camera" android:required="false" />
+  <!-- Nur Apps mit derselben Signatur (Helfer „AusgabenKompass Zahlungen“) dürfen Zahlungen melden -->
+  <permission android:name="de.anderssohn.ausgaben.permission.ZAHLUNG" android:protectionLevel="signature" />
+  <uses-permission android:name="de.anderssohn.ausgaben.permission.ZAHLUNG" />
+  <queries><package android:name="de.anderssohn.ausgaben.zahlungen" /></queries>
   <application
       android:label="AusgabenKompass"
       android:icon="@mipmap/ic_launcher"
@@ -35,14 +39,12 @@
         <data android:mimeType="text/comma-separated-values" />
       </intent-filter>
     </activity>
-    <service android:name=".PaymentListener"
-        android:label="AusgabenKompass – Handyzahlungen"
-        android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-        android:exported="true">
+    <receiver android:name=".PaymentReceiver" android:exported="true"
+        android:permission="de.anderssohn.ausgaben.permission.ZAHLUNG">
       <intent-filter>
-        <action android:name="android.service.notification.NotificationListenerService" />
+        <action android:name="de.anderssohn.ausgaben.PAYMENT" />
       </intent-filter>
-    </service>
+    </receiver>
     <receiver android:name=".BudgetWidget" android:exported="true" android:label="AusgabenKompass">
       <intent-filter>
         <action android:name="android.appwidget.action.APPWIDGET_UPDATE" />
