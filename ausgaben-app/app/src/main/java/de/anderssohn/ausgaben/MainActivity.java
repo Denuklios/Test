@@ -84,7 +84,7 @@ public class MainActivity extends ComponentActivity {
         registerLaunchers();
 
         web = new WebView(this);
-        web.setBackgroundColor(Color.parseColor("#F1F5F4"));
+        web.setBackgroundColor(Color.parseColor("#08191D"));
         setContentView(web);
         WebSettings s = web.getSettings();
         s.setJavaScriptEnabled(true);

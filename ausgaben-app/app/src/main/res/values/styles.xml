@@ -1,7 +1,7 @@
 <resources>
-  <style name="AppTheme" parent="android:Theme.Material.Light.NoActionBar">
-    <item name="android:statusBarColor">#0F766E</item>
-    <item name="android:navigationBarColor">#FFFFFF</item>
+  <style name="AppTheme" parent="android:Theme.Material.NoActionBar">
+    <item name="android:statusBarColor">#0B2F35</item>
+    <item name="android:navigationBarColor">#08191D</item>
     <item name="android:windowBackground">@color/bg</item>
   </style>
   <style name="WidgetBtn">
@@ -26,6 +26,6 @@
     <item name="android:textStyle">bold</item>
     <item name="android:maxLines">1</item>
   </style>
-  <color name="bg">#F1F5F4</color>
+  <color name="bg">#08191D</color>
   <color name="brand">#0F766E</color>
 </resources>

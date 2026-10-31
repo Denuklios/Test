@@ -84,11 +84,14 @@ public class BudgetWidget extends AppWidgetProvider {
                 v.setTextViewText(R.id.w_label, "NEUER MONAT");
                 v.setTextViewText(R.id.w_sub, "Tippen zum Aktualisieren");
             } else {
-                v.setTextViewText(R.id.w_label, "NOCH FREI · " + o.optString("label", "").toUpperCase(Locale.GERMANY));
+                v.setTextViewText(R.id.w_label, o.optString("label", "").toUpperCase(Locale.GERMANY));
                 String sub;
-                if (free < 0) sub = "Ausgegeben " + nf.format(o.optDouble("spent", 0));
-                else if (days == 1) sub = "Letzter Tag im Monat";
-                else sub = nf.format(free / days) + " pro Tag · " + days + " Tage";
+                NumberFormat nf0 = NumberFormat.getCurrencyInstance(Locale.GERMANY);
+                try { nf0.setCurrency(nf.getCurrency()); } catch (Exception ignored) { }
+                nf0.setMaximumFractionDigits(0); nf0.setMinimumFractionDigits(0);
+                if (free < 0) sub = nf.format(-free) + " über Budget";
+                else if (days == 1) sub = pct + " % von " + nf0.format(avail) + " übrig · letzter Tag";
+                else sub = nf.format(free / days) + " pro Tag · noch " + days + " Tage";
                 v.setTextViewText(R.id.w_sub, sub);
             }
         } catch (Exception ignored) { }

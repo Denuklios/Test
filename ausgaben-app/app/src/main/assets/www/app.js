@@ -159,6 +159,35 @@
   const num = v => (v == null || v === '') ? '' : String(r2(v)).replace('.', ',');
   const readNum = s => { const v = P.parseAmount(String(s).replace(/[^\d,.\-]/g, '')); return v == null ? 0 : v; };
   const catIco = id => { const c = CAT[id] || CAT.sonstiges; return `<div class="ico" style="background:${c.color}22">${c.icon}</div>`; };
+  const ICON = {
+    home: 'M12,10.9c-0.61,0 -1.1,0.49 -1.1,1.1s0.49,1.1 1.1,1.1c0.61,0 1.1,-0.49 1.1,-1.1s-0.49,-1.1 -1.1,-1.1zM12,2C6.48,2 2,6.48 2,12s4.48,10 10,10 10,-4.48 10,-10S17.52,2 12,2zM14.19,14.19L6,18l3.81,-8.19L18,6l-3.81,8.19z',
+    tx: 'M18,17H6v-2h12v2zm0,-4H6v-2h12v2zm0,-4H6V7h12v2zM3,22l1.5,-1.5L6,22l1.5,-1.5L9,22l1.5,-1.5L12,22l1.5,-1.5L15,22l1.5,-1.5L18,22l1.5,-1.5L21,22V2l-1.5,1.5L18,2l-1.5,1.5L15,2l-1.5,1.5L12,2l-1.5,1.5L9,2 7.5,3.5 6,2 4.5,3.5 3,2v20z',
+    fix: 'M7,7h10v3l4,-4 -4,-4v3H5v6h2V7zm10,10H7v-3l-4,4 4,4v-3h12v-6h-2v4z',
+    stats: 'M5,9.2h3V19H5zM10.6,5h2.8v14h-2.8zm5.6,8H19v6h-2.8z',
+    more: 'M3,17v2h6v-2H3zM3,5v2h10V5H3zm10,16v-2h8v-2h-8v-2h-2v6h2zM7,9v2H3v2h4v2h2V9H7zm14,4v-2H11v2h10zm-6,-4h2V7h4V5h-4V3h-2v6z',
+    amount: 'M3,17.25V21h3.75L17.81,9.94l-3.75,-3.75L3,17.25zM20.71,7.04c0.39,-0.39 0.39,-1.02 0,-1.41l-2.34,-2.34c-0.39,-0.39 -1.02,-0.39 -1.41,0l-1.83,1.83 3.75,3.75 1.83,-1.83z',
+    photo: 'M12,8.8a3.2,3.2 0,1 0,0.01 0zM9,2L7.17,4H4c-1.1,0 -2,0.9 -2,2v12c0,1.1 0.9,2 2,2h16c1.1,0 2,-0.9 2,-2V6c0,-1.1 -0.9,-2 -2,-2h-3.17L15,2H9zM12,17c-2.76,0 -5,-2.24 -5,-5s2.24,-5 5,-5 5,2.24 5,5 -2.24,5 -5,5z',
+    upload: 'M9,16h6v-6h4l-7,-7 -7,7h4zM5,18h14v2H5z',
+    bank: 'M4,10v7h3v-7H4zm6,0v7h3v-7h-3zM2,22h19v-3H2v3zm14,-12v7h3v-7h-3zM11.5,1L2,6v2h19V6l-9.5,-5z',
+    income: 'M11.8,10.9c-2.27,-0.59 -3,-1.2 -3,-2.15 0,-1.09 1.01,-1.85 2.7,-1.85 1.78,0 2.44,0.85 2.5,2.1h2.21c-0.07,-1.72 -1.12,-3.3 -3.21,-3.81V3h-3v2.16c-1.94,0.42 -3.5,1.68 -3.5,3.61 0,2.31 1.91,3.46 4.7,4.13 2.5,0.6 3,1.48 3,2.41 0,0.69 -0.49,1.79 -2.7,1.79 -2.06,0 -2.87,-0.92 -2.98,-2.1h-2.2c0.12,2.19 1.76,3.42 3.68,3.83V21h3v-2.15c1.95,-0.37 3.5,-1.5 3.5,-3.55 0,-2.84 -2.43,-3.81 -4.7,-4.4z'
+  };
+  const svg = (k) => `<svg viewBox="0 0 24 24"><path d="${ICON[k]}"/></svg>`;
+  const rbtn = (k, alt) => `<div class="rbtn${alt ? ' alt' : ''}">${svg(k)}</div>`;
+  /** Ring wie im Widget: Anteil des noch freien Geldes */
+  function ringSvg(ratio, size, neg) {
+    const sw = 9, r = (size - sw * 2.2) / 2, c = size / 2, C = 2 * Math.PI * r;
+    const p = Math.max(0, Math.min(1, ratio));
+    const warn = !neg && p < 0.15;
+    const a = neg ? '#F87171' : warn ? '#FBBF24' : '#5EEAD4', b = neg ? '#DC2626' : warn ? '#F97316' : '#34D399';
+    const id = 'g' + Math.random().toString(36).slice(2, 7);
+    const arc = neg ? `<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="${b}" stroke-width="${sw}"/>`
+      : `<circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="url(#${id})" stroke-width="${sw * 1.9}" stroke-opacity=".22" stroke-linecap="round" stroke-dasharray="${C * p} ${C}" transform="rotate(-90 ${c} ${c})"/>
+         <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="url(#${id})" stroke-width="${sw}" stroke-linecap="round" stroke-dasharray="${C * p} ${C}" transform="rotate(-90 ${c} ${c})"/>`;
+    return `<svg class="ring" width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><defs><linearGradient id="${id}" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="${a}"/><stop offset="1" stop-color="${b}"/></linearGradient></defs>
+      <circle cx="${c}" cy="${c}" r="${r}" fill="none" stroke="rgba(255,255,255,.12)" stroke-width="${sw}"/>${p > 0 || neg ? arc : ''}
+      <text x="${c}" y="${c + (neg ? 9 : 3)}" text-anchor="middle" font-size="${neg ? 26 : 21}" font-weight="800" fill="#fff" font-family="Roboto Condensed, system-ui, sans-serif">${neg ? '!' : Math.round(p * 100) + '%'}</text>
+      ${neg ? '' : `<text x="${c}" y="${c + 17}" text-anchor="middle" font-size="9.5" font-weight="700" fill="rgba(230,255,250,.7)" letter-spacing=".6">FREI</text>`}</svg>`;
+  }
   const SRC = { bank: ['Bank', 'b-bank'], bon: ['Bon', 'b-bon'], online: ['Online', 'b-online'], fix: ['Fix', 'b-fix'] };
   const srcBadge = s => SRC[s] ? `<span class="badge ${SRC[s][1]}">${SRC[s][0]}</span>` : '';
   const catOptions = (sel, incomeOk) => CATS.filter(c => incomeOk || c.id !== 'einnahme').map(c => `<option value="${c.id}"${c.id === sel ? ' selected' : ''}>${c.icon} ${h(c.name)}</option>`).join('');
@@ -222,27 +251,33 @@
     let html = '';
     if (!S.onboarded) setTimeout(onboarding, 50);
     const pct = v => s.available > 0 ? Math.max(0, Math.min(100, v / s.available * 100)) : 0;
+    const ratio = s.available > 0 ? s.free / s.available : 0;
+    const chip = s.free < 0 ? ['Über Budget', 'bad'] : (s.available > 0 && ratio < 0.15 ? ['Knapp', 'warn'] : ['Im Plan', 'ok']);
+    const perDay = s.daysLeft ? Math.max(0, s.free) / s.daysLeft : null;
     html += `<div class="card hero">
-      <div class="label">${isCur ? 'Noch frei verfügbar' : (period < periodOf(today()) ? 'Übrig geblieben' : 'Voraussichtlich frei')}</div>
-      <div class="big ${s.free < 0 ? 'neg' : ''}">${money(s.free)}</div>
-      <div class="label">von ${money(s.available)} ${s.income || s.plannedInc ? '(Startbetrag + Einnahmen)' : 'Startbetrag'}</div>
-      <div class="bar"><i style="width:${pct(s.spent)}%;background:#fecaca"></i><i style="width:${pct(s.plannedExp)}%;background:#fde68a"></i></div>
+      <div class="hero-top">${ringSvg(ratio, 92, s.free < 0)}
+        <div class="hero-info">
+          <div class="hero-head"><span class="label">${isCur ? 'Noch frei' : (period < periodOf(today()) ? 'Übrig geblieben' : 'Voraussichtlich frei')}</span>${s.available > 0 ? `<span class="chip-st ${chip[1]}">${chip[0]}</span>` : ''}</div>
+          <div class="big ${s.free < 0 ? 'neg' : ''}">${money(s.free)}</div>
+          <div class="sub">${s.free < 0 ? money(-s.free) + ' über Budget' : `${Math.round(Math.max(0, ratio) * 100)} % von ${money(s.available)} übrig`}</div>
+        </div></div>
+      <div class="bar" style="margin-top:14px"><i style="width:${pct(s.spent)}%;background:linear-gradient(90deg,#F87171,#FB923C)"></i><i style="width:${pct(s.plannedExp)}%;background:#FBBF24;opacity:.75"></i></div>
       <div class="row">
         <div class="pill"><small>Ausgegeben</small><b>${money(s.spent)}</b></div>
         <div class="pill"><small>Fixkosten offen</small><b>${money(s.plannedExp)}</b></div>
-        ${s.daysLeft ? `<div class="pill"><small>pro Tag (${s.daysLeft} T.)</small><b>${money(Math.max(0, s.free) / s.daysLeft)}</b></div>` : ''}
+        ${perDay != null ? `<div class="pill"><small>${s.daysLeft === 1 ? 'heute noch' : `pro Tag · ${s.daysLeft} T.`}</small><b>${money(perDay)}</b></div>` : ''}
       </div>
-      <div class="hero-actions"><button data-action="editBudget">💶 Startbetrag ${s.budget ? 'ändern' : 'eingeben'}</button></div>
+      <div class="hero-actions"><button data-action="editBudget">Startbetrag ${s.budget ? 'ändern' : 'eingeben'}</button></div>
     </div>`;
     if (!s.budget && !s.income) html += `<div class="warn">Gib zuerst ein, wie viel Geld du in diesem Monat zur Verfügung hast – dann rechnet die App aus, was noch übrig ist.</div>`;
     else if (s.free < 0) html += `<div class="warn danger">Achtung: Du liegst ${money(-s.free)} über deinem Budget.</div>`;
     else if (s.available > 0 && s.free / s.available < 0.15 && isCur) html += `<div class="warn">Nur noch ${Math.round(s.free / s.available * 100)} % deines Geldes sind frei.</div>`;
 
     html += `<div class="quick">
-      <button data-action="scanPhoto"><span>📷</span>Bon</button>
-      <button data-action="scanImages"><span>🖼️</span>Bestellung</button>
-      <button data-action="importStatement"><span>🏦</span>Auszug</button>
-      <button data-action="addManual"><span>✍️</span>Eingeben</button>
+      <button data-action="addManual">${rbtn('amount')}Betrag</button>
+      <button data-action="scanPhoto">${rbtn('photo')}Foto</button>
+      <button data-action="scanImages">${rbtn('upload')}Hochladen</button>
+      <button data-action="importStatement">${rbtn('bank')}Auszug</button>
     </div>`;
 
     // Kategorien mit Limit / Top-Ausgaben
@@ -342,7 +377,7 @@
       segs += `<circle r="${R}" cx="70" cy="70" fill="none" stroke="${(CAT[id] || CAT.sonstiges).color}" stroke-width="22" stroke-dasharray="${len} ${C - len}" stroke-dashoffset="${-off}" transform="rotate(-90 70 70)"/>`;
       off += len;
     }
-    return `<svg width="140" height="140" viewBox="0 0 140 140"><circle r="${R}" cx="70" cy="70" fill="none" stroke="#e2e8f0" stroke-width="22"/>${segs}<text x="70" y="67" text-anchor="middle" font-size="11" fill="#64748b">Ausgaben</text><text x="70" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#0f172a">${h(money(total).replace(/,\d\d/, ''))}</text></svg>`;
+    return `<svg width="140" height="140" viewBox="0 0 140 140"><circle r="${R}" cx="70" cy="70" fill="none" stroke="rgba(255,255,255,.08)" stroke-width="22"/>${segs}<text x="70" y="67" text-anchor="middle" font-size="11" fill="#8FB3AE">Ausgaben</text><text x="70" y="84" text-anchor="middle" font-size="14" font-weight="700" fill="#ECFEFA">${h(money(total).replace(/,\d\d/, ''))}</text></svg>`;
   }
   function viewStats() {
     const s = summary(period);
@@ -397,7 +432,7 @@
       <p><b>4. Online-Bestellungen:</b> Mach einen Screenshot der Bestellbestätigung und lade ihn hoch – oder teile ihn direkt aus der Galerie/Mail mit „AusgabenKompass“.</p>
       <p class="muted">Alle Daten bleiben auf deinem Handy. Die Texterkennung funktioniert offline.</p></div>
     </div>
-    <div class="muted small" style="text-align:center">AusgabenKompass 1.2</div>`;
+    <div class="muted small" style="text-align:center">AusgabenKompass 1.3</div>`;
   }
 
   // ---------- Dialoge ----------
@@ -432,7 +467,7 @@
 
   function onboarding() {
     if (modals.length || S.onboarded) return;
-    const m = modal(`<div class="onb"><div class="logo">🧭</div><h1>Willkommen beim AusgabenKompass</h1>
+    const m = modal(`<div class="onb"><div class="logo">${ringSvg(0.72, 96, false).replace('72%', '€')}</div><h1>Willkommen beim AusgabenKompass</h1>
       <p class="muted">Behalte dein Geld im Blick – ohne Bankzugang, alles bleibt auf deinem Handy.</p>
       <ul><li>💶 Startbetrag am Monatsanfang eingeben</li><li>🏦 Kontoauszug hochladen – Fixkosten werden erkannt & monatlich automatisch gebucht</li><li>📷 Bon fotografieren – Artikel & Preise werden ausgelesen</li><li>🖼️ Screenshots von Online-Bestellungen hochladen</li></ul></div>
       <div class="field"><label>Wie viel Geld hast du diesen Monat zur Verfügung?</label><input id="ob" class="amount-input" inputmode="decimal" placeholder="z. B. 1.800,00"></div>
@@ -452,11 +487,11 @@
   // ----- Hinzufügen -----
   function openAdd() {
     modal(`${head('Hinzufügen')}<div class="sheet-actions">
-      <button data-action="scanPhoto"><div class="ico" style="background:#fef3c7">📷</div><div><b>Kassenbon fotografieren</b><small>Artikel & Preise werden automatisch ausgelesen</small></div></button>
-      <button data-action="scanImages"><div class="ico" style="background:#fce7f3">🖼️</div><div><b>Bild / Screenshot hochladen</b><small>Online-Bestellung, Rechnung, Bon aus der Galerie</small></div></button>
-      <button data-action="importStatement"><div class="ico" style="background:#e0e7ff">🏦</div><div><b>Kontoauszug importieren</b><small>CSV, PDF, CAMT oder Foto – erkennt Fixkosten</small></div></button>
-      <button data-action="addManual"><div class="ico" style="background:#f1f5f9">✍️</div><div><b>Ausgabe eingeben</b><small>z. B. Bargeld</small></div></button>
-      <button data-action="addIncome"><div class="ico" style="background:#dcfce7">💰</div><div><b>Einnahme eingeben</b><small>erhöht dein verfügbares Geld</small></div></button>
+      <button data-action="scanPhoto">${rbtn('photo')}<div><b>Kassenbon fotografieren</b><small>Artikel & Preise werden automatisch ausgelesen</small></div></button>
+      <button data-action="scanImages">${rbtn('upload')}<div><b>Bild / Screenshot hochladen</b><small>Online-Bestellung, Rechnung, Bon aus der Galerie</small></div></button>
+      <button data-action="importStatement">${rbtn('bank')}<div><b>Kontoauszug importieren</b><small>CSV, PDF, CAMT oder Foto – erkennt Fixkosten</small></div></button>
+      <button data-action="addManual">${rbtn('amount', true)}<div><b>Ausgabe eingeben</b><small>z. B. Bargeld</small></div></button>
+      <button data-action="addIncome">${rbtn('income', true)}<div><b>Einnahme eingeben</b><small>erhöht dein verfügbares Geld</small></div></button>
     </div>`);
   }
 
@@ -630,10 +665,10 @@
     const sum = r2(prepared.filter(p => p.type === 'expense').reduce((s, p) => s + p.amount, 0));
     const m = modal(`${head('Kontoauszug importieren')}
       <p class="muted small">${rows.length} Buchungen vom ${fmtShort(rows[0].date)} bis ${fmtShort(rows[rows.length - 1].date)} · ${expCount} Ausgaben (${money(sum)}).<br>Einnahmen sind abgewählt, weil dein Startbetrag sie schon enthält – bei Bedarf anhaken.</p>
-      ${sugg.length ? `<div class="card" style="background:#f0fdfa;box-shadow:none"><h3>🔁 Erkannte Fixkosten</h3><p class="muted small" style="margin-top:-6px">Angehakte werden ab jetzt jeden Monat automatisch eingeplant und gebucht.</p><div id="sugg"></div></div>` : ''}
+      ${sugg.length ? `<div class="card sugg-box"><h3>🔁 Erkannte Fixkosten</h3><p class="muted small" style="margin-top:-6px">Angehakte werden ab jetzt jeden Monat automatisch eingeplant und gebucht.</p><div id="sugg"></div></div>` : ''}
       <h3 style="font-size:15px;margin:8px 0 2px">Buchungen</h3><div class="chips"><button class="chip" data-sel="all">Alle wählen</button><button class="chip" data-sel="none">Keine</button><button class="chip" data-sel="exp">Nur Ausgaben</button></div>
       <div id="rows"></div>
-      <div class="btns" style="position:sticky;bottom:-24px;background:#fff;padding:10px 0"><button class="btn sec" data-action="close">Abbrechen</button><button class="btn" id="imp">Importieren</button></div>`);
+      <div class="btns sticky-btns"><button class="btn sec" data-action="close">Abbrechen</button><button class="btn" id="imp">Importieren</button></div>`);
     const SL = { new: ['neu', 'b-new'], already: ['schon importiert', 'b-dup'], dup: ['doppelt (Bon)', 'b-dup'], rec: ['Fixkosten', 'b-fix'] };
     const drawRows = () => {
       $('#rows', m).innerHTML = prepared.map((p, i) => `<div class="imp-row ${p.on ? '' : 'off'}"><input type="checkbox" data-i="${i}" ${p.on ? 'checked' : ''}><div class="main"><div class="title">${h(p.merchant)} <span class="badge ${SL[p.status][1]}">${SL[p.status][0]}</span></div><div class="sub small muted">${fmtShort(p.date)} · ${h(p.text.slice(0, 70))}</div><select data-c="${i}">${catOptions(p.category, true)}</select></div><div class="amt ${p.type === 'income' ? 'in' : 'out'}">${money(p.amount, p.type === 'income' ? 'in' : 'out')}</div></div>`).join('');
