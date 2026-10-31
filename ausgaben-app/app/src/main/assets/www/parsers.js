@@ -90,25 +90,25 @@
   // ---------- Kategorien ----------
 
   const CATEGORIES = [
-    { id: 'lebensmittel', name: 'Lebensmittel', icon: '🛒', color: '#16a34a' },
-    { id: 'drogerie', name: 'Drogerie & Haushalt', icon: '🧴', color: '#0891b2' },
-    { id: 'restaurant', name: 'Restaurant & Café', icon: '🍽️', color: '#ea580c' },
-    { id: 'mobilitaet', name: 'Auto & Tanken', icon: '⛽', color: '#dc2626' },
-    { id: 'oepnv', name: 'Bus, Bahn & Reisen', icon: '🚆', color: '#9333ea' },
-    { id: 'wohnen', name: 'Miete & Wohnen', icon: '🏠', color: '#7c2d12' },
-    { id: 'energie', name: 'Strom, Gas & Wasser', icon: '💡', color: '#ca8a04' },
-    { id: 'versicherung', name: 'Versicherungen', icon: '🛡️', color: '#1d4ed8' },
-    { id: 'abos', name: 'Abos & Streaming', icon: '📺', color: '#db2777' },
-    { id: 'telefon', name: 'Handy & Internet', icon: '📱', color: '#4f46e5' },
-    { id: 'online', name: 'Online-Shopping', icon: '📦', color: '#f59e0b' },
-    { id: 'kleidung', name: 'Kleidung', icon: '👕', color: '#be185d' },
-    { id: 'gesundheit', name: 'Gesundheit', icon: '💊', color: '#059669' },
-    { id: 'freizeit', name: 'Freizeit & Hobby', icon: '🎉', color: '#7c3aed' },
-    { id: 'kinder', name: 'Kinder & Tiere', icon: '🧸', color: '#e11d48' },
-    { id: 'kredit', name: 'Kredite & Sparen', icon: '🏦', color: '#334155' },
-    { id: 'bar', name: 'Bargeld', icon: '💶', color: '#65a30d' },
-    { id: 'sonstiges', name: 'Sonstiges', icon: '📌', color: '#64748b' },
-    { id: 'einnahme', name: 'Einnahmen', icon: '💰', color: '#15803d' }
+    { id: 'lebensmittel', name: 'Lebensmittel', icon: '🛒', color: '#4ADE80' },
+    { id: 'drogerie', name: 'Drogerie & Haushalt', icon: '🧴', color: '#22D3EE' },
+    { id: 'restaurant', name: 'Restaurant & Café', icon: '🍽️', color: '#FB923C' },
+    { id: 'mobilitaet', name: 'Auto & Tanken', icon: '⛽', color: '#F87171' },
+    { id: 'oepnv', name: 'Bus, Bahn & Reisen', icon: '🚆', color: '#C084FC' },
+    { id: 'wohnen', name: 'Miete & Wohnen', icon: '🏠', color: '#FDA4AF' },
+    { id: 'energie', name: 'Strom, Gas & Wasser', icon: '💡', color: '#FDE047' },
+    { id: 'versicherung', name: 'Versicherungen', icon: '🛡️', color: '#60A5FA' },
+    { id: 'abos', name: 'Abos & Streaming', icon: '📺', color: '#F472B6' },
+    { id: 'telefon', name: 'Handy & Internet', icon: '📱', color: '#818CF8' },
+    { id: 'online', name: 'Online-Shopping', icon: '📦', color: '#FBBF24' },
+    { id: 'kleidung', name: 'Kleidung', icon: '👕', color: '#E879F9' },
+    { id: 'gesundheit', name: 'Gesundheit', icon: '💊', color: '#34D399' },
+    { id: 'freizeit', name: 'Freizeit & Hobby', icon: '🎉', color: '#A78BFA' },
+    { id: 'kinder', name: 'Kinder & Tiere', icon: '🧸', color: '#FDBA74' },
+    { id: 'kredit', name: 'Kredite & Sparen', icon: '🏦', color: '#7DD3FC' },
+    { id: 'bar', name: 'Bargeld', icon: '💶', color: '#BEF264' },
+    { id: 'sonstiges', name: 'Sonstiges', icon: '📌', color: '#94A3B8' },
+    { id: 'einnahme', name: 'Einnahmen', icon: '💰', color: '#2DD4BF' }
   ];
 
   const CAT_RULES = [

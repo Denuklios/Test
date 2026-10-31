@@ -84,7 +84,7 @@ public class BudgetWidget extends AppWidgetProvider {
                 v.setTextViewText(R.id.w_label, "NEUER MONAT");
                 v.setTextViewText(R.id.w_sub, "Tippen zum Aktualisieren");
             } else {
-                v.setTextViewText(R.id.w_label, o.optString("label", "").toUpperCase(Locale.GERMANY));
+                v.setTextViewText(R.id.w_label, "ZUR VERFÜGUNG");
                 String sub;
                 NumberFormat nf0 = NumberFormat.getCurrencyInstance(Locale.GERMANY);
                 try { nf0.setCurrency(nf.getCurrency()); } catch (Exception ignored) { }
@@ -153,7 +153,7 @@ public class BudgetWidget extends AppWidgetProvider {
             s.setTextAlign(Paint.Align.CENTER);
             s.setTextSize(9.5f * d);
             s.setTypeface(Typeface.create(Typeface.DEFAULT, Typeface.BOLD));
-            c.drawText("FREI", size / 2f, cy + 12 * d, s);
+            c.drawText("ÜBRIG", size / 2f, cy + 12 * d, s);
         }
         return bmp;
     }

@@ -13,7 +13,7 @@
       <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
           android:orientation="horizontal" android:gravity="center_vertical">
         <TextView android:id="@+id/w_label" android:layout_width="0dp" android:layout_height="wrap_content"
-            android:layout_weight="1" android:text="" android:textColor="#99E6FFFA"
+            android:layout_weight="1" android:text="ZUR VERFÜGUNG" android:textColor="#99E6FFFA"
             android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.08" android:maxLines="1" />
         <TextView android:id="@+id/w_chip" android:layout_width="wrap_content" android:layout_height="wrap_content"
             android:background="@drawable/chip_ok" android:paddingStart="8dp" android:paddingEnd="8dp"
