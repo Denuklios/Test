@@ -88,6 +88,11 @@ function wf_user(): ?array
     if ($cache !== false) {
         return $cache;
     }
+    // Handy-App: Schlüssel im Kopf X-App-Token (bei Bildern auch ?at=); ersetzt die Anmeldung, nur für freigegebene Aktionen
+    $appTok = (string)($_SERVER['HTTP_X_APP_TOKEN'] ?? (basename((string)($_SERVER['SCRIPT_NAME'] ?? '')) === 'file.php' ? ($_GET['at'] ?? '') : ''));
+    if ($appTok !== '') {
+        return $cache = wf_app_user($appTok);
+    }
     $adminId = $_SESSION[wf_cfg('session_key')] ?? null;
     if ($adminId) {
         wf_device_remember((string)$adminId);
@@ -207,6 +212,29 @@ function wf_device_current(): int
     return (int)$st->fetchColumn();
 }
 
+/** Benutzer zu einem App-Schlüssel oder null. */
+function wf_app_user(string $tok): ?array
+{
+    if (!preg_match('/^[0-9a-f]{64}$/', $tok)) {
+        return null;
+    }
+    try {
+        $db = wf_db();
+        $st = $db->prepare('SELECT id, name, worker_id, last_used_at FROM app_tokens WHERE token_hash = ? AND revoked_at IS NULL');
+        $st->execute([hash('sha256', $tok)]);
+        $t = $st->fetch();
+        if (!$t) {
+            return null;
+        }
+        if ((string)$t['last_used_at'] < gmdate('Y-m-d H:i:s', time() - 300)) {
+            $db->prepare("UPDATE app_tokens SET last_used_at = datetime('now') WHERE id = ?")->execute([$t['id']]);
+        }
+        return ['id' => 0, 'name' => (string)$t['name'], 'wf_admin_id' => '', 'active' => 1, 'app' => (int)$t['id'], 'worker_id' => $t['worker_id'] !== null ? (int)$t['worker_id'] : null];
+    } catch (Throwable $e) {
+        return null;
+    }
+}
+
 function wf_require_user(bool $json = true): array
 {
     $u = wf_user();
@@ -230,6 +258,9 @@ function wf_csrf(): string
 
 function wf_check_csrf(): void
 {
+    if (!empty(wf_user()['app'])) {
+        return;   // App-Schlüssel kommt im eigenen Kopf, nicht als Cookie: kein CSRF möglich
+    }
     $sent = $_SERVER['HTTP_X_CSRF_TOKEN'] ?? '';
     if (!is_string($sent) || !hash_equals(wf_csrf(), $sent)) {
         wf_fail('csrf', 403);

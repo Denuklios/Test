@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 18) {
+    if ($v >= 19) {
         return;
     }
     if ($v < 1) {
@@ -59,7 +59,34 @@ function wf_migrate(PDO $db): void
     if ($v < 17) {
         wf_migrate_v17($db);
     }
-    wf_migrate_v18($db);
+    if ($v < 18) {
+        wf_migrate_v18($db);
+    }
+    wf_migrate_v19($db);
+}
+
+/**
+ * Version 19: Handy-App. Je Person ein Schlüssel; gekoppelt wird mit einem kurzen Code (15 Minuten gültig).
+ */
+function wf_migrate_v19(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    CREATE TABLE app_tokens (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      worker_id INTEGER,
+      token_hash TEXT UNIQUE,
+      pair_hash TEXT UNIQUE,
+      pair_expires INTEGER,
+      device TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now')),
+      last_used_at TEXT,
+      revoked_at TEXT
+    );
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '19');
+    ");
+    $db->commit();
 }
 
 /**

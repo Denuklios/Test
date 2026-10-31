@@ -347,7 +347,7 @@ try {
       foreach ($db->query('SELECT order_id, date, start_time, minutes FROM order_days ORDER BY id') as $r) echo $r['order_id'] . '@' . $r['date'] . ' ' . $r['start_time'] . '+' . $r['minutes'] . ';';
       $o = $db->query('SELECT total_min, worker_id, plan_date FROM orders WHERE id = 1')->fetch(); echo ',', $o['total_min'], '/', $o['worker_id'], '/', $o['plan_date'];
       echo ',', $db->query('SELECT COUNT(*) FROM order_days WHERE order_id = 2')->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM customers')->fetchColumn();`;
-    assert.equal(execFileSync('php', ['-r', code]).toString(), '4,18,4,1@2030-05-06 08:00+180;3@2030-05-06 11:00+90;,180/1/2030-05-06,0,1');
+    assert.equal(execFileSync('php', ['-r', code]).toString(), '4,19,4,1@2030-05-06 08:00+180;3@2030-05-06 11:00+90;,180/1/2030-05-06,0,1');
   });
 
   await ok('Gerät merken: nach Login öffnet die App mit dem Geräte-Cookie allein, Abmelden sperrt sofort', async () => {
@@ -361,6 +361,28 @@ try {
     assert.equal((await fetch(`${B}/api.php?a=me`, { headers: { cookie: 'wf_auftraege_device=' + 'a'.repeat(64) } })).status, 401, 'falsches Token');
     assert.equal((await call('device_revoke', { body: { id: d.id } })).status, 200);
     assert.equal((await fetch(`${B}/api.php?a=me`, { headers: { cookie: dc } })).status, 401, 'nach Abmelden gesperrt');
+  });
+  await ok('Handy-App: Code koppeln, Schlüssel nutzen, nur freigegebene Aktionen, CORS nur für die App, Abmelden sperrt', async () => {
+    const O = 'https://app.wunsch-fabrik.local';
+    const c = await call('app_token_create', { body: { name: 'Mitarbeiter A' } }); assert.match(c.j.code, /^[A-Z2-9]{4}-[A-Z2-9]{4}$/);
+    const pre = await fetch(`${B}/api.php?a=orders`, { method: 'OPTIONS', headers: { origin: O, 'access-control-request-headers': 'x-app-token' } });
+    assert.equal(pre.status, 204); assert.equal(pre.headers.get('access-control-allow-origin'), O);
+    const evil = await fetch(`${B}/api.php?a=orders`, { method: 'OPTIONS', headers: { origin: 'https://evil.example' } }); assert.equal(evil.headers.get('access-control-allow-origin'), null);
+    const bad = await (await fetch(`${B}/api.php?a=app_pair`, { method: 'POST', headers: { 'content-type': 'application/json', origin: O }, body: JSON.stringify({ code: 'AAAA-AAAA' }) })).json(); assert.equal(bad.error, 'pair_invalid');
+    const pr = await (await fetch(`${B}/api.php?a=app_pair`, { method: 'POST', headers: { 'content-type': 'application/json', origin: O }, body: JSON.stringify({ code: c.j.code.toLowerCase(), device: 'Pixel' }) })).json();
+    assert.equal(pr.ok, true); assert.match(pr.token, /^[0-9a-f]{64}$/); assert.equal(pr.name, 'Mitarbeiter A');
+    const again = await (await fetch(`${B}/api.php?a=app_pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: c.j.code }) })).json(); assert.equal(again.error, 'pair_invalid', 'Code nur einmal');
+    const H = { 'x-app-token': pr.token, origin: O };
+    const me = await (await fetch(`${B}/api.php?a=me`, { headers: H })).json(); assert.equal(me.user.name, 'Mitarbeiter A'); assert.equal(me.company.iban, undefined); assert.equal(me.tokens, undefined);
+    assert.equal((await fetch(`${B}/api.php?a=orders`, { headers: H })).status, 200);
+    assert.equal((await fetch(`${B}/api.php?a=invoices`, { headers: H })).status, 403);
+    assert.equal((await fetch(`${B}/api.php?a=company_save`, { method: 'POST', headers: { ...H, 'content-type': 'application/json' }, body: '{}' })).status, 403);
+    const cs = await (await fetch(`${B}/api.php?a=customer_save`, { method: 'POST', headers: { ...H, 'content-type': 'application/json' }, body: JSON.stringify({ name: 'App Kunde', country: 'DK' }) })).json();
+    assert.equal(cs.ok, true, 'POST ohne CSRF mit App-Schlüssel');
+    assert.equal((await fetch(`${B}/api.php?a=orders&at=${pr.token}`)).status, 401, 'Schlüssel in der Adresse nur für Bilder');
+    const list = (await call('app_tokens')).j.tokens; const tk = list.find((x) => x.name === 'Mitarbeiter A'); assert.equal(+tk.paired, 1); assert.equal(tk.device, 'Pixel');
+    await call('app_token_revoke', { body: { id: tk.id } });
+    assert.equal((await fetch(`${B}/api.php?a=orders`, { headers: H })).status, 401);
   });
 } finally {
   srv.kill(); rmSync(data, { recursive: true, force: true });
