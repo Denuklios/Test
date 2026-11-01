@@ -11,6 +11,7 @@ require_once __DIR__ . '/inc/archive.php';
 require_once __DIR__ . '/inc/pricing.php';
 require_once __DIR__ . '/inc/custmail.php';
 require_once __DIR__ . '/inc/catalog.php';
+require_once __DIR__ . '/inc/package.php';
 
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
@@ -149,7 +150,7 @@ function clean_procs(PDO $db, $list): array
 
 function order_row(PDO $db, int $id): array
 {
-    $st = $db->prepare('SELECT o.*, c.name AS customer_name, c.company AS customer_company, c.email AS customer_email FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = ?');
+    $st = $db->prepare('SELECT o.*, c.name AS customer_name, c.company AS customer_company, c.email AS customer_email, c.address AS customer_address, c.phone AS customer_phone, c.country AS customer_country FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = ?');
     $st->execute([$id]);
     $o = $st->fetch();
     if (!$o) {
@@ -176,7 +177,21 @@ function order_row(PDO $db, int $id): array
     $c = $db->prepare('SELECT id, created_at, expires_at, revoked_at, viewed_at, signed_at, signer_name, sign_ip FROM order_confirmations WHERE order_id = ? ORDER BY id DESC LIMIT 1');
     $c->execute([$id]);
     $o['confirmation'] = $c->fetch() ?: null;
+    $o['package'] = wf_package($db, $o);
     return $o;
+}
+
+/** Zahl in cm (Komma oder Punkt) → Millimeter, 0 wenn leer/ungültig. */
+function cm_to_mm($v): int
+{
+    $v = str_replace(',', '.', trim((string)$v));
+    return is_numeric($v) && (float)$v > 0 ? (int)round(min((float)$v, 1000) * 10) : 0;
+}
+/** Gewicht in Gramm (ganze Zahl), 0 wenn leer/ungültig. */
+function grams($v): int
+{
+    $v = str_replace(',', '.', trim((string)$v));
+    return is_numeric($v) && (float)$v > 0 ? (int)round(min((float)$v, 100000)) : 0;
 }
 
 /** Hochgeladene Datei pruefen (Endung + echter Inhaltstyp) und unter Zufallsnamen ablegen. Gibt [stored, mime, name, size]. */
@@ -818,15 +833,58 @@ try {
             }
             $vals = [$name, in_array($in['unit'] ?? '', WF_UNITS, true) ? $in['unit'] : 'stk', $price, ($in['kind'] ?? '') === 'services' ? 'services' : 'goods', !empty($in['active']) || !isset($in['active']) ? 1 : 0,
                 json_encode(clean_procs($db, $in['processes'] ?? [])), $cat, s($in, 'sku', 40), json_encode(wf_clean_options($in['options'] ?? []), JSON_UNESCAPED_UNICODE),
-                s($in, 'supplier', 200), src_url($in['supplier_url'] ?? ''), s($in, 'supplier_sku', 80)];
+                s($in, 'supplier', 200), src_url($in['supplier_url'] ?? ''), s($in, 'supplier_sku', 80),
+                grams($in['weight_g'] ?? 0), cm_to_mm($in['len_cm'] ?? 0), cm_to_mm($in['wid_cm'] ?? 0), cm_to_mm($in['hgt_cm'] ?? 0), !empty($in['foldable']) ? 1 : 0];
             $id = (int)($in['id'] ?? 0);
             if ($id) {
-                $db->prepare('UPDATE products SET name=?, unit=?, price=?, kind=?, active=?, processes=?, category_id=?, sku=?, options=?, supplier=?, supplier_url=?, supplier_sku=? WHERE id = ?')->execute([...$vals, $id]);
+                $db->prepare('UPDATE products SET name=?, unit=?, price=?, kind=?, active=?, processes=?, category_id=?, sku=?, options=?, supplier=?, supplier_url=?, supplier_sku=?, weight_g=?, len_mm=?, wid_mm=?, hgt_mm=?, foldable=? WHERE id = ?')->execute([...$vals, $id]);
             } else {
-                $db->prepare('INSERT INTO products (name, unit, price, kind, active, processes, category_id, sku, options, supplier, supplier_url, supplier_sku) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)')->execute($vals);
+                $db->prepare('INSERT INTO products (name, unit, price, kind, active, processes, category_id, sku, options, supplier, supplier_url, supplier_sku, weight_g, len_mm, wid_mm, hgt_mm, foldable) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute($vals);
                 $id = (int)$db->lastInsertId();
             }
             wf_json(['ok' => true, 'id' => $id]);
+        }
+
+        // ---------- Versand: Kartons und Paket je Auftrag ----------
+        case 'cartons':
+            wf_json(['ok' => true, 'cartons' => wf_cartons($db)]);
+
+        case 'carton_save': {
+            need_post();
+            $name = s($in, 'name', 60);
+            $l = cm_to_mm($in['len_cm'] ?? 0); $w = cm_to_mm($in['wid_cm'] ?? 0); $hh = cm_to_mm($in['hgt_cm'] ?? 0);
+            if ($name === '' || !$l || !$w || !$hh) {
+                wf_fail('carton_incomplete');
+            }
+            $vals = [$name, $l, $w, $hh, grams($in['weight_g'] ?? 0), (int)round(max(0, min(1000, (float)str_replace(',', '.', (string)($in['max_kg'] ?? 0)))) * 1000), !isset($in['active']) || !empty($in['active']) ? 1 : 0];
+            $id = (int)($in['id'] ?? 0);
+            if ($id) {
+                $db->prepare('UPDATE cartons SET name=?, len_mm=?, wid_mm=?, hgt_mm=?, weight_g=?, max_g=?, active=? WHERE id = ?')->execute([...$vals, $id]);
+            } else {
+                $db->prepare('INSERT INTO cartons (name, len_mm, wid_mm, hgt_mm, weight_g, max_g, active) VALUES (?,?,?,?,?,?,?)')->execute($vals);
+                $id = (int)$db->lastInsertId();
+            }
+            wf_touch();
+            wf_json(['ok' => true, 'id' => $id]);
+        }
+
+        case 'carton_delete': {
+            need_post();
+            $id = (int)($in['id'] ?? 0);
+            $db->prepare('UPDATE orders SET carton_id = NULL WHERE carton_id = ?')->execute([$id]);
+            $db->prepare('DELETE FROM cartons WHERE id = ?')->execute([$id]);
+            wf_touch();
+            wf_json(['ok' => true]);
+        }
+
+        // Karton für einen Auftrag von Hand wählen (0 = automatischer Vorschlag)
+        case 'order_carton': {
+            need_post();
+            $oid = (int)($in['id'] ?? 0);
+            $cid = (int)($in['carton_id'] ?? 0) ?: null;
+            $db->prepare('UPDATE orders SET carton_id = ? WHERE id = ?')->execute([$cid, $oid]);
+            wf_touch();
+            wf_json(['ok' => true, 'package' => wf_package($db, order_row($db, $oid))]);
         }
 
         case 'catalog_import': {

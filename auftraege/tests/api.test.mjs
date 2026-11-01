@@ -347,7 +347,7 @@ try {
       foreach ($db->query('SELECT order_id, date, start_time, minutes FROM order_days ORDER BY id') as $r) echo $r['order_id'] . '@' . $r['date'] . ' ' . $r['start_time'] . '+' . $r['minutes'] . ';';
       $o = $db->query('SELECT total_min, worker_id, plan_date FROM orders WHERE id = 1')->fetch(); echo ',', $o['total_min'], '/', $o['worker_id'], '/', $o['plan_date'];
       echo ',', $db->query('SELECT COUNT(*) FROM order_days WHERE order_id = 2')->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM customers')->fetchColumn();`;
-    assert.equal(execFileSync('php', ['-r', code]).toString(), '4,19,4,1@2030-05-06 08:00+180;3@2030-05-06 11:00+90;,180/1/2030-05-06,0,1');
+    assert.equal(execFileSync('php', ['-r', code]).toString(), '4,20,4,1@2030-05-06 08:00+180;3@2030-05-06 11:00+90;,180/1/2030-05-06,0,1');
   });
 
   await ok('Gerät merken: nach Login öffnet die App mit dem Geräte-Cookie allein, Abmelden sperrt sofort', async () => {
@@ -361,6 +361,46 @@ try {
     assert.equal((await fetch(`${B}/api.php?a=me`, { headers: { cookie: 'wf_auftraege_device=' + 'a'.repeat(64) } })).status, 401, 'falsches Token');
     assert.equal((await call('device_revoke', { body: { id: d.id } })).status, 200);
     assert.equal((await fetch(`${B}/api.php?a=me`, { headers: { cookie: dc } })).status, 401, 'nach Abmelden gesperrt');
+  });
+  await ok('Versand: Gewicht und Maße am Produkt, Paketgewicht, kleinster passender Karton, Handwahl, mehrere Pakete', async () => {
+    const sh = await call('product_save', { body: { name: 'T-Shirt gefaltet', unit: 'stk', price: '100', weight_g: 180, len_cm: '30', wid_cm: '25', hgt_cm: '2', foldable: 1 } });
+    const mug = await call('product_save', { body: { name: 'Tasse im Karton', unit: 'stk', price: '80', weight_g: '450', len_cm: '12,5', wid_cm: '12', hgt_cm: '10' } });
+    const plain = await call('product_save', { body: { name: 'Ohne Daten', unit: 'stk', price: '10' } });
+    const prods = (await call('products')).j.products;
+    const ps = prods.find((p) => p.id === sh.j.id), pm = prods.find((p) => p.id === mug.j.id);
+    assert.equal(ps.weight_g, 180); assert.equal(ps.len_mm, 300); assert.equal(ps.foldable, 1); assert.equal(pm.len_mm, 125, 'Komma als Dezimaltrenner');
+    const cartons = (await call('cartons')).j.cartons;
+    assert.ok(cartons.length >= 5, 'Startkartons angelegt');
+    const vc = (await call('customer_save', { body: { name: 'Versand Kunde', email: 'v@k.dk', currency: 'DKK', address: 'Teglgård 1\n6330 Padborg' } })).j.id;
+    const mk = async (items) => { const r = await call('order_save', { body: { customer_id: vc, title: 'Versandtest', price: 0, currency: 'DKK', items } }); if (!r.j.order) throw new Error(JSON.stringify(r.j)); return r.j.order; };
+    // 3 Shirts: 540 g, 4,5 l → Tasche (3,5 l) und Karton S (4,4 l) reichen mit 85 % Füllgrad nicht → Karton M
+    let o = await mk([{ product_id: sh.j.id, name: 'T-Shirt', qty: 3, price: 100 }]);
+    assert.equal(o.package.items_g, 540); assert.equal(o.package.carton.name, 'Karton M'); assert.equal(o.package.total_g, 540 + o.package.carton.weight_g);
+    // 1 Shirt passt in die Versandtasche
+    o = await mk([{ product_id: sh.j.id, name: 'T-Shirt', qty: 1, price: 100 }]);
+    assert.equal(o.package.carton.name, 'Versandtasche');
+    // feste Tasse (12,5 × 12 × 10) passt nicht in die 4 cm flache Tasche, aber in Karton S
+    o = await mk([{ product_id: mug.j.id, name: 'Tasse', qty: 1, price: 80 }]);
+    assert.equal(o.package.carton.name, 'Karton S');
+    // fehlende Daten werden gemeldet
+    o = await mk([{ product_id: plain.j.id, name: 'Ohne Daten', qty: 2, price: 10 }, { product_id: sh.j.id, name: 'T-Shirt', qty: 1, price: 100 }]);
+    assert.deepEqual(o.package.missing, ['Ohne Daten']);
+    // Karton von Hand wählen und zurück auf automatisch
+    const xl = cartons.find((c) => c.name === 'Karton XL');
+    let r = await call('order_carton', { body: { id: o.id, carton_id: xl.id } });
+    assert.equal(r.j.package.carton.name, 'Karton XL'); assert.equal(r.j.package.manual, true);
+    r = await call('order_carton', { body: { id: o.id, carton_id: 0 } });
+    assert.equal(r.j.package.manual, false); assert.equal(r.j.package.carton.name, 'Versandtasche');
+    // 400 Shirts (72 kg) passen in keinen Karton: mehrere Pakete im größten Karton
+    o = await mk([{ product_id: sh.j.id, name: 'T-Shirt', qty: 400, price: 100 }]);
+    assert.equal(o.package.carton.name, 'Karton XL'); assert.ok(o.package.parcels >= 4, 'nach Gewicht mindestens 4 Pakete à 20 kg');
+    // eigener Karton: unvollständig abgelehnt, vollständig gespeichert
+    assert.equal((await call('carton_save', { body: { name: 'Halb', len_cm: 10 } })).j.error, 'carton_incomplete');
+    const nc = await call('carton_save', { body: { name: 'Mini', len_cm: '20', wid_cm: '15', hgt_cm: '3', weight_g: 20, max_kg: '2,5' } });
+    const mini = (await call('cartons')).j.cartons.find((c) => c.id === nc.j.id);
+    assert.equal(mini.max_g, 2500); assert.equal(mini.hgt_mm, 30);
+    await call('carton_delete', { body: { id: nc.j.id } });
+    assert.ok(!(await call('cartons')).j.cartons.some((c) => c.id === nc.j.id));
   });
   await ok('Handy-App: Code koppeln, Schlüssel nutzen, nur freigegebene Aktionen, CORS nur für die App, Abmelden sperrt', async () => {
     const O = 'https://app.wunsch-fabrik.local';

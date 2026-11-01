@@ -47,3 +47,11 @@
 - **Neues Spiel „Fadenlauf“** (`spiele/faden.html`): Knobelspiel mit 24 Fadenbildern im gleichen bunten Look, steht in der Spieleübersicht ganz vorn, mit Gutscheinen.
 - **Gutscheine schwerer und sicherer:** Die Schwellen in Nadel & Faden, Auftrags-Chaos und Spuli sind deutlich höher (Übersicht in `spiele/LIESMICH.md`). Der Server gibt Gutscheine nur noch nach einer echten Spielrunde aus (Spielmarke mit Mindest-Spielzeit); bei Fadenlauf rechnet er jede Lösung nach. Die nötige Tabelle `game_plays` legt er selbst an.
 - **Spiele in drei Sprachen:** Alle Spiele und die Spieleübersicht gibt es auf Deutsch, Dänisch und Englisch. Die Sprache von der Hauptseite wird übernommen, oben in der Spiele-Leiste kann man per Flagge wechseln. Gutschein-Mails kommen in der gespielten Sprache.
+
+## Versand im Auftragsprogramm (Update November 2026)
+- **Produkte → Versand: Gewicht & Maße:** Gewicht in Gramm und Maße in cm je Stück (fertig verpackt). „Faltbar“ für Textilien: zählt nur mit dem Volumen.
+- **Auftrag → Paket:** Paketgewicht (Ware + Karton) und der kleinste passende Karton werden automatisch berechnet; ein anderer Karton lässt sich wählen. Passt nichts in einen Karton, wird auf mehrere Pakete verteilt. Fehlen bei einem Produkt Gewicht oder Maße, steht ein Hinweis da.
+- **Einstellungen → Kartons:** eigene Kartons mit Innenmaßen, Eigengewicht und Höchstgewicht. Als Start sind fünf übliche Größen angelegt – bitte an die eigenen Kartons anpassen.
+- **Einstellungen → Etikettendrucker (dieses Gerät):** Format wählen (100 × 150 mm, 4 × 6 Zoll, Brother 62 mm, DYMO 54 × 101 mm, A6) und ob das Etikett automatisch bei „Bezahlt“, „Fertig“ oder „Versendet“ gedruckt wird. Gilt je Rechner.
+- Die Datenbank wird beim ersten Aufruf automatisch ergänzt.
+- Mit übernommen: die Handy-App für Werkstatt und Mitarbeiter aus dem Auftrags-App-Chat (Ordner `auftraege/app/`).

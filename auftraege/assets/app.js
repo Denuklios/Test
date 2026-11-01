@@ -373,7 +373,7 @@ route(/^\/order\/(\d+)$/, async (id) => {
   const reload = () => render();
   const late = o.due_date && o.due_date < today() && !['done', 'delivered'].includes(o.status);
   const steps = h('div', { class: 'steps' }, me.statuses.map((s, i) => h('button', { class: i < me.statuses.indexOf(o.status) ? 'done' : i === me.statuses.indexOf(o.status) ? 'cur' : '', onclick: async () => { const r = await setStatus(o, s); if (!r) return; if (r.invoice_id) toast(t('inv_draft_auto')); reload(); } }, t('st_' + s))));
-  const paySel = h('select', { onchange: async (e) => { await api('order_status', { body: { id: o.id, pay_status: e.target.value } }); reload(); } }, me.pay.map((p) => h('option', { value: p, selected: p === o.pay_status }, t('pay_' + p))));
+  const paySel = h('select', { onchange: async (e) => { await api('order_status', { body: { id: o.id, pay_status: e.target.value } }); if (e.target.value === 'paid' && o.pay_status !== 'paid') await labelAuto(o.id, 'paid'); reload(); } }, me.pay.map((p) => h('option', { value: p, selected: p === o.pay_status }, t('pay_' + p))));
   const rest = o.price - o.deposit;
   const wk = workerById(o.worker_id);
   const dayMin = wk ? wk.day_min : 480;
@@ -402,6 +402,7 @@ route(/^\/order\/(\d+)$/, async (id) => {
         h('td', { class: 'num' }, money(itemTotal(i), o.currency), +i.disc ? h('div', { class: 'muted', style: 'font-size:.8rem' }, `${t('discount_short')} ${i.disc_type === 'abs' ? money(+i.disc, o.currency) : String(+i.disc).replace('.', ',') + ' %'}`) : null), h('td', { class: 'num muted' }, m ? hm(m) : ''));
     })))) : null,
     (o.description || o.notes) && h('div', { class: 'card' }, o.description && h('p', { style: 'margin:0 0 8px;white-space:pre-wrap' }, o.description), o.notes && h('p', { class: 'muted', style: 'margin:0;white-space:pre-wrap' }, o.notes)),
+    !o.deleted_at && packageCard(o, reload),
     !o.deleted_at && trackCard(o, reload),
     !o.deleted_at && orderMoneyCard(o, reload),
     h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:10px' }, t('files')),
@@ -413,6 +414,9 @@ route(/^\/order\/(\d+)$/, async (id) => {
 });
 // Status setzen; bei „Abgeholt/Versendet“ erst fragen: abgeholt oder verschickt (Dienst + Sendungsnummer)
 function setStatus(o, s) {
+  return setStatusRaw(o, s).then((r) => { if (r && s !== o.status) labelAuto(o.id, s); return r; });
+}
+function setStatusRaw(o, s) {
   if (s !== 'delivered' || o.status === 'delivered') return api('order_status', { body: { id: o.id, status: s } });
   return new Promise((resolve) => {
     const close = (v) => { m.remove(); resolve(v); };
@@ -435,6 +439,126 @@ function shipForm(o) {
   el.get = () => ({ carrier: car.value, tracking_no: no.value.trim() });
   return el;
 }
+// ---------- Versandetikett ----------
+// Einstellung je Gerät (der Etikettendrucker hängt an einem bestimmten Rechner)
+const LABEL_FORMATS = { '100x150': [100, 150], '102x152': [102, 152], '62x100': [62, 100], '54x101': [54, 101], 'a6': [105, 148] };
+const labelCfg = () => { try { return Object.assign({ fmt: '100x150', auto: 'off' }, JSON.parse(localStorage.getItem('wf_label') || '{}')); } catch (e) { return { fmt: '100x150', auto: 'off' }; } };
+const labelSave = (c) => { try { localStorage.setItem('wf_label', JSON.stringify(c)); } catch (e) { /* privat */ } };
+// Strichcode Code 128 (Zeichensatz B) als SVG
+const C128 = '212222 222122 222221 121223 121322 131222 122213 122312 132212 221213 221312 231212 112232 122132 122231 113222 123122 123221 223211 221132 221231 213212 223112 312131 311222 321122 321221 312212 322112 322211 212123 212321 232121 111323 131123 131321 112313 132113 132311 211313 231113 231311 112133 112331 132131 113123 113321 133121 313121 211331 231131 213113 213311 213131 311123 311321 331121 312113 312311 332111 314111 221411 431111 111224 111422 121124 121421 141122 141221 112214 112412 122114 122411 142112 142211 241211 221114 413111 241112 134111 111242 121142 121241 114212 124112 124211 411212 421112 421211 212141 214121 412121 111143 111341 131141 114113 114311 411113 411311 113141 114131 311141 411131 211412 211214 211232 2331112'.split(' ');
+function code128(text, hgt) {
+  const vals = [104], chars = [...String(text)].filter((ch) => ch.charCodeAt(0) >= 32 && ch.charCodeAt(0) < 127);
+  chars.forEach((ch) => vals.push(ch.charCodeAt(0) - 32));
+  vals.push(vals.reduce((sum, v, i) => sum + v * (i || 1), 0) % 103, 106);
+  let x = 10, bars = '';
+  vals.forEach((v) => [...C128[v]].forEach((w, i) => { if (i % 2 === 0) bars += `<rect x="${x}" y="0" width="${w}" height="${hgt}"/>`; x += +w; }));
+  return `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 ${x + 10} ${hgt}" preserveAspectRatio="none" class="bc">${bars}</svg>`;
+}
+const hesc = (v) => String(v ?? '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+async function printLabel(o) {
+  if (!o.customer_address) toast(t('label_no_address'));
+  const cfg = labelCfg(), [W, H] = LABEL_FORMATS[cfg.fmt] || LABEL_FORMATS['100x150'];
+  const co = me.company || {}, pk = o.package || {}, n = Math.max(1, pk.parcels || 1);
+  const small = W < 80;
+  const from = [co.name, co.street, [co.zip, co.city].filter(Boolean).join(' '), co.country && co.country !== (o.customer_country || 'DK') ? co.country : ''].filter(Boolean);
+  const to = [o.customer_company, o.customer_name].filter(Boolean).filter((v, i, a) => a.indexOf(v) === i);
+  const addr = String(o.customer_address || '').split(/\n|,\s*(?=\d{4})/).map((l) => l.trim()).filter(Boolean);
+  const page = (i) => `<section class="lbl">
+    <div class="from"><small>${hesc(t('label_from'))}</small>${from.map(hesc).join('<br>')}</div>
+    <div class="to"><small>${hesc(t('label_to'))}</small><b>${to.map(hesc).join('<br>')}</b><div>${addr.map(hesc).join('<br>')}</div>
+      ${o.customer_country && o.customer_country !== 'DK' ? `<div class="ctry">${hesc(o.customer_country)}</div>` : ''}${o.customer_phone ? `<div class="tel">☎ ${hesc(o.customer_phone)}</div>` : ''}</div>
+    <div class="info"><div><small>${hesc(t('label_order'))}</small><b>${hesc(o.nr)}</b></div><div><small>${hesc(t('ship_weight'))}</small><b>${pk.total_g ? hesc(kgFmt(Math.round(pk.total_g / n))) : '—'}</b></div>
+      <div><small>${hesc(t('label_parcel'))}</small><b>${i + 1} / ${n}</b></div></div>
+    ${pk.carton ? `<div class="box">${hesc(pk.carton.name)} · ${hesc(dimFmt(pk.carton))}</div>` : ''}
+    <div class="code">${code128(o.nr, 60)}<span>${hesc(o.nr)}</span></div>
+    ${o.tracking_no ? `<div class="code trk">${code128(o.tracking_no, 60)}<span>${hesc((me.carriers[o.carrier] || '') + ' ' + o.tracking_no)}</span></div>` : ''}
+  </section>`;
+  const css = `@page{size:${W}mm ${H}mm;margin:0}*{box-sizing:border-box}html,body{margin:0;padding:0;font-family:Arial,Helvetica,sans-serif;color:#000}
+    .lbl{width:${W}mm;height:${H}mm;padding:${small ? 2.5 : 4}mm;display:flex;flex-direction:column;gap:${small ? 1.5 : 2.5}mm;page-break-after:always;overflow:hidden}
+    small{display:block;font-size:${small ? 6 : 7}pt;text-transform:uppercase;letter-spacing:.06em;color:#444}
+    .from{font-size:${small ? 7 : 8.5}pt;line-height:1.25;border-bottom:.4mm solid #000;padding-bottom:${small ? 1.5 : 2}mm}
+    .to{flex:1;font-size:${small ? 10 : 14}pt;line-height:1.3;border:.6mm solid #000;border-radius:1.5mm;padding:${small ? 2 : 3}mm}
+    .to b{display:block;font-size:${small ? 11.5 : 16}pt}.ctry{font-weight:bold;text-transform:uppercase;margin-top:1mm}.tel{font-size:${small ? 8 : 10}pt;margin-top:1mm}
+    .info{display:grid;grid-template-columns:1.4fr 1fr .8fr;gap:1.5mm}.info div{border:.3mm solid #000;border-radius:1mm;padding:1mm 1.5mm}.info b{font-size:${small ? 9 : 12}pt}
+    .box{font-size:${small ? 7 : 8.5}pt}.code{text-align:center}.code .bc{width:100%;height:${small ? 9 : 13}mm;display:block}.code span{font-size:${small ? 7 : 9}pt;letter-spacing:.08em}
+    .trk .bc{height:${small ? 10 : 16}mm}`;
+  const html = `<!doctype html><html><head><meta charset="utf-8"><title>${hesc(o.nr)}</title><style>${css}</style></head><body>${Array.from({ length: n }, (_, i) => page(i)).join('')}</body></html>`;
+  const fr = h('iframe', { style: 'position:fixed;right:0;bottom:0;width:0;height:0;border:0', 'aria-hidden': 'true' });
+  document.body.append(fr);
+  fr.contentDocument.open(); fr.contentDocument.write(html); fr.contentDocument.close();
+  setTimeout(() => { try { fr.contentWindow.focus(); fr.contentWindow.print(); } catch (e) { toast(e.message); } setTimeout(() => fr.remove(), 60000); }, 250);
+}
+// Einstellungen: eigene Kartons (Innenmaße, Eigengewicht, Höchstgewicht)
+function shipCard() {
+  const list = h('div');
+  const row = (c) => {
+    const nm = h('input', { value: c.name || '', placeholder: t('carton_name_ph'), class: 'cname', maxlength: 60 });
+    const d = ['len_mm', 'wid_mm', 'hgt_mm'].map((k) => h('input', { type: 'text', inputmode: 'decimal', value: mmCm(c[k]), placeholder: t('ship_' + k) + ' cm', 'aria-label': t('ship_' + k) }));
+    const w = h('input', { type: 'text', inputmode: 'numeric', value: c.weight_g ? String(c.weight_g) : '', placeholder: t('carton_own_g'), 'aria-label': t('carton_own_g') });
+    const mx = h('input', { type: 'text', inputmode: 'decimal', value: c.max_g ? String(c.max_g / 1000).replace('.', ',') : '', placeholder: t('carton_max_kg'), 'aria-label': t('carton_max_kg') });
+    const act = h('input', { type: 'checkbox', checked: c.id ? !!+c.active : true, title: t('active'), style: 'width:22px;height:22px;min-height:0' });
+    const save = h('button', { class: 'btn small primary', onclick: async () => {
+      try { await api('carton_save', { body: { id: c.id || 0, name: nm.value, len_cm: d[0].value, wid_cm: d[1].value, hgt_cm: d[2].value, weight_g: w.value, max_kg: mx.value, active: act.checked ? 1 : 0 } }); toast(t('saved')); load(); } catch (e) { toast(e.message); }
+    } }, c.id ? '✓' : '+');
+    const del = c.id ? h('button', { class: 'btn small danger', title: t('delete'), onclick: async () => { if (!confirm(t('carton_delete_q', c.name))) return; await api('carton_delete', { body: { id: c.id } }); load(); } }, '✕') : h('span');
+    return h('div', { class: 'cartonrow' }, nm, ...d, w, mx, h('label', { class: 'row', style: 'margin:0;gap:4px' }, act), h('div', { class: 'row', style: 'gap:4px' }, save, del));
+  };
+  const load = async () => { const { cartons } = await api('cartons'); list.replaceChildren(
+    h('div', { class: 'cartonrow muted', style: 'font-size:.75rem;text-transform:uppercase;letter-spacing:.05em' }, h('span', { class: 'cname' }, t('carton_name')), h('span', {}, t('ship_len_mm')), h('span', {}, t('ship_wid_mm')), h('span', {}, t('ship_hgt_mm')), h('span', {}, t('carton_own_g')), h('span', {}, t('carton_max_kg')), h('span', {}, ''), h('span', {}, '')),
+    ...cartons.map(row), row({})); };
+  load();
+  return h('div', { class: 'card' }, h('h3', {}, '📦 ' + t('carton_title')), h('p', { class: 'muted' }, t('carton_text')), list);
+}
+// Einstellungen: Etikettendrucker an diesem Gerät
+function labelCard() {
+  const cfg = labelCfg();
+  const fmt = h('select', {}, Object.keys(LABEL_FORMATS).map((k) => h('option', { value: k, selected: k === cfg.fmt }, t('label_fmt_' + k))));
+  const auto = h('select', {}, ['off', 'paid', 'done', 'delivered'].map((k) => h('option', { value: k, selected: k === cfg.auto }, t('label_auto_' + k))));
+  const store = () => { labelSave({ fmt: fmt.value, auto: auto.value }); toast(t('saved')); };
+  fmt.addEventListener('change', store); auto.addEventListener('change', store);
+  const test = h('button', { class: 'btn small', onclick: () => printLabel({ nr: 'TEST-0001', customer_name: 'Max Mustermann', customer_company: '', customer_address: 'Musterweg 1\n6330 Padborg', customer_country: 'DK', customer_phone: '', package: { total_g: 1240, parcels: 1, carton: { name: 'Karton M', len_mm: 350, wid_mm: 250, hgt_mm: 150 } }, tracking_no: '' }) }, '🏷 ' + t('label_test'));
+  return h('div', { class: 'card' }, h('h3', {}, '🏷 ' + t('label_title')), h('p', { class: 'muted' }, t('label_text')),
+    h('div', { class: 'grid c2' }, h('div', {}, h('label', {}, t('label_fmt')), fmt), h('div', {}, h('label', {}, t('label_auto')), auto)),
+    h('div', { class: 'row', style: 'margin-top:10px;flex-wrap:wrap' }, test),
+    h('details', { style: 'margin-top:10px' }, h('summary', { class: 'muted' }, t('label_silent_q')), h('p', { class: 'muted', style: 'font-size:.88rem' }, t('label_silent'))));
+}
+
+// automatisch drucken, wenn auf diesem Gerät eingestellt (bei „bezahlt“, „fertig“ oder „versendet“)
+async function labelAuto(id, what) {
+  const a = labelCfg().auto;
+  if (a === 'off' || a !== what) return;
+  try { const { order } = await api('order', { params: { id } }); if (order.ship_mode !== 'pickup') printLabel(order); } catch (e) { toast(e.message); }
+}
+
+// Paket: Gewicht aus den Produkten, Karton automatisch vorgeschlagen oder von Hand gewählt
+function packageCard(o, reload) {
+  const pk = o.package;
+  if (!pk || !pk.lines.length) return null;
+  const body = h('div');
+  const draw = (pk, cartons) => {
+    const c = pk.carton;
+    const sel = h('select', { onchange: async () => { try { const r = await api('order_carton', { body: { id: o.id, carton_id: +sel.value || 0 } }); o.package = r.package; o.carton_id = +sel.value || null; draw(r.package, cartons); } catch (e) { toast(e.message); } } },
+      h('option', { value: '' }, t('ship_auto') + (pk.carton_auto ? ' (' + pk.carton_auto.name + ')' : '')),
+      ...cartons.filter((x) => +x.active || +x.id === +o.carton_id).map((x) => h('option', { value: x.id, selected: +x.id === +o.carton_id }, `${x.name} · ${dimFmt(x)}`)));
+    body.replaceChildren(...[
+      h('div', { class: 'pkgsum' },
+        h('div', {}, h('small', { class: 'muted' }, t('ship_total')), h('b', { class: 'pkgbig' }, kgFmt(pk.total_g)),
+          h('small', { class: 'muted' }, c ? t('ship_incl_box', kgFmt(pk.items_g), kgFmt(c.weight_g * pk.parcels)) : t('ship_goods_only'))),
+        h('div', {}, h('small', { class: 'muted' }, t('ship_box')), c ? h('b', {}, (pk.parcels > 1 ? pk.parcels + ' × ' : '') + c.name) : h('b', {}, '—'),
+          c ? h('small', { class: 'muted' }, dimFmt(c) + (pk.fill ? ' · ' + t('ship_fill', pk.fill) : '')) : h('small', { class: 'muted' }, t('ship_no_box')))),
+      pk.parcels > 1 ? h('p', { class: 'warnline' }, t('ship_multi', pk.parcels)) : null,
+      pk.missing.length ? h('p', { class: 'warnline' }, t('ship_missing'), ' ', h('b', {}, pk.missing.join(', ')), ' · ', h('a', { href: '#/products' }, t('ship_to_products'))) : null,
+      h('div', { style: 'margin-top:8px' }, h('label', {}, t('ship_choose_box')), sel),
+      h('details', { style: 'margin-top:8px' }, h('summary', { class: 'muted' }, t('ship_detail')),
+        h('table', { class: 't', style: 'margin-top:6px' }, h('tbody', {}, ...pk.lines.map((l) => h('tr', {}, h('td', {}, `${l.qty} ×`), h('td', {}, l.name, l.dims ? h('div', { class: 'muted', style: 'font-size:.8rem' }, l.dims.map(mmCm).join(' × ') + ' cm') : null),
+          h('td', { class: 'n' }, l.weight_g ? kgFmt(l.sum_g) : '—')))))),
+      h('div', { class: 'row', style: 'margin-top:10px;flex-wrap:wrap' },
+        h('button', { class: 'btn small primary', onclick: () => printLabel(o) }, '🏷 ' + t('label_print')))].filter(Boolean));
+  };
+  api('cartons').then((r) => draw(pk, r.cartons)).catch(() => draw(pk, []));
+  return h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:8px' }, '📦 ' + t('ship_pkg_title')), body);
+}
+
 // Verfolgungslink für den Kunden + Versand (Sendungsnummer erscheint dort)
 function trackCard(o, reload) {
   const url = o.track_url;
@@ -1129,6 +1253,26 @@ const srcLine = (n, u, k) => (n || u || k) ? h('div', { class: 'srcline' }, '�
   u ? [n || k ? ' · ' : '', h('a', { href: u, target: '_blank', rel: 'noopener noreferrer', onclick: (e) => e.stopPropagation() }, t('src_link') + ' ↗')] : null) : null;
 const optSummary = (p) => (p.options || []).map((g) => `${g.name}: ${g.values.length > 4 ? g.values.slice(0, 2).join(', ') + ' … ' + g.values[g.values.length - 1] : g.values.join(', ')}`).join(' · ');
 
+// Versand: Gewicht (g) und Maße (cm) je Stück; faltbare Ware zählt nur mit dem Volumen
+const mmCm = (mm) => (+mm ? String(+mm / 10).replace('.', ',') : '');
+const kgFmt = (g) => (g >= 1000 ? (Math.round(g / 10) / 100).toFixed(2).replace('.', ',') + ' kg' : Math.round(g) + ' g');
+const dimFmt = (c) => [c.len_mm, c.wid_mm, c.hgt_mm].map(mmCm).join(' × ') + ' cm';
+function shipFields(p) {
+  const w = h('input', { type: 'text', inputmode: 'decimal', value: +p.weight_g ? String(p.weight_g) : '', placeholder: 'z. B. 180', 'aria-label': t('ship_weight') });
+  const dim = ['len_mm', 'wid_mm', 'hgt_mm'].map((k) => h('input', { type: 'text', inputmode: 'decimal', value: mmCm(p[k]), placeholder: t('ship_' + k), 'aria-label': t('ship_' + k) }));
+  const fold = h('input', { type: 'checkbox', checked: !!+p.foldable, style: 'width:22px;height:22px;min-height:0' });
+  const has = +p.weight_g || +p.len_mm;
+  const el = h('details', { class: 'calcbox', open: !has },
+    h('summary', {}, '📦 ' + t('ship_prod_title')),
+    h('small', { class: 'muted', style: 'display:block;margin:6px 0' }, t('ship_prod_hint')),
+    h('div', { class: 'grid', style: 'grid-template-columns:minmax(90px,1fr) minmax(0,3fr);gap:8px' },
+      h('div', {}, h('label', {}, t('ship_weight') + ' (g)'), w),
+      h('div', {}, h('label', {}, t('ship_dims') + ' (cm)'), h('div', { class: 'grid c3', style: 'gap:6px' }, ...dim))),
+    h('label', { class: 'row', style: 'margin:8px 0 0;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, fold, t('ship_foldable')));
+  el.get = () => ({ weight_g: w.value, len_cm: dim[0].value, wid_cm: dim[1].value, hgt_cm: dim[2].value, foldable: fold.checked ? 1 : 0 });
+  return { el, get: el.get };
+}
+
 route(/^\/products$/, async () => {
   const [{ products }, { categories: cats }] = await Promise.all([api('products'), api('categories')]);
   const list = h('div', { class: 'prows' });
@@ -1223,6 +1367,7 @@ route(/^\/products$/, async () => {
     const calcBox = h('details', { class: 'calcbox' }, h('summary', {}, '🧮 ' + t('calc_h')),
       h('div', { class: 'grid c2', style: 'margin-top:8px' }, h('div', {}, h('label', {}, t('calc_mat')), mat), h('div', {}, h('label', {}, t('calc_min')), mins)), calcOut);
     if (!p.id) setTimeout(askSug, 0);
+    const shipf = shipFields(p);
     return h('div', { class: 'card prodcard' + (p.id && !+p.active ? ' inactive' : '') },
       h('div', { class: 'grid', style: 'grid-template-columns:minmax(0,3fr) minmax(110px,1fr);gap:8px' }, h('div', {}, h('label', {}, t('prod_name')), nm), h('div', {}, h('label', {}, t('sku')), sku)), sug,
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('cat_label')), catSel),
@@ -1232,11 +1377,12 @@ route(/^\/products$/, async () => {
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('op_title')), h('small', { class: 'muted', style: 'display:block;margin-bottom:6px' }, t('op_hint')), oped.el),
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('prod_procs')), ppick, ppTime),
       calcBox,
+      shipf.el,
       h('div', { class: 'row', style: 'justify-content:space-between;margin-top:8px' },
         h('label', { class: 'row', style: 'margin:0;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, act, t('active')),
         h('div', { class: 'row' },
           p.id ? h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('prod_delete_confirm', p.name))) { await api('product_delete', { body: { id: p.id } }); render(); } } }, t('delete')) : null,
-          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: await priceDkk(), kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get(), category_id: catSel.value || null, sku: sku.value, options: oped.get(), supplier: psrc.get().name, supplier_url: psrc.get().url, supplier_sku: psrc.get().sku } }).then(async (r) => { if (pendingImgs.length) { toast(t('uploading_files')); await uploadProductImages(r.id, pendingImgs); } return r; }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
+          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: await priceDkk(), kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get(), category_id: catSel.value || null, sku: sku.value, options: oped.get(), supplier: psrc.get().name, supplier_url: psrc.get().url, supplier_sku: psrc.get().sku, ...shipf.get() } }).then(async (r) => { if (pendingImgs.length) { toast(t('uploading_files')); await uploadProductImages(r.id, pendingImgs); } return r; }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
   };
   const chips = h('div', { class: 'catchips' });
   const drawChips = () => {
@@ -1258,7 +1404,8 @@ route(/^\/products$/, async () => {
       p.images.length ? h('img', { class: 'pthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : h('span', { class: 'pthumb none' }, '🏷'),
       h('span', { class: 'pn' }, h('b', {}, p.name), h('small', { class: 'muted' }, [p.sku, p.category_id ? catPath(cats, p.category_id) : ''].filter(Boolean).join(' · ')),
         (p.options || []).length ? h('small', { class: 'muted popts' }, optSummary(p)) : null,
-        p.supplier || p.supplier_sku ? h('small', { class: 'muted popts' }, '🛒 ' + [p.supplier, p.supplier_sku].filter(Boolean).join(' · ')) : null),
+        p.supplier || p.supplier_sku ? h('small', { class: 'muted popts' }, '🛒 ' + [p.supplier, p.supplier_sku].filter(Boolean).join(' · ')) : null,
+        +p.weight_g || +p.len_mm ? h('small', { class: 'muted popts' }, '📦 ' + [+p.weight_g ? kgFmt(+p.weight_g) : '', +p.len_mm ? dimFmt(p) : ''].filter(Boolean).join(' · ')) : null),
       h('span', { class: 'pt muted' }, p.processes.length ? '⏱ ' + procLabel(p.processes) : ''),
       +p.price ? h('span', { class: 'pp' }, cents(p.price, 'DKK') + ' / ' + t('u_' + p.unit)) : h('span', { class: 'pp nopr' }, t('price_missing')),
       +p.active ? null : h('span', { class: 'pill' }, t('inactive')));
@@ -2338,6 +2485,8 @@ route(/^\/settings$/, async () => {
     archiveCard,
     termsCard,
     aiCard,
+    shipCard(),
+    labelCard(),
     appCard,
     devCard,
     h('div', { class: 'card' }, h('h3', {}, t('display_title')), h('p', { class: 'muted' }, t('display_text')),

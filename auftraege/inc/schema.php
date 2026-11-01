@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 19) {
+    if ($v >= 20) {
         return;
     }
     if ($v < 1) {
@@ -62,7 +62,52 @@ function wf_migrate(PDO $db): void
     if ($v < 18) {
         wf_migrate_v18($db);
     }
-    wf_migrate_v19($db);
+    if ($v < 19) {
+        wf_migrate_v19($db);
+    }
+    wf_migrate_v20($db);
+}
+
+/**
+ * Version 20: Versand. Gewicht und Maße je Produkt, eigene Kartons mit Innenmaßen,
+ * je Auftrag ein von Hand gewählter Karton (sonst automatischer Vorschlag).
+ * Maße in Millimetern, Gewichte in Gramm.
+ */
+function wf_migrate_v20(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    ALTER TABLE products ADD COLUMN weight_g INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE products ADD COLUMN len_mm INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE products ADD COLUMN wid_mm INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE products ADD COLUMN hgt_mm INTEGER NOT NULL DEFAULT 0;
+    ALTER TABLE products ADD COLUMN foldable INTEGER NOT NULL DEFAULT 0;
+    CREATE TABLE cartons (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      len_mm INTEGER NOT NULL,
+      wid_mm INTEGER NOT NULL,
+      hgt_mm INTEGER NOT NULL,
+      weight_g INTEGER NOT NULL DEFAULT 0,
+      max_g INTEGER NOT NULL DEFAULT 0,
+      active INTEGER NOT NULL DEFAULT 1,
+      sort INTEGER NOT NULL DEFAULT 0
+    );
+    ALTER TABLE orders ADD COLUMN carton_id INTEGER;
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '20');
+    ");
+    // Startwerte: übliche Versandkartons und eine Versandtasche für Textilien (Innenmaße) – in den Einstellungen änderbar
+    $st = $db->prepare('INSERT INTO cartons (name, len_mm, wid_mm, hgt_mm, weight_g, max_g, sort) VALUES (?,?,?,?,?,?,?)');
+    foreach ([
+        ['Versandtasche', 350, 250, 40, 40, 2000],
+        ['Karton S', 250, 175, 100, 150, 10000],
+        ['Karton M', 350, 250, 150, 280, 20000],
+        ['Karton L', 450, 350, 200, 450, 20000],
+        ['Karton XL', 600, 400, 400, 800, 20000],
+    ] as $i => $c) {
+        $st->execute([$c[0], $c[1], $c[2], $c[3], $c[4], $c[5], $i]);
+    }
+    $db->commit();
 }
 
 /**

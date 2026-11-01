@@ -494,3 +494,11 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 .cphead{display:flex;align-items:center;gap:8px;flex-wrap:nowrap}.cphead h2{flex:1;min-width:0;margin:0;font-size:1.35rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.cphead .btn{flex:none;white-space:nowrap}
 @media(max-width:600px){.cpcl{display:none}.cpsheet{max-height:92vh}}
 .appcode{margin-top:12px;padding:14px;border:2px dashed var(--p2);border-radius:14px;text-align:center;display:grid;gap:6px}.appcode .code{font-size:2rem;font-weight:700;letter-spacing:.18em;color:var(--p2);font-variant-numeric:tabular-nums}
+
+/* Versand: Paket und Etikett */
+.pkgsum{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.pkgsum>div{background:var(--surface2);border:1px solid var(--line);border-radius:12px;padding:10px 12px;display:flex;flex-direction:column;gap:2px;min-width:0}
+.pkgbig{font-size:1.6rem;line-height:1.1;color:var(--p3);font-variant-numeric:tabular-nums}
+.warnline{margin:8px 0 0;padding:8px 10px;border-radius:10px;background:rgba(245,158,11,.12);border:1px solid rgba(245,158,11,.35);font-size:.88rem}
+.cartonrow{display:grid;grid-template-columns:minmax(0,2fr) repeat(3,minmax(52px,1fr)) minmax(60px,1fr) minmax(60px,1fr) auto auto;gap:6px;align-items:center;margin-bottom:6px}
+@media(max-width:700px){.cartonrow{grid-template-columns:repeat(3,minmax(0,1fr))}.cartonrow .cname{grid-column:1/-1}}
