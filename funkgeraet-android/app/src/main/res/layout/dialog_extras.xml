@@ -1,0 +1,113 @@
+<?xml version="1.0" encoding="utf-8"?>
+<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="@drawable/card">
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:padding="20dp">
+
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:fontFamily="sans-serif-black"
+            android:letterSpacing="0.25"
+            android:shadowColor="#00e5ff"
+            android:shadowRadius="18"
+            android:text="EXTRAS"
+            android:textColor="#ffffff"
+            android:textSize="20sp" />
+
+        <Button
+            android:id="@+id/x_ring"
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:layout_marginTop="16dp"
+            android:background="@drawable/btn_pink"
+            android:fontFamily="sans-serif-black"
+            android:letterSpacing="0.1"
+            android:text="🔔  ALLE ANKLINGELN"
+            android:textColor="#ffffff"
+            android:textSize="16sp" />
+
+        <TextView style="@style/Label" android:layout_marginTop="20dp" android:text="MORSEN" />
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal">
+            <EditText
+                android:id="@+id/x_morse"
+                style="@style/Field"
+                android:layout_width="0dp"
+                android:layout_weight="1"
+                android:fontFamily="monospace"
+                android:hint="Text zum Morsen"
+                android:imeOptions="actionSend"
+                android:inputType="textCapCharacters|textNoSuggestions"
+                android:maxLength="40" />
+            <Button
+                android:id="@+id/x_morse_send"
+                style="@style/Glass"
+                android:layout_width="wrap_content"
+                android:layout_height="54dp"
+                android:layout_marginStart="8dp"
+                android:background="@drawable/btn_violet"
+                android:paddingHorizontal="14dp"
+                android:text="Morsen"
+                android:textColor="#e6d9ff" />
+        </LinearLayout>
+        <LinearLayout
+            android:id="@+id/x_morse_quick"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginTop="8dp"
+            android:orientation="horizontal" />
+
+        <TextView style="@style/Label" android:layout_marginTop="20dp" android:text="MEINE STIMME" />
+        <LinearLayout android:id="@+id/x_voice1" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" />
+        <LinearLayout android:id="@+id/x_voice2" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal" />
+
+        <TextView style="@style/Label" android:layout_marginTop="20dp" android:text="ROGER-TON (hören alle am Ende)" />
+        <LinearLayout android:id="@+id/x_roger1" android:layout_width="match_parent" android:layout_height="wrap_content" android:orientation="horizontal" />
+        <LinearLayout android:id="@+id/x_roger2" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="8dp" android:orientation="horizontal" />
+
+        <Switch
+            android:id="@+id/x_static"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:layout_marginTop="16dp"
+            android:text="Funk-Rauschen beim Empfang"
+            android:textColor="#d6e6f5"
+            android:textSize="15sp" />
+        <Switch
+            android:id="@+id/x_torch"
+            android:layout_width="match_parent"
+            android:layout_height="48dp"
+            android:text="Taschenlampe blinkt beim Morsen"
+            android:textColor="#d6e6f5"
+            android:textSize="15sp" />
+
+        <Button
+            android:id="@+id/x_widget"
+            style="@style/Glass"
+            android:layout_width="match_parent"
+            android:layout_marginTop="14dp"
+            android:text="Widget auf den Startbildschirm" />
+        <Button
+            android:id="@+id/x_battery"
+            style="@style/Glass"
+            android:layout_width="match_parent"
+            android:layout_marginTop="8dp"
+            android:text="⚡  Akku-Optimierung ausschalten"
+            android:textColor="#ffcc66" />
+        <Button
+            android:id="@+id/x_close"
+            style="@style/Glass"
+            android:layout_width="match_parent"
+            android:layout_marginTop="14dp"
+            android:text="Schließen" />
+    </LinearLayout>
+</ScrollView>

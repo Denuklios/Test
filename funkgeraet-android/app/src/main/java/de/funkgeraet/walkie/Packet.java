@@ -15,7 +15,7 @@ import javax.crypto.spec.SecretKeySpec;
  * damit auf dem öffentlichen Vermittlungsserver niemand ohne Kanalnamen mithören kann.
  */
 public final class Packet {
-    public static final byte HELLO = 1, BYE = 2, START = 3, AUDIO = 4, END = 5;
+    public static final byte HELLO = 1, BYE = 2, START = 3, AUDIO = 4, END = 5, MORSE = 6, RING = 7;
 
     public byte type;
     public int sender;
@@ -24,6 +24,8 @@ public final class Packet {
     public int session, seq;         // START/AUDIO/END
     public int predictor, index;     // AUDIO: ADPCM-Startzustand
     public byte[] audio = new byte[0];
+    public String text = "";         // MORSE
+    public int roger = 0;            // END: Roger-Ton des Senders
 
     /* ---------- Kanal → Thema und Schlüssel ---------- */
 
@@ -53,13 +55,17 @@ public final class Packet {
     public byte[] toBytes() {
         byte[] n = name.getBytes(StandardCharsets.UTF_8);
         if (n.length > 60) n = java.util.Arrays.copyOf(n, 60);
-        ByteBuffer b = ByteBuffer.allocate(16 + n.length + audio.length);
+        byte[] tx = text.getBytes(StandardCharsets.UTF_8);
+        if (tx.length > 200) tx = java.util.Arrays.copyOf(tx, 200);
+        ByteBuffer b = ByteBuffer.allocate(16 + n.length + audio.length + tx.length);
         b.put(type).putInt(sender);
         switch (type) {
             case HELLO: b.put((byte) ((ask ? 1 : 0) | (talking ? 2 : 0))).put(n); break;
             case START: b.putShort((short) session).put(n); break;
             case AUDIO: b.putShort((short) session).putShort((short) seq).putShort((short) predictor).put((byte) index).put(audio); break;
-            case END: b.putShort((short) session); break;
+            case END: b.putShort((short) session).put((byte) roger); break;
+            case MORSE: b.put((byte) n.length).put(n).put(tx); break;
+            case RING: b.put(n); break;
             default: break;
         }
         byte[] out = new byte[b.position()];
@@ -80,7 +86,15 @@ public final class Packet {
                 p.predictor = b.getShort(); p.index = b.get();
                 p.audio = new byte[b.remaining()]; b.get(p.audio);
                 break;
-            case END: p.session = b.getShort() & 0xffff; break;
+            case END: p.session = b.getShort() & 0xffff; if (b.hasRemaining()) p.roger = b.get(); break;
+            case MORSE: {
+                byte[] nm = new byte[b.get() & 0xff];
+                b.get(nm);
+                p.name = new String(nm, StandardCharsets.UTF_8);
+                p.text = rest(b);
+                break;
+            }
+            case RING: p.name = rest(b); break;
             case BYE: break;
             default: throw new IllegalArgumentException("unbekannter Pakettyp");
         }

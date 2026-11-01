@@ -61,6 +61,18 @@ public class RadioService extends Service implements Mqtt.Listener {
 
     /* Zustand (wird von Widget und App gelesen) */
     public String name = "", channel = "", lastError = "", via = "";
+
+    /* Extras (Einstellungen) */
+    public volatile int voiceFx = VoiceFx.NORMAL, rogerStyle = 0;
+    public volatile boolean staticNoise = true, torch = true;
+
+    /* Extras (Anzeige) */
+    public volatile String fxText;          // z. B. „ANNA KLINGELT“
+    public volatile long fxUntil;
+    public volatile String morseFrom, morseText;
+    public volatile int[] morseCharStart;
+    public volatile long morseStart;
+    public volatile int morseTotal;
     public volatile boolean connected, talking;
     public final Map<Integer, Member> members = new ConcurrentHashMap<>();
     public volatile int speaker;           // wer gerade empfangen wird (0 = niemand)
@@ -139,6 +151,7 @@ public class RadioService extends Service implements Mqtt.Listener {
         SharedPreferences p = getSharedPreferences("funk", MODE_PRIVATE);
         name = p.getString("name", "").trim();
         channel = p.getString("channel", "").trim();
+        reloadSettings();
         String server = p.getString("server", DEFAULT_SERVER).trim();
         if (server.isEmpty()) server = DEFAULT_SERVER;
 
@@ -198,6 +211,14 @@ public class RadioService extends Service implements Mqtt.Listener {
             }
         };
         try { cm.registerDefaultNetworkCallback(netCb); } catch (Exception ignored) { netCb = null; }
+    }
+
+    public void reloadSettings() {
+        SharedPreferences p = getSharedPreferences("funk", MODE_PRIVATE);
+        voiceFx = p.getInt("voiceFx", VoiceFx.NORMAL);
+        rogerStyle = p.getInt("roger", 0);
+        staticNoise = p.getBoolean("static", true);
+        torch = p.getBoolean("torch", true);
     }
 
     public void shutdown() {
@@ -261,7 +282,12 @@ public class RadioService extends Service implements Mqtt.Listener {
             talking = false;
             stopAt = SystemClock.elapsedRealtime() + 250; // Wortende nicht abschneiden
             main.removeCallbacks(autoStop);
-            main.postDelayed(() -> { if (!talking) tone(ToneGenerator.TONE_PROP_ACK, 120); }, 300);
+            main.postDelayed(() -> {
+                if (talking) return;
+                Sfx.Buf b = new Sfx.Buf();
+                Sfx.roger(b, rogerStyle == Sfx.ROGER_OFF ? 1 : rogerStyle);
+                enqueue(b.get());
+            }, 300);
         }
         changed();
     }
@@ -282,6 +308,7 @@ public class RadioService extends Service implements Mqtt.Listener {
             send(start);
 
             Adpcm enc = new Adpcm();
+            VoiceFx fx = new VoiceFx(voiceFx);
             short[] in = new short[CHUNK * 2];
             short[] down = new short[CHUNK];
             int seq = 0;
@@ -294,6 +321,7 @@ public class RadioService extends Service implements Mqtt.Listener {
                 }
                 // 16 kHz → 8 kHz (Mittelwert als einfacher Tiefpass)
                 for (int i = 0; i < CHUNK; i++) down[i] = (short) ((in[2 * i] + in[2 * i + 1]) >> 1);
+                fx.process(down);
                 Packet a = new Packet();
                 a.type = Packet.AUDIO; a.sender = myId; a.session = session; a.seq = seq++;
                 a.predictor = enc.predictor; a.index = enc.index;
@@ -307,7 +335,7 @@ public class RadioService extends Service implements Mqtt.Listener {
         } finally {
             if (rec != null) { try { rec.stop(); } catch (Exception ignored) {} rec.release(); }
             Packet end = new Packet();
-            end.type = Packet.END; end.sender = myId; end.session = session;
+            end.type = Packet.END; end.sender = myId; end.session = session; end.roger = rogerStyle;
             send(end);
         }
     }
@@ -352,7 +380,7 @@ public class RadioService extends Service implements Mqtt.Listener {
         long now = SystemClock.elapsedRealtime();
         Member m = members.get(p.sender);
         if (p.type == Packet.BYE) {
-            if (m != null) { members.remove(p.sender); if (speaker == p.sender) endSpeaker(true); changed(); }
+            if (m != null) { members.remove(p.sender); if (speaker == p.sender) endSpeaker(0); changed(); }
             return;
         }
         boolean isNew = m == null;
@@ -383,8 +411,19 @@ public class RadioService extends Service implements Mqtt.Listener {
                 break;
             case Packet.END:
                 m.talking = false;
-                if (speaker == p.sender) endSpeaker(true);
+                if (speaker == p.sender) endSpeaker(p.roger);
                 changed();
+                break;
+            case Packet.MORSE:
+                if (!p.name.isEmpty()) m.name = p.name;
+                vibrate(60);
+                playMorse(m.name.isEmpty() ? "Jemand" : m.name, Sfx.morseText(p.text));
+                break;
+            case Packet.RING:
+                if (!p.name.isEmpty()) m.name = p.name;
+                showFx((m.name.isEmpty() ? "Jemand" : m.name) + " klingelt!", 4500);
+                enqueue(Sfx.ring());
+                vibratePattern(new long[] { 0, 400, 200, 400, 200, 400 });
                 break;
             default: break;
         }
@@ -395,15 +434,94 @@ public class RadioService extends Service implements Mqtt.Listener {
         speaker = id;
         speakerSession = sess;
         lastAudio = now;
-        if (!talking) { tone(ToneGenerator.TONE_PROP_BEEP, 60); vibrate(30); }
+        if (!talking) {
+            if (staticNoise) enqueue(Sfx.squelchOpen()); else tone(ToneGenerator.TONE_PROP_BEEP, 60);
+            vibrate(30);
+        }
     }
 
-    private void endSpeaker(boolean roger) {
+    private void endSpeaker(int roger) {
         speaker = 0;
-        if (roger && !talking) {
-            long delay = playQueue.size() * 100L + 150;
-            main.postDelayed(() -> { if (speaker == 0 && !talking) tone(ToneGenerator.TONE_PROP_ACK, 100); }, delay);
+        if (!talking) enqueue(Sfx.endOfTransmission(roger < 0 || roger > Sfx.ROGER_OFF ? 0 : roger, staticNoise));
+    }
+
+    /* ---------- Extras: Morse, Klingeln ---------- */
+
+    /** Klang in 100-ms-Stücken abspielen (nach dem, was schon in der Warteschlange ist). */
+    private void enqueue(short[] pcm) {
+        if (talking || pcm == null) return;
+        for (int i = 0; i < pcm.length; i += CHUNK) {
+            playQueue.offer(java.util.Arrays.copyOfRange(pcm, i, Math.min(pcm.length, i + CHUNK)));
         }
+    }
+
+    public boolean sendMorse(String raw) {
+        String text = Sfx.morseText(raw);
+        if (text.isEmpty() || talking) return false;
+        if (!connected) { tone(ToneGenerator.TONE_PROP_NACK, 200); return false; }
+        Packet m = new Packet();
+        m.type = Packet.MORSE; m.sender = myId; m.name = name; m.text = text;
+        new Thread(() -> send(m)).start();
+        playMorse(name + " (du)", text);
+        return true;
+    }
+
+    public void previewRoger(int style) {
+        Sfx.Buf b = new Sfx.Buf();
+        Sfx.roger(b, style);
+        if (staticNoise) Sfx.noise(b, 220, 0.5);
+        enqueue(b.get());
+    }
+
+    public void sendRing() {
+        if (!connected) { tone(ToneGenerator.TONE_PROP_NACK, 200); return; }
+        Packet r = new Packet();
+        r.type = Packet.RING; r.sender = myId; r.name = name;
+        new Thread(() -> send(r)).start();
+        showFx("Du klingelst …", 2500);
+        Sfx.Buf b = new Sfx.Buf();
+        Sfx.tone(b, 1100, 90, 0.3); Sfx.tone(b, 1350, 90, 0.3);
+        enqueue(b.get());
+    }
+
+    private void showFx(String text, int ms) {
+        fxText = text;
+        fxUntil = SystemClock.elapsedRealtime() + ms;
+        changed();
+    }
+
+    private void playMorse(String from, String text) {
+        if (text.isEmpty()) return;
+        Sfx.Morse m = Sfx.morse(text);
+        long delay = playQueue.size() * 100L + 220;   // bis der Klang tatsächlich startet
+        morseFrom = from;
+        morseText = text;
+        morseCharStart = m.charStartMs;
+        morseTotal = m.totalMs;
+        morseStart = SystemClock.elapsedRealtime() + delay;
+        enqueue(m.pcm);
+        if (torch) flashTorch(m, delay);
+        changed();
+    }
+
+    private String torchId;
+
+    private void flashTorch(Sfx.Morse m, long delay) {
+        try {
+            android.hardware.camera2.CameraManager cm = (android.hardware.camera2.CameraManager) getSystemService(CAMERA_SERVICE);
+            if (torchId == null) {
+                for (String id : cm.getCameraIdList()) {
+                    Boolean f = cm.getCameraCharacteristics(id).get(android.hardware.camera2.CameraCharacteristics.FLASH_INFO_AVAILABLE);
+                    if (Boolean.TRUE.equals(f)) { torchId = id; break; }
+                }
+            }
+            if (torchId == null) return;
+            final String id = torchId;
+            for (int[] on : m.onOff) {
+                main.postDelayed(() -> { try { cm.setTorchMode(id, true); } catch (Exception ignored) {} }, delay + on[0]);
+                main.postDelayed(() -> { try { cm.setTorchMode(id, false); } catch (Exception ignored) {} }, delay + on[0] + on[1]);
+            }
+        } catch (Exception ignored) {}
     }
 
     private void playLoop() {
@@ -436,7 +554,7 @@ public class RadioService extends Service implements Mqtt.Listener {
             if (speaker != 0 && now - lastAudio > 2000) {
                 Member m = members.get(speaker);
                 if (m != null) m.talking = false;
-                endSpeaker(true);
+                endSpeaker(0);
                 ch = true;
             }
             List<Integer> gone = new ArrayList<>();
@@ -510,6 +628,11 @@ public class RadioService extends Service implements Mqtt.Listener {
     private void tone(int t, int ms) {
         ToneGenerator g = tones;
         if (g != null) try { g.startTone(t, ms); } catch (Exception ignored) {}
+    }
+
+    private void vibratePattern(long[] pattern) {
+        Vibrator v = (Vibrator) getSystemService(VIBRATOR_SERVICE);
+        if (v != null && v.hasVibrator()) v.vibrate(VibrationEffect.createWaveform(pattern, -1));
     }
 
     private void vibrate(int ms) {

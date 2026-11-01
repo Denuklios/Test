@@ -36,6 +36,55 @@ public class RadioView extends View {
     private Shader bgShader, vignette;
     private final long t0 = SystemClock.elapsedRealtime();
 
+    static final int MORSE_COLOR = 0xffb388ff, RING_COLOR = 0xffff4f9a;
+
+    /** Morse im Display: Buchstaben erscheinen im Takt, darunter Punkte/Striche des aktuellen Zeichens. */
+    private void drawMorse(Canvas c, RadioService s, long now, float ix, float iw, float top, float bot, int color) {
+        String text = s.morseText;
+        int[] starts = s.morseCharStart;
+        long el = now - s.morseStart;
+        int shown = 0;
+        for (int i = 0; i < text.length() && i < starts.length; i++) if (el >= starts[i]) shown = i + 1;
+        if (el >= s.morseTotal) shown = text.length();
+        t.reset(); t.setAntiAlias(true);
+        t.setTypeface(Typeface.create(Typeface.MONOSPACE, Typeface.BOLD));
+        t.setLetterSpacing(0.12f);
+        float size = 30 * dp;
+        t.setTextSize(size);
+        while (t.measureText(text) > iw && size > 12 * dp) { size -= dp; t.setTextSize(size); }
+        String vis = text.substring(0, shown);
+        float baseY = top + (bot - top) * 0.48f;
+        t.setColor(Art.alpha(color, 0.15f));
+        c.drawText(text, ix, baseY, t);                       // Geisterschrift: was noch kommt
+        t.setColor(Art.mix(color, Color.WHITE, 0.55f));
+        t.setShadowLayer(10 * dp, 0, 0, color);
+        c.drawText(vis, ix, baseY, t);
+        // Schreibmarke
+        if (shown < text.length() && (now / 300) % 2 == 0) {
+            float cx = ix + t.measureText(vis);
+            c.drawRect(cx + 2 * dp, baseY - size * 0.8f, cx + 2 * dp + size * 0.5f, baseY + 3 * dp, t);
+        }
+        t.clearShadowLayer();
+        // Punkte und Striche des aktuellen Zeichens
+        if (shown > 0 && shown <= text.length() && el < s.morseTotal) {
+            String code = Sfx.code(text.charAt(shown - 1));
+            float x = ix, y = bot - 14 * dp, u = 7 * dp;
+            long into = el - starts[shown - 1];
+            int pos = 0;
+            for (int k = 0; k < code.length(); k++) {
+                boolean dash = code.charAt(k) == '-';
+                int len = (dash ? 3 : 1) * Sfx.MORSE_UNIT_MS;
+                boolean lit = into >= pos;
+                p.setColor(lit ? Art.mix(color, Color.WHITE, 0.4f) : Art.alpha(color, 0.25f));
+                if (lit) p.setShadowLayer(8 * dp, 0, 0, color);
+                if (dash) { rect.set(x, y - u / 2, x + 3 * u, y + u / 2); c.drawRoundRect(rect, u / 2, u / 2, p); x += 3 * u + u; }
+                else { c.drawCircle(x + u / 2, y, u / 2, p); x += 2 * u; }
+                p.clearShadowLayer();
+                pos += len + Sfx.MORSE_UNIT_MS;
+            }
+        }
+    }
+
     public RadioView(Context c, AttributeSet a) {
         super(c, a);
         dp = getResources().getDisplayMetrics().density;
@@ -92,7 +141,10 @@ public class RadioView extends View {
         boolean tx = s != null && s.talking;
         String sp = s == null ? null : s.speakerName();
         boolean rx = !tx && sp != null;
-        int target = tx ? Art.RED : rx ? Art.GREEN : connected ? Art.CYAN : Art.AMBER;
+        long nowMs = SystemClock.elapsedRealtime();
+        boolean morse = !tx && !rx && s != null && s.morseText != null && nowMs < s.morseStart + s.morseTotal + 3500;
+        boolean ring = !tx && !rx && !morse && s != null && s.fxText != null && nowMs < s.fxUntil;
+        int target = tx ? Art.RED : rx ? Art.GREEN : morse ? MORSE_COLOR : ring ? RING_COLOR : connected ? Art.CYAN : Art.AMBER;
         if (target != shownColor) { colorMix += 0.12f; if (colorMix >= 1) { shownColor = target; colorMix = 0; } }
         int color = colorMix > 0 ? Art.mix(shownColor, target, colorMix) : shownColor;
 
@@ -199,15 +251,16 @@ public class RadioView extends View {
         t.setTextAlign(Paint.Align.LEFT);
 
         // Zeile 2: Zustand
-        boolean err = s != null && !connected && !s.lastError.isEmpty();
+        boolean err = s != null && !connected && !s.lastError.isEmpty() && !morse && !ring;
         String line = s == null ? "AUS" : tx ? "● DU SENDEST" : rx ? "◄ " + sp.toUpperCase() + " SPRICHT"
+            : morse ? "MORSE · " + s.morseFrom.toUpperCase() : ring ? "🔔 " + s.fxText.toUpperCase()
             : err ? "KEINE VERBINDUNG" : s.statusLine().toUpperCase();
         t.setTextSize(15 * dp);
         t.setLetterSpacing(0.06f);
         while (t.measureText(line) > iw && t.getTextSize() > 9 * dp) t.setTextSize(t.getTextSize() - dp);
         t.setColor(Art.mix(color, Color.WHITE, 0.25f));
         t.setShadowLayer(6 * dp, 0, 0, color);
-        boolean show = !(tx || rx) || (time * 2.2f) % 1 < 0.78f;
+        boolean show = !(tx || rx || ring) || (time * (ring ? 4f : 2.2f)) % 1 < 0.78f;
         if (show) c.drawText(line, ix, rect.top + 50 * dp, t);
         t.clearShadowLayer();
 
@@ -233,7 +286,9 @@ public class RadioView extends View {
         }
 
         // Oszilloskop
-        if (!err) {
+        if (morse) {
+            drawMorse(c, s, nowMs, ix, iw, rect.top + 60 * dp, rect.bottom - 8 * dp, color);
+        } else if (!err) {
         float oTop = rect.top + 60 * dp, oBot = rect.bottom - 10 * dp, oMid = (oTop + oBot) / 2, oAmp = (oBot - oTop) / 2;
         p.setColor(Art.alpha(color, 0.12f));
         p.setStrokeWidth(1);
@@ -271,11 +326,18 @@ public class RadioView extends View {
 
         // ---------- Sprechknopf ----------
         float r = orbR() * (1 - 0.04f * pressAnim);
-        String label = s == null ? "AUS" : tx ? "SENDET" : rx ? "EMPFANG" : connected ? "SPRECHEN" : "VERBINDE";
-        String sub = s == null ? null : tx ? "loslassen = fertig" : rx ? sp : connected ? "gedrückt halten" : "bitte warten …";
+        String label = s == null ? "AUS" : tx ? "SENDET" : rx ? "EMPFANG" : morse ? "MORSE" : ring ? "RING RING" : connected ? "SPRECHEN" : "VERBINDE";
+        String sub = s == null ? null : tx ? "loslassen = fertig" : rx ? sp : morse ? s.morseFrom : ring ? s.fxText
+            : connected ? "gedrückt halten" : "bitte warten …";
+        if (ring) {   // Knopf wackelt beim Klingeln
+            c.save();
+            c.rotate((float) Math.sin(time * 40) * 4, orbX(), orbY());
+        }
         float phase = (time * (tx ? 0.9f : 0.6f)) % 1f;
         float pulse = (float) Math.sin(time * 2.4f) * 0.5f + 0.5f;
-        Art.orb(c, orbX(), orbY(), r, color, phase, tx || rx ? Math.max(smoothLevel, 0.08f) : 0f, tx || rx, pulse, label, sub);
+        boolean act = tx || rx || morse || ring;
+        Art.orb(c, orbX(), orbY(), r, color, phase, act ? Math.max(smoothLevel, 0.08f) : 0f, act, pulse, label, sub);
+        if (ring) c.restore();
 
         // ---------- Teilnehmer ----------
         List<String> names = new ArrayList<>();

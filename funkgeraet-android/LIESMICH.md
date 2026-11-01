@@ -4,7 +4,7 @@ Zwei, drei oder mehr Handys (bis ca. 10) sprechen miteinander wie mit einem Funk
 Taste drücken, sprechen – alle anderen im selben Kanal hören es sofort aus dem Lautsprecher.
 
 ## Installieren
-1. `Funkgeraet-1.3.apk` aufs Handy laden und öffnen (einmalig „Installation aus unbekannten Quellen“ erlauben).
+1. `Funkgeraet-1.4.apk` aufs Handy laden und öffnen (einmalig „Installation aus unbekannten Quellen“ erlauben).
 2. Auf **jedem** Handy installieren.
 
 ## Benutzen
@@ -19,6 +19,14 @@ Taste drücken, sprechen – alle anderen im selben Kanal hören es sofort aus d
 - **Benachrichtigung:** „Sprechen“ und „Ausschalten“ gehen auch von dort.
 - Empfang läuft im Hintergrund weiter, auch bei ausgeschaltetem Bildschirm (Lautstärke = Medienlautstärke).
 - Piep beim Start, „Roger“-Piep am Ende – wie beim echten Funkgerät.
+
+## Extras (Knopf „✨ Extras“)
+- **Alle anklingeln:** Bei allen klingelt es wie ein altes Telefon, das Handy vibriert, der Knopf wackelt pink.
+- **Morsen:** Text eintippen (oder SOS / OK / KOMME / HILFE). Alle hören die Morsezeichen, im Display erscheinen
+  die Buchstaben im Takt mit Punkten und Strichen – auf Wunsch blinkt die Taschenlampe mit.
+- **Meine Stimme:** Normal, Funk (wie ein echtes Funkgerät), Roboter, Mickymaus, Monster, Echo.
+- **Roger-Ton:** Klassisch, Piep, Melodie, Weltraum oder Aus – die anderen hören deinen Ton am Ende deiner Durchsage.
+- **Funk-Rauschen** beim Empfang an/aus.
 
 ## Wie es funktioniert
 - Funktioniert über WLAN **und** mobiles Internet, egal wie weit die Handys auseinander sind.

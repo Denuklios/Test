@@ -17,6 +17,7 @@ import android.provider.Settings;
 import android.view.View;
 import android.widget.Button;
 import android.widget.EditText;
+import android.widget.TextView;
 import android.widget.Toast;
 
 import java.util.Random;
@@ -26,7 +27,7 @@ public class MainActivity extends Activity implements RadioService.UiListener {
     private static final int REQ_PERM = 1;
 
     private EditText name, channel, server;
-    private Button power, widgetBtn, batteryBtn, widgetBtn2, batteryBtn2;
+    private Button power, widgetBtn, batteryBtn;
     private RadioView radio;
     private View setupBox, radioBox;
     private boolean autostart;
@@ -57,8 +58,6 @@ public class MainActivity extends Activity implements RadioService.UiListener {
         radioBox = findViewById(R.id.radio_box);
         widgetBtn = findViewById(R.id.add_widget);
         batteryBtn = findViewById(R.id.battery);
-        widgetBtn2 = findViewById(R.id.add_widget2);
-        batteryBtn2 = findViewById(R.id.battery2);
 
         SharedPreferences p = prefs();
         name.setText(p.getString("name", ""));
@@ -72,9 +71,8 @@ public class MainActivity extends Activity implements RadioService.UiListener {
         findViewById(R.id.off).setOnClickListener(v -> { RadioService.stop(this); radioBox.postDelayed(this::onRadioChanged, 100); });
         findViewById(R.id.share).setOnClickListener(v -> share());
         widgetBtn.setOnClickListener(v -> addWidget());
-        widgetBtn2.setOnClickListener(v -> addWidget());
+        findViewById(R.id.extras).setOnClickListener(v -> showExtras());
         batteryBtn.setOnClickListener(v -> askBattery());
-        batteryBtn2.setOnClickListener(v -> askBattery());
 
         autostart = getIntent().getBooleanExtra(EXTRA_AUTOSTART, false);
     }
@@ -148,13 +146,113 @@ public class MainActivity extends Activity implements RadioService.UiListener {
         PowerManager pm = (PowerManager) getSystemService(POWER_SERVICE);
         int bat = pm.isIgnoringBatteryOptimizations(getPackageName()) ? View.GONE : View.VISIBLE;
         batteryBtn.setVisibility(bat);
-        batteryBtn2.setVisibility(bat);
         AppWidgetManager wm = AppWidgetManager.getInstance(this);
         int[] ids = wm.getAppWidgetIds(new ComponentName(this, PttWidget.class));
         int wid = ids != null && ids.length > 0 ? View.GONE : View.VISIBLE;
         widgetBtn.setVisibility(wid);
-        widgetBtn2.setVisibility(wid);
         radio.invalidate();
+    }
+
+    /* ---------- Extras ---------- */
+
+    private void showExtras() {
+        RadioService s = RadioService.instance;
+        if (s == null) return;
+        android.app.Dialog d = new android.app.Dialog(this);
+        d.requestWindowFeature(android.view.Window.FEATURE_NO_TITLE);
+        View v = getLayoutInflater().inflate(R.layout.dialog_extras, null);
+        d.setContentView(v);
+        if (d.getWindow() != null) {
+            d.getWindow().setBackgroundDrawable(new android.graphics.drawable.ColorDrawable(0));
+            d.getWindow().setLayout((int) (getResources().getDisplayMetrics().widthPixels * 0.94f),
+                android.view.ViewGroup.LayoutParams.WRAP_CONTENT);
+            d.getWindow().setDimAmount(0.75f);
+        }
+        SharedPreferences p = prefs();
+
+        v.findViewById(R.id.x_ring).setOnClickListener(x -> { s.sendRing(); d.dismiss(); });
+
+        EditText morse = v.findViewById(R.id.x_morse);
+        Runnable doMorse = () -> {
+            if (s.sendMorse(morse.getText().toString())) d.dismiss();
+            else Toast.makeText(this, "Nur Buchstaben, Ziffern und . , ? ! / @ = + -", Toast.LENGTH_SHORT).show();
+        };
+        v.findViewById(R.id.x_morse_send).setOnClickListener(x -> doMorse.run());
+        morse.setOnEditorActionListener((tv, id, ev) -> { doMorse.run(); return true; });
+        android.widget.LinearLayout quick = v.findViewById(R.id.x_morse_quick);
+        for (String q : new String[] { "SOS", "OK", "KOMME", "HILFE" }) {
+            TextView c = chip(q);
+            c.setOnClickListener(x -> { if (s.sendMorse(q)) d.dismiss(); });
+            quick.addView(c, chipParams(quick));
+        }
+
+        // Stimme
+        android.widget.LinearLayout v1 = v.findViewById(R.id.x_voice1), v2 = v.findViewById(R.id.x_voice2);
+        String[] voiceIcons = { "🎙", "📻", "🤖", "🐭", "👹", "🏔" };
+        java.util.List<TextView> voices = new java.util.ArrayList<>();
+        for (int i = 0; i < VoiceFx.NAMES.length; i++) {
+            final int idx = i;
+            TextView c = chip(voiceIcons[i] + " " + VoiceFx.NAMES[i]);
+            voices.add(c);
+            c.setOnClickListener(x -> {
+                p.edit().putInt("voiceFx", idx).apply();
+                s.reloadSettings();
+                for (TextView o : voices) o.setSelected(o == c);
+            });
+            (i < 3 ? v1 : v2).addView(c, chipParams(i < 3 ? v1 : v2));
+            c.setSelected(i == s.voiceFx);
+        }
+
+        // Roger-Ton (tippen = Probe hören)
+        android.widget.LinearLayout r1 = v.findViewById(R.id.x_roger1), r2 = v.findViewById(R.id.x_roger2);
+        java.util.List<TextView> rogers = new java.util.ArrayList<>();
+        for (int i = 0; i < Sfx.ROGER_NAMES.length; i++) {
+            final int idx = i;
+            TextView c = chip(Sfx.ROGER_NAMES[i]);
+            rogers.add(c);
+            c.setOnClickListener(x -> {
+                p.edit().putInt("roger", idx).apply();
+                s.reloadSettings();
+                for (TextView o : rogers) o.setSelected(o == c);
+                s.previewRoger(idx);
+            });
+            (i < 3 ? r1 : r2).addView(c, chipParams(i < 3 ? r1 : r2));
+            c.setSelected(i == s.rogerStyle);
+        }
+
+        android.widget.Switch st = v.findViewById(R.id.x_static), to = v.findViewById(R.id.x_torch);
+        st.setChecked(s.staticNoise);
+        to.setChecked(s.torch);
+        st.setOnCheckedChangeListener((b, on) -> { p.edit().putBoolean("static", on).apply(); s.reloadSettings(); });
+        to.setOnCheckedChangeListener((b, on) -> { p.edit().putBoolean("torch", on).apply(); s.reloadSettings(); });
+
+        Button w = v.findViewById(R.id.x_widget), bat = v.findViewById(R.id.x_battery);
+        w.setVisibility(widgetBtn.getVisibility());
+        bat.setVisibility(batteryBtn.getVisibility());
+        w.setOnClickListener(x -> addWidget());
+        bat.setOnClickListener(x -> askBattery());
+        v.findViewById(R.id.x_close).setOnClickListener(x -> d.dismiss());
+        d.show();
+    }
+
+    private TextView chip(String text) {
+        TextView c = new TextView(this);
+        c.setText(text);
+        c.setTextColor(0xffd6e6f5);
+        c.setTextSize(14);
+        c.setGravity(android.view.Gravity.CENTER);
+        c.setSingleLine(true);
+        c.setBackgroundResource(R.drawable.chip);
+        int pad = (int) (8 * getResources().getDisplayMetrics().density);
+        c.setPadding(pad, pad, pad, pad);
+        return c;
+    }
+
+    private android.widget.LinearLayout.LayoutParams chipParams(android.widget.LinearLayout row) {
+        android.widget.LinearLayout.LayoutParams lp = new android.widget.LinearLayout.LayoutParams(0,
+            (int) (42 * getResources().getDisplayMetrics().density), 1);
+        if (row.getChildCount() > 0) lp.setMarginStart((int) (8 * getResources().getDisplayMetrics().density));
+        return lp;
     }
 
     private void share() {

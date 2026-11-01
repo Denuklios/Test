@@ -174,10 +174,9 @@
             android:paddingBottom="14dp">
             <Button android:id="@+id/share" style="@style/Glass" android:layout_width="0dp" android:layout_weight="1"
                 android:text="➦ Einladen" />
-            <Button android:id="@+id/add_widget2" style="@style/Glass" android:layout_width="0dp" android:layout_weight="1"
-                android:layout_marginStart="8dp" android:text="Widget" />
-            <Button android:id="@+id/battery2" style="@style/Glass" android:layout_width="0dp" android:layout_weight="1"
-                android:layout_marginStart="8dp" android:text="⚡ Akku" android:textColor="#ffcc66" />
+            <Button android:id="@+id/extras" style="@style/Glass" android:layout_width="0dp" android:layout_weight="1.2"
+                android:layout_marginStart="8dp" android:background="@drawable/btn_violet" android:text="✨ Extras"
+                android:textColor="#e6d9ff" />
             <Button android:id="@+id/off" style="@style/Glass" android:layout_width="0dp" android:layout_weight="1"
                 android:layout_marginStart="8dp" android:background="@drawable/btn_off" android:text="Aus"
                 android:textColor="#ff8a80" />
