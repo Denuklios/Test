@@ -8,6 +8,8 @@ import 'package:url_launcher/url_launcher.dart';
 import '../main.dart';
 import '../models.dart';
 import '../notifications.dart';
+import '../prep_engine.dart';
+import '../widgets/prep_widgets.dart';
 import '../store.dart';
 import '../voice_parser.dart';
 import '../widgets/common.dart';
@@ -198,6 +200,43 @@ class _EventEditorState extends State<EventEditor> {
     }
   }
 
+  CalEvent _current() => ev.copy()
+    ..title = _title.text.trim()
+    ..location = _location.text.trim()
+    ..notes = _notes.text.trim();
+
+  Future<void> _wizard() async {
+    final c = _current();
+    if (await runPrepWizard(context, c)) {
+      setState(() {
+        ev.prep = c.prep;
+        ev.answers = c.answers;
+      });
+    }
+  }
+
+  Widget _prepSection() {
+    if (ev.prep.isNotEmpty) {
+      return Column(crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+        PrepList(ev: ev, occStart: ev.start, editable: true, onChanged: (c) => setState(() => ev.prep = c.prep)),
+        Align(
+          alignment: Alignment.centerLeft,
+          child: TextButton.icon(onPressed: _wizard, icon: const Icon(Icons.auto_awesome), label: const Text('Fragen ändern / neu vorschlagen')),
+        ),
+      ]);
+    }
+    if (!hasPrepSuggestions(_current())) return const SizedBox.shrink();
+    return Card(
+      color: const Color(0xFFFFF8E1),
+      child: ListTile(
+        leading: const Icon(Icons.auto_awesome, color: Colors.orange),
+        title: const Text('Intelligente Checkliste'),
+        subtitle: const Text('Ich schlage passende Punkte vor und erinnere dich rechtzeitig daran.'),
+        trailing: FilledButton(onPressed: _wizard, child: const Text('Los')),
+      ),
+    );
+  }
+
   Future<void> _save() async {
     final title = _title.text.trim();
     if (title.isEmpty) {
@@ -225,6 +264,21 @@ class _EventEditorState extends State<EventEditor> {
       ev.start = dateOnly(ev.start);
       ev.end = dateOnly(ev.end);
       if (ev.end.isBefore(ev.start)) ev.end = ev.start;
+    }
+    // Bei Reisen einmal nachfragen, ob eine Packliste gewünscht ist
+    if (isNew && ev.prep.isEmpty && detectCategories(ev).contains('travel') && mounted) {
+      final yes = await showDialog<bool>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('🧳 Packliste erstellen?'),
+          content: const Text('Soll ich dir eine Packliste mit rechtzeitigen Erinnerungen machen (Ausweis, Auto-Check, Online-Check-in …)?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Nein danke')),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ja, gern')),
+          ],
+        ),
+      );
+      if (yes == true && mounted) await runPrepWizard(context, ev);
     }
     await store.saveEvent(ev);
     if (mounted) Navigator.pop(context, ev);
@@ -261,6 +315,7 @@ class _EventEditorState extends State<EventEditor> {
           controller: _title,
           textCapitalization: TextCapitalization.sentences,
           style: const TextStyle(fontSize: 20),
+          onChanged: (_) => setState(() {}),
           decoration: InputDecoration(
             labelText: bday ? 'Wer hat Geburtstag?' : (vac ? 'Bezeichnung (z. B. Urlaub, Kur, Reha)' : 'Titel'),
             border: const OutlineInputBorder(),
@@ -374,6 +429,7 @@ class _EventEditorState extends State<EventEditor> {
             Expanded(
               child: TextField(
                 controller: _location,
+                onChanged: (_) => setState(() {}),
                 decoration: const InputDecoration(labelText: 'Ort / Adresse', prefixIcon: Icon(Icons.place_outlined), border: OutlineInputBorder()),
               ),
             ),
@@ -464,6 +520,8 @@ class _EventEditorState extends State<EventEditor> {
           ),
           onSubmitted: (_) => _addCheck(),
         ),
+        const SizedBox(height: 16),
+        _prepSection(),
         const SizedBox(height: 20),
         // Fotos
         Row(children: [

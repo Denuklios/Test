@@ -5,11 +5,13 @@ import 'package:intl/intl.dart';
 import 'package:workmanager/workmanager.dart';
 
 import 'notifications.dart';
+import 'screens/event_detail.dart';
 import 'screens/home_screen.dart';
 import 'screens/setup_screen.dart';
 import 'store.dart';
 
 final store = AppStore();
+final navigatorKey = GlobalKey<NavigatorState>();
 
 @pragma('vm:entry-point')
 void callbackDispatcher() {
@@ -48,7 +50,18 @@ Future<void> main() async {
     );
   } catch (_) {}
   store.onDataChanged = () => Notifier.rescheduleAll(store);
+  Notifier.foregroundStore = store;
+  Notifier.onOpenEvent = (id) {
+    if (!store.events.containsKey(id)) return;
+    navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => EventDetail(eventId: id)));
+  };
   runApp(const KalenderApp());
+  try {
+    final id = await Notifier.launchEventId();
+    if (id != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => Notifier.onOpenEvent?.call(id));
+    }
+  } catch (_) {}
 }
 
 class KalenderApp extends StatelessWidget {
@@ -59,6 +72,7 @@ class KalenderApp extends StatelessWidget {
     const seed = Color(0xFF1976D2);
     return MaterialApp(
       title: 'Familienkalender',
+      navigatorKey: navigatorKey,
       debugShowCheckedModeBanner: false,
       locale: const Locale('de', 'DE'),
       supportedLocales: const [Locale('de', 'DE'), Locale('da', 'DK')],

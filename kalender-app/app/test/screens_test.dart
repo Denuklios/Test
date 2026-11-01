@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:familienkalender/main.dart';
 import 'package:familienkalender/models.dart';
+import 'package:familienkalender/prep_engine.dart';
+import 'package:familienkalender/widgets/prep_widgets.dart';
 import 'package:familienkalender/screens/agenda_screen.dart';
 import 'package:familienkalender/screens/birthdays_screen.dart';
 import 'package:familienkalender/screens/event_detail.dart';
@@ -133,6 +135,23 @@ void main() {
   testWidgets('editor', (t) async {
     final e = store.events.values.firstWhere((e) => e.title == 'Düsseldorf');
     await shot(t, EventEditor(event: e), 'editor');
+  });
+  testWidgets('vorbereitung', (t) async {
+    final now = DateTime.now();
+    final s = DateTime(now.year, now.month, now.day + 3);
+    final e = CalEvent(id: 'mallorca', title: 'Mallorca', start: s, end: s.add(const Duration(days: 10)), allDay: true,
+        ownerId: 'r', participants: ['j'], kind: EventKind.vacation, location: 'Mallorca, Flug ab Hamburg', createdBy: 'r');
+    final a = guessAnswers(e, detectCategories(e));
+    a['with'] = 'hund';
+    e.answers = a;
+    e.prep = generatePrep(e, a);
+    for (final p in e.prep.where((p) => p.days >= 7)) {
+      p.done = dayKey(s);
+      p.doneBy = 'j';
+    }
+    store.events[e.id] = e;
+    await shot(t, Scaffold(body: Column(children: [const SizedBox(height: 30), PrepBanner(onOpen: (_) {}), const Expanded(child: SizedBox())])), 'banner');
+    await shot(t, EventDetail(eventId: e.id), 'vorbereitung');
   });
   testWidgets('detail', (t) async {
     final e = store.events.values.firstWhere((e) => e.title == 'Kaffee und Kuchen');

@@ -42,6 +42,9 @@ class AppStore extends ChangeNotifier {
   int morningHour = 7;
   Set<String> hidden = {};
   bool showWeekNumbers = true;
+  bool prepNotify = true;
+  bool unlockReminder = true;
+  int prepWindowDays = 3;
 
   // Daten (geteilt)
   final Map<String, Member> members = {};
@@ -96,6 +99,9 @@ class AppStore extends ChangeNotifier {
     morningHour = p.getInt('morningHour') ?? 7;
     hidden = (p.getStringList('hidden') ?? []).toSet();
     showWeekNumbers = p.getBool('showWeekNumbers') ?? true;
+    prepNotify = p.getBool('prepNotify') ?? true;
+    unlockReminder = p.getBool('unlockReminder') ?? true;
+    prepWindowDays = p.getInt('prepWindowDays') ?? 3;
     _applyHolidayConfig();
     try {
       final f = await _file();
@@ -158,6 +164,9 @@ class AppStore extends ChangeNotifier {
     await p.setInt('morningHour', morningHour);
     await p.setStringList('hidden', hidden.toList());
     await p.setBool('showWeekNumbers', showWeekNumbers);
+    await p.setBool('prepNotify', prepNotify);
+    await p.setBool('unlockReminder', unlockReminder);
+    await p.setInt('prepWindowDays', prepWindowDays);
     _applyHolidayConfig();
     notifyListeners();
     onDataChanged?.call();
@@ -264,6 +273,28 @@ class AppStore extends ChangeNotifier {
     ev.updatedAt = DateTime.now().millisecondsSinceEpoch;
     events[ev.id] = ev;
     await _put('event', ev.toJson());
+  }
+
+  /// Wartet, bis alles hochgeladen ist (für Hintergrund-Aktionen)
+  Future<void> flush() async {
+    for (var i = 0; i < 40 && syncing; i++) {
+      await Future<void>.delayed(const Duration(milliseconds: 250));
+    }
+    if (pending.isNotEmpty) await sync();
+  }
+
+  /// Punkte der Vorbereitungsliste abhaken
+  Future<void> markPrepDone(String eventId, String occKey, List<String> itemIds) async {
+    final ev = events[eventId];
+    if (ev == null) return;
+    final c = ev.copy();
+    for (final p in c.prep) {
+      if (itemIds.contains(p.id)) {
+        p.done = occKey;
+        p.doneBy = myId;
+      }
+    }
+    await saveEvent(c);
   }
 
   Future<void> deleteEvent(CalEvent ev) async {

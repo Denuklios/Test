@@ -78,6 +78,8 @@ class CalEvent {
   int updatedAt;
   bool deleted;
   List<String> checklist; // "[x] Text" / "[ ] Text"
+  List<PrepItem> prep; // intelligente Vorbereitungsliste
+  Map<String, String> answers; // Antworten aus dem Vorbereitungs-Assistenten
 
   CalEvent({
     required this.id,
@@ -100,7 +102,11 @@ class CalEvent {
     this.updatedAt = 0,
     this.deleted = false,
     List<String>? checklist,
+    List<PrepItem>? prep,
+    Map<String, String>? answers,
   })  : participants = participants ?? [],
+        prep = prep ?? [],
+        answers = answers ?? {},
         reminders = reminders ?? [],
         photos = photos ?? [],
         checklist = checklist ?? [];
@@ -140,6 +146,8 @@ class CalEvent {
         'updatedAt': updatedAt,
         'deleted': deleted,
         'checklist': checklist,
+        'prep': prep.map((p) => p.toJson()).toList(),
+        'answers': answers,
       };
 
   factory CalEvent.fromJson(Map<String, dynamic> j) {
@@ -165,8 +173,36 @@ class CalEvent {
       updatedAt: (j['updatedAt'] ?? 0) as int,
       deleted: j['deleted'] == true,
       checklist: ((j['checklist'] ?? []) as List).map((e) => e.toString()).toList(),
+      prep: ((j['prep'] ?? []) as List).map((e) => PrepItem.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
+      answers: Map<String, String>.from(((j['answers'] ?? {}) as Map).map((k, v) => MapEntry(k.toString(), v.toString()))),
     );
   }
+}
+
+String dayKey(DateTime d) => '${d.year}-${d.month.toString().padLeft(2, '0')}-${d.day.toString().padLeft(2, '0')}';
+
+/// Ein Punkt der intelligenten Vorbereitungsliste
+class PrepItem {
+  String id;
+  String text;
+  String group;
+  int days; // so viele Tage vor dem Termin fällig (0 = am Tag)
+  String done; // Tag des Vorkommens, für das erledigt ('' = offen)
+  String doneBy;
+  PrepItem({required this.id, required this.text, required this.group, this.days = 1, this.done = '', this.doneBy = ''});
+
+  bool doneFor(DateTime occStart) => done.isNotEmpty && done == dayKey(occStart);
+  DateTime dueDate(DateTime occStart) => DateTime(occStart.year, occStart.month, occStart.day - days);
+
+  Map<String, dynamic> toJson() => {'id': id, 't': text, 'g': group, 'd': days, 'x': done, 'by': doneBy};
+  factory PrepItem.fromJson(Map<String, dynamic> j) => PrepItem(
+        id: (j['id'] ?? '') as String,
+        text: (j['t'] ?? '') as String,
+        group: (j['g'] ?? '') as String,
+        days: (j['d'] as num?)?.toInt() ?? 1,
+        done: (j['x'] ?? '') as String,
+        doneBy: (j['by'] ?? '') as String,
+      );
 }
 
 /// Ein konkretes Vorkommen eines (evtl. wiederkehrenden) Termins

@@ -39,6 +39,25 @@ Die App speichert alle Termine auf **deinem eigenen Webspace**, nicht bei Google
 | Feiertage | 🇩🇪 Deutschland (nach Bundesland) und 🇩🇰 Dänemark, dazu Gedenktage wie Advent, Muttertag |
 | Schulferien | 🇩🇪 je Bundesland (automatisch aus dem Internet), 🇩🇰 übliche Ferienwochen; Tage sind farbig hinterlegt mit 🎒 |
 
+### ✨ Intelligente Checkliste (ab Version 1.1)
+
+Die App erkennt am Titel, Ort und an den Notizen, worum es geht, und schlägt eine passende Checkliste vor.
+Jeder Punkt hat seinen eigenen Fälligkeitstermin.
+
+- **Reisen/Urlaub:** Ein paar Fragen, schon passend vorausgefüllt (Wetter, Auto/Flug/Zug/Fähre, Ausland, Unterkunft,
+  Strand/Ski/Wandern/Stadt, Kinder/Baby/Hund). Daraus entstehen 40–70 Punkte, zum Beispiel:
+  Reisepass 6 Wochen vorher prüfen, Ölstand/Kühlwasser 3 Tage vorher, Online-Check-in am Vortag,
+  Badesachen bei warmem Ziel, Schal und Mütze bei kaltem, Kühlschrank leeren, Fenster zu …
+- **Viele weitere Situationen:** Arzt, Zahnarzt (Bonusheft), Blutabnahme (nüchtern), Krankenhaus (Kliniktasche),
+  Tierarzt, Geburtstage (Geschenk, Karte, runde Geburtstage), Hochzeit/Taufe, Beerdigung, Vorstellungsgespräch,
+  Behörde/Bank, Werkstatt/TÜV, Schwimmbad, Sport, Schule/Elternabend, Klassenfahrt, Konzert/Kino/Festival,
+  Hundeschule, Müllabfuhr (Tonne am Vorabend raus), Umzug, Prüfung, Einkauf, Ausflug …
+- **Erinnerung genau dann, wenn der Punkt fällig ist.** In der Benachrichtigung gibt es **„✓ Erledigt“**.
+- **Beim Entsperren:** In den letzten Tagen vor dem Termin stehen die offenen Punkte auf dem Sperrbildschirm.
+  Beim Entsperren des Handys erscheint „Nicht vergessen!“ (höchstens 1× pro Stunde, am Vortag alle 30 Min.).
+  Dafür wird kein Bewegungssensor gebraucht, das schont den Akku.
+- Alle Beteiligten sehen dieselbe Liste und wer was abgehakt hat.
+
 ### Extras
 
 - **Schicht-Pinsel** 🖌 (oben in der Monatsansicht): Vorlage wählen („Früh“, „Spät“, „Nacht“, „Frei“) und einfach

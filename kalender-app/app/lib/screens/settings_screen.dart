@@ -338,6 +338,29 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 onChanged: (v) => _set(() => store.morningHour = v ?? 7),
               ),
             ),
+          _header('✨ Intelligente Checklisten'),
+          SwitchListTile(
+            title: const Text('An fällige Punkte erinnern'),
+            subtitle: const Text('z. B. „Ölstand prüfen“ 3 Tage vorher, „Online einchecken“ am Vortag'),
+            value: store.prepNotify,
+            onChanged: (v) => _set(() => store.prepNotify = v),
+          ),
+          SwitchListTile(
+            title: const Text('Beim Entsperren erinnern'),
+            subtitle: const Text('In den Tagen vor dem Termin: offene Punkte auf dem Sperrbildschirm und als Hinweis, '
+                'wenn du das Handy entsperrst (max. 1× pro Stunde, am Vortag alle 30 Min.)'),
+            value: store.unlockReminder,
+            onChanged: (v) => _set(() => store.unlockReminder = v),
+          ),
+          if (store.unlockReminder)
+            ListTile(
+              title: const Text('Ab wann?'),
+              trailing: DropdownButton<int>(
+                value: store.prepWindowDays,
+                items: const [1, 2, 3, 5, 7].map((d) => DropdownMenuItem(value: d, child: Text(d == 1 ? '1 Tag vorher' : '$d Tage vorher'))).toList(),
+                onChanged: (v) => _set(() => store.prepWindowDays = v ?? 3),
+              ),
+            ),
           _header('Schnell-Vorlagen (Schicht-Pinsel)'),
           ...store.activeTemplates.map((t) => ListTile(
                 leading: const Icon(Icons.bolt),
@@ -394,6 +417,6 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   void _set(void Function() f) {
     f();
-    _save();
+    _save().then((_) => Notifier.rescheduleAll(store));
   }
 }

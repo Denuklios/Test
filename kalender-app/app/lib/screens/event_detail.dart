@@ -5,6 +5,8 @@ import 'package:share_plus/share_plus.dart';
 import '../main.dart';
 import '../models.dart';
 import '../notifications.dart';
+import '../prep_engine.dart';
+import '../widgets/prep_widgets.dart';
 import '../store.dart';
 import '../widgets/common.dart';
 import '../widgets/event_tile.dart';
@@ -125,6 +127,31 @@ class EventDetail extends StatelessWidget {
                 );
               }),
             ],
+            if (ev.prep.isNotEmpty) ...[
+              const Divider(),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 8, 12, 8),
+                child: PrepList(ev: ev, occStart: o.start, onChanged: (c) => store.saveEvent(c)),
+              ),
+            ] else if (hasPrepSuggestions(ev))
+              Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 12),
+                child: Card(
+                  color: const Color(0xFFFFF8E1),
+                  child: ListTile(
+                    leading: const Icon(Icons.auto_awesome, color: Colors.orange),
+                    title: const Text('Intelligente Checkliste'),
+                    subtitle: const Text('Passende Punkte vorschlagen und rechtzeitig erinnern'),
+                    trailing: FilledButton(
+                      onPressed: () async {
+                        final c = ev.copy();
+                        if (await runPrepWizard(context, c)) await store.saveEvent(c);
+                      },
+                      child: const Text('Los'),
+                    ),
+                  ),
+                ),
+              ),
             if (ev.photos.isNotEmpty) ...[
               const Divider(),
               Padding(

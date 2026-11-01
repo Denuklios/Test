@@ -8,6 +8,7 @@ import '../store.dart';
 import '../voice_parser.dart';
 import '../widgets/common.dart';
 import '../widgets/event_tile.dart';
+import '../widgets/prep_widgets.dart';
 import '../widgets/voice.dart';
 import 'agenda_screen.dart';
 import 'birthdays_screen.dart';
@@ -56,6 +57,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (state == AppLifecycleState.resumed) {
       store.startAutoSync();
       store.sync();
+      Notifier.updateUnlockService(store);
     } else if (state == AppLifecycleState.paused) {
       store.stopAutoSync();
     }
@@ -200,6 +202,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       drawer: _drawer(),
       body: Column(children: [
         if (_painting && _tab == 0) _brushBar(),
+        if (!_painting) PrepBanner(onOpen: _openEvent),
         Expanded(
           child: IndexedStack(index: _tab, children: [
             MonthView(
