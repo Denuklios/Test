@@ -347,7 +347,7 @@ try {
       foreach ($db->query('SELECT order_id, date, start_time, minutes FROM order_days ORDER BY id') as $r) echo $r['order_id'] . '@' . $r['date'] . ' ' . $r['start_time'] . '+' . $r['minutes'] . ';';
       $o = $db->query('SELECT total_min, worker_id, plan_date FROM orders WHERE id = 1')->fetch(); echo ',', $o['total_min'], '/', $o['worker_id'], '/', $o['plan_date'];
       echo ',', $db->query('SELECT COUNT(*) FROM order_days WHERE order_id = 2')->fetchColumn(), ',', $db->query('SELECT COUNT(*) FROM customers')->fetchColumn();`;
-    assert.equal(execFileSync('php', ['-r', code]).toString(), '4,20,4,1@2030-05-06 08:00+180;3@2030-05-06 11:00+90;,180/1/2030-05-06,0,1');
+    assert.equal(execFileSync('php', ['-r', code]).toString(), '4,21,4,1@2030-05-06 08:00+180;3@2030-05-06 11:00+90;,180/1/2030-05-06,0,1');
   });
 
   await ok('Gerät merken: nach Login öffnet die App mit dem Geräte-Cookie allein, Abmelden sperrt sofort', async () => {
@@ -401,6 +401,47 @@ try {
     assert.equal(mini.max_g, 2500); assert.equal(mini.hgt_mm, 30);
     await call('carton_delete', { body: { id: nc.j.id } });
     assert.ok(!(await call('cartons')).j.cartons.some((c) => c.id === nc.j.id));
+  });
+  await ok('Artikelnummern nach SKU-Schema: automatisch je Kategorie, eindeutig, Barcode, Umstellung alter Nummern', async () => {
+    const cat = (await call('category_save', { body: { name: 'Textil SKU' } })).j.id;
+    const sub = (await call('category_save', { body: { name: 'T-Shirts', parent_id: cat } })).j.id;
+    const mug = (await call('category_save', { body: { name: 'Bürotassen' } })).j.id;
+    // T-Shirts bekommt das Katalog-Kürzel TS; die Nummer startet hinter den Katalog-Nummern (WF-TS-001…010)
+    const a = await call('product_save', { body: { name: 'Shirt A', unit: 'stk', price: '1', category_id: sub } });
+    assert.equal(a.j.sku, 'WF-TS-011');
+    const b = await call('product_save', { body: { name: 'Shirt B', unit: 'stk', price: '1', category_id: sub } });
+    assert.equal(b.j.sku, 'WF-TS-012');
+    // eigene Kategorie: Kürzel aus dem Namen (Ü → UE), bleibt gespeichert
+    const m1 = await call('product_save', { body: { name: 'Tasse', unit: 'stk', price: '1', category_id: mug } });
+    assert.match(m1.j.sku, /^WF-B[A-Z]-001$/);
+    const sug = await call('sku_suggest', { params: { category_id: mug } });
+    assert.equal(sug.j.sku, m1.j.sku.replace(/001$/, '002'));
+    // ohne Kategorie: AR, Leistung: LS
+    assert.match((await call('product_save', { body: { name: 'Lose', unit: 'stk', price: '1' } })).j.sku, /^WF-AR-\d{3}$/);
+    assert.match((await call('product_save', { body: { name: 'Service', unit: 'stk', price: '1', kind: 'services' } })).j.sku, /^WF-LS-\d{3}$/);
+    // doppelte Nummer und doppelter Barcode werden abgelehnt; eigene Nummer bleibt beim Bearbeiten
+    assert.equal((await call('product_save', { body: { name: 'Dup', unit: 'stk', price: '1', sku: 'wf-ts-011' } })).j.error, 'sku_taken');
+    await call('product_save', { body: { id: a.j.id, name: 'Shirt A', unit: 'stk', price: '1', category_id: sub, sku: 'WF-TS-011', barcode: '4006381 333931' } });
+    const pa = (await call('products')).j.products.find((p) => p.id === a.j.id);
+    assert.equal(pa.sku, 'WF-TS-011'); assert.equal(pa.barcode, '4006381333931');
+    assert.equal((await call('product_save', { body: { id: b.j.id, name: 'Shirt B', unit: 'stk', price: '1', category_id: sub, sku: 'WF-TS-012', barcode: '4006381333931' } })).j.error, 'barcode_taken');
+    // Barcode nachschlagen: falsches Format abgelehnt, sonst eine Antwort (offline: nicht gefunden)
+    assert.equal((await call('barcode_lookup', { params: { code: '12' } })).j.error, 'barcode_format');
+    const lk = await call('barcode_lookup', { params: { code: '4006381333931' } });
+    assert.equal(lk.j.ok, true); assert.equal(typeof lk.j.found, 'boolean');
+    // Umstellung: alte freie Nummern und Doppelte bekommen neue SKU, passende bleiben
+    const { execFileSync } = await import('node:child_process');
+    const code = `require '${root}/inc/invoice.php'; require '${root}/inc/schema.php';
+      $db = new PDO('sqlite::memory:'); $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION); $db->setAttribute(PDO::ATTR_DEFAULT_FETCH_MODE, PDO::FETCH_ASSOC);
+      $db->exec('CREATE TABLE meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
+      for ($i = 1; $i <= 20; $i++) { $f = 'wf_migrate_v' . $i; $f($db); }
+      $db->exec("INSERT INTO product_categories (name) VALUES ('Tassen')");
+      $db->exec("INSERT INTO products (name, sku, category_id) VALUES ('A', 'ALT-7', 1), ('B', 'WF-MU-004', 1), ('C', 'WF-MU-004', 1), ('D', '', NULL)");
+      wf_migrate($db);
+      echo implode(',', $db->query('SELECT sku FROM products ORDER BY id')->fetchAll(PDO::FETCH_COLUMN));`;
+    const out = execFileSync('php', ['-r', code]).toString();
+    const [s1, s2, s3, s4] = out.split(',');
+    assert.equal(s2, 'WF-MU-004'); assert.match(s1, /^WF-MU-\d{3}$/); assert.match(s3, /^WF-MU-\d{3}$/); assert.notEqual(s1, s3); assert.notEqual(s1, s2); assert.equal(s4, 'WF-AR-001');
   });
   await ok('Handy-App: Code koppeln, Schlüssel nutzen, nur freigegebene Aktionen, CORS nur für die App, Abmelden sperrt', async () => {
     const O = 'https://app.wunsch-fabrik.local';

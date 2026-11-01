@@ -441,6 +441,74 @@ function shipForm(o) {
 }
 // ---------- Versandetikett ----------
 // Einstellung je Gerät (der Etikettendrucker hängt an einem bestimmten Rechner)
+// ---------- Barcode per Kamera ----------
+// Chrome/Android: eingebauter BarcodeDetector; sonst (z. B. iPhone) die mitgelieferte ZXing-Bibliothek (assets/vendor, kein Fremdserver).
+// Handscanner tippen wie eine Tastatur: dafür gibt es im Fenster ein Eingabefeld.
+let zxingP = null;
+const loadZxing = () => zxingP || (zxingP = new Promise((ok, bad) => {
+  const sc = document.createElement('script'); sc.src = 'assets/vendor/zxing.min.js'; sc.onload = () => ok(window.ZXing); sc.onerror = () => { zxingP = null; bad(new Error('zxing')); }; document.head.append(sc);
+}));
+function scanBarcode() {
+  return new Promise((resolve) => {
+    let stream = null, stop = false, reader = null;
+    const video = h('video', { class: 'scanvid', playsinline: '', muted: '', autoplay: '' });
+    video.muted = true; video.setAttribute('playsinline', '');
+    const status = h('p', { class: 'muted', style: 'margin:8px 0' }, t('scan_loading'));
+    const man = h('input', { type: 'text', inputmode: 'numeric', autocomplete: 'off', placeholder: t('barcode_ph'), onkeydown: (e) => { if (e.key === 'Enter') { e.preventDefault(); done(man.value.trim() || null); } } });
+    const done = (v) => {
+      if (stop) return; stop = true;
+      try { reader && reader.reset(); } catch (e) { /* egal */ }
+      if (stream) stream.getTracks().forEach((tr) => tr.stop());
+      m.remove(); resolve(v || null);
+    };
+    const m = h('div', { class: 'modal', onclick: (e) => { if (e.target === m) done(null); } },
+      h('div', { class: 'sheet scanbox' }, h('h2', {}, '📷 ' + t('scan_title')),
+        h('div', { class: 'scanwrap' }, video, h('div', { class: 'scanline' })), status,
+        h('label', {}, t('scan_manual')), h('div', { class: 'row', style: 'gap:6px;flex-wrap:nowrap' }, man, h('button', { type: 'button', class: 'btn primary', onclick: () => done(man.value.trim() || null) }, t('scan_take'))),
+        h('div', { class: 'row end', style: 'margin-top:10px' }, h('button', { type: 'button', class: 'btn', onclick: () => done(null) }, t('cancel')))));
+    document.body.append(m);
+    const hit = (code) => { if (code) { if (navigator.vibrate) navigator.vibrate(60); done(String(code).trim()); } };
+    (async () => {
+      try {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) throw new Error(location.protocol === 'https:' ? 'getUserMedia' : 'HTTPS');
+        stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } }, audio: false });
+        if (stop) { stream.getTracks().forEach((tr) => tr.stop()); return; }
+        video.srcObject = stream; await video.play().catch(() => {});
+        status.textContent = t('scan_hint');
+        let det = null;
+        if ('BarcodeDetector' in window) {
+          try {
+            const want = ['ean_13', 'ean_8', 'upc_a', 'upc_e', 'code_128', 'code_39', 'code_93', 'itf', 'codabar', 'qr_code', 'data_matrix'];
+            const have = await window.BarcodeDetector.getSupportedFormats();
+            const f = want.filter((x) => have.includes(x));
+            if (f.length) det = new window.BarcodeDetector({ formats: f });
+          } catch (e) { det = null; }
+        }
+        if (det) {
+          const tick = async () => {
+            if (stop) return;
+            try { if (video.readyState >= 2) { const r = await det.detect(video); if (r.length) return hit(r[0].rawValue); } } catch (e) { /* nächster Versuch */ }
+            setTimeout(tick, 120);
+          };
+          tick();
+        } else {
+          const ZX = await loadZxing();
+          if (stop) return;
+          reader = new ZX.BrowserMultiFormatReader();
+          reader.decodeFromStream(stream, video, (res) => { if (res) hit(res.getText()); });
+        }
+      } catch (e) {
+        status.textContent = t('scan_nocam', e && e.name === 'NotAllowedError' ? '🔒' : (e && e.message) || '');
+        video.closest('.scanwrap').classList.add('hidden');
+        man.focus();
+      }
+    })();
+  });
+}
+const scanBtn = (onCode, label) => h('button', { type: 'button', class: 'btn scanbtn', title: t('scan_title'), 'aria-label': t('scan_title'), onclick: async () => { const c = await scanBarcode(); if (c) onCode(c); } }, '📷' + (label ? ' ' + label : ''));
+// Produkt zu einem gescannten Code: Barcode oder Artikelnummer (Groß/Klein egal)
+const prodByCode = (list, code) => { const c = String(code).trim().toUpperCase(); return list.find((p) => (p.barcode && p.barcode.toUpperCase() === c) || (p.sku && p.sku.toUpperCase() === c)) || null; };
+
 const LABEL_FORMATS = { '100x150': [100, 150], '102x152': [102, 152], '62x100': [62, 100], '54x101': [54, 101], 'a6': [105, 148] };
 const labelCfg = () => { try { return Object.assign({ fmt: '100x150', auto: 'off' }, JSON.parse(localStorage.getItem('wf_label') || '{}')); } catch (e) { return { fmt: '100x150', auto: 'off' }; } };
 const labelSave = (c) => { try { localStorage.setItem('wf_label', JSON.stringify(c)); } catch (e) { /* privat */ } };
@@ -974,7 +1042,7 @@ async function orderForm(o, presetCustomer, note = '') {
   const drawPsug = () => {
     const q = pq.value.trim().toLowerCase();
     // Treffer nach Kategorie gruppiert; die Suche findet auch über den Kategorienamen („bekleidung“, „polo“)
-    const hits = prodList.filter((p) => !q || (p.name + ' ' + (p.sku || '') + ' ' + p.path).toLowerCase().includes(q)).slice(0, q ? 20 : 60);
+    const hits = prodList.filter((p) => !q || (p.name + ' ' + (p.sku || '') + ' ' + (p.barcode || '') + ' ' + p.path).toLowerCase().includes(q)).slice(0, q ? 20 : 60);
     let lastPath = null;
     psug.replaceChildren(...hits.flatMap((p) => [p.path !== lastPath && (pcats.length) ? h('div', { class: 'sug-head' }, (lastPath = p.path) || t('cat_none')) : null, h('button', { type: 'button', class: 'psugitem', onmousedown: (e) => e.preventDefault(), onclick: () => pickProd(p) },
       p.images && p.images.length ? h('img', { class: 'sthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : null,
@@ -986,6 +1054,7 @@ async function orderForm(o, presetCustomer, note = '') {
   pq.addEventListener('blur', () => setTimeout(() => psug.classList.add('hidden'), 150));
   // Katalog-Fenster: Kategorien klappen Ebene für Ebene auf, Antippen eines Produkts übernimmt es
   const addBox = h('div', { class: 'addrow' }, prodList.length ? h('button', { type: 'button', class: 'btn', onclick: () => catalogPicker(prodList, pcats, pickProd) }, '📂 ' + t('cp_open')) : null,
+    prodList.length ? scanBtn((c) => { const p = prodByCode(prodList, c); if (p) { toast(t('scan_found', p.name)); pickProd(p); } else { toast(t('scan_notfound', c)); pq.value = c; pq.focus(); drawPsug(); } }) : null,
     h('div', { class: 'suggest additem' }, pq, psug));
 
   const sumBox = h('div', { class: 'sumbox' });
@@ -1234,7 +1303,15 @@ function optEditor(groups) {
   const presets = h('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px' },
     h('button', { type: 'button', class: 'btn small', onclick: () => add({}) }, '+ ' + t('op_add')),
     ...OPT_PRESETS().map(([l, g]) => h('button', { type: 'button', class: 'chip', onclick: () => add(g) }, '+ ' + l)));
-  return { el: h('div', {}, box, presets), get: () => rows.map((r) => ({ name: r.name.value.trim(), values: r.vals.value.split(/\s*[,;\n]\s*/).map((v) => v.trim()).filter(Boolean), split: r.split.checked })).filter((g) => g.name && g.values.length) };
+  // Wert in eine Eigenschaft eintragen (Gruppe anlegen, falls es sie noch nicht gibt) – für Daten aus dem Barcode
+  const addValue = (name, val) => {
+    if (!val) return;
+    const r = rows.find((x) => x.name.value.trim().toLowerCase() === name.toLowerCase());
+    if (!r) return add({ name, values: [val], split: false });
+    const cur = r.vals.value.split(/\s*[,;\n]\s*/).filter(Boolean);
+    if (!cur.some((v) => v.toLowerCase() === val.toLowerCase())) r.vals.value = [...cur, val].join(', ');
+  };
+  return { addValue, el: h('div', {}, box, presets), get: () => rows.map((r) => ({ name: r.name.value.trim(), values: r.vals.value.split(/\s*[,;\n]\s*/).map((v) => v.trim()).filter(Boolean), split: r.split.checked })).filter((g) => g.name && g.values.length) };
 }
 // Bezugsquelle (Lieferant, Link, Hersteller-Artikelnr.) – nur intern
 function srcFields(v) {
@@ -1270,7 +1347,14 @@ function shipFields(p) {
       h('div', {}, h('label', {}, t('ship_dims') + ' (cm)'), h('div', { class: 'grid c3', style: 'gap:6px' }, ...dim))),
     h('label', { class: 'row', style: 'margin:8px 0 0;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, fold, t('ship_foldable')));
   el.get = () => ({ weight_g: w.value, len_cm: dim[0].value, wid_cm: dim[1].value, hgt_cm: dim[2].value, foldable: fold.checked ? 1 : 0 });
-  return { el, get: el.get };
+  // nur leere Felder füllen (Daten aus dem Barcode)
+  const fill = (g, d) => {
+    let n = 0;
+    if (g && !w.value.trim()) { w.value = String(g); n++; }
+    if (d && d.length === 3 && dim.every((x) => !x.value.trim())) { d.forEach((v, i) => { dim[i].value = String(v).replace('.', ','); }); n++; }
+    if (n) el.open = true;
+  };
+  return { el, get: el.get, fill };
 }
 
 route(/^\/products$/, async () => {
@@ -1278,7 +1362,14 @@ route(/^\/products$/, async () => {
   const list = h('div', { class: 'prows' });
   const editRow = (p) => {
     const nm = h('input', { value: p.name || '', placeholder: t('prod_name_ph'), maxlength: 300 });
-    const sku = h('input', { value: p.sku || '', placeholder: 'WF-…', maxlength: 40 });
+    const sku = h('input', { value: p.sku || '', placeholder: t('sku_auto'), maxlength: 40, style: 'text-transform:uppercase' });
+    const skuNote = h('small', { class: 'muted hint' }, p.id ? '' : t('sku_hint'));
+    const bc = h('input', { value: p.barcode || '', placeholder: t('barcode_ph'), maxlength: 64, inputmode: 'numeric', autocomplete: 'off' });
+    // neue Produkte: nächste freie Nummer der gewählten Kategorie anzeigen (vergeben wird beim Speichern)
+    const skuPreview = async () => {
+      if (p.id || sku.value.trim()) { if (!p.id) skuNote.textContent = t('sku_hint'); return; }
+      try { const r = await api('sku_suggest', { params: { category_id: catSel.value || 0, kind: kd.value } }); if (!sku.value.trim()) { sku.placeholder = r.sku; skuNote.textContent = t('sku_will', r.sku); } } catch (e) { /* nur Anzeige */ }
+    };
     const oped = optEditor(p.options || []);
     const psrc = srcFields({ name: p.supplier, url: p.supplier_url, sku: p.supplier_sku });
     const un = h('select', {}, me.units.map((u) => h('option', { value: u, selected: u === (p.unit || 'stk') }, t('u_' + u))));
@@ -1368,8 +1459,34 @@ route(/^\/products$/, async () => {
       h('div', { class: 'grid c2', style: 'margin-top:8px' }, h('div', {}, h('label', {}, t('calc_mat')), mat), h('div', {}, h('label', {}, t('calc_min')), mins)), calcOut);
     if (!p.id) setTimeout(askSug, 0);
     const shipf = shipFields(p);
+    // Daten zum Barcode aus offenen Produktdatenbanken: Vorschlag anzeigen, Übernehmen füllt nur leere Felder
+    const bcOut = h('div', { class: 'bcout hidden' });
+    const lookup = async () => {
+      const code = bc.value.replace(/\D/g, '');
+      if (!/^\d{8,14}$/.test(code)) { toast(t('err_barcode_format')); return; }
+      bcOut.classList.remove('hidden'); bcOut.replaceChildren(h('span', { class: 'muted' }, t('bl_wait')));
+      try {
+        const r = await api('barcode_lookup', { params: { code } });
+        if (!r.found) { bcOut.replaceChildren(h('span', { class: 'muted' }, r.limited ? t('bl_limited') : t('bl_none'))); return; }
+        const title = [r.brand && !r.name.toLowerCase().includes(r.brand.toLowerCase()) ? r.brand : '', r.name].filter(Boolean).join(' – ');
+        const facts = [[t('bl_brand'), r.brand], [t('bl_color'), r.color], [t('bl_size'), r.size], [t('ship_weight'), r.weight_g ? kgFmt(r.weight_g) : ''], [t('ship_dims'), r.dims_cm ? r.dims_cm.map((v) => String(v).replace('.', ',')).join(' × ') + ' cm' : '']].filter(([, v]) => v);
+        bcOut.replaceChildren(h('div', {}, h('b', {}, title)), ...facts.map(([k, v]) => h('div', { class: 'muted' }, k + ': ' + v)),
+          h('div', { class: 'row', style: 'gap:6px;margin-top:6px;flex-wrap:wrap' },
+            h('button', { type: 'button', class: 'btn small primary', onclick: () => {
+              if (!nm.value.trim()) nm.value = title.slice(0, 300);
+              oped.addValue(t('bl_color_opt'), r.color); oped.addValue(t('bl_size_opt'), r.size);
+              shipf.fill(r.weight_g, r.dims_cm);
+              bcOut.append(h('div', { class: 'muted' }, '✓ ' + t('bl_taken')));
+            } }, t('bl_take')),
+            h('small', { class: 'muted' }, t('bl_source', r.source))));
+      } catch (e) { bcOut.replaceChildren(h('span', { class: 'muted' }, e.message)); }
+    };
+    catSel.addEventListener('change', skuPreview); kd.addEventListener('change', skuPreview); sku.addEventListener('input', () => { if (!p.id && !sku.value.trim()) skuPreview(); });
+    if (!p.id) setTimeout(skuPreview, 0);
     return h('div', { class: 'card prodcard' + (p.id && !+p.active ? ' inactive' : '') },
-      h('div', { class: 'grid', style: 'grid-template-columns:minmax(0,3fr) minmax(110px,1fr);gap:8px' }, h('div', {}, h('label', {}, t('prod_name')), nm), h('div', {}, h('label', {}, t('sku')), sku)), sug,
+      h('div', { class: 'grid', style: 'grid-template-columns:minmax(0,3fr) minmax(110px,1fr);gap:8px' }, h('div', {}, h('label', {}, t('prod_name')), nm), h('div', {}, h('label', {}, t('sku')), sku)), skuNote, sug,
+      h('div', { style: 'margin-top:8px' }, h('label', {}, t('barcode')), h('div', { class: 'row', style: 'gap:6px;flex-wrap:nowrap' }, bc, scanBtn((c) => { bc.value = c; if (/^\d{8,14}$/.test(c)) lookup(); }),
+        h('button', { type: 'button', class: 'btn', title: t('bl_btn'), onclick: () => lookup() }, '🔎')), bcOut),
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('cat_label')), catSel),
       h('div', { style: 'margin-top:8px' }, h('label', {}, t('pimg_label')), imgBox, imgButtons),
       h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('unit')), un), h('div', {}, h('div', { class: 'prhead' }, prLabel, curSwitch), pr), h('div', {}, h('label', {}, t('prod_kind')), kd)), fxNote,
@@ -1382,7 +1499,7 @@ route(/^\/products$/, async () => {
         h('label', { class: 'row', style: 'margin:0;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, act, t('active')),
         h('div', { class: 'row' },
           p.id ? h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('prod_delete_confirm', p.name))) { await api('product_delete', { body: { id: p.id } }); render(); } } }, t('delete')) : null,
-          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: await priceDkk(), kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get(), category_id: catSel.value || null, sku: sku.value, options: oped.get(), supplier: psrc.get().name, supplier_url: psrc.get().url, supplier_sku: psrc.get().sku, ...shipf.get() } }).then(async (r) => { if (pendingImgs.length) { toast(t('uploading_files')); await uploadProductImages(r.id, pendingImgs); } return r; }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
+          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: await priceDkk(), kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get(), category_id: catSel.value || null, sku: sku.value, barcode: bc.value, options: oped.get(), supplier: psrc.get().name, supplier_url: psrc.get().url, supplier_sku: psrc.get().sku, ...shipf.get() } }).then(async (r) => { if (pendingImgs.length) { toast(t('uploading_files')); await uploadProductImages(r.id, pendingImgs); } return r; }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
   };
   const chips = h('div', { class: 'catchips' });
   const drawChips = () => {
@@ -1402,7 +1519,7 @@ route(/^\/products$/, async () => {
       row.replaceWith(ed);
     } },
       p.images.length ? h('img', { class: 'pthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : h('span', { class: 'pthumb none' }, '🏷'),
-      h('span', { class: 'pn' }, h('b', {}, p.name), h('small', { class: 'muted' }, [p.sku, p.category_id ? catPath(cats, p.category_id) : ''].filter(Boolean).join(' · ')),
+      h('span', { class: 'pn' }, h('b', {}, p.name), h('small', { class: 'muted' }, [p.sku, p.barcode ? '▮▯ ' + p.barcode : '', p.category_id ? catPath(cats, p.category_id) : ''].filter(Boolean).join(' · ')),
         (p.options || []).length ? h('small', { class: 'muted popts' }, optSummary(p)) : null,
         p.supplier || p.supplier_sku ? h('small', { class: 'muted popts' }, '🛒 ' + [p.supplier, p.supplier_sku].filter(Boolean).join(' · ')) : null,
         +p.weight_g || +p.len_mm ? h('small', { class: 'muted popts' }, '📦 ' + [+p.weight_g ? kgFmt(+p.weight_g) : '', +p.len_mm ? dimFmt(p) : ''].filter(Boolean).join(' · ')) : null),
@@ -1411,7 +1528,7 @@ route(/^\/products$/, async () => {
       +p.active ? null : h('span', { class: 'pill' }, t('inactive')));
     return row;
   };
-  const draw = () => list.replaceChildren(...products.filter((p) => inCat(cats, p, prodCat) && (!prodQ || (p.name + ' ' + (p.sku || '') + ' ' + catPath(cats, p.category_id)).toLowerCase().includes(prodQ.toLowerCase()))).map(compactRow));
+  const draw = () => list.replaceChildren(...products.filter((p) => inCat(cats, p, prodCat) && (!prodQ || (p.name + ' ' + (p.sku || '') + ' ' + (p.barcode || '') + ' ' + catPath(cats, p.category_id)).toLowerCase().includes(prodQ.toLowerCase()))).map(compactRow));
   const newBox = h('div', { class: 'hidden' }, editRow({}));
   // Kategorien verwalten
   const catSave = async (body) => { try { await api('category_save', { body }); render(); } catch (e) { toast(e.message); } };
@@ -1438,7 +1555,17 @@ route(/^\/products$/, async () => {
     catCard,
     newBox,
     cats.length ? chips : null,
-    h('div', { class: 'filters' }, h('input', { type: 'search', placeholder: t('prod_search'), value: prodQ, oninput: (e) => { prodQ = e.target.value; draw(); } })),
+    h('div', { class: 'filters' }, h('input', { type: 'search', id: 'prodSearch', placeholder: t('prod_search'), value: prodQ, oninput: (e) => { prodQ = e.target.value; draw(); } }),
+      scanBtn((c) => {
+        const p = prodByCode(products, c);
+        prodCat = 0; prodQ = p ? (p.sku || c) : c; document.getElementById('prodSearch').value = prodQ; drawChips(); draw();
+        toast(p ? t('scan_found', p.name) : t('scan_notfound', c));
+        if (p) list.querySelector('.prow')?.click();   // Treffer gleich zum Bearbeiten öffnen
+      }, t('scan')),
+      products.some((p) => !/^WF-[A-Z0-9]{2,4}-\d{3,}$/.test(p.sku || '')) ? h('button', { type: 'button', class: 'btn small', onclick: async () => {
+        if (!confirm(t('sku_convert_q'))) return;
+        try { const r = await api('sku_convert', { body: {} }); toast(t('sku_convert_done', r.changed)); render(); } catch (e) { toast(e.message); }
+      } }, '🔢 ' + t('sku_convert_btn')) : null),
     products.length ? list : h('div', { class: 'empty' }, t('prod_none')));
   if (prodCat && prodCat !== -1 && !cats.some((c) => +c.id === prodCat)) prodCat = 0;
   drawChips(); draw();

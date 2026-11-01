@@ -55,3 +55,10 @@
 - **Einstellungen → Etikettendrucker (dieses Gerät):** Format wählen (100 × 150 mm, 4 × 6 Zoll, Brother 62 mm, DYMO 54 × 101 mm, A6) und ob das Etikett automatisch bei „Bezahlt“, „Fertig“ oder „Versendet“ gedruckt wird. Gilt je Rechner.
 - Die Datenbank wird beim ersten Aufruf automatisch ergänzt.
 - Mit übernommen: die Handy-App für Werkstatt und Mitarbeiter aus dem Auftrags-App-Chat (Ordner `auftraege/app/`).
+
+## Artikelnummern & Barcode (Update November 2026)
+- **Artikelnummern nach SKU-Schema:** `WF-<Kürzel>-<Nummer>`, z. B. `WF-TS-011` (T-Shirts), `WF-MU-003` (Tassen). Beim Anlegen das Feld „Artikelnr.“ leer lassen, die Nummer wird beim Speichern vergeben (Vorschau steht darunter). Das Kürzel kommt aus der Kategorie (Katalog-Kürzel, sonst aus dem Namen), ohne Kategorie `WF-AR-…`, Leistungen `WF-LS-…`. Jede Nummer gibt es nur einmal.
+- **Bisherige Nummern** werden beim ersten Aufruf nach dem Update automatisch umgestellt. Falls später Nummern von Hand abweichen: Produkte → „🔢 Artikelnummern vereinheitlichen“.
+- **Barcode (EAN) mit der Kamera:** im Produkt beim Feld „Barcode“ auf 📷 tippen. Auch in der Produktsuche und beim Hinzufügen von Artikeln im Auftrag gibt es 📷 – der gescannte Artikel wird gefunden bzw. gleich übernommen. Handscanner (USB/Bluetooth) gehen im selben Fenster.
+- **Daten aus dem Netz (🔎):** sucht Name, Marke, Farbe, Größe, Gewicht und Maße in freien Produktdatenbanken (UPCitemdb, Open Products Facts) und füllt nur leere Felder. Bei Markenware klappt das oft, bei Großhandels-Rohlingen nicht immer. Die freie Stufe erlaubt ca. 100 Abfragen am Tag.
+- Kamera braucht `https://` (auf der Webseite gegeben) und beim ersten Mal die Erlaubnis im Browser.

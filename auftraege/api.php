@@ -12,6 +12,8 @@ require_once __DIR__ . '/inc/pricing.php';
 require_once __DIR__ . '/inc/custmail.php';
 require_once __DIR__ . '/inc/catalog.php';
 require_once __DIR__ . '/inc/package.php';
+require_once __DIR__ . '/inc/sku.php';
+require_once __DIR__ . '/inc/gtin.php';
 
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
@@ -831,18 +833,59 @@ try {
                     wf_fail('bad_category');
                 }
             }
-            $vals = [$name, in_array($in['unit'] ?? '', WF_UNITS, true) ? $in['unit'] : 'stk', $price, ($in['kind'] ?? '') === 'services' ? 'services' : 'goods', !empty($in['active']) || !isset($in['active']) ? 1 : 0,
-                json_encode(clean_procs($db, $in['processes'] ?? [])), $cat, s($in, 'sku', 40), json_encode(wf_clean_options($in['options'] ?? []), JSON_UNESCAPED_UNICODE),
-                s($in, 'supplier', 200), src_url($in['supplier_url'] ?? ''), s($in, 'supplier_sku', 80),
-                grams($in['weight_g'] ?? 0), cm_to_mm($in['len_cm'] ?? 0), cm_to_mm($in['wid_cm'] ?? 0), cm_to_mm($in['hgt_cm'] ?? 0), !empty($in['foldable']) ? 1 : 0];
             $id = (int)($in['id'] ?? 0);
+            $kind = ($in['kind'] ?? '') === 'services' ? 'services' : 'goods';
+            // Artikelnummer: leer = automatisch nach SKU-Schema (WF-Kürzel-Nummer); sonst muss sie eindeutig sein
+            $sku = mb_strtoupper(s($in, 'sku', 40));
+            if ($sku === '') {
+                $sku = wf_sku_for($db, $cat, $kind);
+            }
+            $dup = $db->prepare('SELECT 1 FROM products WHERE sku = ? AND id <> ?');
+            $dup->execute([$sku, $id]);
+            if ($dup->fetchColumn()) {
+                wf_fail('sku_taken');
+            }
+            $barcode = preg_replace('/\s+/', '', s($in, 'barcode', 64));
+            if ($barcode !== '') {
+                $dup = $db->prepare('SELECT name FROM products WHERE barcode = ? AND id <> ?');
+                $dup->execute([$barcode, $id]);
+                if ($dup->fetchColumn() !== false) {
+                    wf_fail('barcode_taken');
+                }
+            }
+            $vals = [$name, in_array($in['unit'] ?? '', WF_UNITS, true) ? $in['unit'] : 'stk', $price, $kind, !empty($in['active']) || !isset($in['active']) ? 1 : 0,
+                json_encode(clean_procs($db, $in['processes'] ?? [])), $cat, $sku, json_encode(wf_clean_options($in['options'] ?? []), JSON_UNESCAPED_UNICODE),
+                s($in, 'supplier', 200), src_url($in['supplier_url'] ?? ''), s($in, 'supplier_sku', 80),
+                grams($in['weight_g'] ?? 0), cm_to_mm($in['len_cm'] ?? 0), cm_to_mm($in['wid_cm'] ?? 0), cm_to_mm($in['hgt_cm'] ?? 0), !empty($in['foldable']) ? 1 : 0, $barcode];
             if ($id) {
-                $db->prepare('UPDATE products SET name=?, unit=?, price=?, kind=?, active=?, processes=?, category_id=?, sku=?, options=?, supplier=?, supplier_url=?, supplier_sku=?, weight_g=?, len_mm=?, wid_mm=?, hgt_mm=?, foldable=? WHERE id = ?')->execute([...$vals, $id]);
+                $db->prepare('UPDATE products SET name=?, unit=?, price=?, kind=?, active=?, processes=?, category_id=?, sku=?, options=?, supplier=?, supplier_url=?, supplier_sku=?, weight_g=?, len_mm=?, wid_mm=?, hgt_mm=?, foldable=?, barcode=? WHERE id = ?')->execute([...$vals, $id]);
             } else {
-                $db->prepare('INSERT INTO products (name, unit, price, kind, active, processes, category_id, sku, options, supplier, supplier_url, supplier_sku, weight_g, len_mm, wid_mm, hgt_mm, foldable) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute($vals);
+                $db->prepare('INSERT INTO products (name, unit, price, kind, active, processes, category_id, sku, options, supplier, supplier_url, supplier_sku, weight_g, len_mm, wid_mm, hgt_mm, foldable, barcode) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute($vals);
                 $id = (int)$db->lastInsertId();
             }
-            wf_json(['ok' => true, 'id' => $id]);
+            wf_json(['ok' => true, 'id' => $id, 'sku' => $sku]);
+        }
+
+        // Vorschlag für die nächste Artikelnummer (Anzeige im Formular, vergeben wird erst beim Speichern)
+        case 'sku_suggest':
+            wf_json(['ok' => true, 'sku' => wf_sku_for($db, (int)($_GET['category_id'] ?? 0) ?: null, ($_GET['kind'] ?? '') === 'services' ? 'services' : 'goods')]);
+
+        // Produktdaten zu einem Barcode aus offenen Datenbanken (nur Vorschlag, gespeichert wird nichts am Produkt)
+        case 'barcode_lookup': {
+            $code = preg_replace('/\D/', '', (string)($_GET['code'] ?? ''));
+            if (!wf_gtin_valid($code)) {
+                wf_fail('barcode_format');
+            }
+            wf_json(['ok' => true] + wf_gtin_lookup($db, $code));
+        }
+
+        // alle Artikelnummern, die nicht ins Schema passen, neu vergeben (Knopf bei den Produkten)
+        case 'sku_convert': {
+            need_post();
+            $db->beginTransaction();
+            $n = wf_sku_convert_all($db);
+            $db->commit();
+            wf_json(['ok' => true, 'changed' => $n]);
         }
 
         // ---------- Versand: Kartons und Paket je Auftrag ----------

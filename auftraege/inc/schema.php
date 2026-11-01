@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 20) {
+    if ($v >= 21) {
         return;
     }
     if ($v < 1) {
@@ -65,7 +65,27 @@ function wf_migrate(PDO $db): void
     if ($v < 19) {
         wf_migrate_v19($db);
     }
-    wf_migrate_v20($db);
+    if ($v < 20) {
+        wf_migrate_v20($db);
+    }
+    wf_migrate_v21($db);
+}
+
+/**
+ * Version 21: Artikelnummern nach SKU-Prinzip (WF-Kürzel-Nummer, siehe inc/sku.php) und Barcode (EAN/GTIN) je Produkt.
+ * Vorhandene Artikelnummern, die nicht ins Schema passen, werden einmalig neu vergeben.
+ */
+function wf_migrate_v21(PDO $db): void
+{
+    require_once __DIR__ . '/sku.php';
+    $db->beginTransaction();
+    $db->exec("
+    ALTER TABLE product_categories ADD COLUMN sku_code TEXT NOT NULL DEFAULT '';
+    ALTER TABLE products ADD COLUMN barcode TEXT NOT NULL DEFAULT '';
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '21');
+    ");
+    wf_sku_convert_all($db);
+    $db->commit();
 }
 
 /**
