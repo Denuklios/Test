@@ -15,8 +15,32 @@ require_once __DIR__ . '/inc/catalog.php';
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
 
+// ---------- Handy-App: Zugriff von der App-Oberfläche (eigene Herkunft), Kopplung ohne Anmeldung ----------
+const WF_APP_ORIGIN = 'https://app.wunsch-fabrik.local';
+if (($_SERVER['HTTP_ORIGIN'] ?? '') === WF_APP_ORIGIN) {
+    header('Access-Control-Allow-Origin: ' . WF_APP_ORIGIN);
+    header('Access-Control-Allow-Headers: X-App-Token, Content-Type');
+    header('Access-Control-Allow-Methods: GET, POST, OPTIONS');
+    header('Access-Control-Max-Age: 86400');
+    header('Access-Control-Allow-Private-Network: true');   // für Tests im lokalen Netz
+    header('Vary: Origin');
+    if ($_SERVER['REQUEST_METHOD'] === 'OPTIONS') {
+        http_response_code(204);
+        exit;
+    }
+}
+if (($_GET['a'] ?? '') === 'app_pair') {
+    wf_app_pair();
+}
+// Aktionen, die die Handy-App darf (Werkstatt: Aufträge, Kunden, Produkte, Fotos, Beleg-Foto)
+const WF_APP_ACTIONS = ['me', 'version', 'orders', 'order', 'order_save', 'order_status', 'order_ship', 'products', 'categories', 'customers', 'customer', 'customer_save',
+    'file_upload', 'calendar', 'plan_options', 'plan_slots', 'plan_preview', 'due_days', 'expense_upload', 'note_parse', 'app_whoami', 'app_latest'];
+
 $user = wf_require_user();
 $a = (string)($_GET['a'] ?? '');
+if (!empty($user['app']) && !in_array($a, WF_APP_ACTIONS, true)) {
+    wf_fail('app_forbidden', 403);
+}
 $isPost = $_SERVER['REQUEST_METHOD'] === 'POST';
 $in = [];
 if ($isPost) {
@@ -221,6 +245,35 @@ function src_url($v): string
     return $u !== '' && filter_var($u, FILTER_VALIDATE_URL) ? $u : '';
 }
 
+/** Kopplung: Code aus den Einstellungen gegen einen dauerhaften Schlüssel tauschen (öffentlich, mit Sperre gegen Raten). */
+function wf_app_pair(): void
+{
+    $db = wf_db();
+    $ip = (string)($_SERVER['REMOTE_ADDR'] ?? '');
+    $db->prepare('DELETE FROM rate_limit WHERE at < ?')->execute([time() - 600]);
+    $cnt = $db->prepare('SELECT COUNT(*) FROM rate_limit WHERE ip = ? AND at >= ?');
+    $cnt->execute(['pair:' . $ip, time() - 600]);
+    if ((int)$cnt->fetchColumn() >= 10) {
+        wf_fail('too_many', 429);
+    }
+    $db->prepare('INSERT INTO rate_limit (ip, at) VALUES (?, ?)')->execute(['pair:' . $ip, time()]);
+    $in = json_decode((string)file_get_contents('php://input'), true) ?: [];
+    $code = strtoupper(preg_replace('/[^A-Za-z0-9]/', '', (string)($in['code'] ?? '')));
+    if (strlen($code) !== 8) {
+        wf_fail('pair_invalid');
+    }
+    $st = $db->prepare('SELECT id, name FROM app_tokens WHERE pair_hash = ? AND pair_expires >= ? AND revoked_at IS NULL');
+    $st->execute([hash('sha256', $code), time()]);
+    $t = $st->fetch();
+    if (!$t) {
+        wf_fail('pair_invalid');
+    }
+    $tok = bin2hex(random_bytes(32));
+    $db->prepare("UPDATE app_tokens SET token_hash = ?, pair_hash = NULL, pair_expires = NULL, device = ?, last_used_at = datetime('now') WHERE id = ?")
+        ->execute([hash('sha256', $tok), mb_substr((string)($in['device'] ?? ''), 0, 80), $t['id']]);
+    wf_json(['ok' => true, 'token' => $tok, 'name' => $t['name']]);
+}
+
 function inv_rate_in(array $in, string $currency): string
 {
     if ($currency === 'DKK') {
@@ -239,6 +292,15 @@ function inv_rate_in(array $in, string $currency): string
 try {
     switch ($a) {
         case 'me': {
+            if (!empty($user['app'])) {
+                // Handy-App: nur was die Werkstatt braucht (keine Bank-, Mail- oder Schlüsseldaten)
+                $co = wf_company();
+                wf_json(['ok' => true, 'user' => ['name' => $user['name'], 'worker_id' => $user['worker_id']], 'statuses' => WF_STATUSES, 'pay' => WF_PAY, 'currencies' => wf_cfg('currencies'),
+                    'processes' => $db->query('SELECT * FROM process_types ORDER BY sort')->fetchAll(), 'workers' => wf_workers(), 'version' => wf_version(), 'units' => WF_UNITS,
+                    'carriers' => array_map(fn($c) => $c[0], WF_CARRIERS), 'countries' => wf_countries(), 'eu' => WF_EU,
+                    'company' => ['name' => $co['name'] ?? '', 'moms_registered' => $co['moms_registered'] ?? true, 'hour_rate' => $co['hour_rate'] ?? 0],
+                    'settings' => ['weekend_min' => wf_weekend_min(), 'day_start' => wf_min_to_hhmm(wf_day_start())], 'ai_enabled' => wf_ai_key() !== '']);
+            }
             $tokens = $db->query('SELECT id, label, created_at, revoked_at, last_used_at FROM display_tokens ORDER BY id DESC')->fetchAll();
             wf_json([
                 'ok' => true,
@@ -1259,6 +1321,49 @@ try {
             }
             wf_json(['ok' => true]);
         }
+
+        // ---------- Handy-App: Personen koppeln / abmelden ----------
+        case 'app_tokens':
+            wf_json(['ok' => true, 'tokens' => $db->query('SELECT id, name, worker_id, device, created_at, last_used_at, revoked_at, token_hash IS NOT NULL AS paired, pair_expires FROM app_tokens WHERE revoked_at IS NULL ORDER BY id DESC')->fetchAll()]);
+
+        case 'app_token_create': {
+            need_post();
+            $name = s($in, 'name', 60);
+            if ($name === '') {
+                wf_fail('name_required');
+            }
+            $id = (int)($in['id'] ?? 0);
+            $alpha = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';   // ohne 0/O/1/I, leicht abzutippen
+            $code = '';
+            for ($i = 0; $i < 8; $i++) {
+                $code .= $alpha[random_int(0, strlen($alpha) - 1)];
+            }
+            $wid = (int)($in['worker_id'] ?? 0) ?: null;
+            if ($id) {
+                // neues Gerät für dieselbe Person: alter Schlüssel wird ungültig
+                $db->prepare('UPDATE app_tokens SET name = ?, worker_id = ?, token_hash = NULL, pair_hash = ?, pair_expires = ? WHERE id = ? AND revoked_at IS NULL')
+                    ->execute([$name, $wid, hash('sha256', $code), time() + 900, $id]);
+            } else {
+                $db->prepare('INSERT INTO app_tokens (name, worker_id, pair_hash, pair_expires) VALUES (?,?,?,?)')->execute([$name, $wid, hash('sha256', $code), time() + 900]);
+                $id = (int)$db->lastInsertId();
+            }
+            wf_json(['ok' => true, 'id' => $id, 'code' => substr($code, 0, 4) . '-' . substr($code, 4), 'expires' => time() + 900, 'server' => wf_public_base($db)]);
+        }
+
+        case 'app_token_revoke': {
+            need_post();
+            $db->prepare("UPDATE app_tokens SET revoked_at = datetime('now'), token_hash = NULL, pair_hash = NULL WHERE id = ?")->execute([(int)($in['id'] ?? 0)]);
+            wf_json(['ok' => true]);
+        }
+
+        // neueste App-Version (Datei app/version.json, kommt mit dem Upload)
+        case 'app_latest': {
+            $v = json_decode((string)@file_get_contents(__DIR__ . '/app/version.json'), true) ?: [];
+            wf_json(['ok' => true, 'version' => (string)($v['version'] ?? ''), 'file' => (string)($v['file'] ?? '')]);
+        }
+
+        case 'app_whoami':
+            wf_json(['ok' => true, 'name' => $user['name'], 'worker_id' => $user['worker_id'] ?? null]);
 
         case 'token_revoke': {
             need_post();

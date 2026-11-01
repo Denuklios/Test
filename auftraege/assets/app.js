@@ -2,7 +2,7 @@
 (() => {
 'use strict';
 const BASE = document.documentElement.dataset.base || '';
-const APP_VERSION = '2026-10-28 · Katalog-Fenster im Auftrag';
+const APP_VERSION = '2026-10-31 · Handy-App';
 let me = null;
 let lang = (navigator.language || '').startsWith('da') ? 'da' : 'de';
 try { lang = localStorage.getItem('wf_lang') || lang; } catch (e) { /* Speicher gesperrt */ }
@@ -2291,6 +2291,36 @@ route(/^\/settings$/, async () => {
   const tokOut = h('div');
   const tokList = h('div', {}, me.tokens.map((k) => h('div', { class: 'free' }, h('span', {}, `${k.label} · ${k.created_at.slice(0, 10)}${k.last_used_at ? ' · ' + t('last_seen') + ' ' + k.last_used_at.slice(0, 16) : ''}`),
     k.revoked_at ? h('span', { class: 'muted' }, t('revoked')) : h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('confirm_revoke'))) { await api('token_revoke', { body: { id: k.id } }); await reloadMe(); render(); } } }, t('revoke')))));
+  // Handy-App: Person anlegen → Code (15 Min.) in der App eintragen; Abmelden sperrt sofort
+  const appList = h('div');
+  const appOut = h('div');
+  const appCode = (r, name) => {
+    const left = h('b');
+    const tick = () => { const s_ = r.expires - Math.floor(Date.now() / 1000); left.textContent = s_ > 0 ? `${Math.floor(s_ / 60)}:${String(s_ % 60).padStart(2, '0')}` : t('app_expired'); if (s_ > 0 && document.body.contains(left)) setTimeout(tick, 1000); };
+    appOut.replaceChildren(h('div', { class: 'appcode' }, h('div', { class: 'muted' }, t('app_code_for', name)), h('div', { class: 'code' }, r.code),
+      h('div', { class: 'muted', style: 'font-size:.85rem' }, t('app_server'), ' ', h('b', { style: 'word-break:break-all' }, r.server || new URL(BASE || './', location.href).href)),
+      h('div', { class: 'muted', style: 'font-size:.85rem' }, t('app_valid'), ' ', left)));
+    tick();
+  };
+  const loadApps = async () => {
+    const { tokens } = await api('app_tokens');
+    appList.replaceChildren(...(tokens.length ? tokens.map((k) => h('div', { class: 'free' },
+      h('span', {}, h('b', {}, k.name), h('small', { class: 'muted', style: 'display:block' }, +k.paired ? [k.device, k.last_used_at ? t('last_seen') + ' ' + dfmt(k.last_used_at.slice(0, 10)) : ''].filter(Boolean).join(' · ') : t('app_waiting'))),
+      h('span', { class: 'row', style: 'gap:6px' },
+        h('button', { class: 'btn small', onclick: async () => { if (+k.paired && !confirm(t('app_recode_q', k.name))) return; const r = await api('app_token_create', { body: { id: k.id, name: k.name, worker_id: k.worker_id } }); appCode(r, k.name); loadApps(); } }, t('app_new_code')),
+        h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('app_revoke_q', k.name))) { await api('app_token_revoke', { body: { id: k.id } }); appOut.replaceChildren(); loadApps(); } } }, t('dev_revoke'))))) : [h('p', { class: 'muted' }, t('app_none'))]));
+  };
+  const appName = h('input', { placeholder: t('app_name_ph'), maxlength: 60 });
+  const appWorker = h('select', {}, h('option', { value: '' }, t('app_worker_none')), activeWorkers().map((w) => h('option', { value: w.id }, w.name)));
+  const appCard = h('div', { class: 'card' }, h('h3', {}, '📱 ' + t('app_title')), h('p', { class: 'muted' }, t('app_text')),
+    h('a', { class: 'btn', href: `${BASE}app/wunsch-fabrik-werkstatt.apk`, download: '' }, '⬇ ' + t('app_download')),
+    h('div', { style: 'margin-top:12px' }, appList),
+    h('div', { class: 'grid c2', style: 'margin-top:10px' }, h('div', {}, h('label', {}, t('app_name')), appName), h('div', {}, h('label', {}, t('app_worker')), appWorker)),
+    h('button', { class: 'btn primary', style: 'margin-top:8px', onclick: async () => {
+      if (!appName.value.trim()) { appName.focus(); return; }
+      try { const r = await api('app_token_create', { body: { name: appName.value.trim(), worker_id: appWorker.value || null } }); appCode(r, appName.value.trim()); appName.value = ''; loadApps(); } catch (e) { toast(e.message); }
+    } }, '+ ' + t('app_add')), appOut);
+  loadApps().catch(() => {});
   const devCard = h('div', { class: 'card' }, h('h3', {}, '🔑 ' + t('dev_title')), h('p', { class: 'muted' }, t('dev_text')),
     (me.devices || []).length ? h('div', {}, me.devices.map((d) => h('div', { class: 'free' },
       h('span', {}, h('b', {}, d.label), +d.id === +me.device_id ? h('span', { class: 'pill', style: 'margin-left:6px;--c:var(--p1)' }, t('dev_this')) : null,
@@ -2308,6 +2338,7 @@ route(/^\/settings$/, async () => {
     archiveCard,
     termsCard,
     aiCard,
+    appCard,
     devCard,
     h('div', { class: 'card' }, h('h3', {}, t('display_title')), h('p', { class: 'muted' }, t('display_text')),
       h('div', { class: 'row' }, h('button', { class: 'btn primary', onclick: async () => {

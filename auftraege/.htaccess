@@ -25,3 +25,11 @@ Options -Indexes
 </Files>
 
 AddType application/manifest+json .webmanifest
+
+# Handy-App zum Herunterladen
+AddType application/vnd.android.package-archive .apk
+<Files "version.json">
+  <IfModule mod_headers.c>
+    Header set Cache-Control "no-cache"
+  </IfModule>
+</Files>
