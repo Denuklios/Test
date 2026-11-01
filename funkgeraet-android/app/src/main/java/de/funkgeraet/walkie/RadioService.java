@@ -60,7 +60,7 @@ public class RadioService extends Service implements Mqtt.Listener {
     }
 
     /* Zustand (wird von Widget und App gelesen) */
-    public String name = "", channel = "", lastError = "";
+    public String name = "", channel = "", lastError = "", via = "";
     public volatile boolean connected, talking;
     public final Map<Integer, Member> members = new ConcurrentHashMap<>();
     public volatile int speaker;           // wer gerade empfangen wird (0 = niemand)
@@ -141,14 +141,6 @@ public class RadioService extends Service implements Mqtt.Listener {
         channel = p.getString("channel", "").trim();
         String server = p.getString("server", DEFAULT_SERVER).trim();
         if (server.isEmpty()) server = DEFAULT_SERVER;
-        String host = server;
-        int port = 8883;
-        int colon = server.lastIndexOf(':');
-        if (colon > 0) {
-            host = server.substring(0, colon);
-            try { port = Integer.parseInt(server.substring(colon + 1)); } catch (NumberFormatException ignored) {}
-        }
-        boolean tls = port != 1883;
 
         running = true;
         lastError = "";
@@ -156,7 +148,8 @@ public class RadioService extends Service implements Mqtt.Listener {
         Packet bye = new Packet();
         bye.type = Packet.BYE;
         bye.sender = myId;
-        mqtt = new Mqtt(host, port, tls, Packet.topic(channel), Packet.seal(key, bye.toBytes()), this);
+        mqtt = new Mqtt(Mqtt.endpoints(server), Packet.topic(channel), Packet.seal(key, bye.toBytes()), this);
+        watchNetwork();
 
         int min = AudioTrack.getMinBufferSize(RATE, AudioFormat.CHANNEL_OUT_MONO, AudioFormat.ENCODING_PCM_16BIT);
         track = new AudioTrack.Builder()
@@ -188,7 +181,30 @@ public class RadioService extends Service implements Mqtt.Listener {
         changed();
     }
 
+    private android.net.ConnectivityManager.NetworkCallback netCb;
+
+    /** Bei Netzwechsel (WLAN ↔ Mobilfunk) sofort neu verbinden statt auf den Zeitablauf zu warten. */
+    private void watchNetwork() {
+        android.net.ConnectivityManager cm = (android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE);
+        if (cm == null) return;
+        netCb = new android.net.ConnectivityManager.NetworkCallback() {
+            private android.net.Network last;
+            @Override public void onAvailable(android.net.Network n) {
+                if (last != null && !n.equals(last)) { Mqtt m = mqtt; if (m != null) m.kick(); }
+                last = n;
+            }
+            @Override public void onLost(android.net.Network n) {
+                if (n.equals(last)) { last = null; Mqtt m = mqtt; if (m != null) m.kick(); }
+            }
+        };
+        try { cm.registerDefaultNetworkCallback(netCb); } catch (Exception ignored) { netCb = null; }
+    }
+
     public void shutdown() {
+        if (netCb != null) {
+            try { ((android.net.ConnectivityManager) getSystemService(CONNECTIVITY_SERVICE)).unregisterNetworkCallback(netCb); } catch (Exception ignored) {}
+            netCb = null;
+        }
         if (talking) setTalking(false);
         running = false;
         main.removeCallbacksAndMessages(null);
@@ -310,9 +326,10 @@ public class RadioService extends Service implements Mqtt.Listener {
     /* ---------- Empfangen ---------- */
 
     @Override
-    public void onConnected() {
+    public void onConnected(String via) {
         connected = true;
         lastError = "";
+        this.via = via;
         new Thread(() -> sendHello(true)).start();
         changed();
     }
@@ -321,7 +338,7 @@ public class RadioService extends Service implements Mqtt.Listener {
     public void onDisconnected(String why) {
         boolean was = connected;
         connected = false;
-        if (running) lastError = "Keine Verbindung – versuche erneut …";
+        if (running) lastError = why;
         if (was || running) changed();
     }
 

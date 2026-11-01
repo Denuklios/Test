@@ -199,7 +199,9 @@ public class RadioView extends View {
         t.setTextAlign(Paint.Align.LEFT);
 
         // Zeile 2: Zustand
-        String line = s == null ? "AUS" : tx ? "● DU SENDEST" : rx ? "◄ " + sp.toUpperCase() + " SPRICHT" : s.statusLine().toUpperCase();
+        boolean err = s != null && !connected && !s.lastError.isEmpty();
+        String line = s == null ? "AUS" : tx ? "● DU SENDEST" : rx ? "◄ " + sp.toUpperCase() + " SPRICHT"
+            : err ? "KEINE VERBINDUNG" : s.statusLine().toUpperCase();
         t.setTextSize(15 * dp);
         t.setLetterSpacing(0.06f);
         while (t.measureText(line) > iw && t.getTextSize() > 9 * dp) t.setTextSize(t.getTextSize() - dp);
@@ -209,7 +211,29 @@ public class RadioView extends View {
         if (show) c.drawText(line, ix, rect.top + 50 * dp, t);
         t.clearShadowLayer();
 
+        if (err) {
+            // Fehlergrund lesbar anzeigen (statt Oszilloskop)
+            t.setTypeface(Typeface.MONOSPACE);
+            t.setTextSize(12 * dp);
+            t.setLetterSpacing(0);
+            t.setColor(Art.mix(color, Color.WHITE, 0.5f));
+            float ty = rect.top + 74 * dp;
+            StringBuilder ln = new StringBuilder();
+            for (String word : s.lastError.split(" ")) {
+                if (ln.length() > 0 && t.measureText(ln + " " + word) > iw) {
+                    c.drawText(ln.toString(), ix, ty, t); ty += 16 * dp; ln.setLength(0);
+                    if (ty > rect.bottom - 20 * dp) break;
+                }
+                if (ln.length() > 0) ln.append(' ');
+                ln.append(word);
+            }
+            if (ln.length() > 0 && ty <= rect.bottom - 6 * dp) c.drawText(ln.toString(), ix, ty, t);
+            t.setColor(Art.alpha(color, 0.7f));
+            c.drawText("versuche andere Wege …", ix, rect.bottom - 10 * dp, t);
+        }
+
         // Oszilloskop
+        if (!err) {
         float oTop = rect.top + 60 * dp, oBot = rect.bottom - 10 * dp, oMid = (oTop + oBot) / 2, oAmp = (oBot - oTop) / 2;
         p.setColor(Art.alpha(color, 0.12f));
         p.setStrokeWidth(1);
@@ -235,6 +259,7 @@ public class RadioView extends View {
         p.setColor(Art.mix(color, Color.WHITE, 0.35f));
         c.drawPath(path, p);
         p.setStyle(Paint.Style.FILL);
+        }
         // Abtastlinien
         p.setColor(0x22000000);
         for (float y = rect.top; y < rect.bottom; y += 3 * dp) c.drawRect(rect.left, y, rect.right, y + dp, p);

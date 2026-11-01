@@ -70,12 +70,12 @@ public class CoreTest {
         LinkedBlockingQueue<byte[]> got = new LinkedBlockingQueue<>();
         CountDownLatch up = new CountDownLatch(2);
         Mqtt.Listener recv = new Mqtt.Listener() {
-            public void onConnected() { up.countDown(); }
+            public void onConnected(String via) { up.countDown(); }
             public void onDisconnected(String why) {}
             public void onMessage(byte[] d) { got.add(d); }
         };
         Mqtt.Listener send = new Mqtt.Listener() {
-            public void onConnected() { up.countDown(); }
+            public void onConnected(String via) { up.countDown(); }
             public void onDisconnected(String why) {}
             public void onMessage(byte[] d) {}
         };
@@ -106,5 +106,49 @@ public class CoreTest {
         assertNotNull("Testament", will);
         assertEquals("tschuess", new String(will));
         b.stop();
+    }
+
+    /** WebSocket-Weg (wie ein Browser) plus Ausweichen: erster Weg tot, zweiter klappt. */
+    @Test public void mqttOverWebSocketWithFallback() throws Exception {
+        String port = System.getProperty("mqtt.port", System.getenv("MQTT_PORT"));
+        Assume.assumeTrue(port != null && !port.isEmpty());
+        int wsPort = Integer.parseInt(port) + 1;
+        String topic = Packet.topic("ws-" + System.nanoTime());
+        LinkedBlockingQueue<byte[]> got = new LinkedBlockingQueue<>();
+        LinkedBlockingQueue<String> errors = new LinkedBlockingQueue<>();
+        CountDownLatch up = new CountDownLatch(2);
+        Mqtt.Listener recv = new Mqtt.Listener() {
+            public void onConnected(String via) { up.countDown(); }
+            public void onDisconnected(String why) { errors.add(why); }
+            public void onMessage(byte[] d) { got.add(d); }
+        };
+        java.util.List<Mqtt.Endpoint> eps = java.util.Arrays.asList(
+            new Mqtt.Endpoint("127.0.0.1", 1, false, false, null),          // gesperrter Port
+            new Mqtt.Endpoint("127.0.0.1", wsPort, false, true, "/mqtt"));  // WebSocket
+        Mqtt b = new Mqtt(eps, topic, null, recv);
+        Mqtt a = new Mqtt("127.0.0.1", Integer.parseInt(port), false, topic, null, recv);
+        b.start(); a.start();
+        assertTrue(up.await(10, TimeUnit.SECONDS));
+        assertTrue(errors.peek(), errors.peek().contains("nicht erreichbar"));
+        byte[] big = new byte[3000];
+        for (int i = 0; i < big.length; i++) big[i] = (byte) (i * 7);
+        assertTrue(a.publish(big));
+        for (int k = 0; k < 2; k++) {   // beide sind abonniert → zwei Kopien
+            byte[] d = got.poll(3, TimeUnit.SECONDS);
+            assertNotNull(d);
+            assertArrayEquals(big, d);
+        }
+        assertTrue(b.publish(new byte[] { 1, 2, 3 }));   // Senden über WebSocket
+        for (int k = 0; k < 2; k++) assertArrayEquals(new byte[] { 1, 2, 3 }, got.poll(3, TimeUnit.SECONDS));
+        a.stop(); b.stop();
+    }
+
+    @Test public void endpointListsForKnownServers() {
+        assertEquals(4, Mqtt.endpoints("").size());
+        assertEquals(4, Mqtt.endpoints("broker.hivemq.com:8883").size());
+        assertEquals(4, Mqtt.endpoints("broker.emqx.io").size());
+        java.util.List<Mqtt.Endpoint> one = Mqtt.endpoints("mein.server.de:8884");
+        assertEquals(1, one.size());
+        assertTrue(one.get(0).ws && one.get(0).tls);
     }
 }
