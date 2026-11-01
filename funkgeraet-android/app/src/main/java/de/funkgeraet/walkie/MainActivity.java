@@ -36,6 +36,17 @@ public class MainActivity extends Activity implements RadioService.UiListener {
         super.onCreate(b);
         setContentView(R.layout.activity_main);
         setVolumeControlStream(AudioManager.STREAM_MUSIC);
+        // Android 15 zeichnet unter Status- und Navigationsleiste: Platz dafür freihalten
+        View root = findViewById(R.id.root);
+        root.setOnApplyWindowInsetsListener((v, insets) -> {
+            int top, bottom;
+            if (Build.VERSION.SDK_INT >= 30) {
+                android.graphics.Insets i = insets.getInsets(android.view.WindowInsets.Type.systemBars() | android.view.WindowInsets.Type.displayCutout());
+                top = i.top; bottom = i.bottom;
+            } else { top = insets.getSystemWindowInsetTop(); bottom = insets.getSystemWindowInsetBottom(); }
+            v.setPadding(0, top, 0, bottom);
+            return insets;
+        });
 
         name = findViewById(R.id.name);
         channel = findViewById(R.id.channel);

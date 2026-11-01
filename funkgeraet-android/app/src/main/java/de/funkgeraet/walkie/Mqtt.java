@@ -188,7 +188,12 @@ public final class Mqtt {
     static String describe(Throwable e) {
         if (e instanceof UnknownHostException) return "Server nicht gefunden – Internet aus oder Werbeblocker/Private DNS?";
         if (e instanceof SocketTimeoutException) return "Server antwortet nicht (Zeitüberschreitung)";
-        if (e instanceof ConnectException || e instanceof NoRouteToHostException) return "Server nicht erreichbar (Netz sperrt?)";
+        if (e instanceof ConnectException || e instanceof NoRouteToHostException) {
+            String m = e.getMessage() == null ? "" : e.getMessage();
+            int i = m.lastIndexOf('(');
+            String why = i >= 0 ? m.substring(i).replace("(", "").replace(")", "").trim() : "";
+            return "Server nicht erreichbar" + (why.isEmpty() ? "" : " (" + why + ")");
+        }
         if (e instanceof SSLException) return "Verschlüsselung fehlgeschlagen (Uhrzeit falsch?)";
         if (e instanceof EOFException) return "Verbindung vom Netz getrennt";
         String m = e.getMessage();
@@ -196,9 +201,7 @@ public final class Mqtt {
     }
 
     private void connectOnce(Endpoint ep) throws IOException {
-        Socket raw = new Socket();
-        socket = raw;
-        raw.connect(new InetSocketAddress(ep.host, ep.port), 8000);
+        Socket raw = connectAny(ep);
         Socket s = raw;
         if (ep.tls) {
             SSLSocket ssl = (SSLSocket) ((SSLSocketFactory) SSLSocketFactory.getDefault()).createSocket(raw, ep.host, ep.port, true);
@@ -247,6 +250,31 @@ public final class Mqtt {
         sub.write(0);                                   // QoS 0
         send(0x82, sub.toByteArray());
         lastRead = System.currentTimeMillis();
+    }
+
+    /**
+     * Alle Adressen des Servers durchprobieren (IPv4 zuerst). Viele Netze liefern eine IPv6-Adresse,
+     * über die man dann gar nicht hinauskommt – ein Browser weicht automatisch aus, wir jetzt auch.
+     */
+    private Socket connectAny(Endpoint ep) throws IOException {
+        java.net.InetAddress[] all = java.net.InetAddress.getAllByName(ep.host);
+        List<java.net.InetAddress> order = new ArrayList<>();
+        for (java.net.InetAddress a : all) if (a instanceof java.net.Inet4Address) order.add(a);
+        for (java.net.InetAddress a : all) if (!(a instanceof java.net.Inet4Address)) order.add(a);
+        IOException last = null;
+        for (java.net.InetAddress a : order) {
+            if (!running) break;
+            Socket raw = new Socket();
+            socket = raw;
+            try {
+                raw.connect(new InetSocketAddress(a, ep.port), 6000);
+                return raw;
+            } catch (IOException e) {
+                last = e;
+                try { raw.close(); } catch (IOException ignored) {}
+            }
+        }
+        throw last != null ? last : new ConnectException("keine Adresse");
     }
 
     private void readLoop(Endpoint ep) throws IOException {

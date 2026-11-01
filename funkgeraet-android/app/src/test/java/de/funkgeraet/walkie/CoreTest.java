@@ -124,7 +124,7 @@ public class CoreTest {
         };
         java.util.List<Mqtt.Endpoint> eps = java.util.Arrays.asList(
             new Mqtt.Endpoint("127.0.0.1", 1, false, false, null),          // gesperrter Port
-            new Mqtt.Endpoint("127.0.0.1", wsPort, false, true, "/mqtt"));  // WebSocket
+            new Mqtt.Endpoint("localhost", wsPort, false, true, "/mqtt"));  // WebSocket, Name mit mehreren Adressen
         Mqtt b = new Mqtt(eps, topic, null, recv);
         Mqtt a = new Mqtt("127.0.0.1", Integer.parseInt(port), false, topic, null, recv);
         b.start(); a.start();
