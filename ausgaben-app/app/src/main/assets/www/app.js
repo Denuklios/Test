@@ -144,6 +144,39 @@
     return Object.entries(m).sort((a, b) => b[1] - a[1]);
   }
 
+  // ---------- Spartopf: Überschuss abgeschlossener Monate ----------
+  /** Monate, die zählen: ab Nutzungsbeginn (S.since) bis zum Vormonat, plus Monate mit eigenem Startbetrag */
+  function potMonths() {
+    const cur = periodOf(today());
+    const since = S.since || cur;
+    const set = new Set();
+    for (let k = since; monthsBetween(k, cur) > 0; k = shiftPeriod(k, 1)) set.add(k);
+    Object.keys(S.budgets || {}).forEach(k => { if (monthsBetween(k, cur) > 0) set.add(k); });
+    return Array.from(set).sort().filter(k => !(S.pot && (S.pot.skip || []).includes(k)));
+  }
+  function potState() {
+    const months = potMonths().map(k => ({ k, rest: summary(k).free }));
+    const rests = months.filter(m => m.rest > 0);
+    const minus = months.filter(m => m.rest < 0);
+    const moves = S.tx.filter(x => x.source === 'pot');
+    const dep = r2(moves.filter(x => x.type === 'expense').reduce((t, x) => t + x.amount, 0));
+    const wd = r2(moves.filter(x => x.type === 'income').reduce((t, x) => t + x.amount, 0));
+    const fromRest = r2(rests.reduce((t, m) => t + m.rest, 0));
+    const covered = r2(S.tx.filter(x => x.source === 'potcover').reduce((t, x) => t + x.amount, 0));
+    return { months, rests, minus, dep, wd, fromRest, balance: r2(fromRest + dep - wd - covered), moves };
+  }
+  /** Neu abgeschlossene Monate melden */
+  function potNotify() {
+    S.pot = S.pot || {};
+    const seen = new Set(S.pot.seen || []);
+    const fresh = potMonths().filter(k => !seen.has(k));
+    if (!fresh.length) return;
+    const total = r2(fresh.reduce((t, k) => t + Math.max(0, summary(k).free), 0));
+    S.pot.seen = Array.from(new Set([...seen, ...fresh]));
+    save();
+    if (total > 0) setTimeout(() => toast(`${periodLabel(fresh[fresh.length - 1])} abgeschlossen: ${money(total)} in den Spartopf`), 600);
+  }
+
   // ---------- Formatierung ----------
   let NF;
   function money(v, sign) {
@@ -156,7 +189,7 @@
     if (sign === 'in') return '+' + s;
     return (v < 0 ? '−' : '') + s;
   }
-  const num = v => (v == null || v === '') ? '' : String(r2(v)).replace('.', ',');
+  const num = v => (v == null || v === '') ? '' : r2(v).toFixed(2).replace('.', ',');
   const readNum = s => { const v = P.parseAmount(String(s).replace(/[^\d,.\-]/g, '')); return v == null ? 0 : v; };
   const catIco = id => { const c = CAT[id] || CAT.sonstiges; return `<div class="ico cat" style="background:${c.color}1f;color:${c.color}">${svg('c_' + (CAT[id] ? id : 'sonstiges'))}</div>`; };
   /** Eigene Symbole (tools/icons.py): Linien + halbtransparente Akzentflächen */
@@ -204,7 +237,7 @@
     for (const n of all) { const l = n.toLowerCase(); if (seen.has(l) || l === q) continue; if (l.startsWith(q) || (q.length >= 3 && l.includes(q))) { seen.add(l); out.push(n); } if (out.length >= 6) break; }
     return out;
   }
-  const SRC = { bank: ['Bank', 'b-bank'], bon: ['Bon', 'b-bon'], online: ['Online', 'b-online'], fix: ['Fix', 'b-fix'], nfc: ['Handy', 'b-nfc'] };
+  const SRC = { bank: ['Bank', 'b-bank'], bon: ['Bon', 'b-bon'], online: ['Online', 'b-online'], fix: ['Fix', 'b-fix'], nfc: ['Handy', 'b-nfc'], pot: ['Spartopf', 'b-fix'], potcover: ['Spartopf', 'b-fix'] };
   const srcBadge = s => SRC[s] ? `<span class="badge ${SRC[s][1]}">${SRC[s][0]}</span>` : '';
 
   // ---------- Native Brücke ----------
@@ -272,7 +305,7 @@
     html += `<div class="card hero">
       <div class="hero-top">${ringSvg(ratio, 92, s.free < 0)}
         <div class="hero-info">
-          <div class="hero-head"><span class="label">${isCur ? 'Zur Verfügung' : (period < periodOf(today()) ? 'Übrig geblieben' : 'Voraussichtlich zur Verfügung')}</span>${s.available > 0 ? `<span class="chip-st ${chip[1]}">${chip[0]}</span>` : ''}</div>
+          <div class="hero-head"><span class="label">${isCur ? 'Zur Verfügung' : (period < periodOf(today()) ? (s.free >= 0 ? 'In den Spartopf' : 'Im Minus') : 'Voraussichtlich zur Verfügung')}</span>${s.available > 0 ? `<span class="chip-st ${chip[1]}">${chip[0]}</span>` : ''}</div>
           <div class="big ${s.free < 0 ? 'neg' : ''}">${money(s.free)}</div>
           <div class="sub">${s.free < 0 ? money(-s.free) + ' über Budget' : `${Math.round(Math.max(0, ratio) * 100)} % von ${money(s.available)} übrig`}</div>
         </div></div>
@@ -298,6 +331,16 @@
       <button data-action="scanImages">${rbtn('upload')}Hochladen</button>
       <button data-action="importStatement">${rbtn('bank')}Auszug</button>
     </div>`;
+
+    // Spartopf
+    const pot = potState();
+    if (pot.months.length || pot.balance || S.pot && S.pot.goal) {
+      const goal = S.pot && S.pot.goal, gp = goal && goal.amount ? Math.min(100, Math.max(0, pot.balance) / goal.amount * 100) : 0;
+      const lastRest = pot.months.length ? pot.months[pot.months.length - 1] : null;
+      html += `<div class="card pot-card" data-action="openPot"><div class="pot-top"><div class="pot-ico">${svg('c_kredit')}</div><div class="main"><div class="label">Spartopf</div><div class="pot-big">${money(pot.balance)}</div>
+        <div class="sub">${lastRest ? (lastRest.rest >= 0 ? `+${money(lastRest.rest)} aus ${periodLabel(lastRest.k).split(' ')[0]}` : `${periodLabel(lastRest.k).split(' ')[0]}: ${money(lastRest.rest)} im Minus`) : 'Was am Monatsende übrig bleibt, landet hier.'}</div></div><span class="cb-arr">›</span></div>
+        ${goal && goal.amount ? `<div class="pot-goal"><div class="sumline" style="padding:0"><span>${h(goal.name || 'Sparziel')}</span><span>${Math.round(gp)} % von ${money(goal.amount)}</span></div><div class="bar"><i style="width:${gp}%;background:linear-gradient(90deg,#5EEAD4,#34D399)"></i></div></div>` : ''}</div>`;
+    }
 
     // Kategorien mit Limit / Top-Ausgaben
     const cats = byCategory(s.list);
@@ -452,7 +495,7 @@
       <p><b>4. Online-Bestellungen:</b> Mach einen Screenshot der Bestellbestätigung und lade ihn hoch – oder teile ihn direkt aus der Galerie/Mail mit „AusgabenKompass“.</p>
       <p class="muted">Alle Daten bleiben auf deinem Handy. Die Texterkennung funktioniert offline.</p></div>
     </div>
-    <div class="muted small" style="text-align:center">AusgabenKompass 1.7</div>`;
+    <div class="muted small" style="text-align:center">AusgabenKompass 1.8</div>`;
   }
 
   // ---------- Dialoge ----------
@@ -478,6 +521,16 @@
     return false;
   };
 
+  /** Bestätigung im App-Design (Androids WebView zeigt confirm() nicht an) */
+  function ask(title, text, okLabel, danger) {
+    return new Promise(res => {
+      const m = modal(`${head(h(title))}<p>${text}</p><div class="btns"><button class="btn sec" id="no">Abbrechen</button><button class="btn ${danger ? 'red' : ''}" id="yes">${h(okLabel || 'OK')}</button></div>`);
+      let done = false; const fin = v => { if (done) return; done = true; closeModal(); res(v); };
+      $('#yes', m).onclick = () => fin(true); $('#no', m).onclick = () => fin(false);
+      m.querySelector('[data-action=close]').addEventListener('click', () => { done = true; res(false); });
+    });
+  }
+
   function askNumber(title, value, hint, cb) {
     const m = modal(`${head(h(title))}${hint ? `<p class="muted small">${hint}</p>` : ''}<div class="field"><input id="num" class="amount-input" inputmode="decimal" value="${value ? num(value) : ''}" placeholder="0,00"></div><div class="btns"><button class="btn sec" data-action="close">Abbrechen</button><button class="btn" id="ok">Speichern</button></div>`);
     const i = $('#num', m); setTimeout(() => i.focus(), 100);
@@ -500,7 +553,7 @@
       S.settings.currency = $('#cur', m).value;
       period = periodOf(today());
       if (v) { S.settings.defaultBudget = v; }
-      S.onboarded = true; save(); closeModal(); render();
+      S.onboarded = true; S.since = periodOf(today()); save(); closeModal(); render();
     };
   }
 
@@ -594,8 +647,8 @@
     $('#mer', m).addEventListener('blur', () => setTimeout(() => { if ($('#msug', m)) $('#msug', m).innerHTML = ''; }, 200));
     $('#msug', m).addEventListener('click', e => { const b = e.target.closest('[data-shop]'); if (!b) return; $('#mer', m).value = b.dataset.shop; $('#msug', m).innerHTML = ''; autoCat(); });
     if (isNew && !scan) setTimeout(() => $('#amt', m).focus(), 120);
-    if (!isNew) $('#del', m).onclick = () => {
-      if (!confirm('Buchung löschen?')) return;
+    if (!isNew) $('#del', m).onclick = async () => {
+      if (!await ask('Buchung löschen?', `<b>${h(tx.merchant || 'Buchung')}</b> über <b>${money(tx.amount)}</b> vom ${fmtDay(tx.date)} wird gelöscht.`, 'Löschen', true)) return;
       S.tx = S.tx.filter(x => x.id !== tx.id);
       if (tx.recId) { const rec = S.recurring.find(r => r.id === tx.recId); if (rec) { rec.skipped = rec.skipped || []; rec.skipped.push(periodOf(tx.date)); } }
       save(); closeModal(); render(); toast('Gelöscht');
@@ -827,6 +880,53 @@
     $('#auto', m).onchange = e => { S.settings.autoPay = e.target.checked; save(); render(); };
   }
 
+  // ----- Spartopf -----
+  function openPot() {
+    const pot = potState(), goal = (S.pot && S.pot.goal) || {};
+    const hist = [
+      ...pot.months.map(m => ({ d: periodRange(m.k).end, t: m.rest >= 0 ? `Überschuss ${periodLabel(m.k)}` : `${periodLabel(m.k)} im Minus`, v: m.rest >= 0 ? m.rest : 0, neg: m.rest < 0 ? m.rest : 0, k: m.k })),
+      ...pot.moves.map(x => ({ d: x.date, t: x.type === 'expense' ? 'Eingezahlt' + (x.note ? ' – ' + x.note : '') : 'Entnommen' + (x.note ? ' – ' + x.note : ''), v: x.type === 'expense' ? x.amount : -x.amount, id: x.id })),
+      ...S.tx.filter(x => x.source === 'potcover').map(x => ({ d: x.date, t: 'Minus ausgeglichen – ' + periodLabel(x.note), v: -x.amount, id: x.id }))
+    ].sort((a, b) => a.d < b.d ? 1 : -1);
+    const m = modal(`${head('Spartopf')}
+      <div class="pot-hero"><div class="pot-ico big">${svg('c_kredit')}</div><div><div class="muted small">Im Topf</div><div class="pot-big">${money(pot.balance)}</div></div></div>
+      <p class="muted small">Was am Ende eines Monats von deinem Startbetrag übrig bleibt, wandert automatisch hier hinein. Du kannst auch selbst etwas einzahlen oder für eine Anschaffung entnehmen – das Entnommene steht dir dann im aktuellen Monat zusätzlich zur Verfügung.</p>
+      <div class="btns"><button class="btn sec" id="wd">${ic('u_open')} Entnehmen</button><button class="btn" id="dep">${ic('u_plus')} Einzahlen</button></div>
+      <div class="field" style="margin-top:14px"><label>Sparziel (optional)</label><div class="grid2"><input id="gn" placeholder="z. B. Urlaub" value="${h(goal.name || '')}"><input id="ga" inputmode="decimal" placeholder="Betrag" value="${goal.amount ? num(goal.amount) : ''}"></div></div>
+      ${pot.minus.length ? `<div class="warn">${pot.minus.length === 1 ? 'Ein Monat' : pot.minus.length + ' Monate'} endete${pot.minus.length === 1 ? '' : 'n'} im Minus. <button class="btn ghost sm" id="cover">Aus dem Topf ausgleichen</button></div>` : ''}
+      <h3 style="font-size:15px;margin:14px 0 4px">Verlauf</h3>
+      ${hist.length ? `<ul class="list">${hist.map(x => `<li class="item"><div class="main"><div class="title">${h(x.t)}</div><div class="sub">${fmtDay(x.d)}${x.k ? ' · <button class="link-sm" data-skip="' + x.k + '">nicht zählen</button>' : ''}${x.id ? ' · <button class="link-sm" data-undo="' + x.id + '">rückgängig</button>' : ''}</div></div><div class="amt ${x.v > 0 ? 'in' : x.neg ? 'red' : ''}">${x.neg ? money(x.neg) : (x.v >= 0 ? money(x.v, 'in') : money(x.v))}</div></li>`).join('')}</ul>`
+        : '<div class="empty small">Noch kein Monat abgeschlossen. Am Monatsende landet hier automatisch, was übrig bleibt.</div>'}
+      ${(S.pot && (S.pot.skip || []).length) ? `<button class="btn ghost sm" id="unskip">Ausgeblendete Monate wieder zählen (${S.pot.skip.length})</button>` : ''}
+      <button class="btn block" data-action="close" style="margin-top:12px">Fertig</button>`);
+    const saveGoal = () => { S.pot = S.pot || {}; const a = readNum($('#ga', m).value); S.pot.goal = a ? { name: $('#gn', m).value.trim(), amount: a } : null; save(); };
+    $('#gn', m).onchange = saveGoal; $('#ga', m).onchange = saveGoal;
+    const move = (type) => askNumber(type === 'expense' ? 'In den Spartopf einzahlen' : 'Aus dem Spartopf entnehmen', 0,
+      type === 'expense' ? 'Wird von deinem aktuellen Monat abgezogen und in den Topf gelegt.' : `Im Topf: ${money(pot.balance)}. Der Betrag steht dir im aktuellen Monat zusätzlich zur Verfügung.`, v => {
+        v = Math.abs(v); if (!v) return;
+        if (type === 'income' && v > pot.balance + 0.001) { toast('So viel ist nicht im Topf'); return; }
+        S.tx.push({ id: uid(), date: today(), amount: v, type, merchant: type === 'expense' ? 'Spartopf' : 'Aus dem Spartopf', category: type === 'expense' ? 'kredit' : 'einnahme', source: 'pot', items: [], note: '', created: Date.now() });
+        save(); closeAll(); render(); toast(type === 'expense' ? `${money(v)} eingezahlt` : `${money(v)} entnommen`);
+      });
+    $('#dep', m).onclick = () => { saveGoal(); move('expense'); };
+    $('#wd', m).onclick = () => { saveGoal(); move('income'); };
+    const cv = $('#cover', m); if (cv) cv.onclick = async () => {
+      const need = r2(-pot.minus.reduce((t, x) => t + x.rest, 0));
+      const amt = Math.min(need, Math.max(0, pot.balance));
+      if (amt <= 0) { toast('Der Topf ist leer'); return; }
+      if (!await ask('Minus ausgleichen?', `${money(amt)} aus dem Spartopf gleichen ${pot.minus.length === 1 ? 'das Minus' : 'die Minus-Monate'} aus.`, 'Ausgleichen')) return;
+      let left = amt;
+      for (const mm of pot.minus) { const a = Math.min(left, -mm.rest); if (a <= 0) break; S.tx.push({ id: uid(), date: periodRange(mm.k).end, amount: r2(a), type: 'income', merchant: 'Ausgleich aus Spartopf', category: 'einnahme', source: 'potcover', items: [], note: mm.k, created: Date.now() }); left -= a; }
+      save(); closeAll(); render(); toast('Ausgeglichen');
+    };
+    m.addEventListener('click', async e => {
+      const sk = e.target.closest('[data-skip]'), un = e.target.closest('[data-undo]');
+      if (sk) { S.pot = S.pot || {}; S.pot.skip = Array.from(new Set([...(S.pot.skip || []), sk.dataset.skip])); save(); closeModal(); render(); openPot(); }
+      if (un && await ask('Rückgängig machen?', 'Diese Bewegung wird entfernt.', 'Entfernen', true)) { S.tx = S.tx.filter(x => x.id !== un.dataset.undo); save(); closeAll(); render(); openPot(); }
+    });
+    const us = $('#unskip', m); if (us) us.onclick = () => { S.pot.skip = []; save(); closeModal(); render(); openPot(); };
+  }
+
   // ----- Einstellungen -----
   function setLimits() {
     const m = modal(`${head('Limits pro Kategorie')}<p class="muted small">Lege fest, wie viel du pro Monat höchstens ausgeben willst. Leer = kein Limit.</p>
@@ -849,7 +949,7 @@
       const r = await Native.call('pickBackup');
       const d = JSON.parse(r.text);
       if (!d || !Array.isArray(d.tx)) throw new Error('Keine gültige Sicherung');
-      if (!confirm(`Sicherung mit ${d.tx.length} Buchungen und ${(d.recurring || []).length} Fixkosten laden? Aktuelle Daten werden ersetzt.`)) return;
+      if (!await ask('Sicherung laden?', `Sicherung mit ${d.tx.length} Buchungen und ${(d.recurring || []).length} Fixkosten laden? Deine aktuellen Daten werden ersetzt.`, 'Laden', true)) return;
       S = Object.assign({}, DEFAULT, d); S.settings = Object.assign({}, DEFAULT.settings, d.settings); save(); render(); toast('Sicherung geladen');
     } catch (e) { if (e.message !== 'abgebrochen') toast(e.message); }
   }
@@ -878,6 +978,7 @@
     payEdit: el => { const p = (S.pending || []).find(x => x.id === el.dataset.id); if (p) txEditor(p, true); },
     payAll: () => { const n = (S.pending || []).length; (S.pending || []).forEach(p => { S.tx.push(p); learn(p.merchant, p.category); }); S.pending = []; save(); render(); toast(n + ' Zahlungen übernommen'); },
     nfcSetup,
+    openPot,
     editRec: el => recEditor(S.recurring.find(r => r.id === el.dataset.id)),
     setDefaultBudget: () => askNumber('Standard-Startbetrag', S.settings.defaultBudget, 'Gilt für jeden Monat, für den du keinen eigenen Betrag eingibst.', v => { S.settings.defaultBudget = v; save(); }),
     setStartDay: () => {
@@ -891,7 +992,7 @@
     setLimits, exportCsv,
     backup: () => saveFile('AusgabenKompass_Sicherung_' + today() + '.json', JSON.stringify(S)),
     restore,
-    wipe: () => { if (confirm('Wirklich ALLE Daten löschen?') && confirm('Sicher? Das kann nicht rückgängig gemacht werden.')) { localStorage.removeItem(KEY); location.reload(); } }
+    wipe: async () => { if (await ask('Alle Daten löschen?', 'Alle Buchungen, Fixkosten, der Spartopf und alle Einstellungen werden gelöscht.', 'Weiter', true) && await ask('Wirklich sicher?', 'Das kann nicht rückgängig gemacht werden. Tipp: vorher unter „Sicherung speichern“ sichern.', 'Endgültig löschen', true)) { localStorage.removeItem(KEY); location.reload(); } }
   };
   document.addEventListener('click', e => {
     const tb = e.target.closest('.tabs button');
@@ -904,6 +1005,12 @@
   });
 
   // Start
+  if (!S.since) {
+    // bestehende Nutzer: ab dem ersten Monat mit eigenen Eingaben (Bon, Handy, manuell) – reine Bank-Importe alter Monate zählen nicht
+    const own = S.tx.filter(x => x.source !== 'bank' && x.source !== 'fix').map(x => periodOf(x.date)).sort();
+    S.since = own[0] || periodOf(today());
+    S.pot = S.pot || {}; S.pot.seen = [];
+  }
   // Einmalig: Buchungen/Fixkosten unter "Sonstiges" mit der erweiterten Erkennung neu zuordnen
   if ((S.catV || 1) < 2) {
     S.tx.forEach(x => { if (x.type === 'expense' && x.category === 'sonstiges') x.category = guessCat(x.merchant + ' ' + (x.raw || '') + ' ' + (x.items || []).map(i => i.name).join(' ')); });
@@ -913,9 +1020,10 @@
   $$('.tabs button').forEach(b => b.insertAdjacentHTML('afterbegin', svg(b.dataset.tab)));
   applyRecurring();
   pullPayments();
+  potNotify();
   render();
   pushWidget();
   // Neuer Monat seit letztem Öffnen? -> Fixkosten buchen
-  document.addEventListener('visibilitychange', () => { if (!document.hidden) { applyRecurring(); pullPayments(); render(); pushWidget(); } });
+  document.addEventListener('visibilitychange', () => { if (!document.hidden) { applyRecurring(); pullPayments(); potNotify(); render(); pushWidget(); } });
   window.__app = { S: () => S, periodOf, periodRange, summary, applyRecurring, reviewImport, reviewReceipt };
 })();

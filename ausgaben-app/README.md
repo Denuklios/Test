@@ -17,6 +17,7 @@ Haushaltsbuch-App, die die Stärken der drei Testsieger 2026 (finanzwissen.de) v
 - Statistik, Limits pro Kategorie, Sicherung (JSON), Export (CSV)
 - Handyzahlungen (Google Wallet, Samsung Wallet, Banking-Apps) automatisch erfassen – über die getrennte Helfer-App `zahlungen/` (Play Protect blockiert Benachrichtigungs-Zugriff bei Apps außerhalb des Play Stores; so bleibt die Haupt-App normal installierbar)
 - Händler-Vorschläge beim Tippen, Kategorie wird automatisch gewählt und gelernt
+- Spartopf: Überschuss jedes Monats fließt automatisch hinein, Einzahlen/Entnehmen, Sparziel, Minus-Monate ausgleichen
 - Homescreen-Widget: freies Geld + pro Tag, Knöpfe Betrag / Foto / Hochladen
 - Alle Daten bleiben lokal auf dem Handy
 

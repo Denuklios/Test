@@ -256,3 +256,19 @@ pre { color: var(--muted); }
 .steps ol { margin: 6px 0 10px; padding-left: 20px; color: #CDE7E3; }
 .steps li { margin: 3px 0; }
 code { background: rgba(255,255,255,.08); padding: 1px 5px; border-radius: 6px; font-size: 12px; }
+
+/* Spartopf */
+.pot-card { cursor: pointer; border-color: var(--stroke); background: linear-gradient(135deg, rgba(125,211,252,.12), rgba(19,52,56,.72)); }
+.pot-top { display: flex; align-items: center; gap: 12px; }
+.pot-top .main { flex: 1; min-width: 0; }
+.pot-top .label { color: var(--muted); font-size: 11px; font-weight: 700; letter-spacing: .8px; text-transform: uppercase; }
+.pot-top .sub { color: var(--muted); font-size: 12px; }
+.pot-ico { width: 46px; height: 46px; border-radius: 15px; display: flex; align-items: center; justify-content: center; background: rgba(125,211,252,.16); color: #7DD3FC; flex: none; }
+.pot-ico svg { width: 26px; height: 26px; }
+.pot-ico.big { width: 58px; height: 58px; border-radius: 18px; } .pot-ico.big svg { width: 32px; height: 32px; }
+.pot-big { font: 800 24px/1.15 "Roboto Condensed", system-ui, sans-serif; }
+.pot-goal { margin-top: 10px; font-size: 12px; color: var(--muted); }
+.pot-hero { display: flex; align-items: center; gap: 14px; padding: 12px; border-radius: 16px; background: rgba(125,211,252,.1); border: 1px solid var(--stroke); margin-bottom: 8px; }
+.link-sm { color: var(--brand-hi); font-size: 12px; font-weight: 600; padding: 0; }
+.amt.red { color: var(--red); }
+.grid2 input { width: 100%; padding: 12px; border: 1px solid var(--line); border-radius: 14px; background: rgba(255,255,255,.05); color: var(--text); }

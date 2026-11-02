@@ -108,6 +108,7 @@ public class MainActivity extends ComponentActivity {
                 if (pendingWidget != null) { String a = pendingWidget; pendingWidget = null; widgetAction(a); }
             }
         });
+        web.setWebChromeClient(new android.webkit.WebChromeClient());
         web.addJavascriptInterface(new Bridge(), "AndroidBridge");
         web.loadUrl("https://appassets.androidplatform.net/assets/www/index.html");
 
