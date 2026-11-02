@@ -23,5 +23,13 @@ void main() {
     show(ev('Ole', DateTime(1996, 11, 30), DateTime(1996, 11, 30), kind: EventKind.birthday)..birthYear = 1996);
     show(ev('Einkaufen', DateTime(2026, 11, 9), DateTime(2026, 11, 9)));
     expect(detectCategories(ev('Kaffee', DateTime(2026), DateTime(2026))).isEmpty, true);
+    show(ev('Friseur', DateTime(2026, 11, 9, 10), DateTime(2026, 11, 9, 11), allDay: false));
+    show(ev('Handwerker kommt', DateTime(2026, 11, 9), DateTime(2026, 11, 9)));
+    show(ev('Steuererklärung Frist', DateTime(2027, 7, 31), DateTime(2027, 7, 31)));
+  });
+  test('server liefert [] statt {}', () {
+    final e = CalEvent.fromJson({'id': 'a', 'title': 'x', 'start': '2026-11-02T10:00:00', 'end': '2026-11-02T11:00:00', 'answers': [], 'prep': []});
+    expect(e.answers.isEmpty, true);
   });
 }
+

@@ -144,6 +144,25 @@ Set<String> detectCategories(CalEvent ev) {
   if (_any(t, ['friseur', 'frisör', 'frisoer', 'barber', 'kosmetik', 'nagelstudio', 'massage'])) c.add('beauty');
   if (_any(t, ['date', 'restaurant', 'essen gehen', 'abendessen', 'dinner', 'jahrestag', 'hochzeitstag', 'valentin'])) c.add('date');
   if (_any(t, ['picknick', 'ausflug', 'wanderung', 'wandern', 'tagesausflug'])) c.add('outing');
+  if (_any(t, ['handwerker', 'elektriker', 'klempner', 'installateur', 'monteur', 'techniker kommt', 'ablesung', 'zählerablesung',
+    'schornsteinfeger', 'heizungswartung', 'wartung', 'lieferung', 'paket', 'abholung sperr', 'umbau', 'reparatur'])) {
+    c.add('craftsman');
+  }
+  if (_any(t, ['besuch kommt', 'gäste', 'gaeste', 'kommen zu besuch', 'übernachtungsgast', 'besuch von'])) c.add('guests');
+  if (_any(t, ['frist', 'deadline', 'kündigung', 'kuendigung', 'kündigen', 'vertrag läuft', 'abgabe', 'einreichen', 'antrag',
+    'steuererklärung', 'steuer', 'widerspruch'])) {
+    c.add('deadline');
+  }
+  if (_any(t, ['miete', 'rechnung', 'überweisen', 'ueberweisen', 'zahlung', 'bezahlen', 'rate ', 'beitrag', 'abbuchung'])) c.add('payment');
+  if (_any(t, ['blutspende', 'blut spenden'])) c.add('bloodDonation');
+  if (_any(t, ['babysitter', 'oma passt auf', 'kinderbetreuung', 'tagesmutter'])) c.add('babysitter');
+  if (_any(t, ['musikschule', 'klavier', 'gitarre', 'geige', 'flöte', 'floete', 'chor', 'orchester', 'bandprobe', 'nachhilfe',
+    'fahrstunde', 'fahrschule', 'kurs', 'vhs'])) {
+    c.add('lesson');
+  }
+  if (_any(t, ['bibliothek', 'bücherei', 'buecherei', 'ausleihe', 'rückgabe', 'rueckgabe', 'zurückgeben'])) c.add('library');
+  if (_any(t, ['tanken', 'reifendruck', 'waschanlage'])) c.add('carService');
+  if (_any(t, ['kind abholen', 'abholen', 'bringen', 'hinbringen'])) c.add('pickup');
   if (_any(t, ['fähre', 'faehre', 'kreuzfahrt', 'schiff', 'scandlines', 'færge', 'faerge', 'puttgarden', 'rødby', 'rodby'])) c.add('ferry');
   if (_any(t, ['zug', 'bahn', '^ice', '^ic ', 'dsb', 'flixtrain'])) c.add('train');
   return c;
@@ -666,6 +685,49 @@ List<PrepItem> generatePrep(CalEvent ev, Map<String, String> answers, {String Fu
     add('Wetter checken', G.todo, 1);
     add('Proviant & Getränke', G.todo, 0);
     add('Sonnen- / Regenschutz', G.clothes, 0);
+  }
+  if (cats.contains('beauty')) {
+    if (_any(t, ['friseur', 'frisör', 'frisoer', 'barber'])) add('Foto der Wunschfrisur raussuchen', G.appointment, 1);
+    add('Bargeld / Trinkgeld', G.appointment, 0);
+  }
+  if (cats.contains('craftsman')) {
+    add('Zu Hause sein / Zugang klären', G.todo, 0);
+    add('Arbeitsbereich freiräumen', G.home, 1);
+    add('Fragen & Mängel notieren', G.todo, 1);
+    add('Haustiere wegsperren', G.home, 0);
+  }
+  if (cats.contains('guests')) {
+    add('Gästebett beziehen', G.home, 1);
+    add('Einkaufen fürs Essen', G.todo, 1);
+    add('Aufräumen & Bad putzen', G.home, 1);
+    add('Handtücher bereitlegen', G.home, 0);
+  }
+  if (cats.contains('deadline')) {
+    add('Unterlagen zusammensuchen', G.docs, 7);
+    add('Rechtzeitig absenden (Einschreiben / Bestätigung)', G.todo, 3);
+    add('Kopie / Nachweis aufheben', G.docs, 0);
+  }
+  if (cats.contains('payment')) {
+    add('Kontostand prüfen', G.todo, 2);
+    add('Überweisung ausführen', G.todo, 1);
+  }
+  if (cats.contains('bloodDonation')) {
+    add('Personalausweis & Blutspendeausweis', G.docs, 0);
+    add('Vorher gut essen & viel trinken', G.hygiene, 0);
+  }
+  if (cats.contains('babysitter')) {
+    add('Notfallnummern & Infos aufschreiben', G.kids, 1);
+    add('Essen / Schlafenszeit absprechen', G.kids, 1);
+  }
+  if (cats.contains('lesson')) {
+    add('Noten / Hefte / Material einpacken', G.appointment, 0);
+    add('Hausaufgaben / Übungen erledigt?', G.todo, 1);
+    if (_any(t, ['fahrstunde', 'fahrschule'])) add('Brille & Ausbildungsnachweis', G.docs, 0);
+  }
+  if (cats.contains('library')) add('Bücher / Medien einpacken', G.todo, 0);
+  if (cats.contains('pickup')) {
+    add('Pünktlich losfahren', G.todo, 0);
+    if (_any(t, ['kind', 'kita', 'schule', 'kindergarten'])) add('Kindersitz im Auto?', G.car, 0);
   }
   if (!cats.contains('travel') && answers['transport'] == 'oeffi' && questionsFor(cats).isNotEmpty) {
     add('Verbindung raussuchen', G.todo, 0);

@@ -2,6 +2,8 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:http/http.dart' as http;
+
 import 'package:flutter/material.dart';
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -43,6 +45,7 @@ class AppStore extends ChangeNotifier {
   Set<String> hidden = {};
   bool showWeekNumbers = true;
   bool prepNotify = true;
+  bool autoPrep = true;
   bool unlockReminder = true;
   int prepWindowDays = 3;
 
@@ -100,6 +103,7 @@ class AppStore extends ChangeNotifier {
     hidden = (p.getStringList('hidden') ?? []).toSet();
     showWeekNumbers = p.getBool('showWeekNumbers') ?? true;
     prepNotify = p.getBool('prepNotify') ?? true;
+    autoPrep = p.getBool('autoPrep') ?? true;
     unlockReminder = p.getBool('unlockReminder') ?? true;
     prepWindowDays = p.getInt('prepWindowDays') ?? 3;
     _applyHolidayConfig();
@@ -165,6 +169,7 @@ class AppStore extends ChangeNotifier {
     await p.setStringList('hidden', hidden.toList());
     await p.setBool('showWeekNumbers', showWeekNumbers);
     await p.setBool('prepNotify', prepNotify);
+    await p.setBool('autoPrep', autoPrep);
     await p.setBool('unlockReminder', unlockReminder);
     await p.setInt('prepWindowDays', prepWindowDays);
     _applyHolidayConfig();
@@ -213,32 +218,48 @@ class AppStore extends ChangeNotifier {
       // 1) Ausstehende Änderungen hochladen
       while (pending.isNotEmpty) {
         final op = pending.first;
-        await api.save(op['kind'] as String, Map<String, dynamic>.from(op['item'] as Map));
+        try {
+          await api.save(op['kind'] as String, Map<String, dynamic>.from(op['item'] as Map));
+        } on ApiException catch (e) {
+          // Vom Server abgelehnt (nicht: falscher Code) -> nicht ewig blockieren
+          if (e.message.contains('Gruppen-Code')) rethrow;
+        }
         pending.removeAt(0);
         await _saveData();
       }
       // 2) Neues vom Server holen
       final j = await api.sync(since);
       groupName = (j['group'] ?? groupName) as String;
-      for (final m in (j['members'] as List)) {
-        final x = Member.fromJson(Map<String, dynamic>.from(m as Map));
-        members[x.id] = x;
+      List<Map<String, dynamic>> list(String k) =>
+          (j[k] is List ? j[k] as List : const []).whereType<Map>().map((e) => Map<String, dynamic>.from(e)).toList();
+      // Ein kaputter Eintrag darf nie die ganze Synchronisation stoppen
+      for (final m in list('members')) {
+        try {
+          final x = Member.fromJson(m);
+          members[x.id] = x;
+        } catch (_) {}
       }
-      for (final e in (j['events'] as List)) {
-        final x = CalEvent.fromJson(Map<String, dynamic>.from(e as Map));
-        final old = events[x.id];
-        if (since > 0 && x.editedBy.isNotEmpty && x.editedBy != myId) {
-          changes.add(ChangeInfo(x, old == null || old.deleted, x.deleted));
-        }
-        events[x.id] = x;
+      for (final e in list('events')) {
+        try {
+          final x = CalEvent.fromJson(e);
+          final old = events[x.id];
+          if (since > 0 && x.editedBy.isNotEmpty && x.editedBy != myId) {
+            changes.add(ChangeInfo(x, old == null || old.deleted, x.deleted));
+          }
+          events[x.id] = x;
+        } catch (_) {}
       }
-      for (final e in (j['places'] as List)) {
-        final x = Place.fromJson(Map<String, dynamic>.from(e as Map));
-        places[x.id] = x;
+      for (final e in list('places')) {
+        try {
+          final x = Place.fromJson(e);
+          places[x.id] = x;
+        } catch (_) {}
       }
-      for (final e in (j['templates'] as List)) {
-        final x = Template.fromJson(Map<String, dynamic>.from(e as Map));
-        templates[x.id] = x;
+      for (final e in list('templates')) {
+        try {
+          final x = Template.fromJson(e);
+          templates[x.id] = x;
+        } catch (_) {}
       }
       since = (j['since'] as num).toInt();
       lastError = null;
@@ -247,7 +268,13 @@ class AppStore extends ChangeNotifier {
       final p = await SharedPreferences.getInstance();
       await p.setString('groupName', groupName);
     } catch (e) {
-      lastError = e is ApiException ? e.message : 'Keine Verbindung zum Server';
+      if (e is ApiException) {
+        lastError = e.message;
+      } else if (e is SocketException || e is TimeoutException || e is http.ClientException || e is HandshakeException) {
+        lastError = 'Keine Verbindung zum Server (Internet / Adresse prüfen)';
+      } else {
+        lastError = 'Sync-Fehler: $e';
+      }
     } finally {
       syncing = false;
       notifyListeners();

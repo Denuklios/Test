@@ -153,6 +153,14 @@ void main() {
     await shot(t, Scaffold(body: Column(children: [const SizedBox(height: 30), PrepBanner(onOpen: (_) {}), const Expanded(child: SizedBox())])), 'banner');
     await shot(t, EventDetail(eventId: e.id), 'vorbereitung');
   });
+  testWidgets('editor_zahnarzt', (t) async {
+    final e = CalEvent(id: 'z', title: 'Zahnarzt Dr. Meier', start: DateTime(2026, 11, 12, 9), end: DateTime(2026, 11, 12, 10), ownerId: 'r');
+    t.view.physicalSize = const Size(1080, 4200);
+    t.view.devicePixelRatio = 2.625;
+    await t.pumpWidget(app(EventEditor(event: e)));
+    await t.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('/tmp/claude-0/-home-user-Test/cd4db189-3460-55ed-b918-077f9e0d3ba7/scratchpad/shots/editor_zahnarzt.png'));
+  });
   testWidgets('detail', (t) async {
     final e = store.events.values.firstWhere((e) => e.title == 'Kaffee und Kuchen');
     await shot(t, EventDetail(eventId: e.id), 'detail');

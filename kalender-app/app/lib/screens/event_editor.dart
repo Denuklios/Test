@@ -35,6 +35,7 @@ class _EventEditorState extends State<EventEditor> {
   late Set<String> _people;
   bool _yearKnown = true;
   int _uploading = 0;
+  late bool _autoPrep = store.autoPrep;
 
   @override
   void initState() {
@@ -225,14 +226,39 @@ class _EventEditorState extends State<EventEditor> {
         ),
       ]);
     }
-    if (!hasPrepSuggestions(_current())) return const SizedBox.shrink();
+    final cur = _current();
+    final cats = detectCategories(cur);
+    if (cats.isEmpty) return const SizedBox.shrink();
+    final preview = generatePrep(cur, guessAnswers(cur, cats));
+    if (preview.isEmpty) return const SizedBox.shrink();
+    final travel = cats.contains('travel');
     return Card(
       color: const Color(0xFFFFF8E1),
-      child: ListTile(
-        leading: const Icon(Icons.auto_awesome, color: Colors.orange),
-        title: const Text('Intelligente Checkliste'),
-        subtitle: const Text('Ich schlage passende Punkte vor und erinnere dich rechtzeitig daran.'),
-        trailing: FilledButton(onPressed: _wizard, child: const Text('Los')),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 10, 8, 6),
+        child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+          Row(children: [
+            const Icon(Icons.auto_awesome, color: Colors.orange),
+            const SizedBox(width: 8),
+            Expanded(child: Text('Passt dazu: ${preview.length} Punkte', style: const TextStyle(fontWeight: FontWeight.bold))),
+            Switch(value: _autoPrep, onChanged: (v) => setState(() => _autoPrep = v)),
+          ]),
+          Text(
+            preview.take(6).map((p) => p.text).join(' · ') + (preview.length > 6 ? ' …' : ''),
+            style: TextStyle(color: Colors.grey.shade800, fontSize: 13),
+          ),
+          const SizedBox(height: 2),
+          Text(
+            _autoPrep
+                ? (travel ? 'Wird beim Speichern übernommen – mit kurzen Fragen (Wetter, Auto/Flug …).' : 'Wird beim Speichern übernommen, mit Erinnerungen.')
+                : 'Ausgeschaltet – kein Vorschlag für diesen Termin.',
+            style: TextStyle(color: Colors.grey.shade600, fontSize: 12),
+          ),
+          Align(
+            alignment: Alignment.centerRight,
+            child: TextButton.icon(onPressed: _wizard, icon: const Icon(Icons.tune, size: 18), label: const Text('Jetzt ansehen & anpassen')),
+          ),
+        ]),
       ),
     );
   }
@@ -265,20 +291,15 @@ class _EventEditorState extends State<EventEditor> {
       ev.end = dateOnly(ev.end);
       if (ev.end.isBefore(ev.start)) ev.end = ev.start;
     }
-    // Bei Reisen einmal nachfragen, ob eine Packliste gewünscht ist
-    if (isNew && ev.prep.isEmpty && detectCategories(ev).contains('travel') && mounted) {
-      final yes = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: const Text('🧳 Packliste erstellen?'),
-          content: const Text('Soll ich dir eine Packliste mit rechtzeitigen Erinnerungen machen (Ausweis, Auto-Check, Online-Check-in …)?'),
-          actions: [
-            TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Nein danke')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Ja, gern')),
-          ],
-        ),
-      );
-      if (yes == true && mounted) await runPrepWizard(context, ev);
+    // Passende Vorschläge automatisch übernehmen (bei Reisen mit kurzen Fragen)
+    if (ev.prep.isEmpty && _autoPrep && mounted) {
+      final cats = detectCategories(ev);
+      if (cats.contains('travel')) {
+        await runPrepWizard(context, ev);
+      } else if (cats.isNotEmpty) {
+        ev.answers = guessAnswers(ev, cats);
+        ev.prep = generatePrep(ev, ev.answers, idGen: newId);
+      }
     }
     await store.saveEvent(ev);
     if (mounted) Navigator.pop(context, ev);
@@ -347,6 +368,7 @@ class _EventEditorState extends State<EventEditor> {
                 .toList(),
           ),
         ],
+        if (ev.prep.isEmpty) Padding(padding: const EdgeInsets.only(top: 8), child: _prepSection()),
         const SizedBox(height: 16),
         // Datum / Zeit
         if (bday) ...[
@@ -520,8 +542,7 @@ class _EventEditorState extends State<EventEditor> {
           ),
           onSubmitted: (_) => _addCheck(),
         ),
-        const SizedBox(height: 16),
-        _prepSection(),
+        if (ev.prep.isNotEmpty) ...[const SizedBox(height: 16), _prepSection()],
         const SizedBox(height: 20),
         // Fotos
         Row(children: [

@@ -340,6 +340,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ),
           _header('✨ Intelligente Checklisten'),
           SwitchListTile(
+            title: const Text('Vorschläge automatisch übernehmen'),
+            subtitle: const Text('Bei jedem neuen Termin, zu dem etwas passt (Arzt, Feier, Reise, Werkstatt, Müll …)'),
+            value: store.autoPrep,
+            onChanged: (v) => _set(() => store.autoPrep = v),
+          ),
+          SwitchListTile(
             title: const Text('An fällige Punkte erinnern'),
             subtitle: const Text('z. B. „Ölstand prüfen“ 3 Tage vorher, „Online einchecken“ am Vortag'),
             value: store.prepNotify,

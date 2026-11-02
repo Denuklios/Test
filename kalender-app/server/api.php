@@ -61,15 +61,17 @@ function newCode(): string {
     return $c;
 }
 
-function saveItem(int $gid, string $kind, array $item): int {
+function saveItem(int $gid, string $kind, array $item, $raw = null): int {
     $id = (string) ($item['id'] ?? '');
     if ($id === '' || strlen($id) > 64 || !preg_match('/^[A-Za-z0-9_-]+$/', $id)) fail('Ungültige ID');
     $ts = nowMs();
-    $item['updatedAt'] = $ts;
     $deleted = !empty($item['deleted']) ? 1 : 0;
+    // Original-JSON behalten (leere Objekte {} bleiben Objekte)
+    if (is_object($raw)) { $raw->updatedAt = $ts; $json = json_encode($raw, JSON_UNESCAPED_UNICODE); }
+    else { $item['updatedAt'] = $ts; $json = json_encode($item, JSON_UNESCAPED_UNICODE); }
     $st = db()->prepare('INSERT INTO items (group_id, kind, id, data, deleted, ts) VALUES (?,?,?,?,?,?)
         ON CONFLICT(group_id, kind, id) DO UPDATE SET data=excluded.data, deleted=excluded.deleted, ts=excluded.ts');
-    $st->execute([$gid, $kind, $id, json_encode($item, JSON_UNESCAPED_UNICODE), $deleted, $ts]);
+    $st->execute([$gid, $kind, $id, $json, $deleted, $ts]);
     return $ts;
 }
 
@@ -105,8 +107,8 @@ try {
             $items = ['member' => [], 'event' => [], 'place' => [], 'template' => []];
             $max = $since;
             while ($r = $st->fetch(PDO::FETCH_ASSOC)) {
-                $d = json_decode($r['data'], true);
-                if (!is_array($d)) continue;
+                $d = json_decode($r['data']);
+                if (!is_object($d)) continue;
                 $items[$r['kind']][] = $d;
                 if ((int) $r['ts'] > $max) $max = (int) $r['ts'];
             }
@@ -120,7 +122,8 @@ try {
             if (!in_array($kind, ['member', 'event', 'place', 'template'], true)) fail('Unbekannter Typ');
             $item = $b['item'] ?? null;
             if (!is_array($item)) fail('Daten fehlen');
-            $ts = saveItem((int) $g['id'], $kind, $item);
+            $rawBody = json_decode(file_get_contents('php://input'));
+            $ts = saveItem((int) $g['id'], $kind, $item, $rawBody->item ?? null);
             out(['ok' => true, 'updatedAt' => $ts]);
 
         case 'photo_upload':

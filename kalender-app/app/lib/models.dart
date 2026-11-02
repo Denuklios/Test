@@ -28,9 +28,9 @@ class Member {
   factory Member.fromJson(Map<String, dynamic> j) => Member(
         id: j['id'] as String,
         name: (j['name'] ?? '') as String,
-        color: (j['color'] ?? 0xFF1E88E5) as int,
+        color: (j['color'] as num?)?.toInt() ?? 0xFF1E88E5,
         deleted: j['deleted'] == true,
-        updatedAt: (j['updatedAt'] ?? 0) as int,
+        updatedAt: (j['updatedAt'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -170,11 +170,13 @@ class CalEvent {
       birthYear: (j['birthYear'] as num?)?.toInt(),
       createdBy: (j['createdBy'] ?? '') as String,
       editedBy: (j['editedBy'] ?? '') as String,
-      updatedAt: (j['updatedAt'] ?? 0) as int,
+      updatedAt: (j['updatedAt'] as num?)?.toInt() ?? 0,
       deleted: j['deleted'] == true,
       checklist: ((j['checklist'] ?? []) as List).map((e) => e.toString()).toList(),
-      prep: ((j['prep'] ?? []) as List).map((e) => PrepItem.fromJson(Map<String, dynamic>.from(e as Map))).toList(),
-      answers: Map<String, String>.from(((j['answers'] ?? {}) as Map).map((k, v) => MapEntry(k.toString(), v.toString()))),
+      prep: j['prep'] is List ? (j['prep'] as List).whereType<Map>().map((e) => PrepItem.fromJson(Map<String, dynamic>.from(e))).toList() : [],
+      answers: j['answers'] is Map
+          ? Map<String, String>.from((j['answers'] as Map).map((k, v) => MapEntry(k.toString(), v.toString())))
+          : <String, String>{},
     );
   }
 }
@@ -240,7 +242,7 @@ class Place {
         name: (j['name'] ?? '') as String,
         address: (j['address'] ?? '') as String,
         deleted: j['deleted'] == true,
-        updatedAt: (j['updatedAt'] ?? 0) as int,
+        updatedAt: (j['updatedAt'] as num?)?.toInt() ?? 0,
       );
 }
 
@@ -282,7 +284,7 @@ class Template {
         endTime: (j['endTime'] ?? '16:00') as String,
         kind: (j['kind'] ?? EventKind.normal) as String,
         deleted: j['deleted'] == true,
-        updatedAt: (j['updatedAt'] ?? 0) as int,
+        updatedAt: (j['updatedAt'] as num?)?.toInt() ?? 0,
       );
 
   TimeOfDay get startTod => _tod(startTime);
