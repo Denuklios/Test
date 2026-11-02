@@ -14,6 +14,7 @@ require_once __DIR__ . '/inc/catalog.php';
 require_once __DIR__ . '/inc/package.php';
 require_once __DIR__ . '/inc/sku.php';
 require_once __DIR__ . '/inc/gtin.php';
+require_once __DIR__ . '/inc/events.php';
 
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
@@ -37,7 +38,7 @@ if (($_GET['a'] ?? '') === 'app_pair') {
 }
 // Aktionen, die die Handy-App darf (Werkstatt: Aufträge, Kunden, Produkte, Fotos, Beleg-Foto)
 const WF_APP_ACTIONS = ['me', 'version', 'orders', 'order', 'order_save', 'order_status', 'order_ship', 'products', 'categories', 'customers', 'customer', 'customer_save',
-    'file_upload', 'calendar', 'plan_options', 'plan_slots', 'plan_preview', 'due_days', 'expense_upload', 'note_parse', 'app_whoami', 'app_latest'];
+    'file_upload', 'calendar', 'plan_options', 'plan_slots', 'plan_preview', 'due_days', 'expense_upload', 'note_parse', 'app_whoami', 'app_latest', 'app_events', 'app_inquiry'];
 
 $user = wf_require_user();
 $a = (string)($_GET['a'] ?? '');
@@ -869,6 +870,25 @@ try {
         // Vorschlag für die nächste Artikelnummer (Anzeige im Formular, vergeben wird erst beim Speichern)
         case 'sku_suggest':
             wf_json(['ok' => true, 'sku' => wf_sku_for($db, (int)($_GET['category_id'] ?? 0) ?: null, ($_GET['kind'] ?? '') === 'services' ? 'services' : 'goods')]);
+
+        // Benachrichtigungen für die Handy-App: alles nach dem mitgeschickten Stand
+        case 'app_events':
+            wf_json(['ok' => true] + wf_events($db, (string)($_GET['cursor'] ?? ''), (string)$user['name']));
+
+        // eine Anfrage von der Webseite (zum Öffnen aus der Benachrichtigung)
+        case 'app_inquiry': {
+            $site = wf_events_site_db();
+            if (!$site) {
+                wf_fail('no_site_db', 404);
+            }
+            $q = $site->prepare('SELECT id, created_at, name, email, phone, product, qty, wish_date, message, lang, status FROM inquiries WHERE id = ?');
+            $q->execute([(int)($_GET['id'] ?? 0)]);
+            $r = $q->fetch();
+            if (!$r) {
+                wf_fail('not_found', 404);
+            }
+            wf_json(['ok' => true, 'inquiry' => $r]);
+        }
 
         // Produktdaten zu einem Barcode aus offenen Datenbanken (nur Vorschlag, gespeichert wird nichts am Produkt)
         case 'barcode_lookup': {

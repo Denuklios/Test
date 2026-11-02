@@ -461,6 +461,25 @@ try {
     const cs = await (await fetch(`${B}/api.php?a=customer_save`, { method: 'POST', headers: { ...H, 'content-type': 'application/json' }, body: JSON.stringify({ name: 'App Kunde', country: 'DK' }) })).json();
     assert.equal(cs.ok, true, 'POST ohne CSRF mit App-Schlüssel');
     assert.equal((await fetch(`${B}/api.php?a=orders&at=${pr.token}`)).status, 401, 'Schlüssel in der Adresse nur für Bilder');
+    // Benachrichtigungen: erster Abruf nur Stand, danach neue Zahlungen und Unterschriften (eigene Buchungen nicht)
+    const ev0 = await (await fetch(`${B}/api.php?a=app_events`, { headers: H })).json();
+    assert.equal(ev0.ok, true); assert.deepEqual(ev0.events, []); assert.match(ev0.cursor, /^inquiry:\d+,signed:\d+,payment:\d+$/);
+    const { execFileSync } = await import('node:child_process');
+    execFileSync('php', ['-r', `$db = new PDO('sqlite:${data}/auftraege.sqlite'); $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+      $cid = $db->query("SELECT id FROM customers ORDER BY id DESC LIMIT 1")->fetchColumn();
+      $oid = $db->query("SELECT id FROM orders ORDER BY id DESC LIMIT 1")->fetchColumn();
+      $db->exec("INSERT INTO invoices (type, number, customer_id, order_id, issue_date, due_date, currency, status) VALUES ('invoice', 990001, $cid, $oid, '2026-11-01', '2026-11-15', 'DKK', 'final')");
+      $iid = $db->lastInsertId();
+      $db->exec("INSERT INTO invoice_payments (invoice_id, date, amount, method, created_by) VALUES ($iid, '2026-11-02', 125050, 'bank', 'Büro'), ($iid, '2026-11-02', 100, 'bank', 'Mitarbeiter A')");
+      $db->exec("INSERT INTO order_confirmations (order_id, token_hash, snapshot, expires_at, signed_at, signer_name) VALUES ($oid, 'evtest', '{}', '2030-01-01', datetime('now'), 'Anna Jensen')");`]);
+    const ev1 = await (await fetch(`${B}/api.php?a=app_events&cursor=${encodeURIComponent(ev0.cursor)}`, { headers: H })).json();
+    const kinds = ev1.events.map((e) => e.kind).sort();
+    assert.deepEqual(kinds, ['payment', 'signed'], 'eine fremde Zahlung, eine Unterschrift');
+    const pay = ev1.events.find((e) => e.kind === 'payment'); assert.match(pay.text, /^1\.250,50 kr\. · 990001$/); assert.match(pay.open, /^order:\d+$/);
+    assert.equal(ev1.events.find((e) => e.kind === 'signed').title, 'Anna Jensen');
+    const ev2 = await (await fetch(`${B}/api.php?a=app_events&cursor=${encodeURIComponent(ev1.cursor)}`, { headers: H })).json();
+    assert.deepEqual(ev2.events, [], 'nichts doppelt');
+    assert.equal((await (await fetch(`${B}/api.php?a=app_inquiry&id=1`, { headers: H })).json()).error, 'no_site_db');
     const list = (await call('app_tokens')).j.tokens; const tk = list.find((x) => x.name === 'Mitarbeiter A'); assert.equal(+tk.paired, 1); assert.equal(tk.device, 'Pixel');
     await call('app_token_revoke', { body: { id: tk.id } });
     assert.equal((await fetch(`${B}/api.php?a=orders`, { headers: H })).status, 401);

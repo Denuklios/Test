@@ -62,3 +62,10 @@
 - **Barcode (EAN) mit der Kamera:** im Produkt beim Feld „Barcode“ auf 📷 tippen. Auch in der Produktsuche und beim Hinzufügen von Artikeln im Auftrag gibt es 📷 – der gescannte Artikel wird gefunden bzw. gleich übernommen. Handscanner (USB/Bluetooth) gehen im selben Fenster.
 - **Daten aus dem Netz (🔎):** sucht Name, Marke, Farbe, Größe, Gewicht und Maße in freien Produktdatenbanken (UPCitemdb, Open Products Facts) und füllt nur leere Felder. Bei Markenware klappt das oft, bei Großhandels-Rohlingen nicht immer. Die freie Stufe erlaubt ca. 100 Abfragen am Tag.
 - Kamera braucht `https://` (auf der Webseite gegeben) und beim ersten Mal die Erlaubnis im Browser.
+
+## Werkstatt-App 1.1: Benachrichtigungen (Update November 2026)
+- Die Handy-App meldet sich bei **neuen Anfragen von der Webseite**, **unterschriebenen Angeboten** und **Zahlungseingängen** – auch wenn sie geschlossen ist. Antippen öffnet die Anfrage (mit Anrufen/WhatsApp/E-Mail) bzw. den Auftrag.
+- Einstellen in der App unter **Mehr → Benachrichtigungen**: welche Meldungen, und wie schnell: **Normal** (etwa alle 15 Minuten, spart Akku) oder **Sofort** (jede Minute, mit kleiner Dauer-Anzeige in der Leiste).
+- Läuft über den eigenen Server, ohne Google-Konto oder Fremddienst.
+- **Einmalig neu installieren:** Die alte App deinstallieren, dann `https://www.wunsch-fabrik.dk/auftraege/app/wunsch-fabrik-werkstatt.apk` auf dem Handy öffnen und installieren, im Büro unter Einstellungen → Handy-App einen neuen Code erzeugen und verbinden. Beim ersten Start „Benachrichtigungen erlauben“ bestätigen.
+- Bei manchen Handys (Samsung, Xiaomi, Huawei) unter Einstellungen → Apps → WF Werkstatt → Akku auf „Nicht eingeschränkt“ stellen, sonst kommen Meldungen verspätet.

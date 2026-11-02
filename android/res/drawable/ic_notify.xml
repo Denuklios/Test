@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Benachrichtigungs-Symbol: Nadel mit Faden (einfarbig, Android färbt es selbst) -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="24dp" android:height="24dp" android:viewportWidth="24" android:viewportHeight="24">
+    <path android:fillColor="#FFFFFFFF"
+        android:pathData="M18.5,2.5c1.7,0 3,1.3 3,3c0,0.8 -0.3,1.5 -0.9,2.1L8.2,20L4,21l1,-4.2L17.4,4.4C17.9,3.9 18.2,2.5 18.5,2.5zM18.6,4.6c-0.4,0 -0.8,0.4 -0.8,0.8s0.4,0.8 0.8,0.8s0.8,-0.4 0.8,-0.8S19,4.6 18.6,4.6z"/>
+</vector>
