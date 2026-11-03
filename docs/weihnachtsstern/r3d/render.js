@@ -6,10 +6,11 @@ const jobs = [
   ['bock_standing', 1000, 1000, ''],
   ['bock_lying', 1100, 1000, ''],
   ['joint', 1700, 1050, ''],
-  ['parts', 900, 800, ''],
+  ['drill', 900, 900, ''],
+  ['gloves', 1000, 900, ''],
   ['joint_close', 1400, 1000, ''],
-  ['night', 2000, 1280, '&paint=white&fov=44&cz=450'],
-  ['night', 1300, 1250, '&paint=white&fov=40&cx=40&cz=420', 'night_sq'],
+  ['night', 2000, 1280, '&paint=red&fov=44&cz=450'],
+  ['night', 1300, 1250, '&paint=red&fov=40&cx=40&cz=420', 'night_sq'],
 ];
 const only = process.argv[2];
 (async () => {

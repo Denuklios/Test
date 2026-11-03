@@ -58,10 +58,12 @@ function woodTexture(seed = 1, base = [224, 192, 150]) {
   return t;
 }
 const PAINT = P.get('paint');
-const woodMats = [1, 2, 3, 4].map(s => PAINT === 'white'
-  ? new THREE.MeshStandardMaterial({ color: 0xf3eee6, roughness: 0.55 })
+const paintMat = PAINT === 'red' ? new THREE.MeshStandardMaterial({ color: 0xb80d1c, roughness: 0.28, metalness: 0.0 })
+  : new THREE.MeshStandardMaterial({ color: 0xf3eee6, roughness: 0.55 });
+const woodMats = [1, 2, 3, 4].map(s => PAINT
+  ? paintMat
   : new THREE.MeshStandardMaterial({ map: woodTexture(s), roughness: 0.75 }));
-const topMat = PAINT === 'white' ? woodMats[0] : new THREE.MeshStandardMaterial({ map: woodTexture(9, [226, 196, 156]), roughness: 0.7 });
+const topMat = PAINT ? woodMats[0] : new THREE.MeshStandardMaterial({ map: woodTexture(9, [226, 196, 156]), roughness: 0.7 });
 const steel = new THREE.MeshStandardMaterial({ color: 0xd4d9de, metalness: 0.55, roughness: 0.38, envMapIntensity: 4 });
 const zinc = new THREE.MeshStandardMaterial({ color: 0xe6dcb0, metalness: 0.7, roughness: 0.3, envMapIntensity: 4 });
 const hingeMat = new THREE.MeshStandardMaterial({ color: 0x8a8f96, metalness: 0.8, roughness: 0.4 });
@@ -150,7 +152,11 @@ function buildStar(g) {
 }
 // Winkelverbinder 40 x 40 x 20 mm, opened to the joint angle, sitting flush on the outer side faces of both legs
 const screwHeadGeo = new THREE.SphereGeometry(0.42, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2);
-const darkMat = new THREE.MeshStandardMaterial({ color: 0x4d4a40, metalness: .6, roughness: .5 });
+const darkMat = new THREE.MeshStandardMaterial({ color: 0x3a3424, metalness: .4, roughness: .6 });
+const yzinc = new THREE.MeshStandardMaterial({ color: 0xc9b25e, metalness: 0.75, roughness: 0.32, envMapIntensity: 3 });
+const torxGeo = (() => { const sh = new THREE.Shape();
+  for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6, rr = i % 2 ? 0.1 : 0.19; i ? sh.lineTo(rr * Math.cos(a), rr * Math.sin(a)) : sh.moveTo(rr, 0); }
+  return new THREE.ShapeGeometry(sh); })();
 function bentBracket(g, I, eA, eB, yc) {
   const mid = eA.clone().add(eB).normalize();
   const half = Math.acos(eA.dot(mid));
@@ -158,28 +164,26 @@ function bentBracket(g, I, eA, eB, yc) {
   const pts = {};
   for (const e of [eA, eB]) {
     let n = mid.clone().sub(e.clone().multiplyScalar(mid.dot(e))).normalize(); // face normal pointing out of the wood
-    const len = 4.0, th = 0.22, hgt = 2.0;
+    const len = 5.0, th = 0.2, hgt = 1.5;
     const c = C.clone().add(e.clone().multiplyScalar(len / 2)).add(n.clone().multiplyScalar(th / 2));
     const fl = new THREE.Mesh(new THREE.BoxGeometry(len, hgt, th), steel);
     fl.position.set(c.x, yc, c.y); fl.rotation.y = -Math.atan2(e.y, e.x); fl.castShadow = true; g.add(fl);
     const n3 = new THREE.Vector3(n.x, 0, n.y);
-    for (const f of [1.2, 3.0]) {
+    for (const f of [1.4, 3.8]) {
       const p = C.clone().add(e.clone().multiplyScalar(f)).add(n.clone().multiplyScalar(th));
-      const head = new THREE.Mesh(screwHeadGeo, zinc);
-      head.scale.set(1, 0.45, 1);
-      head.position.set(p.x, yc, p.y);
+      // countersunk head (Senkkopf), yellow-zinc, sits flush in the bracket hole
+      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.39, 0.39, 0.06, 32), yzinc);
+      head.position.set(p.x + n.x * 0.01, yc, p.y + n.y * 0.01);
       head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n3);
       head.castShadow = true; g.add(head);
-      for (const rr of [0, Math.PI / 2]) {
-        const slot = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.09, 0.1), darkMat);
-        slot.position.set(p.x + n.x * 0.19, yc, p.y + n.y * 0.19);
-        slot.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n3);
-        slot.rotateY(rr + Math.PI / 4); g.add(slot);
-      }
+      const tx = new THREE.Mesh(torxGeo, darkMat);
+      tx.position.set(p.x + n.x * 0.045, yc, p.y + n.y * 0.045);
+      tx.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n3);
+      g.add(tx);
     }
   }
   // rounded bend
-  const bend = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 2.0, 12), steel);
+  const bend = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.5, 12), steel);
   const bc = C.clone().add(mid.clone().multiplyScalar(0.08));
   bend.position.set(bc.x, yc, bc.y); g.add(bend);
   return C;
@@ -318,6 +322,63 @@ if (SCENE === 'parts') {
   studioLights(V(2, 0, 1), 12);
   persp(30, V(9, 10, 14), V(2.4, 1.1, 0.8));
 }
+if (SCENE === 'drill') {
+  const g = new THREE.Group(); scene.add(g);
+  const red = new THREE.MeshStandardMaterial({ color: 0xc8102a, roughness: 0.35 });
+  const blk = new THREE.MeshStandardMaterial({ color: 0x1e1e20, roughness: 0.6 });
+  const gry = new THREE.MeshStandardMaterial({ color: 0x3a3b3e, roughness: 0.5 });
+  const met = new THREE.MeshStandardMaterial({ color: 0xc8ccd2, metalness: 0.9, roughness: 0.25, envMapIntensity: 3 });
+  const add = (m, x, y, z, rx = 0, ry = 0, rz = 0) => { m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  // battery pack
+  add(new THREE.Mesh(new RoundedBoxGeometry(9, 3.4, 7.2, 4, 0.8), blk), 0.5, 1.7, 0);
+  add(new THREE.Mesh(new RoundedBoxGeometry(8.6, 0.5, 6.8, 2, 0.2), red), 0.5, 3.3, 0);
+  // grip
+  const grip = add(new THREE.Mesh(new RoundedBoxGeometry(3.6, 10.5, 4.2, 5, 1.4), blk), 0.2, 8.8, 0, 0, 0, -0.12);
+  // motor housing
+  add(new THREE.Mesh(new RoundedBoxGeometry(12, 6.2, 5.4, 6, 2.4), red), 2.4, 15.2, 0);
+  add(new THREE.Mesh(new RoundedBoxGeometry(5.5, 6.4, 5.6, 4, 2.4), blk), -1.8, 15.2, 0);
+  // gear ring + chuck
+  add(new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.6, 2.2, 32), gry), 9.4, 15.2, 0, 0, 0, Math.PI / 2);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.3, 2.6, 32), blk), 11.7, 15.2, 0, 0, 0, Math.PI / 2);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.7, 1.6, 32), blk), 13.6, 15.2, 0, 0, 0, Math.PI / 2);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 3.4, 6), met), 15.9, 15.2, 0, 0, 0, Math.PI / 2);
+  // trigger + switch
+  add(new THREE.Mesh(new RoundedBoxGeometry(1.4, 2.6, 1.6, 2, 0.4), gry), 2.2, 11.4, 0);
+  add(new THREE.Mesh(new RoundedBoxGeometry(1.0, 0.9, 6.0, 2, 0.3), gry), 1.0, 13.0, 0);
+  // side label stripe
+  add(new THREE.Mesh(new RoundedBoxGeometry(5, 1.4, 0.2, 2, 0.08), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .4 })), 3.4, 15.4, 2.75);
+  studioLights(V(3, 8, 0), 30);
+  persp(30, V(14, 22, 52), V(5, 9, 0));
+}
+
+if (SCENE === 'gloves') {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x2b63c9, roughness: 0.42, metalness: 0.0 });
+  function glove(mirror) {
+    const g = new THREE.Group();
+    const palm = new THREE.Mesh(new RoundedBoxGeometry(8.6, 1.8, 9.5, 6, 0.9), mat); palm.position.set(0, 0.9, 0); g.add(palm);
+    const fingers = [[-3.1, 6.6, 0.12], [-1.05, 7.6, 0.03], [1.05, 7.2, -0.03], [3.0, 5.8, -0.1]];
+    for (const [x, len, rot] of fingers) {
+      const f = new THREE.Mesh(new THREE.CapsuleGeometry(0.95, len, 8, 16), mat);
+      f.rotation.x = Math.PI / 2; f.rotation.z = 0;
+      const grp = new THREE.Group(); grp.add(f); f.position.z = -(len / 2 + 0.9);
+      grp.position.set(x, 0.95, -4.4); grp.rotation.y = rot; g.add(grp);
+    }
+    const th = new THREE.Mesh(new THREE.CapsuleGeometry(1.1, 5.0, 8, 16), mat);
+    const tg = new THREE.Group(); tg.add(th); th.rotation.x = Math.PI / 2; th.position.z = -3.2;
+    tg.position.set(-4.0, 0.95, 1.2); tg.rotation.y = 0.85; g.add(tg);
+    const cuff = new THREE.Mesh(new RoundedBoxGeometry(8.2, 1.6, 7, 4, 0.8), mat); cuff.position.set(0.2, 0.8, 7.6); g.add(cuff);
+    const rim = new THREE.Group();
+
+    g.traverse(o => { o.castShadow = o.receiveShadow = true; });
+    if (mirror) g.scale.x = -1;
+    return g;
+  }
+  const a = glove(false); a.position.set(-5.5, 0, 0); a.rotation.y = 0.18; scene.add(a);
+  const b = glove(true); b.position.set(6.5, 1.9, 1.5); b.rotation.y = -0.22; b.rotation.z = 0.06; scene.add(b);
+  studioLights(V(0, 0, 0), 25);
+  persp(30, V(0, 48, 40), V(0, 0, -1));
+}
+
 if (SCENE === 'night') {
   renderer.setClearColor(0x000000, 1);
   const c = document.createElement('canvas'); c.width = 2; c.height = 512;
@@ -329,19 +390,27 @@ if (SCENE === 'night') {
   const g = new THREE.Group(); const { tips, inner } = buildStar(g);
   const bulbMat = new THREE.MeshStandardMaterial({ color: 0xffe2a0, emissive: 0xffb84a, emissiveIntensity: 3.2 });
   const outline = []; for (let k = 0; k < 5; k++) { outline.push(tips[k], inner[k]); }
-  const bulbGeo = new THREE.SphereGeometry(0.9, 12, 12);
+  // cluster light chain: 1200 LEDs on 24 m -> ~50 per metre, wrapped round front and back legs
+  const bulbGeo = new THREE.SphereGeometry(0.55, 8, 8);
+  const inst = new THREE.InstancedMesh(bulbGeo, bulbMat, 1700);
+  const wireMat = new THREE.MeshStandardMaterial({ color: 0x14301e, roughness: .8 });
+  const mtx = new THREE.Matrix4(); let ni = 0; let seed = 1;
   for (const y of [LIFT + SW / 2, LIFT + HF - SW / 2]) {
     for (let i = 0; i < 10; i++) {
       const a = outline[i], b = outline[(i + 1) % 10];
-      let n = perp(b.clone().sub(a).normalize());
-      if (n.dot(a.clone().add(b)) < 0) n.multiplyScalar(-1);
-      const nb = 9;
+      const dir = b.clone().sub(a), L = dir.length(); dir.normalize();
+      const nb = Math.round(L * 0.5);
       for (let j = 0; j < nb; j++) {
-        const p = a.clone().lerp(b, (j + .5) / nb).add(n.clone().multiplyScalar(SD / 2 + 0.9));
-        const m = new THREE.Mesh(bulbGeo, bulbMat); m.position.set(p.x, y, p.y); g.add(m);
+        const t = (j + rand(seed++) * .8) / nb;
+        const ang = j * 0.9 + rand(seed++) * 1.2;
+        const rr = 3.2 + rand(seed++) * 1.6;
+        const nrm = perp(dir);
+        const p = a.clone().lerp(b, t).add(nrm.clone().multiplyScalar(Math.cos(ang) * rr));
+        if (ni < 1700) { mtx.makeTranslation(p.x, y + Math.sin(ang) * rr, p.y); inst.setMatrixAt(ni++, mtx); }
       }
     }
   }
+  inst.count = ni; g.add(inst);
   const holder = new THREE.Group(); holder.add(g);
   g.rotation.x = Math.PI / 2;
   holder.position.y = R * 0.809 + 2;

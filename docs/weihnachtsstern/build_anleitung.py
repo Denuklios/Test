@@ -558,14 +558,15 @@ def page_material():
     c.setFillColor(RED); c.setFont("B", 15); c.drawString(M, y, "Material")
     sparkle(M + 64, y + 5, 5)
     y -= 10
-    cw, ch, g = (W - 2 * M - 2 * 12) / 3, 118, 12
+    cw, ch, g = (W - 2 * M - 2 * 12) / 3, 134, 12
+    P_ = lambda n: (lambda x, yy, w, h: place(n, x + 12, yy + 38, w - 24, h - 64))
     mats = [
-        ("5 ×", "Klappbock aus Holz", "ca. 80 cm hoch, alle gleich groß", lambda x, yy, w, h: place("bock_standing", x + 10, yy + 36, w - 20, h - 50)),
-        ("10 ×", "Winkelverbinder 40×40×20 mm", "verzinkt, ohne Sicke (Rippe)", lambda x, yy, w, h: place("parts", x + 10, yy + 36, w - 20, h - 52)),
-        ("50 ×", "Holzschrauben 4,0 × 16 mm", "Linsenkopf, Kreuzschlitz PZ2", lambda x, yy, w, h: [icon_screw(x + w / 2 + d, yy + 42, 46) for d in (-22, 0, 22)]),
-        ("1 ×", "Lichterkette für außen", "ca. 20 m, mind. IP44", lambda x, yy, w, h: icon_lights(x + w / 2 - 50, yy + 55, 100)),
-        ("ca. 40 ×", "Kabelbinder", "schwarz oder Wunschfarbe", lambda x, yy, w, h: icon_ties(x + w / 2 - 15, yy + 45, 44)),
-        ("optional", "Sprühlack (außen)", "z. B. Weiß oder Gold, 2–3 Dosen", lambda x, yy, w, h: (icon_spray(x + w / 2 - 30, yy + 40, 48, white), icon_spray(x + w / 2 + 6, yy + 40, 48, GOLD))),
+        ("5 ×", "Klappbock aus Holz", "ca. 80 cm hoch, alle gleich groß", P_("p_klappbock")),
+        ("10 ×", "Winkel 50 × 50 × 15 mm", "verzinkt, je 4 Löcher", P_("p_winkel")),
+        ("40 ×", "Holzschrauben 4,0 × 20 mm", "Senkkopf, Torx TX20", P_("p_schraube")),
+        ("1 ×", "Clusterlichterkette", "1200 LEDs · 23,98 m · IP44", P_("p_lichterkette")),
+        ("ca. 40 ×", "Kabelbinder 2,5 × 200 mm", "schwarz, UV-beständig (1 Pack)", P_("p_kabelbinder")),
+        ("4 ×", "Color Spray Acryl, Rot", "glänzend (Gloss), 1 Dose = 1–2 m²", P_("p_spray")),
     ]
     for i, (q, n, note, d) in enumerate(mats):
         col, row = i % 3, i // 3
@@ -575,16 +576,14 @@ def page_material():
     c.setFillColor(RED); c.setFont("B", 15); c.drawString(M, y, "Werkzeug")
     sparkle(M + 76, y + 5, 5)
     y -= 10
-    cw4, ch4 = (W - 2 * M - 3 * 12) / 4, 104
+    cw2, ch2 = (W - 2 * M - 12) / 2, 126
     tools = [
-        ("Akkuschrauber", "zum Verschrauben", lambda x, yy, w, h: icon_drill(x + w / 2 - 30, yy + 42, 58)),
-        ("Bit PZ2", "passend zu den Schrauben", lambda x, yy, w, h: icon_bits(x + w / 2 - 24, yy + 46, 50)),
-        ("Zollstock", "zum Ausrichten", lambda x, yy, w, h: icon_ruler(x + w / 2 - 25, yy + 38, 62)),
-        ("Handschuhe", "+ Schutzbrille beim Sprühen", lambda x, yy, w, h: icon_gloves(x + w / 2 - 12, yy + 44, 40)),
+        ("Akkuschrauber", "mit Torx-Bit TX20", lambda x, yy, w, h: place("drill", x + 20, yy + 38, w - 40, h - 52)),
+        ("Nitril-Handschuhe", "chemikalienfest, zum Sprühen", lambda x, yy, w, h: place("gloves", x + 20, yy + 38, w - 40, h - 52)),
     ]
     for i, (n, note, d) in enumerate(tools):
-        card(M + i * (cw4 + 12), y, cw4, ch4, None, n, note, d)
-    y -= ch4 + 22
+        card(M + i * (cw2 + 12), y, cw2, ch2, None, n, note, d)
+    y -= ch2 + 22
 
     # before you start
     bw = W - 2 * M
@@ -741,10 +740,10 @@ def page_steps34():
     c.setFillColor(GREY); c.setFont("I", 8.5); c.drawCentredString(cx, y - ih + 10, "Draufsicht · Maße bei ca. 80 cm Beinlänge")
     y -= max(h, ih) + 26
 
-    step_badge(M, y, 4, "Mit Winkelverbindern verschrauben")
+    step_badge(M, y, 4, "Mit Winkeln verschrauben")
     y -= 36
-    h = para("An jede der 5 Verbindungsstellen kommen <b>2 Winkelverbinder</b>: einer an die <b>oberen</b> Beine, einer an die <b>unteren</b>. "
-             "Sie sitzen <b>außen in der Ecke</b>, du musst den Stern also nicht umdrehen. Jeder Winkel bekommt <b>4 Schrauben</b> (2 je Schenkel).", M, y, W - 2 * M, size=10.5)
+    h = para("An jede der 5 Verbindungsstellen kommen <b>2 Winkel (50 × 50 × 15 mm)</b>: einer an die <b>oberen</b> Beine, einer an die <b>unteren</b>. "
+             "Sie sitzen <b>außen in der Ecke</b>, du musst den Stern also nicht umdrehen. Jeder Winkel bekommt <b>4 Schrauben 4,0 × 20 mm</b> (2 je Schenkel), zusammen 40 Stück.", M, y, W - 2 * M, size=10.5)
     y -= h + 8
     subs = [("A", "Winkel aufbiegen", "Auf ca. 108° aufbiegen, bis beide Schenkel flach am Holz liegen."),
             ("B", "Oben anschrauben", "Winkel mittig an die oberen Beine setzen und festschrauben."),
@@ -758,13 +757,13 @@ def page_steps34():
         c.setFillColor(INK); c.setFont("B", 10.5); c.drawString(x + 36, y - 20, t1)
         para(t2, x + 36, y - 25, sw - 44, size=9)
     y -= 64
-    ih = 196
+    ih = 182
     rrect(M, y - ih, W - 2 * M, ih, 12, fill=white, stroke=HexColor("#EAD9CC"), lw=.7)
     # close-up
     lw_ = 300
     place("joint_close", M + 6, y - ih + 22, lw_, ih - 50)
     c.setFillColor(RED); c.setFont("B", 9.5); c.drawString(M + 14, y - 18, "Nahaufnahme: Winkel liegt vollflächig am Holz")
-    c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(M + 14, y - ih + 10, "Winkelverbinder 40 × 40 × 20 mm, aufgebogen auf ca. 108°")
+    c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(M + 14, y - ih + 10, "Winkel 50 × 50 × 15 mm, auf ca. 108° aufgebogen, Schrauben 4,0 × 20 mm")
     # divider
     c.setStrokeColor(HexColor("#EAD9CC")); c.setLineWidth(.7); c.line(M + lw_ + 14, y - 12, M + lw_ + 14, y - ih + 12)
     # overview with top/bottom labels
@@ -778,9 +777,8 @@ def page_steps34():
         c.setFillColor(RED); c.setFont("B", 9); c.drawString(W - M - 63, yy - 3, lab)
     c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(ox_ + 4, y - ih + 10, "Eine Verbindungsstelle von außen")
     y -= ih + 12
-    tip_box(M, y, W - 2 * M, "Die Fußenden zweier Böcke treffen sich nicht im rechten Winkel, sondern mit <b>ca. 108°</b>. "
-            "Ein 90°-Winkel läge nur an einer Kante an und würde wackeln. Darum: Winkel im <b>Schraubstock</b> (oder mit dem Hammer auf fester Unterlage) "
-            "leicht aufbiegen. Am einfachsten erst einen Schenkel anschrauben, dann den zweiten flach ans Holz drücken und anschrauben.",
+    tip_box(M, y, W - 2 * M, "Die Böcke treffen mit <b>ca. 108°</b> aufeinander, nicht mit 90°. Darum den Winkel im <b>Schraubstock</b> leicht aufbiegen. "
+            "Tipp: erst einen Schenkel anschrauben, dann den zweiten flach ans Holz drücken und anschrauben.",
             "Warum aufbiegen?")
 
 def joint_detail(ox, oy, s):
@@ -841,34 +839,33 @@ def joint_detail(ox, oy, s):
 def page_steps56():
     header("Fertig machen und schmücken", 5)
     y = H - 110
-    step_badge(M, y, 5, "Farbe (optional)")
+    step_badge(M, y, 5, "Rot lackieren")
     y -= 36
     tw = W - 2 * M - 130
-    h = para("Sprühe den Stern jetzt, solange er noch flach liegt. Das geht am einfachsten.", M, y, tw, size=10.5) + 6
-    for t in ["<b>Draußen</b> oder gut belüftet sprühen, Boden mit Folie abdecken.",
+    h = para("Sprühe den Stern mit <b>Color Spray Acryl Rot glänzend</b>, solange er noch flach liegt. Der Stern hat ca. 4 m² Holzfläche, <b>4 Dosen</b> reichen für 1–2 Schichten.", M, y, tw, size=10.5) + 6
+    for t in ["<b>Draußen</b> oder gut belüftet sprühen, <b>Nitril-Handschuhe</b> tragen, Boden mit Folie abdecken.",
               "Ca. <b>20–30 cm Abstand</b> halten, lieber <b>2 dünne Schichten</b> als eine dicke.",
               "<b>Gut trocknen lassen</b> (Angaben auf der Dose) – erst dann aufstellen."]:
         c.setFillColor(GOLD); c.circle(M + 5, y - h - 6, 3.5, fill=1, stroke=0)
         h += para(t, M + 14, y - h, tw - 14, size=10.5) + 4
-    icon_spray(W - M - 110, y - 92, 64, white)
-    icon_spray(W - M - 60, y - 92, 64, GOLD)
-    y -= max(h, 96) + 22
+    place("p_spray", W - M - 110, y - 112, 100, 116)
+    y -= max(h, 112) + 22
 
     step_badge(M, y, 6, "Aufstellen und schmücken")
     y -= 36
     tw = 248
     h = 0
     for t in ["<b>Zu zweit aufrichten</b> und auf die zwei unteren Spitzen stellen.",
-              "Lichterkette an den Kanten entlangführen und <b>alle 40–50 cm</b> mit einem Kabelbinder befestigen.",
-              "Mit 20 m Kette schaffst du <b>vorne und hinten je eine Runde</b> (je ca. 8 m). Der Rest reicht als Zuleitung.",
+              "Lichterkette an den Kanten entlangführen und <b>alle 40–50 cm</b> mit einem Kabelbinder (2,5 × 200 mm) befestigen.",
+              "Mit der <b>Clusterlichterkette (23,98 m)</b> schaffst du <b>vorne und hinten je eine Runde</b> (je ca. 8 m). Die restlichen ca. 8 m reichen als Zuleitung.",
               "Kabelbinder-Enden kurz abschneiden – das sieht ordentlicher aus.",
               "Den Stern <b>gegen Wind sichern</b> (siehe unten)."]:
         c.setFillColor(RED); c.circle(M + 5, y - h - 6, 3.5, fill=1, stroke=0)
         h += para(t, M + 14, y - h, tw - 14, size=10.5) + 5
-    ix = M + tw + 14; iw = W - M - ix; ih = 270
+    ix = M + tw + 14; iw = W - M - ix; ih = 236
     place_cover("night_sq", ix, y - ih, iw, ih, r=14)
     c.setStrokeColor(GOLD); c.setLineWidth(1.2); c.roundRect(ix, y - ih, iw, ih, 14, fill=0, stroke=1)
-    c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(ix, y - ih - 12, "Fertiger Stern, weiß lackiert, mit Lichterkette vorne und hinten")
+    c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(ix, y - ih - 12, "Fertiger Stern, rot lackiert, mit Clusterlichterkette vorne und hinten")
     y -= max(h, ih) + 32
 
     # Tips
@@ -877,10 +874,10 @@ def page_steps56():
     y -= 12
     bw = (W - 2 * M - 12) / 2
     tips_ = [
-        ("Windsicherung", "Der Stern ist groß und fängt viel Wind. Draußen mit <b>Erdankern</b>, Spanngurt an Zaun oder Wand oder mit <b>Gewichten</b> sichern.", "!"),
-        ("Strom", "Nur Lichterketten und Verlängerungen <b>für außen</b> (mind. IP44) verwenden. Stecker nicht in Pfützen liegen lassen.", "!"),
-        ("Wiederverwenden", "Nach Weihnachten die Winkel abschrauben – die Klappböcke kannst du ganz normal weiter nutzen.", "star"),
-        ("Andere Farbe gewünscht?", "Du kannst die Böcke auch <b>vorher einzeln</b> lackieren, z. B. die Spitzen in Gold und den Rest in Weiß.", "star"),
+        ("Windsicherung", "Der Stern fängt viel Wind. Mit <b>Erdankern</b>, Spanngurt oder <b>Gewichten</b> sichern.", "!"),
+        ("Strom", "Die Clusterlichterkette ist <b>IP44</b> (für außen). Auch die Verlängerung muss für außen zugelassen sein.", "!"),
+        ("Wiederverwenden", "Nach Weihnachten Winkel abschrauben, die Böcke normal weiter nutzen.", "star"),
+        ("Warum Rot glänzend?", "Glänzendes Rot spiegelt das warmweiße Licht und leuchtet auch tagsüber.", "star"),
     ]
     rowy = y
     hs = []
