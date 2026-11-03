@@ -386,6 +386,12 @@ def cover():
     c.saveState(); c.setFillColor(black); c.setFillAlpha(.25); c.roundRect(px + 3, py - 4, pw, ph, 18, fill=1, stroke=0); c.restoreState()
     place_cover("night", px, py, pw, ph, r=18)
     c.setStrokeColor(GOLD); c.setLineWidth(1.5); c.roundRect(px, py, pw, ph, 18, fill=0, stroke=1)
+    bx_, by_ = px + pw - 62, py + ph - 52
+    poly(star_path(bx_ + 2, by_ - 3, 62, 50, rot=90, n=16), fill=black, alpha=.25)
+    poly(star_path(bx_, by_, 62, 50, rot=90, n=16), fill=GOLD)
+    c.setFillColor(DRED); c.setFont("B", 12.5); c.drawCentredString(bx_, by_ + 10, "BAUSATZ")
+    c.setFont("B", 10); c.drawCentredString(bx_, by_ - 3, "komplett zum")
+    c.setFont("B", 15); c.drawCentredString(bx_, by_ - 19, "FESTPREIS")
 
     # info chips
     chips = [("Schwierigkeit", "Einfach"), ("Zeitaufwand", "ca. 1 Std.*"), ("Größe", "ca. 2 × 2 m**"), ("Helfer", "2 Personen")]
@@ -555,35 +561,47 @@ def card(x, y, w, h, qty, name, note, draw):
 def page_material():
     header("Das brauchst du", 2)
     y = H - 108
-    c.setFillColor(RED); c.setFont("B", 15); c.drawString(M, y, "Material")
-    sparkle(M + 64, y + 5, 5)
+    c.setFillColor(RED); c.setFont("B", 15); c.drawString(M, y, "Im Bausatz enthalten")
+    sparkle(M + 160, y + 5, 5)
+    rrect(W - M - 150, y - 4, 150, 20, 10, fill=GOLD)
+    c.setFillColor(DRED); c.setFont("B", 10.5); c.drawCentredString(W - M - 75, y + 2, "Komplett zum Festpreis")
     y -= 10
-    cw, ch, g = (W - 2 * M - 2 * 12) / 3, 134, 12
-    P_ = lambda n: (lambda x, yy, w, h: place(n, x + 12, yy + 38, w - 24, h - 64))
+    g = 10
+    cw, ch = (W - 2 * M - 3 * g) / 4, 128
+    P_ = lambda n: (lambda x, yy, w, h: place(n, x + 10, yy + 38, w - 20, h - 62))
     mats = [
-        ("5 ×", "Klappbock aus Holz", "ca. 80 cm hoch, alle gleich groß", P_("p_klappbock")),
-        ("10 ×", "Winkel 50 × 50 × 15 mm", "verzinkt, je 4 Löcher", P_("p_winkel")),
-        ("40 ×", "Holzschrauben 4,0 × 20 mm", "Senkkopf, Torx TX20", P_("p_schraube")),
+        ("5 ×", "Klappbock aus Holz", "ca. 80 cm hoch", P_("p_klappbock")),
+        ("10 ×", "Winkel 50×50×15 mm", "verzinkt, je 4 Löcher", P_("p_winkel")),
+        ("40 ×", "Schrauben 4,0×20 mm", "Senkkopf, Torx TX20", P_("p_schraube")),
         ("1 ×", "Clusterlichterkette", "1200 LEDs · 23,98 m · IP44", P_("p_lichterkette")),
-        ("ca. 40 ×", "Kabelbinder 2,5 × 200 mm", "schwarz, UV-beständig (1 Pack)", P_("p_kabelbinder")),
-        ("4 ×", "Color Spray Acryl, Rot", "glänzend (Gloss), 1 Dose = 1–2 m²", P_("p_spray")),
     ]
     for i, (q, n, note, d) in enumerate(mats):
-        col, row = i % 3, i // 3
-        card(M + col * (cw + g), y - row * (ch + g), cw, ch, q, n, note, d)
-    y -= 2 * ch + g + 30
+        card(M + i * (cw + g), y, cw, ch, q, n, note, d)
+    y -= ch + 30
+
+    c.setFillColor(RED); c.setFont("B", 15); c.drawString(M, y, "Optional dazu")
+    sparkle(M + 112, y + 5, 5)
+    y -= 10
+    cw2, ch2 = (W - 2 * M - 12) / 2, 140
+    opts = [
+        ("ca. 40 ×", "Kabelbinder 2,5 × 200 mm", "schwarz, UV-beständig – zum Befestigen der Lichterkette", lambda x, yy, w, h: place("p_kabelbinder2", x + 20, yy + 38, w - 40, h - 58)),
+        ("4 ×", "Color Spray Acryl, glänzend", "z. B. Rot, Grün, Gelb oder Weiß – 1 Dose = 1–2 m²", lambda x, yy, w, h: place("p_spraygroup", x + 20, yy + 38, w - 40, h - 52)),
+    ]
+    for i, (q, n, note, d) in enumerate(opts):
+        card(M + i * (cw2 + 12), y, cw2, ch2, q, n, note, d)
+    y -= ch2 + 30
 
     c.setFillColor(RED); c.setFont("B", 15); c.drawString(M, y, "Werkzeug")
     sparkle(M + 76, y + 5, 5)
     y -= 10
-    cw2, ch2 = (W - 2 * M - 12) / 2, 126
+    ch3 = 118
     tools = [
-        ("Akkuschrauber", "mit Torx-Bit TX20", lambda x, yy, w, h: place("drill", x + 20, yy + 38, w - 40, h - 52)),
-        ("Nitril-Handschuhe", "chemikalienfest, zum Sprühen", lambda x, yy, w, h: place("gloves", x + 20, yy + 38, w - 40, h - 52)),
+        ("Akkuschrauber", "mit Torx-Bit TX20", lambda x, yy, w, h: place("p_akkuschrauber", x + 20, yy + 36, w - 40, h - 48)),
+        ("Nitril-Handschuhe", "chemikalienfest, zum Sprühen", lambda x, yy, w, h: place("gloves", x + 20, yy + 36, w - 40, h - 48)),
     ]
     for i, (n, note, d) in enumerate(tools):
-        card(M + i * (cw2 + 12), y, cw2, ch2, None, n, note, d)
-    y -= ch2 + 22
+        card(M + i * (cw2 + 12), y, cw2, ch3, None, n, note, d)
+    y -= ch3 + 18
 
     # before you start
     bw = W - 2 * M
@@ -839,10 +857,10 @@ def joint_detail(ox, oy, s):
 def page_steps56():
     header("Fertig machen und schmücken", 5)
     y = H - 110
-    step_badge(M, y, 5, "Rot lackieren")
+    step_badge(M, y, 5, "Lackieren (optional)")
     y -= 36
     tw = W - 2 * M - 130
-    h = para("Sprühe den Stern mit <b>Color Spray Acryl Rot glänzend</b>, solange er noch flach liegt. Der Stern hat ca. 4 m² Holzfläche, <b>4 Dosen</b> reichen für 1–2 Schichten.", M, y, tw, size=10.5) + 6
+    h = para("Wer mag, sprüht den Stern mit <b>Color Spray Acryl glänzend</b>, solange er noch flach liegt – z. B. in Rot. Der Stern hat ca. 4 m² Holzfläche, <b>4 Dosen</b> reichen für 1–2 Schichten.", M, y, tw, size=10.5) + 6
     for t in ["<b>Draußen</b> oder gut belüftet sprühen, <b>Nitril-Handschuhe</b> tragen, Boden mit Folie abdecken.",
               "Ca. <b>20–30 cm Abstand</b> halten, lieber <b>2 dünne Schichten</b> als eine dicke.",
               "<b>Gut trocknen lassen</b> (Angaben auf der Dose) – erst dann aufstellen."]:
@@ -856,7 +874,7 @@ def page_steps56():
     tw = 248
     h = 0
     for t in ["<b>Zu zweit aufrichten</b> und auf die zwei unteren Spitzen stellen.",
-              "Lichterkette an den Kanten entlangführen und <b>alle 40–50 cm</b> mit einem Kabelbinder (2,5 × 200 mm) befestigen.",
+              "Lichterkette an den Kanten entlangführen und <b>alle 40–50 cm</b> befestigen, am besten mit Kabelbindern 2,5 × 200 mm (optional).",
               "Mit der <b>Clusterlichterkette (23,98 m)</b> schaffst du <b>vorne und hinten je eine Runde</b> (je ca. 8 m). Die restlichen ca. 8 m reichen als Zuleitung.",
               "Kabelbinder-Enden kurz abschneiden – das sieht ordentlicher aus.",
               "Den Stern <b>gegen Wind sichern</b> (siehe unten)."]:
@@ -865,7 +883,7 @@ def page_steps56():
     ix = M + tw + 14; iw = W - M - ix; ih = 236
     place_cover("night_sq", ix, y - ih, iw, ih, r=14)
     c.setStrokeColor(GOLD); c.setLineWidth(1.2); c.roundRect(ix, y - ih, iw, ih, 14, fill=0, stroke=1)
-    c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(ix, y - ih - 12, "Fertiger Stern, rot lackiert, mit Clusterlichterkette vorne und hinten")
+    c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(ix, y - ih - 12, "Beispiel: rot lackiert, mit Clusterlichterkette vorne und hinten")
     y -= max(h, ih) + 32
 
     # Tips
