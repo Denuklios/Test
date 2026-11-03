@@ -236,6 +236,63 @@ def star_geom(R):
 def shorten(P, Q, by):
     d = norm(vsub(Q, P)); return vsub(Q, vmul(d, by))
 
+
+# ---------------------------------------------------------------- 3D render images
+import json, os
+from PIL import Image as PILImage
+IMGDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "r3d", "out")
+META = json.load(open(os.path.join(IMGDIR, "meta.json")))
+_prep = {}
+def prep(name, pad=12, maxw=1400):
+    if name in _prep: return _prep[name]
+    im = PILImage.open(os.path.join(IMGDIR, name + ".png")).convert("RGBA")
+    W0, H0 = im.size
+    a = im.split()[3].point(lambda v: 255 if v > 10 else 0)
+    bb = a.getbbox() or (0, 0, W0, H0)
+    bb = (max(0, bb[0] - pad), max(0, bb[1] - pad), min(W0, bb[2] + pad), min(H0, bb[3] + pad))
+    cr = im.crop(bb)
+    sc = min(1, maxw / cr.size[0])
+    if sc < 1: cr = cr.resize((int(cr.size[0] * sc), int(cr.size[1] * sc)), PILImage.LANCZOS)
+    out = os.path.join(IMGDIR, name + "_c.png"); cr.save(out, optimize=True)
+    _prep[name] = (out, bb, (W0, H0))
+    return _prep[name]
+
+def place(name, x, y, w, h, align="c"):
+    """contain-fit transparent render into box (x,y = bottom-left). returns mapper of normalized orig coords."""
+    path, bb, (W0, H0) = prep(name)
+    cw, ch = bb[2] - bb[0], bb[3] - bb[1]
+    sc = min(w / cw, h / ch)
+    dw, dh = cw * sc, ch * sc
+    dx = x + (w - dw) / 2 if align == "c" else (x if align == "l" else x + w - dw)
+    dy = y + (h - dh) / 2
+    c.drawImage(path, dx, dy, dw, dh, mask="auto")
+    def m(u, v):
+        px, py = u * W0 - bb[0], v * H0 - bb[1]
+        return (dx + px * sc, dy + dh - py * sc)
+    return m
+
+def place_cover(name, x, y, w, h, r=14, quality=88):
+    path = os.path.join(IMGDIR, name + ".jpg")
+    if not os.path.exists(path):
+        PILImage.open(os.path.join(IMGDIR, name + ".png")).convert("RGB").save(path, quality=quality)
+    iw, ih = PILImage.open(path).size
+    sc = max(w / iw, h / ih)
+    dw, dh = iw * sc, ih * sc
+    c.saveState()
+    p = c.beginPath(); p.roundRect(x, y, w, h, r); c.clipPath(p, stroke=0)
+    c.drawImage(path, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh)
+    c.restoreState()
+
+def num_badge(x, y, n, r=10):
+    c.setFillColor(black); c.setFillAlpha(.2); c.circle(x + 1, y - 1.5, r, fill=1, stroke=0); c.setFillAlpha(1)
+    c.setFillColor(RED); c.circle(x, y, r, fill=1, stroke=0)
+    c.setStrokeColor(white); c.setLineWidth(1.6); c.circle(x, y, r, fill=0, stroke=1)
+    c.setFillColor(white); c.setFont("B", r * 1.2); c.drawCentredString(x, y - r * 0.42, str(n))
+
+def gold_ring(x, y, r=9):
+    c.setStrokeColor(white); c.setLineWidth(4); c.circle(x, y, r, fill=0, stroke=1)
+    c.setStrokeColor(GOLD); c.setLineWidth(2.2); c.setDash(3, 2); c.circle(x, y, r, fill=0, stroke=1); c.setDash()
+
 # ---------------------------------------------------------------- page frame
 def page_bg():
     c.setFillColor(CREAM); c.rect(0, 0, W, H, fill=1, stroke=0)
@@ -324,30 +381,11 @@ def cover():
     c.setFont("B", 25); c.setFillColor(INK); c.drawCentredString(0, -32, "aus 5 Klappböcken – selbst gebaut")
     c.restoreState()
 
-    # night scene panel
+    # night scene panel (3D render)
     px, py, pw, ph = M, 205, W - 2 * M, 330
-    c.saveState()
-    p = c.beginPath(); p.roundRect(px, py, pw, ph, 18); c.clipPath(p, stroke=0)
-    c.linearGradient(px, py + ph, px, py, (HexColor("#2A0307"), HexColor("#5A0710")), extend=True)
-    random.seed(9)
-    for _ in range(70):
-        c.setFillColor(white); c.setFillAlpha(random.uniform(.2, .8))
-        c.circle(random.uniform(px, px + pw), random.uniform(py + 80, py + ph), random.uniform(.4, 1.3), fill=1, stroke=0)
-    c.setFillAlpha(1)
-    # snow ground
-    c.setFillColor(HexColor("#F4EEEA"))
-    p2 = c.beginPath(); p2.moveTo(px, py); p2.lineTo(px, py + 62)
-    p2.curveTo(px + 150, py + 90, px + 330, py + 50, px + pw, py + 78); p2.lineTo(px + pw, py); p2.close()
-    c.drawPath(p2, fill=1, stroke=0)
-    # fir trees
-    for tx, ts in ((px + 52, 1.0), (px + 92, .7), (px + pw - 60, 1.1), (px + pw - 100, .75)):
-        for k in range(3):
-            w_ = 44 * ts * (1 - k * .25); yb = py + 62 + k * 26 * ts
-            poly([(tx - w_ / 2, yb), (tx + w_ / 2, yb), (tx, yb + 40 * ts)], fill=PINE)
-            poly([(tx - w_ / 2, yb), (tx + w_ / 2, yb), (tx + w_ / 2 - 6, yb + 5), (tx - w_ / 2 + 6, yb + 5)], fill=white, alpha=.7)
-        c.setFillColor(WOODD); c.rect(tx - 3, py + 52, 6, 10, fill=1, stroke=0)
-    big_star_front(px + pw / 2, py + 175, 128)
-    c.restoreState()
+    c.saveState(); c.setFillColor(black); c.setFillAlpha(.25); c.roundRect(px + 3, py - 4, pw, ph, 18, fill=1, stroke=0); c.restoreState()
+    place_cover("night", px, py, pw, ph, r=18)
+    c.setStrokeColor(GOLD); c.setLineWidth(1.5); c.roundRect(px, py, pw, ph, 18, fill=0, stroke=1)
 
     # info chips
     chips = [("Schwierigkeit", "Einfach"), ("Zeitaufwand", "ca. 1 Std.*"), ("Größe", "ca. 2 × 2 m**"), ("Helfer", "2 Personen")]
@@ -522,9 +560,9 @@ def page_material():
     y -= 10
     cw, ch, g = (W - 2 * M - 2 * 12) / 3, 118, 12
     mats = [
-        ("5 ×", "Klappbock aus Holz", "alle gleich groß, z. B. Nadelholz", lambda x, yy, w, h: icon_sawhorse(x + w / 2 - 6, yy + 40, 52)),
-        ("10 ×", "Eckwinkel, flach, 90°", "2 pro Verbindungsstelle", lambda x, yy, w, h: icon_bracket(x + w / 2 - 24, yy + 40, 48)),
-        ("ca. 50 ×", "Holzschrauben", "kurz: z. B. 4 × 16 mm", lambda x, yy, w, h: [icon_screw(x + w / 2 + d, yy + 42, 46) for d in (-22, 0, 22)]),
+        ("5 ×", "Klappbock aus Holz", "ca. 80 cm hoch, alle gleich groß", lambda x, yy, w, h: place("bock_standing", x + 10, yy + 36, w - 20, h - 50)),
+        ("10 ×", "Winkelverbinder 40×40×20 mm", "verzinkt, ohne Sicke (Rippe)", lambda x, yy, w, h: place("parts", x + 10, yy + 36, w - 20, h - 52)),
+        ("50 ×", "Holzschrauben 4,0 × 16 mm", "Linsenkopf, Kreuzschlitz PZ2", lambda x, yy, w, h: [icon_screw(x + w / 2 + d, yy + 42, 46) for d in (-22, 0, 22)]),
         ("1 ×", "Lichterkette für außen", "ca. 20 m, mind. IP44", lambda x, yy, w, h: icon_lights(x + w / 2 - 50, yy + 55, 100)),
         ("ca. 40 ×", "Kabelbinder", "schwarz oder Wunschfarbe", lambda x, yy, w, h: icon_ties(x + w / 2 - 15, yy + 45, 44)),
         ("optional", "Sprühlack (außen)", "z. B. Weiß oder Gold, 2–3 Dosen", lambda x, yy, w, h: (icon_spray(x + w / 2 - 30, yy + 40, 48, white), icon_spray(x + w / 2 + 6, yy + 40, 48, GOLD))),
@@ -540,7 +578,7 @@ def page_material():
     cw4, ch4 = (W - 2 * M - 3 * 12) / 4, 104
     tools = [
         ("Akkuschrauber", "zum Verschrauben", lambda x, yy, w, h: icon_drill(x + w / 2 - 30, yy + 42, 58)),
-        ("Bit-Set", "passend zu den Schrauben", lambda x, yy, w, h: icon_bits(x + w / 2 - 24, yy + 46, 50)),
+        ("Bit PZ2", "passend zu den Schrauben", lambda x, yy, w, h: icon_bits(x + w / 2 - 24, yy + 46, 50)),
         ("Zollstock", "zum Ausrichten", lambda x, yy, w, h: icon_ruler(x + w / 2 - 25, yy + 38, 62)),
         ("Handschuhe", "+ Schutzbrille beim Sprühen", lambda x, yy, w, h: icon_gloves(x + w / 2 - 12, yy + 44, 40)),
     ]
@@ -552,8 +590,8 @@ def page_material():
     bw = W - 2 * M
     items = [
         "<b>Platz:</b> eine ebene Fläche von ca. 3 × 3 m (Wiese, Hof oder Garage).",
-        "<b>Böcke prüfen:</b> Scharniere fest, kein Holz gerissen, alle 5 Böcke gleich groß.",
-        "<b>Helfer:</b> Zum Umdrehen und Aufstellen sind zwei Personen nötig, der Stern ist groß und schwer.",
+        "<b>Böcke prüfen:</b> Spreizstangen und Scharniere fest, kein Holz gerissen, alle 5 Böcke gleich groß.",
+        "<b>Helfer:</b> Zum Aufstellen sind zwei Personen nötig, der Stern ist groß und schwer.",
         "<b>Wetter:</b> Zum Lackieren trocken und möglichst über 10 °C.",
     ]
     hh = 34
@@ -613,24 +651,23 @@ def page_steps12():
     step_badge(M, y, 1, "Böcke aufklappen und auf die Seite legen")
     y -= 36
     tw = 250
-    h = para("Klappe jeden Bock so weit auf, wie es die <b>Spreizsicherung</b> (Kette oder Gurt) erlaubt. "
+    h = para("Klappe jeden Bock ganz auf, bis die <b>Spreizstangen</b> (Metallstreben an der Seite) gerade sind. "
              "Lege ihn dann <b>auf die Seite</b>, sodass er von oben wie ein <b>„V“</b> aussieht. "
-             "Die Spitze des V ist das Scharnier, die zwei Fußenden zeigen nach innen.", M, y, tw, size=10.5)
+             "Die Spitze des V ist die Auflage oben, die zwei Fußenden zeigen nach innen.", M, y, tw, size=10.5)
     h += 10
-    h += tip_box(M, y - h, tw, "Öffne <b>alle 5 Böcke gleich weit</b>, sonst wird der Stern schief. "
-                 "Ideal ist ein Abstand der Fußenden von ca. <b>0,6 × Beinlänge</b> "
-                 "(bei 80 cm Beinen also ca. 50 cm).", "Damit es gleichmäßig wird")
-    # illustration: standing -> lying
+    h += tip_box(M, y - h, tw, "Nimm <b>5 gleiche Böcke</b> und klappe jeden <b>ganz</b> auf (Spreizstangen gestreckt). "
+                 "Dann öffnen sich alle gleich weit und der Stern wird automatisch gleichmäßig.", "Damit es gleichmäßig wird")
+    # illustration: standing -> lying (3D renders)
     ix = M + tw + 14; iw = W - M - ix
     rrect(ix, y - 190, iw, 190, 12, fill=white, stroke=HexColor("#EAD9CC"), lw=.7)
-    icon_sawhorse(ix + 62, y - 150, 78)
-    c.setFillColor(GREY); c.setFont("B", 9); c.drawCentredString(ix + 62, y - 178, "aufgeklappt")
-    # arrow
-    ax = ix + 118
-    poly([(ax, y - 100), (ax + 26, y - 100), (ax + 26, y - 92), (ax + 42, y - 106), (ax + 26, y - 120), (ax + 26, y - 112), (ax, y - 112)], fill=RED)
-    c.setFillColor(RED); c.setFont("B", 8.5); c.drawCentredString(ax + 20, y - 132, "auf die Seite")
-    sawhorse_lying_iso(ix + iw - 95, y - 70, 92)
-    c.setFillColor(GREY); c.setFont("B", 9); c.drawCentredString(ix + iw - 80, y - 178, "liegend = eine Zacke (V)")
+    place("bock_standing", ix + 8, y - 165, 100, 150)
+    c.setFillColor(GREY); c.setFont("B", 9); c.drawCentredString(ix + 58, y - 180, "aufgeklappt")
+    ax = ix + 112
+    poly([(ax, y - 84), (ax + 18, y - 84), (ax + 18, y - 76), (ax + 32, y - 90), (ax + 18, y - 104), (ax + 18, y - 96), (ax, y - 96)], fill=RED)
+    c.setFillColor(RED); c.setFont("B", 8.5); c.drawCentredString(ax + 16, y - 116, "auf die")
+    c.drawCentredString(ax + 16, y - 126, "Seite legen")
+    place("bock_lying", ix + 150, y - 170, iw - 160, 160)
+    c.setFillColor(GREY); c.setFont("B", 9); c.drawCentredString(ix + 150 + (iw - 160) / 2, y - 180, "liegend = eine Zacke (V)")
     y -= max(h, 190) + 26
 
     step_badge(M, y, 2, "Die 5 Böcke zum Stern legen")
@@ -642,21 +679,26 @@ def page_steps12():
     ph = 330
     rrect(M, y - ph, W - 2 * M, ph, 12, fill=white, stroke=HexColor("#EAD9CC"), lw=.7)
     random.seed(5)
-    for _ in range(10):
-        snowflake(random.uniform(M + 20, W - M - 20), random.uniform(y - ph + 20, y - 20), random.uniform(3, 6), col=HexColor("#E7C9C3"), alpha=.8)
-    lying_star_iso(W / 2, y - ph / 2 - 30, 102)
+    for _ in range(8):
+        snowflake(random.choice([random.uniform(M + 15, M + 70), random.uniform(W - M - 70, W - M - 15)]), random.uniform(y - ph + 60, y - 20), random.uniform(3, 6), col=HexColor("#E7C9C3"), alpha=.8)
+    mp = place("star_lying", M + 60, y - ph + 14, W - 2 * M - 120, ph - 44)
+    mt = META["star_lying"]
+    for (u, v) in mt["joints"]:
+        gold_ring(*mp(u, v), r=8)
+    for k, (u, v) in enumerate(mt["tips"]):
+        num_badge(*mp(u, v), k + 1, r=11)
     # legend
     lx, ly = M + 14, y - ph + 34
     c.setFillColor(RED); c.circle(lx + 7, ly + 4, 7, fill=1, stroke=0)
     c.setFillColor(white); c.setFont("B", 8); c.drawCentredString(lx + 7, ly + 1.2, "1")
     c.setFillColor(INK); c.setFont("R", 9); c.drawString(lx + 18, ly + 1, "Klappbock 1–5")
     c.setStrokeColor(GOLD); c.setLineWidth(2); c.setDash(3, 2); c.circle(lx + 7, ly - 14, 6.5, fill=0, stroke=1); c.setDash()
-    c.drawString(lx + 18, ly - 17, "Verbindungsstelle (oben + unten)")
+    c.drawString(lx + 18, ly - 17, "Verbindungsstelle (oben und unten)")
     y -= ph + 6
     caption(M, y, W - 2 * M, "Ansicht schräg von oben. Die genaue Form hängt davon ab, wie weit deine Böcke aufgeklappt sind.")
 
 # ================================================================ PAGE 4 — Steps 3-4
-def dim_line(p, q, label, off=0, col=RED):
+def dim_line(p, q, label, off=0, col=RED, offx=0):
     c.saveState(); c.setStrokeColor(col); c.setFillColor(col); c.setLineWidth(1)
     c.line(*p, *q)
     for a, b in ((p, q), (q, p)):
@@ -664,6 +706,7 @@ def dim_line(p, q, label, off=0, col=RED):
         poly([a, (a[0] + 7 * math.cos(ang + .35), a[1] + 7 * math.sin(ang + .35)), (a[0] + 7 * math.cos(ang - .35), a[1] + 7 * math.sin(ang - .35))], fill=col)
     mx, my = (p[0] + q[0]) / 2, (p[1] + q[1]) / 2
     c.setFont("B", 9.5); w = c.stringWidth(label, "B", 9.5) + 8
+    mx += offx
     rrect(mx - w / 2, my - 7 + off, w, 14, 7, fill=white, stroke=col, lw=.8)
     c.setFillColor(col); c.drawCentredString(mx, my - 3 + off, label)
     c.restoreState()
@@ -686,31 +729,26 @@ def page_steps34():
     # diagram top view with dimensions
     ix = M + tw + 14; iw = W - M - ix; ih = 215
     rrect(ix, y - ih, iw, ih, 12, fill=white, stroke=HexColor("#EAD9CC"), lw=.7)
-    cx, cy, R = ix + iw / 2, y - ih / 2 - 8, 86
-    tips, inner = star_geom(R)
-    for k in range(5):
-        T = (cx + tips[k][0], cy + tips[k][1])
-        for I in (inner[(k - 1) % 5], inner[k]):
-            Q = shorten(tips[k], I, 3)
-            wood_bar(T, (cx + Q[0], cy + Q[1]), 9)
-    c.setFillColor(INK); c.circle(cx, cy, 3, fill=1, stroke=0)
-    dim_line((cx, cy), (cx + tips[0][0], cy + tips[0][1] - 4), "ca. 1,10 m", off=0)
-    dim_line((cx, cy), (cx + inner[3][0], cy + inner[3][1]), "ca. 42 cm", off=-14)
-    c.setStrokeColor(GOLD); c.setLineWidth(1.5); c.setDash(3, 2)
-    for I in inner: c.circle(cx + I[0], cy + I[1], 7, fill=0, stroke=1)
-    c.setDash()
+    mp = place("star_top", ix + 10, y - ih + 22, iw - 20, ih - 30)
+    mt = META["star_top"]
+    ctr = mp(*mt["center"]); tp = mp(*mt["tips"][0]); inn = mp(*mt["inner"][2])
+    cx = ix + iw / 2
+    c.setFillColor(INK); c.circle(*ctr, 3, fill=1, stroke=0)
+    dim_line(ctr, (tp[0], tp[1] - 4), "ca. 1,10 m", off=0)
+    dim_line(ctr, inn, "ca. 42 cm", off=-(ctr[1] - inn[1]) / 2 - 20)
+    for uv in mt["inner"]:
+        gold_ring(*mp(*uv), r=7)
     c.setFillColor(GREY); c.setFont("I", 8.5); c.drawCentredString(cx, y - ih + 10, "Draufsicht · Maße bei ca. 80 cm Beinlänge")
     y -= max(h, ih) + 26
 
-    step_badge(M, y, 4, "Mit Eckwinkeln verschrauben")
+    step_badge(M, y, 4, "Mit Winkelverbindern verschrauben")
     y -= 36
-    h = para("An jede der 5 Verbindungsstellen kommen <b>2 Eckwinkel</b>: einer <b>oben</b>, einer <b>unten</b>. "
-             "Das sind zusammen <b>10 Winkel</b>. Jeder Winkel bekommt <b>4 Schrauben</b>, also 2 pro Schenkel.", M, y, W - 2 * M, size=10.5)
+    h = para("An jede der 5 Verbindungsstellen kommen <b>2 Winkelverbinder</b>: einer an die <b>oberen</b> Beine, einer an die <b>unteren</b>. "
+             "Sie sitzen <b>außen in der Ecke</b>, du musst den Stern also nicht umdrehen. Jeder Winkel bekommt <b>4 Schrauben</b> (2 je Schenkel).", M, y, W - 2 * M, size=10.5)
     y -= h + 8
-    # sub steps
-    subs = [("A", "Oben schrauben", "Alle 5 oberen Winkel aufsetzen und verschrauben."),
-            ("B", "Umdrehen", "Den Stern zu zweit vorsichtig umdrehen."),
-            ("C", "Unten schrauben", "Die 5 unteren Winkel genauso verschrauben.")]
+    subs = [("A", "Winkel aufbiegen", "Auf ca. 108° aufbiegen, bis beide Schenkel flach am Holz liegen."),
+            ("B", "Oben anschrauben", "Winkel mittig an die oberen Beine setzen und festschrauben."),
+            ("C", "Unten anschrauben", "Genauso an den unteren Beinen, direkt über dem Boden.")]
     sw = (W - 2 * M - 2 * 10) / 3
     for i, (l, t1, t2) in enumerate(subs):
         x = M + i * (sw + 10)
@@ -720,34 +758,30 @@ def page_steps34():
         c.setFillColor(INK); c.setFont("B", 10.5); c.drawString(x + 36, y - 20, t1)
         para(t2, x + 36, y - 25, sw - 44, size=9)
     y -= 64
-    # joint illustration
-    ih = 200
+    ih = 196
     rrect(M, y - ih, W - 2 * M, ih, 12, fill=white, stroke=HexColor("#EAD9CC"), lw=.7)
-    joint_detail(M + 190, y - 150, 175)
-    c.setFillColor(GREY); c.setFont("I", 8.5)
-    c.drawString(M + 14, y - ih + 10, "Eine Verbindungsstelle, schräg von oben")
-    # side view inset
-    sx, sy = W - M - 165, y - 22
-    c.setFillColor(INK); c.setFont("B", 10); c.drawString(sx, sy, "Seitenansicht")
-    bx, by = sx + 10, sy - 132
-    c.setFillColor(WOODC); c.setStrokeColor(WOODD); c.setLineWidth(.7)
-    c.rect(bx, by + 80, 120, 14, fill=1, stroke=1); c.rect(bx, by, 120, 14, fill=1, stroke=1)
-    c.rect(bx + 50, by + 14, 10, 66, fill=1, stroke=1)
-    c.setStrokeColor(WOODD); c.setDash(2, 2); c.line(bx + 60, by, bx + 60, by + 94); c.setDash()
-    for yy in (by + 94, by - 4):
-        c.setFillColor(STEEL); c.setStrokeColor(HexColor("#5E6670")); c.rect(bx + 30, yy, 60, 4, fill=1, stroke=1)
-        for sx2 in (bx + 37, bx + 50, bx + 70, bx + 83):
-            c.setStrokeColor(HexColor("#3F454C")); c.setLineWidth(1.4)
-            if yy > by: c.line(sx2, yy + 4, sx2, yy - 8)
-            else: c.line(sx2, yy, sx2, yy + 12)
-    c.setFillColor(RED); c.setFont("B", 9)
-    c.drawString(bx + 96, by + 101, "Winkel oben"); c.drawString(bx + 96, by - 12, "Winkel unten")
-    c.setFillColor(GREY); c.setFont("R", 8.3)
-    c.drawString(bx - 6, by - 26, "Schrauben ca. 16–20 mm lang,")
-    c.drawString(bx - 6, by - 36, "damit nichts durchsticht.")
+    # close-up
+    lw_ = 300
+    place("joint_close", M + 6, y - ih + 22, lw_, ih - 50)
+    c.setFillColor(RED); c.setFont("B", 9.5); c.drawString(M + 14, y - 18, "Nahaufnahme: Winkel liegt vollflächig am Holz")
+    c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(M + 14, y - ih + 10, "Winkelverbinder 40 × 40 × 20 mm, aufgebogen auf ca. 108°")
+    # divider
+    c.setStrokeColor(HexColor("#EAD9CC")); c.setLineWidth(.7); c.line(M + lw_ + 14, y - 12, M + lw_ + 14, y - ih + 12)
+    # overview with top/bottom labels
+    ox_ = M + lw_ + 20; ow = W - M - ox_ - 6
+    mp = place("joint", ox_, y - ih + 22, ow - 60, ih - 34)
+    mt = META["joint"]
+    for key, lab in (("top", "Winkel oben"), ("bottom", "Winkel unten")):
+        x, yy = mp(*mt[key])
+        c.setStrokeColor(RED); c.setLineWidth(1.2); c.circle(x, yy, 7, fill=0, stroke=1)
+        c.setLineWidth(.9); c.line(x + 7, yy, W - M - 66, yy)
+        c.setFillColor(RED); c.setFont("B", 9); c.drawString(W - M - 63, yy - 3, lab)
+    c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(ox_ + 4, y - ih + 10, "Eine Verbindungsstelle von außen")
     y -= ih + 12
-    tip_box(M, y, W - 2 * M, "Die Böcke treffen nicht ganz im rechten Winkel aufeinander. Ein 90°-Winkel passt trotzdem: "
-            "<b>jeden Schenkel mittig aufs Holz legen</b>, dann sitzen alle Schrauben gut im Holz.", "Passt der 90°-Winkel?")
+    tip_box(M, y, W - 2 * M, "Die Fußenden zweier Böcke treffen sich nicht im rechten Winkel, sondern mit <b>ca. 108°</b>. "
+            "Ein 90°-Winkel läge nur an einer Kante an und würde wackeln. Darum: Winkel im <b>Schraubstock</b> (oder mit dem Hammer auf fester Unterlage) "
+            "leicht aufbiegen. Am einfachsten erst einen Schenkel anschrauben, dann den zweiten flach ans Holz drücken und anschrauben.",
+            "Warum aufbiegen?")
 
 def joint_detail(ox, oy, s):
     tips, inner = star_geom(1.37)
@@ -832,28 +866,9 @@ def page_steps56():
         c.setFillColor(RED); c.circle(M + 5, y - h - 6, 3.5, fill=1, stroke=0)
         h += para(t, M + 14, y - h, tw - 14, size=10.5) + 5
     ix = M + tw + 14; iw = W - M - ix; ih = 270
-    c.saveState()
-    p = c.beginPath(); p.roundRect(ix, y - ih, iw, ih, 14); c.clipPath(p, stroke=0)
-    c.linearGradient(ix, y, ix, y - ih, (HexColor("#2A0307"), HexColor("#5A0710")), extend=True)
-    random.seed(12)
-    for _ in range(40):
-        c.setFillColor(white); c.setFillAlpha(random.uniform(.2, .8))
-        c.circle(random.uniform(ix, ix + iw), random.uniform(y - ih + 50, y), random.uniform(.4, 1.2), fill=1, stroke=0)
-    c.setFillAlpha(1)
-    c.setFillColor(HexColor("#F4EEEA"))
-    p2 = c.beginPath(); p2.moveTo(ix, y - ih); p2.lineTo(ix, y - ih + 40)
-    p2.curveTo(ix + 80, y - ih + 55, ix + 160, y - ih + 30, ix + iw, y - ih + 46); p2.lineTo(ix + iw, y - ih); p2.close()
-    c.drawPath(p2, fill=1, stroke=0)
-    scx, scy = ix + iw / 2, y - ih + 152
-    big_star_front(scx, scy, 104, painted=HexColor("#F7F2EC"))
-    # ground stakes / straps
-    tips, inner = star_geom(104)
-    for k in (2, 3):
-        tx, ty = scx + tips[k][0], scy + tips[k][1]
-        c.setStrokeColor(GOLD); c.setLineWidth(1.4); c.line(tx, ty + 2, tx + (14 if k == 3 else -14), ty - 10)
-        c.setFillColor(GREY); c.rect(tx + (12 if k == 3 else -16), ty - 18, 4, 10, fill=1, stroke=0)
-    c.restoreState()
-    c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(ix, y - ih - 12, "Fertiger Stern, weiß lackiert, mit Lichterkette und Erdankern")
+    place_cover("night_sq", ix, y - ih, iw, ih, r=14)
+    c.setStrokeColor(GOLD); c.setLineWidth(1.2); c.roundRect(ix, y - ih, iw, ih, 14, fill=0, stroke=1)
+    c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(ix, y - ih - 12, "Fertiger Stern, weiß lackiert, mit Lichterkette vorne und hinten")
     y -= max(h, ih) + 32
 
     # Tips
