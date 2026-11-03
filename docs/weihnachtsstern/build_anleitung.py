@@ -597,7 +597,7 @@ def page_material():
     ch3 = 118
     tools = [
         ("Akkuschrauber", "mit Torx-Bit TX20", lambda x, yy, w, h: place("p_akkuschrauber", x + 20, yy + 36, w - 40, h - 48)),
-        ("Nitril-Handschuhe", "chemikalienfest, zum Sprühen", lambda x, yy, w, h: place("gloves", x + 20, yy + 36, w - 40, h - 48)),
+        ("Einweghandschuhe Nitril", "GEBOL Black Nitril Eco – beim Sprühen tragen", lambda x, yy, w, h: place("p_handschuhe", x + 20, yy + 36, w - 40, h - 48)),
     ]
     for i, (n, note, d) in enumerate(tools):
         card(M + i * (cw2 + 12), y, cw2, ch3, None, n, note, d)
