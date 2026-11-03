@@ -243,41 +243,48 @@ from PIL import Image as PILImage
 IMGDIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "r3d", "out")
 META = json.load(open(os.path.join(IMGDIR, "meta.json")))
 _prep = {}
-def prep(name, pad=12, maxw=1400):
+def prep(name, pad=12):
     if name in _prep: return _prep[name]
     im = PILImage.open(os.path.join(IMGDIR, name + ".png")).convert("RGBA")
     W0, H0 = im.size
     a = im.split()[3].point(lambda v: 255 if v > 10 else 0)
     bb = a.getbbox() or (0, 0, W0, H0)
     bb = (max(0, bb[0] - pad), max(0, bb[1] - pad), min(W0, bb[2] + pad), min(H0, bb[3] + pad))
-    cr = im.crop(bb)
-    sc = min(1, maxw / cr.size[0])
-    if sc < 1: cr = cr.resize((int(cr.size[0] * sc), int(cr.size[1] * sc)), PILImage.LANCZOS)
-    out = os.path.join(IMGDIR, name + "_c.png"); cr.save(out, optimize=True)
-    _prep[name] = (out, bb, (W0, H0))
+    _prep[name] = (im.crop(bb), bb, (W0, H0))
     return _prep[name]
 
-def place(name, x, y, w, h, align="c"):
-    """contain-fit transparent render into box (x,y = bottom-left). returns mapper of normalized orig coords."""
-    path, bb, (W0, H0) = prep(name)
+DPI = 200
+def _jpeg(img_rgba, dw, dh, bg, key):
+    """flatten onto the page background and store as a print-sized JPEG (keeps the PDF small)"""
+    tw = max(1, int(dw / 72 * DPI)); th = max(1, int(dh / 72 * DPI))
+    flat = PILImage.new("RGB", img_rgba.size, bg); flat.paste(img_rgba, (0, 0), img_rgba)
+    if tw < flat.size[0]: flat = flat.resize((tw, th), PILImage.LANCZOS)
+    out = os.path.join(IMGDIR, f"{key}_{bg[0]}{bg[1]}{bg[2]}_{tw}.jpg")
+    flat.save(out, quality=84, optimize=True, progressive=True)
+    return out
+
+def place(name, x, y, w, h, align="c", bg=(255, 255, 255)):
+    """contain-fit render/photo into box (x,y = bottom-left). returns mapper of normalized orig coords."""
+    img, bb, (W0, H0) = prep(name)
     cw, ch = bb[2] - bb[0], bb[3] - bb[1]
     sc = min(w / cw, h / ch)
     dw, dh = cw * sc, ch * sc
     dx = x + (w - dw) / 2 if align == "c" else (x if align == "l" else x + w - dw)
     dy = y + (h - dh) / 2
-    c.drawImage(path, dx, dy, dw, dh, mask="auto")
+    c.drawImage(_jpeg(img, dw, dh, bg, name), dx, dy, dw, dh)
     def m(u, v):
         px, py = u * W0 - bb[0], v * H0 - bb[1]
         return (dx + px * sc, dy + dh - py * sc)
     return m
 
-def place_cover(name, x, y, w, h, r=14, quality=88):
-    path = os.path.join(IMGDIR, name + ".jpg")
-    if not os.path.exists(path):
-        PILImage.open(os.path.join(IMGDIR, name + ".png")).convert("RGB").save(path, quality=quality)
-    iw, ih = PILImage.open(path).size
+def place_cover(name, x, y, w, h, r=14):
+    im = PILImage.open(os.path.join(IMGDIR, name + ".png")).convert("RGB")
+    iw, ih = im.size
     sc = max(w / iw, h / ih)
     dw, dh = iw * sc, ih * sc
+    tw = int(dw / 72 * DPI)
+    if tw < iw: im = im.resize((tw, int(ih * tw / iw)), PILImage.LANCZOS)
+    path = os.path.join(IMGDIR, f"{name}_{tw}.jpg"); im.save(path, quality=84, optimize=True, progressive=True)
     c.saveState()
     p = c.beginPath(); p.roundRect(x, y, w, h, r); c.clipPath(p, stroke=0)
     c.drawImage(path, x + (w - dw) / 2, y + (h - dh) / 2, dw, dh)
@@ -866,7 +873,7 @@ def page_steps56():
               "<b>Gut trocknen lassen</b> (Angaben auf der Dose) – erst dann aufstellen."]:
         c.setFillColor(GOLD); c.circle(M + 5, y - h - 6, 3.5, fill=1, stroke=0)
         h += para(t, M + 14, y - h, tw - 14, size=10.5) + 4
-    place("p_spray", W - M - 110, y - 112, 100, 116)
+    place("p_spray", W - M - 110, y - 112, 100, 116, bg=(255, 247, 238))
     y -= max(h, 112) + 22
 
     step_badge(M, y, 6, "Aufstellen und schmücken")
