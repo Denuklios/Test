@@ -410,14 +410,22 @@ route(/^\/mail\/new(?:\?([\s\S]*))?$/, async (qs) => {
 // ---------- Mails zu Kunde / Auftrag (Karte für die Detailseiten) ----------
 function mailCard({ customer_id = 0, order_id = 0 }) {
   const box = h('div', { class: 'mthread' }, h('span', { class: 'muted' }, '…'));
-  const card = h('div', { class: 'card' }, h('div', { class: 'row', style: 'justify-content:space-between;align-items:center' }, h('h3', { style: 'margin:0' }, '✉ ' + t('mail_card_h')),
+  const card = h('div', { class: 'card' }, h('div', { class: 'row', style: 'justify-content:space-between;align-items:center' }, h('h3', { style: 'margin:0' }, '✉ ' + (customer_id ? t('mail_card_h_c') : t('mail_card_h'))),
     h('a', { class: 'btn small primary', href: `#/mail/new?${order_id ? 'order=' + order_id : 'customer=' + customer_id}` }, '✏️ ' + t('mail_write'))), box);
   (async () => {
     try {
-      const r = await api('mail_list', { params: { folder: 'all', ...(order_id ? { order_id } : { customer_id }) } });
-      box.replaceChildren(...(r.mails.length ? r.mails.slice(0, 15).map((x) => h('a', { class: 'mtrow' + (+x.seen || x.folder === 'sent' ? '' : ' unread'), href: `#/mail/${x.id}` },
-        h('span', {}, x.folder === 'sent' ? '📤 ' : '📥 ', h('b', {}, x.subject || t('mail_no_subject'))), h('span', { class: 'muted' }, mailDate(x.sent_at)), h('span', { class: 'msnip' }, x.snippet)))
-        : [h('span', { class: 'muted' }, t('mail_card_none'))]));
+      // Mails (Postfach) und – beim Kunden – seine Anfragen von der Webseite, zusammen nach Datum
+      const [r, iq] = await Promise.all([
+        api('mail_list', { params: { folder: 'all', ...(order_id ? { order_id } : { customer_id }) } }).catch(() => ({ mails: [] })),
+        customer_id ? api('inquiries', { params: { customer_id } }).catch(() => ({ inquiries: [] })) : Promise.resolve({ inquiries: [] })]);
+      const items = [
+        ...r.mails.map((x) => ({ at: x.sent_at, el: h('a', { class: 'mtrow' + (+x.seen || x.folder === 'sent' ? '' : ' unread'), href: `#/mail/${x.id}` },
+          h('span', {}, x.folder === 'sent' ? '📤 ' : '📥 ', h('b', {}, x.subject || t('mail_no_subject'))), h('span', { class: 'muted' }, mailDate(x.sent_at)), h('span', { class: 'msnip' }, x.snippet)) })),
+        ...iq.inquiries.map((q) => ({ at: localToUtc(q.created_at), el: h('a', { class: 'mtrow' + (q.status === 'new' ? ' unread' : ''), href: `#/inquiry/${q.id}` },
+          h('span', {}, '📝 ', h('b', {}, t('inq_title') + ': ' + ([q.qty, q.product].filter(Boolean).join(' × ') || '—')), ' ', h('span', { class: 'chip inq-' + q.status, style: 'font-size:.7rem;padding:1px 7px;min-height:0' }, t(INQ_ST[q.status] || 'inq_st_new'))),
+          h('span', { class: 'muted' }, mailDate(localToUtc(q.created_at))), h('span', { class: 'msnip' }, q.snippet || '')) }))]
+        .sort((a, b) => String(b.at).localeCompare(String(a.at)));
+      box.replaceChildren(...(items.length ? items.slice(0, 30).map((x) => x.el) : [h('span', { class: 'muted' }, customer_id ? t('mail_card_none_c') : t('mail_card_none'))]));
     } catch (e) { box.replaceChildren(h('span', { class: 'muted' }, e.message)); }
   })();
   return card;

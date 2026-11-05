@@ -887,6 +887,17 @@ try {
                 $w[] = 'status = ?';
                 $p[] = $status;
             }
+            // Anfragen eines Kunden (über seine Mailadresse), dann in jedem Status
+            if ($cid = (int)($_GET['customer_id'] ?? 0)) {
+                $em = $db->prepare('SELECT lower(trim(email)) FROM customers WHERE id = ?');
+                $em->execute([$cid]);
+                $addr = (string)$em->fetchColumn();
+                if ($addr === '') {
+                    wf_json(['ok' => true, 'inquiries' => [], 'counts' => []]);
+                }
+                $w = ['LOWER(TRIM(email)) = ?'];
+                $p = [$addr];
+            }
             if (($q = trim((string)($_GET['q'] ?? ''))) !== '') {
                 $w[] = '(name LIKE ? OR email LIKE ? OR product LIKE ? OR message LIKE ?)';
                 array_push($p, "%$q%", "%$q%", "%$q%", "%$q%");
