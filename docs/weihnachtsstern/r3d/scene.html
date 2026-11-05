@@ -164,26 +164,26 @@ function bentBracket(g, I, eA, eB, yc) {
   const pts = {};
   for (const e of [eA, eB]) {
     let n = mid.clone().sub(e.clone().multiplyScalar(mid.dot(e))).normalize(); // face normal pointing out of the wood
-    const len = 5.0, th = 0.2, hgt = 1.5;
+    const len = 4.0, th = 0.2, hgt = 4.0;   // Winkelverbinder 40 x 40 x 40 mm, 2 mm
     const c = C.clone().add(e.clone().multiplyScalar(len / 2)).add(n.clone().multiplyScalar(th / 2));
     const fl = new THREE.Mesh(new THREE.BoxGeometry(len, hgt, th), steel);
     fl.position.set(c.x, yc, c.y); fl.rotation.y = -Math.atan2(e.y, e.x); fl.castShadow = true; g.add(fl);
     const n3 = new THREE.Vector3(n.x, 0, n.y);
-    for (const f of [1.4, 3.8]) {
+    for (const [f, dy] of [[1.15, 1.0], [1.15, -1.0], [2.9, 0]]) {   // 3 holes per flange
       const p = C.clone().add(e.clone().multiplyScalar(f)).add(n.clone().multiplyScalar(th));
       // countersunk head (Senkkopf), yellow-zinc, sits flush in the bracket hole
       const head = new THREE.Mesh(new THREE.CylinderGeometry(0.39, 0.39, 0.06, 32), yzinc);
-      head.position.set(p.x + n.x * 0.01, yc, p.y + n.y * 0.01);
+      head.position.set(p.x + n.x * 0.01, yc + dy, p.y + n.y * 0.01);
       head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n3);
       head.castShadow = true; g.add(head);
       const tx = new THREE.Mesh(torxGeo, darkMat);
-      tx.position.set(p.x + n.x * 0.045, yc, p.y + n.y * 0.045);
+      tx.position.set(p.x + n.x * 0.045, yc + dy, p.y + n.y * 0.045);
       tx.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n3);
       g.add(tx);
     }
   }
   // rounded bend
-  const bend = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.5, 12), steel);
+  const bend = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 4.0, 12), steel);
   const bc = C.clone().add(mid.clone().multiplyScalar(0.08));
   bend.position.set(bc.x, yc, bc.y); g.add(bend);
   return C;

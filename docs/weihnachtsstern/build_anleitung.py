@@ -578,8 +578,8 @@ def page_material():
     P_ = lambda n: (lambda x, yy, w, h: place(n, x + 10, yy + 38, w - 20, h - 62))
     mats = [
         ("5 ×", "Klappbock aus Holz", "ca. 80 cm hoch", P_("p_klappbock")),
-        ("10 ×", "Winkel 50×50×15 mm", "verzinkt, je 4 Löcher", P_("p_winkel")),
-        ("40 ×", "Schrauben 4,0×20 mm", "Senkkopf, Torx TX20", P_("p_schraube")),
+        ("10 ×", "Winkelverbinder 40×40×40", "2 mm, verzinkt, CE, je 6 Löcher", P_("p_winkel")),
+        ("60 ×", "Schrauben 4,0×20 mm", "Senkkopf, Torx TX20", P_("p_schraube")),
         ("1 ×", "Clusterlichterkette", "1200 LEDs · 23,98 m · IP44", P_("p_lichterkette")),
     ]
     for i, (q, n, note, d) in enumerate(mats):
@@ -767,8 +767,8 @@ def page_steps34():
 
     step_badge(M, y, 4, "Mit Winkeln verschrauben")
     y -= 36
-    h = para("An jede der 5 Verbindungsstellen kommen <b>2 Winkel (50 × 50 × 15 mm)</b>: einer an die <b>oberen</b> Beine, einer an die <b>unteren</b>. "
-             "Sie sitzen <b>außen in der Ecke</b>, du musst den Stern also nicht umdrehen. Jeder Winkel bekommt <b>4 Schrauben 4,0 × 20 mm</b> (2 je Schenkel), zusammen 40 Stück.", M, y, W - 2 * M, size=10.5)
+    h = para("An jede der 5 Verbindungsstellen kommen <b>2 Winkelverbinder (40 × 40 × 40 mm, 2 mm)</b>: einer an die <b>oberen</b> Beine, einer an die <b>unteren</b>. "
+             "Sie sitzen <b>außen in der Ecke</b>, du musst den Stern also nicht umdrehen. Jeder Winkel bekommt <b>6 Schrauben 4,0 × 20 mm</b> (3 je Schenkel), zusammen 60 Stück.", M, y, W - 2 * M, size=10.5)
     y -= h + 8
     subs = [("A", "Winkel aufbiegen", "Auf ca. 108° aufbiegen, bis beide Schenkel flach am Holz liegen."),
             ("B", "Oben anschrauben", "Winkel mittig an die oberen Beine setzen und festschrauben."),
@@ -788,7 +788,7 @@ def page_steps34():
     lw_ = 300
     place("joint_close", M + 6, y - ih + 22, lw_, ih - 50)
     c.setFillColor(RED); c.setFont("B", 9.5); c.drawString(M + 14, y - 18, "Nahaufnahme: Winkel liegt vollflächig am Holz")
-    c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(M + 14, y - ih + 10, "Winkel 50 × 50 × 15 mm, auf ca. 108° aufgebogen, Schrauben 4,0 × 20 mm")
+    c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(M + 14, y - ih + 10, "Winkelverbinder 40 × 40 × 40 mm, auf ca. 108° aufgebogen, 6 Schrauben 4,0 × 20 mm")
     # divider
     c.setStrokeColor(HexColor("#EAD9CC")); c.setLineWidth(.7); c.line(M + lw_ + 14, y - 12, M + lw_ + 14, y - ih + 12)
     # overview with top/bottom labels
@@ -802,8 +802,8 @@ def page_steps34():
         c.setFillColor(RED); c.setFont("B", 9); c.drawString(W - M - 63, yy - 3, lab)
     c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(ox_ + 4, y - ih + 10, "Eine Verbindungsstelle von außen")
     y -= ih + 12
-    tip_box(M, y, W - 2 * M, "Die Böcke treffen mit <b>ca. 108°</b> aufeinander, nicht mit 90°. Darum den Winkel im <b>Schraubstock</b> leicht aufbiegen. "
-            "Tipp: erst einen Schenkel anschrauben, dann den zweiten flach ans Holz drücken und anschrauben.",
+    tip_box(M, y, W - 2 * M, "Die Böcke treffen mit <b>ca. 108°</b> aufeinander, nicht mit 90°. Darum den Winkel im <b>Schraubstock</b> aufbiegen – bei 2 mm Blech am besten mit einem Rohr als Hebel. "
+            "Zwischendurch an der Ecke anhalten, bis beide Schenkel flach am Holz liegen – erst dann anschrauben.",
             "Warum aufbiegen?")
 
 def joint_detail(ox, oy, s):
