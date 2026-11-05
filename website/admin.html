@@ -659,6 +659,8 @@ body { background: radial-gradient(1200px 600px at 85% -10%, rgba(139,43,226,0.1
 .role-opt b { display: block; color: var(--text-white); font-size: 0.9rem; margin-bottom: 0.15rem; }
 .role-opt.sel { border-color: var(--purple-bright); background: var(--purple-soft); }
 .input-row { display: flex; gap: 0.4rem; }
+.input-row > input { flex: 1; min-width: 0; }
+.pw-who { margin: 0 0 0.8rem; color: var(--text-muted); font-size: 0.85rem; }
 .input-row input { flex: 1; }
 .modal-box.wide { max-width: 640px; }
 
@@ -1349,18 +1351,25 @@ input::placeholder, textarea::placeholder { color: var(--text-dim); }
     <div class="tab-content" id="tab-settings">
       <div class="panel">
         <div class="panel-title">Passwort ändern</div>
-        <div class="settings-form">
+        <form class="settings-form" onsubmit="event.preventDefault(); changePassword();" autocomplete="on">
+          <p class="pw-who" id="pwWho"></p>
+          <!-- für Passwort-Manager: zu welchem Konto das Passwort gehört -->
+          <input type="text" id="pwUser" name="username" autocomplete="username" hidden>
           <div class="login-field">
-            <label>Aktuelles Passwort</label>
-            <input type="password" id="currentPass">
+            <label for="currentPass">Aktuelles Passwort</label>
+            <div class="input-row"><input type="password" id="currentPass" name="current-password" autocomplete="current-password"><button type="button" class="btn-mini" onclick="pwEye('currentPass', this)" aria-label="Passwort anzeigen">👁</button></div>
           </div>
           <div class="login-field">
-            <label>Neues Passwort</label>
-            <input type="password" id="newPass">
+            <label for="newPass">Neues Passwort (mind. 8 Zeichen)</label>
+            <div class="input-row"><input type="password" id="newPass" name="new-password" autocomplete="new-password"><button type="button" class="btn-mini" onclick="pwEye('newPass', this)" aria-label="Passwort anzeigen">👁</button></div>
           </div>
-          <button class="login-btn" onclick="changePassword()">Passwort ändern</button>
+          <div class="login-field">
+            <label for="newPass2">Neues Passwort wiederholen</label>
+            <input type="password" id="newPass2" name="new-password-repeat" autocomplete="new-password">
+          </div>
+          <button class="login-btn" type="submit">Passwort ändern</button>
           <p class="settings-msg" id="settingsMsg"></p>
-        </div>
+        </form>
       </div>
 
       <!-- PUSH-BENACHRICHTIGUNGEN -->
@@ -1781,10 +1790,27 @@ function deleteInquiry(id) {
   });
 }
 
+// Passwortfelder leeren und anzeigen, für wen geändert wird (Browser füllen sonst gern ein altes gespeichertes Passwort ein)
+function pwPrepare() {
+  ['currentPass', 'newPass', 'newPass2'].forEach(id => { const el = document.getElementById(id); if (el) { el.value = ''; el.type = 'password'; } });
+  document.querySelectorAll('#tab-settings .settings-form .btn-mini').forEach(b => b.textContent = '👁');
+  const who = document.getElementById('pwWho'), u = document.getElementById('pwUser');
+  if (ME && who) { who.textContent = 'Angemeldet als ' + (ME.name || ME.username) + ' (Benutzername: ' + ME.username + ')'; u.value = ME.username; }
+  const msg = document.getElementById('settingsMsg'); if (msg) { msg.textContent = ''; msg.classList.remove('ok', 'error', 'show'); }
+}
+function pwEye(id, btn) {
+  const el = document.getElementById(id); const show = el.type === 'password';
+  el.type = show ? 'text' : 'password'; btn.textContent = show ? '🙈' : '👁';
+}
 function changePassword() {
-  const current = document.getElementById('currentPass').value.trim();
+  const current = document.getElementById('currentPass').value;
   const newPass = document.getElementById('newPass').value.trim();
+  const newPass2 = document.getElementById('newPass2').value.trim();
   const msg = document.getElementById('settingsMsg');
+  const fail = (t) => { msg.classList.remove('ok'); msg.textContent = t; msg.classList.add('error', 'show'); };
+  if (!current) return fail('Bitte das aktuelle Passwort eintragen.');
+  if (newPass.length < 8) return fail('Das neue Passwort braucht mindestens 8 Zeichen.');
+  if (newPass !== newPass2) return fail('Die beiden neuen Passwörter sind nicht gleich.');
 
   fetch(API, {
     method: 'POST',
@@ -1797,13 +1823,14 @@ function changePassword() {
       if (data.ok) {
         msg.textContent = '✓ Passwort erfolgreich geändert.';
         msg.classList.add('ok', 'show');
-        document.getElementById('currentPass').value = '';
-        document.getElementById('newPass').value = '';
+        ['currentPass', 'newPass', 'newPass2'].forEach(id => { document.getElementById(id).value = ''; });
       } else {
-        msg.textContent = data.error || 'Fehler beim Ändern.';
+        msg.textContent = (data.error || 'Fehler beim Ändern.') + (data.error === 'Aktuelles Passwort falsch'
+          ? ' – Tipp: auf 👁 tippen und prüfen, was im Feld steht. Der Browser trägt manchmal ein altes gespeichertes Passwort ein. Groß-/Kleinschreibung beachten.' : '');
         msg.classList.add('error', 'show');
       }
-    });
+    })
+    .catch(() => fail('Keine Verbindung zum Server.'));
 }
 
 // ─── PUSH-BENACHRICHTIGUNGEN ─────────────────────────────────────
@@ -3242,6 +3269,7 @@ function switchTab(tabName) {
   document.querySelectorAll('.tab-content').forEach(c => c.classList.remove('active'));
   document.getElementById('tab-' + tabName).classList.add('active');
   document.getElementById('topTitle').textContent = TAB_TITLES[tabName] || '';
+  if (tabName === 'settings') pwPrepare();
   toggleSidebar(false);
   try { localStorage.setItem('wfAdminTab', tabName); } catch (e) { /* kein Speicher */ }
   window.scrollTo({ top: 0 });
