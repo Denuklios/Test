@@ -228,6 +228,10 @@ public class MainActivity extends Activity {
         /** Anmeldung für die Hintergrundabfrage merken (nach dem Koppeln und bei jedem Start). */
         @JavascriptInterface
         public void setAuth(String server, String token, String lang) {
+            try { setAuthInner(server, token, lang); } catch (Exception ex) { android.util.Log.w("WF", "setAuth", ex); }
+        }
+
+        private void setAuthInner(String server, String token, String lang) {
             android.content.SharedPreferences p = Notifier.prefs(MainActivity.this);
             boolean changed = !token.equals(p.getString("token", "")) || !server.equals(p.getString("server", ""));
             android.content.SharedPreferences.Editor e = p.edit().putString("server", server).putString("token", token).putString("lang", "da".equals(lang) ? "da" : "de");
@@ -241,7 +245,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void clearAuth() {
             Notifier.prefs(MainActivity.this).edit().clear().apply();
-            Notifier.apply(MainActivity.this);
+            try { Notifier.apply(MainActivity.this); } catch (Exception ex) { android.util.Log.w("WF", "clearAuth", ex); }
         }
 
         /** Einstellungen: {"kinds":"inquiry,signed,payment","mode":"normal|fast"} */
@@ -259,7 +263,7 @@ public class MainActivity extends Activity {
         @JavascriptInterface
         public void notifySet(String kinds, String mode) {
             Notifier.prefs(MainActivity.this).edit().putString("kinds", kinds == null ? "" : kinds).putString("mode", "fast".equals(mode) ? "fast" : "normal").apply();
-            Notifier.apply(MainActivity.this);
+            try { Notifier.apply(MainActivity.this); } catch (Exception ex) { android.util.Log.w("WF", "notifySet", ex); }
         }
 
         @JavascriptInterface

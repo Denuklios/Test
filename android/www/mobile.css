@@ -1,5 +1,9 @@
 /* Ergänzungen für die Handy-App (Grundlage ist app.css der Web-Version) */
-html,body{overscroll-behavior-y:contain}
+/* Android-WebView: overflow-x:hidden auf html UND body macht beide zu Scroll-Containern – dann lässt sich die Seite oft nicht wischen.
+   clip schneidet nur ab, ohne Scroll-Container; gescrollt wird immer das Fenster. */
+html,body{overflow-x:clip!important;overflow-y:visible!important;height:auto!important}
+html{overscroll-behavior-y:none}
+main{touch-action:pan-y}
 .topbar{padding-top:calc(10px + env(safe-area-inset-top))}
 main{padding-bottom:calc(var(--nav-h, 64px) + 40px + env(safe-area-inset-bottom))}
 .nav:not(.hidden){display:flex!important}

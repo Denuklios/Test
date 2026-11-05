@@ -1,7 +1,7 @@
 /* Wunsch-Fabrik Werkstatt – Handy-App (läuft in der Android-App, spricht mit api.php über den App-Schlüssel). */
 (() => {
 'use strict';
-const APP_VERSION = '1.1.0';
+const APP_VERSION = '1.1.1';
 
 // ---------- Speicher & Sprache ----------
 const store = {
@@ -136,7 +136,7 @@ function pairView() {
     langRow());
 }
 const langRow = () => h('div', { class: 'row', style: 'justify-content:center;gap:8px;margin-top:12px' },
-  ...[['de', '🇩🇪 Deutsch'], ['da', '🇩🇰 Dansk']].map(([l, n]) => h('button', { class: 'chip' + (lang === l ? ' on' : ''), onclick: () => { lang = l; store.set('lang', l); if (cfg && N()) WFNative.setAuth(cfg.server, cfg.token, lang); route(); } }, n)));
+  ...[['de', '🇩🇪 Deutsch'], ['da', '🇩🇰 Dansk']].map(([l, n]) => h('button', { class: 'chip' + (lang === l ? ' on' : ''), onclick: () => { lang = l; store.set('lang', l); document.documentElement.lang = l; route(); if (cfg && N()) setTimeout(() => nat('setAuth', cfg.server, cfg.token, lang), 0); } }, n)));
 
 // ---------- Navigation ----------
 let tab = 'orders';
@@ -458,25 +458,27 @@ function moreView() {
       h('a', { class: 'btn', href: cfg.server, target: '_blank' }, '🌐 ' + t('a_open_web')),
       h('div', {}, h('label', {}, t('a_language')), langRow()),
       h('p', { class: 'muted', style: 'margin:0;font-size:.85rem' }, t('a_version', APP_VERSION, (me && me.version) || '—')),
-      h('button', { class: 'btn danger', onclick: () => { if (confirm(t('a_logout_q'))) { if (N()) WFNative.clearAuth(); store.del('cfg'); store.del('orders'); cfg = null; pairView(); } } }, t('a_logout'))),
+      h('button', { class: 'btn danger', onclick: () => { if (confirm(t('a_logout_q'))) { if (N()) nat('clearAuth'); store.del('cfg'); store.del('orders'); cfg = null; pairView(); } } }, t('a_logout'))),
     notifyCard());
 }
 
 // ---------- Benachrichtigungen (Android: Hintergrundabfrage im eigenen Server, siehe Notifier.java) ----------
 const N = () => window.WFNative && WFNative.notifySet;
+// Aufruf in die Android-Hülle: Fehler dort dürfen die Oberfläche nie blockieren
+function nat(fn, ...a) { try { return window.WFNative && WFNative[fn] ? WFNative[fn](...a) : undefined; } catch (e) { console.error('WFNative.' + fn, e); return undefined; } }
 function notifyCard() {
   if (!N()) return null;
-  let st = {}; try { st = JSON.parse(WFNative.notifyGet()); } catch (e) { /* leer */ }
+  let st = {}; try { st = JSON.parse(nat('notifyGet') || '{}'); } catch (e) { /* leer */ }
   const kinds = new Set((st.kinds || '').split(',').filter(Boolean));
   const warn = h('p', { class: 'err', style: 'margin:0' });
-  const save = () => { WFNative.notifySet([...kinds].join(','), mode); toast(t('n_saved')); if (kinds.size) WFNative.notifyAsk(); };
+  const save = () => { nat('notifySet', [...kinds].join(','), mode); toast(t('n_saved')); if (kinds.size) nat('notifyAsk'); };
   let mode = st.mode || 'normal';
   const box = (k) => { const c = h('input', { type: 'checkbox', checked: kinds.has(k), style: 'width:22px;height:22px', onchange: () => { if (c.checked) kinds.add(k); else kinds.delete(k); save(); } });
     return h('label', { class: 'row', style: 'gap:10px;margin:0;flex-wrap:nowrap;text-transform:none;letter-spacing:0;font-size:1rem;color:var(--text)' }, c, h('span', {}, t('n_' + k))); };
   const radio = (m) => { const r = h('input', { type: 'radio', name: 'nmode', checked: mode === m, style: 'width:20px;height:20px', onchange: () => { mode = m; save(); } });
     return h('label', { class: 'row', style: 'gap:10px;margin:0;flex-wrap:nowrap;text-transform:none;letter-spacing:0;font-size:.95rem;color:var(--text);align-items:center' }, r, h('span', { style: 'flex:1' }, t('n_' + m))); };
   const perm = (ok) => { warn.textContent = ok ? '' : t('n_denied'); allow.classList.toggle('hidden', !!ok); };
-  const allow = h('button', { class: 'btn primary', onclick: () => WFNative.notifyAsk() }, '🔔 ' + t('n_allow'));
+  const allow = h('button', { class: 'btn primary', onclick: () => nat('notifyAsk') }, '🔔 ' + t('n_allow'));
   window.WFNotifyPerm = perm;
   const last = st.last ? new Date(st.last).toLocaleString(lang === 'da' ? 'da-DK' : 'de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : t('n_never');
   const card = h('div', { class: 'card grid' }, h('h3', { style: 'margin:0' }, '🔔 ' + t('n_title')), h('p', { class: 'muted', style: 'margin:0' }, t('n_text')),
@@ -515,15 +517,15 @@ async function start() {
   document.getElementById('who').textContent = cfg.name;
   go('orders');
   if (N()) {
-    WFNative.setAuth(cfg.server, cfg.token, lang);
-    WFNative.checkNow();
+    nat('setAuth', cfg.server, cfg.token, lang);
+    nat('checkNow');
     if (!window.WFNotifyTimer) {
-      window.WFNotifyTimer = setInterval(() => { if (cfg && !document.hidden) WFNative.checkNow(); }, 120000);
-      document.addEventListener('visibilitychange', () => { if (cfg && !document.hidden) WFNative.checkNow(); });
+      window.WFNotifyTimer = setInterval(() => { if (cfg && !document.hidden) nat('checkNow'); }, 120000);
+      document.addEventListener('visibilitychange', () => { if (cfg && !document.hidden) nat('checkNow'); });
     }
     // beim allerersten Start nach dem Update einmal um Erlaubnis fragen
-    if (!store.get('notifyAsked')) { store.set('notifyAsked', 1); setTimeout(() => WFNative.notifyAsk(), 1500); }
-    const o = WFNative.takeOpen && WFNative.takeOpen();
+    if (!store.get('notifyAsked')) { store.set('notifyAsked', 1); setTimeout(() => nat('notifyAsk'), 1500); }
+    const o = nat('takeOpen');
     if (o) window.WFOpen(o);
   }
   // Hinweis auf neue App-Version (Datei app/version.json auf dem Server)
