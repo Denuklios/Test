@@ -8,7 +8,7 @@ declare(strict_types=1);
  * Anfragen liegen in der MariaDB der Webseite (Zugangsdaten aus ../db_config.php); fehlt sie, entfällt nur diese Art.
  */
 
-const WF_EVENT_KINDS = ['inquiry', 'signed', 'payment'];
+const WF_EVENT_KINDS = ['inquiry', 'signed', 'payment', 'mail'];
 
 function wf_events_cursor_parse(string $c): ?array
 {
@@ -116,6 +116,22 @@ function wf_events(PDO $db, string $cursor, string $selfName = ''): array
             $amt = number_format(((int)$r['amount']) / 100, 2, ',', '.') . ' ' . ($r['currency'] === 'DKK' ? 'kr.' : $r['currency']);
             $items[] = ['kind' => 'payment', 'id' => (int)$r['id'], 'title' => trim((string)($r['customer'] ?? '')) ?: ('#' . $r['number']),
                 'text' => $amt . ' · ' . $r['number'], 'open' => $r['order_id'] ? 'order:' . (int)$r['order_id'] : ''];
+        }
+    }
+    // neue Mails im Posteingang (Postfach im Auftragsprogramm); vorher kurz abgleichen, damit die Meldung ohne Zeitplan kommt
+    if (function_exists('wf_imap_cfg') && wf_imap_cfg()) {
+        $last = strtotime((string)($db->query("SELECT value FROM meta WHERE key = 'mail_sync_last'")->fetchColumn() ?: '')) ?: 0;
+        if (time() - $last > 150) {
+            wf_mail_sync($db, 8);
+        }
+    }
+    $next['mail'] = (int)$db->query("SELECT COALESCE(MAX(id), 0) FROM mail_msgs WHERE folder = 'in'")->fetchColumn();
+    if (!$first && isset($c['mail'])) {
+        $q = $db->prepare("SELECT id, from_addr, from_name, subject, snippet, order_id FROM mail_msgs WHERE folder = 'in' AND archived = 0 AND seen = 0 AND id > ? ORDER BY id LIMIT 20");
+        $q->execute([$c['mail']]);
+        foreach ($q->fetchAll() as $r) {
+            $items[] = ['kind' => 'mail', 'id' => (int)$r['id'], 'title' => trim((string)$r['from_name']) ?: (string)$r['from_addr'],
+                'text' => trim((string)$r['subject']) !== '' ? (string)$r['subject'] : mb_substr((string)$r['snippet'], 0, 120), 'open' => 'mail:' . (int)$r['id']];
         }
     }
     return ['cursor' => wf_events_cursor($next), 'events' => $items];

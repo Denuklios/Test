@@ -39,7 +39,7 @@ if (($_GET['a'] ?? '') === 'app_pair') {
 }
 // Aktionen, die die Handy-App darf (Werkstatt: Aufträge, Kunden, Produkte, Fotos, Beleg-Foto)
 const WF_APP_ACTIONS = ['me', 'version', 'orders', 'order', 'order_save', 'order_status', 'order_ship', 'products', 'categories', 'customers', 'customer', 'customer_save',
-    'file_upload', 'calendar', 'plan_options', 'plan_slots', 'plan_preview', 'due_days', 'expense_upload', 'note_parse', 'app_whoami', 'app_latest', 'app_events', 'app_inquiry'];
+    'file_upload', 'calendar', 'plan_options', 'plan_slots', 'plan_preview', 'due_days', 'expense_upload', 'note_parse', 'app_whoami', 'app_latest', 'app_events', 'app_inquiry', 'app_mail'];
 
 $user = wf_require_user();
 $a = (string)($_GET['a'] ?? '');
@@ -1298,6 +1298,23 @@ try {
         // Benachrichtigungen für die Handy-App: alles nach dem mitgeschickten Stand
         case 'app_events':
             wf_json(['ok' => true] + wf_events($db, (string)($_GET['cursor'] ?? ''), (string)$user['name']));
+
+        // eine Mail für die Handy-App (nur Text, Anhänge als Namen; zum Öffnen aus der Benachrichtigung)
+        case 'app_mail': {
+            $st = $db->prepare('SELECT m.id, m.folder, m.from_addr, m.from_name, m.to_json, m.subject, m.sent_at, m.body_text, m.order_id, m.customer_id, c.name AS customer_name, c.phone AS customer_phone, o.nr AS order_nr
+                FROM mail_msgs m LEFT JOIN customers c ON c.id = m.customer_id LEFT JOIN orders o ON o.id = m.order_id WHERE m.id = ?');
+            $st->execute([(int)($_GET['id'] ?? 0)]);
+            $m = $st->fetch();
+            if (!$m) {
+                wf_fail('not_found', 404);
+            }
+            $a = $db->prepare('SELECT name, size FROM mail_atts WHERE msg_id = ? AND inline = 0 ORDER BY id');
+            $a->execute([(int)$m['id']]);
+            $m['to'] = json_decode((string)$m['to_json'], true) ?: [];
+            unset($m['to_json']);
+            $m['body_text'] = mb_substr((string)$m['body_text'], 0, 20000);
+            wf_json(['ok' => true, 'mail' => $m, 'atts' => $a->fetchAll()]);
+        }
 
         // eine Anfrage von der Webseite (zum Öffnen aus der Benachrichtigung)
         case 'app_inquiry': {

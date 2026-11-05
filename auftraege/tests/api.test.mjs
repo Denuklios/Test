@@ -463,7 +463,7 @@ try {
     assert.equal((await fetch(`${B}/api.php?a=orders&at=${pr.token}`)).status, 401, 'Schlüssel in der Adresse nur für Bilder');
     // Benachrichtigungen: erster Abruf nur Stand, danach neue Zahlungen und Unterschriften (eigene Buchungen nicht)
     const ev0 = await (await fetch(`${B}/api.php?a=app_events`, { headers: H })).json();
-    assert.equal(ev0.ok, true); assert.deepEqual(ev0.events, []); assert.match(ev0.cursor, /^inquiry:\d+,signed:\d+,payment:\d+$/);
+    assert.equal(ev0.ok, true); assert.deepEqual(ev0.events, []); assert.match(ev0.cursor, /^inquiry:\d+,signed:\d+,payment:\d+,mail:\d+$/);
     const { execFileSync } = await import('node:child_process');
     execFileSync('php', ['-r', `$db = new PDO('sqlite:${data}/auftraege.sqlite'); $db->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
       $cid = $db->query("SELECT id FROM customers ORDER BY id DESC LIMIT 1")->fetchColumn();

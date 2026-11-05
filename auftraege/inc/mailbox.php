@@ -577,6 +577,21 @@ function wf_mail_sync(PDO $db, int $maxSeconds = 20): array
     if (!$c) {
         return ['ok' => false, 'error' => 'imap_not_configured'];
     }
+    // nicht zweimal gleichzeitig (Programm offen + Handy-App + Zeitplan)
+    $lock = (int)($db->query("SELECT value FROM meta WHERE key = 'mail_sync_lock'")->fetchColumn() ?: 0);
+    if ($lock > time() - 90) {
+        return ['ok' => true, 'new' => 0, 'busy' => true];
+    }
+    $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('mail_sync_lock', ?)")->execute([(string)time()]);
+    try {
+        return wf_mail_sync_run($db, $c, $maxSeconds);
+    } finally {
+        $db->exec("DELETE FROM meta WHERE key = 'mail_sync_lock'");
+    }
+}
+
+function wf_mail_sync_run(PDO $db, array $c, int $maxSeconds): array
+{
     $t0 = microtime(true);
     $new = 0;
     try {

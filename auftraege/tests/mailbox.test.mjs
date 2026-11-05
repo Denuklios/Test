@@ -111,6 +111,22 @@ try {
     await call('mail_update', { body: { id: news.id, customer_id: cust } });
     assert.equal((await call('mail_list', { params: { folder: 'all', customer_id: cust } })).j.mails.length, 3);
   });
+  await ok('Handy-App: neue Mail wird gemeldet und lässt sich öffnen', async () => {
+    const c = await call('app_token_create', { body: { name: 'Robert Handy' } });
+    const pr = await (await fetch(`${B}/api.php?a=app_pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: c.j.code }) })).json();
+    const H = { 'x-app-token': pr.token };
+    const ev0 = await (await fetch(`${B}/api.php?a=app_events`, { headers: H })).json();
+    assert.match(ev0.cursor, /mail:\d+/);
+    // neue Mail im Postfach (Test-Server liest den Ordner nur beim Start: direkt eintragen wie nach einem Abruf)
+    const { execFileSync } = await import('node:child_process');
+    execFileSync('php', ['-r', `$db = new PDO('sqlite:${data}/auftraege.sqlite'); $db->exec("INSERT INTO mail_msgs (folder, uid, message_id, from_addr, from_name, subject, snippet, body_text, seen) VALUES ('in', 99, 'neu@x', 'lise@kunde.dk', 'Lise', 'Neue Bestellung', 'Hej', 'Hej, wir brauchen 10 Shirts.', 0)");`]);
+    const ev1 = await (await fetch(`${B}/api.php?a=app_events&cursor=${encodeURIComponent(ev0.cursor)}`, { headers: H })).json();
+    const m = ev1.events.find((e) => e.kind === 'mail');
+    assert.ok(m, JSON.stringify(ev1)); assert.equal(m.title, 'Lise'); assert.equal(m.text, 'Neue Bestellung'); assert.match(m.open, /^mail:\d+$/);
+    const g = await (await fetch(`${B}/api.php?a=app_mail&id=${m.id}`, { headers: H })).json();
+    assert.equal(g.mail.body_text, 'Hej, wir brauchen 10 Shirts.');
+    assert.equal((await fetch(`${B}/api.php?a=mail_list`, { headers: H })).status, 403, 'volles Postfach nicht für die Handy-App');
+  });
   await ok('Übersetzen (offline: Kennzeichnung), ungültige Zielsprache, falsche Adresse', async () => {
     const r = (await call('mail_translate', { body: { html: '<p>Hallo</p>', target: 'da' } })).j;
     assert.equal(r.html, '[DA] <p>Hallo</p>');

@@ -35,7 +35,7 @@ public class NotifyService extends Service {
         Notification.Builder nb = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, Notifier.CH_SERVICE) : new Notification.Builder(this);
         Notification n = nb.setSmallIcon(R.drawable.ic_notify)
                 .setContentTitle(da ? "Holder øje med nyt" : "Achtet auf Neues")
-                .setContentText(da ? "Forespørgsler, tilbud og betalinger kontrolleres hvert minut." : "Anfragen, Angebote und Zahlungen werden jede Minute geprüft.")
+                .setContentText(da ? "Forespørgsler, mails, tilbud og betalinger kontrolleres hvert minut." : "Anfragen, Mails, Angebote und Zahlungen werden jede Minute geprüft.")
                 .setContentIntent(pi)
                 .setOngoing(true)
                 .build();

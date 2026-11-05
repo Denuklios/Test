@@ -49,7 +49,7 @@ final class Notifier {
         NotificationManager nm = c.getSystemService(NotificationManager.class);
         boolean da = da(c);
         NotificationChannel ev = new NotificationChannel(CH_EVENTS, da ? "Nyt fra værkstedet" : "Neues aus der Werkstatt", NotificationManager.IMPORTANCE_HIGH);
-        ev.setDescription(da ? "Forespørgsler, underskrevne tilbud, betalinger" : "Anfragen, unterschriebene Angebote, Zahlungen");
+        ev.setDescription(da ? "Forespørgsler, mails, underskrevne tilbud, betalinger" : "Anfragen, Mails, unterschriebene Angebote, Zahlungen");
         nm.createNotificationChannel(ev);
         NotificationChannel sv = new NotificationChannel(CH_SERVICE, da ? "Hurtig kontrol" : "Schnelle Prüfung", NotificationManager.IMPORTANCE_MIN);
         sv.setShowBadge(false);
@@ -131,6 +131,7 @@ final class Notifier {
             case "inquiry": head = da ? "Ny forespørgsel" : "Neue Anfrage"; break;
             case "signed": head = da ? "Tilbud underskrevet" : "Angebot unterschrieben"; break;
             case "payment": head = da ? "Betaling modtaget" : "Zahlung eingegangen"; break;
+            case "mail": head = da ? "Ny mail" : "Neue Mail"; break;
             default: head = da ? "Nyt" : "Neu";
         }
         String who = e.optString("title");

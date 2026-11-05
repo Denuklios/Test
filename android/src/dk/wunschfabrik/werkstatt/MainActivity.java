@@ -236,7 +236,7 @@ public class MainActivity extends Activity {
             boolean changed = !token.equals(p.getString("token", "")) || !server.equals(p.getString("server", ""));
             android.content.SharedPreferences.Editor e = p.edit().putString("server", server).putString("token", token).putString("lang", "da".equals(lang) ? "da" : "de");
             if (changed) e.putString("cursor", "");
-            if (!p.contains("kinds")) e.putString("kinds", "inquiry,signed,payment");
+            if (!p.contains("kinds")) e.putString("kinds", "inquiry,mail,signed,payment");
             e.apply();
             Notifier.channels(MainActivity.this);
             Notifier.apply(MainActivity.this);
@@ -253,7 +253,7 @@ public class MainActivity extends Activity {
         public String notifyGet() {
             android.content.SharedPreferences p = Notifier.prefs(MainActivity.this);
             try {
-                return new org.json.JSONObject().put("kinds", p.getString("kinds", "inquiry,signed,payment")).put("mode", p.getString("mode", "normal"))
+                return new org.json.JSONObject().put("kinds", p.getString("kinds", "inquiry,mail,signed,payment")).put("mode", p.getString("mode", "normal"))
                         .put("allowed", Notifier.canNotify(MainActivity.this)).put("last", p.getLong("last_check", 0)).toString();
             } catch (org.json.JSONException ex) {
                 return "{}";

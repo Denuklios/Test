@@ -1,7 +1,7 @@
 /* Wunsch-Fabrik Werkstatt – Handy-App (läuft in der Android-App, spricht mit api.php über den App-Schlüssel). */
 (() => {
 'use strict';
-const APP_VERSION = '1.1.2';
+const APP_VERSION = '1.2.0';
 
 // ---------- Speicher & Sprache ----------
 const store = {
@@ -24,14 +24,14 @@ const XT = {
     a_forbidden: 'Dafür hat die App keine Berechtigung – bitte im Büro erledigen.', a_logged_out: 'Die App wurde im Büro abgemeldet. Bitte neu verbinden.', a_status: 'Status',
     a_pickup: 'Abgeholt', a_ship: 'Verschickt', a_carrier: 'Versanddienst', a_trackno: 'Sendungsnummer', a_save: 'Speichern', a_search: 'Suchen …', a_all: 'Alle',
     a_open_web: 'Im Browser öffnen', a_phone: 'Telefon', a_email: 'E-Mail', a_name: 'Name', a_company: 'Firma (optional)', a_business: 'Firma', a_country: 'Land',
-    n_title: 'Benachrichtigungen', n_text: 'Meldung aufs Handy, auch wenn die App zu ist.', n_inquiry: 'Neue Anfragen von der Webseite', n_signed: 'Angebot unterschrieben', n_payment: 'Zahlung eingegangen',
+    n_title: 'Benachrichtigungen', n_text: 'Meldung aufs Handy, auch wenn die App zu ist.', n_inquiry: 'Neue Anfragen von der Webseite', n_mail: 'Neue Mails von Kunden', m_title: 'Mail', m_reply: 'Antworten', m_open_web: 'Im Auftragsprogramm öffnen (mit Bildern & Antworten)', m_none: 'Mail nicht gefunden.', m_atts: 'Anhänge', m_order: 'Auftrag', n_signed: 'Angebot unterschrieben', n_payment: 'Zahlung eingegangen',
     n_mode: 'Wie schnell?', n_normal: 'Normal – etwa alle 15 Minuten, spart Akku', n_fast: 'Sofort – jede Minute, mit kleiner Anzeige in der Leiste', n_allow: 'Benachrichtigungen erlauben', n_denied: 'Benachrichtigungen sind für die App ausgeschaltet. Bitte erlauben (Android-Einstellungen → Apps → WF Werkstatt → Benachrichtigungen).',
     n_last: 'Zuletzt geprüft: {0}', n_never: 'noch nicht', n_saved: 'Benachrichtigungen gespeichert',
     q_title: 'Anfrage', q_product: 'Produkt', q_qty: 'Menge', q_wish: 'Wunschtermin', q_message: 'Nachricht', q_admin: 'Im Admin-Bereich öffnen', q_whatsapp: 'WhatsApp', q_none: 'Anfrage nicht gefunden.',
     a_too_many: 'Zu viele Versuche – bitte 10 Minuten warten.', a_update: 'Neue App-Version {0} verfügbar', a_update_btn: 'Herunterladen', a_get_latest: 'Neueste App herunterladen',
   },
   da: {
-    n_title: 'Notifikationer', n_text: 'Besked på mobilen, også når appen er lukket.', n_inquiry: 'Nye forespørgsler fra hjemmesiden', n_signed: 'Tilbud underskrevet', n_payment: 'Betaling modtaget',
+    n_title: 'Notifikationer', n_text: 'Besked på mobilen, også når appen er lukket.', n_inquiry: 'Nye forespørgsler fra hjemmesiden', n_mail: 'Nye mails fra kunder', m_title: 'Mail', m_reply: 'Svar', m_open_web: 'Åbn i ordreprogrammet (med billeder & svar)', m_none: 'Mail ikke fundet.', m_atts: 'Vedhæftninger', m_order: 'Ordre', n_signed: 'Tilbud underskrevet', n_payment: 'Betaling modtaget',
     n_mode: 'Hvor hurtigt?', n_normal: 'Normal – ca. hvert 15. minut, sparer batteri', n_fast: 'Med det samme – hvert minut, med lille visning i bjælken', n_allow: 'Tillad notifikationer', n_denied: 'Notifikationer er slået fra for appen. Tillad dem (Android-indstillinger → Apps → WF Werkstatt → Notifikationer).',
     n_last: 'Senest kontrolleret: {0}', n_never: 'endnu ikke', n_saved: 'Notifikationer gemt',
     q_title: 'Forespørgsel', q_product: 'Produkt', q_qty: 'Antal', q_wish: 'Ønsket dato', q_message: 'Besked', q_admin: 'Åbn i admin-området', q_whatsapp: 'WhatsApp', q_none: 'Forespørgsel ikke fundet.',
@@ -496,7 +496,7 @@ function notifyCard() {
   window.WFNotifyPerm = perm;
   const last = st.last ? new Date(st.last).toLocaleString(lang === 'da' ? 'da-DK' : 'de-DE', { day: '2-digit', month: '2-digit', hour: '2-digit', minute: '2-digit' }) : t('n_never');
   const card = h('div', { class: 'card grid' }, h('h3', { style: 'margin:0' }, '🔔 ' + t('n_title')), h('p', { class: 'muted', style: 'margin:0' }, t('n_text')),
-    box('inquiry'), box('signed'), box('payment'),
+    box('inquiry'), box('mail'), box('signed'), box('payment'),
     h('div', {}, h('label', {}, t('n_mode'))), radio('normal'), radio('fast'),
     allow, warn, h('small', { class: 'muted' }, t('n_last', last)));
   perm(st.allowed);
@@ -508,7 +508,25 @@ window.WFOpen = (o) => {
   const [k, id] = String(o).split(':');
   if (k === 'order' && +id) { tab = 'orders'; nav(); stack = []; push(() => orderView(+id)); }
   else if (k === 'inquiry' && +id) { tab = 'more'; nav(); stack = []; push(() => inquiryView(+id)); }
+  else if (k === 'mail' && +id) { tab = 'more'; nav(); stack = []; push(() => mailView(+id)); }
 };
+async function mailView(id) {
+  let r;
+  try { r = await api('app_mail', { params: { id } }); } catch (e) { show(h('div', { class: 'empty' }, t('m_none'))); return; }
+  const m = r.mail;
+  const tel = (m.customer_phone || '').replace(/[^\d+]/g, '');
+  const web = base() + 'index.php#/mail/' + m.id;
+  show(h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('m_title') + ' · ' + String(m.sent_at).slice(0, 16)), h('h1', { style: 'font-size:1.5rem' }, m.subject || '—'))),
+    h('div', { class: 'card grid' },
+      h('div', {}, h('b', {}, m.from_name || m.from_addr), m.from_name ? h('div', { class: 'muted', style: 'font-size:.85rem' }, m.from_addr) : null),
+      m.order_nr ? h('a', { class: 'btn', href: '#', onclick: (e) => { e.preventDefault(); push(() => orderView(+m.order_id)); } }, '📋 ' + t('m_order') + ' ' + m.order_nr) : null,
+      h('div', { style: 'white-space:pre-wrap;overflow-wrap:anywhere' }, m.body_text || ''),
+      r.atts.length ? h('div', { class: 'muted', style: 'font-size:.85rem' }, '📎 ' + t('m_atts') + ': ' + r.atts.map((a) => a.name).join(', ')) : null,
+      h('div', { class: 'row', style: 'gap:8px;flex-wrap:wrap' },
+        tel ? h('a', { class: 'btn', href: 'tel:' + tel }, '📞 ' + t('a_call')) : null,
+        h('a', { class: 'btn', href: base() + 'index.php#/mail/new?mode=reply&id=' + m.id, target: '_blank' }, '↩ ' + t('m_reply'))),
+      h('a', { class: 'btn primary', href: web, target: '_blank' }, '🌐 ' + t('m_open_web'))));
+}
 async function inquiryView(id) {
   let q;
   try { q = (await api('app_inquiry', { params: { id } })).inquiry; } catch (e) { show(h('div', { class: 'empty' }, t('q_none'))); return; }
@@ -539,6 +557,11 @@ async function start() {
     }
     // beim allerersten Start nach dem Update einmal um Erlaubnis fragen
     if (!store.get('notifyAsked')) { store.set('notifyAsked', 1); setTimeout(() => nat('notifyAsk'), 1500); }
+    // ab 1.2: neue Mails standardmäßig mit melden
+    if (!store.get('kindsMail')) {
+      store.set('kindsMail', 1);
+      try { const st0 = JSON.parse(nat('notifyGet') || '{}'); const ks = (st0.kinds || '').split(',').filter(Boolean); if (ks.length && !ks.includes('mail')) nat('notifySet', [...ks, 'mail'].join(','), st0.mode || 'normal'); } catch (e) { /* egal */ }
+    }
     const o = nat('takeOpen');
     if (o) window.WFOpen(o);
   }
