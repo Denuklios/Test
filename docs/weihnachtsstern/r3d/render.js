@@ -1,6 +1,13 @@
 const { chromium } = require('playwright');
 const fs = require('fs');
 const jobs = [
+  ['tree_stage', 1300, 1250, '&spread=flat&n=3', 'tree_s1'],
+  ['tree_stage', 1300, 1250, '&spread=flat&n=5', 'tree_s2'],
+  ['tree_stage', 1300, 1250, '&spread=flat&n=6', 'tree_s3'],
+  ['tree_front', 1300, 1250, '&spread=flat', 'tree_front'],
+  ['plates', 1000, 700, '', 'plates'],
+  ['tree_night', 2000, 1280, '&spread=flat&paint=green&fov=40&cx=-70&cz=430', 'tree_night'],
+  ['tree_night', 1150, 1400, '&spread=flat&paint=green&fov=42&cx=-50&cz=380', 'tree_night_p'],
   ['star_lying', 1800, 1250, ''],
   ['star_top', 1400, 1200, ''],
   ['bock_standing', 1000, 1000, ''],
