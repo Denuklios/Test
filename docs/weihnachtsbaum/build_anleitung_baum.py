@@ -620,14 +620,13 @@ def page_tips():
     c.setFillColor(RED); c.setFont("B", 15); c.drawString(M, y, "Sicherheit & Tipps")
     sparkle(M + 140, y + 5, 5)
     y -= 12
-    pw_ = 170
-    framed_photo("ph_baum", W - M - pw_, y, pw_, 300, "Unser Musterbaum: grün lackiert, mit Clusterlichterkette")
-    tw2 = W - 2 * M - pw_ - 14
+    tw2 = W - 2 * M
     tips_ = [
         ("Kippsicherung", "Knapp 2,40 m hoch, aber nur so tief wie ein Bock: <b>immer sichern</b> – Spanngurt an Wand oder Zaun oder Erdanker an den Füßen.", "!", RED),
         ("Strom", "Die Clusterlichterkette ist <b>IP44</b> (für außen). Auch die Verlängerung muss für außen zugelassen sein.", "!", RED),
         ("Arbeiten in der Höhe", "Den obersten Bock nur mit stabiler Trittleiter und zu zweit aufsetzen.", "!", RED),
         ("Wiederverwenden", "Nach Weihnachten die Platten abschrauben – die Böcke normal weiter nutzen.", "star", PINE),
+        ("Farbe", "Tannengrün wirkt tagsüber wie ein echter Baum und leuchtet abends mit dem warmweißen Licht.", "star", PINE),
     ]
     yy = y
     for t, txt, ic, col in tips_:
