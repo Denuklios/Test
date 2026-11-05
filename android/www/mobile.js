@@ -1,7 +1,7 @@
 /* Wunsch-Fabrik Werkstatt – Handy-App (läuft in der Android-App, spricht mit api.php über den App-Schlüssel). */
 (() => {
 'use strict';
-const APP_VERSION = '1.1.1';
+const APP_VERSION = '1.1.2';
 
 // ---------- Speicher & Sprache ----------
 const store = {
@@ -28,7 +28,7 @@ const XT = {
     n_mode: 'Wie schnell?', n_normal: 'Normal – etwa alle 15 Minuten, spart Akku', n_fast: 'Sofort – jede Minute, mit kleiner Anzeige in der Leiste', n_allow: 'Benachrichtigungen erlauben', n_denied: 'Benachrichtigungen sind für die App ausgeschaltet. Bitte erlauben (Android-Einstellungen → Apps → WF Werkstatt → Benachrichtigungen).',
     n_last: 'Zuletzt geprüft: {0}', n_never: 'noch nicht', n_saved: 'Benachrichtigungen gespeichert',
     q_title: 'Anfrage', q_product: 'Produkt', q_qty: 'Menge', q_wish: 'Wunschtermin', q_message: 'Nachricht', q_admin: 'Im Admin-Bereich öffnen', q_whatsapp: 'WhatsApp', q_none: 'Anfrage nicht gefunden.',
-    a_too_many: 'Zu viele Versuche – bitte 10 Minuten warten.', a_update: 'Neue App-Version {0} verfügbar', a_update_btn: 'Herunterladen',
+    a_too_many: 'Zu viele Versuche – bitte 10 Minuten warten.', a_update: 'Neue App-Version {0} verfügbar', a_update_btn: 'Herunterladen', a_get_latest: 'Neueste App herunterladen',
   },
   da: {
     n_title: 'Notifikationer', n_text: 'Besked på mobilen, også når appen er lukket.', n_inquiry: 'Nye forespørgsler fra hjemmesiden', n_signed: 'Tilbud underskrevet', n_payment: 'Betaling modtaget',
@@ -47,7 +47,7 @@ const XT = {
     a_forbidden: 'Det har appen ikke adgang til – klar det på kontoret.', a_logged_out: 'Appen er logget ud fra kontoret. Forbind igen.', a_status: 'Status',
     a_pickup: 'Afhentet', a_ship: 'Sendt', a_carrier: 'Fragtfirma', a_trackno: 'Trackingnummer', a_save: 'Gem', a_search: 'Søg …', a_all: 'Alle',
     a_open_web: 'Åbn i browser', a_phone: 'Telefon', a_email: 'E-mail', a_name: 'Navn', a_company: 'Firma (valgfrit)', a_business: 'Firma', a_country: 'Land',
-    a_too_many: 'For mange forsøg – vent 10 minutter.', a_update: 'Ny app-version {0} tilgængelig', a_update_btn: 'Hent',
+    a_too_many: 'For mange forsøg – vent 10 minutter.', a_update: 'Ny app-version {0} tilgængelig', a_update_btn: 'Hent', a_get_latest: 'Hent nyeste app',
   },
 };
 const t = (k, ...a) => {
@@ -71,7 +71,20 @@ function h(tag, attrs, ...kids) {
   return e;
 }
 const view = () => document.getElementById('view');
-const show = (...kids) => { view().replaceChildren(...kids.flat().filter((k) => k != null && k !== false && k !== '')); window.scrollTo(0, 0); };
+// Hinweis auf neue App-Version steht auf jeder Seite oben (nicht nur beim Start, sonst überschreibt die Auftragsliste ihn)
+let appUpdate = null;   // { version, file } wenn auf dem Server eine neuere Version liegt
+const updateBar = () => appUpdate ? h('a', { class: 'alertbar', href: base() + 'app/' + (appUpdate.file || 'wunsch-fabrik-werkstatt.apk'), target: '_blank' }, '⬆ ', t('a_update', appUpdate.version), h('b', { style: 'margin-left:auto' }, t('a_update_btn'))) : null;
+const show = (...kids) => { view().replaceChildren(...[updateBar(), ...kids.flat()].filter((k) => k != null && k !== false && k !== '')); window.scrollTo(0, 0); };
+const newerVer = (a, b) => { const x = String(a).split('.').map(Number), y = String(b).split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
+let lastUpdCheck = 0;
+function checkAppUpdate() {
+  if (!cfg || Date.now() - lastUpdCheck < 60000) return; lastUpdCheck = Date.now();
+  api('app_latest').then((v) => {
+    const had = !!appUpdate;
+    appUpdate = v && v.version && newerVer(v.version, APP_VERSION) ? { version: v.version, file: v.file } : null;
+    if (appUpdate && !had && !view().querySelector('.alertbar')) view().prepend(updateBar());
+  }).catch(() => {});
+}
 function toast(msg) { const el = h('div', { class: 'toast' }, msg); document.body.append(el); setTimeout(() => el.remove(), 2800); }
 const ICON = {
   list: 'M4 6h16M4 12h16M4 18h10', plus: 'M12 5v14M5 12h14', cam: 'M4 8h3l2-3h6l2 3h3v11H4zM12 17a4 4 0 1 0 0-8 4 4 0 0 0 0 8',
@@ -458,6 +471,7 @@ function moreView() {
       h('a', { class: 'btn', href: cfg.server, target: '_blank' }, '🌐 ' + t('a_open_web')),
       h('div', {}, h('label', {}, t('a_language')), langRow()),
       h('p', { class: 'muted', style: 'margin:0;font-size:.85rem' }, t('a_version', APP_VERSION, (me && me.version) || '—')),
+      h('a', { class: 'btn', href: base() + 'app/wunsch-fabrik-werkstatt.apk', target: '_blank' }, '⬇ ' + t('a_get_latest')),
       h('button', { class: 'btn danger', onclick: () => { if (confirm(t('a_logout_q'))) { if (N()) nat('clearAuth'); store.del('cfg'); store.del('orders'); cfg = null; pairView(); } } }, t('a_logout'))),
     notifyCard());
 }
@@ -528,11 +542,9 @@ async function start() {
     const o = nat('takeOpen');
     if (o) window.WFOpen(o);
   }
-  // Hinweis auf neue App-Version (Datei app/version.json auf dem Server)
-  api('app_latest').then((v) => {
-    const newer = (a, b) => { const x = a.split('.').map(Number), y = b.split('.').map(Number); for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0); return false; };
-    if (v && v.version && newer(v.version, APP_VERSION)) view().prepend(h('a', { class: 'alertbar', href: base() + 'app/' + (v.file || 'wunsch-fabrik-werkstatt.apk'), target: '_blank' }, '⬆ ', t('a_update', v.version), h('b', { style: 'margin-left:auto' }, t('a_update_btn'))));
-  }).catch(() => {});
+  // Hinweis auf neue App-Version (Datei app/version.json auf dem Server): beim Start und beim Zurückkehren in die App
+  checkAppUpdate();
+  if (!window.WFUpdWatch) { window.WFUpdWatch = 1; document.addEventListener('visibilitychange', () => { if (!document.hidden) checkAppUpdate(); }); }
 }
 document.documentElement.lang = lang;
 if (cfg) start(); else pairView();
