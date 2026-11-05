@@ -46,6 +46,10 @@ $BT/apksigner sign --ks $KS --ks-key-alias werkstatt --ks-pass "pass:$PW" --key-
 $BT/apksigner verify $B/werkstatt.apk
 
 mkdir -p ../auftraege/app
+# feste Adresse (für Links) und eine Datei mit Versionsnummer im Namen: die lädt die App beim Update,
+# damit Handy/Browser nicht eine ältere, gleichnamige Datei aus dem Download-Ordner oder Zwischenspeicher öffnen
+rm -f ../auftraege/app/wunsch-fabrik-werkstatt-*.apk
 cp $B/werkstatt.apk ../auftraege/app/wunsch-fabrik-werkstatt.apk
-printf '{"version":"%s","file":"wunsch-fabrik-werkstatt.apk"}\n' "$VERSION" > ../auftraege/app/version.json
+cp $B/werkstatt.apk ../auftraege/app/wunsch-fabrik-werkstatt-$VERSION.apk
+printf '{"version":"%s","file":"wunsch-fabrik-werkstatt-%s.apk"}\n' "$VERSION" "$VERSION" > ../auftraege/app/version.json
 ls -la ../auftraege/app/
