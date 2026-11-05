@@ -8,6 +8,8 @@ from reportlab.platypus import Paragraph
 from reportlab.lib.styles import ParagraphStyle
 
 import sys
+sys.path.insert(0, __import__('os').path.dirname(__import__('os').path.abspath(__file__)))
+from review import review_box
 OUT = sys.argv[1]
 LOGO = sys.argv[2]
 
@@ -887,7 +889,7 @@ def page_steps56():
               "Den Stern <b>gegen Wind sichern</b> (siehe unten)."]:
         c.setFillColor(RED); c.circle(M + 5, y - h - 6, 3.5, fill=1, stroke=0)
         h += para(t, M + 14, y - h, tw - 14, size=10.5) + 5
-    ix = M + tw + 14; iw = W - M - ix; ih = 236
+    ix = M + tw + 14; iw = W - M - ix; ih = 176
     place_cover("night_sq", ix, y - ih, iw, ih, r=14)
     c.setStrokeColor(GOLD); c.setLineWidth(1.2); c.roundRect(ix, y - ih, iw, ih, 14, fill=0, stroke=1)
     c.setFillColor(GREY); c.setFont("I", 8.5); c.drawString(ix, y - ih - 12, "Beispiel: rot lackiert, mit Clusterlichterkette vorne und hinten")
@@ -913,10 +915,8 @@ def page_steps56():
             rowy -= max(hs[-2:]) + 10
         hs.append(tip_box(x, rowy, bw, txt, t, col=col, icon=ic))
     y = rowy - max(hs[-2:]) - 14
-    para("Quellen: Bauideen von Hornbach (hornbach.de/projekte/holzsterne-selber-bauen) und toom (toom.de, Projekt „Weihnachtsstern“). "
-         "Zeit- und Maßangaben sind Richtwerte. Alle Abbildungen sind schematische Zeichnungen.", M, y, W - 2 * M, size=8, color=GREY, font="R")
-    # festive end mark
-    c.setFillColor(RED); c.setFont("B", 13); c.drawCentredString(W / 2, 46, "Viel Spaß beim Bauen und frohe Weihnachten!")
+    para("Quellen: Bauideen von Hornbach und toom. Zeit- und Maßangaben sind Richtwerte, Abbildungen schematisch.", M, y, W - 2 * M, size=8, color=GREY, font="R")
+    review_box(c, M, y - 18, W - 2 * M, 84, RED, DRED, GOLD, INK, GREY, white, rrect, star_path, poly)
 
 
 cover(); c.showPage()

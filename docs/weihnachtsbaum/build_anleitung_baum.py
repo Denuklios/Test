@@ -8,6 +8,8 @@ from reportlab.platypus import Paragraph
 from reportlab.lib.styles import ParagraphStyle
 
 import sys
+sys.path.insert(0, __import__('os').path.dirname(__import__('os').path.abspath(__file__)))
+from review import review_box
 OUT = sys.argv[1]
 LOGO = sys.argv[2]
 
@@ -631,7 +633,7 @@ def page_tips():
     yy = y
     for t, txt, ic, col in tips_:
         yy -= tip_box(M, yy, tw2, txt, t, col=col, icon=ic) + 8
-    c.setFillColor(RED); c.setFont("B", 13); c.drawCentredString(W / 2, 46, "Viel Spaß beim Bauen und frohe Weihnachten!")
+    review_box(c, M, yy - 8, W - 2 * M, 84, RED, DRED, GOLD, INK, GREY, white, rrect, star_path, poly)
 
 cover(); c.showPage()
 page_material(); c.showPage()
