@@ -557,3 +557,7 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 .msig img{max-width:100%;height:auto}
 .mquote{max-height:420px;overflow:auto;margin-top:8px}
 @media (max-width:440px){.nav a{padding:8px 0;letter-spacing:0}.nav a span::after{font-size:.5rem;letter-spacing:0}.nav a svg{width:20px;height:20px}}
+.chip.inq-new{background:#fde68a;color:#7c2d12;border-color:#f59e0b}
+.chip.inq-in_progress{background:#e0e7ff;color:#3730a3;border-color:#a5b4fc}
+.chip.inq-done{background:#d1fae5;color:#065f46;border-color:#6ee7b7}
+.chip.inq-archived{opacity:.7}

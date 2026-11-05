@@ -872,6 +872,78 @@ try {
         case 'sku_suggest':
             wf_json(['ok' => true, 'sku' => wf_sku_for($db, (int)($_GET['category_id'] ?? 0) ?: null, ($_GET['kind'] ?? '') === 'services' ? 'services' : 'goods')]);
 
+        // ---------- Anfragen von der Webseite (MariaDB der Webseite) ----------
+        case 'inquiries': {
+            $site = wf_events_site_db();
+            if (!$site) {
+                wf_fail('no_site_db', 404);
+            }
+            $status = (string)($_GET['status'] ?? 'open');
+            $w = [];
+            $p = [];
+            if ($status === 'open') {
+                $w[] = "status IN ('new', 'in_progress')";
+            } elseif (in_array($status, ['new', 'in_progress', 'done', 'archived'], true)) {
+                $w[] = 'status = ?';
+                $p[] = $status;
+            }
+            if (($q = trim((string)($_GET['q'] ?? ''))) !== '') {
+                $w[] = '(name LIKE ? OR email LIKE ? OR product LIKE ? OR message LIKE ?)';
+                array_push($p, "%$q%", "%$q%", "%$q%", "%$q%");
+            }
+            $st = $site->prepare('SELECT id, created_at, name, email, phone, product, qty, wish_date, LEFT(message, 200) AS snippet, file_name, lang, status FROM inquiries'
+                . ($w ? ' WHERE ' . implode(' AND ', $w) : '') . ' ORDER BY created_at DESC LIMIT 200');
+            $st->execute($p);
+            $rows = $st->fetchAll();
+            // vorhandene Kunden zur Adresse
+            $cq = $db->prepare('SELECT id FROM customers WHERE lower(trim(email)) = ? AND anonymized_at IS NULL ORDER BY id DESC LIMIT 1');
+            foreach ($rows as &$r) {
+                $cq->execute([mb_strtolower(trim((string)$r['email']))]);
+                $r['customer_id'] = ($x = $cq->fetchColumn()) ? (int)$x : null;
+            }
+            unset($r);
+            $cnt = $site->query("SELECT status, COUNT(*) AS n FROM inquiries GROUP BY status")->fetchAll(PDO::FETCH_KEY_PAIR);
+            wf_json(['ok' => true, 'inquiries' => $rows, 'counts' => array_map('intval', $cnt)]);
+        }
+
+        case 'inquiry_status': {
+            need_post();
+            $site = wf_events_site_db();
+            if (!$site) {
+                wf_fail('no_site_db', 404);
+            }
+            $id = (int)($in['id'] ?? 0);
+            $status = (string)($in['status'] ?? '');
+            if (!in_array($status, ['new', 'in_progress', 'done', 'archived'], true)) {
+                wf_fail('bad_status');
+            }
+            $q = $site->prepare('SELECT name, email, lang, status FROM inquiries WHERE id = ?');
+            $q->execute([$id]);
+            $inq = $q->fetch();
+            if (!$inq) {
+                wf_fail('not_found', 404);
+            }
+            $site->prepare('UPDATE inquiries SET status = ? WHERE id = ?')->execute([$status, $id]);
+            try {
+                $site->prepare('INSERT INTO admin_activity (at, user_id, user_name, area, what) VALUES (NOW(), ?, ?, ?, ?)')
+                    ->execute([(int)($_SESSION['wf_admin_id'] ?? 0) ?: null, (string)$user['name'], 'inquiries', 'Anfrage #' . $id . ' → ' . $status . ' (Auftragsprogramm)']);
+            } catch (Throwable $e) {
+                // Protokoll der Webseite fehlt oder ist anders aufgebaut: Status gilt trotzdem
+            }
+            // wie im Admin-Bereich: Kunde bekommt bei „in Bearbeitung“ und „erledigt“ eine kurze Mail (abschaltbar)
+            $mailed = false;
+            if (!empty($in['notify']) && $status !== $inq['status'] && in_array($status, ['in_progress', 'done'], true)) {
+                $cmf = getenv('WF_SITE_CUSTOMER_MAIL') ?: dirname(__DIR__) . '/customer_mail.php';
+                if (getenv('WF_MAIL_DIR')) {
+                    $mailed = true;   // Tests: nichts wirklich senden
+                } elseif (is_file($cmf)) {
+                    require_once $cmf;
+                    $mailed = function_exists('wf_send_customer_mail') && wf_send_customer_mail((string)$inq['email'], (string)$inq['name'], (string)($inq['lang'] ?: 'de'), $status);
+                }
+            }
+            wf_json(['ok' => true, 'mailed' => $mailed]);
+        }
+
         // ---------- Postfach ----------
         case 'mail_status': {
             $c = wf_imap_cfg();
@@ -882,7 +954,8 @@ try {
                 'imap' => ['host' => (string)($raw['host'] ?? ''), 'port' => (int)($raw['port'] ?? 993), 'user' => (string)($raw['user'] ?? ''), 'own_pass' => (string)($raw['pass'] ?? '') !== ''],
                 'unread' => (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in' AND seen = 0 AND archived = 0")->fetchColumn(),
                 'last_sync' => $meta('mail_sync_last'), 'error' => $meta('mail_sync_error'), 'sent_box' => (string)($st['sent_box'] ?? ''),
-                'signature' => wf_mail_signature($db, $user), 'deepl' => wf_deepl_key() !== '', 'deepl_own' => $meta('deepl_key') !== '']);
+                'signature' => wf_mail_signature($db, $user), 'deepl' => wf_deepl_key() !== '', 'deepl_own' => $meta('deepl_key') !== '',
+                'site_db' => (bool)wf_events_site_db(), 'inq_new' => wf_inq_new()]);
         }
 
         case 'mail_settings_save': {
@@ -942,14 +1015,15 @@ try {
             @set_time_limit(60);
             $r = wf_mail_sync($db, 20);
             $r['unread'] = (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in' AND seen = 0 AND archived = 0")->fetchColumn();
+            $r['inq_new'] = wf_inq_new();
             if (!$r['ok'] && ($r['error'] ?? '') === 'imap_not_configured') {
-                wf_fail('imap_not_configured');
+                wf_json(['ok' => true, 'new' => 0, 'unread' => $r['unread'], 'inq_new' => $r['inq_new'], 'not_configured' => true]);
             }
             wf_json(['ok' => true] + $r);
         }
 
         case 'mail_unread':
-            wf_json(['ok' => true, 'unread' => (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in' AND seen = 0 AND archived = 0")->fetchColumn()]);
+            wf_json(['ok' => true, 'unread' => (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in' AND seen = 0 AND archived = 0")->fetchColumn(), 'inq_new' => wf_inq_new()]);
 
         case 'mail_list': {
             $folder = (string)($_GET['folder'] ?? 'in');
@@ -1208,6 +1282,14 @@ try {
                 }
                 if ($ord) {
                     $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([$ord, $user['name'], 'mail:postfach|' . implode(', ', array_column($to, 'addr'))]);
+                }
+            }
+            // Antwort auf eine Website-Anfrage: Anfrage gilt als „in Bearbeitung“ (ohne zusätzliche Standardmail)
+            if (($inqId = (int)($d['inquiry_id'] ?? 0)) && ($site = wf_events_site_db())) {
+                try {
+                    $site->prepare("UPDATE inquiries SET status = 'in_progress' WHERE id = ? AND status = 'new'")->execute([$inqId]);
+                } catch (Throwable $e) {
+                    // Status bleibt, die Mail ist trotzdem raus
                 }
             }
             wf_json(['ok' => true, 'id' => $id, 'copied' => $copied, 'message_id' => $msgId]);

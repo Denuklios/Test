@@ -120,3 +120,17 @@ function wf_events(PDO $db, string $cursor, string $selfName = ''): array
     }
     return ['cursor' => wf_events_cursor($next), 'events' => $items];
 }
+
+/** Anzahl neuer (noch nicht bearbeiteter) Anfragen von der Webseite, 0 ohne Webseiten-Datenbank. */
+function wf_inq_new(): int
+{
+    $site = wf_events_site_db();
+    if (!$site) {
+        return 0;
+    }
+    try {
+        return (int)$site->query("SELECT COUNT(*) FROM inquiries WHERE status = 'new'")->fetchColumn();
+    } catch (Throwable $e) {
+        return 0;
+    }
+}

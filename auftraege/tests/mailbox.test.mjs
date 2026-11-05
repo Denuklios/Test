@@ -50,7 +50,7 @@ try {
   csrf = (await call('me')).j.csrf;
   let cust;
   await ok('ohne Einrichtung: Abruf meldet fehlendes Postfach', async () => {
-    assert.equal((await call('mail_sync')).j.error, 'imap_not_configured');
+    assert.equal((await call('mail_sync')).j.not_configured, true);
     assert.equal((await call('mail_status')).j.configured, false);
   });
   await ok('Einrichten und Verbindung testen', async () => {

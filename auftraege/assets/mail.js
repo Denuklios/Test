@@ -5,7 +5,7 @@
 const W = window.WFApp;
 const { h, api, show, t, toast, route, render, BASE } = W;
 
-const MAIL = { status: null, unread: 0, lastSync: 0, customers: null };
+const MAIL = { status: null, unread: 0, inqNew: 0, lastSync: 0, customers: null };
 
 // ---------- kleine Helfer ----------
 const mailDate = (s) => {
@@ -24,7 +24,7 @@ const escH = (s) => String(s || '').replace(/[&<>"]/g, (c) => ({ '&': '&amp;', '
 const addrList = (l) => (l || []).map((a) => a.name ? `"${a.name.replace(/"/g, '')}" <${a.addr}>` : a.addr).join(', ');
 
 async function mailStatus(force) {
-  if (!MAIL.status || force) { MAIL.status = await api('mail_status'); MAIL.unread = MAIL.status.unread; }
+  if (!MAIL.status || force) { MAIL.status = await api('mail_status'); MAIL.unread = MAIL.status.unread; MAIL.inqNew = MAIL.status.inq_new || 0; }
   mailBadge();
   return MAIL.status;
 }
@@ -33,8 +33,10 @@ function mailBadge() {
   if (!a) return;
   let b = a.querySelector('.mbadge');
   if (!b) { b = h('i', { class: 'mbadge' }); a.append(b); }
-  b.textContent = MAIL.unread > 99 ? '99+' : String(MAIL.unread || '');
-  b.classList.toggle('hidden', !MAIL.unread);
+  const n = (MAIL.unread || 0) + (MAIL.inqNew || 0);
+  b.textContent = n > 99 ? '99+' : String(n || '');
+  b.classList.toggle('hidden', !n);
+  b.title = t('mail_badge_title', MAIL.unread || 0, MAIL.inqNew || 0);
 }
 // im Hintergrund abrufen (höchstens jede Minute), Zähler aktualisieren
 // läuft schon ein Abruf, wird auf ihn gewartet (z. B. direkt nach dem Einrichten)
@@ -43,11 +45,11 @@ async function mailSync(force) {
   if (!force && Date.now() - MAIL.lastSync < 60000) return null;
   MAIL.lastSync = Date.now();
   MAIL.syncP = (async () => {
-    try { const r = await api('mail_sync'); MAIL.unread = r.unread; mailBadge(); return r; } catch (e) { if (force) toast(e.message); return null; } finally { MAIL.syncP = null; }
+    try { const r = await api('mail_sync'); MAIL.unread = r.unread; MAIL.inqNew = r.inq_new || 0; mailBadge(); return r; } catch (e) { if (force) toast(e.message); return null; } finally { MAIL.syncP = null; }
   })();
   return MAIL.syncP;
 }
-setInterval(() => { if (W.me && !document.hidden && MAIL.status && MAIL.status.configured) mailSync(); }, 120000);
+setInterval(() => { if (W.me && !document.hidden && MAIL.status && (MAIL.status.configured || MAIL.status.site_db)) mailSync(); }, 120000);
 setTimeout(async () => { if (W.me) { try { const s = await mailStatus(); if (s.configured) mailSync(); } catch (e) { /* kein Postfach */ } } }, 1500);
 
 // HTML einer Mail sicher anzeigen: eigene Seite ohne Skripte, Bilder nur data:/Netz (wenn freigegeben)
@@ -62,15 +64,11 @@ function mailFrame(html) {
 }
 
 // ---------- Posteingang ----------
-let mailFolder = 'in', mailQ = '';
+let mailFolder = null, mailQ = '', inqStatus = 'open';
+const INQ_ST = { new: 'inq_st_new', in_progress: 'inq_st_progress', done: 'inq_st_done', archived: 'inq_st_archived' };
 route(/^\/mail$/, async () => {
   const st = await mailStatus(true);
-  if (!st.configured) {
-    show(h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_mail')), h('h1', {}, t('mail_h1_a'), ' ', h('em', {}, t('mail_h1_b'))))),
-      h('div', { class: 'card' }, h('h3', {}, '✉ ' + t('mail_setup_h')), h('p', { class: 'muted' }, t('mail_setup_text')),
-        h('a', { class: 'btn primary', href: '#/settings', onclick: () => { try { localStorage.setItem('wf_open_mailcard', '1'); } catch (e) { /* egal */ } } }, '⚙ ' + t('mail_setup_btn'))));
-    return;
-  }
+  if (!mailFolder) mailFolder = !st.configured && st.site_db ? 'inq' : 'in';
   const list = h('div', { class: 'mlist' });
   let offset = 0;
   const more = h('button', { class: 'btn hidden', onclick: () => load(true) }, t('mail_more'));
@@ -84,7 +82,34 @@ route(/^\/mail$/, async () => {
       h('span', { class: 'msnip' }, m.snippet || ''),
       m.customer_name || m.order_nr ? h('span', { class: 'mtags' }, m.customer_name ? h('span', { class: 'chip' }, '👤 ' + m.customer_name) : null, m.order_nr ? h('span', { class: 'chip' }, '📋 ' + m.order_nr) : null) : null);
   };
+  // Anfragen von der Webseite (Kontaktformular)
+  const inqRow = (q) => h('a', { class: 'mrow' + (q.status === 'new' ? ' unread' : ''), href: `#/inquiry/${q.id}` },
+    h('span', { class: 'mwho' }, q.name || q.email),
+    h('span', { class: 'mdate' }, (q.file_name ? '📎 ' : '') + mailDate(localToUtc(q.created_at))),
+    h('span', { class: 'msubj' }, [q.qty, q.product].filter(Boolean).join(' × ') || t('inq_title')),
+    h('span', { class: 'msnip' }, q.snippet || ''),
+    h('span', { class: 'mtags' }, h('span', { class: 'chip inq-' + q.status }, t(INQ_ST[q.status] || 'inq_st_new')), q.wish_date ? h('span', { class: 'chip' }, '📅 ' + q.wish_date) : null,
+      q.customer_id ? h('span', { class: 'chip' }, '👤 ' + t('inq_known')) : null, q.lang && q.lang !== 'de' ? h('span', { class: 'chip' }, q.lang === 'da' ? '🇩🇰' : '🇬🇧') : null));
+  const inqChips = h('div', { class: 'row hidden', style: 'gap:6px;flex-wrap:wrap;margin:0 0 8px' });
   const load = async (append) => {
+    if (mailFolder === 'inq') {
+      if (!st.site_db) { list.replaceChildren(h('div', { class: 'empty' }, t('inq_no_site'))); return; }
+      const r = await api('inquiries', { params: { status: inqStatus, q: mailQ } });
+      inqChips.classList.remove('hidden');
+      inqChips.replaceChildren(...[['open', t('inq_open')], ['new', t('inq_st_new')], ['in_progress', t('inq_st_progress')], ['done', t('inq_st_done')], ['archived', t('inq_st_archived')], ['all', t('inq_all')]].map(([k, l]) =>
+        h('button', { class: 'chip' + (inqStatus === k ? ' on' : ''), onclick: () => { inqStatus = k; load(); } }, l,
+          k === 'open' ? ' ' + ((r.counts.new || 0) + (r.counts.in_progress || 0)) : r.counts[k] ? ' ' + r.counts[k] : '')));
+      list.replaceChildren(...(r.inquiries.length ? r.inquiries.map(inqRow) : [h('div', { class: 'empty' }, t('inq_none'))]));
+      more.classList.add('hidden');
+      MAIL.inqNew = r.counts.new || 0; mailBadge();
+      return;
+    }
+    inqChips.classList.add('hidden');
+    if (!st.configured) {
+      list.replaceChildren(h('div', { class: 'card', style: 'margin:0;border:0' }, h('h3', {}, '✉ ' + t('mail_setup_h')), h('p', { class: 'muted' }, t('mail_setup_text')),
+        h('a', { class: 'btn primary', href: '#/settings', onclick: () => { try { localStorage.setItem('wf_open_mailcard', '1'); } catch (e) { /* egal */ } } }, '⚙ ' + t('mail_setup_btn'))));
+      return;
+    }
     if (!append) offset = 0;
     const r = await api('mail_list', { params: { folder: mailFolder, q: mailQ, offset } });
     offset += r.mails.length;
@@ -92,20 +117,60 @@ route(/^\/mail$/, async () => {
     if (append) list.append(...rows); else list.replaceChildren(...(rows.length ? rows : [h('div', { class: 'empty' }, mailQ ? t('mail_none_found') : t('mail_empty'))]));
     more.classList.toggle('hidden', !r.more);
   };
-  const tabs = h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, ...[['in', '📥 ' + t('mail_inbox')], ['sent', '📤 ' + t('mail_sent')], ['archived', '🗄 ' + t('mail_archive')]].map(([k, l]) =>
-    h('button', { class: 'chip' + (mailFolder === k ? ' on' : ''), onclick: () => { mailFolder = k; render(); } }, l, k === 'in' && MAIL.unread ? h('b', { class: 'cnt' }, ' ' + MAIL.unread) : null)));
-  const search = h('input', { type: 'search', placeholder: t('mail_search'), value: mailQ, oninput: (e) => { mailQ = e.target.value; clearTimeout(search._t); search._t = setTimeout(() => load(), 300); } });
-  const syncBtn = h('button', { class: 'btn', onclick: async () => { syncBtn.disabled = true; syncInfo.textContent = t('mail_syncing'); const r = await mailSync(true); syncBtn.disabled = false; syncInfo.textContent = r ? (r.ok ? t('mail_synced', r.new || 0) : t('mail_sync_err', r.detail || '')) : ''; await load(); } }, '↻ ' + t('mail_fetch'));
+  const tabs = h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, ...[['inq', '📝 ' + t('inq_tab'), MAIL.inqNew], ['in', '📥 ' + t('mail_inbox'), MAIL.unread], ['sent', '📤 ' + t('mail_sent')], ['archived', '🗄 ' + t('mail_archive')]]
+    .filter(([k]) => k !== 'inq' || st.site_db).map(([k, l, n]) =>
+      h('button', { class: 'chip' + (mailFolder === k ? ' on' : ''), onclick: () => { mailFolder = k; render(); } }, l, n ? h('b', { class: 'cnt' }, ' ' + n) : null)));
+  const search = h('input', { type: 'search', placeholder: mailFolder === 'inq' ? t('inq_search') : t('mail_search'), value: mailQ, oninput: (e) => { mailQ = e.target.value; clearTimeout(search._t); search._t = setTimeout(() => load(), 300); } });
+  const syncBtn = h('button', { class: 'btn', onclick: async () => { syncBtn.disabled = true; syncInfo.textContent = t('mail_syncing'); const r = await mailSync(true); syncBtn.disabled = false; syncInfo.textContent = r ? (r.ok && !r.not_configured ? t('mail_synced', r.new || 0) : r.not_configured ? '' : t('mail_sync_err', r.detail || '')) : ''; await load(); } }, '↻ ' + t('mail_fetch'));
   show(h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_mail')), h('h1', {}, t('mail_h1_a'), ' ', h('em', {}, t('mail_h1_b')))),
-      h('a', { class: 'btn primary', href: '#/mail/new' }, '✏️ ' + t('mail_new'))),
-    st.error ? h('div', { class: 'warnline' }, '⚠ ' + t('mail_last_error', st.error)) : null,
-    h('div', { class: 'filters mtools' }, tabs, h('div', { class: 'row', style: 'gap:6px;flex:1;min-width:220px' }, search, syncBtn)), syncInfo,
+      st.configured || st.smtp || /@/.test(st.from.addr || '') ? h('a', { class: 'btn primary', href: '#/mail/new' }, '✏️ ' + t('mail_new')) : null),
+    st.error && mailFolder !== 'inq' ? h('div', { class: 'warnline' }, '⚠ ' + t('mail_last_error', st.error)) : null,
+    h('div', { class: 'filters mtools' }, tabs, h('div', { class: 'row', style: 'gap:6px;flex:1;min-width:220px' }, search, syncBtn)), syncInfo, inqChips,
     h('div', { class: 'card', style: 'padding:0;overflow:hidden' }, list), more);
   await load();
+  if (!st.configured) return;
   // beim Öffnen gleich nach Neuem sehen (oder auf einen laufenden Abruf warten)
   const empty = !list.querySelector('.mrow');
   const r = await mailSync(empty);
-  if (r && (r.new || empty) && location.hash.startsWith('#/mail')) load();
+  if (r && (r.new || empty) && location.hash.startsWith('#/mail') && mailFolder !== 'inq') load();
+});
+
+// Datum der Webseiten-Datenbank ist Ortszeit (nicht UTC): für die Anzeige umrechnen
+function localToUtc(s) { const d = new Date(String(s).replace(' ', 'T')); return isNaN(d) ? s : d.toISOString().slice(0, 19).replace('T', ' '); }
+
+// ---------- eine Anfrage ----------
+route(/^\/inquiry\/(\d+)$/, async (id) => {
+  const q = (await api('app_inquiry', { params: { id } })).inquiry;
+  const tel = (q.phone || '').replace(/[^\d+]/g, '');
+  const row = (k, v) => v ? h('div', {}, h('label', {}, t(k)), h('div', { style: 'white-space:pre-wrap' }, v)) : null;
+  let known = null;
+  try { const c = MAIL.customers || (MAIL.customers = (await api('customers')).customers || []); known = c.find((x) => (x.email || '').toLowerCase().trim() === (q.email || '').toLowerCase().trim()) || null; } catch (e) { known = null; }
+  const notify = h('input', { type: 'checkbox', checked: true, style: 'width:20px;height:20px' });
+  const sel = h('select', { onchange: async () => {
+    try { const r = await api('inquiry_status', { body: { id: q.id, status: sel.value, notify: notify.checked ? 1 : 0 } }); toast(r.mailed ? t('inq_saved_mailed') : t('saved')); q.status = sel.value; mailStatus(true); } catch (e) { toast(e.message); }
+  } }, ...Object.entries(INQ_ST).map(([k, l]) => h('option', { value: k, selected: q.status === k }, t(l))));
+  const note = [q.name, q.email, q.phone, q.product ? `${q.qty ? parseInt(q.qty, 10) + 'x ' : ''}${q.product}` : (q.qty ? `${t('q_qty')}: ${q.qty}` : ''),
+    q.wish_date ? `${t('inq_deadline')} ${new Date(q.wish_date).toLocaleDateString(W.lang === 'da' ? 'da-DK' : 'de-DE')}` : '', q.message].filter(Boolean).join('\n');
+  show(h('div', { class: 'row', style: 'margin-bottom:8px' }, h('a', { class: 'btn small', href: '#/mail', onclick: () => { mailFolder = 'inq'; } }, '← ' + t('inq_tab'))),
+    h('div', { class: 'card mhead' },
+      h('div', { class: 'eyebrow' }, t('inq_title') + ' #' + q.id + ' · ' + mailDateLong(localToUtc(q.created_at))),
+      h('h2', { style: 'margin:4px 0 8px' }, q.name),
+      h('dl', { class: 'kv' },
+        h('dt', {}, t('mail_from')), h('dd', {}, h('a', { href: `#/mail/new?inquiry=${q.id}` }, q.email)),
+        q.phone ? h('dt', {}, t('q_phone')) : null, q.phone ? h('dd', {}, q.phone) : null,
+        q.product ? h('dt', {}, t('q_product')) : null, q.product ? h('dd', {}, q.product) : null,
+        q.qty ? h('dt', {}, t('q_qty')) : null, q.qty ? h('dd', {}, q.qty) : null,
+        q.wish_date ? h('dt', {}, t('q_wish')) : null, q.wish_date ? h('dd', {}, q.wish_date) : null,
+        q.lang ? h('dt', {}, t('inq_lang')) : null, q.lang ? h('dd', {}, { de: '🇩🇪 Deutsch', da: '🇩🇰 Dansk', en: '🇬🇧 English' }[q.lang] || q.lang) : null),
+      h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap;margin-top:10px' },
+        h('a', { class: 'btn primary', href: `#/mail/new?inquiry=${q.id}` }, '↩ ' + t('inq_reply')),
+        h('a', { class: 'btn', href: '#/new?note=' + encodeURIComponent(note), onclick: () => { if (q.status === 'new') api('inquiry_status', { body: { id: q.id, status: 'in_progress', notify: 1 } }).then(() => mailStatus(true)).catch(() => {}); } }, '🧾 ' + t('inq_to_order')),
+        known ? h('a', { class: 'btn', href: `#/customer/${known.id}` }, '👤 ' + known.name) : h('a', { class: 'btn', href: '#/customer/new', onclick: () => { try { sessionStorage.setItem('wf_new_customer', JSON.stringify({ name: q.name || '', email: q.email || '' })); } catch (e) { /* egal */ } } }, '👤＋ ' + t('mail_new_customer')),
+        tel ? h('a', { class: 'btn', href: 'tel:' + tel }, '📞 ' + t('inq_call')) : null,
+        tel ? h('a', { class: 'btn', href: 'https://wa.me/' + tel.replace(/^\+/, '').replace(/^00/, ''), target: '_blank', rel: 'noopener' }, '💬 WhatsApp') : null)),
+    h('div', { class: 'card' }, row('q_message', q.message), q.file_name ? h('p', { class: 'muted', style: 'margin:8px 0 0' }, '📎 ' + t('inq_file', q.file_name)) : null),
+    h('div', { class: 'card' }, h('div', { class: 'grid', style: 'grid-template-columns:minmax(0,1fr);gap:8px' }, h('div', {}, h('label', {}, t('inq_status')), sel),
+      h('label', { class: 'row', style: 'gap:8px;margin:0;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, notify, t('inq_notify')))));
 });
 
 // ---------- Lesen ----------
@@ -215,7 +280,7 @@ const reSubj = (s, p) => (new RegExp('^\\s*(' + p + '|re|aw|sv|fw|fwd|wg|vs)\\s*
 route(/^\/mail\/new(?:\?([\s\S]*))?$/, async (qs) => {
   const P = new URLSearchParams(qs || '');
   const st = await mailStatus();
-  if (!st.configured && !st.smtp) { location.hash = '#/mail'; return; }
+  if (!st.configured && !st.smtp && !/@/.test(st.from.addr || '')) { toast(t('mail_setup_text')); location.hash = '#/settings'; return; }
   const mode = P.get('mode') || '';
   let orig = null, origAtts = [];
   if (P.get('id')) { const r = await api('mail_get', { params: { id: P.get('id') } }); orig = r.mail; origAtts = r.atts; }
@@ -232,6 +297,17 @@ route(/^\/mail\/new(?:\?([\s\S]*))?$/, async (qs) => {
       if (mode === 'all') cc = addrList([...orig.to, ...orig.cc].filter((a) => a.addr !== myAddr && !back.some((b) => b.addr === a.addr)));
     }
   }
+  // Antwort auf eine Website-Anfrage: Adresse, Betreff in der Sprache des Kunden, Anfrage als Zitat
+  let inq = null;
+  if (P.get('inquiry')) {
+    try { inq = (await api('app_inquiry', { params: { id: P.get('inquiry') } })).inquiry; } catch (e) { inq = null; }
+    if (inq) {
+      to = inq.name ? `"${inq.name.replace(/"/g, '')}" <${inq.email}>` : inq.email;
+      const subj = { de: 'Deine Anfrage bei Wunsch-Fabrik', da: 'Din forespørgsel hos Wunsch-Fabrik', en: 'Your enquiry at Wunsch-Fabrik' }[inq.lang] || 'Deine Anfrage bei Wunsch-Fabrik';
+      subject = subj + (inq.product ? ' – ' + inq.product : '');
+      try { const c = MAIL.customers || (MAIL.customers = (await api('customers')).customers || []); const k = c.find((x) => (x.email || '').toLowerCase().trim() === (inq.email || '').toLowerCase().trim()); if (k) customerId = +k.id; } catch (e) { /* egal */ }
+    }
+  }
   // Auftrag/Kunde als Bezug: Adresse und Betreff vorschlagen
   let order = null;
   if (orderId && !orig) {
@@ -240,7 +316,7 @@ route(/^\/mail\/new(?:\?([\s\S]*))?$/, async (qs) => {
   }
   if (customerId && !to) { try { const c = (await api('customer', { params: { id: customerId } })).customer; if (c.email) to = c.name ? `"${c.name}" <${c.email}>` : c.email; } catch (e) { /* egal */ } }
 
-  const draftKey = 'wf_mail_draft_' + (orig ? mode + orig.id : orderId ? 'o' + orderId : customerId ? 'c' + customerId : 'new');
+  const draftKey = 'wf_mail_draft_' + (orig ? mode + orig.id : inq ? 'i' + inq.id : orderId ? 'o' + orderId : customerId ? 'c' + customerId : 'new');
   let draft = null; try { draft = JSON.parse(localStorage.getItem(draftKey) || 'null'); } catch (e) { draft = null; }
   const F = {
     to: h('input', { type: 'text', value: draft ? draft.to : to, placeholder: t('mail_to_ph'), autocomplete: 'off', list: 'mailAddrs' }),
@@ -256,11 +332,12 @@ route(/^\/mail\/new(?:\?([\s\S]*))?$/, async (qs) => {
   // Signatur und Zitat
   const sigOn = h('input', { type: 'checkbox', checked: true, style: 'width:20px;height:20px' });
   const sigBox = h('div', { class: 'msig' }); sigBox.innerHTML = st.signature.html || '';
-  const quoteOn = h('input', { type: 'checkbox', checked: !!orig, style: 'width:20px;height:20px' });
+  const quoteOn = h('input', { type: 'checkbox', checked: !!(orig || inq), style: 'width:20px;height:20px' });
   const quoteHead = orig ? (mode === 'fwd'
     ? `<p>-------- ${escH(t('mail_fwd_head'))} --------<br>${escH(t('mail_from'))}: ${escH(orig.from_name ? orig.from_name + ' <' + orig.from_addr + '>' : orig.from_addr)}<br>${escH(t('mail_date'))}: ${escH(mailDateLong(orig.sent_at))}<br>${escH(t('mail_subject'))}: ${escH(orig.subject)}<br>${escH(t('mail_to'))}: ${escH(addrList(orig.to))}</p>`
     : `<p>${escH(t('mail_quote_head', mailDateLong(orig.sent_at), orig.from_name || orig.from_addr))}</p>`) : '';
-  const quoteHtml = orig ? quoteHead + (mode === 'fwd' ? orig.html : `<blockquote style="margin:0 0 0 .8ex;border-left:2px solid #ccc;padding-left:1ex">${orig.html}</blockquote>`) : '';
+  const quoteHtml = orig ? quoteHead + (mode === 'fwd' ? orig.html : `<blockquote style="margin:0 0 0 .8ex;border-left:2px solid #ccc;padding-left:1ex">${orig.html}</blockquote>`)
+    : inq ? `<p>${escH(t('mail_quote_head', mailDateLong(localToUtc(inq.created_at)), inq.name || inq.email))}</p><blockquote style="margin:0 0 0 .8ex;border-left:2px solid #ccc;padding-left:1ex"><div style="white-space:pre-wrap">${escH([inq.product ? (inq.qty ? inq.qty + ' × ' : '') + inq.product : '', inq.wish_date ? t('q_wish') + ': ' + inq.wish_date : '', inq.message].filter(Boolean).join('\n\n'))}</div></blockquote>` : '';
   // Anhänge: neue Dateien, beim Weiterleiten die der Originalmail, aus dem Auftrag die Auftragsdateien
   const files = [];
   const fwd = new Set(mode === 'fwd' ? origAtts.filter((a) => !+a.inline).map((a) => +a.id) : []);
@@ -300,7 +377,7 @@ route(/^\/mail\/new(?:\?([\s\S]*))?$/, async (qs) => {
       const html = ed.get() + (sigOn.checked && sigBox.innerHTML.trim() ? `<br><div class="wf-sig">${sigBox.innerHTML}</div>` : '') + (quoteOn.checked && quoteHtml ? `<br>${quoteHtml}` : '');
       const fd = new FormData();
       fd.append('data', JSON.stringify({ to: F.to.value, cc: F.cc.value, bcc: F.bcc.value, subject: F.subject.value, html, reply_id: orig && mode !== 'fwd' ? orig.id : 0,
-        fwd_atts: [...fwd], order_files: [...ofiles], customer_id: customerId, order_id: orderId }));
+        fwd_atts: [...fwd], order_files: [...ofiles], customer_id: customerId, order_id: orderId, inquiry_id: inq ? inq.id : 0 }));
       files.forEach((f) => fd.append('files[]', f, f.name));
       const r = await api('mail_send', { form: fd });
       try { localStorage.removeItem(draftKey); } catch (e) { /* egal */ }
@@ -309,22 +386,23 @@ route(/^\/mail\/new(?:\?([\s\S]*))?$/, async (qs) => {
     } catch (e) { toast(e.message); sendBtn.disabled = false; sendBtn.textContent = '➤ ' + t('mail_send'); }
   } }, '➤ ' + t('mail_send'));
   const qPrev = h('details', { class: 'calcbox' }, h('summary', {}, mode === 'fwd' ? t('mail_fwd_content') : t('mail_quote')));
-  if (orig) { const box = h('div', { class: 'mquote' }); qPrev.append(box); box.append(mailFrame(quoteHtml)); }
-  show(h('div', { class: 'row', style: 'margin-bottom:8px' }, h('a', { class: 'btn small', href: orig ? `#/mail/${orig.id}` : '#/mail' }, '← ' + t('mail_back'))),
-    h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_mail')), h('h1', {}, mode === 'fwd' ? t('mail_forward') : orig ? t('mail_reply') : t('mail_new')))),
+  if (orig || inq) { const box = h('div', { class: 'mquote' }); qPrev.append(box); box.append(mailFrame(quoteHtml)); }
+  show(h('div', { class: 'row', style: 'margin-bottom:8px' }, h('a', { class: 'btn small', href: orig ? `#/mail/${orig.id}` : inq ? `#/inquiry/${inq.id}` : '#/mail' }, '← ' + t('mail_back'))),
+    h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_mail')), h('h1', {}, mode === 'fwd' ? t('mail_forward') : orig || inq ? t('mail_reply') : t('mail_new')))),
     h('div', { class: 'card grid mcompose' },
       h('div', { class: 'muted', style: 'font-size:.85rem' }, t('mail_from') + ': ' + (st.from.name ? st.from.name + ' <' + st.from.addr + '>' : st.from.addr)),
       h('div', {}, h('div', { class: 'row', style: 'justify-content:space-between' }, h('label', {}, t('mail_to')), h('button', { type: 'button', class: 'btn small', onclick: () => ccRow.classList.toggle('hidden') }, 'Cc/Bcc')), F.to),
       ccRow, dl,
       h('div', {}, h('label', {}, t('mail_subject')), F.subject),
       h('div', { class: 'row mtr', style: 'gap:6px;flex-wrap:wrap;align-items:center' }, h('span', { class: 'muted', style: 'font-size:.85rem' }, '🌐 ' + t('mail_translate_to')),
-        tr('da', '🇩🇰 Dansk'), tr('en', '🇬🇧 English'), tr('de', '🇩🇪 Deutsch'), undoBtn),
+        tr('da', '🇩🇰 Dansk'), tr('en', '🇬🇧 English'), tr('de', '🇩🇪 Deutsch'), undoBtn,
+        inq && inq.lang && inq.lang !== W.lang ? h('small', { class: 'muted', style: 'flex-basis:100%' }, t('inq_lang_hint', { de: 'Deutsch', da: 'Dansk', en: 'English' }[inq.lang] || inq.lang)) : null),
       ed.el,
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, h('button', { type: 'button', class: 'btn', onclick: () => pick.click() }, '📎 ' + t('mail_attach')), ofPick, pick), attList,
       h('label', { class: 'row', style: 'gap:8px;margin:0;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, sigOn, t('mail_with_sig'), h('a', { href: '#/settings', style: 'margin-left:auto;font-size:.8rem', onclick: () => { try { localStorage.setItem('wf_open_mailcard', '1'); } catch (e) { /* egal */ } } }, t('mail_edit_sig'))),
       sigBox,
-      orig ? h('label', { class: 'row', style: 'gap:8px;margin:0;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, quoteOn, mode === 'fwd' ? t('mail_with_fwd') : t('mail_with_quote')) : null,
-      orig ? qPrev : null,
+      orig || inq ? h('label', { class: 'row', style: 'gap:8px;margin:0;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, quoteOn, mode === 'fwd' ? t('mail_with_fwd') : inq ? t('inq_with_quote') : t('mail_with_quote')) : null,
+      orig || inq ? qPrev : null,
       h('div', { class: 'row end', style: 'gap:8px' }, draft ? h('button', { type: 'button', class: 'btn', onclick: () => { try { localStorage.removeItem(draftKey); } catch (e) { /* egal */ } render(); } }, t('mail_discard')) : null, sendBtn)));
   setTimeout(() => (F.to.value ? ed.ed : F.to).focus(), 50);
 });
