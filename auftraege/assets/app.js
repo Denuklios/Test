@@ -1359,8 +1359,9 @@ function shipFields(p) {
   return { el, get: el.get, fill };
 }
 
-route(/^\/products$/, async () => {
+route(/^\/products(?:\?c=(-?\d+))?$/, async (cParam) => {
   const [{ products }, { categories: cats }] = await Promise.all([api('products'), api('categories')]);
+  prodCat = cParam !== undefined ? +cParam : 0;
   const list = h('div', { class: 'prows' });
   const editRow = (p) => {
     const nm = h('input', { value: p.name || '', placeholder: t('prod_name_ph'), maxlength: 300 });
@@ -1528,14 +1529,30 @@ route(/^\/products$/, async () => {
     document.addEventListener('keydown', onKey);
     setTimeout(() => body.querySelector('input')?.focus(), 50);
   };
-  const chips = h('div', { class: 'catchips' });
-  const drawChips = () => {
-    const main = cats.filter((c) => !c.parent_id);
-    const selMain = prodCat > 0 ? (cats.find((c) => +c.id === prodCat) || {}).parent_id || prodCat : 0;
-    const chip = (id, label) => h('button', { type: 'button', class: 'chip' + (prodCat === id ? ' on' : ''), onclick: () => { prodCat = id; drawChips(); draw(); } }, label, h('small', { class: 'muted' }, ' ' + products.filter((p) => inCat(cats, p, id)).length));
-    const subs = selMain ? cats.filter((c) => +c.parent_id === +selMain) : [];
-    chips.replaceChildren(...[h('div', { class: 'chiprow' }, chip(0, t('cat_all')), ...main.map((m) => chip(+m.id, m.name)), products.some((p) => !p.category_id) && cats.length ? chip(-1, t('cat_none')) : null),
-      subs.length ? h('div', { class: 'chiprow sub' }, h('span', { class: 'muted' }, '↳'), chip(+selMain, t('cat_all_in', catPath(cats, selMain))), ...subs.map((c) => chip(+c.id, c.name))) : null].filter(Boolean));
+  // Bild je Produktgruppe (3D-Bilder in assets/cat); eigene Kategorien bekommen ein passendes über Stichworte
+  const CAT_IMG = { 'textilien': 'tshirt', 't-shirts': 'tshirt', 'poloshirts': 'polo', 'sweatshirts & hoodies': 'hoodie', 'jacken & westen': 'jacket', 'arbeitskleidung': 'workwear',
+    'kopfbedeckungen': 'cap', 'taschen': 'bag', 'frottee & heimtextilien': 'towel', 'baby & kinder': 'baby', 'sport & verein': 'sport', 'tassen & gläser': 'mug', 'tassen': 'mug', 'gläser': 'glass',
+    'flaschen & becher': 'bottle', 'holz': 'board', 'schneide- & servierbretter': 'board', 'schilder & deko': 'sign', 'cnc-frästeile': 'cnc', 'gravur & laser': 'acrylic', 'acryl': 'acrylic',
+    'leder & kork': 'leather', 'metall': 'metal', 'schiefer & stein': 'slate', 'foto & werbeartikel': 'photo', 'aufkleber & folie': 'sticker', 'fotoprodukte': 'photo', 'werbeartikel': 'promo',
+    'aufnäher & transfers': 'patch', 'aufnäher & patches': 'patch', 'transfers': 'transfer', 'leistungen': 'hoop', 'veredelung': 'hoop', 'vorbereitung': 'digit', 'zuschläge & versand': 'ship' };
+  const CAT_KW = [[/shirt|tee/, 'tshirt'], [/polo/, 'polo'], [/hood|pull|sweat/, 'hoodie'], [/jack|west|weste/, 'jacket'], [/arbeit|work/, 'workwear'], [/cap|mütze|hut|kopf/, 'cap'], [/tasche|beutel|bag/, 'bag'],
+    [/handtuch|frottee|decke|kissen/, 'towel'], [/baby|kind/, 'baby'], [/sport|verein|trikot/, 'sport'], [/tasse|becher|krus/, 'mug'], [/glas/, 'glass'], [/flasche/, 'bottle'], [/brett|holz/, 'board'],
+    [/schild|deko/, 'sign'], [/cnc|fräs/, 'cnc'], [/acryl|plexi/, 'acrylic'], [/leder|kork/, 'leather'], [/metall|alu|stahl/, 'metal'], [/schiefer|stein/, 'slate'], [/aufkleber|folie|sticker/, 'sticker'],
+    [/foto|bild|leinwand/, 'photo'], [/werbe|kuli|stift/, 'promo'], [/patch|aufnäher|abzeichen/, 'patch'], [/transfer|druck/, 'transfer'], [/stick|veredel|leistung/, 'hoop'], [/digital|vorlage|grafik/, 'digit'], [/versand|porto|zuschlag/, 'ship']];
+  const catImg = (c) => { const n = String(c ? c.name : '').toLowerCase().trim(); const k = CAT_IMG[n] || (CAT_KW.find(([re]) => re.test(n)) || [])[1] || 'gift'; return `${BASE}assets/cat/${k}.webp`; };
+  const catHref = (id) => '#/products' + (id ? '?c=' + id : '');
+  const missing = (ps) => ps.filter((p) => +p.active && !+p.price).length;
+  // Kachel je Kategorie: Bild, Name, Anzahl, fehlende Preise
+  const tile = (c, ps, label) => h('a', { class: 'ptile', href: catHref(c ? +c.id : -1) },
+    h('span', { class: 'ptile-img' }, h('img', { src: catImg(c), alt: '', loading: 'lazy' })),
+    h('span', { class: 'ptile-t' }, label || c.name),
+    h('span', { class: 'ptile-s' }, t('prod_n', ps.length)),
+    missing(ps) ? h('span', { class: 'ptile-w' }, '⚠ ' + t('prod_missing_short', missing(ps))) : h('span', { class: 'ptile-ok' }, ps.length ? '✓ ' + t('prod_all_priced') : ''));
+  const crumbs = h('div', { class: 'pcrumbs' });
+  const drawCrumbs = () => {
+    const c = cats.find((x) => +x.id === prodCat), parent = c && c.parent_id ? cats.find((x) => +x.id === +c.parent_id) : null;
+    crumbs.replaceChildren(...(prodCat ? [h('a', { href: catHref(0) }, '🏠 ' + t('cat_all')), parent ? h('span', {}, ' › ') : null, parent ? h('a', { href: catHref(+parent.id) }, parent.name) : null,
+      h('span', {}, ' › '), h('b', {}, prodCat === -1 ? t('cat_none') : c ? c.name : '')] : []).filter(Boolean));
   };
   // Preis direkt in der Liste eintragen (Enter speichert) – der Rest des Produkts bleibt wie er ist
   const prodBody = (p, over) => ({ id: p.id, name: p.name, unit: p.unit, price: centsIn(p.price || 0), kind: p.kind, active: +p.active, processes: p.processes, category_id: p.category_id || null,
@@ -1564,39 +1581,44 @@ route(/^\/products$/, async () => {
     return cell;
   };
   // eine Zeile je Produkt: Bild, Name + Nummer, Varianten, Zeit, Preis
-  const compactRow = (p) => h('div', { class: 'prow' + (+p.active ? '' : ' inactive'), role: 'button', tabindex: '0', onclick: () => openDrawer(p), onkeydown: (e) => { if (e.key === 'Enter') openDrawer(p); } },
-    p.images.length ? h('img', { class: 'pthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : h('span', { class: 'pthumb none' }, '🏷'),
+  const compactRow = (p) => h('div', { class: 'prow' + (+p.active ? '' : ' inactive') + (p.images.length ? '' : ' noimg'), role: 'button', tabindex: '0', onclick: () => openDrawer(p), onkeydown: (e) => { if (e.key === 'Enter') openDrawer(p); } },
+    p.images.length ? h('img', { class: 'pthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : null,
     h('span', { class: 'pn' }, h('b', {}, p.name), h('small', { class: 'muted' }, [p.sku, +p.active ? '' : t('inactive')].filter(Boolean).join(' · '))),
     h('span', { class: 'pv muted' }, (p.options || []).length ? optSummary(p) : ''),
     h('span', { class: 'pt muted' }, p.processes.length ? '⏱ ' + procLabel(p.processes) : ''),
     priceCell(p));
   let onlyMissing = false, showInactive = false;
   const sumLine = h('div', { class: 'psum' });
-  const visible = () => products.filter((p) => inCat(cats, p, prodCat) && (showInactive || +p.active || prodQ) && (!onlyMissing || !+p.price)
+  const visible = () => products.filter((p) => (prodQ || inCat(cats, p, prodCat)) && (showInactive || +p.active || prodQ) && (!onlyMissing || !+p.price)
     && (!prodQ || (p.name + ' ' + (p.sku || '') + ' ' + (p.barcode || '') + ' ' + catPath(cats, p.category_id)).toLowerCase().includes(prodQ.toLowerCase())));
   const drawSum = () => {
-    const miss = products.filter((p) => +p.active && !+p.price).length, inact = products.filter((p) => !+p.active).length;
+    const scope = products.filter((p) => prodQ || inCat(cats, p, prodCat));
+    const miss = scope.filter((p) => +p.active && !+p.price).length, inact = scope.filter((p) => !+p.active).length;
     sumLine.replaceChildren(...[h('span', { class: 'muted' }, t('prod_count', visible().length, products.length)),
       miss ? h('button', { class: 'chip' + (onlyMissing ? ' on warn' : ' warn'), onclick: () => { onlyMissing = !onlyMissing; drawSum(); draw(); } }, '⚠ ' + t('prod_missing_price', miss)) : null,
       inact ? h('button', { class: 'chip' + (showInactive ? ' on' : ''), onclick: () => { showInactive = !showInactive; drawSum(); draw(); } }, t('prod_show_inactive', inact)) : null].filter(Boolean));
   };
   // nach Kategorie gruppiert; Gruppen lassen sich zuklappen (merkt sich das Gerät)
-  // gemerkt je Gruppe: 1 = zu, 0 = auf; ohne Eintrag sind bei langen Listen alle Gruppen zu (Übersicht der Kategorien)
-  let closedGroups = {};
-  try { closedGroups = JSON.parse(localStorage.getItem('wf_prod_groups') || '{}') || {}; } catch (e) { closedGroups = {}; }
   const draw = () => {
+    drawCrumbs();
     const vis = visible();
-    if (!vis.length) { list.replaceChildren(h('div', { class: 'empty' }, products.length ? t('prod_none_found') : t('prod_none'))); return; }
+    const subsOf = (id) => cats.filter((c) => +c.parent_id === id);
+    const inC = (id) => products.filter((p) => inCat(cats, p, id) && (showInactive || +p.active));
+    // Übersicht: Kacheln der Hauptkategorien bzw. der Unterkategorien
+    if (!prodQ && !onlyMissing && (prodCat === 0 || (prodCat > 0 && subsOf(prodCat).length))) {
+      const list0 = prodCat === 0 ? cats.filter((c) => !c.parent_id) : subsOf(prodCat);
+      const loose = prodCat === 0 ? products.filter((p) => !p.category_id && (showInactive || +p.active)) : products.filter((p) => +p.category_id === prodCat && (showInactive || +p.active));
+      const tiles = list0.map((c) => tile(c, inC(+c.id)));
+      list.replaceChildren(...[h('div', { class: 'ptiles' }, ...tiles, prodCat === 0 && loose.length ? tile(null, loose, t('cat_none')) : null),
+        prodCat > 0 && loose.length ? h('div', { class: 'pgroup', style: 'margin-top:12px' }, h('div', { class: 'pghead' }, t('prod_direct')), ...loose.map(compactRow)) : null].filter(Boolean));
+      drawSum();
+      return;
+    }
+    if (!vis.length) { list.replaceChildren(h('div', { class: 'empty' }, products.length ? t('prod_none_found') : t('prod_none'))); drawSum(); return; }
+    // Liste: bei Suche/Filter nach Kategorie gruppiert, sonst eine Gruppe
     const groups = new Map();
     vis.forEach((p) => { const k = p.category_id ? catPath(cats, p.category_id) : t('cat_none'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(p); });
-    const flat = groups.size === 1 || prodQ;
-    const defOpen = vis.length <= 40 || prodCat !== 0 || onlyMissing;
-    list.replaceChildren(...[...groups.entries()].map(([k, ps]) => {
-      if (flat) return h('div', { class: 'pgroup' }, ...ps.map(compactRow));
-      const g = h('details', { class: 'pgroup', open: k in closedGroups && !(prodCat !== 0 || onlyMissing) ? !closedGroups[k] : defOpen }, h('summary', {}, h('b', {}, k), h('span', { class: 'muted' }, ' ' + t('prod_n', ps.length) + (ps.some((p) => !+p.price) ? ' · ' + t('prod_missing_short', ps.filter((p) => !+p.price).length) : ''))), ...ps.map(compactRow));
-      g.addEventListener('toggle', () => { if (prodCat !== 0 || onlyMissing) return; closedGroups[k] = g.open ? 0 : 1; try { localStorage.setItem('wf_prod_groups', JSON.stringify(closedGroups)); } catch (e) { /* egal */ } });
-      return g;
-    }));
+    list.replaceChildren(...[...groups.entries()].map(([k, ps]) => h('div', { class: 'pgroup' }, groups.size > 1 ? h('div', { class: 'pghead' }, h('b', {}, k), h('span', { class: 'muted' }, ' ' + t('prod_n', ps.length))) : null, ...ps.map(compactRow))));
     drawSum();
   };
   // Kategorien verwalten
@@ -1638,14 +1660,14 @@ route(/^\/products$/, async () => {
       h('div', { class: 'row', style: 'gap:8px;flex-wrap:nowrap' }, search,
         scanBtn((c) => {
           const p = prodByCode(products, c);
-          prodCat = 0; prodQ = p ? (p.sku || c) : c; search.value = prodQ; drawChips(); draw();
+          prodQ = p ? (p.sku || c) : c; search.value = prodQ; draw();
           toast(p ? t('scan_found', p.name) : t('scan_notfound', c));
           if (p) openDrawer(p);
         }, t('scan'))),
-      cats.length ? chips : null, sumLine),
+      crumbs, sumLine),
     products.length ? list : null);
   if (prodCat && prodCat !== -1 && !cats.some((c) => +c.id === prodCat)) prodCat = 0;
-  drawChips(); draw();
+  draw();
 });
 
 route(/^\/customers$/, async () => {

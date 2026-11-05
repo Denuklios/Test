@@ -614,3 +614,26 @@ body.noscroll{overflow:hidden}
 .calcbox.flat>summary{display:none}
 .calcbox.flat{border:0;padding:0;background:none;margin:0}
 .pfoot{position:sticky;bottom:0;display:flex;justify-content:space-between;align-items:center;gap:10px;padding:12px 0 16px;background:linear-gradient(to top,var(--bg) 75%,transparent);margin-top:4px}
+
+/* Produkte: Kacheln je Kategorie */
+.pcrumbs{font-size:.9rem;margin:6px 0 0;display:flex;gap:2px;flex-wrap:wrap;align-items:baseline}
+.pcrumbs:empty{display:none}
+.pcrumbs a{color:var(--p2);text-decoration:none}
+.ptiles{display:grid;grid-template-columns:repeat(auto-fill,minmax(190px,1fr));gap:14px}
+.ptile{display:flex;flex-direction:column;align-items:center;text-align:center;gap:2px;padding:14px 12px 14px;border-radius:18px;border:1px solid var(--line);background:linear-gradient(180deg,var(--surface) 0%,var(--surface3) 100%);text-decoration:none;color:var(--text);transition:transform .15s,box-shadow .15s,border-color .15s}
+.ptile:hover{transform:translateY(-3px);box-shadow:0 14px 30px rgba(126,34,206,.14);border-color:var(--line-strong)}
+.ptile-img{width:100%;aspect-ratio:1/1;max-width:170px;display:block}
+.ptile-img img{width:100%;height:100%;object-fit:contain;display:block;filter:drop-shadow(0 6px 10px rgba(60,20,100,.08))}
+.ptile-t{font-weight:700;font-size:1rem;line-height:1.25;margin-top:4px}
+.ptile-s{font-size:.8rem;color:var(--muted)}
+.ptile-w{font-size:.75rem;color:#92400e;background:#fde68a;border-radius:999px;padding:2px 9px;margin-top:4px}
+.ptile-ok{font-size:.75rem;color:#065f46;margin-top:4px}
+.pghead{padding:10px 14px;background:var(--surface3);font-size:.9rem}
+.prows .prow.noimg{grid-template-columns:minmax(0,2.2fr) minmax(0,1.6fr) minmax(0,1fr) minmax(120px,auto)}
+@media (max-width:760px){
+  .ptiles{grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+  .ptile{padding:10px 8px 12px;border-radius:14px}
+  .ptile-img{max-width:118px}
+  .ptile-t{font-size:.9rem}
+  .prows .prow.noimg{grid-template-columns:minmax(0,1fr) auto}
+}
