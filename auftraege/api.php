@@ -15,6 +15,7 @@ require_once __DIR__ . '/inc/package.php';
 require_once __DIR__ . '/inc/sku.php';
 require_once __DIR__ . '/inc/gtin.php';
 require_once __DIR__ . '/inc/events.php';
+require_once __DIR__ . '/inc/mailbox.php';
 
 const WF_STATUSES = ['inquiry', 'approval', 'material', 'production', 'done', 'delivered'];
 const WF_PAY = ['open', 'deposit', 'paid'];
@@ -870,6 +871,347 @@ try {
         // Vorschlag für die nächste Artikelnummer (Anzeige im Formular, vergeben wird erst beim Speichern)
         case 'sku_suggest':
             wf_json(['ok' => true, 'sku' => wf_sku_for($db, (int)($_GET['category_id'] ?? 0) ?: null, ($_GET['kind'] ?? '') === 'services' ? 'services' : 'goods')]);
+
+        // ---------- Postfach ----------
+        case 'mail_status': {
+            $c = wf_imap_cfg();
+            $raw = json_decode((string)($db->query("SELECT value FROM meta WHERE key = 'imap'")->fetchColumn() ?: '{}'), true) ?: [];
+            $st = json_decode((string)($db->query("SELECT value FROM meta WHERE key = 'mail_state'")->fetchColumn() ?: '{}'), true) ?: [];
+            $meta = fn($k) => (string)($db->query("SELECT value FROM meta WHERE key = " . $db->quote($k))->fetchColumn() ?: '');
+            wf_json(['ok' => true, 'configured' => (bool)$c, 'smtp' => (bool)wf_smtp_cfg(), 'from' => wf_mail_from(),
+                'imap' => ['host' => (string)($raw['host'] ?? ''), 'port' => (int)($raw['port'] ?? 993), 'user' => (string)($raw['user'] ?? ''), 'own_pass' => (string)($raw['pass'] ?? '') !== ''],
+                'unread' => (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in' AND seen = 0 AND archived = 0")->fetchColumn(),
+                'last_sync' => $meta('mail_sync_last'), 'error' => $meta('mail_sync_error'), 'sent_box' => (string)($st['sent_box'] ?? ''),
+                'signature' => wf_mail_signature($db, $user), 'deepl' => wf_deepl_key() !== '', 'deepl_own' => $meta('deepl_key') !== '']);
+        }
+
+        case 'mail_settings_save': {
+            need_post();
+            $host = s($in, 'host', 120);
+            if ($host === '') {
+                $db->exec("DELETE FROM meta WHERE key IN ('imap', 'mail_state')");
+                wf_json(['ok' => true]);
+            }
+            if (!preg_match('/^[a-z0-9.\-]+$/i', $host)) {
+                wf_fail('bad_host');
+            }
+            $port = (int)($in['port'] ?? 993);
+            if (!in_array($port, [993, 143], true) && !getenv('WF_TEST_DATA_DIR')) {
+                wf_fail('bad_port');
+            }
+            $old = json_decode((string)($db->query("SELECT value FROM meta WHERE key = 'imap'")->fetchColumn() ?: '{}'), true) ?: [];
+            $pass = (string)($in['pass'] ?? '');
+            $cfg = ['host' => $host, 'port' => $port, 'user' => s($in, 'user', 200), 'pass' => !empty($in['same_pass']) ? '' : ($pass !== '' ? $pass : (string)($old['pass'] ?? ''))];
+            if (($old['host'] ?? '') !== $host || ($old['user'] ?? '') !== $cfg['user']) {
+                $db->exec("DELETE FROM meta WHERE key = 'mail_state'");   // anderes Postfach: neu abgleichen
+            }
+            $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('imap', ?)")->execute([json_encode($cfg)]);
+            if (isset($in['deepl_key'])) {
+                $k = trim((string)$in['deepl_key']);
+                if ($k === '-') {
+                    $db->exec("DELETE FROM meta WHERE key = 'deepl_key'");
+                } elseif ($k !== '') {
+                    $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('deepl_key', ?)")->execute([mb_substr($k, 0, 100)]);
+                }
+            }
+            // Verbindung gleich prüfen
+            try {
+                $c = wf_imap_cfg();
+                if (!$c) {
+                    wf_json(['ok' => true, 'tested' => false, 'detail' => wf_smtp_cfg() ? 'Benutzer oder Passwort fehlt' : 'Passwort fehlt – „Gleiches Passwort wie beim Versand“ geht erst, wenn der Versandweg eingerichtet ist']);
+                }
+                new WfImap($c);
+                wf_json(['ok' => true, 'tested' => true]);
+            } catch (Throwable $e) {
+                wf_json(['ok' => true, 'tested' => false, 'detail' => $e->getMessage()]);
+            }
+        }
+
+        case 'mail_sig_save': {
+            need_post();
+            $html = (string)($in['html'] ?? '');
+            if (strlen($html) > 3 * 1024 * 1024) {
+                wf_fail('too_large');
+            }
+            $db->prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)')->execute([wf_mail_sig_key($user), json_encode(['html' => $html], JSON_UNESCAPED_UNICODE)]);
+            wf_json(['ok' => true]);
+        }
+
+        case 'mail_sync': {
+            session_write_close();
+            @set_time_limit(60);
+            $r = wf_mail_sync($db, 20);
+            $r['unread'] = (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in' AND seen = 0 AND archived = 0")->fetchColumn();
+            if (!$r['ok'] && ($r['error'] ?? '') === 'imap_not_configured') {
+                wf_fail('imap_not_configured');
+            }
+            wf_json(['ok' => true] + $r);
+        }
+
+        case 'mail_unread':
+            wf_json(['ok' => true, 'unread' => (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in' AND seen = 0 AND archived = 0")->fetchColumn()]);
+
+        case 'mail_list': {
+            $folder = (string)($_GET['folder'] ?? 'in');
+            $w = [];
+            $p = [];
+            if (in_array($folder, ['in', 'sent'], true)) {
+                $w[] = 'm.folder = ? AND m.archived = 0';
+                $p[] = $folder;
+            } elseif ($folder === 'archived') {
+                $w[] = 'm.archived = 1';
+            }
+            if ($cid = (int)($_GET['customer_id'] ?? 0)) {
+                $em = $db->prepare('SELECT lower(trim(email)) FROM customers WHERE id = ?');
+                $em->execute([$cid]);
+                $addr = (string)$em->fetchColumn();
+                $w[] = '(m.customer_id = ?' . ($addr !== '' ? ' OR m.from_addr = ? OR m.to_json LIKE ?' : '') . ')';
+                $p[] = $cid;
+                if ($addr !== '') {
+                    $p[] = $addr;
+                    $p[] = '%"' . $addr . '"%';
+                }
+            }
+            if ($oid = (int)($_GET['order_id'] ?? 0)) {
+                $w[] = 'm.order_id = ?';
+                $p[] = $oid;
+            }
+            if (($q = trim((string)($_GET['q'] ?? ''))) !== '') {
+                $like = '%' . str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q) . '%';
+                $w[] = "(m.subject LIKE ? ESCAPE '\\' OR m.from_addr LIKE ? ESCAPE '\\' OR m.from_name LIKE ? ESCAPE '\\' OR m.to_json LIKE ? ESCAPE '\\' OR m.body_text LIKE ? ESCAPE '\\')";
+                array_push($p, $like, $like, $like, $like, $like);
+            }
+            $off = max(0, (int)($_GET['offset'] ?? 0));
+            $st = $db->prepare('SELECT m.id, m.folder, m.from_addr, m.from_name, m.to_json, m.subject, m.snippet, m.sent_at, m.seen, m.has_att, m.archived, m.customer_id, m.order_id, m.thread,
+                c.name AS customer_name, o.nr AS order_nr FROM mail_msgs m LEFT JOIN customers c ON c.id = m.customer_id LEFT JOIN orders o ON o.id = m.order_id'
+                . ($w ? ' WHERE ' . implode(' AND ', $w) : '') . ' ORDER BY m.sent_at DESC, m.id DESC LIMIT 51 OFFSET ' . $off);
+            $st->execute($p);
+            $rows = $st->fetchAll();
+            $more = count($rows) > 50;
+            wf_json(['ok' => true, 'more' => $more, 'mails' => array_map(function ($r) {
+                $r['to'] = json_decode((string)$r['to_json'], true) ?: [];
+                unset($r['to_json']);
+                return $r;
+            }, array_slice($rows, 0, 50))]);
+        }
+
+        case 'mail_get': {
+            $id = (int)($_GET['id'] ?? 0);
+            $st = $db->prepare('SELECT m.*, c.name AS customer_name, c.email AS customer_email, o.nr AS order_nr, o.title AS order_title
+                FROM mail_msgs m LEFT JOIN customers c ON c.id = m.customer_id LEFT JOIN orders o ON o.id = m.order_id WHERE m.id = ?');
+            $st->execute([$id]);
+            $m = $st->fetch();
+            if (!$m) {
+                wf_fail('not_found', 404);
+            }
+            if (!(int)$m['seen']) {
+                $db->prepare('UPDATE mail_msgs SET seen = 1, seen_synced = 0 WHERE id = ?')->execute([$id]);
+            }
+            $safe = wf_mail_safe_html($db, $m, !empty($_GET['remote']));
+            $at = $db->prepare('SELECT id, name, mime, size, inline FROM mail_atts WHERE msg_id = ? ORDER BY id');
+            $at->execute([$id]);
+            $th = $db->prepare('SELECT id, folder, from_addr, from_name, to_json, subject, snippet, sent_at FROM mail_msgs WHERE thread = ? AND thread <> "" ORDER BY sent_at, id');
+            $th->execute([(string)$m['thread']]);
+            unset($m['body_html']);
+            $m['to'] = json_decode((string)$m['to_json'], true) ?: [];
+            $m['cc'] = json_decode((string)$m['cc_json'], true) ?: [];
+            unset($m['to_json'], $m['cc_json']);
+            wf_json(['ok' => true, 'mail' => $m + ['html' => $safe['html'], 'blocked' => $safe['blocked']], 'atts' => $at->fetchAll(),
+                'thread' => array_map(function ($r) {
+                    $r['to'] = json_decode((string)$r['to_json'], true) ?: [];
+                    unset($r['to_json']);
+                    return $r;
+                }, $th->fetchAll())]);
+        }
+
+        case 'mail_att': {
+            $st = $db->prepare('SELECT * FROM mail_atts WHERE id = ?');
+            $st->execute([(int)($_GET['id'] ?? 0)]);
+            $a = $st->fetch();
+            $path = $a ? wf_mail_dir() . basename((string)$a['stored_name']) : '';
+            if (!$a || !is_file($path)) {
+                wf_fail('not_found', 404);
+            }
+            session_write_close();
+            $mime = (string)$a['mime'];
+            $safeInline = preg_match('#^(image/(jpeg|png|gif|webp)|application/pdf)$#', $mime) && empty($_GET['dl']);
+            header_remove('Content-Type');
+            header('Content-Type: ' . ($safeInline ? $mime : 'application/octet-stream'));
+            header('X-Content-Type-Options: nosniff');
+            header("Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox");
+            header('Content-Disposition: ' . ($safeInline ? 'inline' : 'attachment') . "; filename*=UTF-8''" . rawurlencode((string)$a['name']));
+            header('Content-Length: ' . filesize($path));
+            header('Cache-Control: private, max-age=3600');
+            readfile($path);
+            exit;
+        }
+
+        case 'mail_update': {
+            need_post();
+            $id = (int)($in['id'] ?? 0);
+            $sets = [];
+            $p = [];
+            foreach (['archived', 'seen'] as $k) {
+                if (isset($in[$k])) {
+                    $sets[] = "$k = ?";
+                    $p[] = $in[$k] ? 1 : 0;
+                    if ($k === 'seen') {
+                        $sets[] = 'seen_synced = 0';
+                    }
+                }
+            }
+            foreach (['customer_id', 'order_id'] as $k) {
+                if (array_key_exists($k, $in)) {
+                    $sets[] = "$k = ?";
+                    $p[] = (int)$in[$k] ?: null;
+                }
+            }
+            if ($sets) {
+                $p[] = $id;
+                $db->prepare('UPDATE mail_msgs SET ' . implode(', ', $sets) . ' WHERE id = ?')->execute($p);
+                // Zuordnung gilt für den ganzen Gesprächsfaden
+                if (array_key_exists('customer_id', $in) || array_key_exists('order_id', $in)) {
+                    $t = $db->prepare('SELECT thread, customer_id, order_id FROM mail_msgs WHERE id = ?');
+                    $t->execute([$id]);
+                    if (($r = $t->fetch()) && $r['thread'] !== '') {
+                        $db->prepare('UPDATE mail_msgs SET customer_id = ?, order_id = ? WHERE thread = ?')->execute([$r['customer_id'], $r['order_id'], $r['thread']]);
+                    }
+                }
+            }
+            wf_json(['ok' => true]);
+        }
+
+        case 'mail_translate': {
+            need_post();
+            $target = ['de' => 'DE', 'da' => 'DA', 'en' => 'EN-GB'][(string)($in['target'] ?? '')] ?? null;
+            $html = (string)($in['html'] ?? '');
+            if (!$target || strlen($html) > 200000) {
+                wf_fail('bad_input');
+            }
+            if (wf_deepl_key() === '') {
+                wf_fail('deepl_missing');
+            }
+            $r = wf_translate($html, $target);
+            if ($r === null) {
+                wf_fail('translate_failed', 502, ['detail' => (string)($GLOBALS['wf_translate_err'] ?? '')]);
+            }
+            wf_json(['ok' => true, 'html' => $r]);
+        }
+
+        case 'mail_send': {
+            need_post();
+            session_write_close();
+            @set_time_limit(90);
+            $d = json_decode((string)($_POST['data'] ?? ''), true);
+            if (!is_array($d)) {
+                wf_fail('bad_input');
+            }
+            $parse = function ($v): array {
+                $out = [];
+                foreach (wf_mail_addrs(is_array($v) ? implode(',', $v) : (string)$v) as $a) {
+                    if (!wf_email_ok($a['addr'])) {
+                        wf_fail('mail_bad_addr', 400, ['detail' => $a['addr']]);
+                    }
+                    $out[] = $a;
+                }
+                return $out;
+            };
+            $to = $parse($d['to'] ?? '');
+            $cc = $parse($d['cc'] ?? '');
+            $bcc = $parse($d['bcc'] ?? '');
+            if (!$to) {
+                wf_fail('mail_no_to');
+            }
+            if (count($to) + count($cc) + count($bcc) > 30) {
+                wf_fail('mail_too_many');
+            }
+            $subject = mb_substr(trim((string)($d['subject'] ?? '')), 0, 300);
+            $html = (string)($d['html'] ?? '');
+            if (strlen($html) > 15 * 1024 * 1024) {
+                wf_fail('too_large');
+            }
+            // Bezug: Antwort (In-Reply-To/References) bzw. Weiterleitung (Anhänge übernehmen)
+            $irt = '';
+            $refs = [];
+            if ($rid = (int)($d['reply_id'] ?? 0)) {
+                $o = $db->prepare('SELECT message_id, refs FROM mail_msgs WHERE id = ?');
+                $o->execute([$rid]);
+                if ($r = $o->fetch()) {
+                    $irt = (string)$r['message_id'];
+                    $refs = array_values(array_filter(array_merge(preg_split('/\s+/', (string)$r['refs']) ?: [], [$irt])));
+                }
+            }
+            $files = [];
+            $total = 0;
+            $dir = wf_mail_dir();
+            foreach (array_slice(array_map('intval', (array)($d['fwd_atts'] ?? [])), 0, 30) as $aid) {
+                $a = $db->prepare('SELECT name, mime, stored_name FROM mail_atts WHERE id = ?');
+                $a->execute([$aid]);
+                if ($r = $a->fetch()) {
+                    $data = (string)@file_get_contents($dir . basename((string)$r['stored_name']));
+                    $total += strlen($data);
+                    $files[] = ['name' => $r['name'], 'mime' => $r['mime'], 'data' => $data];
+                }
+            }
+            // Dateien aus Auftrag/Rechnung (z. B. Motiv, PDF) – gleiche Prüfung wie beim Herunterladen
+            foreach (array_slice(array_map('intval', (array)($d['order_files'] ?? [])), 0, 20) as $fid) {
+                $f = $db->prepare('SELECT original_name, mime, stored_name FROM order_files WHERE id = ?');
+                $f->execute([$fid]);
+                if ($r = $f->fetch()) {
+                    $data = (string)@file_get_contents($dir . basename((string)$r['stored_name']));
+                    $total += strlen($data);
+                    $files[] = ['name' => $r['original_name'], 'mime' => $r['mime'], 'data' => $data];
+                }
+            }
+            $up = $_FILES['files'] ?? null;
+            if ($up && is_array($up['name'])) {
+                foreach ($up['name'] as $i => $nm) {
+                    if (($up['error'][$i] ?? 1) !== UPLOAD_ERR_OK || !is_uploaded_file($up['tmp_name'][$i])) {
+                        wf_fail('upload_failed');
+                    }
+                    $data = (string)file_get_contents($up['tmp_name'][$i]);
+                    $total += strlen($data);
+                    $mime = (new finfo(FILEINFO_MIME_TYPE))->buffer($data) ?: 'application/octet-stream';
+                    $files[] = ['name' => mb_substr(preg_replace('/[\/\\\\\x00-\x1f]/u', '_', basename((string)$nm)) ?? 'datei', 0, 180), 'mime' => $mime, 'data' => $data];
+                }
+            }
+            if ($total + strlen($html) > 24 * 1024 * 1024) {
+                wf_fail('mail_too_big');
+            }
+            $from = wf_mail_from();
+            if (!wf_email_ok($from['addr'])) {
+                wf_fail('mail_no_from');
+            }
+            [$raw, $msgId] = wf_mail_build($from, $to, $cc, $subject, $html, $files, $irt, $refs);
+            $rcpts = array_values(array_unique(array_map(fn($a) => wf_email_ascii($a['addr']), array_merge($to, $cc, $bcc))));
+            if (!wf_mail_transport(wf_email_ascii($from['addr']), $rcpts, $raw)) {
+                wf_fail('mail_send_failed', 502, ['detail' => (string)($GLOBALS['wf_mail_err'] ?? '')]);
+            }
+            // Kopie in „Gesendet“ am Server (damit Handy/Webmail sie auch sehen); Fehler dabei ändern nichts am Versand
+            $copied = false;
+            if ($c = wf_imap_cfg()) {
+                try {
+                    $im = new WfImap($c);
+                    $st = json_decode((string)($db->query("SELECT value FROM meta WHERE key = 'mail_state'")->fetchColumn() ?: '{}'), true) ?: [];
+                    $box = (string)($st['sent_box'] ?? '') ?: $im->sentFolder();
+                    $copied = $box !== '' && $im->append($box, $raw);
+                } catch (Throwable $e) {
+                    $copied = false;
+                }
+            }
+            $id = wf_mail_store($db, $raw, 'sent', null, true, false, (string)$user['name']);
+            if ($id) {
+                $cust = (int)($d['customer_id'] ?? 0) ?: null;
+                $ord = (int)($d['order_id'] ?? 0) ?: null;
+                if ($cust || $ord) {
+                    $db->prepare('UPDATE mail_msgs SET customer_id = COALESCE(?, customer_id), order_id = COALESCE(?, order_id) WHERE id = ?')->execute([$cust, $ord, $id]);
+                }
+                if ($ord) {
+                    $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([$ord, $user['name'], 'mail:postfach|' . implode(', ', array_column($to, 'addr'))]);
+                }
+            }
+            wf_json(['ok' => true, 'id' => $id, 'copied' => $copied, 'message_id' => $msgId]);
+        }
 
         // Benachrichtigungen für die Handy-App: alles nach dem mitgeschickten Stand
         case 'app_events':

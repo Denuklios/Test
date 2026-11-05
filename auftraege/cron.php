@@ -24,6 +24,7 @@ function wf_cron_fail(string $msg): void
 }
 require __DIR__ . '/inc/bootstrap.php';
 require_once __DIR__ . '/inc/custmail.php';
+require_once __DIR__ . '/inc/mailbox.php';
 session_write_close();
 header('Content-Type: text/plain; charset=utf-8');
 header('Cache-Control: no-store');
@@ -47,11 +48,13 @@ if ((int)$cnt->fetchColumn() >= 30 || $real === '' || !hash_equals($real, $key))
 try {
     $archive = wf_archive_cfg()['mode'] !== '' ? wf_archive_run($db, 20) : ['sent' => 0, 'failed' => 0];
     $mails = wf_cm_run($db, 20);
+    // Postfach abgleichen, damit Meldungen in der Handy-App auch ohne geöffnetes Programm kommen
+    $inbox = wf_imap_cfg() ? wf_mail_sync($db, 40) : null;
 } catch (Throwable $e) {
     wf_cron_fail($e->getMessage() . ' in ' . basename($e->getFile()) . ':' . $e->getLine());
     exit;
 }
 $db->exec("DELETE FROM meta WHERE key = 'cron_error'");
-$res = "OK archive={$archive['sent']} failed={$archive['failed']} followup=$mails";
+$res = "OK archive={$archive['sent']} failed={$archive['failed']} followup=$mails" . ($inbox ? ' postfach=' . ($inbox['ok'] ? (int)$inbox['new'] : 'fehler') : '');
 $db->prepare("INSERT OR REPLACE INTO meta (key, value) VALUES ('cron_last', ?), ('cron_result', ?)")->execute([date('Y-m-d H:i:s'), $res]);
 echo $res . "\n";

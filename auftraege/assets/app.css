@@ -510,3 +510,50 @@ table.t td.n,table.t th.n{text-align:right;white-space:nowrap;font-variant-numer
 @keyframes scanmove{from{transform:translateY(-60px)}to{transform:translateY(60px)}}
 .scanbtn{flex:0 0 auto}
 .bcout{margin-top:6px;padding:8px 10px;border:1px dashed var(--line-strong);border-radius:10px;font-size:.9rem}
+/* Postfach */
+.nav a{position:relative}
+.mbadge{position:absolute;top:4px;left:calc(50% + 6px);min-width:17px;height:17px;padding:0 4px;border-radius:9px;background:#dc2626;color:#fff;font:700 .62rem/17px var(--body);font-style:normal;text-align:center;letter-spacing:0}
+@media (min-width:900px){.mbadge{position:static;margin-left:auto}}
+.mtools{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.mlist{display:flex;flex-direction:column}
+.mrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:2px 10px;padding:11px 14px;border-bottom:1px solid var(--line);text-decoration:none;color:inherit}
+.mrow:last-child{border-bottom:0}
+.mrow:hover{background:var(--surface3)}
+.mrow .mwho{font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow .mdate{font-size:.78rem;color:var(--muted);white-space:nowrap}
+.mrow .msubj{grid-column:1/-1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow .msnip,.mtrow .msnip{grid-column:1/-1;font-size:.82rem;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.mrow .mtags{grid-column:1/-1;display:flex;gap:6px;flex-wrap:wrap;margin-top:3px}
+.mrow .mtags .chip{font-size:.72rem;padding:2px 8px;min-height:0}
+.mrow.unread .mwho,.mrow.unread .msubj{font-weight:700}
+.mrow.unread{box-shadow:inset 3px 0 0 var(--p2)}
+.mhead .kv dd{overflow-wrap:anywhere}
+.massign{margin-top:8px}
+.massign:empty{display:none}
+.mbody{background:#fff;border-radius:10px}
+.mailframe{width:100%;border:0;min-height:120px;display:block;background:#fff;border-radius:10px}
+.matts{display:flex;flex-wrap:wrap;gap:8px}
+.matt{display:flex;align-items:center;gap:8px;padding:6px 10px;border:1px solid var(--line);border-radius:10px;background:var(--field);text-decoration:none;color:inherit;max-width:100%;font-size:.88rem}
+.matt img{width:44px;height:44px;object-fit:cover;border-radius:6px}
+.matt .mico{width:34px;height:34px;display:grid;place-items:center;border-radius:6px;background:var(--surface3);font-size:.75rem;font-weight:700;flex:none}
+.matt .mn{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:220px}
+.matt.edit .btn{padding:2px 8px;min-height:0}
+.mthread{display:flex;flex-direction:column;gap:2px}
+.mtrow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 10px;padding:8px 10px;border-radius:10px;text-decoration:none;color:inherit}
+.mtrow:hover,.mtrow.on{background:var(--surface3)}
+.mtrow.unread b{font-weight:800}
+.mcompose input[type=text]{width:100%}
+.meditwrap{border:1px solid var(--line-strong);border-radius:12px;background:var(--field);overflow:hidden}
+.mtoolbar{display:flex;flex-wrap:wrap;gap:2px;padding:4px;border-bottom:1px solid var(--line);background:var(--surface3)}
+.tbtn{min-width:34px;height:32px;border:0;border-radius:8px;background:none;color:var(--text);font-size:.95rem;cursor:pointer}
+.tbtn:hover{background:var(--surface)}
+.tcolor{width:34px;height:32px;padding:2px;border:0;background:none;min-height:0}
+.meditor{padding:12px 14px;outline:none;background:#fff;color:#1f1a2b;font:15px/1.5 -apple-system,Segoe UI,Arial,sans-serif;overflow-wrap:anywhere}
+.meditor:empty::before{content:attr(data-ph);color:#8a83a0}
+.meditor img{max-width:100%;height:auto}
+.meditor p{margin:0 0 .6em}
+.msig{padding:10px 14px;border:1px dashed var(--line-strong);border-radius:12px;background:#fff;color:#1f1a2b;font-size:.9rem}
+.msig:empty{display:none}
+.msig img{max-width:100%;height:auto}
+.mquote{max-height:420px;overflow:auto;margin-top:8px}
+@media (max-width:440px){.nav a{padding:8px 0;letter-spacing:0}.nav a span::after{font-size:.5rem;letter-spacing:0}.nav a svg{width:20px;height:20px}}

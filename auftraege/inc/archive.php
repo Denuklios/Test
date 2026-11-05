@@ -147,7 +147,7 @@ function wf_smtp_cfg(): ?array
 }
 
 /** Schlanker SMTP-Client: Port 465 = SSL, 587 = STARTTLS, AUTH LOGIN. Fehlertext in $GLOBALS['wf_mail_err']. */
-function wf_smtp_send(array $c, string $from, string $to, string $msg): bool
+function wf_smtp_send(array $c, string $from, string|array $to, string $msg): bool
 {
     $port = (int)($c['port'] ?? 465);
     $host = (string)$c['host'];
@@ -204,8 +204,10 @@ function wf_smtp_send(array $c, string $from, string $to, string $msg): bool
     if (($r = $cmd("MAIL FROM:<$from>", [250])) === null) {
         return $fail('Absender abgelehnt');
     }
-    if (($r = $cmd("RCPT TO:<$to>", [250, 251])) === null) {
-        return $fail('Empfänger abgelehnt');
+    foreach ((array)$to as $rc) {
+        if (($r = $cmd('RCPT TO:<' . $rc . '>', [250, 251])) === null) {
+            return $fail('Empfänger abgelehnt (' . $rc . ')', (string)$r);
+        }
     }
     if ($cmd('DATA', [354]) === null) {
         return $fail('DATA');

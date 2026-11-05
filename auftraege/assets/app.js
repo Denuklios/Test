@@ -46,6 +46,7 @@ function toast(msg) {
   setTimeout(() => el.remove(), 2600);
 }
 const ICON = {
+  mail: 'M3 6h18v12H3zM3 7l9 6 9-6',
   tag: 'M3 12V4h8l10 10-8 8zM7.5 7.5h.01',
   list: 'M4 6h16M4 12h16M4 18h10', plus: 'M12 5v14M5 12h14', cal: 'M5 5h14v15H5zM5 10h14M9 3v4M15 3v4',
   doc: 'M7 3h7l4 4v14H7zM14 3v4h4M10 12h5M10 16h5', users: 'M16 19v-1a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v1M10 11a3 3 0 1 0 0-6 3 3 0 0 0 0 6M20 19v-1a3 3 0 0 0-2-2.8', cog: 'M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6M19 12l2-1-2-4-2 1-2-1-1-2h-4l-1 2-2 1-2-1-2 4 2 1v2l-2 1 2 4 2-1 2 1 1 2h4l1-2 2-1 2 1 2-4-2-1z'
@@ -404,6 +405,7 @@ route(/^\/order\/(\d+)$/, async (id) => {
     (o.description || o.notes) && h('div', { class: 'card' }, o.description && h('p', { style: 'margin:0 0 8px;white-space:pre-wrap' }, o.description), o.notes && h('p', { class: 'muted', style: 'margin:0;white-space:pre-wrap' }, o.notes)),
     !o.deleted_at && packageCard(o, reload),
     !o.deleted_at && trackCard(o, reload),
+    !o.deleted_at && typeof mailCard === 'function' && mailCard({ order_id: o.id }),
     !o.deleted_at && orderMoneyCard(o, reload),
     h('div', { class: 'card' }, h('h3', { style: 'margin-bottom:10px' }, t('files')),
       photoButtons(async (list) => { await uploadFiles(o.id, list); reload(); }),
@@ -1590,7 +1592,9 @@ route(/^\/customers$/, async () => {
 
 route(/^\/customer\/(new|\d+)$/, async (id) => {
   const isNew = id === 'new';
-  const c = isNew ? { id: 0, name: '', company: '', email: '', phone: '', address: '', currency: 'DKK', notes: '', country: 'DK', vat_id: '', is_business: 0, doc_lang: '', orders: [], invoices: [] } : (await api('customer', { params: { id } })).customer;
+  let pre = {};
+  if (isNew) { try { pre = JSON.parse(sessionStorage.getItem('wf_new_customer') || '{}') || {}; sessionStorage.removeItem('wf_new_customer'); } catch (e) { pre = {}; } }
+  const c = isNew ? { id: 0, name: pre.name || '', company: '', email: pre.email || '', phone: '', address: '', currency: 'DKK', notes: '', country: 'DK', vat_id: '', is_business: 0, doc_lang: '', orders: [], invoices: [] } : (await api('customer', { params: { id } })).customer;
   const F = {};
   const err = h('div', { class: 'err' });
   const f = (k, label, el) => { F[k] = el; return h('div', {}, h('label', {}, label), el); };
@@ -1626,6 +1630,7 @@ route(/^\/customer\/(new|\d+)$/, async (id) => {
       } }, t('save')))),
     !isNew && c.invoices && c.invoices.length ? h('div', { class: 'card' }, h('h3', {}, t('nav_invoices')), h('div', { class: 'tscroll' }, h('table', { class: 't' }, c.invoices.map((i) => h('tr', {},
       h('td', {}, h('a', { href: `#/invoice/${i.id}` }, invLabel(i))), h('td', {}, dfmt(i.issue_date)), h('td', { class: 'n' }, (i.type === 'credit' ? '− ' : '') + cents(i.total, i.currency))))))) : null,
+    !isNew && typeof mailCard === 'function' && mailCard({ customer_id: c.id }),
     !isNew && h('div', { class: 'card' }, h('h3', {}, t('history')), c.orders.length ? h('div', { class: 'tscroll' }, h('table', { class: 't' }, c.orders.map((o) => h('tr', {}, h('td', {}, h('a', { href: `#/order/${o.id}` }, o.nr)), h('td', {}, o.title), h('td', {}, dfmt(o.due_date)), h('td', {}, statusPill(o.status)), h('td', {}, payPill(o.pay_status)), h('td', {}, money(o.price, o.currency)))))) : h('p', { class: 'muted' }, t('no_orders'))),
     !isNew && h('div', { class: 'card' }, h('h3', {}, t('privacy')), h('p', { class: 'muted' }, t('privacy_text')),
       h('div', { class: 'row' }, h('a', { class: 'btn small', href: `${BASE}api.php?a=customer_export&id=${c.id}` }, t('export_data')),
@@ -2612,6 +2617,7 @@ route(/^\/settings$/, async () => {
     archiveCard,
     termsCard,
     aiCard,
+    typeof mailSettingsCard === 'function' ? mailSettingsCard() : null,
     shipCard(),
     labelCard(),
     appCard,
@@ -2674,11 +2680,15 @@ async function reloadMe() { me = await api('me'); }
 function buildChrome() {
   const nav = $('#nav');
   const item = (r, ic, label, cls, short) => h('a', { href: '#' + r, 'data-r': r, class: cls || '' }, cls === 'add' ? h('span', { class: 'fab' }, icon(ic)) : icon(ic), cls === 'add' ? h('small', {}, label) : h('span', { 'data-s': short || label }, label));
-  nav.replaceChildren(item('/', 'list', t('nav_orders')), item('/calendar', 'cal', t('nav_calendar')), item('/new', 'plus', t('new_order'), 'add'), item('/customers', 'users', t('nav_customers')), item('/products', 'tag', t('tab_products'), '', t('nav_products_s')), item('/invoices', 'doc', t('nav_invoices'), '', t('nav_invoices_s')), item('/settings', 'cog', t('nav_settings'), '', t('nav_settings_s')));
+  nav.replaceChildren(item('/', 'list', t('nav_orders')), item('/calendar', 'cal', t('nav_calendar')), item('/new', 'plus', t('new_order'), 'add'), item('/customers', 'users', t('nav_customers')), item('/mail', 'mail', t('nav_mail')), item('/products', 'tag', t('tab_products'), '', t('nav_products_s')), item('/invoices', 'doc', t('nav_invoices'), '', t('nav_invoices_s')), item('/settings', 'cog', t('nav_settings'), '', t('nav_settings_s')));
   const l = $('#lang');
   l.replaceChildren(...[['de', '🇩🇪'], ['da', '🇩🇰']].map(([c, f]) => h('button', { class: lang === c ? 'on' : '', 'aria-label': c, onclick: () => { lang = c; try { localStorage.setItem('wf_lang', c); } catch (e) {} document.documentElement.lang = c; buildChrome(); render(); } }, f)));
   $('#who').textContent = me ? me.user.name : '';
+  if (typeof mailBadge === 'function') mailBadge();
 }
+
+// Schnittstelle für Zusatzteile (assets/mail.js): Helfer und aktueller Stand
+window.WFApp = { h, api, show, t, toast, route, render, BASE, get me() { return me; }, get lang() { return lang; } };
 
 (async () => {
   document.documentElement.lang = lang;

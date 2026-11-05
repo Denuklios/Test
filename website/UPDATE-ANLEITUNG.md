@@ -69,3 +69,14 @@
 - Läuft über den eigenen Server, ohne Google-Konto oder Fremddienst.
 - **Einmalig neu installieren:** Die alte App deinstallieren, dann `https://www.wunsch-fabrik.dk/auftraege/app/wunsch-fabrik-werkstatt.apk` auf dem Handy öffnen und installieren, im Büro unter Einstellungen → Handy-App einen neuen Code erzeugen und verbinden. Beim ersten Start „Benachrichtigungen erlauben“ bestätigen.
 - Bei manchen Handys (Samsung, Xiaomi, Huawei) unter Einstellungen → Apps → WF Werkstatt → Akku auf „Nicht eingeschränkt“ stellen, sonst kommen Meldungen verspätet.
+
+## Postfach im Auftragsprogramm (Update November 2026)
+- Neuer Menüpunkt **Mail**: Posteingang, Gesendet, Archiv, Suche. Ungelesene Mails stehen als rote Zahl am Menüpunkt.
+- **Einrichten (einmal):** Einstellungen → „Postfach (Mails im Programm)“: Server `imap.one.com`, Port 993, Benutzer = deine Mailadresse (z. B. hej@wunsch-fabrik.dk), Passwort des Postfachs (oder „Gleiches Passwort wie beim Versand“, wenn der Versandweg send.one.com eingerichtet ist). „Speichern & testen“.
+- **Lesen:** Bilder in der Mail und Anhänge (PDF, Fotos …) werden angezeigt. Bilder aus dem Netz werden zum Schutz vor Lesebestätigungen erst auf Knopfdruck geladen. Alles, was zusammengehört, steht als Verlauf darunter.
+- **Schreiben, Antworten, Allen antworten, Weiterleiten:** mit Fett/Kursiv/Listen/Farbe/Link, Bilder einfügen (auch per Strg+V oder Bildschirmfoto), Dateien anhängen, Dateien aus dem Auftrag anhängen. Entwürfe werden auf dem Gerät gemerkt.
+- **Signatur** je Person: Einstellungen → Postfach → „Signatur von …“ (auch mit Logo). Wird automatisch unter jede Mail gesetzt.
+- **Übersetzen:** beim Schreiben „🇩🇰 Dansk“, „🇬🇧 English“ oder „🇩🇪 Deutsch“ – der Text wird übersetzt, „Rückgängig“ holt das Original zurück. Empfangene Mails mit „Auf Deutsch übersetzen“. Nutzt den DeepL-Schlüssel der Webseite (db_config.php) – oder einen eigenen in den Einstellungen.
+- **Kunden & Aufträge:** Mails werden über die Adresse dem Kunden zugeordnet, über eine Auftragsnummer im Betreff (z. B. 2026-0012) dem Auftrag. Beim Kunden und beim Auftrag gibt es die Karte „Mails“ mit „Mail schreiben“.
+- Gesendete Mails landen zusätzlich im Ordner „Gesendet“ am Server – so siehst du sie auch am Handy oder im Webmail. Die Mails bleiben im Postfach, es wird nichts gelöscht.
+- Abgerufen wird beim Öffnen und alle 2 Minuten, solange das Programm offen ist – und mit dem Zeitplan (cron.php) auch ohne geöffnetes Programm.

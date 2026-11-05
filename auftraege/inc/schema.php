@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 21) {
+    if ($v >= 22) {
         return;
     }
     if ($v < 1) {
@@ -68,7 +68,67 @@ function wf_migrate(PDO $db): void
     if ($v < 20) {
         wf_migrate_v20($db);
     }
-    wf_migrate_v21($db);
+    if ($v < 21) {
+        wf_migrate_v21($db);
+    }
+    wf_migrate_v22($db);
+}
+
+/**
+ * Version 22: Postfach. Mails aus dem eigenen Postfach (IMAP) und von hier gesendete Mails, je Kunde/Auftrag zugeordnet.
+ * folder: 'in' (Posteingang) oder 'sent' (Gesendet). Anhänge liegen als Dateien unter uploads/ (stored_name).
+ */
+function wf_migrate_v22(PDO $db): void
+{
+    $db->beginTransaction();
+    $db->exec("
+    CREATE TABLE mail_msgs (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      folder TEXT NOT NULL DEFAULT 'in',
+      uid INTEGER,
+      message_id TEXT NOT NULL DEFAULT '',
+      in_reply_to TEXT NOT NULL DEFAULT '',
+      refs TEXT NOT NULL DEFAULT '',
+      thread TEXT NOT NULL DEFAULT '',
+      from_addr TEXT NOT NULL DEFAULT '',
+      from_name TEXT NOT NULL DEFAULT '',
+      to_json TEXT NOT NULL DEFAULT '[]',
+      cc_json TEXT NOT NULL DEFAULT '[]',
+      subject TEXT NOT NULL DEFAULT '',
+      sent_at TEXT NOT NULL DEFAULT (datetime('now')),
+      snippet TEXT NOT NULL DEFAULT '',
+      body_html TEXT NOT NULL DEFAULT '',
+      body_text TEXT NOT NULL DEFAULT '',
+      has_att INTEGER NOT NULL DEFAULT 0,
+      seen INTEGER NOT NULL DEFAULT 0,
+      seen_synced INTEGER NOT NULL DEFAULT 1,
+      archived INTEGER NOT NULL DEFAULT 0,
+      too_large INTEGER NOT NULL DEFAULT 0,
+      customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
+      order_id INTEGER REFERENCES orders(id) ON DELETE SET NULL,
+      created_by TEXT NOT NULL DEFAULT '',
+      created_at TEXT NOT NULL DEFAULT (datetime('now'))
+    );
+    CREATE INDEX idx_mail_folder ON mail_msgs(folder, archived, sent_at);
+    CREATE INDEX idx_mail_msgid ON mail_msgs(message_id);
+    CREATE INDEX idx_mail_thread ON mail_msgs(thread);
+    CREATE INDEX idx_mail_customer ON mail_msgs(customer_id);
+    CREATE INDEX idx_mail_order ON mail_msgs(order_id);
+    CREATE UNIQUE INDEX idx_mail_uid ON mail_msgs(folder, uid) WHERE uid IS NOT NULL;
+    CREATE TABLE mail_atts (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      msg_id INTEGER NOT NULL REFERENCES mail_msgs(id) ON DELETE CASCADE,
+      name TEXT NOT NULL,
+      mime TEXT NOT NULL,
+      size INTEGER NOT NULL DEFAULT 0,
+      cid TEXT NOT NULL DEFAULT '',
+      inline INTEGER NOT NULL DEFAULT 0,
+      stored_name TEXT NOT NULL
+    );
+    CREATE INDEX idx_mail_atts ON mail_atts(msg_id);
+    INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '22');
+    ");
+    $db->commit();
 }
 
 /**

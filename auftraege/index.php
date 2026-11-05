@@ -48,6 +48,7 @@ if ($adminUrl !== '' && preg_match('#^https?://#i', $adminUrl)): ?>
 <main id="view"></main>
 <script src="assets/i18n.js?v=<?= $v('assets/i18n.js') ?>"></script>
 <script src="assets/app.js?v=<?= $v('assets/app.js') ?>"></script>
+<script src="assets/mail.js?v=<?= $v('assets/mail.js') ?>"></script>
 <?php endif; ?>
 </body>
 </html>
