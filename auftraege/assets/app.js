@@ -1485,23 +1485,48 @@ route(/^\/products$/, async () => {
     };
     catSel.addEventListener('change', skuPreview); kd.addEventListener('change', skuPreview); sku.addEventListener('input', () => { if (!p.id && !sku.value.trim()) skuPreview(); });
     if (!p.id) setTimeout(skuPreview, 0);
-    return h('div', { class: 'card prodcard' + (p.id && !+p.active ? ' inactive' : '') },
-      h('div', { class: 'grid', style: 'grid-template-columns:minmax(0,3fr) minmax(110px,1fr);gap:8px' }, h('div', {}, h('label', {}, t('prod_name')), nm), h('div', {}, h('label', {}, t('sku')), sku)), skuNote, sug,
-      h('div', { style: 'margin-top:8px' }, h('label', {}, t('barcode')), h('div', { class: 'row', style: 'gap:6px;flex-wrap:nowrap' }, bc, scanBtn((c) => { bc.value = c; if (/^\d{8,14}$/.test(c)) lookup(); }),
-        h('button', { type: 'button', class: 'btn', title: t('bl_btn'), onclick: () => lookup() }, '🔎')), bcOut),
-      h('div', { style: 'margin-top:8px' }, h('label', {}, t('cat_label')), catSel),
-      h('div', { style: 'margin-top:8px' }, h('label', {}, t('pimg_label')), imgBox, imgButtons),
-      h('div', { class: 'grid c3' }, h('div', {}, h('label', {}, t('unit')), un), h('div', {}, h('div', { class: 'prhead' }, prLabel, curSwitch), pr), h('div', {}, h('label', {}, t('prod_kind')), kd)), fxNote,
-      h('details', { class: 'calcbox', open: !!(p.supplier || p.supplier_url || p.supplier_sku) }, h('summary', {}, '🛒 ' + t('src_title')), h('small', { class: 'muted', style: 'display:block;margin:6px 0' }, t('src_hint')), psrc.el),
-      h('div', { style: 'margin-top:8px' }, h('label', {}, t('op_title')), h('small', { class: 'muted', style: 'display:block;margin-bottom:6px' }, t('op_hint')), oped.el),
-      h('div', { style: 'margin-top:8px' }, h('label', {}, t('prod_procs')), ppick, ppTime),
-      calcBox,
-      shipf.el,
-      h('div', { class: 'row', style: 'justify-content:space-between;margin-top:8px' },
+    // Abschnitte zum Auf- und Zuklappen; die Kopfzeile zeigt, was schon eingetragen ist
+    const sec = (icon, title, sumText, open, ...kids) => h('details', { class: 'psec', open: !!open }, h('summary', {}, h('span', { class: 'psec-t' }, icon + ' ' + title), h('span', { class: 'psec-s' }, sumText || '')), h('div', { class: 'psec-b' }, ...kids));
+    const nOpts = (p.options || []).length, nProcs = (p.processes || []).length;
+    const delBtn = p.id ? h('button', { class: 'btn danger', onclick: async () => { if (confirm(t('prod_delete_confirm', p.name))) { await api('product_delete', { body: { id: p.id } }); closeDrawer(); render(); } } }, t('delete')) : null;
+    const form = h('div', { class: 'prodform' + (p.id && !+p.active ? ' inactive' : '') },
+      sec('🏷', t('ps_basics'), '', true,
+        h('div', { class: 'grid', style: 'grid-template-columns:minmax(0,3fr) minmax(110px,1fr);gap:8px' }, h('div', {}, h('label', {}, t('prod_name')), nm), h('div', {}, h('label', {}, t('sku')), sku)), skuNote, sug,
+        h('div', { class: 'grid c2', style: 'margin-top:8px' }, h('div', {}, h('label', {}, t('cat_label')), catSel), h('div', {}, h('label', {}, t('prod_kind')), kd)),
+        h('div', { class: 'grid c2', style: 'margin-top:8px' }, h('div', {}, h('div', { class: 'prhead' }, prLabel, curSwitch), pr), h('div', {}, h('label', {}, t('unit')), un)), fxNote,
+        calcBox,
+        h('div', { style: 'margin-top:8px' }, h('label', {}, t('pimg_label')), imgBox, imgButtons)),
+      sec('🎨', t('op_title_short'), nOpts ? optSummary(p) : t('ps_none_yet'), false,
+        h('small', { class: 'muted', style: 'display:block;margin-bottom:6px' }, t('op_hint')), oped.el),
+      sec('⏱', t('ps_production'), nProcs ? procLabel(p.processes) : t('ps_none_yet'), false,
+        h('label', {}, t('prod_procs')), ppick, ppTime),
+      sec('📦', t('ship_title'), +p.weight_g || +p.len_mm ? [+p.weight_g ? kgFmt(+p.weight_g) : '', +p.len_mm ? dimFmt(p) : ''].filter(Boolean).join(' · ') : t('ps_none_yet'), false, shipf.el),
+      sec('▮▯', t('ps_barcode_src'), [p.barcode, p.supplier].filter(Boolean).join(' · ') || t('ps_none_yet'), false,
+        h('label', {}, t('barcode')), h('div', { class: 'row', style: 'gap:6px;flex-wrap:nowrap' }, bc, scanBtn((c) => { bc.value = c; if (/^\d{8,14}$/.test(c)) lookup(); }),
+          h('button', { type: 'button', class: 'btn', title: t('bl_btn'), onclick: () => lookup() }, '🔎')), bcOut,
+        h('div', { style: 'margin-top:10px' }, h('label', {}, '🛒 ' + t('src_title')), h('small', { class: 'muted', style: 'display:block;margin:2px 0 6px' }, t('src_hint')), psrc.el)),
+      h('div', { class: 'pfoot' },
         h('label', { class: 'row', style: 'margin:0;gap:8px;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, act, t('active')),
-        h('div', { class: 'row' },
-          p.id ? h('button', { class: 'btn small danger', onclick: async () => { if (confirm(t('prod_delete_confirm', p.name))) { await api('product_delete', { body: { id: p.id } }); render(); } } }, t('delete')) : null,
-          h('button', { class: 'btn small primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: await priceDkk(), kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get(), category_id: catSel.value || null, sku: sku.value, barcode: bc.value, options: oped.get(), supplier: psrc.get().name, supplier_url: psrc.get().url, supplier_sku: psrc.get().sku, ...shipf.get() } }).then(async (r) => { if (pendingImgs.length) { toast(t('uploading_files')); await uploadProductImages(r.id, pendingImgs); } return r; }); toast(t('saved')); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
+        h('div', { class: 'row', style: 'gap:8px' }, delBtn, h('button', { class: 'btn primary', onclick: async () => { try { await api('product_save', { body: { id: p.id || 0, name: nm.value, unit: un.value, price: await priceDkk(), kind: kd.value, active: act.checked ? 1 : 0, processes: ppick.get(), category_id: catSel.value || null, sku: sku.value, barcode: bc.value, options: oped.get(), supplier: psrc.get().name, supplier_url: psrc.get().url, supplier_sku: psrc.get().sku, ...shipf.get() } }).then(async (r) => { if (pendingImgs.length) { toast(t('uploading_files')); await uploadProductImages(r.id, pendingImgs); } return r; }); toast(t('saved')); closeDrawer(); render(); } catch (e) { toast(e.message); } } }, p.id ? t('save') : '+ ' + t('prod_add')))));
+    // Versandfelder sind schon ein eigener Abschnitt: dort nicht noch einmal zuklappen
+    shipf.el.open = true; shipf.el.classList.add('flat');
+    return form;
+  };
+  // Bearbeiten in einem eigenen Fenster (rechts am Rechner, ganzseitig am Handy) statt mitten in der Liste
+  let drawerEl = null;
+  const closeDrawer = () => { if (drawerEl) { drawerEl.remove(); drawerEl = null; document.body.classList.remove('noscroll'); } };
+  const openDrawer = (p) => {
+    closeDrawer();
+    const body = editRow(p);
+    drawerEl = h('div', { class: 'drawer', onclick: (e) => { if (e.target === drawerEl) closeDrawer(); } },
+      h('div', { class: 'drawer-in' },
+        h('div', { class: 'drawer-head' }, h('div', {}, h('div', { class: 'eyebrow' }, p.id ? (p.sku || t('tab_products')) : t('prod_add')), h('h2', {}, p.id ? p.name : t('prod_new_h'))),
+          h('button', { class: 'btn small', 'aria-label': t('close'), onclick: closeDrawer }, '✕')),
+        body));
+    document.body.append(drawerEl); document.body.classList.add('noscroll');
+    const onKey = (e) => { if (e.key === 'Escape') { closeDrawer(); document.removeEventListener('keydown', onKey); } };
+    document.addEventListener('keydown', onKey);
+    setTimeout(() => body.querySelector('input')?.focus(), 50);
   };
   const chips = h('div', { class: 'catchips' });
   const drawChips = () => {
@@ -1509,32 +1534,74 @@ route(/^\/products$/, async () => {
     const selMain = prodCat > 0 ? (cats.find((c) => +c.id === prodCat) || {}).parent_id || prodCat : 0;
     const chip = (id, label) => h('button', { type: 'button', class: 'chip' + (prodCat === id ? ' on' : ''), onclick: () => { prodCat = id; drawChips(); draw(); } }, label, h('small', { class: 'muted' }, ' ' + products.filter((p) => inCat(cats, p, id)).length));
     const subs = selMain ? cats.filter((c) => +c.parent_id === +selMain) : [];
-    chips.replaceChildren(...[h('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px' }, chip(0, t('cat_all')), ...main.map((m) => chip(+m.id, m.name)), products.some((p) => !p.category_id) && cats.length ? chip(-1, t('cat_none')) : null),
-      subs.length ? h('div', { class: 'row', style: 'flex-wrap:wrap;gap:6px;margin-top:6px;padding-left:12px' }, h('span', { class: 'muted' }, '↳'), chip(+selMain, t('cat_all_in', catPath(cats, selMain))), ...subs.map((c) => chip(+c.id, c.name))) : null].filter(Boolean));
+    chips.replaceChildren(...[h('div', { class: 'chiprow' }, chip(0, t('cat_all')), ...main.map((m) => chip(+m.id, m.name)), products.some((p) => !p.category_id) && cats.length ? chip(-1, t('cat_none')) : null),
+      subs.length ? h('div', { class: 'chiprow sub' }, h('span', { class: 'muted' }, '↳'), chip(+selMain, t('cat_all_in', catPath(cats, selMain))), ...subs.map((c) => chip(+c.id, c.name))) : null].filter(Boolean));
   };
-  // schmale Zeile je Produkt; Tippen öffnet das ausführliche Bearbeiten an derselben Stelle
-  const compactRow = (p) => {
-    const m = procMin(p.processes, 1);
-    const row = h('button', { type: 'button', class: 'prow' + (+p.active ? '' : ' inactive'), onclick: () => {
-      const ed = editRow(p);
-      ed.prepend(h('div', { class: 'row end', style: 'margin:-4px 0 6px' }, h('button', { type: 'button', class: 'btn small', onclick: () => ed.replaceWith(compactRow(p)) }, '▲ ' + t('close'))));
-      row.replaceWith(ed);
-    } },
-      p.images.length ? h('img', { class: 'pthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : h('span', { class: 'pthumb none' }, '🏷'),
-      h('span', { class: 'pn' }, h('b', {}, p.name), h('small', { class: 'muted' }, [p.sku, p.barcode ? '▮▯ ' + p.barcode : '', p.category_id ? catPath(cats, p.category_id) : ''].filter(Boolean).join(' · ')),
-        (p.options || []).length ? h('small', { class: 'muted popts' }, optSummary(p)) : null,
-        p.supplier || p.supplier_sku ? h('small', { class: 'muted popts' }, '🛒 ' + [p.supplier, p.supplier_sku].filter(Boolean).join(' · ')) : null,
-        +p.weight_g || +p.len_mm ? h('small', { class: 'muted popts' }, '📦 ' + [+p.weight_g ? kgFmt(+p.weight_g) : '', +p.len_mm ? dimFmt(p) : ''].filter(Boolean).join(' · ')) : null),
-      h('span', { class: 'pt muted' }, p.processes.length ? '⏱ ' + procLabel(p.processes) : ''),
-      +p.price ? h('span', { class: 'pp' }, cents(p.price, 'DKK') + ' / ' + t('u_' + p.unit)) : h('span', { class: 'pp nopr' }, t('price_missing')),
-      +p.active ? null : h('span', { class: 'pill' }, t('inactive')));
-    return row;
+  // Preis direkt in der Liste eintragen (Enter speichert) – der Rest des Produkts bleibt wie er ist
+  const prodBody = (p, over) => ({ id: p.id, name: p.name, unit: p.unit, price: centsIn(p.price || 0), kind: p.kind, active: +p.active, processes: p.processes, category_id: p.category_id || null,
+    sku: p.sku, barcode: p.barcode || '', options: p.options, supplier: p.supplier || '', supplier_url: p.supplier_url || '', supplier_sku: p.supplier_sku || '',
+    weight_g: +p.weight_g || 0, len_cm: (+p.len_mm || 0) / 10, wid_cm: (+p.wid_mm || 0) / 10, hgt_cm: (+p.hgt_mm || 0) / 10, foldable: +p.foldable || 0, ...over });
+  const priceCell = (p) => {
+    const cell = h('span', { class: 'pp' + (+p.price ? '' : ' nopr') });
+    const showVal = () => cell.replaceChildren(+p.price ? cents(p.price, 'DKK') + ' / ' + t('u_' + p.unit) : '＋ ' + t('price_enter'));
+    cell.addEventListener('click', (e) => {
+      e.stopPropagation();
+      if (cell.querySelector('input')) return;
+      const inp = h('input', { type: 'text', inputmode: 'decimal', value: +p.price ? centsIn(p.price) : '', placeholder: '0,00', class: 'ppin' });
+      const save = async () => {
+        const v = inp.value.trim();
+        if (v === (+p.price ? centsIn(p.price) : '')) { showVal(); return; }
+        try { await api('product_save', { body: prodBody(p, { price: v || '0' }) }); p.price = Math.round(num(v) * 100); cell.classList.toggle('nopr', !+p.price); toast(t('saved')); drawSum(); } catch (x) { toast(x.message); }
+        showVal();
+      };
+      inp.addEventListener('keydown', (ev) => { ev.stopPropagation(); if (ev.key === 'Enter') { ev.preventDefault(); inp.blur(); } if (ev.key === 'Escape') { inp.value = +p.price ? centsIn(p.price) : ''; inp.blur(); } });
+      inp.addEventListener('blur', save);
+      inp.addEventListener('click', (ev) => ev.stopPropagation());
+      cell.replaceChildren(inp, h('small', { class: 'muted' }, ' kr'));
+      inp.focus(); inp.select();
+    });
+    showVal();
+    return cell;
   };
-  const draw = () => list.replaceChildren(...products.filter((p) => inCat(cats, p, prodCat) && (!prodQ || (p.name + ' ' + (p.sku || '') + ' ' + (p.barcode || '') + ' ' + catPath(cats, p.category_id)).toLowerCase().includes(prodQ.toLowerCase()))).map(compactRow));
-  const newBox = h('div', { class: 'hidden' }, editRow({}));
+  // eine Zeile je Produkt: Bild, Name + Nummer, Varianten, Zeit, Preis
+  const compactRow = (p) => h('div', { class: 'prow' + (+p.active ? '' : ' inactive'), role: 'button', tabindex: '0', onclick: () => openDrawer(p), onkeydown: (e) => { if (e.key === 'Enter') openDrawer(p); } },
+    p.images.length ? h('img', { class: 'pthumb', src: pimgUrl(p.images[0]), alt: '', loading: 'lazy' }) : h('span', { class: 'pthumb none' }, '🏷'),
+    h('span', { class: 'pn' }, h('b', {}, p.name), h('small', { class: 'muted' }, [p.sku, +p.active ? '' : t('inactive')].filter(Boolean).join(' · '))),
+    h('span', { class: 'pv muted' }, (p.options || []).length ? optSummary(p) : ''),
+    h('span', { class: 'pt muted' }, p.processes.length ? '⏱ ' + procLabel(p.processes) : ''),
+    priceCell(p));
+  let onlyMissing = false, showInactive = false;
+  const sumLine = h('div', { class: 'psum' });
+  const visible = () => products.filter((p) => inCat(cats, p, prodCat) && (showInactive || +p.active || prodQ) && (!onlyMissing || !+p.price)
+    && (!prodQ || (p.name + ' ' + (p.sku || '') + ' ' + (p.barcode || '') + ' ' + catPath(cats, p.category_id)).toLowerCase().includes(prodQ.toLowerCase())));
+  const drawSum = () => {
+    const miss = products.filter((p) => +p.active && !+p.price).length, inact = products.filter((p) => !+p.active).length;
+    sumLine.replaceChildren(...[h('span', { class: 'muted' }, t('prod_count', visible().length, products.length)),
+      miss ? h('button', { class: 'chip' + (onlyMissing ? ' on warn' : ' warn'), onclick: () => { onlyMissing = !onlyMissing; drawSum(); draw(); } }, '⚠ ' + t('prod_missing_price', miss)) : null,
+      inact ? h('button', { class: 'chip' + (showInactive ? ' on' : ''), onclick: () => { showInactive = !showInactive; drawSum(); draw(); } }, t('prod_show_inactive', inact)) : null].filter(Boolean));
+  };
+  // nach Kategorie gruppiert; Gruppen lassen sich zuklappen (merkt sich das Gerät)
+  // gemerkt je Gruppe: 1 = zu, 0 = auf; ohne Eintrag sind bei langen Listen alle Gruppen zu (Übersicht der Kategorien)
+  let closedGroups = {};
+  try { closedGroups = JSON.parse(localStorage.getItem('wf_prod_groups') || '{}') || {}; } catch (e) { closedGroups = {}; }
+  const draw = () => {
+    const vis = visible();
+    if (!vis.length) { list.replaceChildren(h('div', { class: 'empty' }, products.length ? t('prod_none_found') : t('prod_none'))); return; }
+    const groups = new Map();
+    vis.forEach((p) => { const k = p.category_id ? catPath(cats, p.category_id) : t('cat_none'); if (!groups.has(k)) groups.set(k, []); groups.get(k).push(p); });
+    const flat = groups.size === 1 || prodQ;
+    const defOpen = vis.length <= 40 || prodCat !== 0 || onlyMissing;
+    list.replaceChildren(...[...groups.entries()].map(([k, ps]) => {
+      if (flat) return h('div', { class: 'pgroup' }, ...ps.map(compactRow));
+      const g = h('details', { class: 'pgroup', open: k in closedGroups && !(prodCat !== 0 || onlyMissing) ? !closedGroups[k] : defOpen }, h('summary', {}, h('b', {}, k), h('span', { class: 'muted' }, ' ' + t('prod_n', ps.length) + (ps.some((p) => !+p.price) ? ' · ' + t('prod_missing_short', ps.filter((p) => !+p.price).length) : ''))), ...ps.map(compactRow));
+      g.addEventListener('toggle', () => { if (prodCat !== 0 || onlyMissing) return; closedGroups[k] = g.open ? 0 : 1; try { localStorage.setItem('wf_prod_groups', JSON.stringify(closedGroups)); } catch (e) { /* egal */ } });
+      return g;
+    }));
+    drawSum();
+  };
   // Kategorien verwalten
   const catSave = async (body) => { try { await api('category_save', { body }); render(); } catch (e) { toast(e.message); } };
-  const catCard = h('div', { class: 'card' }, h('h3', {}, '🗂 ' + t('cat_title')), h('p', { class: 'muted', style: 'margin:0 0 8px' }, t('cat_text')),
+  const catCard = () => h('div', { class: 'card' }, h('h3', {}, '🗂 ' + t('cat_title')), h('p', { class: 'muted', style: 'margin:0 0 8px' }, t('cat_text')),
     h('div', { class: 'cattree' }, ...cats.filter((c) => !c.parent_id).map((m) => h('div', { class: 'catmain' },
       h('div', { class: 'catrow' }, h('b', {}, m.name),
         h('button', { class: 'btn small', onclick: () => { const n = prompt(t('cat_sub_name', m.name)); if (n && n.trim()) catSave({ name: n.trim(), parent_id: m.id }); } }, '+ ' + t('cat_sub')),
@@ -1544,35 +1611,41 @@ route(/^\/products$/, async () => {
         h('button', { class: 'btn small', 'aria-label': t('edit'), onclick: () => { const n = prompt(t('cat_rename'), c.name); if (n && n.trim()) catSave({ id: c.id, name: n.trim() }); } }, '✎'),
         h('button', { class: 'btn small danger', 'aria-label': t('delete'), onclick: async () => { if (confirm(t('cat_delete_q', c.name))) { await api('category_delete', { body: { id: c.id } }); if (prodCat === +c.id) prodCat = 0; render(); } } }, '✕')))))),
     h('button', { class: 'btn small primary', style: 'margin-top:8px', onclick: () => { const n = prompt(t('cat_main_name')); if (n && n.trim()) catSave({ name: n.trim() }); } }, '+ ' + t('cat_main')));
+  const catalogCard = () => h('div', { class: 'card', id: 'catalogCard' }, h('h3', {}, '📦 ' + t('catalog_title')), h('p', { class: 'muted', style: 'margin:0 0 8px' }, t('catalog_text')),
+    h('button', { class: 'btn primary', onclick: async () => {
+      if (!confirm(t('catalog_confirm'))) return;
+      try { const r = await api('catalog_import', { body: {} }); toast(t('catalog_done', r.products, r.categories, r.skipped)); closeDrawer(); render(); } catch (e) { toast(e.message); }
+    } }, '📦 ' + t('catalog_btn')));
+  // Verwalten: Stundensatz, Kategorien, Katalog, Nummern – selten gebraucht, daher in einem eigenen Fenster
+  const manage = () => {
+    closeDrawer();
+    const hc = hourCard(); hc.classList.remove('closed');
+    drawerEl = h('div', { class: 'drawer', onclick: (e) => { if (e.target === drawerEl) closeDrawer(); } },
+      h('div', { class: 'drawer-in' },
+        h('div', { class: 'drawer-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('tab_products')), h('h2', {}, t('prod_manage'))), h('button', { class: 'btn small', 'aria-label': t('close'), onclick: closeDrawer }, '✕')),
+        h('p', { class: 'muted', style: 'margin:0 0 10px' }, t('products_text')),
+        hc, catCard(), catalogCard(),
+        products.some((p) => !/^WF-[A-Z0-9]{2,4}-\d{3,}$/.test(p.sku || '')) ? h('div', { class: 'card' }, h('h3', {}, '🔢 ' + t('sku_convert_btn')), h('p', { class: 'muted' }, t('sku_convert_q')),
+          h('button', { type: 'button', class: 'btn', onclick: async () => { try { const r = await api('sku_convert', { body: {} }); toast(t('sku_convert_done', r.changed)); closeDrawer(); render(); } catch (e) { toast(e.message); } } }, t('sku_convert_btn'))) : null));
+    document.body.append(drawerEl); document.body.classList.add('noscroll');
+  };
+  const search = h('input', { type: 'search', id: 'prodSearch', placeholder: t('prod_search'), value: prodQ, oninput: (e) => { prodQ = e.target.value; draw(); } });
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('tab_products')), h('h1', {}, t('prod_h1_a'), ' ', h('em', {}, t('prod_h1_b')))),
-      h('button', { class: 'btn primary', onclick: () => { newBox.classList.toggle('hidden'); newBox.querySelector('input').focus(); } }, '+ ' + t('prod_add'))),
-    h('p', { class: 'muted', style: 'margin:0 0 12px' }, t('products_text')),
-    hourCard(),
-    h('div', { class: 'card', id: 'catalogCard' }, h('h3', {}, '📦 ' + t('catalog_title')), h('p', { class: 'muted', style: 'margin:0 0 8px' }, t('catalog_text')),
-      h('button', { class: 'btn primary', onclick: async () => {
-        if (!confirm(t('catalog_confirm'))) return;
-        try { const r = await api('catalog_import', { body: {} }); toast(t('catalog_done', r.products, r.categories, r.skipped)); render(); } catch (e) { toast(e.message); }
-      } }, '📦 ' + t('catalog_btn'))),
-    catCard,
-    newBox,
-    cats.length ? chips : null,
-    h('div', { class: 'filters' }, h('input', { type: 'search', id: 'prodSearch', placeholder: t('prod_search'), value: prodQ, oninput: (e) => { prodQ = e.target.value; draw(); } }),
-      scanBtn((c) => {
-        const p = prodByCode(products, c);
-        prodCat = 0; prodQ = p ? (p.sku || c) : c; document.getElementById('prodSearch').value = prodQ; drawChips(); draw();
-        toast(p ? t('scan_found', p.name) : t('scan_notfound', c));
-        if (p) list.querySelector('.prow')?.click();   // Treffer gleich zum Bearbeiten öffnen
-      }, t('scan')),
-      products.some((p) => !/^WF-[A-Z0-9]{2,4}-\d{3,}$/.test(p.sku || '')) ? h('button', { type: 'button', class: 'btn small', onclick: async () => {
-        if (!confirm(t('sku_convert_q'))) return;
-        try { const r = await api('sku_convert', { body: {} }); toast(t('sku_convert_done', r.changed)); render(); } catch (e) { toast(e.message); }
-      } }, '🔢 ' + t('sku_convert_btn')) : null),
-    products.length ? list : h('div', { class: 'empty' }, t('prod_none')));
+      h('div', { class: 'row', style: 'gap:8px' }, h('button', { class: 'btn', onclick: manage }, '⚙ ' + t('prod_manage')), h('button', { class: 'btn primary', onclick: () => openDrawer({}) }, '+ ' + t('prod_add')))),
+    !products.length ? catalogCard() : null,
+    h('div', { class: 'ptools' },
+      h('div', { class: 'row', style: 'gap:8px;flex-wrap:nowrap' }, search,
+        scanBtn((c) => {
+          const p = prodByCode(products, c);
+          prodCat = 0; prodQ = p ? (p.sku || c) : c; search.value = prodQ; drawChips(); draw();
+          toast(p ? t('scan_found', p.name) : t('scan_notfound', c));
+          if (p) openDrawer(p);
+        }, t('scan'))),
+      cats.length ? chips : null, sumLine),
+    products.length ? list : null);
   if (prodCat && prodCat !== -1 && !cats.some((c) => +c.id === prodCat)) prodCat = 0;
   drawChips(); draw();
-  foldCards(false);   // Stundensatz und Kategorien einklappbar, damit die Produktliste schnell erreichbar ist
-  if (!products.some((p) => p.sku)) document.getElementById('catalogCard')?.classList.remove('closed');   // Katalog noch nicht geladen: Karte offen zeigen
 });
 
 route(/^\/customers$/, async () => {
