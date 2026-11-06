@@ -1,6 +1,6 @@
 // Service Worker: nur die statische App-Huelle wird gecacht. Daten und API nie (Datenschutz, Aktualitaet).
-const CACHE = 'wf-shell-v3';
-const SHELL = ['assets/app.css', 'assets/i18n.js', 'assets/app.js', 'assets/mail.js', 'icons/icon-192.png'];
+const CACHE = 'wf-shell-v4';
+const SHELL = ['assets/app.css', 'assets/i18n.js', 'assets/app.js', 'assets/mail.js', 'assets/konfig-app.js', 'icons/icon-192.png'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

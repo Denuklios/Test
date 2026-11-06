@@ -89,8 +89,31 @@ $message = strip_tags(trim($_POST['message'] ?? ''));
 $lang    = strip_tags(trim($_POST['lang'] ?? 'de'));
 if (!in_array($lang, ['de', 'da', 'en'], true)) $lang = 'de';
 
-// Pflicht sind nur Name, E-Mail und Nachricht; Produkt und Menge sind freiwillig
-if ($product === '') $product = 'Beratung';
+// ─── Vorschau-Tool (optional): Auswahl, Vorschaubild, Logo ───────────
+$konfig = null; $konfigText = '';
+if (!empty($_POST['konfig'])) {
+    $k = json_decode((string)$_POST['konfig'], true);
+    if (is_array($k) && strlen((string)$_POST['konfig']) <= 6000) {
+        $clean = fn($v, $n = 120) => mb_substr(wf_one_line(strip_tags((string)$v)), 0, $n);
+        $places = [];
+        foreach (array_slice((array)($k['places'] ?? []), 0, 8) as $pl) {
+            if (!is_array($pl)) continue;
+            $places[] = ['pos' => $clean($pl['pos'] ?? '', 20), 'name' => $clean($pl['name'] ?? '', 40), 'cm' => round((float)($pl['cm'] ?? 0), 1)];
+        }
+        $konfig = ['product' => $clean($k['product'] ?? '', 30), 'product_name' => $clean($k['product_name'] ?? '', 60), 'color' => $clean($k['color'] ?? '', 20),
+            'color_name' => $clean($k['color_name'] ?? '', 40), 'color_hex' => preg_match('/^#[0-9a-f]{6}$/i', (string)($k['color_hex'] ?? '')) ? $k['color_hex'] : '',
+            'tech' => $clean($k['tech'] ?? '', 12), 'tech_name' => $clean($k['tech_name'] ?? '', 30), 'places' => $places, 'logo' => $clean($k['logo'] ?? '', 120), 'rights' => !empty($k['rights'])];
+        $pos = implode(', ', array_map(fn($p) => $p['name'] . ' (' . str_replace('.', ',', (string)$p['cm']) . ' cm)', $places));
+        $konfigText = "Produkt: {$konfig['product_name']}\nFarbe: {$konfig['color_name']}\nVeredelung: {$konfig['tech_name']}\nPosition: " . ($pos ?: '–')
+            . "\nLogo: " . ($konfig['logo'] !== '' ? $konfig['logo'] . ($konfig['rights'] ? ' (Rechte bestätigt)' : '') : 'kein Logo hochgeladen');
+    }
+}
+if ($konfig) {
+    $message = trim($message . "\n\n— Auswahl im Vorschau-Tool —\n" . $konfigText);
+}
+
+// Pflicht sind nur Name, E-Mail und Nachricht (beim Vorschau-Tool reicht die Auswahl); Produkt und Menge sind freiwillig
+if ($product === '') $product = $konfig ? ($konfig['product_name'] ?: 'Vorschau-Tool') : 'Beratung';
 if (!$name || !$email || !$message) {
     echo json_encode(['ok' => false, 'error' => 'Pflichtfelder fehlen']);
     exit;
@@ -100,6 +123,27 @@ if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
     echo json_encode(['ok' => false, 'error' => 'Ungültige E-Mail-Adresse']);
     exit;
 }
+
+// ─── Vorschaubild und Logo sicher ablegen (Ordner ist von außen gesperrt) ─
+function wf_store_upload($key, array $types, $maxBytes) {
+    $f = $_FILES[$key] ?? null;
+    if (!$f || ($f['error'] ?? 1) !== 0 || $f['size'] > $maxBytes || !is_uploaded_file($f['tmp_name'])) return null;
+    $head = (string)file_get_contents($f['tmp_name'], false, null, 0, 512);
+    $ext = null;
+    if (strncmp($head, "\xFF\xD8\xFF", 3) === 0) $ext = 'jpg';
+    elseif (strncmp($head, "\x89PNG", 4) === 0) $ext = 'png';
+    elseif (preg_match('/<svg[\s>]/i', (string)file_get_contents($f['tmp_name'], false, null, 0, 4096))) $ext = 'svg';
+    if (!$ext || !in_array($ext, $types, true)) return null;
+    $dir = __DIR__ . '/anfrage-vorschau';
+    if (!is_dir($dir)) @mkdir($dir, 0750, true);
+    if (!is_file($dir . '/.htaccess')) @file_put_contents($dir . '/.htaccess', "Require all denied\n");
+    $name = bin2hex(random_bytes(12)) . '.' . $ext;
+    return move_uploaded_file($f['tmp_name'], $dir . '/' . $name) ? $name : null;
+}
+$previewFile = $konfig ? wf_store_upload('preview', ['jpg', 'png'], 6 * 1024 * 1024) : null;
+$logoFile = $konfig ? wf_store_upload('logo', ['jpg', 'png', 'svg'], 15 * 1024 * 1024) : null;
+$logoName = $logoFile ? mb_substr(basename((string)($_FILES['logo']['name'] ?? 'logo')), 0, 200) : null;
+$konfigJson = $konfig ? json_encode($konfig, JSON_UNESCAPED_UNICODE) : null;
 
 // ─── In Datenbank speichern ────────────────────────────────────────
 $fileName = !empty($_FILES['file']['name']) ? basename($_FILES['file']['name']) : null;
@@ -125,10 +169,10 @@ if ($mysqli) {
     $stmt->close();
     $now = date('Y-m-d H:i:s');
     $stmt = $mysqli->prepare("
-        INSERT INTO inquiries (created_at, name, email, phone, product, qty, wish_date, message, file_name, lang, status)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new')
+        INSERT INTO inquiries (created_at, name, email, phone, product, qty, wish_date, message, file_name, lang, status, konfig, preview_file, logo_file, logo_name)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?)
     ");
-    $stmt->bind_param('ssssssssss', $now, $name, $email, $phone, $product, $qty, $date, $message, $fileName, $lang);
+    $stmt->bind_param('ssssssssssssss', $now, $name, $email, $phone, $product, $qty, $date, $message, $fileName, $lang, $konfigJson, $previewFile, $logoFile, $logoName);
     $stmt->execute();
     $stmt->close();
     $mysqli->close();
@@ -156,32 +200,27 @@ $body .= "\n-------------------------------------\n";
 $body .= "Im Admin-Bereich ansehen und bearbeiten:\n";
 $body .= "https://www.wunsch-fabrik.dk/admin.html\n";
 
-// Handle file attachment
-$attachment = '';
-if (!empty($_FILES['file']['tmp_name']) && $_FILES['file']['error'] === 0) {
-    $fileSize = $_FILES['file']['size'];
-    if ($fileSize <= 30 * 1024 * 1024) {
-        $fileName = basename($_FILES['file']['name']);
-        $fileData = chunk_split(base64_encode(file_get_contents($_FILES['file']['tmp_name'])));
-        $fileType = $_FILES['file']['type'];
-        $boundary = md5(time());
-
-        $headers  = "From: hej@wunsch-fabrik.dk\r\n";
-        $headers .= "Reply-To: $email\r\n";
-        $headers .= "MIME-Version: 1.0\r\n";
-        $headers .= "Content-Type: multipart/mixed; boundary=\"$boundary\"\r\n";
-
-        $body_mime  = "--$boundary\r\n";
-        $body_mime .= "Content-Type: text/plain; charset=UTF-8\r\n\r\n";
-        $body_mime .= $body . "\r\n";
-        $body_mime .= "--$boundary\r\n";
-        $body_mime .= "Content-Type: $fileType; name=\"$fileName\"\r\n";
-        $body_mime .= "Content-Transfer-Encoding: base64\r\n";
-        $body_mime .= "Content-Disposition: attachment; filename=\"$fileName\"\r\n\r\n";
-        $body_mime .= $fileData . "\r\n";
-        $body_mime .= "--$boundary--";
-        $body = $body_mime;
+// Anhänge: hochgeladene Datei, Vorschaubild und Logo aus dem Vorschau-Tool
+$atts = [];
+if (!empty($_FILES['file']['tmp_name']) && $_FILES['file']['error'] === 0 && $_FILES['file']['size'] <= 30 * 1024 * 1024) {
+    $atts[] = [basename($_FILES['file']['name']), $_FILES['file']['type'] ?: 'application/octet-stream', file_get_contents($_FILES['file']['tmp_name'])];
+}
+$vdir = __DIR__ . '/anfrage-vorschau/';
+if ($previewFile) $atts[] = ['vorschau.' . pathinfo($previewFile, PATHINFO_EXTENSION), $previewFile !== null && str_ends_with($previewFile, '.png') ? 'image/png' : 'image/jpeg', file_get_contents($vdir . $previewFile)];
+if ($logoFile) $atts[] = [$logoName, ['jpg' => 'image/jpeg', 'png' => 'image/png', 'svg' => 'image/svg+xml'][pathinfo($logoFile, PATHINFO_EXTENSION)] ?? 'application/octet-stream', file_get_contents($vdir . $logoFile)];
+if ($atts) {
+    $boundary = md5(uniqid('', true));
+    $headers  = "From: hej@wunsch-fabrik.dk\r\n";
+    $headers .= "Reply-To: $email\r\n";
+    $headers .= "MIME-Version: 1.0\r\n";
+    $headers .= "Content-Type: multipart/mixed; boundary=\"$boundary\"\r\n";
+    $mime  = "--$boundary\r\nContent-Type: text/plain; charset=UTF-8\r\n\r\n" . $body . "\r\n";
+    foreach ($atts as [$an, $at, $ad]) {
+        $an = str_replace(['"', "\r", "\n"], '', $an);
+        $at = preg_replace('#[^a-z0-9.+/-]#i', '', $at);
+        $mime .= "--$boundary\r\nContent-Type: $at; name=\"$an\"\r\nContent-Transfer-Encoding: base64\r\nContent-Disposition: attachment; filename=\"$an\"\r\n\r\n" . chunk_split(base64_encode($ad)) . "\r\n";
     }
+    $body = $mime . "--$boundary--";
 }
 
 $sent = mail($to, $subject, $body, $headers);

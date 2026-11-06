@@ -1,0 +1,67 @@
+/* Produkt-Konfigurator (Kontaktformular der Webseite und Auftrags-App).
+   Farben kommen vom umgebenden Layout über die Variablen --wfk-*, sonst helle Standardwerte. */
+.wfk { --_bg: var(--wfk-bg, #ffffff); --_panel: var(--wfk-panel, #f7f5fb); --_ink: var(--wfk-ink, #1d1b22); --_muted: var(--wfk-muted, #6b6873);
+  --_line: var(--wfk-line, #e4e0ea); --_acc: var(--wfk-accent, #7e22ce); --_acc-ink: var(--wfk-accent-ink, #ffffff);
+  color: var(--_ink); font-size: 15px; line-height: 1.4; display: grid; grid-template-columns: minmax(0, 1.35fr) minmax(260px, 1fr); gap: 16px; align-items: start; }
+.wfk * { box-sizing: border-box; }
+.wfk-hidden { display: none !important; }
+@media (max-width: 860px) { .wfk { grid-template-columns: minmax(0, 1fr); } }
+
+.wfk-view { position: sticky; top: var(--wfk-sticky-top, 12px); display: grid; gap: 8px; }
+@media (max-width: 860px) { .wfk-view { position: static; } }
+.wfk-stage { position: relative; background: #fff; border-radius: 14px; overflow: hidden; border: 1px solid var(--_line); aspect-ratio: 1 / 1; touch-action: none; }
+.wfk-stage canvas { display: block; width: 100%; height: 100%; }
+.wfk-stage.drag canvas { cursor: grab; }
+.wfk-stage.drag.dragging canvas { cursor: grabbing; }
+.wfk-busy { position: absolute; inset: 0; display: none; place-items: center; color: #777; background: rgba(255,255,255,.75); font-size: 14px; }
+.wfk-stage.loading .wfk-busy { display: grid; }
+.wfk-vlabel { position: absolute; left: 10px; top: 10px; font-size: 12px; color: #555; background: rgba(255,255,255,.85); border-radius: 999px; padding: 3px 10px; }
+.wfk-thumbs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.wfk-thumbs button { padding: 0; border: 2px solid transparent; border-radius: 10px; background: #fff; cursor: pointer; overflow: hidden; position: relative; }
+.wfk-thumbs button.on { border-color: var(--_acc); }
+.wfk-thumbs canvas { display: block; width: 100%; aspect-ratio: 1 / 1; }
+.wfk-thumbs .dot { position: absolute; right: 5px; top: 5px; width: 9px; height: 9px; border-radius: 50%; background: var(--_acc); box-shadow: 0 0 0 2px #fff; }
+.wfk-note { font-size: 12.5px; color: var(--_muted); margin: 0; }
+
+.wfk-side { display: grid; gap: 14px; }
+.wfk-sec { background: var(--_panel); border: 1px solid var(--_line); border-radius: 14px; padding: 12px 14px; }
+.wfk-sec h4 { margin: 0 0 8px; font-size: 12px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--_muted); display: flex; justify-content: space-between; gap: 8px; }
+.wfk-sec h4 b { text-transform: none; letter-spacing: 0; color: var(--_ink); font-weight: 600; }
+
+.wfk-prods { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
+.wfk-prods button { border: 2px solid transparent; background: #fff; border-radius: 10px; padding: 4px 2px 5px; cursor: pointer; font: inherit; font-size: 11.5px; color: #333; line-height: 1.15; }
+.wfk-prods .pim { display: block; width: 100%; aspect-ratio: 1 / 1; overflow: hidden; margin-bottom: 3px; position: relative; }
+.wfk-prods .pim img { position: absolute; height: 150%; width: auto; max-width: none; left: 4%; top: -25%; }
+.wfk-prods button.on { border-color: var(--_acc); }
+
+.wfk-sw { display: flex; flex-wrap: wrap; gap: 7px; }
+.wfk-sw button { width: 30px; height: 30px; border-radius: 50%; border: 1px solid rgba(0,0,0,.2); cursor: pointer; padding: 0; }
+.wfk-sw button.on { outline: 2px solid var(--_acc); outline-offset: 2px; }
+.wfk-own { display: flex; gap: 8px; align-items: center; margin-top: 10px; font-size: 13px; color: var(--_muted); }
+.wfk-own input[type=color] { width: 44px; height: 32px; border: 1px solid var(--_line); border-radius: 8px; padding: 2px; background: #fff; cursor: pointer; }
+
+.wfk-btn { display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 40px; padding: 0 14px; border-radius: 10px; border: 1px solid var(--_line);
+  background: var(--_bg); color: var(--_ink); font: inherit; font-size: 14px; cursor: pointer; text-decoration: none; }
+.wfk-btn.primary { background: var(--_acc); border-color: var(--_acc); color: var(--_acc-ink); font-weight: 600; }
+.wfk-btn.small { min-height: 32px; padding: 0 10px; font-size: 13px; }
+.wfk-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.wfk-logo { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+.wfk-logo .prev { width: 56px; height: 56px; border-radius: 10px; border: 1px solid var(--_line);
+  background: #fff repeating-conic-gradient(#eee 0 25%, #fff 0 50%) 0 0 / 12px 12px; display: grid; place-items: center; overflow: hidden; flex: 0 0 auto; }
+.wfk-logo .prev img { max-width: 90%; max-height: 90%; }
+.wfk-logo .nm { font-size: 13px; overflow-wrap: anywhere; flex: 1 1 120px; min-width: 0; }
+
+.wfk-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.wfk-chips button { border: 1px solid var(--_line); background: var(--_bg); color: var(--_ink); border-radius: 999px; padding: 6px 12px; font: inherit; font-size: 13.5px; cursor: pointer; }
+.wfk-chips button.on { background: var(--_acc); border-color: var(--_acc); color: var(--_acc-ink); }
+.wfk-size { display: grid; gap: 4px; margin-top: 10px; font-size: 13.5px; }
+.wfk-size .lbl { display: flex; justify-content: space-between; gap: 8px; }
+.wfk-size input[type=range] { width: 100%; accent-color: var(--_acc); }
+.wfk-tech { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; }
+.wfk-tech button { text-align: left; border: 1px solid var(--_line); background: var(--_bg); color: var(--_ink); border-radius: 10px; padding: 8px 10px; font: inherit; font-size: 13.5px; cursor: pointer; line-height: 1.25; }
+.wfk-tech button small { display: block; color: var(--_muted); font-size: 11.5px; }
+.wfk-tech button.on { border-color: var(--_acc); box-shadow: inset 0 0 0 1px var(--_acc); }
+.wfk-check { display: flex; gap: 8px; align-items: flex-start; font-size: 13.5px; cursor: pointer; }
+.wfk-check input { margin-top: 3px; accent-color: var(--_acc); width: 17px; height: 17px; flex: 0 0 auto; }
+/* Formular-Stile des umgebenden Programms (z. B. Großbuchstaben bei label) nicht übernehmen */
+.wfk label { text-transform: none; letter-spacing: 0; font-weight: inherit; color: inherit; margin: 0; font-size: 13.5px; }

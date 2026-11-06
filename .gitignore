@@ -13,3 +13,7 @@ website/db_config.php
 
 # Upload-Paket (enthält Zugangsdaten)
 website-paket/
+
+# Website: Vorschaubilder und Logos aus Kundenanfragen
+website/anfrage-vorschau/*
+!website/anfrage-vorschau/.htaccess

@@ -1654,7 +1654,7 @@ route(/^\/products(?:\?c=(-?\d+))?$/, async (cParam) => {
   const search = h('input', { type: 'search', id: 'prodSearch', placeholder: t('prod_search'), value: prodQ, oninput: (e) => { prodQ = e.target.value; draw(); } });
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('tab_products')), h('h1', {}, t('prod_h1_a'), ' ', h('em', {}, t('prod_h1_b')))),
-      h('div', { class: 'row', style: 'gap:8px' }, h('button', { class: 'btn', onclick: manage }, '⚙ ' + t('prod_manage')), h('button', { class: 'btn primary', onclick: () => openDrawer({}) }, '+ ' + t('prod_add')))),
+      h('div', { class: 'row', style: 'gap:8px' }, h('a', { class: 'btn', href: '#/konfig' }, '🎨 ' + t('konfig_btn')), h('button', { class: 'btn', onclick: manage }, '⚙ ' + t('prod_manage')), h('button', { class: 'btn primary', onclick: () => openDrawer({}) }, '+ ' + t('prod_add')))),
     !products.length ? catalogCard() : null,
     h('div', { class: 'ptools' },
       h('div', { class: 'row', style: 'gap:8px;flex-wrap:nowrap' }, search,

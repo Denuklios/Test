@@ -1010,6 +1010,20 @@
   .tel-img { height: 1.05em; width: auto; vertical-align: -0.18em; display: inline-block; }
   #legalContent .tel-img { opacity: 0.72; height: 1em; }
   .contact-form { display: flex; flex-direction: column; gap: 1rem; }
+
+  /* Produkt-Konfigurator im Kontaktformular */
+  .kf-mode { display: grid; grid-template-columns: 1fr 1fr; gap: .7rem; }
+  .kf-mode-btn { text-align: left; background: var(--bg-card); border: 1px solid var(--border); border-radius: 12px; padding: .85rem 1rem; color: var(--text-white);
+    font-family: 'Outfit', sans-serif; cursor: pointer; display: grid; gap: .2rem; transition: border-color .15s, box-shadow .15s; }
+  .kf-mode-btn b { font-size: .95rem; }
+  .kf-mode-btn small { font-size: .78rem; color: var(--text-muted); line-height: 1.35; }
+  .kf-mode-btn.on { border-color: var(--purple-bright); box-shadow: 0 0 0 1px var(--purple-bright) inset; }
+  .kf-box { --wfk-sticky-top: 120px; --wfk-bg: #121212; --wfk-panel: #1b1922; --wfk-ink: #F0EEF5; --wfk-muted: #9a96a6; --wfk-line: rgba(168,85,247,.25); --wfk-accent: #A855F7; --wfk-accent-ink: #fff; }
+  .kf-box[hidden] { display: none; }
+  .kf-loading { color: var(--text-muted); font-size: .9rem; padding: 1rem 0; }
+  .kontakt-grid.kf-on { grid-template-columns: 1fr; gap: 3rem; }
+  .kontakt-grid.kf-on .contact-items { order: 2; }
+  @media (max-width: 600px) { .kf-mode { grid-template-columns: 1fr; } }
   .form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
   .form-group { display: flex; flex-direction: column; gap: 0.4rem; }
   .form-label { font-size: 0.75rem; letter-spacing: 0.08em; text-transform: uppercase; color: var(--text-muted); }
@@ -2116,6 +2130,12 @@
         </div>
       </div>
       <div class="contact-form reveal">
+        <!-- Zwei Wege: normale Anfrage oder mit Vorschau-Tool (Produkt einfärben, Logo platzieren) -->
+        <div class="kf-mode" role="group">
+          <button type="button" class="kf-mode-btn on" data-kf="normal"><b data-i18n="kf_normal_t">✉️ Normale Anfrage</b><small data-i18n="kf_normal_d">Kurz schreiben, wir melden uns mit Ideen und Preis.</small></button>
+          <button type="button" class="kf-mode-btn" data-kf="tool"><b data-i18n="kf_tool_t">🎨 Mit Vorschau-Tool</b><small data-i18n="kf_tool_d">Produkt, Farbe und Logo wählen und das Ergebnis direkt sehen.</small></button>
+        </div>
+        <div class="kf-box" id="kfBox" hidden><div class="kf-loading" data-i18n="kf_loading">Vorschau-Tool wird geladen …</div></div>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" data-i18n="form_name">Name *</label>
@@ -2361,6 +2381,7 @@ const translations = {
     form_file_hint: "JPG, PNG, PDF, AI, EPS, SVG – max. 30 MB",
     form_captcha: "Sicherheitsfrage:", form_captcha_ph: "Deine Antwort",
     form_send: "Angebot anfragen",
+    kf_normal_t: "✉️ Normale Anfrage", kf_normal_d: "Kurz schreiben, wir melden uns mit Ideen und Preis.", kf_tool_t: "🎨 Mit Vorschau-Tool", kf_tool_d: "Produkt, Farbe und Logo wählen und das Ergebnis direkt sehen.", kf_loading: "Vorschau-Tool wird geladen …", kf_err_load: "Das Vorschau-Tool konnte nicht geladen werden. Du kannst trotzdem normal anfragen.", kf_msg_ph: "Noch Wünsche? Z. B. Größen, Menge oder Fragen – gern auch leer lassen.",
     einzelstueck: "✅ Einzelstücke möglich* – in der Regel kein Mindestbestellwert",
     einzelstueck_note: "* Beim Siebdruck können für Einzelstücke abweichende Preise gelten.",
     footer_tag: "Damit Dein Wunsch kein Wunsch bleiben muss.",
@@ -2429,6 +2450,7 @@ const translations = {
     form_file_hint: "JPG, PNG, PDF, AI, EPS, SVG – maks. 30 MB",
     form_captcha: "Sikkerhedsspørgsmål:", form_captcha_ph: "Dit svar",
     form_send: "Anmod om tilbud",
+    kf_normal_t: "✉️ Almindelig forespørgsel", kf_normal_d: "Skriv kort, så vender vi tilbage med idéer og pris.", kf_tool_t: "🎨 Med forhåndsvisning", kf_tool_d: "Vælg produkt, farve og logo og se resultatet med det samme.", kf_loading: "Forhåndsvisningen indlæses …", kf_err_load: "Forhåndsvisningen kunne ikke indlæses. Du kan stadig sende en almindelig forespørgsel.", kf_msg_ph: "Flere ønsker? F.eks. størrelser, antal eller spørgsmål – må gerne være tom.",
     einzelstueck: "✅ Enkelteksemplarer mulige* – normalt ingen minimumsordre",
     einzelstueck_note: "* Ved silketryk kan der gælde særlige priser for enkelteksemplarer.",
     footer_tag: "Så dit ønske ikke forbliver et ønske.",
@@ -2497,6 +2519,7 @@ const translations = {
     form_file_hint: "JPG, PNG, PDF, AI, EPS, SVG – max. 30 MB",
     form_captcha: "Security question:", form_captcha_ph: "Your answer",
     form_send: "Request a quote",
+    kf_normal_t: "✉️ Normal enquiry", kf_normal_d: "Write a few lines and we get back with ideas and a price.", kf_tool_t: "🎨 With preview tool", kf_tool_d: "Pick product, colour and logo and see the result right away.", kf_loading: "Loading preview tool …", kf_err_load: "The preview tool could not be loaded. You can still send a normal enquiry.", kf_msg_ph: "Anything else? E.g. sizes, quantity or questions – may be left empty.",
     einzelstueck: "✅ Single pieces welcome* – usually no minimum order",
     einzelstueck_note: "* For screen printing, individual pieces may be subject to different pricing.",
     footer_tag: "So your wish doesn't stay just a wish.",
@@ -2578,6 +2601,8 @@ function setLang(lang) {
   document.documentElement.lang = lang;
   buildFaq(lang);
   generateCaptcha();
+  if (window.__wfK) window.__wfK.setLang(lang);
+  if (typeof kfMsgPlaceholder === 'function') kfMsgPlaceholder();
 }
 
 // ─── COUNTER ANIMATION ───────────────────────────────────────────
@@ -3843,6 +3868,42 @@ function closeModalOutside(e) {
   if (e.target === document.getElementById('serviceModal')) closeModal();
 }
 document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });
+// ─── VORSCHAU-TOOL im Kontaktformular (wird erst beim Anklicken geladen) ─
+let kfMode = 'normal', kfLoad = null;
+function kfMsgPlaceholder() {
+  const m = document.getElementById('field-message'), T = translations[currentLang] || translations.de;
+  if (m) m.placeholder = kfMode === 'tool' && window.__wfK ? T.kf_msg_ph : T.form_message_ph;
+}
+function kfScript(src) { return new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = bad; document.head.append(s); }); }
+const KF_TECH_OPTION = { stick: 'prod_sticken', dtf: 'prod_dtf', plott: 'prod_plotten', sieb: 'prod_siebdruck' };
+function kfSet(mode) {
+  kfMode = mode;
+  document.querySelectorAll('[data-kf]').forEach(b => b.classList.toggle('on', b.dataset.kf === mode));
+  const box = document.getElementById('kfBox');
+  box.hidden = mode !== 'tool';
+  document.querySelector('.kontakt-grid').classList.toggle('kf-on', mode === 'tool');
+  kfMsgPlaceholder();
+  if (mode !== 'tool' || kfLoad) return;
+  if (!document.getElementById('kfCss')) { const l = document.createElement('link'); l.id = 'kfCss'; l.rel = 'stylesheet'; l.href = 'konfigurator/konfig.css?v=1'; document.head.append(l); }
+  kfLoad = (async () => {
+    if (!window.WFKonfig) await kfScript('konfigurator/konfig.js?v=1');
+    const holder = document.createElement('div');
+    box.replaceChildren(holder);
+    window.__wfK = await WFKonfig.mount(holder, { mode: 'kunde', lang: currentLang, base: 'konfigurator/', onChange: (k) => {
+      // Veredelung ins Feld „Produktart“ übernehmen
+      const sel = document.getElementById('field-product'), key = KF_TECH_OPTION[k.tech()];
+      const i = [...sel.options].findIndex(o => o.getAttribute('data-i18n') === key);
+      if (i >= 0) sel.selectedIndex = i;
+    } });
+    kfMsgPlaceholder();
+  })().catch(() => {
+    const T = translations[currentLang] || translations.de;
+    box.innerHTML = '<div class="kf-loading">' + T.kf_err_load + '</div>';
+    kfLoad = null;
+  });
+}
+document.querySelectorAll('[data-kf]').forEach(b => b.addEventListener('click', () => kfSet(b.dataset.kf)));
+
 // ─── CONTACT FORM – Formspree ────────────────────────────────────
 document.getElementById('send-btn').addEventListener('click', async () => {
   const btn     = document.getElementById('send-btn');
@@ -3858,8 +3919,11 @@ document.getElementById('send-btn').addEventListener('click', async () => {
   const T = translations[currentLang] || translations.de;
   const showErr = (msg) => { status.innerHTML = msg; status.style.color = '#f87171'; status.style.display = 'block'; };
 
-  // Nur Name, E-Mail und Nachricht sind Pflicht – alles andere klären wir gern im Gespräch
-  if (!name || !email || !message) { showErr(T.form_err_required); return; }
+  // Nur Name, E-Mail und Nachricht sind Pflicht – alles andere klären wir gern im Gespräch.
+  // Mit dem Vorschau-Tool reicht die Auswahl, die Nachricht ist dann freiwillig.
+  const kf = kfMode === 'tool' && window.__wfK ? window.__wfK : null;
+  if (!name || !email || (!message && !kf)) { showErr(T.form_err_required); return; }
+  if (kf) { const kerr = kf.validate(); if (kerr) { showErr(kerr); return; } }
   if (!/^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email)) { showErr(T.form_err_email); return; }
 
   if (file && file.size > 30 * 1024 * 1024) {
@@ -3891,6 +3955,13 @@ document.getElementById('send-btn').addEventListener('click', async () => {
     formData.append('pow_number', String(pow.number));
     formData.append('pow_sig', pow.sig);
     if (file) formData.append('file', file);
+    if (kf) {
+      formData.append('konfig', JSON.stringify(kf.config()));
+      const prev = await kf.previewBlob('image/jpeg', 0.86);
+      if (prev) formData.append('preview', prev, 'vorschau.jpg');
+      const lf = kf.logoFile();
+      if (lf) formData.append('logo', lf, lf.name);
+    }
 
     const res = await fetch('send.php', { method: 'POST', body: formData });
     const data = await res.json();

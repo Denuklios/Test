@@ -1,5 +1,9 @@
 window.WF_I18N = {
 de: {
+  kc_color: 'Farbe', kc_tech: 'Veredelung', kc_pos: 'Position',
+  konfig_btn: 'Konfigurator', konfig_title: 'Produkt-Konfigurator', konfig_sub: 'Schnell planen: Produkt, Farbe, Logo, Position und Größe wählen – mit Vorschau aller vier Ansichten.',
+  konfig_to_order: 'Neuer Auftrag damit', konfig_err: 'Der Konfigurator konnte nicht geladen werden.', konfig_open_inq: 'Im Konfigurator öffnen',
+  inq_konfig: 'Auswahl im Vorschau-Tool', inq_preview_dl: 'Vorschau herunterladen', inq_logo_dl: 'Logo herunterladen',
   ship_prod_title: 'Versand: Gewicht & Maße', ship_prod_hint: 'Je Stück, fertig verpackt (z. B. gefaltetes Shirt in Folie). Daraus rechnet der Auftrag das Paketgewicht und schlägt den passenden Karton vor.',
   ship_weight: 'Gewicht', ship_dims: 'Maße L × B × H', ship_len_mm: 'Länge', ship_wid_mm: 'Breite', ship_hgt_mm: 'Höhe',
   ship_foldable: 'Faltbar (Textil) – zählt nur mit dem Volumen, nicht mit der Länge',
@@ -221,6 +225,10 @@ de: {
   err_duplicate_admin_id: 'Admin-ID doppelt vergeben.', err_unknown_action: 'Unbekannte Aktion.', err_bad_json: 'Ungültige Daten.', err_bad_date: 'Datum ungültig.', err_range_too_large: 'Zeitraum zu groß.', err_nothing: 'Nichts zu ändern.', err_post_required: 'Ungültige Anfrage.'
 },
 da: {
+  kc_color: 'Farve', kc_tech: 'Forædling', kc_pos: 'Placering',
+  konfig_btn: 'Konfigurator', konfig_title: 'Produkt-konfigurator', konfig_sub: 'Planlæg hurtigt: vælg produkt, farve, logo, placering og størrelse – med visning fra alle fire sider.',
+  konfig_to_order: 'Ny ordre med dette', konfig_err: 'Konfiguratoren kunne ikke indlæses.', konfig_open_inq: 'Åbn i konfiguratoren',
+  inq_konfig: 'Valg i forhåndsvisningen', inq_preview_dl: 'Download forhåndsvisning', inq_logo_dl: 'Download logo',
   ship_prod_title: 'Forsendelse: vægt & mål', ship_prod_hint: 'Pr. stk, færdigpakket (f.eks. foldet t-shirt i pose). Ordren beregner pakkens vægt og foreslår den rigtige kasse.',
   ship_weight: 'Vægt', ship_dims: 'Mål L × B × H', ship_len_mm: 'Længde', ship_wid_mm: 'Bredde', ship_hgt_mm: 'Højde',
   ship_foldable: 'Kan foldes (tekstil) – tæller kun med rumfanget, ikke med længden',

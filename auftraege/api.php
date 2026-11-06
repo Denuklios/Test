@@ -1333,13 +1333,51 @@ try {
             if (!$site) {
                 wf_fail('no_site_db', 404);
             }
-            $q = $site->prepare('SELECT id, created_at, name, email, phone, product, qty, wish_date, message, lang, status FROM inquiries WHERE id = ?');
+            $q = $site->prepare('SELECT * FROM inquiries WHERE id = ?');
             $q->execute([(int)($_GET['id'] ?? 0)]);
             $r = $q->fetch();
             if (!$r) {
                 wf_fail('not_found', 404);
             }
-            wf_json(['ok' => true, 'inquiry' => $r]);
+            // Auswahl aus dem Vorschau-Tool der Webseite (falls vorhanden)
+            $out = array_intersect_key($r, array_flip(['id', 'created_at', 'name', 'email', 'phone', 'product', 'qty', 'wish_date', 'message', 'lang', 'status']));
+            $out['konfig'] = !empty($r['konfig']) ? json_decode((string)$r['konfig'], true) : null;
+            $out['has_preview'] = !empty($r['preview_file']) && is_file(wf_inquiry_file_dir() . basename((string)$r['preview_file']));
+            $out['has_logo'] = !empty($r['logo_file']) && is_file(wf_inquiry_file_dir() . basename((string)$r['logo_file']));
+            $out['logo_name'] = $r['logo_name'] ?? null;
+            $out['logo_ext'] = !empty($r['logo_file']) ? pathinfo((string)$r['logo_file'], PATHINFO_EXTENSION) : null;
+            wf_json(['ok' => true, 'inquiry' => $out]);
+        }
+
+        // Vorschaubild oder Logo einer Anfrage aus dem Vorschau-Tool
+        case 'inquiry_file': {
+            $site = wf_events_site_db();
+            if (!$site) {
+                wf_fail('no_site_db', 404);
+            }
+            $which = ($_GET['f'] ?? '') === 'logo' ? 'logo' : 'preview';
+            $q = $site->prepare('SELECT preview_file, logo_file, logo_name FROM inquiries WHERE id = ?');
+            $q->execute([(int)($_GET['id'] ?? 0)]);
+            $r = $q->fetch();
+            $file = $r ? (string)($r[$which . '_file'] ?? '') : '';
+            $path = $file !== '' && preg_match('/^[0-9a-f]{24}\.(jpg|png|svg)$/', $file) ? wf_inquiry_file_dir() . $file : '';
+            if ($path === '' || !is_file($path)) {
+                wf_fail('not_found', 404);
+            }
+            session_write_close();
+            $ext = pathinfo($file, PATHINFO_EXTENSION);
+            $mime = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'svg' => 'image/svg+xml'][$ext];
+            $inline = $ext !== 'svg' && empty($_GET['dl']);
+            $name = $which === 'logo' ? (string)($r['logo_name'] ?: 'logo.' . $ext) : 'vorschau-anfrage-' . (int)$_GET['id'] . '.' . $ext;
+            header_remove('Content-Type');
+            header('Content-Type: ' . ($inline ? $mime : 'application/octet-stream'));
+            header('X-Content-Type-Options: nosniff');
+            header("Content-Security-Policy: default-src 'none'; img-src 'self' data:; style-src 'unsafe-inline'; sandbox");
+            header('Content-Disposition: ' . ($inline ? 'inline' : 'attachment') . "; filename*=UTF-8''" . rawurlencode($name));
+            header('Content-Length: ' . filesize($path));
+            header('Cache-Control: private, max-age=3600');
+            readfile($path);
+            exit;
         }
 
         // Produktdaten zu einem Barcode aus offenen Datenbanken (nur Vorschlag, gespeichert wird nichts am Produkt)

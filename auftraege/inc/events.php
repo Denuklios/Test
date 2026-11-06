@@ -54,6 +54,16 @@ function wf_events_site_db(): ?PDO
     return $db;
 }
 
+/** Ordner der Webseite mit Vorschaubildern und Logos aus dem Vorschau-Tool (liegt neben db_config.php). */
+function wf_inquiry_file_dir(): string
+{
+    if ($d = getenv('WF_SITE_FILES_DIR')) {
+        return rtrim($d, '/') . '/';
+    }
+    $cfg = getenv('WF_SITE_DB_CONFIG') ?: dirname(__DIR__, 2) . '/db_config.php';
+    return dirname($cfg) . '/anfrage-vorschau/';
+}
+
 /** Neue Anfragen (oder nur höchste Nummer, wenn $after null). Liefert [max, items]. */
 function wf_events_inquiries(?int $after): array
 {

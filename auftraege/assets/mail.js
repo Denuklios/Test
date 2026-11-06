@@ -168,6 +168,7 @@ route(/^\/inquiry\/(\d+)$/, async (id) => {
         known ? h('a', { class: 'btn', href: `#/customer/${known.id}` }, '👤 ' + known.name) : h('a', { class: 'btn', href: '#/customer/new', onclick: () => { try { sessionStorage.setItem('wf_new_customer', JSON.stringify({ name: q.name || '', email: q.email || '' })); } catch (e) { /* egal */ } } }, '👤＋ ' + t('mail_new_customer')),
         tel ? h('a', { class: 'btn', href: 'tel:' + tel }, '📞 ' + t('inq_call')) : null,
         tel ? h('a', { class: 'btn', href: 'https://wa.me/' + tel.replace(/^\+/, '').replace(/^00/, ''), target: '_blank', rel: 'noopener' }, '💬 WhatsApp') : null)),
+    window.konfigInquiryCard ? window.konfigInquiryCard(q) : null,
     h('div', { class: 'card' }, row('q_message', q.message), q.file_name ? h('p', { class: 'muted', style: 'margin:8px 0 0' }, '📎 ' + t('inq_file', q.file_name)) : null),
     h('div', { class: 'card' }, h('div', { class: 'grid', style: 'grid-template-columns:minmax(0,1fr);gap:8px' }, h('div', {}, h('label', {}, t('inq_status')), sel),
       h('label', { class: 'row', style: 'gap:8px;margin:0;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, notify, t('inq_notify')))));
