@@ -310,8 +310,9 @@
 
     const secProd = el('div', { class: 'wfk-sec' }), secColor = el('div', { class: 'wfk-sec' }), secLogo = el('div', { class: 'wfk-sec' });
     const secPos = el('div', { class: 'wfk-sec' }), secTech = el('div', { class: 'wfk-sec' }), secRights = el('div', { class: 'wfk-sec' });
-    side.append(secProd, secColor, secLogo, secPos, secTech);
-    if (mode === 'kunde') side.append(secRights);
+    // Logo zuerst (über dem Produktbild), damit man gleich damit anfangen kann; die Rechte-Bestätigung direkt darunter
+    view.prepend(...(mode === 'kunde' ? [secLogo, secRights] : [secLogo]));
+    side.append(secProd, secColor, secPos, secTech);
     const fileIn = el('input', { type: 'file', accept: 'image/png,image/jpeg,image/svg+xml,.svg,.png,.jpg,.jpeg', class: 'wfk-hidden' });
     root.append(fileIn);
     let logoErr = '';

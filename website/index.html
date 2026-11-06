@@ -3884,13 +3884,13 @@ function kfSet(mode) {
   document.querySelector('.kontakt-grid').classList.toggle('kf-on', mode === 'tool');
   kfMsgPlaceholder();
   // Zum Anfang springen (am Handy bleibt die Seite sonst unten stehen, weil sich das Layout umbaut)
-  const jump = () => { const el = mode === 'tool' ? box : document.querySelector('.kf-mode'); const nav = document.querySelector('nav'); const off = (nav ? nav.getBoundingClientRect().height : 0) + 50;
+  const jump = () => { const el = document.querySelector('.kf-mode'); const nav = document.querySelector('nav'); const off = (nav ? Math.max(0, nav.getBoundingClientRect().bottom) : 0) + 16;
     window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - off, behavior: 'smooth' }); };
   requestAnimationFrame(jump);
   if (mode !== 'tool' || kfLoad) return;
-  if (!document.getElementById('kfCss')) { const l = document.createElement('link'); l.id = 'kfCss'; l.rel = 'stylesheet'; l.href = 'konfigurator/konfig.css?v=8'; document.head.append(l); }
+  if (!document.getElementById('kfCss')) { const l = document.createElement('link'); l.id = 'kfCss'; l.rel = 'stylesheet'; l.href = 'konfigurator/konfig.css?v=9'; document.head.append(l); }
   kfLoad = (async () => {
-    if (!window.WFKonfig) await kfScript('konfigurator/konfig.js?v=8');
+    if (!window.WFKonfig) await kfScript('konfigurator/konfig.js?v=9');
     const holder = document.createElement('div');
     box.replaceChildren(holder);
     window.__wfK = await WFKonfig.mount(holder, { mode: 'kunde', lang: currentLang, base: 'konfigurator/', onChange: (k) => {
@@ -3900,7 +3900,7 @@ function kfSet(mode) {
       if (i >= 0) sel.selectedIndex = i;
     } });
     kfMsgPlaceholder();
-    requestAnimationFrame(jump);
+    requestAnimationFrame(jump); setTimeout(jump, 700);   // zweites Mal, falls sich das Layout noch verschoben hat
   })().catch(() => {
     const T = translations[currentLang] || translations.de;
     box.innerHTML = '<div class="kf-loading">' + T.kf_err_load + '</div>';
