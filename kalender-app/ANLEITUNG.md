@@ -72,11 +72,16 @@ Jeder Punkt hat seinen eigenen Fälligkeitstermin.
 - **Teilen**: Termin als Text per WhatsApp & Co. verschicken.
 - **Offline**: Termine lassen sich auch ohne Netz eintragen, sie werden später hochgeladen (☁ mit Strich oben = wartet).
 
-## 4. Updates
+## 4. Updates (automatisch)
 
-Neue Versionen einfach über die alte installieren – die Daten bleiben erhalten.
-Dafür muss jede Version mit demselben Schlüssel signiert sein (`familienkalender.jks`, nicht im Repository,
-weil das Repository öffentlich ist). Den Schlüssel gut aufheben und beim nächsten Update wieder mitgeben.
+- Der Kalender liegt auf **https://www.wunsch-fabrik.dk/kalender** (dort auch eine Download-Seite für die App).
+- Neue Versionen: `./release.sh "Was ist neu"` baut die APK nach `server/app/`, dann einen Commit mit
+  **[hochladen]** in der Beschreibung auf diesen Zweig schieben. GitHub lädt alles per SFTP hoch
+  (`.github/workflows/kalender-hochladen.yml`, gleiche Zugangsdaten wie die Website) und findet den Ordner selbst.
+- Die App prüft beim Start und beim Zurückkehren `kalender/app/version.json`, bietet das Update an,
+  lädt es herunter und öffnet die Installation. Beim ersten Mal fragt Android einmal nach der Erlaubnis
+  „Aus dieser Quelle zulassen“.
+- Signiert wird immer mit demselben Schlüssel (`familienkalender.jks`, nicht im öffentlichen Repository).
 
 ## Technik
 
