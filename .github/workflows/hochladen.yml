@@ -56,12 +56,18 @@ jobs:
           CONN="set sftp:auto-confirm yes; set net:max-retries 3; set net:timeout 30; open -u '$SFTP_USER' --env-password 'sftp://$SFTP_HOST'"
           # Website-Ordner finden: FTP_DIR, sonst automatisch (one.com: webroots/…). Erkennungszeichen ist
           # db_config.php, die nur auf dem Server existiert und von hier nie hochgeladen wird.
-          lftp -e "$CONN; echo '--- webroots:'; cls -1F webroots/ webroots/*/; bye" || true
+          FOUND=""
           if [ -n "$SFTP_DIR" ]; then
-            FOUND=$(lftp -e "$CONN; cls -1 '$SFTP_DIR/db_config.php'; bye" 2>/dev/null | grep 'db_config.php' | head -1 || true)
+            CANDS="$SFTP_DIR"
           else
-            FOUND=$(lftp -e "$CONN; cls -1 webroots/*/db_config.php webroots/db_config.php httpd.www/db_config.php db_config.php; bye" 2>/dev/null | grep 'db_config.php' | head -1 || true)
+            # one.com: webroots/<id> (Verweis) und webroots/by-route/<domain>
+            LIST=$(lftp -e "$CONN; cls -1 webroots/ webroots/by-route/; bye" 2>/dev/null | sed 's#/*$##; s#@$##' || true)
+            echo "--- Kandidaten:"; echo "$LIST"
+            CANDS="$LIST httpd.www ."
           fi
+          for c in $CANDS; do
+            if lftp -e "$CONN; cls -1 '$c/db_config.php'; bye" 2>/dev/null | grep -q 'db_config.php'; then FOUND="$c/db_config.php"; break; fi
+          done
           if [ -z "$FOUND" ]; then
             echo "::error::Kein Website-Ordner mit db_config.php gefunden. FTP_DIR unter Settings → Secrets eintragen."
             exit 1
