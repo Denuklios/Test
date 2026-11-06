@@ -54,13 +54,18 @@ jobs:
           # Nur hochladen und überschreiben, nie löschen: Dateien, die es hier nicht gibt (db_config.php,
           # auftraege/data/, anfrage-vorschau/), bleiben auf dem Server unangetastet.
           CONN="set sftp:auto-confirm yes; set net:max-retries 3; set net:timeout 30; open -u '$SFTP_USER' --env-password 'sftp://$SFTP_HOST'"
-          DIR="${SFTP_DIR:-.}"
-          # Ordner auf dem Server immer im Protokoll zeigen (hilft beim Einrichten)
-          lftp -e "$CONN; echo '--- Ordner nach dem Login:'; cls -1F; echo '--- eine Ebene tiefer:'; cls -1F */; bye" || true
-          # Sicherheitsprüfung: nur hochladen, wenn im Zielordner die echte Website liegt. Erkennungszeichen ist
+          # Website-Ordner finden: FTP_DIR, sonst automatisch (one.com: webroots/…). Erkennungszeichen ist
           # db_config.php, die nur auf dem Server existiert und von hier nie hochgeladen wird.
-          if ! lftp -e "$CONN; cls -1 '$DIR/db_config.php'; bye" 2>/dev/null | grep -q 'db_config.php'; then
-            echo "::error::Im Zielordner '$DIR' liegt keine db_config.php – das ist nicht der Website-Ordner. FTP_DIR anpassen."
+          lftp -e "$CONN; echo '--- webroots:'; cls -1F webroots/ webroots/*/; bye" || true
+          if [ -n "$SFTP_DIR" ]; then
+            FOUND=$(lftp -e "$CONN; cls -1 '$SFTP_DIR/db_config.php'; bye" 2>/dev/null | grep 'db_config.php' | head -1 || true)
+          else
+            FOUND=$(lftp -e "$CONN; cls -1 webroots/*/db_config.php webroots/db_config.php httpd.www/db_config.php db_config.php; bye" 2>/dev/null | grep 'db_config.php' | head -1 || true)
+          fi
+          if [ -z "$FOUND" ]; then
+            echo "::error::Kein Website-Ordner mit db_config.php gefunden. FTP_DIR unter Settings → Secrets eintragen."
             exit 1
           fi
+          DIR=$(dirname "$FOUND")
+          echo "Website-Ordner auf dem Server: $DIR"
           lftp -e "$CONN; mirror --reverse --no-perms --parallel=4 --verbose=1 ./_upload/ '$DIR'; bye"
