@@ -1,6 +1,6 @@
 """Produktfotos für den Konfigurator vorbereiten.
 
-Aufruf:  python3 freistellen.py <quelle.png> <ziel-ohne-endung> [schwelle] [kante] ["x,y;x,y" Öffnungen] [schatten] [-] [glätten] [bodenschatten-px]
+Aufruf:  python3 freistellen.py <quelle.png> <ziel-ohne-endung> [schwelle] [kante] ["x,y;x,y" Öffnungen] [schatten] [-] [glätten] [bodenschatten-px] ["x,y" Öffnung nicht einfärben]
 Ergebnis: <ziel>.jpg (Foto) und <ziel>-m.png (Maske: weiß = Produkt, schwarz = Hintergrund).
 
 Der Hintergrund darf hellgrau sein. Er wird als sanfter Verlauf aus den Bildrändern geschätzt; alles, was
@@ -19,6 +19,7 @@ TD = float(sys.argv[6]) if len(sys.argv) > 6 else T
 HELL = len(sys.argv) > 7 and sys.argv[7] == 'hell'
 OPEN = int(sys.argv[8]) if len(sys.argv) > 8 else 1
 BODEN = int(sys.argv[9]) if len(sys.argv) > 9 else 0
+LOCH = [tuple(int(v) for v in p.split(',')) for p in (sys.argv[10].split(';') if len(sys.argv) > 10 and sys.argv[10] else [])]
 SEEDS = [tuple(int(v) for v in p.split(',')) for p in (sys.argv[5].split(';') if len(sys.argv) > 5 and sys.argv[5] else [])]
 im = Image.open(src).convert('RGB')
 a = np.asarray(im).astype(np.float32)
@@ -84,9 +85,26 @@ if BODEN:
         y = ys[-1]
         k = 0
         while y >= 0 and fg[y, x] and k < BODEN and -46 <= d[y, x] <= 2:
-            fg[y, x] = False; y -= 1; k += 1
-    # Umriss glätten (Zacken vom spaltenweisen Abtragen weg)
+            y -= 1; k += 1
+        # nur abtragen, wenn oben wirklich Produkt anschließt; sonst ist es eine schattige Seitenfläche
+        if k and k < BODEN and y >= 0 and fg[y, x]:
+            fg[y + 1:ys[-1] + 1, x] = False
+    # einzelne stehengebliebene Schattenspalten (dünne Zacken) entfernen, Umriss glätten
+    fg = ndi.binary_opening(fg, structure=ndi.generate_binary_structure(2, 2), iterations=4)
     fg = ndi.gaussian_filter(fg.astype(np.float32), 2.0) > 0.5
+for sx, sy in LOCH:
+    # Öffnung im Produkt (z. B. hinten an der Kappe): gleichmäßig mittelgraue Fläche um den Startpunkt nicht einfärben
+    # nur in einem Fenster um den Startpunkt suchen, damit nichts in schattige Stoffflächen ausläuft
+    win = np.zeros_like(fg); win[max(0, sy - 45):sy + 40, max(0, sx - 100):sx + 100] = True
+    hole = (d >= -30) & (d <= -3) & win
+    labh, _ = ndi.label(hole)
+    k = labh[sy, sx]
+    if k:
+        hm = ndi.binary_fill_holes(ndi.binary_closing(labh == k, iterations=3))
+        hm = ndi.gaussian_filter(hm.astype(np.float32), 2.5) > 0.5
+        hm = ndi.binary_dilation(hm, iterations=1)
+        fg &= ~hm
+        fg = ndi.gaussian_filter(fg.astype(np.float32), 1.5) > 0.5
 m = Image.fromarray((fg * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.8))
 m.save(dst + '-m.png', optimize=True)
 im.save(dst + '.jpg', quality=90, optimize=True, progressive=True)
