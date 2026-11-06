@@ -1665,6 +1665,7 @@
   }
 
   /* ─── WHATSAPP BUTTON ─── */
+  .wa-btn[hidden] { display: none !important; }
   .wa-btn {
     position: fixed; bottom: 1.8rem; right: 1.8rem; z-index: 200;
     width: 58px; height: 58px;
@@ -2105,12 +2106,12 @@
             <div class="contact-item-value">hej@wunsch-fabrik.dk</div>
           </div>
         </a>
+        <!-- Telefon vorerst nur im Impressum; Kontakt läuft über Mail und Formular -->
         <div class="contact-item">
-          <span class="contact-item-icon">📞</span>
+          <span class="contact-item-icon">⏱️</span>
           <div>
-            <div class="contact-item-label" data-i18n="ci_phone">Telefon</div>
-            <!-- Nummer nur als Bild, damit Spam-Programme sie nicht auslesen -->
-            <div class="contact-item-value"><img src="kontakt-tel.png" alt="Telefonnummer (als Bild)" class="tel-img" width="166" height="20"></div>
+            <div class="contact-item-label" data-i18n="ci_reply">Antwortzeit</div>
+            <div class="contact-item-value" data-i18n="ci_reply_v">Am schnellsten per Mail oder Formular – wir antworten in der Regel innerhalb von 24 Stunden.</div>
           </div>
         </div>
         <a class="contact-item" href="https://maps.google.com/?q=Teglgård+1,+Vilsbæk,+6330+Padborg,+Danmark" target="_blank" rel="noopener">
@@ -2315,8 +2316,8 @@
   </a>
 </div>
 
-<!-- WHATSAPP BUTTON -->
-<a class="wa-btn" href="whatsapp.php" target="_blank" rel="noopener nofollow" title="WhatsApp">
+<!-- WHATSAPP BUTTON (vorerst ausgeblendet: Kontakt läuft über Mail; zum Einschalten „hidden“ entfernen) -->
+<a class="wa-btn" hidden href="whatsapp.php" target="_blank" rel="noopener nofollow" title="WhatsApp">
   <svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
     <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 01-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 01-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 012.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0012.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 005.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 00-3.48-8.413z"/>
   </svg>
@@ -2366,7 +2367,7 @@ const translations = {
     t3_text: "Erstklassige Beratung und ein Endprodukt, das wirklich beeindruckt. Unsere Caps mit dem gestickten Logo sind ein echter Hingucker geworden.",
     contact_label: "Lass uns reden", contact_title: "Schreib uns einfach.",
     contact_sub: "Keine Formulare, die ewig dauern – nur ein kurzes Hallo reicht. Wir melden uns schnell zurück und schauen gemeinsam, was wir für dich tun können.",
-    ci_email: "E-Mail", ci_phone: "Telefon", ci_address: "Adresse",
+    ci_email: "E-Mail", ci_phone: "Telefon", ci_address: "Adresse", ci_reply: "Antwortzeit", ci_reply_v: "Am schnellsten per Mail oder Formular – wir antworten in der Regel innerhalb von 24 Stunden.",
     form_name: "Name", form_name_ph: "Dein Name",
     form_email: "E-Mail", form_email_ph: "deine@email.dk",
     form_phone: "Telefon (optional)", form_phone_ph: "+49 oder +45 ...",
@@ -2435,7 +2436,7 @@ const translations = {
     t3_text: "Fremragende rådgivning og et slutprodukt, der virkelig imponerer. Vores caps med broderet logo er blevet et rigtigt blikfang.",
     contact_label: "Lad os tale", contact_title: "Skriv til os.",
     contact_sub: "Ingen lange formularer – bare et hurtigt hej. Vi vender hurtigt tilbage og finder ud af, hvad vi kan gøre for dig.",
-    ci_email: "E-mail", ci_phone: "Telefon", ci_address: "Adresse",
+    ci_email: "E-mail", ci_phone: "Telefon", ci_address: "Adresse", ci_reply: "Svartid", ci_reply_v: "Hurtigst via mail eller formularen – vi svarer som regel inden for 24 timer.",
     form_name: "Navn", form_name_ph: "Dit navn",
     form_email: "E-mail", form_email_ph: "din@email.dk",
     form_phone: "Telefon (valgfrit)", form_phone_ph: "+45 ...",
@@ -2504,7 +2505,7 @@ const translations = {
     t3_text: "Outstanding advice and a final product that truly impresses. Our caps with the embroidered logo have become a real eye-catcher.",
     contact_label: "Let's talk", contact_title: "Just write to us.",
     contact_sub: "No long forms – just a quick hello is enough. We'll get back to you quickly and figure out what we can do together.",
-    ci_email: "Email", ci_phone: "Phone", ci_address: "Address",
+    ci_email: "Email", ci_phone: "Phone", ci_address: "Address", ci_reply: "Response time", ci_reply_v: "Fastest by email or the form – we usually reply within 24 hours.",
     form_name: "Name", form_name_ph: "Your name",
     form_email: "Email", form_email_ph: "your@email.com",
     form_phone: "Phone (optional)", form_phone_ph: "+44 or +45 ...",
