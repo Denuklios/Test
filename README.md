@@ -343,3 +343,14 @@ Unter *Datei → Kleidungsvorlage hinter dem Rahmen…* (oder Werkzeug „Kleidu
 ## Handbuch / Manual
 
 `docs/StickStudio-Handbuch.pdf` (Deutsch) und `docs/StickStudio-Manual.pdf` (English): alle Werkzeuge, Menüs, Kleidungsvorlagen, Rezepte, Konto und Verwaltung mit Bildern.
+
+## Produkte einfärben (Zusatz-Tool)
+
+`einfaerben/index.html` doppelklicken. Es läuft ohne Server und ohne Internet.
+Produkt unten auswählen (T-Shirt, Polo, Hoodie, Softshell, Arbeitsjacke, Babybody, Kappe), dann eine Farbe wählen:
+über den Farbwähler, einen Farbcode (z. B. `#1B2A4A`) oder eines der Farbfelder. Das Bild ändert sich sofort, Falten und Schatten bleiben erhalten.
+
+- **Akzentfarbe** (nur Arbeitsjacke): die orangen Paspeln behalten oder selbst umfärben.
+- **Faltentiefe** und **Helligkeit** zum Feinjustieren, **Original anzeigen** zum Vergleichen.
+- **Bild herunterladen** speichert alle vier Ansichten als PNG (wahlweise mit durchsichtigem Hintergrund).
+- **Eigenes Produktfoto laden**: weitere Fotos auf weißem Hintergrund, der Hintergrund wird automatisch erkannt.

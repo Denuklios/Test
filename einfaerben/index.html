@@ -1,0 +1,301 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Produkte einfärben</title>
+<style>
+  :root {
+    --bg: #f4f3f0; --panel: #ffffff; --ink: #1d1d1f; --muted: #6b6b70; --line: #e2e0dc;
+    --accent: #1f5eff; --stage: #ffffff;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) { --bg: #161618; --panel: #202024; --ink: #f2f2f4; --muted: #a0a0a8; --line: #33333a; --accent: #6b93ff; }
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 15px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  header { padding: 14px 16px 6px; }
+  h1 { margin: 0; font-size: 20px; }
+  header p { margin: 2px 0 0; color: var(--muted); font-size: 13px; }
+  .wrap { display: grid; grid-template-columns: 1fr 300px; gap: 14px; padding: 10px 16px 24px; align-items: start; }
+  @media (max-width: 900px) { .wrap { grid-template-columns: 1fr; } }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; }
+  .stage { background: var(--stage); border-radius: 12px; overflow: hidden; position: relative; }
+  .stage canvas { display: block; width: 100%; height: auto; }
+  .stage .busy { position: absolute; inset: 0; display: none; place-items: center; color: #888; background: rgba(255,255,255,.6); }
+  .stage.loading .busy { display: grid; }
+  .thumbs { display: flex; gap: 8px; overflow-x: auto; padding: 10px 2px 2px; }
+  .thumbs button { flex: 0 0 auto; width: 118px; padding: 4px; border: 2px solid transparent; background: var(--panel); border-radius: 10px; cursor: pointer; color: var(--ink); font: inherit; font-size: 12px; }
+  .thumbs button img { display: block; width: 100%; aspect-ratio: 1776 / 896; object-fit: cover; border-radius: 6px; background: #fff; }
+  .thumbs button.on { border-color: var(--accent); }
+  .side { padding: 14px; display: grid; gap: 16px; }
+  .side h2 { margin: 0 0 8px; font-size: 13px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .pick { display: flex; gap: 10px; align-items: center; }
+  .pick input[type=color] { width: 56px; height: 44px; border: 1px solid var(--line); border-radius: 8px; padding: 2px; background: var(--panel); cursor: pointer; }
+  .pick input[type=text] { width: 110px; height: 44px; border: 1px solid var(--line); border-radius: 8px; padding: 0 10px; font: 15px ui-monospace, monospace; background: var(--panel); color: var(--ink); }
+  .swatches { display: grid; grid-template-columns: repeat(8, 1fr); gap: 6px; margin-top: 10px; }
+  .swatches button { aspect-ratio: 1; border-radius: 50%; border: 1px solid rgba(0,0,0,.18); cursor: pointer; padding: 0; min-width: 26px; }
+  .swatches button.on { outline: 2px solid var(--accent); outline-offset: 2px; }
+  label.row { display: grid; gap: 4px; font-size: 14px; }
+  label.row span { display: flex; justify-content: space-between; }
+  input[type=range] { width: 100%; accent-color: var(--accent); }
+  .btns { display: grid; gap: 8px; }
+  .btn { height: 42px; border-radius: 9px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); font: inherit; cursor: pointer; }
+  .btn.primary { background: var(--accent); border-color: var(--accent); color: #fff; font-weight: 600; }
+  .check { display: flex; gap: 8px; align-items: center; font-size: 14px; }
+  .hidden { display: none !important; }
+  .hint { font-size: 12px; color: var(--muted); margin: 6px 0 0; }
+</style>
+</head>
+<body>
+<header>
+  <h1>Produkte einfärben</h1>
+  <p>Produkt wählen, Farbe aussuchen, das Bild ändert sich sofort. Falten und Schatten bleiben erhalten.</p>
+</header>
+
+<div class="wrap">
+  <main>
+    <div class="stage loading" id="stage">
+      <canvas id="cv" width="1776" height="896"></canvas>
+      <div class="busy">Bild wird vorbereitet …</div>
+    </div>
+    <div class="thumbs" id="thumbs"></div>
+  </main>
+
+  <aside class="card side">
+    <section>
+      <h2>Farbe</h2>
+      <div class="pick">
+        <input type="color" id="col" value="#c8102e" aria-label="Farbe wählen">
+        <input type="text" id="hex" value="#C8102E" maxlength="7" aria-label="Farbcode">
+      </div>
+      <div class="swatches" id="sw"></div>
+    </section>
+
+    <section id="accBox" class="hidden">
+      <h2>Akzentfarbe (Paspeln, Taschen)</h2>
+      <div class="pick">
+        <input type="color" id="acol" value="#f26a1b" aria-label="Akzentfarbe">
+        <input type="text" id="ahex" value="#F26A1B" maxlength="7" aria-label="Akzent-Farbcode">
+      </div>
+      <label class="check" style="margin-top:8px"><input type="checkbox" id="accKeep" checked> Original-Akzent behalten</label>
+    </section>
+
+    <section>
+      <h2>Feinheiten</h2>
+      <label class="row"><span>Faltentiefe <b id="kv">100 %</b></span><input type="range" id="k" min="0" max="200" value="100"></label>
+      <label class="row" style="margin-top:10px"><span>Helligkeit <b id="bv">0</b></span><input type="range" id="b" min="-50" max="50" value="0"></label>
+      <label class="check" style="margin-top:10px"><input type="checkbox" id="orig"> Original anzeigen</label>
+    </section>
+
+    <section class="btns">
+      <h2>Speichern</h2>
+      <button class="btn primary" id="dl">Bild herunterladen (PNG)</button>
+      <label class="check"><input type="checkbox" id="transp"> Hintergrund durchsichtig</label>
+      <button class="btn" id="up">Eigenes Produktfoto laden …</button>
+      <input type="file" id="file" accept="image/*" class="hidden">
+      <p class="hint">Eigene Fotos am besten auf weißem Hintergrund. Der Hintergrund wird automatisch erkannt.</p>
+    </section>
+  </aside>
+</div>
+
+<script src="produkte.js"></script>
+<script>
+(function () {
+  'use strict';
+  const SWATCHES = [
+    ['Weiß', '#ffffff'], ['Natur', '#efe6d2'], ['Sand', '#d6c4a1'], ['Grau', '#9a9ca0'], ['Anthrazit', '#3c3e42'], ['Schwarz', '#151515'],
+    ['Navy', '#1b2a4a'], ['Royalblau', '#1f4bb4'], ['Hellblau', '#9cc3e6'], ['Türkis', '#1aa3a8'], ['Flaschengrün', '#14533a'], ['Oliv', '#6b6a3a'],
+    ['Gelb', '#f2c418'], ['Orange', '#ee6b1c'], ['Rot', '#c8102e'], ['Bordeaux', '#6e1a2b'], ['Pink', '#e2508f'], ['Rosa', '#f2bccb'],
+    ['Lila', '#5b2c83'], ['Braun', '#5a3d2b'], ['Mint', '#a9dcc5'], ['Lindgrün', '#8cc63f'], ['Petrol', '#1e4f5c'], ['Koralle', '#f0775e'],
+  ];
+  const $ = (id) => document.getElementById(id);
+  const cv = $('cv'), ctx = cv.getContext('2d', { willReadFrequently: true });
+  const state = { color: '#c8102e', accent: '#f26a1b', accKeep: true, k: 1, bright: 0, orig: false, cur: null };
+  const prepared = new Map();
+
+  /* ---------- Vorbereitung: Hintergrund freistellen, Helligkeit messen ---------- */
+  function prepare(img, hasAccent) {
+    const w = img.naturalWidth, h = img.naturalHeight, n = w * h;
+    const c = document.createElement('canvas'); c.width = w; c.height = h;
+    const x = c.getContext('2d', { willReadFrequently: true }); x.drawImage(img, 0, 0);
+    const src = x.getImageData(0, 0, w, h).data;
+    const bg = new Uint8Array(n);
+    const looseWhite = (i) => { const r = src[i * 4], g = src[i * 4 + 1], b = src[i * 4 + 2]; const mn = Math.min(r, g, b), mx = Math.max(r, g, b); return mn >= 230 && mx - mn <= 16; };
+    const strictWhite = (i) => { const r = src[i * 4], g = src[i * 4 + 1], b = src[i * 4 + 2]; const mn = Math.min(r, g, b), mx = Math.max(r, g, b); return mn >= 244 && mx - mn <= 9; };
+    // 1) vom Rand aus alles Weiße fluten
+    const stack = new Int32Array(n); let sp = 0;
+    const seed = (i) => { if (!bg[i] && looseWhite(i)) { bg[i] = 1; stack[sp++] = i; } };
+    for (let X = 0; X < w; X++) { seed(X); seed((h - 1) * w + X); }
+    for (let Y = 0; Y < h; Y++) { seed(Y * w); seed(Y * w + w - 1); }
+    const flood = (test, mark) => {
+      while (sp) {
+        const i = stack[--sp], X = i % w;
+        if (X > 0 && !bg[i - 1] && test(i - 1)) { bg[i - 1] = mark; stack[sp++] = i - 1; }
+        if (X < w - 1 && !bg[i + 1] && test(i + 1)) { bg[i + 1] = mark; stack[sp++] = i + 1; }
+        if (i >= w && !bg[i - w] && test(i - w)) { bg[i - w] = mark; stack[sp++] = i - w; }
+        if (i < n - w && !bg[i + w] && test(i + w)) { bg[i + w] = mark; stack[sp++] = i + w; }
+      }
+    };
+    flood(looseWhite, 1);
+    // 2) eingeschlossene, rein weiße Flächen (z. B. Öffnung hinten an der Kappe)
+    const comp = [];
+    for (let i = 0; i < n; i++) {
+      if (bg[i] || !strictWhite(i)) continue;
+      bg[i] = 2; stack[sp++] = i; comp.length = 0;
+      while (sp) {
+        const j = stack[--sp], X = j % w; comp.push(j);
+        const nb = [X > 0 ? j - 1 : -1, X < w - 1 ? j + 1 : -1, j - w, j + w];
+        for (const q of nb) if (q >= 0 && q < n && !bg[q] && strictWhite(q)) { bg[q] = 2; stack[sp++] = q; }
+      }
+      const keep = comp.length >= 250;
+      for (const j of comp) bg[j] = keep ? 1 : 3; // 3 = gehört doch zum Produkt
+    }
+    // 3) Kantenweichheit: Alpha aus 3×3-Nachbarschaft
+    const alpha = new Uint8ClampedArray(n);
+    for (let Y = 0; Y < h; Y++) for (let X = 0; X < w; X++) {
+      const i = Y * w + X;
+      if (bg[i] === 1) { alpha[i] = 0; continue; }
+      let s = 0, m = 0;
+      for (let dy = -1; dy <= 1; dy++) { const yy = Y + dy; if (yy < 0 || yy >= h) continue; for (let dx = -1; dx <= 1; dx++) { const xx = X + dx; if (xx < 0 || xx >= w) continue; m++; if (bg[yy * w + xx] !== 1) s++; } }
+      alpha[i] = Math.round(255 * s / m);
+    }
+    // 4) Helligkeit und Akzent (orange Paspeln) je Pixel
+    const lum = new Float32Array(n), acc = new Float32Array(n);
+    const mainL = [], accL = [];
+    for (let i = 0; i < n; i++) {
+      if (!alpha[i]) continue;
+      const r = src[i * 4], g = src[i * 4 + 1], b = src[i * 4 + 2];
+      const L = 0.2126 * r + 0.7152 * g + 0.0722 * b; lum[i] = L;
+      if (hasAccent) {
+        const mx = Math.max(r, g, b), mn = Math.min(r, g, b), sat = mx ? (mx - mn) / mx : 0;
+        let hue = 0; if (mx > mn) { if (mx === r) hue = 60 * (((g - b) / (mx - mn)) % 6); else if (mx === g) hue = 60 * ((b - r) / (mx - mn) + 2); else hue = 60 * ((r - g) / (mx - mn) + 4); if (hue < 0) hue += 360; }
+        const hueOk = hue >= 5 && hue <= 50 && mx > 70;
+        acc[i] = hueOk ? Math.min(1, Math.max(0, (sat - 0.25) / 0.3)) : 0;
+      }
+      if (alpha[i] === 255 && (i % 3 === 0)) (acc[i] > 0.5 ? accL : mainL).push(L);
+    }
+    const stats = (arr) => {
+      if (!arr.length) return { ref: 128, gain: 1 };
+      arr.sort((a, b) => a - b);
+      const q = (p) => arr[Math.min(arr.length - 1, Math.floor(p * arr.length))];
+      const ref = Math.max(4, q(0.5));
+      // Kontrast angleichen: bei dunklen Stoffen sind Lichter relativ sehr stark → dämpfen
+      const hi = Math.log(Math.max(1.0001, q(0.97) / ref)), lo = Math.log(Math.max(0.0001, ref / Math.max(1, q(0.03))));
+      const spread = Math.max(hi, lo * 0.8, 1e-3);
+      return { ref, gain: Math.min(1, Math.log(1.45) / spread) };
+    };
+    return { w, h, n, src, alpha, lum, acc, hasAccent, main: stats(mainL), ac: stats(accL), out: new ImageData(w, h) };
+  }
+
+  /* ---------- Einfärben ---------- */
+  const hexRgb = (hx) => { const v = parseInt(hx.slice(1), 16); return [(v >> 16) & 255, (v >> 8) & 255, v & 255]; };
+  function shade(t, f) { return f <= 1 ? t * f : t + (255 - t) * Math.min(1, f - 1); }
+  function render() {
+    const P = state.cur; if (!P) return;
+    const d = P.out.data, src = P.src, A = P.alpha;
+    // Helle Farben etwas absenken, damit Lichter auf dem Stoff noch Platz nach oben haben (sonst wirkt Weiß flach)
+    const room = (c) => { const Y = (0.2126 * c[0] + 0.7152 * c[1] + 0.0722 * c[2]) / 255, s = 1 - 0.1 * Y * Y; return c.map((v) => v * s); };
+    const [tr, tg, tb] = room(hexRgb(state.color)), [ar, ag, ab] = room(hexRgb(state.accent));
+    const gM = P.main.gain * state.k, gA = P.ac.gain * state.k, rM = P.main.ref, rA = P.ac.ref;
+    const bf = Math.pow(2, state.bright / 50); // Helligkeit: ±1 Blende
+    const useAcc = P.hasAccent;
+    for (let i = 0, p = 0; i < P.n; i++, p += 4) {
+      const a = A[i];
+      if (!a) { d[p] = d[p + 1] = d[p + 2] = 255; d[p + 3] = 0; continue; }
+      if (state.orig) { d[p] = src[p]; d[p + 1] = src[p + 1]; d[p + 2] = src[p + 2]; d[p + 3] = a; continue; }
+      const L = P.lum[i] + 0.5;
+      const f = Math.exp(Math.log(L / rM) * gM) * bf;
+      let r = shade(tr, f), g = shade(tg, f), b = shade(tb, f);
+      const w = useAcc ? P.acc[i] : 0;
+      if (w > 0) {
+        let r2, g2, b2;
+        if (state.accKeep) { r2 = src[p]; g2 = src[p + 1]; b2 = src[p + 2]; }
+        else { const fa = Math.exp(Math.log(L / rA) * gA) * bf; r2 = shade(ar, fa); g2 = shade(ag, fa); b2 = shade(ab, fa); }
+        r += (r2 - r) * w; g += (g2 - g) * w; b += (b2 - b) * w;
+      }
+      d[p] = r; d[p + 1] = g; d[p + 2] = b; d[p + 3] = a;
+    }
+    if (cv.width !== P.w || cv.height !== P.h) { cv.width = P.w; cv.height = P.h; }
+    ctx.putImageData(P.out, 0, 0);
+  }
+  let queued = false;
+  const update = () => { if (queued) return; queued = true; requestAnimationFrame(() => { queued = false; render(); }); };
+
+  /* ---------- Produkte ---------- */
+  const thumbs = $('thumbs');
+  function addProduct(p, select) {
+    const b = document.createElement('button');
+    b.innerHTML = `<img alt="" src="${p.src}"><div>${p.name}</div>`;
+    b.onclick = () => choose(p, b);
+    thumbs.appendChild(b);
+    if (select) choose(p, b);
+  }
+  function choose(p, btn) {
+    for (const el of thumbs.children) el.classList.toggle('on', el === btn);
+    $('accBox').classList.toggle('hidden', !p.akzent);
+    if (prepared.has(p.id)) { state.cur = prepared.get(p.id); update(); return; }
+    $('stage').classList.add('loading');
+    const img = new Image();
+    img.onload = () => setTimeout(() => {
+      const P = prepare(img, p.akzent); P.id = p.id; P.name = p.name;
+      prepared.set(p.id, P);
+      if (btn.classList.contains('on')) { state.cur = P; render(); }
+      $('stage').classList.remove('loading');
+    }, 20);
+    img.src = p.src;
+  }
+  (window.PRODUKTE || []).forEach((p, i) => addProduct(p, i === 0));
+
+  /* ---------- Farbe ---------- */
+  const sw = $('sw');
+  for (const [name, hx] of SWATCHES) {
+    const b = document.createElement('button'); b.title = name; b.style.background = hx; b.dataset.hex = hx;
+    b.onclick = () => setColor(hx); sw.appendChild(b);
+  }
+  function setColor(hx) {
+    state.color = hx.toLowerCase(); $('col').value = state.color; $('hex').value = state.color.toUpperCase();
+    for (const el of sw.children) el.classList.toggle('on', el.dataset.hex === state.color);
+    update();
+  }
+  const validHex = (v) => { v = v.trim(); if (!v.startsWith('#')) v = '#' + v; if (/^#[0-9a-f]{3}$/i.test(v)) v = '#' + [...v.slice(1)].map((c) => c + c).join(''); return /^#[0-9a-f]{6}$/i.test(v) ? v : null; };
+  $('col').addEventListener('input', (e) => setColor(e.target.value));
+  $('hex').addEventListener('input', (e) => { const v = validHex(e.target.value); if (v) { state.color = v.toLowerCase(); $('col').value = state.color; for (const el of sw.children) el.classList.toggle('on', el.dataset.hex === state.color); update(); } });
+  $('hex').addEventListener('change', () => setColor(state.color));
+  $('acol').addEventListener('input', (e) => { state.accent = e.target.value; $('ahex').value = state.accent.toUpperCase(); state.accKeep = false; $('accKeep').checked = false; update(); });
+  $('ahex').addEventListener('input', (e) => { const v = validHex(e.target.value); if (v) { state.accent = v; $('acol').value = v; state.accKeep = false; $('accKeep').checked = false; update(); } });
+  $('accKeep').addEventListener('change', (e) => { state.accKeep = e.target.checked; update(); });
+  $('k').addEventListener('input', (e) => { state.k = e.target.value / 100; $('kv').textContent = e.target.value + ' %'; update(); });
+  $('b').addEventListener('input', (e) => { state.bright = +e.target.value; $('bv').textContent = (e.target.value > 0 ? '+' : '') + e.target.value; update(); });
+  $('orig').addEventListener('change', (e) => { state.orig = e.target.checked; update(); });
+  setColor(state.color);
+
+  /* ---------- Speichern ---------- */
+  $('dl').onclick = () => {
+    const P = state.cur; if (!P) return;
+    render();
+    let out = cv;
+    if (!$('transp').checked) {
+      out = document.createElement('canvas'); out.width = cv.width; out.height = cv.height;
+      const o = out.getContext('2d'); o.fillStyle = '#ffffff'; o.fillRect(0, 0, out.width, out.height); o.drawImage(cv, 0, 0);
+    }
+    const name = (P.id || 'produkt') + '-' + (state.orig ? 'original' : state.color.slice(1)) + '.png';
+    out.toBlob((blob) => {
+      const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name;
+      document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000);
+    }, 'image/png');
+  };
+
+  /* ---------- Eigenes Foto ---------- */
+  let own = 0;
+  $('up').onclick = () => $('file').click();
+  $('file').addEventListener('change', (e) => {
+    const f = e.target.files && e.target.files[0]; if (!f) return;
+    const r = new FileReader();
+    r.onload = () => { own++; addProduct({ id: 'eigenes-' + own, name: f.name.replace(/\.[^.]+$/, '').slice(0, 18), akzent: false, src: r.result }, true); };
+    r.readAsDataURL(f); e.target.value = '';
+  });
+})();
+</script>
+</body>
+</html>
