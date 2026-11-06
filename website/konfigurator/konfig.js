@@ -98,7 +98,7 @@
     { id: 'sport', name: ['Sport-Shirt', 'Sportstrøje', 'Sports shirt'], cm: 75, colors: C_SPORT, color: 'royal', pos: SHIRT },
     { id: 'polo', name: ['Poloshirt', 'Poloshirt', 'Polo shirt'], cm: 75, colors: C_POLO, color: 'navy',
       // Kragen vorne, direkt auf der Kragenspitze (links/rechts aus Sicht des Trägers)
-      pos: [...SHIRT, P('kragen_l', 0, 0.597, 0.112, 3, 4), P('kragen_r', 0, 0.403, 0.112, 3, 4)] },
+      pos: [...SHIRT, P('kragen_l', 0, 0.624, 0.104, 3, 4), P('kragen_r', 0, 0.376, 0.104, 3, 4)] },
     { id: 'hoodie', name: ['Hoodie', 'Hættetrøje', 'Hoodie'], cm: 80, colors: C_HOOD, color: 'grau',
       pos: [P('brust_l', 0, 0.64, 0.33, 9, 12), P('brust_r', 0, 0.36, 0.33, 9, 12), P('ruecken', 3, 0.5, 0.30, 25, 30, 1), P('aermel_r', 1, 0.6, 0.42, 7, 9), P('aermel_l', 2, 0.4, 0.42, 7, 9)] },
     { id: 'softshell', name: ['Softshelljacke', 'Softshell-jakke', 'Softshell jacket'], cm: 80, colors: C_JACKET, color: 'schwarz',
