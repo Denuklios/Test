@@ -1,6 +1,6 @@
 """Produktfotos für den Konfigurator vorbereiten.
 
-Aufruf:  python3 freistellen.py <quelle.png> <ziel-ohne-endung> [schwelle] [kante] ["x,y;x,y" Öffnungen] [schatten] [-] [glätten]
+Aufruf:  python3 freistellen.py <quelle.png> <ziel-ohne-endung> [schwelle] [kante] ["x,y;x,y" Öffnungen] [schatten] [-] [glätten] [bodenschatten-px]
 Ergebnis: <ziel>.jpg (Foto) und <ziel>-m.png (Maske: weiß = Produkt, schwarz = Hintergrund).
 
 Der Hintergrund darf hellgrau sein. Er wird als sanfter Verlauf aus den Bildrändern geschätzt; alles, was
@@ -18,6 +18,7 @@ G = float(sys.argv[4]) if len(sys.argv) > 4 else 4.0
 TD = float(sys.argv[6]) if len(sys.argv) > 6 else T
 HELL = len(sys.argv) > 7 and sys.argv[7] == 'hell'
 OPEN = int(sys.argv[8]) if len(sys.argv) > 8 else 1
+BODEN = int(sys.argv[9]) if len(sys.argv) > 9 else 0
 SEEDS = [tuple(int(v) for v in p.split(',')) for p in (sys.argv[5].split(';') if len(sys.argv) > 5 and sys.argv[5] else [])]
 im = Image.open(src).convert('RGB')
 a = np.asarray(im).astype(np.float32)
@@ -71,6 +72,20 @@ if HELL:
         sizes = ndi.sum(np.ones_like(lab5), lab5, index=np.arange(1, n5 + 1))
         br = np.isin(lab5, np.nonzero(sizes >= 2000)[0] + 1)
     fg &= br
+if BODEN:
+    # Bodenschatten unten am Produkt nicht mitfärben: je Spalte von unten nach oben die hellgrauen
+    # Schattenpixel abtragen. Sehr dunkle Pixel (Unterseite des Schirms) gehören zum Produkt und bleiben.
+    for x in range(w):
+        ys = np.nonzero(fg[:, x])[0]
+        if not len(ys):
+            continue
+        y = ys[-1]
+        k = 0
+        while y >= 0 and fg[y, x] and k < BODEN and -35 < d[y, x] < -2:
+            fg[y, x] = False; y -= 1; k += 1
+    # stehengebliebene senkrechte Zacken glätten
+    fg = ndi.binary_opening(fg, structure=np.ones((1, 11), bool))
+    fg = ndi.binary_closing(fg, structure=np.ones((1, 7), bool))
 m = Image.fromarray((fg * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.8))
 m.save(dst + '-m.png', optimize=True)
 im.save(dst + '.jpg', quality=90, optimize=True, progressive=True)

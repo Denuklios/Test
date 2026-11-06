@@ -196,7 +196,16 @@
       sd.data[p] = sd.data[p + 1] = sd.data[p + 2] = v; sd.data[p + 3] = 255;
     }
     shade.getContext('2d').putImageData(sd, 0, 0);
-    return { w, h, n, src, alpha, lum, acc, hasAccent, ref, gain, views, shade, cache: new Map() };
+    // Originalfoto (mit grauem Hintergrund und natürlichem Schatten) und Produkt-Umriss für das Zuschneiden der Logos
+    const orig = canvas(w, h); orig.getContext('2d').drawImage(img, 0, 0);
+    const cut = canvas(w, h), cd = new ImageData(w, h);
+    for (let i = 0, p = 0; i < n; i++, p += 4) { cd.data[p] = cd.data[p + 1] = cd.data[p + 2] = 255; cd.data[p + 3] = alpha[i]; }
+    cut.getContext('2d').putImageData(cd, 0, 0);
+    // Hintergrundfarbe (Mittel der Ecken) zum Auffüllen
+    const corner = (X, Y) => { const p = (Y * w + X) * 4; return [src[p], src[p + 1], src[p + 2]]; };
+    const cs = [corner(4, 4), corner(w - 5, 4), corner(4, h - 5), corner(w - 5, h - 5)];
+    const bgc = 'rgb(' + [0, 1, 2].map((k) => Math.round(cs.reduce((a, c) => a + c[k], 0) / 4)).join(',') + ')';
+    return { w, h, n, src, alpha, lum, acc, hasAccent, ref, gain, views, shade, orig, cut, bgc, cache: new Map() };
   }
 
   function tint(Pp, hx) {
@@ -397,13 +406,15 @@
 
     function compose() {
       if (!cur) return null;
-      const g = tint(cur, S.hex);
+      // Weiß = Originalfoto, sonst das eingefärbte Produkt über das Foto legen (Hintergrund und Schatten bleiben echt)
+      const g = S.hex.toLowerCase() === '#ffffff' ? null : tint(cur, S.hex);
       const out = canvas(cur.w, cur.h), o = out.getContext('2d');
-      o.drawImage(g, 0, 0);
+      o.drawImage(cur.orig, 0, 0);
+      if (g) o.drawImage(g, 0, 0);
       if (S.logo && S.places.length) {
         const lay = canvas(cur.w, cur.h), l = lay.getContext('2d');
         for (const pl of S.places) { const r = placeRect(pl); l.drawImage(S.logo.canvas, r.x, r.y, r.w, r.h); }
-        l.globalCompositeOperation = 'destination-in'; l.drawImage(g, 0, 0);   // nur auf dem Stoff
+        l.globalCompositeOperation = 'destination-in'; l.drawImage(cur.cut, 0, 0);   // nur auf dem Produkt
         const sh = canvas(cur.w, cur.h), s = sh.getContext('2d');
         s.drawImage(cur.shade, 0, 0); s.globalCompositeOperation = 'destination-in'; s.drawImage(lay, 0, 0);
         o.drawImage(lay, 0, 0);
@@ -421,7 +432,7 @@
       const b = viewBox(k), v = cur.views[k], f = size / b.s;
       const sx0 = Math.max(b.x, v.x - 6, 0), sx1 = Math.min(b.x + b.s, v.x + v.w + 6, cur.w);
       const sy0 = Math.max(b.y, 0), sy1 = Math.min(b.y + b.s, cur.h);
-      x.fillStyle = '#fff'; x.fillRect(0, 0, size, size);
+      x.fillStyle = cur.bgc; x.fillRect(0, 0, size, size);
       if (sx1 > sx0 && sy1 > sy0) x.drawImage(composed, sx0, sy0, sx1 - sx0, sy1 - sy0, (sx0 - b.x) * f, (sy0 - b.y) * f, (sx1 - sx0) * f, (sy1 - sy0) * f);
     }
     function drawThumbsLabels() {
@@ -500,7 +511,6 @@
     function full(bg) {
       if (!cur) return null;
       const c = compose(), out = canvas(c.width, c.height), o = out.getContext('2d');
-      if (bg !== false) { o.fillStyle = '#fff'; o.fillRect(0, 0, out.width, out.height); }
       o.drawImage(c, 0, 0);
       return out;
     }
