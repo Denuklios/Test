@@ -3884,9 +3884,9 @@ function kfSet(mode) {
   document.querySelector('.kontakt-grid').classList.toggle('kf-on', mode === 'tool');
   kfMsgPlaceholder();
   if (mode !== 'tool' || kfLoad) return;
-  if (!document.getElementById('kfCss')) { const l = document.createElement('link'); l.id = 'kfCss'; l.rel = 'stylesheet'; l.href = 'konfigurator/konfig.css?v=7'; document.head.append(l); }
+  if (!document.getElementById('kfCss')) { const l = document.createElement('link'); l.id = 'kfCss'; l.rel = 'stylesheet'; l.href = 'konfigurator/konfig.css?v=8'; document.head.append(l); }
   kfLoad = (async () => {
-    if (!window.WFKonfig) await kfScript('konfigurator/konfig.js?v=7');
+    if (!window.WFKonfig) await kfScript('konfigurator/konfig.js?v=8');
     const holder = document.createElement('div');
     box.replaceChildren(holder);
     window.__wfK = await WFKonfig.mount(holder, { mode: 'kunde', lang: currentLang, base: 'konfigurator/', onChange: (k) => {

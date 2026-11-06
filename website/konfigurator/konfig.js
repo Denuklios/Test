@@ -91,14 +91,15 @@
     cap_l: ['Seite links', 'Side venstre', 'Left side'], cap_h: ['Hinten', 'Bag', 'Back'],
     tasse_v: ['Vorne', 'Foran', 'Front'], tasse_1: ['Seite 1', 'Side 1', 'Side 1'], tasse_2: ['Seite 2', 'Side 2', 'Side 2'],
   };
-  const P = (id, view, fx, fy, def, max, top) => ({ id, view, fx, fy, def, max, top: !!top });
+  // rot: Drehung in Grad (im Uhrzeigersinn), z. B. entlang der Kragenkante
+  const P = (id, view, fx, fy, def, max, top, rot) => ({ id, view, fx, fy, def, max, top: !!top, rot: rot || 0 });
   const SHIRT = [P('brust_l', 0, 0.655, 0.255, 9, 12), P('brust_r', 0, 0.345, 0.255, 9, 12), P('ruecken', 3, 0.5, 0.17, 25, 30, 1), P('aermel_r', 1, 0.69, 0.29, 7, 9), P('aermel_l', 2, 0.31, 0.29, 7, 9)];
   const PRODUCTS = [
     { id: 'tshirt', name: ['T-Shirt', 'T-shirt', 'T-shirt'], cm: 75, colors: C_SHIRT, color: 'weiss', pos: SHIRT },
     { id: 'sport', name: ['Sport-Shirt', 'Sportstrøje', 'Sports shirt'], cm: 75, colors: C_SPORT, color: 'royal', pos: SHIRT },
     { id: 'polo', name: ['Poloshirt', 'Poloshirt', 'Polo shirt'], cm: 75, colors: C_POLO, color: 'navy',
       // Kragen vorne, direkt auf der Kragenspitze (links/rechts aus Sicht des Trägers)
-      pos: [...SHIRT, P('kragen_l', 0, 0.624, 0.104, 3, 4), P('kragen_r', 0, 0.376, 0.104, 3, 4)] },
+      pos: [...SHIRT, P('kragen_l', 0, 0.624, 0.104, 3, 4, 0, -55), P('kragen_r', 0, 0.376, 0.104, 3, 4, 0, 55)] },
     { id: 'hoodie', name: ['Hoodie', 'Hættetrøje', 'Hoodie'], cm: 80, colors: C_HOOD, color: 'grau',
       pos: [P('brust_l', 0, 0.64, 0.33, 9, 12), P('brust_r', 0, 0.36, 0.33, 9, 12), P('ruecken', 3, 0.5, 0.30, 25, 30, 1), P('aermel_r', 1, 0.6, 0.42, 7, 9), P('aermel_l', 2, 0.4, 0.42, 7, 9)] },
     { id: 'softshell', name: ['Softshelljacke', 'Softshell-jakke', 'Softshell jacket'], cm: 80, colors: C_JACKET, color: 'schwarz',
@@ -402,7 +403,7 @@
       const cx = v.x + v.w * d.fx + (pl.dx || 0) * pxcm;
       let cy = v.y + v.h * d.fy + (pl.dy || 0) * pxcm;
       if (d.top) cy += h / 2;
-      return { x: cx - w / 2, y: cy - h / 2, w, h, view: d.view, pxcm };
+      return { x: cx - w / 2, y: cy - h / 2, w, h, view: d.view, pxcm, rot: d.rot };
     }
 
     function compose() {
@@ -414,7 +415,12 @@
       if (g) o.drawImage(g, 0, 0);
       if (S.logo && S.places.length) {
         const lay = canvas(cur.w, cur.h), l = lay.getContext('2d');
-        for (const pl of S.places) { const r = placeRect(pl); l.drawImage(S.logo.canvas, r.x, r.y, r.w, r.h); }
+        for (const pl of S.places) {
+          const r = placeRect(pl);
+          if (!r.rot) { l.drawImage(S.logo.canvas, r.x, r.y, r.w, r.h); continue; }
+          l.save(); l.translate(r.x + r.w / 2, r.y + r.h / 2); l.rotate(r.rot * Math.PI / 180);
+          l.drawImage(S.logo.canvas, -r.w / 2, -r.h / 2, r.w, r.h); l.restore();
+        }
         l.globalCompositeOperation = 'destination-in'; l.drawImage(cur.cut, 0, 0);   // nur auf dem Produkt
         const sh = canvas(cur.w, cur.h), s = sh.getContext('2d');
         s.drawImage(cur.shade, 0, 0); s.globalCompositeOperation = 'destination-in'; s.drawImage(lay, 0, 0);
