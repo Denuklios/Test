@@ -1,0 +1,57 @@
+# Lädt Website und Auftragsprogramm per FTP auf www.wunsch-fabrik.dk.
+#
+# Läuft nur, wenn eine Änderung mit „[hochladen]“ in der Beschreibung hochgeschoben wird,
+# oder von Hand (Actions → „Auf den Webspace hochladen“ → Run workflow).
+#
+# Zugangsdaten stehen nur bei GitHub (Settings → Secrets and variables → Actions):
+#   FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, optional FTP_DIR (Standard: Hauptordner „./“)
+# Falls der Anbieter kein verschlüsseltes FTP (FTPS) kann: unter „Variables“ FTP_PROTOCOL = ftp anlegen.
+#
+# Auf dem Server bleibt unangetastet: db_config.php (liegt nicht bei GitHub), auftraege/data/ (Aufträge,
+# Datenbank, Uploads) und anfrage-vorschau/ (Bilder aus Kundenanfragen). Gelöscht werden nur Dateien,
+# die frühere Läufe selbst hochgeladen haben und die es hier nicht mehr gibt.
+name: Auf den Webspace hochladen
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/focused-hawking-o04rw1']
+
+concurrency:
+  group: webspace-upload
+  cancel-in-progress: false
+
+jobs:
+  hochladen:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[hochladen]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Paket zusammenstellen
+        run: |
+          set -e
+          mkdir -p _upload/auftraege/data _upload/anfrage-vorschau
+          rsync -a --exclude 'UPDATE-ANLEITUNG.md' --exclude 'anfrage-vorschau/' --exclude 'db_config.php' --exclude 'auftraege/' website/ _upload/
+          cp website/anfrage-vorschau/.htaccess _upload/anfrage-vorschau/.htaccess
+          rsync -a --exclude 'data/' --exclude 'tests/' --exclude 'inc/config.local.php' auftraege/ _upload/auftraege/
+          printf 'Require all denied\nDeny from all\n' > _upload/auftraege/data/.htaccess
+          test ! -e _upload/db_config.php
+          echo "Dateien: $(find _upload -type f | wc -l), Größe: $(du -sh _upload | cut -f1)"
+
+      - name: Per FTP hochladen
+        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
+        with:
+          server: ${{ secrets.FTP_SERVER }}
+          username: ${{ secrets.FTP_USERNAME }}
+          password: ${{ secrets.FTP_PASSWORD }}
+          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
+          local-dir: ./_upload/
+          server-dir: ${{ secrets.FTP_DIR || './' }}
+          exclude: |
+            **/.git*
+            **/.git*/**
+            db_config.php
+            auftraege/data/**
+            anfrage-vorschau/**
