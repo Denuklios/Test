@@ -53,6 +53,12 @@ jobs:
           sudo apt-get -qq update && sudo apt-get -qq install -y lftp >/dev/null
           # Nur hochladen und überschreiben, nie löschen: Dateien, die es hier nicht gibt (db_config.php,
           # auftraege/data/, anfrage-vorschau/), bleiben auf dem Server unangetastet.
-          lftp -e "set sftp:auto-confirm yes; set net:max-retries 3; set net:timeout 30; \
-            open -u '$SFTP_USER' --env-password 'sftp://$SFTP_HOST'; \
-            mirror --reverse --no-perms --parallel=4 --verbose=1 ./_upload/ '${SFTP_DIR:-.}'; bye"
+          CONN="set sftp:auto-confirm yes; set net:max-retries 3; set net:timeout 30; open -u '$SFTP_USER' --env-password 'sftp://$SFTP_HOST'"
+          DIR="${SFTP_DIR:-.}"
+          # Sicherheitsprüfung: nur hochladen, wenn im Zielordner wirklich die Website liegt (index.html und admin.html)
+          if ! lftp -e "$CONN; cls -1 '$DIR/index.html' '$DIR/admin.html'; bye" >/tmp/check.txt 2>&1 || [ "$(grep -c -E 'index.html|admin.html' /tmp/check.txt)" -lt 2 ]; then
+            echo "::error::Im Zielordner '$DIR' liegt keine Website (index.html/admin.html fehlen). Ordner auf dem Server:"
+            lftp -e "$CONN; echo '--- Hauptordner:'; cls -1F; echo '--- eine Ebene tiefer:'; cls -1F */; bye" || true
+            exit 1
+          fi
+          lftp -e "$CONN; mirror --reverse --no-perms --parallel=4 --verbose=1 ./_upload/ '$DIR'; bye"
