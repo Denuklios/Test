@@ -30,8 +30,7 @@
 
 .wfk-prods { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; }
 .wfk-prods button { border: 2px solid transparent; background: #fff; border-radius: 10px; padding: 4px 2px 5px; cursor: pointer; font: inherit; font-size: 11.5px; color: #333; line-height: 1.15; }
-.wfk-prods .pim { display: block; width: 100%; aspect-ratio: 1 / 1; overflow: hidden; margin-bottom: 3px; position: relative; }
-.wfk-prods .pim img { position: absolute; height: 150%; width: auto; max-width: none; left: 4%; top: -25%; }
+.wfk-prods button img { display: block; width: 100%; aspect-ratio: 1 / 1; object-fit: cover; margin-bottom: 3px; border-radius: 6px; }
 .wfk-prods button.on { border-color: var(--_acc); }
 
 .wfk-sw { display: flex; flex-wrap: wrap; gap: 7px; }

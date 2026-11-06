@@ -3875,7 +3875,7 @@ function kfMsgPlaceholder() {
   if (m) m.placeholder = kfMode === 'tool' && window.__wfK ? T.kf_msg_ph : T.form_message_ph;
 }
 function kfScript(src) { return new Promise((ok, bad) => { const s = document.createElement('script'); s.src = src; s.onload = ok; s.onerror = bad; document.head.append(s); }); }
-const KF_TECH_OPTION = { stick: 'prod_sticken', dtf: 'prod_dtf', plott: 'prod_plotten', sieb: 'prod_siebdruck' };
+const KF_TECH_OPTION = { stick: 'prod_sticken', dtf: 'prod_dtf', plott: 'prod_plotten', sieb: 'prod_siebdruck', subli: 'prod_other' };
 function kfSet(mode) {
   kfMode = mode;
   document.querySelectorAll('[data-kf]').forEach(b => b.classList.toggle('on', b.dataset.kf === mode));
@@ -3884,9 +3884,9 @@ function kfSet(mode) {
   document.querySelector('.kontakt-grid').classList.toggle('kf-on', mode === 'tool');
   kfMsgPlaceholder();
   if (mode !== 'tool' || kfLoad) return;
-  if (!document.getElementById('kfCss')) { const l = document.createElement('link'); l.id = 'kfCss'; l.rel = 'stylesheet'; l.href = 'konfigurator/konfig.css?v=1'; document.head.append(l); }
+  if (!document.getElementById('kfCss')) { const l = document.createElement('link'); l.id = 'kfCss'; l.rel = 'stylesheet'; l.href = 'konfigurator/konfig.css?v=3'; document.head.append(l); }
   kfLoad = (async () => {
-    if (!window.WFKonfig) await kfScript('konfigurator/konfig.js?v=1');
+    if (!window.WFKonfig) await kfScript('konfigurator/konfig.js?v=3');
     const holder = document.createElement('div');
     box.replaceChildren(holder);
     window.__wfK = await WFKonfig.mount(holder, { mode: 'kunde', lang: currentLang, base: 'konfigurator/', onChange: (k) => {

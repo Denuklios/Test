@@ -28,7 +28,7 @@
       t_stick: 'Stick', t_stick_d: 'edel und langlebig', t_dtf: 'DTF-Druck', t_dtf_d: 'farbig, auch Fotos', t_plott: 'Plott', t_plott_d: 'Flex/Flock, klare Formen', t_sieb: 'Siebdruck', t_sieb_d: 'ab größeren Mengen',
       approx: 'Die Vorschau ist eine Annäherung. Farben und Größen können leicht abweichen.',
       rights: 'Ich habe die Rechte an diesem Logo.', rights_err: 'Bitte bestätige, dass du die Rechte an dem Logo hast.',
-      loading: 'Bild wird vorbereitet …', views: ['Vorne', 'Rechte Seite', 'Linke Seite', 'Hinten'],
+      loading: 'Bild wird vorbereitet …', views: ['Vorne', 'Rechte Seite', 'Linke Seite', 'Hinten'], vmug: ['Seite 1', 'Vorne', 'Seite 2'], t_subli: 'Sublimation', t_subli_d: 'farbig, auch Fotos',
       drag: 'Logo im Bild mit der Maus oder dem Finger verschieben.', reset: 'Mittig setzen', download: 'Bild herunterladen',
       s_product: 'Produkt', s_color: 'Farbe', s_tech: 'Veredelung', s_pos: 'Position', s_logo: 'Logo', s_none: 'kein Logo hochgeladen', s_moved: 'verschoben',
     },
@@ -42,7 +42,7 @@
       t_stick: 'Broderi', t_stick_d: 'eksklusivt og holdbart', t_dtf: 'DTF-tryk', t_dtf_d: 'farverigt, også fotos', t_plott: 'Plot', t_plott_d: 'flex/flock, klare former', t_sieb: 'Serigrafi', t_sieb_d: 'ved større antal',
       approx: 'Forhåndsvisningen er en tilnærmelse. Farver og størrelser kan afvige en smule.',
       rights: 'Jeg har rettighederne til dette logo.', rights_err: 'Bekræft venligst, at du har rettighederne til logoet.',
-      loading: 'Billedet forberedes …', views: ['Forfra', 'Højre side', 'Venstre side', 'Bagfra'],
+      loading: 'Billedet forberedes …', views: ['Forfra', 'Højre side', 'Venstre side', 'Bagfra'], vmug: ['Side 1', 'Foran', 'Side 2'], t_subli: 'Sublimation', t_subli_d: 'farverigt, også fotos',
       drag: 'Flyt logoet i billedet med musen eller fingeren.', reset: 'Centrér', download: 'Download billede',
       s_product: 'Produkt', s_color: 'Farve', s_tech: 'Forædling', s_pos: 'Placering', s_logo: 'Logo', s_none: 'intet logo uploadet', s_moved: 'flyttet',
     },
@@ -56,7 +56,7 @@
       t_stick: 'Embroidery', t_stick_d: 'classy and durable', t_dtf: 'DTF print', t_dtf_d: 'full colour, even photos', t_plott: 'Vinyl', t_plott_d: 'flex/flock, clean shapes', t_sieb: 'Screen print', t_sieb_d: 'for larger quantities',
       approx: 'The preview is an approximation. Colours and sizes may differ slightly.',
       rights: 'I hold the rights to this logo.', rights_err: 'Please confirm that you hold the rights to the logo.',
-      loading: 'Preparing image …', views: ['Front', 'Right side', 'Left side', 'Back'],
+      loading: 'Preparing image …', views: ['Front', 'Right side', 'Left side', 'Back'], vmug: ['Side 1', 'Front', 'Side 2'], t_subli: 'Sublimation', t_subli_d: 'full colour, even photos',
       drag: 'Drag the logo in the picture with mouse or finger.', reset: 'Centre', download: 'Download image',
       s_product: 'Product', s_color: 'Colour', s_tech: 'Finishing', s_pos: 'Position', s_logo: 'Logo', s_none: 'no logo uploaded', s_moved: 'moved',
     },
@@ -89,24 +89,28 @@
     ruecken: ['Rücken', 'Ryg', 'Back'], aermel_r: ['Ärmel rechts', 'Ærme højre', 'Right sleeve'], aermel_l: ['Ärmel links', 'Ærme venstre', 'Left sleeve'],
     kragen: ['Kragen', 'Krave', 'Collar'], cap_v: ['Vorne', 'Foran', 'Front'], cap_r: ['Seite rechts', 'Side højre', 'Right side'],
     cap_l: ['Seite links', 'Side venstre', 'Left side'], cap_h: ['Hinten', 'Bag', 'Back'],
+    tasse_v: ['Vorne', 'Foran', 'Front'], tasse_1: ['Seite 1', 'Side 1', 'Side 1'], tasse_2: ['Seite 2', 'Side 2', 'Side 2'],
   };
   const P = (id, view, fx, fy, def, max, top) => ({ id, view, fx, fy, def, max, top: !!top });
   const SHIRT = [P('brust_l', 0, 0.655, 0.255, 9, 12), P('brust_r', 0, 0.345, 0.255, 9, 12), P('ruecken', 3, 0.5, 0.17, 25, 30, 1), P('aermel_r', 1, 0.69, 0.29, 7, 9), P('aermel_l', 2, 0.31, 0.29, 7, 9)];
   const PRODUCTS = [
-    { id: 'tshirt', img: 'tshirt-beige', name: ['T-Shirt', 'T-shirt', 'T-shirt'], cm: 75, colors: C_SHIRT, color: 'weiss', pos: SHIRT },
-    { id: 'sport', img: 'tshirt-rot', name: ['Sport-Shirt', 'Sportstrøje', 'Sports shirt'], cm: 75, colors: C_SPORT, color: 'royal', pos: SHIRT },
-    { id: 'polo', img: 'polo-navy', name: ['Poloshirt', 'Poloshirt', 'Polo shirt'], cm: 75, colors: C_POLO, color: 'navy',
+    { id: 'tshirt', name: ['T-Shirt', 'T-shirt', 'T-shirt'], cm: 75, colors: C_SHIRT, color: 'weiss', pos: SHIRT },
+    { id: 'sport', name: ['Sport-Shirt', 'Sportstrøje', 'Sports shirt'], cm: 75, colors: C_SPORT, color: 'royal', pos: SHIRT },
+    { id: 'polo', name: ['Poloshirt', 'Poloshirt', 'Polo shirt'], cm: 75, colors: C_POLO, color: 'navy',
       pos: [...SHIRT, P('kragen', 3, 0.5, 0.045, 6, 8, 1)] },
-    { id: 'hoodie', img: 'hoodie-grau', name: ['Hoodie', 'Hættetrøje', 'Hoodie'], cm: 80, colors: C_HOOD, color: 'grau',
+    { id: 'hoodie', name: ['Hoodie', 'Hættetrøje', 'Hoodie'], cm: 80, colors: C_HOOD, color: 'grau',
       pos: [P('brust_l', 0, 0.64, 0.33, 9, 12), P('brust_r', 0, 0.36, 0.33, 9, 12), P('ruecken', 3, 0.5, 0.30, 25, 30, 1), P('aermel_r', 1, 0.6, 0.42, 7, 9), P('aermel_l', 2, 0.4, 0.42, 7, 9)] },
-    { id: 'softshell', img: 'softshell-schwarz', name: ['Softshelljacke', 'Softshell-jakke', 'Softshell jacket'], cm: 80, colors: C_JACKET, color: 'schwarz',
+    { id: 'softshell', name: ['Softshelljacke', 'Softshell-jakke', 'Softshell jacket'], cm: 80, colors: C_JACKET, color: 'schwarz',
       pos: [P('brust_l', 0, 0.64, 0.27, 9, 11), P('brust_r', 0, 0.36, 0.27, 9, 11), P('ruecken', 3, 0.5, 0.2, 25, 30, 1), P('aermel_r', 1, 0.58, 0.32, 7, 9), P('aermel_l', 2, 0.42, 0.32, 7, 9)] },
-    { id: 'arbeitsjacke', img: 'arbeitsjacke', name: ['Arbeitsjacke', 'Arbejdsjakke', 'Work jacket'], cm: 80, colors: C_WORK, color: 'anthrazit', akzent: true,
+    { id: 'arbeitsjacke', name: ['Arbeitsjacke', 'Arbejdsjakke', 'Work jacket'], cm: 80, colors: C_WORK, color: 'anthrazit',
       pos: [P('brust_l', 0, 0.64, 0.27, 9, 11), P('brust_r', 0, 0.36, 0.27, 9, 11), P('ruecken', 3, 0.5, 0.2, 25, 30, 1), P('aermel_r', 1, 0.58, 0.32, 7, 9), P('aermel_l', 2, 0.42, 0.32, 7, 9)] },
-    { id: 'baby', img: 'babybody', name: ['Babybody', 'Babybody', 'Baby bodysuit'], cm: 34, colors: C_BABY, color: 'weiss',
+    { id: 'baby', name: ['Babybody', 'Babybody', 'Baby bodysuit'], cm: 34, colors: C_BABY, color: 'weiss',
       pos: [P('brust_m', 0, 0.5, 0.33, 8, 10), P('ruecken', 3, 0.5, 0.2, 10, 14, 1)] },
-    { id: 'kappe', img: 'kappe', name: ['Kappe', 'Kasket', 'Cap'], cm: 21, colors: C_CAP, color: 'schwarz',
+    { id: 'kappe', name: ['Kappe', 'Kasket', 'Cap'], cm: 21, colors: C_CAP, color: 'schwarz',
       pos: [P('cap_v', 0, 0.5, 0.42, 8, 10), P('cap_r', 1, 0.62, 0.45, 5, 6), P('cap_l', 2, 0.38, 0.45, 5, 6), P('cap_h', 3, 0.5, 0.36, 5, 7)] },
+    // Tasse: drei Ansichten (Griff links, vorne, Griff rechts), nur weiß; Maßstab über den Tassenkörper der mittleren Ansicht
+    { id: 'tasse', name: ['Tasse', 'Krus', 'Mug'], cm: 8.2, ref: 1, views: 'mug', colors: ['weiss'], color: 'weiss', tech: ['subli'],
+      pos: [P('tasse_v', 1, 0.5, 0.52, 7, 8), P('tasse_1', 0, 0.63, 0.52, 5, 6), P('tasse_2', 2, 0.37, 0.52, 5, 6)] },
   ];
   const TECH = ['stick', 'dtf', 'plott', 'sieb'];
 
@@ -126,45 +130,15 @@
   const loadImg = (src) => new Promise((ok, bad) => { const i = new Image(); i.onload = () => ok(i); i.onerror = bad; i.src = src; });
 
   /* ---------- Produktfoto vorbereiten: Hintergrund freistellen, Ansichten finden, Helligkeit messen ---------- */
-  function prepare(img, hasAccent) {
+  function prepare(img, mask, hasAccent, nviews) {
     const w = img.naturalWidth, h = img.naturalHeight, n = w * h;
     const c = canvas(w, h), x = ctx2(c); x.drawImage(img, 0, 0);
     const src = x.getImageData(0, 0, w, h).data;
-    const bg = new Uint8Array(n);
-    const white = (i, lo, spread) => { const r = src[i * 4], g = src[i * 4 + 1], b = src[i * 4 + 2]; const mn = Math.min(r, g, b), mx = Math.max(r, g, b); return mn >= lo && mx - mn <= spread; };
-    const loose = (i) => white(i, 230, 16), strict = (i) => white(i, 244, 9);
-    const stack = new Int32Array(n); let sp = 0;
-    const seed = (i) => { if (!bg[i] && loose(i)) { bg[i] = 1; stack[sp++] = i; } };
-    for (let X = 0; X < w; X++) { seed(X); seed((h - 1) * w + X); }
-    for (let Y = 0; Y < h; Y++) { seed(Y * w); seed(Y * w + w - 1); }
-    while (sp) {
-      const i = stack[--sp], X = i % w;
-      if (X > 0 && !bg[i - 1] && loose(i - 1)) { bg[i - 1] = 1; stack[sp++] = i - 1; }
-      if (X < w - 1 && !bg[i + 1] && loose(i + 1)) { bg[i + 1] = 1; stack[sp++] = i + 1; }
-      if (i >= w && !bg[i - w] && loose(i - w)) { bg[i - w] = 1; stack[sp++] = i - w; }
-      if (i < n - w && !bg[i + w] && loose(i + w)) { bg[i + w] = 1; stack[sp++] = i + w; }
-    }
-    // eingeschlossene, rein weiße Flächen (z. B. die Öffnung hinten an der Kappe)
-    const comp = [];
-    for (let i = 0; i < n; i++) {
-      if (bg[i] || !strict(i)) continue;
-      bg[i] = 2; stack[sp++] = i; comp.length = 0;
-      while (sp) {
-        const j = stack[--sp], X = j % w; comp.push(j);
-        for (const q of [X > 0 ? j - 1 : -1, X < w - 1 ? j + 1 : -1, j - w, j + w]) if (q >= 0 && q < n && !bg[q] && strict(q)) { bg[q] = 2; stack[sp++] = q; }
-      }
-      const keep = comp.length >= 250;
-      for (const j of comp) bg[j] = keep ? 1 : 3;
-    }
-    const alpha = new Uint8ClampedArray(n);
-    for (let Y = 0; Y < h; Y++) for (let X = 0; X < w; X++) {
-      const i = Y * w + X;
-      if (bg[i] === 1) continue;
-      let s = 0, m = 0;
-      for (let dy = -1; dy <= 1; dy++) { const yy = Y + dy; if (yy < 0 || yy >= h) continue; for (let dx = -1; dx <= 1; dx++) { const xx = X + dx; if (xx < 0 || xx >= w) continue; m++; if (bg[yy * w + xx] !== 1) s++; } }
-      alpha[i] = Math.round(255 * s / m);
-    }
-    // vier Ansichten: Spalten mit Produktpixeln zu Blöcken zusammenfassen
+    // Freistellung kommt fertig als Maske (weiß = Produkt), erstellt mit tools/konfigurator/freistellen.py
+    x.clearRect(0, 0, w, h); x.drawImage(mask, 0, 0, w, h);
+    const md = x.getImageData(0, 0, w, h).data, alpha = new Uint8ClampedArray(n);
+    for (let i = 0; i < n; i++) alpha[i] = md[i * 4];
+    // Ansichten: Spalten mit Produktpixeln zu Blöcken zusammenfassen
     const colHas = new Uint8Array(w);
     for (let X = 0; X < w; X++) { let k = 0; for (let Y = 0; Y < h; Y += 2) if (alpha[Y * w + X] > 128 && ++k > 3) { colHas[X] = 1; break; } }
     let runs = [], st = -1, gap = 0;
@@ -173,7 +147,7 @@
       if (on) { if (st < 0) st = X; gap = 0; } else if (st >= 0 && (++gap > 12 || X === w)) { runs.push([st, X - gap]); st = -1; gap = 0; }
     }
     runs = runs.filter((r) => r[1] - r[0] > 30);
-    if (runs.length !== 4) { const q = w / 4; runs = [0, 1, 2, 3].map((k) => [Math.round(k * q), Math.round((k + 1) * q) - 1]); }
+    if (runs.length !== nviews) { const q = w / nviews; runs = Array.from({ length: nviews }, (_, k) => [Math.round(k * q), Math.round((k + 1) * q) - 1]); }
     const views = runs.map(([x0, x1]) => {
       let y0 = h, y1 = 0;
       for (let Y = 0; Y < h; Y++) for (let X = x0; X <= x1; X += 2) if (alpha[Y * w + X] > 128) { if (Y < y0) y0 = Y; if (Y > y1) y1 = Y; break; }
@@ -337,11 +311,12 @@
       const t = T(), p = S.prod;
       secProd.replaceChildren(el('h4', {}, t.product, el('b', {}, L(p.name, lang))), el('div', { class: 'wfk-prods' },
         PRODUCTS.map((q) => el('button', { type: 'button', class: q.id === p.id ? 'on' : '', title: L(q.name, lang), onclick: () => choose(q.id) },
-          el('span', { class: 'pim' }, el('img', { alt: '', src: base + 'img/' + q.img + '.jpg', loading: 'lazy' })), L(q.name, lang)))));
+          el('img', { alt: '', src: base + 'img/' + q.id + '-t.jpg', loading: 'lazy' }), L(q.name, lang)))));
       const cname = COLORS[S.color] ? L(COLORS[S.color], lang) : S.hex.toUpperCase();
       secColor.replaceChildren(el('h4', {}, t.color, el('b', {}, cname)), el('div', { class: 'wfk-sw' },
         p.colors.map((c) => el('button', { type: 'button', title: L(COLORS[c], lang), 'aria-label': L(COLORS[c], lang), class: c === S.color ? 'on' : '', style: 'background:' + COLORS[c][3], onclick: () => setColor(c) }))),
         ...(mode !== 'werkstatt' ? [] : [el('label', { class: 'wfk-own' }, el('input', { type: 'color', value: S.hex, oninput: (e) => { S.color = 'eigen'; S.hex = e.target.value; render(); secColor.querySelector('h4 b').textContent = S.hex.toUpperCase(); for (const b of secColor.querySelectorAll('.wfk-sw button')) b.classList.remove('on'); changed(); } }), t.own_color)]));
+      secColor.classList.toggle('wfk-hidden', mode === 'kunde' && p.colors.length < 2);
       secLogo.replaceChildren(el('h4', {}, t.logo),
         S.logo ? el('div', { class: 'wfk-logo' }, el('span', { class: 'prev' }, el('img', { alt: '', src: S.logo.thumb })), el('span', { class: 'nm' }, S.logo.name),
           el('div', { class: 'wfk-row' }, el('button', { type: 'button', class: 'wfk-btn small', onclick: () => fileIn.click() }, t.logo_change),
@@ -361,7 +336,7 @@
         p.pos.map((d) => el('button', { type: 'button', class: S.places.some((x) => x.id === d.id) ? 'on' : '', onclick: () => togglePlace(d) }, L(PN[d.id], lang)))),
         pos, el('p', { class: 'wfk-note', style: 'margin-top:10px' }, t.pos_hint));
       secTech.replaceChildren(el('h4', {}, t.tech), el('div', { class: 'wfk-tech' },
-        TECH.map((k) => el('button', { type: 'button', class: S.tech === k ? 'on' : '', onclick: () => { S.tech = k; drawSide(); changed(); } }, t['t_' + k], el('small', {}, t['t_' + k + '_d'])))));
+        (p.tech || TECH).map((k) => el('button', { type: 'button', class: S.tech === k ? 'on' : '', onclick: () => { S.tech = k; drawSide(); changed(); } }, t['t_' + k], el('small', {}, t['t_' + k + '_d'])))));
       const cb = el('input', { type: 'checkbox', onchange: (e) => { S.rights = e.target.checked; changed(); } });
       cb.checked = S.rights;
       secRights.replaceChildren(el('label', { class: 'wfk-check' }, cb, el('span', {}, t.rights)));
@@ -387,6 +362,7 @@
       S.prod = p;
       if (!p.colors.includes(S.color) && S.color !== 'eigen') S.color = p.colors.includes(p.color) ? p.color : p.colors[0];
       if (S.color !== 'eigen') S.hex = COLORS[S.color][3];
+      if (!(p.tech || TECH).includes(S.tech)) S.tech = (p.tech || TECH)[0];
       // Positionen übernehmen, soweit es sie beim neuen Produkt gibt; sonst die erste Standardposition
       S.places = (keep || []).map((pid) => p.pos.find((d) => d.id === pid)).filter(Boolean).map((d) => ({ id: d.id, cm: d.def, dx: 0, dy: 0 }));
       if (!S.places.length) S.places = [{ id: p.pos[0].id, cm: p.pos[0].def, dx: 0, dy: 0 }];
@@ -394,13 +370,13 @@
       drawSide();
       stage.classList.add('loading');
       try {
-        if (!prepared.has(p.img)) {
-          const img = await loadImg(base + 'img/' + p.img + '.jpg');
+        if (!prepared.has(p.id)) {
+          const [img, mask] = await Promise.all([loadImg(base + 'img/' + p.id + '.jpg'), loadImg(base + 'img/' + p.id + '-m.png')]);
           await new Promise((r) => setTimeout(r, 16));
-          prepared.set(p.img, prepare(img, !!p.akzent));
+          prepared.set(p.id, prepare(img, mask, false, p.views === 'mug' ? 3 : 4));
         }
         if (S.prod !== p) return;
-        cur = prepared.get(p.img);
+        cur = prepared.get(p.id);
         render();
       } finally { if (S.prod === p) stage.classList.remove('loading'); }
       changed();
@@ -409,7 +385,7 @@
     /* Logo-Platzierung in Bildpixeln */
     function placeRect(pl) {
       const d = S.prod.pos.find((x) => x.id === pl.id), v = cur.views[d.view];
-      const pxcm = cur.views[0].w / S.prod.cm;
+      const pxcm = cur.views[S.prod.ref || 0].w / S.prod.cm;
       const lw = S.logo ? S.logo.canvas.width : 1, lh = S.logo ? S.logo.canvas.height : 1;
       const side = pl.cm * pxcm, sc = side / Math.max(lw, lh);
       const w = lw * sc, h = lh * sc;
@@ -450,16 +426,19 @@
     }
     function drawThumbsLabels() {
       const t = T();
-      stage.querySelector('.wfk-vlabel').textContent = t.views[S.view];
-      [...thumbs.children].forEach((b, k) => { b.title = t.views[k]; b.setAttribute('aria-label', t.views[k]); });
+      const vn = S.prod && S.prod.views === 'mug' ? t.vmug : t.views;
+      stage.querySelector('.wfk-vlabel').textContent = vn[S.view] || '';
+      [...thumbs.children].forEach((b, k) => { b.title = vn[k]; b.setAttribute('aria-label', vn[k]); });
     }
     function render() {
       if (!cur) return;
       composed = compose();
       const x = cv.getContext('2d');
       drawView(x, S.view, cv.width);
-      if (!thumbs.children.length) {
-        for (let k = 0; k < 4; k++) thumbs.append(el('button', { type: 'button', onclick: () => { S.view = k; render(); } }, canvas(160, 160)));
+      if (thumbs.children.length !== cur.views.length) {
+        thumbs.replaceChildren();
+        thumbs.style.gridTemplateColumns = `repeat(${cur.views.length}, minmax(0, 1fr))`;
+        for (let k = 0; k < cur.views.length; k++) thumbs.append(el('button', { type: 'button', onclick: () => { S.view = k; render(); } }, canvas(160, 160)));
       }
       const used = new Set(S.logo ? S.places.map((pl) => S.prod.pos.find((d) => d.id === pl.id).view) : []);
       [...thumbs.children].forEach((btn, k) => {
@@ -552,7 +531,7 @@
       if (COLORS[pre.color] && (S.prod.colors.includes(pre.color) || mode === 'werkstatt')) { S.color = pre.color; S.hex = COLORS[pre.color][3]; }
       else if (mode === 'werkstatt' && pre.color_hex) { S.color = 'eigen'; S.hex = pre.color_hex.toLowerCase(); }
     }
-    if (TECH.includes(pre.tech)) S.tech = pre.tech;
+    if ((S.prod.tech || TECH).includes(pre.tech)) S.tech = pre.tech;
     if (Array.isArray(pre.places) && pre.places.length) {
       const pl = pre.places.map((x) => { const d = S.prod.pos.find((q) => q.id === x.pos); return d ? { id: d.id, cm: Math.max(2, Math.min(40, +x.cm || d.def)), dx: +x.dx || 0, dy: +x.dy || 0 } : null; }).filter(Boolean);
       if (pl.length) { S.places = pl; S.view = S.prod.pos.find((d) => d.id === pl[0].id).view; }
