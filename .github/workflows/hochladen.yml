@@ -1,15 +1,14 @@
-# Lädt Website und Auftragsprogramm per FTP auf www.wunsch-fabrik.dk.
+# Lädt Website und Auftragsprogramm per SFTP auf www.wunsch-fabrik.dk (one.com).
 #
 # Läuft nur, wenn eine Änderung mit „[hochladen]“ in der Beschreibung hochgeschoben wird,
 # oder von Hand (Actions → „Auf den Webspace hochladen“ → Run workflow).
 #
 # Zugangsdaten stehen nur bei GitHub (Settings → Secrets and variables → Actions):
-#   FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, optional FTP_DIR (Standard: Hauptordner „./“)
-# Falls der Anbieter kein verschlüsseltes FTP (FTPS) kann: unter „Variables“ FTP_PROTOCOL = ftp anlegen.
+#   FTP_SERVER (SFTP-Adresse, bei one.com ssh.wunsch-fabrik.dk), FTP_USERNAME, FTP_PASSWORD,
+#   optional FTP_DIR (Ordner der Website auf dem Server, Standard: der Ordner direkt nach dem Einloggen)
 #
 # Auf dem Server bleibt unangetastet: db_config.php (liegt nicht bei GitHub), auftraege/data/ (Aufträge,
-# Datenbank, Uploads) und anfrage-vorschau/ (Bilder aus Kundenanfragen). Gelöscht werden nur Dateien,
-# die frühere Läufe selbst hochgeladen haben und die es hier nicht mehr gibt.
+# Datenbank, Uploads) und anfrage-vorschau/ (Bilder aus Kundenanfragen). Gelöscht wird nichts.
 name: Auf den Webspace hochladen
 
 on:
@@ -40,18 +39,20 @@ jobs:
           test ! -e _upload/db_config.php
           echo "Dateien: $(find _upload -type f | wc -l), Größe: $(du -sh _upload | cut -f1)"
 
-      - name: Per FTP hochladen
-        uses: SamKirkland/FTP-Deploy-Action@v4.3.5
-        with:
-          server: ${{ secrets.FTP_SERVER }}
-          username: ${{ secrets.FTP_USERNAME }}
-          password: ${{ secrets.FTP_PASSWORD }}
-          protocol: ${{ vars.FTP_PROTOCOL || 'ftps' }}
-          local-dir: ./_upload/
-          server-dir: ${{ secrets.FTP_DIR || './' }}
-          exclude: |
-            **/.git*
-            **/.git*/**
-            db_config.php
-            auftraege/data/**
-            anfrage-vorschau/**
+      - name: Per SFTP hochladen
+        env:
+          SFTP_HOST: ${{ secrets.FTP_SERVER }}
+          SFTP_USER: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          SFTP_DIR: ${{ secrets.FTP_DIR }}
+        run: |
+          set -e
+          if [ -z "$SFTP_HOST" ] || [ -z "$SFTP_USER" ] || [ -z "$LFTP_PASSWORD" ]; then
+            echo "::error::FTP_SERVER, FTP_USERNAME und FTP_PASSWORD fehlen unter Settings → Secrets and variables → Actions."; exit 1
+          fi
+          sudo apt-get -qq update && sudo apt-get -qq install -y lftp >/dev/null
+          # Nur hochladen und überschreiben, nie löschen: Dateien, die es hier nicht gibt (db_config.php,
+          # auftraege/data/, anfrage-vorschau/), bleiben auf dem Server unangetastet.
+          lftp -e "set sftp:auto-confirm yes; set net:max-retries 3; set net:timeout 30; \
+            open -u '$SFTP_USER' --env-password 'sftp://$SFTP_HOST'; \
+            mirror --reverse --no-perms --parallel=4 --verbose=1 ./_upload/ '${SFTP_DIR:-.}'; bye"
