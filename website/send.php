@@ -98,12 +98,17 @@ if (!empty($_POST['konfig'])) {
         $places = [];
         foreach (array_slice((array)($k['places'] ?? []), 0, 8) as $pl) {
             if (!is_array($pl)) continue;
-            $places[] = ['pos' => $clean($pl['pos'] ?? '', 20), 'name' => $clean($pl['name'] ?? '', 40), 'cm' => round((float)($pl['cm'] ?? 0), 1)];
+            $places[] = ['pos' => $clean($pl['pos'] ?? '', 20), 'name' => $clean($pl['name'] ?? '', 40), 'cm' => round((float)($pl['cm'] ?? 0), 1),
+                'dx' => max(-40, min(40, round((float)($pl['dx'] ?? 0), 1))), 'dy' => max(-40, min(40, round((float)($pl['dy'] ?? 0), 1)))];
         }
         $konfig = ['product' => $clean($k['product'] ?? '', 30), 'product_name' => $clean($k['product_name'] ?? '', 60), 'color' => $clean($k['color'] ?? '', 20),
             'color_name' => $clean($k['color_name'] ?? '', 40), 'color_hex' => preg_match('/^#[0-9a-f]{6}$/i', (string)($k['color_hex'] ?? '')) ? $k['color_hex'] : '',
             'tech' => $clean($k['tech'] ?? '', 12), 'tech_name' => $clean($k['tech_name'] ?? '', 30), 'places' => $places, 'logo' => $clean($k['logo'] ?? '', 120), 'rights' => !empty($k['rights'])];
-        $pos = implode(', ', array_map(fn($p) => $p['name'] . ' (' . str_replace('.', ',', (string)$p['cm']) . ' cm)', $places));
+        $pos = implode(', ', array_map(function ($p) {
+            $moved = ($p['dx'] || $p['dy']) ? ', verschoben ' . ($p['dx'] ? str_replace('.', ',', (string)abs($p['dx'])) . ' cm ' . ($p['dx'] > 0 ? 'nach rechts' : 'nach links') : '')
+                . ($p['dx'] && $p['dy'] ? ' und ' : '') . ($p['dy'] ? str_replace('.', ',', (string)abs($p['dy'])) . ' cm ' . ($p['dy'] > 0 ? 'nach unten' : 'nach oben') : '') : '';
+            return $p['name'] . ' (' . str_replace('.', ',', (string)$p['cm']) . ' cm' . $moved . ')';
+        }, $places));
         $konfigText = "Produkt: {$konfig['product_name']}\nFarbe: {$konfig['color_name']}\nVeredelung: {$konfig['tech_name']}\nPosition: " . ($pos ?: '–')
             . "\nLogo: " . ($konfig['logo'] !== '' ? $konfig['logo'] . ($konfig['rights'] ? ' (Rechte bestätigt)' : '') : 'kein Logo hochgeladen');
     }

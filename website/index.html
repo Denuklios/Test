@@ -3888,9 +3888,9 @@ function kfSet(mode) {
     window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - off, behavior: 'smooth' }); };
   requestAnimationFrame(jump);
   if (mode !== 'tool' || kfLoad) return;
-  if (!document.getElementById('kfCss')) { const l = document.createElement('link'); l.id = 'kfCss'; l.rel = 'stylesheet'; l.href = 'konfigurator/konfig.css?v=9'; document.head.append(l); }
+  if (!document.getElementById('kfCss')) { const l = document.createElement('link'); l.id = 'kfCss'; l.rel = 'stylesheet'; l.href = 'konfigurator/konfig.css?v=10'; document.head.append(l); }
   kfLoad = (async () => {
-    if (!window.WFKonfig) await kfScript('konfigurator/konfig.js?v=9');
+    if (!window.WFKonfig) await kfScript('konfigurator/konfig.js?v=10');
     const holder = document.createElement('div');
     box.replaceChildren(holder);
     window.__wfK = await WFKonfig.mount(holder, { mode: 'kunde', lang: currentLang, base: 'konfigurator/', onChange: (k) => {

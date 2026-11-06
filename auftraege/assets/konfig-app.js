@@ -12,8 +12,8 @@ let loading = null;
 function loadKonfig() {
   if (window.WFKonfig) return Promise.resolve();
   if (loading) return loading;
-  if (!document.getElementById('wfkCss')) document.head.append(h('link', { id: 'wfkCss', rel: 'stylesheet', href: KBASE + 'konfig.css?v=9' }));
-  loading = new Promise((ok, bad) => { const s = document.createElement('script'); s.src = KBASE + 'konfig.js?v=9'; s.onload = ok; s.onerror = () => { loading = null; bad(new Error(t('konfig_err'))); }; document.head.append(s); });
+  if (!document.getElementById('wfkCss')) document.head.append(h('link', { id: 'wfkCss', rel: 'stylesheet', href: KBASE + 'konfig.css?v=10' }));
+  loading = new Promise((ok, bad) => { const s = document.createElement('script'); s.src = KBASE + 'konfig.js?v=10'; s.onload = ok; s.onerror = () => { loading = null; bad(new Error(t('konfig_err'))); }; document.head.append(s); });
   return loading;
 }
 

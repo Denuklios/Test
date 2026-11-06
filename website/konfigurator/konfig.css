@@ -9,7 +9,7 @@
 
 .wfk-view { position: sticky; top: var(--wfk-sticky-top, 12px); display: grid; gap: 8px; }
 @media (max-width: 860px) { .wfk-view { position: static; } }
-.wfk-stage { position: relative; background: #fff; border-radius: 14px; overflow: hidden; border: 1px solid var(--_line); aspect-ratio: 1 / 1; touch-action: none; }
+.wfk-stage { position: relative; background: #fff; border-radius: 14px; overflow: hidden; border: 1px solid var(--_line); aspect-ratio: 1 / 1; touch-action: pan-y; }
 .wfk-stage canvas { display: block; width: 100%; height: 100%; }
 .wfk-stage.drag canvas { cursor: grab; }
 .wfk-stage.drag.dragging canvas { cursor: grabbing; }

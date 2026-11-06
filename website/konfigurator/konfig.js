@@ -29,7 +29,7 @@
       approx: 'Die Vorschau ist eine Annäherung. Farben und Größen können leicht abweichen.',
       rights: 'Ich habe die Rechte an diesem Logo.', rights_err: 'Bitte bestätige, dass du die Rechte an dem Logo hast.',
       loading: 'Bild wird vorbereitet …', views: ['Vorne', 'Rechte Seite', 'Linke Seite', 'Hinten'], vmug: ['Seite 1', 'Vorne', 'Seite 2'], t_subli: 'Sublimation', t_subli_d: 'farbig, auch Fotos',
-      drag: 'Logo im Bild mit der Maus oder dem Finger verschieben.', reset: 'Mittig setzen', download: 'Bild herunterladen',
+      drag_k: 'Das Logo lässt sich im Bild mit Maus oder Finger ein Stück verschieben.', drag: 'Logo im Bild mit der Maus oder dem Finger verschieben.', reset: 'Mittig setzen', download: 'Bild herunterladen',
       s_product: 'Produkt', s_color: 'Farbe', s_tech: 'Veredelung', s_pos: 'Position', s_logo: 'Logo', s_none: 'kein Logo hochgeladen', s_moved: 'verschoben',
     },
     da: {
@@ -43,7 +43,7 @@
       approx: 'Forhåndsvisningen er en tilnærmelse. Farver og størrelser kan afvige en smule.',
       rights: 'Jeg har rettighederne til dette logo.', rights_err: 'Bekræft venligst, at du har rettighederne til logoet.',
       loading: 'Billedet forberedes …', views: ['Forfra', 'Højre side', 'Venstre side', 'Bagfra'], vmug: ['Side 1', 'Foran', 'Side 2'], t_subli: 'Sublimation', t_subli_d: 'farverigt, også fotos',
-      drag: 'Flyt logoet i billedet med musen eller fingeren.', reset: 'Centrér', download: 'Download billede',
+      drag_k: 'Logoet kan flyttes lidt i billedet med musen eller fingeren.', drag: 'Flyt logoet i billedet med musen eller fingeren.', reset: 'Centrér', download: 'Download billede',
       s_product: 'Produkt', s_color: 'Farve', s_tech: 'Forædling', s_pos: 'Placering', s_logo: 'Logo', s_none: 'intet logo uploadet', s_moved: 'flyttet',
     },
     en: {
@@ -57,7 +57,7 @@
       approx: 'The preview is an approximation. Colours and sizes may differ slightly.',
       rights: 'I hold the rights to this logo.', rights_err: 'Please confirm that you hold the rights to the logo.',
       loading: 'Preparing image …', views: ['Front', 'Right side', 'Left side', 'Back'], vmug: ['Side 1', 'Front', 'Side 2'], t_subli: 'Sublimation', t_subli_d: 'full colour, even photos',
-      drag: 'Drag the logo in the picture with mouse or finger.', reset: 'Centre', download: 'Download image',
+      drag_k: 'You can nudge the logo a little in the picture with mouse or finger.', drag: 'Drag the logo in the picture with mouse or finger.', reset: 'Centre', download: 'Download image',
       s_product: 'Product', s_color: 'Colour', s_tech: 'Finishing', s_pos: 'Position', s_logo: 'Logo', s_none: 'no logo uploaded', s_moved: 'moved',
     },
   };
@@ -299,10 +299,10 @@
 
     root.classList.add('wfk');
     root.replaceChildren();
-    const cv = canvas(800, 800), stage = el('div', { class: 'wfk-stage loading' + (mode === 'werkstatt' ? ' drag' : '') }, cv, el('div', { class: 'wfk-vlabel' }), el('div', { class: 'wfk-busy' }));
+    const cv = canvas(800, 800), stage = el('div', { class: 'wfk-stage loading drag' }, cv, el('div', { class: 'wfk-vlabel' }), el('div', { class: 'wfk-busy' }));
     const thumbs = el('div', { class: 'wfk-thumbs' });
     const noteApprox = el('p', { class: 'wfk-note' });
-    const noteDrag = mode === 'werkstatt' ? el('p', { class: 'wfk-note' }) : null;
+    const noteDrag = el('p', { class: 'wfk-note' });
     const dlBtn = mode === 'werkstatt' ? el('button', { type: 'button', class: 'wfk-btn small', onclick: () => download() }) : null;
     const view = el('div', { class: 'wfk-view' }, stage, thumbs, noteApprox, noteDrag, dlBtn ? el('div', { class: 'wfk-row' }, dlBtn) : null);
     const side = el('div', { class: 'wfk-side' });
@@ -342,7 +342,7 @@
         const val = el('b', {}, pl.cm + ' cm');
         pos.append(el('label', { class: 'wfk-size' }, el('span', { class: 'lbl' }, el('span', {}, t.size + ' ' + L(PN[pl.id], lang), ' ', el('small', { style: 'color:var(--_muted)' }, '(' + t.size_side + ')')), val),
           el('input', { type: 'range', min: 2, max, step: 0.5, value: pl.cm, oninput: (e) => { pl.cm = +e.target.value; val.textContent = pl.cm + ' cm'; render(); changed(); } })));
-        if (mode === 'werkstatt' && (pl.dx || pl.dy)) pos.append(el('div', { class: 'wfk-row', style: 'margin-top:4px' }, el('button', { type: 'button', class: 'wfk-btn small', onclick: () => { pl.dx = pl.dy = 0; drawSide(); render(); changed(); } }, '⟲ ' + t.reset + ' (' + L(PN[pl.id], lang) + ')')));
+        if (pl.dx || pl.dy) pos.append(el('div', { class: 'wfk-row', style: 'margin-top:4px' }, el('button', { type: 'button', class: 'wfk-btn small', onclick: () => { pl.dx = pl.dy = 0; drawSide(); render(); changed(); } }, '⟲ ' + t.reset + ' (' + L(PN[pl.id], lang) + ')')));
       }
       secPos.replaceChildren(el('h4', {}, t.pos), el('div', { class: 'wfk-chips' },
         p.pos.map((d) => el('button', { type: 'button', class: S.places.some((x) => x.id === d.id) ? 'on' : '', onclick: () => togglePlace(d) }, L(PN[d.id], lang)))),
@@ -354,7 +354,7 @@
       secRights.replaceChildren(el('label', { class: 'wfk-check' }, cb, el('span', {}, t.rights)));
       secRights.classList.toggle('wfk-hidden', !S.logo);
       noteApprox.textContent = t.approx;
-      if (noteDrag) noteDrag.textContent = t.drag;
+      noteDrag.textContent = S.logo ? (mode === 'kunde' ? t.drag_k : t.drag) : '';
       if (dlBtn) dlBtn.textContent = '⬇ ' + t.download;
       stage.querySelector('.wfk-busy').textContent = t.loading;
       drawThumbsLabels();
@@ -469,28 +469,33 @@
       drawThumbsLabels();
     }
 
-    /* Werkstatt: Logo im Bild verschieben */
-    if (mode === 'werkstatt') {
-      let drag = null;
-      const toImg = (e) => { const r = cv.getBoundingClientRect(), b = viewBox(S.view); return { x: b.x + (e.clientX - r.left) / r.width * b.s, y: b.y + (e.clientY - r.top) / r.height * b.s }; };
-      cv.addEventListener('pointerdown', (e) => {
-        if (!cur || !S.logo) return;
-        const p = toImg(e);
-        const pl = S.places.find((q) => { const r = placeRect(q); return r.view === S.view && p.x >= r.x - 10 && p.x <= r.x + r.w + 10 && p.y >= r.y - 10 && p.y <= r.y + r.h + 10; });
-        if (!pl) return;
-        drag = { pl, x: p.x, y: p.y, dx: pl.dx || 0, dy: pl.dy || 0, pxcm: placeRect(pl).pxcm };
-        stage.classList.add('dragging'); cv.setPointerCapture(e.pointerId); e.preventDefault();
-      });
-      cv.addEventListener('pointermove', (e) => {
-        if (!drag) return;
-        const p = toImg(e);
-        drag.pl.dx = Math.round((drag.dx + (p.x - drag.x) / drag.pxcm) * 10) / 10;
-        drag.pl.dy = Math.round((drag.dy + (p.y - drag.y) / drag.pxcm) * 10) / 10;
-        render();
-      });
-      const end = () => { if (!drag) return; drag = null; stage.classList.remove('dragging'); drawSide(); changed(); };
-      cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
-    }
+    /* Logo im Bild verschieben. Kunde: nur in einem kleinen Umkreis um die Standard-Position, Werkstatt: frei. */
+    const radius = (pl) => { const d = S.prod.pos.find((x) => x.id === pl.id); return Math.min(8, Math.max(1, d.max * 0.35)); };
+    let drag = null;
+    const toImg = (e) => { const r = cv.getBoundingClientRect(), b = viewBox(S.view); return { x: b.x + (e.clientX - r.left) / r.width * b.s, y: b.y + (e.clientY - r.top) / r.height * b.s }; };
+    const hit = (e) => {
+      if (!cur || !S.logo) return null;
+      const p = toImg(e);
+      const pl = S.places.find((q) => { const r = placeRect(q), m = Math.max(10, r.w * 0.15); return r.view === S.view && p.x >= r.x - m && p.x <= r.x + r.w + m && p.y >= r.y - m && p.y <= r.y + r.h + m; });
+      return pl ? { pl, p } : null;
+    };
+    cv.addEventListener('pointerdown', (e) => {
+      const h = hit(e); if (!h) return;
+      drag = { pl: h.pl, x: h.p.x, y: h.p.y, dx: h.pl.dx || 0, dy: h.pl.dy || 0, pxcm: placeRect(h.pl).pxcm };
+      stage.classList.add('dragging'); cv.setPointerCapture(e.pointerId); e.preventDefault();
+    });
+    // Am Handy: nur wenn der Finger auf dem Logo liegt, wird nicht gescrollt
+    cv.addEventListener('touchstart', (e) => { const t0 = e.touches[0]; if (t0 && hit(t0)) e.preventDefault(); }, { passive: false });
+    cv.addEventListener('pointermove', (e) => {
+      if (!drag) return;
+      const p = toImg(e);
+      let dx = drag.dx + (p.x - drag.x) / drag.pxcm, dy = drag.dy + (p.y - drag.y) / drag.pxcm;
+      if (mode === 'kunde') { const r = radius(drag.pl), l = Math.hypot(dx, dy); if (l > r) { dx *= r / l; dy *= r / l; } }
+      drag.pl.dx = Math.round(dx * 10) / 10; drag.pl.dy = Math.round(dy * 10) / 10;
+      render();
+    });
+    const end = () => { if (!drag) return; drag = null; stage.classList.remove('dragging'); drawSide(); changed(); };
+    cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
 
     fileIn.addEventListener('change', async () => {
       const f = fileIn.files && fileIn.files[0]; fileIn.value = '';
