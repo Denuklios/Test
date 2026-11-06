@@ -64,28 +64,29 @@ if n4:
     sizes = ndi.sum(np.ones_like(lab4), lab4, index=np.arange(1, n4 + 1))
     fg |= np.isin(lab4, np.nonzero(sizes < 400)[0] + 1)
 if HELL:
-    # helles Produkt auf grauem Grund mit Bodenschatten: nur was heller als der Grund ist (plus Eingeschlossenes)
-    br = ndi.binary_closing(d > 3, iterations=4)
-    br = ndi.binary_fill_holes(br)
+    # Helles Produkt auf grauem Grund (Kappe): Produkt = heller als der Grund oder sehr dunkel (Schirm-Unterseite).
+    # Der Bodenschatten liegt dazwischen (etwas dunkler als der Grund) und bleibt draußen.
+    br = (d > 2) | (d < -46)
+    br = ndi.binary_closing(br, iterations=2)
     lab5, n5 = ndi.label(br)
     if n5:
         sizes = ndi.sum(np.ones_like(lab5), lab5, index=np.arange(1, n5 + 1))
-        br = np.isin(lab5, np.nonzero(sizes >= 2000)[0] + 1)
-    fg &= br
+        br = np.isin(lab5, np.nonzero(sizes >= 5000)[0] + 1)
+    br = ndi.binary_fill_holes(br)
+    fg = ndi.gaussian_filter(br.astype(np.float32), 1.5) > 0.5
 if BODEN:
-    # Bodenschatten unten am Produkt nicht mitfärben: je Spalte von unten nach oben die hellgrauen
-    # Schattenpixel abtragen. Sehr dunkle Pixel (Unterseite des Schirms) gehören zum Produkt und bleiben.
+    # Bodenschatten unten am Produkt nicht mitfärben: je Spalte von unten nach oben alles abtragen, was weder
+    # heller als der Grund (Produkt) noch sehr dunkel (Unterseite des Schirms) ist.
     for x in range(w):
         ys = np.nonzero(fg[:, x])[0]
         if not len(ys):
             continue
         y = ys[-1]
         k = 0
-        while y >= 0 and fg[y, x] and k < BODEN and -35 < d[y, x] < -2:
+        while y >= 0 and fg[y, x] and k < BODEN and -46 <= d[y, x] <= 2:
             fg[y, x] = False; y -= 1; k += 1
-    # stehengebliebene senkrechte Zacken glätten
-    fg = ndi.binary_opening(fg, structure=np.ones((1, 11), bool))
-    fg = ndi.binary_closing(fg, structure=np.ones((1, 7), bool))
+    # Umriss glätten (Zacken vom spaltenweisen Abtragen weg)
+    fg = ndi.gaussian_filter(fg.astype(np.float32), 2.0) > 0.5
 m = Image.fromarray((fg * 255).astype(np.uint8)).filter(ImageFilter.GaussianBlur(0.8))
 m.save(dst + '-m.png', optimize=True)
 im.save(dst + '.jpg', quality=90, optimize=True, progressive=True)
