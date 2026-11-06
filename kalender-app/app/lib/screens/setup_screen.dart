@@ -27,7 +27,7 @@ class _SetupScreenState extends State<SetupScreen> {
   @override
   void initState() {
     super.initState();
-    _url.text = store.serverUrl;
+    _url.text = store.serverUrl.isEmpty ? 'https://www.wunsch-fabrik.dk/kalender' : store.serverUrl;
   }
 
   /// Einladungstext einfügen: erkennt Server-Adresse und Code

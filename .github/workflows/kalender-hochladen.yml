@@ -1,0 +1,74 @@
+# Lädt den Familienkalender (Server + App-Updates) per SFTP nach www.wunsch-fabrik.dk/kalender (one.com).
+#
+# Läuft, wenn eine Änderung mit „[hochladen]“ in der Beschreibung auf diesen Zweig geschoben wird,
+# oder von Hand (Actions → „Kalender hochladen“ → Run workflow).
+#
+# Nutzt dieselben Zugangsdaten wie der Website-Upload (Settings → Secrets and variables → Actions):
+#   FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, optional FTP_DIR (Website-Ordner auf dem Server).
+# Den Website-Ordner erkennt es an db_config.php (liegt nur auf dem Server).
+# Auf dem Server bleibt kalender/data/ (Datenbank, Fotos) unangetastet. Gelöscht wird nichts.
+name: Kalender hochladen
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/shared-calendar-app-n7v6p2']
+
+concurrency:
+  group: webspace-upload
+  cancel-in-progress: false
+
+jobs:
+  hochladen:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[hochladen]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Paket zusammenstellen
+        run: |
+          set -e
+          mkdir -p _upload
+          rsync -a --exclude 'data/*.sqlite*' --exclude 'data/photos/' kalender-app/server/ _upload/
+          mkdir -p _upload/data
+          printf 'Require all denied\nDeny from all\n' > _upload/data/.htaccess
+          test -f _upload/api.php && test -f _upload/app/version.json && test -f _upload/app/familienkalender.apk
+          echo "Version: $(cat _upload/app/version.json)"
+          echo "Dateien: $(find _upload -type f | wc -l), Größe: $(du -sh _upload | cut -f1)"
+
+      - name: Per SFTP hochladen
+        env:
+          SFTP_HOST: ${{ secrets.FTP_SERVER }}
+          SFTP_USER: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          SFTP_DIR: ${{ secrets.FTP_DIR }}
+        run: |
+          set -e
+          if [ -z "$SFTP_HOST" ] || [ -z "$SFTP_USER" ] || [ -z "$LFTP_PASSWORD" ]; then
+            echo "::error::FTP_SERVER, FTP_USERNAME und FTP_PASSWORD fehlen unter Settings → Secrets and variables → Actions."; exit 1
+          fi
+          sudo apt-get -qq update && sudo apt-get -qq install -y lftp >/dev/null
+          CONN="set sftp:auto-confirm yes; set net:max-retries 3; set net:timeout 30; open -u '$SFTP_USER' --env-password 'sftp://$SFTP_HOST'"
+          FOUND=""
+          if [ -n "$SFTP_DIR" ]; then
+            CANDS="$SFTP_DIR"
+          else
+            LIST=$(lftp -e "$CONN; cls -1 webroots/ webroots/by-route/; bye" 2>/dev/null | sed 's#/*$##; s#@$##' || true)
+            echo "--- Kandidaten:"; echo "$LIST"
+            CANDS="$LIST httpd.www ."
+          fi
+          for c in $CANDS; do
+            if lftp -e "$CONN; cls -1 '$c/db_config.php'; bye" 2>/dev/null | grep -q 'db_config.php'; then FOUND="$c"; break; fi
+          done
+          if [ -z "$FOUND" ]; then
+            echo "::error::Kein Website-Ordner mit db_config.php gefunden. FTP_DIR unter Settings → Secrets eintragen."; exit 1
+          fi
+          echo "Website-Ordner auf dem Server: $FOUND → $FOUND/kalender"
+          lftp -e "$CONN; mkdir -p -f '$FOUND/kalender'; mirror --reverse --no-perms --parallel=4 --verbose=1 ./_upload/ '$FOUND/kalender'; bye"
+
+      - name: Prüfen, ob der Kalender online ist
+        run: |
+          sleep 5
+          curl -sS --max-time 30 "https://www.wunsch-fabrik.dk/kalender/api.php?a=ping" | tee /dev/stderr | grep -q '"ok":true'
+          curl -sS --max-time 30 "https://www.wunsch-fabrik.dk/kalender/app/version.json?t=$(date +%s)"

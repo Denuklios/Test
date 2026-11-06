@@ -3,3 +3,4 @@ server/data/photos/*
 !server/data/.htaccess
 app/android/key.properties
 app/android/*.jks
+!server/app/familienkalender.apk

@@ -7,6 +7,7 @@ import '../main.dart';
 import '../models.dart';
 import '../notifications.dart';
 import '../store.dart';
+import '../updater.dart';
 import '../widgets/common.dart';
 
 String inviteText() => 'Komm in unseren Familienkalender „${store.groupName}“! 📅\n'
@@ -414,6 +415,16 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 if (context.mounted) Navigator.popUntil(context, (r) => r.isFirst);
               }
             },
+          ),
+          _header('App'),
+          FutureBuilder<String>(
+            future: Updater.currentVersion(),
+            builder: (context, snap) => ListTile(
+              leading: const Icon(Icons.system_update),
+              title: Text('Version ${snap.data ?? ''}'),
+              subtitle: const Text('Updates kommen automatisch – hier von Hand suchen'),
+              onTap: () => Updater.manualCheck(context),
+            ),
           ),
           const SizedBox(height: 40),
         ]),

@@ -1,2 +1,20 @@
-<!doctype html><meta charset="utf-8"><title>Familienkalender</title>
-<p style="font-family:sans-serif">Familienkalender-Server läuft. Diese Adresse in der App eintragen.</p>
+<!doctype html>
+<html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Familienkalender</title>
+<style>
+body{font-family:system-ui,sans-serif;background:#f4f7fb;margin:0;padding:24px;color:#222;text-align:center}
+.card{max-width:420px;margin:30px auto;background:#fff;border-radius:18px;padding:28px;box-shadow:0 4px 20px #0001}
+a.btn{display:block;background:#1976d2;color:#fff;text-decoration:none;padding:16px;border-radius:12px;font-size:18px;font-weight:700;margin:18px 0}
+small{color:#666}
+</style></head><body><div class="card">
+<div style="font-size:56px">📅</div>
+<h1>Familienkalender</h1>
+<p id="v">Android-App</p>
+<a class="btn" href="app/familienkalender.apk" id="dl">App herunterladen</a>
+<small>Nach dem Herunterladen öffnen und „Installieren“ tippen (ggf. „Aus dieser Quelle zulassen“).<br>
+Beim ersten Start einfach die Einladung einfügen oder den Gruppen-Code eingeben. Updates kommen danach automatisch.</small>
+</div>
+<script>
+fetch('app/version.json?t='+Date.now()).then(r=>r.json()).then(j=>{document.getElementById('v').textContent='Android-App · Version '+j.version;
+document.getElementById('dl').href='app/'+(j.file||'familienkalender.apk')+'?v='+j.version;}).catch(()=>{});
+</script></body></html>

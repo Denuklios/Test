@@ -5,6 +5,7 @@ import '../main.dart';
 import '../models.dart';
 import '../notifications.dart';
 import '../store.dart';
+import '../updater.dart';
 import '../voice_parser.dart';
 import '../widgets/common.dart';
 import '../widgets/event_tile.dart';
@@ -43,6 +44,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     store.startAutoSync();
     store.sync();
     Notifier.rescheduleAll(store);
+    WidgetsBinding.instance.addPostFrameCallback((_) => Updater.autoCheck(context));
   }
 
   @override
@@ -58,6 +60,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       store.startAutoSync();
       store.sync();
       Notifier.updateUnlockService(store);
+      Updater.autoCheck(context);
     } else if (state == AppLifecycleState.paused) {
       store.stopAutoSync();
     }
