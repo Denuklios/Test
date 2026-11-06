@@ -2133,9 +2133,9 @@
         <!-- Zwei Wege: normale Anfrage oder mit Vorschau-Tool (Produkt einfärben, Logo platzieren) -->
         <div class="kf-mode" role="group">
           <button type="button" class="kf-mode-btn on" data-kf="normal"><b data-i18n="kf_normal_t">✉️ Normale Anfrage</b><small data-i18n="kf_normal_d">Kurz schreiben, wir melden uns mit Ideen und Preis.</small></button>
-          <button type="button" class="kf-mode-btn" data-kf="tool"><b data-i18n="kf_tool_t">🎨 Mit Vorschau-Tool</b><small data-i18n="kf_tool_d">Produkt, Farbe und Logo wählen und das Ergebnis direkt sehen.</small></button>
+          <button type="button" class="kf-mode-btn" data-kf="tool"><b data-i18n="kf_tool_t">🎨 Selbst gestalten</b><small data-i18n="kf_tool_d">Produkt, Farbe und Logo wählen und das Ergebnis direkt sehen.</small></button>
         </div>
-        <div class="kf-box" id="kfBox" hidden><div class="kf-loading" data-i18n="kf_loading">Vorschau-Tool wird geladen …</div></div>
+        <div class="kf-box" id="kfBox" hidden><div class="kf-loading" data-i18n="kf_loading">Wird geladen …</div></div>
         <div class="form-row">
           <div class="form-group">
             <label class="form-label" data-i18n="form_name">Name *</label>
@@ -2381,7 +2381,7 @@ const translations = {
     form_file_hint: "JPG, PNG, PDF, AI, EPS, SVG – max. 30 MB",
     form_captcha: "Sicherheitsfrage:", form_captcha_ph: "Deine Antwort",
     form_send: "Angebot anfragen",
-    kf_normal_t: "✉️ Normale Anfrage", kf_normal_d: "Kurz schreiben, wir melden uns mit Ideen und Preis.", kf_tool_t: "🎨 Mit Vorschau-Tool", kf_tool_d: "Produkt, Farbe und Logo wählen und das Ergebnis direkt sehen.", kf_loading: "Vorschau-Tool wird geladen …", kf_err_load: "Das Vorschau-Tool konnte nicht geladen werden. Du kannst trotzdem normal anfragen.", kf_msg_ph: "Noch Wünsche? Z. B. Größen, Menge oder Fragen – gern auch leer lassen.",
+    kf_normal_t: "✉️ Normale Anfrage", kf_normal_d: "Kurz schreiben, wir melden uns mit Ideen und Preis.", kf_tool_t: "🎨 Selbst gestalten", kf_tool_d: "Produkt, Farbe und Logo wählen und das Ergebnis direkt sehen.", kf_loading: "Wird geladen …", kf_err_load: "Das Gestalten konnte nicht geladen werden. Du kannst trotzdem normal anfragen.", kf_msg_ph: "Noch Wünsche? Z. B. Größen, Menge oder Fragen – gern auch leer lassen.",
     einzelstueck: "✅ Einzelstücke möglich* – in der Regel kein Mindestbestellwert",
     einzelstueck_note: "* Beim Siebdruck können für Einzelstücke abweichende Preise gelten.",
     footer_tag: "Damit Dein Wunsch kein Wunsch bleiben muss.",
@@ -2450,7 +2450,7 @@ const translations = {
     form_file_hint: "JPG, PNG, PDF, AI, EPS, SVG – maks. 30 MB",
     form_captcha: "Sikkerhedsspørgsmål:", form_captcha_ph: "Dit svar",
     form_send: "Anmod om tilbud",
-    kf_normal_t: "✉️ Almindelig forespørgsel", kf_normal_d: "Skriv kort, så vender vi tilbage med idéer og pris.", kf_tool_t: "🎨 Med forhåndsvisning", kf_tool_d: "Vælg produkt, farve og logo og se resultatet med det samme.", kf_loading: "Forhåndsvisningen indlæses …", kf_err_load: "Forhåndsvisningen kunne ikke indlæses. Du kan stadig sende en almindelig forespørgsel.", kf_msg_ph: "Flere ønsker? F.eks. størrelser, antal eller spørgsmål – må gerne være tom.",
+    kf_normal_t: "✉️ Almindelig forespørgsel", kf_normal_d: "Skriv kort, så vender vi tilbage med idéer og pris.", kf_tool_t: "🎨 Design selv", kf_tool_d: "Vælg produkt, farve og logo og se resultatet med det samme.", kf_loading: "Indlæses …", kf_err_load: "Designværktøjet kunne ikke indlæses. Du kan stadig sende en almindelig forespørgsel.", kf_msg_ph: "Flere ønsker? F.eks. størrelser, antal eller spørgsmål – må gerne være tom.",
     einzelstueck: "✅ Enkelteksemplarer mulige* – normalt ingen minimumsordre",
     einzelstueck_note: "* Ved silketryk kan der gælde særlige priser for enkelteksemplarer.",
     footer_tag: "Så dit ønske ikke forbliver et ønske.",
@@ -2519,7 +2519,7 @@ const translations = {
     form_file_hint: "JPG, PNG, PDF, AI, EPS, SVG – max. 30 MB",
     form_captcha: "Security question:", form_captcha_ph: "Your answer",
     form_send: "Request a quote",
-    kf_normal_t: "✉️ Normal enquiry", kf_normal_d: "Write a few lines and we get back with ideas and a price.", kf_tool_t: "🎨 With preview tool", kf_tool_d: "Pick product, colour and logo and see the result right away.", kf_loading: "Loading preview tool …", kf_err_load: "The preview tool could not be loaded. You can still send a normal enquiry.", kf_msg_ph: "Anything else? E.g. sizes, quantity or questions – may be left empty.",
+    kf_normal_t: "✉️ Normal enquiry", kf_normal_d: "Write a few lines and we get back with ideas and a price.", kf_tool_t: "🎨 Design it yourself", kf_tool_d: "Pick product, colour and logo and see the result right away.", kf_loading: "Loading …", kf_err_load: "The design tool could not be loaded. You can still send a normal enquiry.", kf_msg_ph: "Anything else? E.g. sizes, quantity or questions – may be left empty.",
     einzelstueck: "✅ Single pieces welcome* – usually no minimum order",
     einzelstueck_note: "* For screen printing, individual pieces may be subject to different pricing.",
     footer_tag: "So your wish doesn't stay just a wish.",
@@ -3883,6 +3883,10 @@ function kfSet(mode) {
   box.hidden = mode !== 'tool';
   document.querySelector('.kontakt-grid').classList.toggle('kf-on', mode === 'tool');
   kfMsgPlaceholder();
+  // Zum Anfang springen (am Handy bleibt die Seite sonst unten stehen, weil sich das Layout umbaut)
+  const jump = () => { const el = mode === 'tool' ? box : document.querySelector('.kf-mode'); const nav = document.querySelector('nav'); const off = (nav ? nav.getBoundingClientRect().height : 0) + 50;
+    window.scrollTo({ top: el.getBoundingClientRect().top + window.scrollY - off, behavior: 'smooth' }); };
+  requestAnimationFrame(jump);
   if (mode !== 'tool' || kfLoad) return;
   if (!document.getElementById('kfCss')) { const l = document.createElement('link'); l.id = 'kfCss'; l.rel = 'stylesheet'; l.href = 'konfigurator/konfig.css?v=8'; document.head.append(l); }
   kfLoad = (async () => {
@@ -3896,6 +3900,7 @@ function kfSet(mode) {
       if (i >= 0) sel.selectedIndex = i;
     } });
     kfMsgPlaceholder();
+    requestAnimationFrame(jump);
   })().catch(() => {
     const T = translations[currentLang] || translations.de;
     box.innerHTML = '<div class="kf-loading">' + T.kf_err_load + '</div>';

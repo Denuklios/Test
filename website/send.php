@@ -109,11 +109,11 @@ if (!empty($_POST['konfig'])) {
     }
 }
 if ($konfig) {
-    $message = trim($message . "\n\n— Auswahl im Vorschau-Tool —\n" . $konfigText);
+    $message = trim($message . "\n\n— Selbst gestaltet (Auswahl des Kunden) —\n" . $konfigText);
 }
 
 // Pflicht sind nur Name, E-Mail und Nachricht (beim Vorschau-Tool reicht die Auswahl); Produkt und Menge sind freiwillig
-if ($product === '') $product = $konfig ? ($konfig['product_name'] ?: 'Vorschau-Tool') : 'Beratung';
+if ($product === '') $product = $konfig ? ($konfig['product_name'] ?: 'Selbst gestaltet') : 'Beratung';
 if (!$name || !$email || !$message) {
     echo json_encode(['ok' => false, 'error' => 'Pflichtfelder fehlen']);
     exit;
