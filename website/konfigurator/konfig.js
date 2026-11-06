@@ -87,7 +87,7 @@
   const PN = {
     brust_l: ['Brust links', 'Bryst venstre', 'Left chest'], brust_r: ['Brust rechts', 'Bryst højre', 'Right chest'], brust_m: ['Brust Mitte', 'Bryst midt', 'Centre chest'],
     ruecken: ['Rücken', 'Ryg', 'Back'], aermel_r: ['Ärmel rechts', 'Ærme højre', 'Right sleeve'], aermel_l: ['Ärmel links', 'Ærme venstre', 'Left sleeve'],
-    kragen: ['Kragen', 'Krave', 'Collar'], cap_v: ['Vorne', 'Foran', 'Front'], cap_r: ['Seite rechts', 'Side højre', 'Right side'],
+    kragen_l: ['Kragen links', 'Krave venstre', 'Left collar'], kragen_r: ['Kragen rechts', 'Krave højre', 'Right collar'], cap_v: ['Vorne', 'Foran', 'Front'], cap_r: ['Seite rechts', 'Side højre', 'Right side'],
     cap_l: ['Seite links', 'Side venstre', 'Left side'], cap_h: ['Hinten', 'Bag', 'Back'],
     tasse_v: ['Vorne', 'Foran', 'Front'], tasse_1: ['Seite 1', 'Side 1', 'Side 1'], tasse_2: ['Seite 2', 'Side 2', 'Side 2'],
   };
@@ -97,7 +97,8 @@
     { id: 'tshirt', name: ['T-Shirt', 'T-shirt', 'T-shirt'], cm: 75, colors: C_SHIRT, color: 'weiss', pos: SHIRT },
     { id: 'sport', name: ['Sport-Shirt', 'Sportstrøje', 'Sports shirt'], cm: 75, colors: C_SPORT, color: 'royal', pos: SHIRT },
     { id: 'polo', name: ['Poloshirt', 'Poloshirt', 'Polo shirt'], cm: 75, colors: C_POLO, color: 'navy',
-      pos: [...SHIRT, P('kragen', 3, 0.5, 0.045, 6, 8, 1)] },
+      // Kragen vorne, direkt auf der Kragenspitze (links/rechts aus Sicht des Trägers)
+      pos: [...SHIRT, P('kragen_l', 0, 0.597, 0.112, 3, 4), P('kragen_r', 0, 0.403, 0.112, 3, 4)] },
     { id: 'hoodie', name: ['Hoodie', 'Hættetrøje', 'Hoodie'], cm: 80, colors: C_HOOD, color: 'grau',
       pos: [P('brust_l', 0, 0.64, 0.33, 9, 12), P('brust_r', 0, 0.36, 0.33, 9, 12), P('ruecken', 3, 0.5, 0.30, 25, 30, 1), P('aermel_r', 1, 0.6, 0.42, 7, 9), P('aermel_l', 2, 0.4, 0.42, 7, 9)] },
     { id: 'softshell', name: ['Softshelljacke', 'Softshell-jakke', 'Softshell jacket'], cm: 80, colors: C_JACKET, color: 'schwarz',
