@@ -55,10 +55,12 @@ jobs:
           # auftraege/data/, anfrage-vorschau/), bleiben auf dem Server unangetastet.
           CONN="set sftp:auto-confirm yes; set net:max-retries 3; set net:timeout 30; open -u '$SFTP_USER' --env-password 'sftp://$SFTP_HOST'"
           DIR="${SFTP_DIR:-.}"
-          # Sicherheitsprüfung: nur hochladen, wenn im Zielordner wirklich die Website liegt (index.html und admin.html)
-          if ! lftp -e "$CONN; cls -1 '$DIR/index.html' '$DIR/admin.html'; bye" >/tmp/check.txt 2>&1 || [ "$(grep -c -E 'index.html|admin.html' /tmp/check.txt)" -lt 2 ]; then
-            echo "::error::Im Zielordner '$DIR' liegt keine Website (index.html/admin.html fehlen). Ordner auf dem Server:"
-            lftp -e "$CONN; echo '--- Hauptordner:'; cls -1F; echo '--- eine Ebene tiefer:'; cls -1F */; bye" || true
+          # Ordner auf dem Server immer im Protokoll zeigen (hilft beim Einrichten)
+          lftp -e "$CONN; echo '--- Ordner nach dem Login:'; cls -1F; echo '--- eine Ebene tiefer:'; cls -1F */; bye" || true
+          # Sicherheitsprüfung: nur hochladen, wenn im Zielordner die echte Website liegt. Erkennungszeichen ist
+          # db_config.php, die nur auf dem Server existiert und von hier nie hochgeladen wird.
+          if ! lftp -e "$CONN; cls -1 '$DIR/db_config.php'; bye" 2>/dev/null | grep -q 'db_config.php'; then
+            echo "::error::Im Zielordner '$DIR' liegt keine db_config.php – das ist nicht der Website-Ordner. FTP_DIR anpassen."
             exit 1
           fi
           lftp -e "$CONN; mirror --reverse --no-perms --parallel=4 --verbose=1 ./_upload/ '$DIR'; bye"
