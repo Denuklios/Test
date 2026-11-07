@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import {
+  ageGroup, dogInfo,
   distance, pathLength, pointAlong, trimEnds, acceptFix, dogScore, matchRoute,
   estimateMinutes, formatKm, formatDuration, quietestHour,
 } from '../public/js/core.js';
@@ -64,4 +65,13 @@ test('Anzeige-Helfer', () => {
   assert.equal(estimateMinutes(4.2, 'erwachsen'), 60);
   const b = new Array(24).fill(50); b[7] = 5;
   assert.equal(quietestHour(b), 7);
+});
+
+test('Altersgruppe, Hunde-Info und Hitzewarnung für kurznasige Rassen', () => {
+  assert.equal(ageGroup(0), 'welpe'); assert.equal(ageGroup(5), 'erwachsen'); assert.equal(ageGroup(9), 'senior'); assert.equal(ageGroup(null), 'erwachsen');
+  assert.equal(dogInfo('Mops', 1), 'Mops · 1 Jahr');
+  assert.equal(dogInfo('', null), '');
+  const attrs = { water: true, shade: 90, surface: 'natur', crossings: 0, leash: 'frei', bins: true };
+  assert.equal(dogScore(attrs, { tempC: 22, breed: 'Labrador Retriever' }).warnings.length, 0);
+  assert.equal(dogScore(attrs, { tempC: 22, breed: 'Mops' }).warnings.length, 1);
 });

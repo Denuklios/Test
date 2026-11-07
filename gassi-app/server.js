@@ -48,7 +48,12 @@ function save() {
 }
 
 const userById = (id) => store.users.find((u) => u.id === id);
-const publicUser = (u) => u && { id: u.id, email: u.email, name: u.name, dog: u.dog, dogAge: u.dogAge, createdAt: u.createdAt };
+const publicUser = (u) => u && {
+  id: u.id, email: u.email, name: u.name, dog: u.dog, dogAge: u.dogAge,
+  dogBreed: u.dogBreed || '', dogYears: u.dogYears ?? null, showDog: u.showDog !== false, createdAt: u.createdAt,
+};
+/** Was andere über den Hund sehen: Rasse und Alter nur, wenn freigegeben. */
+const dogPublic = (u) => (u.showDog !== false ? { dogBreed: u.dogBreed || '', dogYears: u.dogYears ?? null } : { dogBreed: '', dogYears: null });
 
 // Runden aus OpenStreetMap (tools/import-osm.py): in Zellen von 0,5° gespeichert, geladen nach Bedarf
 const OSM_DIR = process.env.OSM_DIR || path.join(PUBLIC, 'data', 'osm');
@@ -206,7 +211,7 @@ function liveSnapshot() {
       const route = demoRoutes.find((r) => r.id === w.route);
       if (!route) continue;
       const [lat, lng] = demoWalkerPosition(w, route, now);
-      people.push({ id: w.id, name: w.name, dog: w.dog, status: w.status, lat, lng, at: now, demo: true });
+      people.push({ id: w.id, name: w.name, dog: w.dog, dogBreed: w.dogBreed, dogYears: w.dogYears, status: w.status, lat, lng, at: now, demo: true });
     }
   }
   return people;
@@ -282,6 +287,9 @@ function validateProfile(b, { partial = false } = {}) {
   }
   if (!partial || 'dog' in b) out.dog = str(b.dog, 40);
   if (!partial || 'dogAge' in b) out.dogAge = ONE_OF(b.dogAge, DOG_AGES, 'erwachsen');
+  if (!partial || 'dogBreed' in b) out.dogBreed = str(b.dogBreed, 60);
+  if (!partial || 'dogYears' in b) out.dogYears = Number.isInteger(b.dogYears) && b.dogYears >= 0 && b.dogYears <= 25 ? b.dogYears : null;
+  if (!partial || 'showDog' in b) out.showDog = b.showDog !== false;
   return out;
 }
 
@@ -341,7 +349,7 @@ async function handleMe(req, res, parts) {
     Object.assign(user, validateProfile(await readBody(req, 10_000), { partial: true }));
     await save();
     const p = live.get(user.id);
-    if (p) { p.name = user.name; p.dog = user.dog; }
+    if (p) Object.assign(p, { name: user.name, dog: user.dog, ...dogPublic(user) });
     return sendJson(res, 200, { user: publicUser(user) });
   }
 
@@ -481,7 +489,7 @@ async function handleApi(req, res, url, ip) {
     const lat = num(b.lat, -90, 90);
     const lng = num(b.lng, -180, 180);
     if (lat == null || lng == null) throw new HttpError(400, 'Position unvollständig.');
-    live.set(user.id, { id: user.id, name: user.name, dog: user.dog, status: ONE_OF(b.status, ['offen', 'neutral', 'abstand'], 'neutral'), lat, lng, at: Date.now() });
+    live.set(user.id, { id: user.id, name: user.name, dog: user.dog, ...dogPublic(user), status: ONE_OF(b.status, ['offen', 'neutral', 'abstand'], 'neutral'), lat, lng, at: Date.now() });
     broadcastLive();
     return sendJson(res, 200, { ok: true });
   }

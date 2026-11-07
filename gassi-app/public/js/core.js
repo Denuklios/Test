@@ -74,6 +74,36 @@ export function acceptFix(prev, fix, { maxAccuracy = 35, maxSpeed = 4.5 } = {}) 
 
 // ---------- Hund & Runde ----------
 
+/** Rassen für die Auswahlliste (alphabetisch; Mischling und „Andere“ stehen in der Oberfläche oben/unten). */
+export const DOG_BREEDS = [
+  'Australian Shepherd', 'Beagle', 'Berner Sennenhund', 'Bernhardiner', 'Bolonka Zwetna', 'Border Collie', 'Boxer',
+  'Cavalier King Charles Spaniel', 'Chihuahua', 'Cocker Spaniel', 'Collie', 'Coton de Tuléar', 'Dackel', 'Dalmatiner',
+  'Dänisch-Schwedischer Hofhund', 'Deutsch Drahthaar', 'Deutsch Kurzhaar', 'Deutscher Schäferhund', 'Dobermann',
+  'Englische Bulldogge', 'Eurasier', 'Französische Bulldogge', 'Golden Retriever', 'Goldendoodle', 'Havaneser',
+  'Herdenschutzhund', 'Hovawart', 'Husky', 'Jack Russell Terrier', 'Labradoodle', 'Labrador Retriever', 'Landseer',
+  'Leonberger', 'Magyar Vizsla', 'Malinois', 'Malteser', 'Mops', 'Neufundländer', 'Parson Russell Terrier', 'Pinscher',
+  'Podenco', 'Pudel', 'Rhodesian Ridgeback', 'Riesenschnauzer', 'Rottweiler', 'Schnauzer', 'Shetland Sheepdog',
+  'Shiba Inu', 'Shih Tzu', 'Spitz', 'Staffordshire Terrier', 'Weimaraner', 'West Highland White Terrier', 'Whippet',
+  'Windhund', 'Yorkshire Terrier', 'Zwergpinscher', 'Zwergpudel', 'Zwergschnauzer', 'Zwergspitz',
+];
+/** Kurznasige Rassen: überhitzen schnell. */
+const BRACHY = new Set(['Mops', 'Französische Bulldogge', 'Englische Bulldogge', 'Shih Tzu', 'Boxer', 'Cavalier King Charles Spaniel']);
+
+/** Altersgruppe aus Jahren (null = unbekannt → erwachsen). */
+export function ageGroup(years) {
+  if (years === null || years === undefined || years === '') return 'erwachsen';
+  if (years < 1) return 'welpe';
+  return years >= 8 ? 'senior' : 'erwachsen';
+}
+
+/** „Labrador Retriever · 4 Jahre“ – leer, wenn nichts angegeben. */
+export function dogInfo(breed, years) {
+  const parts = [];
+  if (breed) parts.push(breed);
+  if (years !== null && years !== undefined && years !== '') parts.push(years < 1 ? 'unter 1 Jahr' : `${years} ${years === 1 ? 'Jahr' : 'Jahre'}`);
+  return parts.join(' · ');
+}
+
 export const PACE_KMH = { welpe: 2.8, erwachsen: 4.2, senior: 3.2 }; // inkl. Schnüffelpausen
 
 export function estimateMinutes(km, dogAge = 'erwachsen') {
@@ -92,7 +122,7 @@ export const LABELS = {
  * Hunde-Score 0–100 aus den Eigenschaften einer Runde, dazu Hinweise
  * passend zu Wetter und Hund.
  */
-export function dogScore(attrs = {}, { tempC = null, dogAge = 'erwachsen', km = null } = {}) {
+export function dogScore(attrs = {}, { tempC = null, dogAge = 'erwachsen', km = null, breed = '' } = {}) {
   // null/undefined = unbekannt (z. B. bei Runden aus OpenStreetMap): mittlere Punkte, ehrlich beschriftet
   const known = (v) => v !== null && v !== undefined;
   const shade = known(attrs.shade) ? Math.max(0, Math.min(100, attrs.shade)) : null;
@@ -119,6 +149,7 @@ export function dogScore(attrs = {}, { tempC = null, dogAge = 'erwachsen', km = 
     if (attrs.water !== true) warnings.push(attrs.water === false ? 'Kein Wasser unterwegs. Nimm eine Trinkflasche für den Hund mit.' : 'Ob es unterwegs Wasser gibt, ist nicht bekannt. Nimm eine Trinkflasche für den Hund mit.');
     if (shade !== null && shade < 50) warnings.push('Wenig Schatten. Lieber früh morgens oder abends gehen.');
   }
+  if (tempC != null && tempC >= 21 && BRACHY.has(breed)) warnings.push(`Kurznasige Hunde wie ${breed === 'Mops' ? 'Möpse' : 'deiner'} überhitzen schon ab etwa 21 °C. Kurze Runde im Schatten, Wasser mitnehmen, Pausen machen.`);
   if (tempC != null && tempC <= 0 && attrs.surface === 'asphalt') warnings.push('Streusalz möglich. Pfoten nach der Runde abwaschen.');
   if (km != null && dogAge === 'welpe' && km > 2) warnings.push('Für Welpen ist die Runde lang. Plane Pausen ein oder kürze ab.');
   if (km != null && dogAge === 'senior' && km > 4) warnings.push('Für ältere Hunde eher lang. Achte auf Pausen.');
@@ -210,11 +241,11 @@ export const STATUS = {
 
 /** Demo-Spaziergänger, damit die Live-Karte ohne echte Nutzer etwas zeigt. */
 export const DEMO_WALKERS = [
-  { id: 'demo-mette', name: 'Mette', dog: 'Bella', status: 'offen', route: 'froeslev-hundeskov', speed: 1.2, offset: 300 },
-  { id: 'demo-lars', name: 'Lars', dog: 'Rufus', status: 'abstand', route: 'froeslev-hundeskov', speed: 1.1, offset: 1800, reverse: true },
-  { id: 'demo-sofie', name: 'Sofie', dog: 'Molly', status: 'neutral', route: 'gendarmstien-kollund', speed: 1.3, offset: 900 },
-  { id: 'demo-henrik', name: 'Henrik', dog: 'Bamse', status: 'abstand', route: 'gendarmstien-kollund', speed: 1.0, offset: 3200 },
-  { id: 'demo-freja', name: 'Freja', dog: 'Luna', status: 'offen', route: 'hundeskov-torp', speed: 1.2, offset: 400 },
+  { id: 'demo-mette', name: 'Mette', dog: 'Bella', dogBreed: 'Labrador Retriever', dogYears: 4, status: 'offen', route: 'froeslev-hundeskov', speed: 1.2, offset: 300 },
+  { id: 'demo-lars', name: 'Lars', dog: 'Rufus', dogBreed: 'Deutscher Schäferhund', dogYears: 7, status: 'abstand', route: 'froeslev-hundeskov', speed: 1.1, offset: 1800, reverse: true },
+  { id: 'demo-sofie', name: 'Sofie', dog: 'Molly', dogBreed: 'Dackel', dogYears: 3, status: 'neutral', route: 'gendarmstien-kollund', speed: 1.3, offset: 900 },
+  { id: 'demo-henrik', name: 'Henrik', dog: 'Bamse', dogBreed: 'Berner Sennenhund', dogYears: 9, status: 'abstand', route: 'gendarmstien-kollund', speed: 1.0, offset: 3200 },
+  { id: 'demo-freja', name: 'Freja', dog: 'Luna', dogBreed: 'Border Collie', dogYears: 2, status: 'offen', route: 'hundeskov-torp', speed: 1.2, offset: 400 },
 ];
 
 /** Position eines Demo-Spaziergängers zum Zeitpunkt `now` (ms). */

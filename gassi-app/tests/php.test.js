@@ -131,6 +131,18 @@ test('PHP: Live per Abfrage, Winken nur an die gemeinte Person', opts, async () 
   assert.ok(!(await anna.get('live/poll')).data.people.some((p) => p.id === benId));
 });
 
+test('PHP: Rasse und Alter nur sichtbar wenn freigegeben', opts, async () => {
+  const c = client();
+  const u = (await c.post('auth/register', { email: 'rasse@example.de', password: 'geheim123', name: 'Rita', dogBreed: 'Mops', dogYears: 3 })).data.user;
+  assert.equal(u.dogBreed, 'Mops');
+  assert.equal(u.showDog, true);
+  await c.post('live', { status: 'offen', lat: 54.8, lng: 9.3 });
+  assert.equal((await anna.get('live/poll')).data.people.find((p) => p.id === u.id).dogYears, 3);
+  assert.equal((await c.patch('me', { showDog: false })).data.user.showDog, false);
+  assert.equal((await anna.get('live/poll')).data.people.find((p) => p.id === u.id).dogBreed, '');
+  await c.del('me', { password: 'geheim123' });
+});
+
 test('PHP: Passwort ändern und Konto löschen', opts, async () => {
   assert.equal((await ben.post('me/password', { current: 'falsch', next: 'neuespasswort' })).status, 403);
   assert.equal((await ben.post('me/password', { current: 'passwort1', next: 'neuespasswort' })).status, 200);

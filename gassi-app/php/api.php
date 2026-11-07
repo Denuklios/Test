@@ -76,6 +76,11 @@ function db(): PDO {
     $pdo->exec('CREATE TABLE IF NOT EXISTS live (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, status TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL, at INTEGER NOT NULL)');
     $pdo->exec('CREATE TABLE IF NOT EXISTS waves (id INTEGER PRIMARY KEY AUTOINCREMENT, to_id TEXT NOT NULL, from_id TEXT NOT NULL, at INTEGER NOT NULL)');
     $pdo->exec('CREATE TABLE IF NOT EXISTS failures (ip TEXT PRIMARY KEY, count INTEGER NOT NULL, since INTEGER NOT NULL)');
+    // Neuere Spalten in bestehender Datenbank ergänzen
+    $cols = array_column($pdo->query('PRAGMA table_info(users)')->fetchAll(), 'name');
+    if (!in_array('dog_breed', $cols, true)) $pdo->exec("ALTER TABLE users ADD COLUMN dog_breed TEXT NOT NULL DEFAULT ''");
+    if (!in_array('dog_years', $cols, true)) $pdo->exec('ALTER TABLE users ADD COLUMN dog_years INTEGER');
+    if (!in_array('show_dog', $cols, true)) $pdo->exec('ALTER TABLE users ADD COLUMN show_dog INTEGER NOT NULL DEFAULT 1');
     return $pdo;
 }
 
@@ -89,7 +94,9 @@ function q(string $sql, array $args = []): PDOStatement {
 
 function publicUser(?array $u): ?array {
     if (!$u) return null;
-    return ['id' => $u['id'], 'email' => $u['email'], 'name' => $u['name'], 'dog' => $u['dog'], 'dogAge' => $u['dog_age'], 'createdAt' => $u['created_at']];
+    return ['id' => $u['id'], 'email' => $u['email'], 'name' => $u['name'], 'dog' => $u['dog'], 'dogAge' => $u['dog_age'],
+        'dogBreed' => $u['dog_breed'] ?? '', 'dogYears' => isset($u['dog_years']) ? (int) $u['dog_years'] : null,
+        'showDog' => !isset($u['show_dog']) || (int) $u['show_dog'] === 1, 'createdAt' => $u['created_at']];
 }
 
 function isHttps(): bool {
@@ -153,6 +160,12 @@ function validateProfile(array $b, bool $partial = false): array {
     }
     if (!$partial || array_key_exists('dog', $b)) $out['dog'] = s($b['dog'] ?? null, 40);
     if (!$partial || array_key_exists('dogAge', $b)) $out['dog_age'] = oneOf($b['dogAge'] ?? null, DOG_AGES, 'erwachsen');
+    if (!$partial || array_key_exists('dogBreed', $b)) $out['dog_breed'] = s($b['dogBreed'] ?? null, 60);
+    if (!$partial || array_key_exists('dogYears', $b)) {
+        $y = $b['dogYears'] ?? null;
+        $out['dog_years'] = is_int($y) && $y >= 0 && $y <= 25 ? $y : null;
+    }
+    if (!$partial || array_key_exists('showDog', $b)) $out['show_dog'] = (($b['showDog'] ?? true) === false) ? 0 : 1;
     return $out;
 }
 
@@ -274,19 +287,21 @@ function routeExists(string $id): bool {
 // ---------- Live ----------
 
 const DEMO_WALKERS = [
-    ['id' => 'demo-mette', 'name' => 'Mette', 'dog' => 'Bella', 'status' => 'offen', 'route' => 'froeslev-hundeskov', 'speed' => 1.2, 'offset' => 300, 'reverse' => false],
-    ['id' => 'demo-lars', 'name' => 'Lars', 'dog' => 'Rufus', 'status' => 'abstand', 'route' => 'froeslev-hundeskov', 'speed' => 1.1, 'offset' => 1800, 'reverse' => true],
-    ['id' => 'demo-sofie', 'name' => 'Sofie', 'dog' => 'Molly', 'status' => 'neutral', 'route' => 'gendarmstien-kollund', 'speed' => 1.3, 'offset' => 900, 'reverse' => false],
-    ['id' => 'demo-henrik', 'name' => 'Henrik', 'dog' => 'Bamse', 'status' => 'abstand', 'route' => 'gendarmstien-kollund', 'speed' => 1.0, 'offset' => 3200, 'reverse' => false],
-    ['id' => 'demo-freja', 'name' => 'Freja', 'dog' => 'Luna', 'status' => 'offen', 'route' => 'hundeskov-torp', 'speed' => 1.2, 'offset' => 400, 'reverse' => false],
+    ['id' => 'demo-mette', 'name' => 'Mette', 'dog' => 'Bella', 'dogBreed' => 'Labrador Retriever', 'dogYears' => 4, 'status' => 'offen', 'route' => 'froeslev-hundeskov', 'speed' => 1.2, 'offset' => 300, 'reverse' => false],
+    ['id' => 'demo-lars', 'name' => 'Lars', 'dog' => 'Rufus', 'dogBreed' => 'Deutscher Schäferhund', 'dogYears' => 7, 'status' => 'abstand', 'route' => 'froeslev-hundeskov', 'speed' => 1.1, 'offset' => 1800, 'reverse' => true],
+    ['id' => 'demo-sofie', 'name' => 'Sofie', 'dog' => 'Molly', 'dogBreed' => 'Dackel', 'dogYears' => 3, 'status' => 'neutral', 'route' => 'gendarmstien-kollund', 'speed' => 1.3, 'offset' => 900, 'reverse' => false],
+    ['id' => 'demo-henrik', 'name' => 'Henrik', 'dog' => 'Bamse', 'dogBreed' => 'Berner Sennenhund', 'dogYears' => 9, 'status' => 'abstand', 'route' => 'gendarmstien-kollund', 'speed' => 1.0, 'offset' => 3200, 'reverse' => false],
+    ['id' => 'demo-freja', 'name' => 'Freja', 'dog' => 'Luna', 'dogBreed' => 'Border Collie', 'dogYears' => 2, 'status' => 'offen', 'route' => 'hundeskov-torp', 'speed' => 1.2, 'offset' => 400, 'reverse' => false],
 ];
 
 function liveSnapshot(): array {
     q('DELETE FROM live WHERE at < ?', [time() - LIVE_TTL]);
-    $rows = q('SELECT l.*, u.name, u.dog FROM live l JOIN users u ON u.id = l.user_id')->fetchAll();
+    $rows = q('SELECT l.*, u.name, u.dog, u.dog_breed, u.dog_years, u.show_dog FROM live l JOIN users u ON u.id = l.user_id')->fetchAll();
     $people = [];
     foreach ($rows as $r) {
-        $people[] = ['id' => $r['user_id'], 'name' => $r['name'], 'dog' => $r['dog'], 'status' => $r['status'], 'lat' => (float) $r['lat'], 'lng' => (float) $r['lng'], 'at' => (int) $r['at'] * 1000];
+        $show = (int) $r['show_dog'] === 1;
+        $people[] = ['id' => $r['user_id'], 'name' => $r['name'], 'dog' => $r['dog'], 'status' => $r['status'], 'lat' => (float) $r['lat'], 'lng' => (float) $r['lng'], 'at' => (int) $r['at'] * 1000,
+            'dogBreed' => $show ? $r['dog_breed'] : '', 'dogYears' => $show && $r['dog_years'] !== null ? (int) $r['dog_years'] : null];
     }
     if (getenv('GASSI_DEMO_WALKERS') !== '0') {
         $now = microtime(true);
@@ -297,7 +312,7 @@ function liveSnapshot(): array {
                 $d = fmod($w['offset'] + $now * $w['speed'], $len);
                 if ($w['reverse']) $d = $len - $d;
                 $p = pointAlong($route['points'], $d);
-                $people[] = ['id' => $w['id'], 'name' => $w['name'], 'dog' => $w['dog'], 'status' => $w['status'], 'lat' => $p[0], 'lng' => $p[1], 'at' => (int) ($now * 1000), 'demo' => true];
+                $people[] = ['id' => $w['id'], 'name' => $w['name'], 'dog' => $w['dog'], 'dogBreed' => $w['dogBreed'], 'dogYears' => $w['dogYears'], 'status' => $w['status'], 'lat' => $p[0], 'lng' => $p[1], 'at' => (int) ($now * 1000), 'demo' => true];
             }
         }
     }
@@ -325,8 +340,10 @@ try {
             validatePassword($b['password'] ?? null);
             $prof = validateProfile($b);
             if (q('SELECT 1 FROM users WHERE email = ?', [$email])->fetch()) fail('Für diese E-Mail-Adresse gibt es schon ein Konto. Melde dich stattdessen an.', 409);
-            $user = ['id' => 'u-' . uuid(), 'email' => $email, 'name' => $prof['name'], 'dog' => $prof['dog'], 'dog_age' => $prof['dog_age'], 'pw' => password_hash($b['password'], PASSWORD_DEFAULT), 'created_at' => nowIso()];
-            q('INSERT INTO users (id, email, name, dog, dog_age, pw, created_at) VALUES (?, ?, ?, ?, ?, ?, ?)', array_values($user));
+            $user = ['id' => 'u-' . uuid(), 'email' => $email, 'name' => $prof['name'], 'dog' => $prof['dog'], 'dog_age' => $prof['dog_age'],
+                'pw' => password_hash($b['password'], PASSWORD_DEFAULT), 'created_at' => nowIso(),
+                'dog_breed' => $prof['dog_breed'], 'dog_years' => $prof['dog_years'], 'show_dog' => $prof['show_dog']];
+            q('INSERT INTO users (id, email, name, dog, dog_age, pw, created_at, dog_breed, dog_years, show_dog) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', array_values($user));
             createSession($user);
             out(['user' => publicUser($user)], 201);
         }

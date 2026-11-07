@@ -1,7 +1,7 @@
 import {
   distance, pathLength, pointAlong, trimEnds, distanceToPath, acceptFix,
   estimateMinutes, dogScore, busyLevel, quietestHour, averageRating, matchRoute,
-  formatKm, formatDuration, formatDistanceShort, STATUS, LABELS,
+  formatKm, formatDuration, formatDistanceShort, STATUS, LABELS, DOG_BREEDS, ageGroup, dogInfo,
 } from './core.js';
 import { createBackend, LS } from './backend.js';
 
@@ -20,7 +20,7 @@ const ON_ROUTE = 60; // m – zählt als „auf dieser Runde“
 // Name, Hund und ID kommen aus dem Konto; Status, Teilen und Demo-Modus sind Geräte-Einstellungen.
 const savedPrefs = LS.get('gassi.me', {});
 const me = {
-  id: null, name: '', dog: '', dogAge: 'erwachsen', email: '',
+  id: null, name: '', dog: '', dogAge: 'erwachsen', email: '', dogBreed: '', dogYears: null, showDog: true,
   status: savedPrefs.status || 'neutral', shareLive: savedPrefs.shareLive ?? true, simulate: !!savedPrefs.simulate,
 };
 const saveMe = () => LS.set('gassi.me', { status: me.status, shareLive: me.shareLive, simulate: me.simulate });
@@ -37,11 +37,24 @@ const state = {
 // der auch bei ausgeschaltetem Bildschirm weiter aufzeichnet.
 const NATIVE = window.GassiNative || null;
 
+// ---------- Auswahllisten Rasse und Alter ----------
+function fillDogSelects() {
+  const breeds = ['<option value="">Keine Angabe</option>', '<option>Mischling</option>',
+    ...DOG_BREEDS.map((b) => `<option>${esc(b)}</option>`), '<option>Andere Rasse</option>'].join('');
+  const years = ['<option value="">Keine Angabe</option>', '<option value="0">unter 1 Jahr</option>',
+    ...Array.from({ length: 20 }, (_, i) => `<option value="${i + 1}">${i + 1} ${i ? 'Jahre' : 'Jahr'}</option>`)].join('');
+  for (const s of $$('.breed-select')) s.innerHTML = breeds;
+  for (const s of $$('.years-select')) s.innerHTML = years;
+}
+fillDogSelects();
+const readYears = (sel) => ($(sel).value === '' ? null : Number($(sel).value));
+
 // ---------- Karte ----------
 const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([54.85, 9.36], 11);
-L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
+L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
   maxZoom: 19,
-  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
+  subdomains: 'abc',
+  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende, Kartenstil <a href="https://www.hotosm.org/">HOT</a>',
 }).addTo(map);
 
 const routeLines = new Map();
@@ -151,7 +164,7 @@ const routeById = (id) => state.routes.find((r) => r.id === id);
 const hourNow = () => new Date().getHours();
 const others = () => state.people.filter((p) => p.id !== me.id);
 const liveOnRoute = (r) => others().filter((p) => distanceToPath([p.lat, p.lng], r.points) < ON_ROUTE);
-const scoreOf = (r) => dogScore(r.attrs, { tempC: state.tempC, dogAge: me.dogAge, km: r.distanceKm });
+const scoreOf = (r) => dogScore(r.attrs, { tempC: state.tempC, dogAge: me.dogAge, km: r.distanceKm, breed: me.dogBreed });
 
 function starsText(avg) {
   if (avg == null) return '';
@@ -403,7 +416,7 @@ function renderPerson(p) {
   $('#person-body').innerHTML = `
     <div class="person-head">
       <span class="avatar ${esc(p.status)}" aria-hidden="true">${esc(initial(p.name))}</span>
-      <div><h2 id="person-name">${esc(p.name)}</h2><p class="sub">${p.dog ? `mit ${esc(p.dog)}` : 'ohne Hundenamen'}${p.demo ? ' · Demo' : ''}</p></div>
+      <div><h2 id="person-name">${esc(p.name)}</h2><p class="sub">${p.dog ? `mit ${esc(p.dog)}` : 'ohne Hundenamen'}${p.demo ? ' · Demo' : ''}</p>${dogInfo(p.dogBreed, p.dogYears) ? `<p class="dog-info">${esc(dogInfo(p.dogBreed, p.dogYears))}</p>` : ''}</div>
     </div>
     <div class="status-box ${esc(p.status)}"><b>${esc(STATUS[p.status]?.label || '')}</b><p>${esc(STATUS_TEXT[p.status] || '')}</p></div>
     <ul class="person-facts">
@@ -735,7 +748,8 @@ function syncStatusInputs() {
 
 async function openProfile() {
   if (backend.accounts && !state.user) return openAuth();
-  $('#me-name').value = me.name; $('#me-dog').value = me.dog; $('#me-age').value = me.dogAge; $('#me-simulate').checked = me.simulate;
+  $('#me-name').value = me.name; $('#me-dog').value = me.dog; $('#me-simulate').checked = me.simulate;
+  $('#me-breed').value = me.dogBreed || ''; $('#me-years').value = me.dogYears ?? ''; $('#me-show').checked = me.showDog !== false;
   $('#me-simulate').disabled = rec.active;
   $('#me-email').textContent = me.email ? `Angemeldet als ${me.email}` : '';
   $('#me-email').hidden = !me.email;
@@ -765,7 +779,10 @@ async function saveProfile(e) {
   const name = $('#me-name').value.trim();
   if (backend.accounts && !name) return meError('Bitte gib deinen Vornamen an.');
   try {
-    const user = await backend.updateProfile({ name, dog: $('#me-dog').value.trim(), dogAge: $('#me-age').value });
+    const dogYears = readYears('#me-years');
+    const user = await backend.updateProfile({
+      name, dog: $('#me-dog').value.trim(), dogBreed: $('#me-breed').value, dogYears, dogAge: ageGroup(dogYears), showDog: $('#me-show').checked,
+    });
     if (!rec.active) me.simulate = $('#me-simulate').checked;
     saveMe();
     setUser(user);
@@ -854,7 +871,10 @@ async function submitAuth(e) {
   $('#auth-submit').disabled = true;
   try {
     const user = reg
-      ? await backend.register({ email, password, name: $('#reg-name').value.trim(), dog: $('#reg-dog').value.trim(), dogAge: $('#reg-age').value })
+      ? await backend.register({
+        email, password, name: $('#reg-name').value.trim(), dog: $('#reg-dog').value.trim(),
+        dogBreed: $('#reg-breed').value, dogYears: readYears('#reg-years'), dogAge: ageGroup(readYears('#reg-years')), showDog: $('#reg-show').checked,
+      })
       : await backend.login(email, password);
     $('#auth-dialog').close();
     setUser(user);
@@ -867,7 +887,11 @@ async function submitAuth(e) {
 
 function setUser(user) {
   state.user = user || null;
-  Object.assign(me, { id: user?.id ?? null, name: user?.name ?? '', dog: user?.dog ?? '', dogAge: user?.dogAge ?? 'erwachsen', email: user?.email ?? '' });
+  Object.assign(me, {
+    id: user?.id ?? null, name: user?.name ?? '', dog: user?.dog ?? '', email: user?.email ?? '',
+    dogBreed: user?.dogBreed ?? '', dogYears: user?.dogYears ?? null, showDog: user?.showDog !== false,
+  });
+  me.dogAge = user?.dogYears != null ? ageGroup(user.dogYears) : (user?.dogAge ?? 'erwachsen');
   const btn = $('#me-btn');
   const out = backend.accounts && !user;
   btn.classList.toggle('logged-out', out);

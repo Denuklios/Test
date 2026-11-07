@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <title>Gassirunde</title>
   <meta name="description" content="Gassirunden aufzeichnen, finden, bewerten – und sehen, wer gerade mit Hund unterwegs ist.">
-  <meta name="theme-color" content="#1C6E73">
+  <meta name="theme-color" content="#77458A">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" href="icon.svg" type="image/svg+xml">
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -179,10 +179,16 @@
           <label class="field">Dein Vorname<input id="reg-name" maxlength="40" autocomplete="given-name" placeholder="z. B. Robert"></label>
           <label class="field">Name des Hundes<input id="reg-dog" maxlength="40" placeholder="z. B. Bello"></label>
         </div>
-        <label class="field">Alter des Hundes
-          <select id="reg-age"><option value="welpe">Welpe (bis 1 Jahr)</option><option value="erwachsen" selected>Erwachsen</option><option value="senior">Senior (ab ca. 8 Jahren)</option></select>
-        </label>
-        <p class="hint">Andere sehen nur deinen Vornamen und den Namen deines Hundes, nie deine E-Mail-Adresse.</p>
+        <div class="grid2">
+          <label class="field">Rasse
+            <select id="reg-breed" class="breed-select"></select>
+          </label>
+          <label class="field">Alter
+            <select id="reg-years" class="years-select"></select>
+          </label>
+        </div>
+        <label class="switch"><input type="checkbox" id="reg-show" checked> <span>Rasse und Alter für andere sichtbar</span></label>
+        <p class="hint">Rasse und Alter sind freiwillig. Andere sehen nie deine E-Mail-Adresse.</p>
       </div>
       <p class="form-error" id="auth-error" hidden></p>
       <div class="rec-actions">
@@ -201,9 +207,15 @@
         <label class="field">Dein Vorname<input id="me-name" maxlength="40" placeholder="z. B. Robert"></label>
         <label class="field">Name des Hundes<input id="me-dog" maxlength="40" placeholder="z. B. Bello"></label>
       </div>
-      <label class="field">Alter des Hundes
-        <select id="me-age"><option value="welpe">Welpe (bis 1 Jahr)</option><option value="erwachsen" selected>Erwachsen</option><option value="senior">Senior (ab ca. 8 Jahren)</option></select>
-      </label>
+      <div class="grid2">
+          <label class="field">Rasse
+            <select id="me-breed" class="breed-select"></select>
+          </label>
+          <label class="field">Alter
+            <select id="me-years" class="years-select"></select>
+          </label>
+        </div>
+        <label class="switch"><input type="checkbox" id="me-show" checked> <span>Rasse und Alter für andere sichtbar</span></label>
       <label class="switch"><input type="checkbox" id="me-simulate"> <span>Demo-Modus: GPS simulieren (zum Ausprobieren am Schreibtisch)</span></label>
       <h3 class="list-title">Meine Spaziergänge</h3>
       <ul class="history" id="history"></ul>
