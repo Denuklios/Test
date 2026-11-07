@@ -637,3 +637,6 @@ body.noscroll{overflow:hidden}
   .ptile-t{font-size:.9rem}
   .prows .prow.noimg{grid-template-columns:minmax(0,1fr) auto}
 }
+/* neue Anfragen von der Webseite oben in „Aufträge im Fluss“ */
+.ogroup.inq{color:var(--p2,#7e22ce)}
+.orow.inq .or-th.none{font-size:1.05rem}

@@ -297,8 +297,12 @@ route(/^\/$/, async () => {
     const params = { show: filt.show, q: filt.q };
     for (const k of ['status', 'pay', 'process', 'worker']) if (filt[k]) params[k] = filt[k];
     if (filt.overdue) params.overdue = 1;
-    const { orders } = await api('orders', { params });
-    if (!orders.length) { list.replaceChildren(h('div', { class: 'empty' }, t('no_orders'))); return; }
+    // neue Anfragen von der Webseite oben anzeigen (nur bei „Alle Status“ oder „Angefragt“)
+    const wantInq = filt.show === 'active' && (!filt.status || filt.status === 'inquiry') && !filt.pay && !filt.process && !filt.worker && !filt.overdue;
+    const [{ orders }, inqs] = await Promise.all([api('orders', { params }),
+      wantInq ? api('inquiries', { params: { status: 'new', q: filt.q } }).then((r) => r.inquiries || []).catch(() => []) : Promise.resolve([])]);
+    const inqPart = inqs.length ? [h('div', { class: 'ogroup inq' }, '✉ ' + t('inq_new_h'), h('small', {}, String(inqs.length))), ...inqs.map(inquiryRow)] : [];
+    if (!orders.length) { list.replaceChildren(...inqPart, h('div', { class: 'empty' }, t('no_orders'))); return; }
     // von oben nach unten nach Abgabetermin, in Abschnitten: überfällig, diese Woche, nächste Woche, später, ohne Termin
     const td = today(), wd = (new Date(td + 'T12:00:00').getDay() + 6) % 7;
     const addD = (n) => { const x = new Date(td + 'T12:00:00'); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
@@ -313,7 +317,7 @@ route(/^\/$/, async () => {
       if (bk !== last) { out.push(h('div', { class: 'ogroup' + (bk === 'b_late' ? ' late' : '') }, t(bk), h('small', {}, String(sorted.filter((x) => bucket(x) === bk).length)))); last = bk; }
       out.push(orderRow(o));
     }
-    list.replaceChildren(...out);
+    list.replaceChildren(...inqPart, ...out);
   };
   let timer;
   const sel = (key, opts, ph) => h('select', { onchange: (e) => { filt[key] = e.target.value; load(); } },
@@ -349,6 +353,19 @@ function orderRow(o) {
     h('span', { class: 'or-qty muted' }, `${o.qty} ${t('pcs')} · ${money(o.price, o.currency)}`),
     h('span', { class: 'or-st' }, statusPill(o.status), o.pay_status !== 'open' || ['done', 'delivered'].includes(o.status) ? payPill(o.pay_status) : null),
     nextS && !o.deleted_at ? h('button', { class: 'btn small or-next', title: t('st_' + nextS), onclick: async (e) => { e.preventDefault(); e.stopPropagation(); const r = await setStatus(o, nextS); if (r) { toast(r.invoice_id ? t('inv_draft_auto') : t('saved')); render(); } } }, '→ ' + t('st_' + nextS)) : h('span', { class: 'or-next' }));
+}
+
+// Zeile für eine neue Anfrage von der Webseite (öffnet die Anfrage mit „Als Auftrag übernehmen“)
+function inquiryRow(q) {
+  const what = [q.qty ? parseInt(q.qty, 10) + '× ' : '', q.product || t('inq_title')].join('');
+  const got = q.created_at ? dfmt(String(q.created_at).slice(0, 10)) : '';
+  return h('a', { href: `#/inquiry/${q.id}`, class: 'orow inq', style: `--sc:${SCOL.inquiry}` },
+    h('span', { class: 'or-th none', style: `--sc:${SCOL.inquiry}` }, '✉'),
+    h('span', { class: 'or-main' }, h('b', {}, what), h('small', {}, [q.name, got ? t('inq_received', got) : ''].filter(Boolean).join(' · '))),
+    h('span', { class: 'or-due' }, q.wish_date ? dfmt(q.wish_date) : '—'),
+    h('span', { class: 'or-qty muted' }, q.snippet ? String(q.snippet).replace(/\s+/g, ' ').slice(0, 60) : ''),
+    h('span', { class: 'or-st' }, statusPill('inquiry')),
+    h('span', { class: 'btn small or-next' }, '→ ' + t('inq_view')));
 }
 
 function orderCard(o) {
