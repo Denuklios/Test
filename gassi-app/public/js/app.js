@@ -247,22 +247,17 @@ function listSignature() {
 }
 
 // ---------- Detail einer Runde ----------
-// Unteres Fenster ganz ausblenden (nur Handy): dann zeigt ein kleiner Pfeil unten, dass es da ist
+// Unteres Fenster klein machen (nur Handy): Reiter bleiben sichtbar
 const isPhone = () => innerWidth < 900;
 function hideSheet() {
   if (!isPhone() || rec.active) return;
   const s = $('#sheet');
-  s.classList.remove('expanded', 'collapsed');
-  s.classList.add('away');
-  $('#sheet-open').hidden = false;
-  placeFab();
+  s.classList.remove('expanded');
+  s.classList.add('collapsed');
 }
 function showSheet() {
   const s = $('#sheet');
-  if (!s.classList.contains('away')) return;
-  s.classList.remove('away');
-  $('#sheet-open').hidden = true;
-  placeFab();
+  if (s.classList.contains('collapsed') && !s.classList.contains('fit')) s.classList.remove('collapsed');
 }
 
 function openRoute(id, { fly = true } = {}) {
@@ -907,7 +902,7 @@ window.__gassiBack = () => {
   for (const d of $$('dialog[open]')) { d.close(); return true; }
   if (state.view === 'detail' && !rec.active) { closeDetail(); return true; }
   if (state.tab !== 'runden' && !rec.active) { switchTab('runden'); return true; }
-  if (!rec.active && isPhone() && !$('#sheet').classList.contains('away')) { hideSheet(); return true; }
+  if (!rec.active && isPhone() && !$('#sheet').classList.contains('collapsed')) { hideSheet(); return true; }
   return false;
 };
 
@@ -1478,8 +1473,7 @@ $('#start-btn').onclick = () => {
 };
 // Knopf sitzt immer knapp über dem unteren Fenster
 function placeFab() {
-  const away = $('#sheet').classList.contains('away');
-  document.documentElement.style.setProperty('--fab-bottom', innerWidth < 900 ? `${away ? 14 : Math.round($('#sheet').getBoundingClientRect().height) + 14}px` : '28px');
+  document.documentElement.style.setProperty('--fab-bottom', innerWidth < 900 ? `${Math.round($('#sheet').getBoundingClientRect().height) + 14}px` : '28px');
 }
 new ResizeObserver(placeFab).observe($('#sheet'));
 addEventListener('resize', placeFab);
@@ -1512,7 +1506,7 @@ $('#auth-form').onsubmit = submitAuth;
 $('#auth-cancel').onclick = () => { afterLogin = null; $('#auth-dialog').close(); };
 $('#auth-dialog').addEventListener('cancel', () => { afterLogin = null; });
 for (const i of $$('input[name="authmode"]')) i.onchange = () => setAuthMode(i.value);
-for (const t of $$('.tab')) t.onclick = () => switchTab(t.dataset.tab);
+for (const t of $$('.tab')) t.onclick = () => { showSheet(); switchTab(t.dataset.tab); };
 $('#find-form').addEventListener('change', renderFind);
 $('#find-results').addEventListener('click', (e) => { const li = e.target.closest('li[data-id]'); if (li) openRoute(li.dataset.id); });
 $('#find-results').addEventListener('keydown', (e) => { const li = e.target.closest('li[data-id]'); if (li && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openRoute(li.dataset.id); } });
@@ -1601,19 +1595,12 @@ function moveSheet(dir) {
   const sizes = ['collapsed', '', 'expanded'];
   let i = s.classList.contains('collapsed') ? 0 : s.classList.contains('expanded') ? 2 : 1;
   if (dir === 'up') i = Math.min(2, i + 1);
-  else if (dir === 'down') { if (i === 0) return hideSheet(); i = Math.max(0, i - 1); }
+  else if (dir === 'down') i = Math.max(0, i - 1);
   else i = i === 1 ? 2 : i === 2 ? 0 : 1; // Antippen: normal → groß → klein → normal
   s.classList.remove('collapsed', 'expanded');
   if (sizes[i]) s.classList.add(sizes[i]);
 }
 $('#sheet-handle').onclick = () => moveSheet();
-$('#sheet-open').onclick = () => showSheet();
-// Pfeil auch nach oben wischen
-{
-  let y0 = null;
-  $('#sheet-open').addEventListener('touchstart', (e) => { y0 = e.touches[0].clientY; }, { passive: true });
-  $('#sheet-open').addEventListener('touchend', (e) => { if (y0 !== null && e.changedTouches[0].clientY - y0 < -20) showSheet(); y0 = null; });
-}
 // Beim Start ist das Fenster auf dem Handy eingeklappt
 if (isPhone()) hideSheet();
 // Unteres Fenster mit dem Finger ziehen: am Griff, an den Reitern oder an der Kopfzeile folgt es dem Finger
@@ -1621,7 +1608,7 @@ if (isPhone()) hideSheet();
 {
   const sheet = $('#sheet');
   let drag = null;
-  const sizes = () => [112, innerHeight * 0.46, innerHeight * 0.86];
+  const sizes = () => [92, innerHeight * 0.46, innerHeight * 0.86];
   const isHeader = (el) => el.closest('#sheet-handle, .tabs, .rec-head, .stats, .save-form > h2');
   const scroller = (el) => el.closest('.panel, .save-form, #recording');
   sheet.addEventListener('touchstart', (e) => {
@@ -1643,7 +1630,7 @@ if (isPhone()) hideSheet();
     }
     e.preventDefault();
     const [min, , max] = sizes();
-    sheet.style.height = `${Math.max(40, Math.min(max, drag.h0 - dy))}px`;
+    sheet.style.height = `${Math.max(min * 0.8, Math.min(max, drag.h0 - dy))}px`;
     sheet.style.maxHeight = 'none';
   }, { passive: false });
   sheet.addEventListener('touchend', (e) => {
@@ -1656,8 +1643,6 @@ if (isPhone()) hideSheet();
       const h = sheet.getBoundingClientRect().height;
       sheet.style.height = ''; sheet.style.maxHeight = '';
       if (sheet.classList.contains('fit')) { moveSheet(dy > 0 ? 'down' : 'up'); return; }
-      // Unter die schmale Leiste gezogen (oder schnell aus der Leiste nach unten): ganz ausblenden
-      if (h < 80 || (fast && dy > 0 && d.h0 < 130)) { hideSheet(); return; }
       const s = sizes();
       let i = s.reduce((best, v, k) => (Math.abs(v - h) < Math.abs(s[best] - h) ? k : best), 0);
       if (fast) i = dy > 0 ? Math.max(0, s.findIndex((v) => v >= d.h0 - 2) - 1) : Math.min(2, s.findIndex((v) => v > d.h0 + 2));
