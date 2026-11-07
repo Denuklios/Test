@@ -297,10 +297,10 @@ route(/^\/$/, async () => {
     const params = { show: filt.show, q: filt.q };
     for (const k of ['status', 'pay', 'process', 'worker']) if (filt[k]) params[k] = filt[k];
     if (filt.overdue) params.overdue = 1;
-    // neue Anfragen von der Webseite oben anzeigen (nur bei „Alle Status“ oder „Angefragt“)
+    // offene Anfragen von der Webseite (neu oder in Bearbeitung, noch kein Auftrag) oben anzeigen – nur bei „Alle Status“ oder „Angefragt“
     const wantInq = filt.show === 'active' && (!filt.status || filt.status === 'inquiry') && !filt.pay && !filt.process && !filt.worker && !filt.overdue;
     const [{ orders }, inqs] = await Promise.all([api('orders', { params }),
-      wantInq ? api('inquiries', { params: { status: 'new', q: filt.q } }).then((r) => r.inquiries || []).catch(() => []) : Promise.resolve([])]);
+      wantInq ? api('inquiries', { params: { status: 'open', q: filt.q } }).then((r) => r.inquiries || []).catch(() => []) : Promise.resolve([])]);
     const inqPart = inqs.length ? [h('div', { class: 'ogroup inq' }, '✉ ' + t('inq_new_h'), h('small', {}, String(inqs.length))), ...inqs.map(inquiryRow)] : [];
     if (!orders.length) { list.replaceChildren(...inqPart, h('div', { class: 'empty' }, t('no_orders'))); return; }
     // von oben nach unten nach Abgabetermin, in Abschnitten: überfällig, diese Woche, nächste Woche, später, ohne Termin

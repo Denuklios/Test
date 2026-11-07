@@ -164,7 +164,12 @@ route(/^\/inquiry\/(\d+)$/, async (id) => {
         q.lang ? h('dt', {}, t('inq_lang')) : null, q.lang ? h('dd', {}, { de: '🇩🇪 Deutsch', da: '🇩🇰 Dansk', en: '🇬🇧 English' }[q.lang] || q.lang) : null),
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap;margin-top:10px' },
         h('a', { class: 'btn primary', href: `#/mail/new?inquiry=${q.id}` }, '↩ ' + t('inq_reply')),
-        h('a', { class: 'btn', href: '#/new?note=' + encodeURIComponent(note), onclick: () => { if (q.status === 'new') api('inquiry_status', { body: { id: q.id, status: 'in_progress', notify: 1 } }).then(() => mailStatus(true)).catch(() => {}); } }, '🧾 ' + t('inq_to_order')),
+        h('a', { class: 'btn', href: '#/new?note=' + encodeURIComponent(note), onclick: () => {
+          // Kunde bekommt wie bisher „in Bearbeitung“; danach gilt die Anfrage als erledigt (ohne Mail), weil sie jetzt ein Auftrag ist
+          (q.status === 'new' ? api('inquiry_status', { body: { id: q.id, status: 'in_progress', notify: 1 } }) : Promise.resolve())
+            .then(() => (['done', 'archived'].includes(q.status) ? null : api('inquiry_status', { body: { id: q.id, status: 'done', notify: 0 } })))
+            .then(() => mailStatus(true)).catch(() => {});
+        } }, '🧾 ' + t('inq_to_order')),
         known ? h('a', { class: 'btn', href: `#/customer/${known.id}` }, '👤 ' + known.name) : h('a', { class: 'btn', href: '#/customer/new', onclick: () => { try { sessionStorage.setItem('wf_new_customer', JSON.stringify({ name: q.name || '', email: q.email || '' })); } catch (e) { /* egal */ } } }, '👤＋ ' + t('mail_new_customer')),
         tel ? h('a', { class: 'btn', href: 'tel:' + tel }, '📞 ' + t('inq_call')) : null,
         tel ? h('a', { class: 'btn', href: 'https://wa.me/' + tel.replace(/^\+/, '').replace(/^00/, ''), target: '_blank', rel: 'noopener' }, '💬 WhatsApp') : null)),
