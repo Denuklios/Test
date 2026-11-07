@@ -2,3 +2,11 @@ data/
 node_modules/
 dist/
 __pycache__/
+
+# Julekontor: Startseiten-Daten und Sperre gehören ins Repo, das Admin-Konto nicht
+!julekontor/data/
+julekontor/data/*
+!julekontor/data/site.json
+!julekontor/data/private/
+julekontor/data/private/*
+!julekontor/data/private/.htaccess

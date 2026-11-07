@@ -1,0 +1,10 @@
+{
+  "title": "Vi åbner snart",
+  "countdownEnabled": true,
+  "countdownTarget": "2027-11-14T00:00",
+  "afterTitle": "Glædelig jul!",
+  "labels": { "days": "Dage", "hours": "Timer", "minutes": "Minutter", "seconds": "Sekunder" },
+  "footer": "© 2026 - 6330 Padborg / Vilsbæk",
+  "snow": true,
+  "bell": true
+}
