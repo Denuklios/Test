@@ -33,6 +33,10 @@ const state = {
   warned: new Set(),
 };
 
+// In der Android-App gibt es window.GassiNative: GPS kommt dann aus einem nativen Dienst,
+// der auch bei ausgeschaltetem Bildschirm weiter aufzeichnet.
+const NATIVE = window.GassiNative || null;
+
 // ---------- Karte ----------
 const map = L.map('map', { zoomControl: false }).setView([52.49, 13.3], 12);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
@@ -376,13 +380,16 @@ function nearestRoute() {
   return [...state.routes].sort((a, b) => distance(c, a.points[0]) - distance(c, b.points[0]))[0];
 }
 
-async function startWalk(guide = null) {
+async function startWalk(guide = null, resume = false) {
   if (rec.active) return;
-  if (!me.simulate) {
+  if (!me.simulate && !NATIVE) {
     if (!('geolocation' in navigator)) return toast('Dieses Gerät liefert keinen Standort. Zum Ausprobieren im Profil den Demo-Modus einschalten.', { label: 'Profil', fn: openProfile });
     if (!window.isSecureContext) return toast('GPS funktioniert nur über eine sichere Verbindung (https). Zum Ausprobieren im Profil den Demo-Modus einschalten.', { label: 'Profil', fn: openProfile });
   }
-  Object.assign(rec, { active: true, paused: false, segments: [[]], startedAt: Date.now(), pausedTotal: 0, last: null, guide, lastSent: 0, timeScale: me.simulate ? 3 : 1, accuracy: null, result: null });
+  Object.assign(rec, {
+    active: true, paused: false, segments: [[]], startedAt: resume ? NATIVE.startedAt() : Date.now(), pausedTotal: 0, last: null,
+    guide, lastSent: 0, timeScale: me.simulate ? 3 : 1, accuracy: null, result: null, native: !me.simulate && !!NATIVE, nativeIdx: 0,
+  });
   recLine = L.polyline([], { color: css('--rec'), weight: 6, opacity: 0.9 }).addTo(map);
   if (guide) guideLine = L.polyline(guide.points, { color: css('--accent'), weight: 6, opacity: 0.85, dashArray: '1 12', lineCap: 'round' }).addTo(map);
 
@@ -394,11 +401,37 @@ async function startWalk(guide = null) {
   setPauseUi();
 
   if (me.simulate) startSim(guide || nearestRoute());
-  else rec.watchId = navigator.geolocation.watchPosition(onFix, onGeoError, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
+  else if (rec.native) {
+    NATIVE.setLive(me.shareLive, me.status);
+    if (!resume && !NATIVE.start()) $('#rec-info').textContent = 'Bitte erlaube den Standortzugriff, damit die Runde aufgezeichnet wird.';
+    rec.pull = setInterval(pullNative, 1000);
+  } else rec.watchId = navigator.geolocation.watchPosition(onFix, onGeoError, { enableHighAccuracy: true, maximumAge: 0, timeout: 30000 });
   rec.timer = setInterval(updateRecStats, 1000);
   updateRecStats();
   try { rec.wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* Bildschirm darf ausgehen */ }
 }
+
+// Neue GPS-Punkte vom nativen Dienst abholen (auch alle, die bei ausgeschaltetem Bildschirm entstanden sind)
+function pullNative() {
+  if (!rec.active || !rec.native) return;
+  let list = [];
+  try { list = JSON.parse(NATIVE.fixesSince(rec.nativeIdx)); } catch { return; }
+  rec.nativeIdx += list.length;
+  for (const [lat, lng, accuracy, time] of list) onFix({ coords: { latitude: lat, longitude: lng, accuracy }, timestamp: time });
+}
+
+window.__gassiNativeStart = (granted) => {
+  if (granted) { $('#rec-info').textContent = 'Warte auf GPS-Signal …'; return; }
+  stopWalk(true);
+  toast('Ohne Standortzugriff kann die App die Runde nicht aufzeichnen. Du kannst ihn in den Android-Einstellungen unter Apps → Gassirunde erlauben.');
+};
+window.__gassiResume = () => { pullNative(); };
+window.__gassiBack = () => {
+  for (const d of $$('dialog[open]')) { d.close(); return true; }
+  if (state.view === 'detail' && !rec.active) { closeDetail(); return true; }
+  if (state.tab !== 'runden' && !rec.active) { switchTab('runden'); return true; }
+  return false;
+};
 
 function startSim(route) {
   const len = pathLength(route.points);
@@ -484,6 +517,7 @@ function togglePause() {
 
 function stopWalk(silent = false) {
   if (!rec.active) return;
+  if (rec.native) { pullNative(); NATIVE.stop(); clearInterval(rec.pull); rec.pull = null; }
   if (rec.paused) { rec.pausedTotal += Date.now() - rec.pauseStart; rec.paused = false; }
   const ms = recElapsed();
   const meters = recDistance();
@@ -577,6 +611,7 @@ function resetAfterWalk() {
 // ---------- Status, Profil, Tabs ----------
 function setStatus(s) {
   me.status = s; saveMe(); syncStatusInputs();
+  NATIVE?.setLive(me.shareLive, me.status);
   shareMyPosition(true);
   checkProximity();
 }
@@ -792,6 +827,7 @@ $('#panel-runden').addEventListener('click', (e) => { const b = e.target.closest
 for (const i of $$('input[name="status"], input[name="rstatus"]')) i.onchange = () => setStatus(i.value);
 $('#share-live').onchange = (e) => {
   me.shareLive = e.target.checked; saveMe();
+  NATIVE?.setLive(me.shareLive, me.status);
   if (!me.shareLive) backend.stopSharing(); else shareMyPosition(true);
   updateRecStats();
 };
@@ -840,5 +876,26 @@ renderFind();
 backend.onLive(onLive);
 backend.onWave((msg) => { if (msg.to === me.id) showWave(msg); });
 try { setUser(await backend.me()); } catch { setUser(null); }
+
+if (NATIVE) {
+  // Läuft im Hintergrund noch eine Aufnahme (App wurde neu geöffnet)? Dann dort weitermachen.
+  if (NATIVE.isRecording() && state.user) startWalk(null, true);
+  checkAppUpdate();
+}
+
+/** Neue App-Version auf dem Server? Dann Hinweis mit Download. */
+async function checkAppUpdate() {
+  try {
+    const v = await (await fetch('app/version.json', { cache: 'no-store' })).json();
+    const newer = (a, b) => {
+      const x = a.split('.').map(Number); const y = b.split('.').map(Number);
+      for (let i = 0; i < 3; i++) if ((x[i] || 0) !== (y[i] || 0)) return (x[i] || 0) > (y[i] || 0);
+      return false;
+    };
+    if (v?.version && newer(v.version, NATIVE.version())) {
+      toast(`Neue App-Version ${v.version} ist da.`, { label: 'Laden', fn: () => NATIVE.openExternal(new URL('app/' + v.file, location.href).href) }, 15000);
+    }
+  } catch { /* offline oder keine Versionsdatei */ }
+}
 const c = map.getCenter();
 loadWeather(c.lat, c.lng);
