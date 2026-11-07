@@ -680,8 +680,30 @@ function stopWalk(silent = false) {
   showSaveForm();
 }
 
+/** Ortsname zu einer Position (OpenStreetMap-Adressdienst), z. B. „Duberg, Kollund-Osterholz“. */
+async function placeName(lat, lng) {
+  try {
+    const r = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat.toFixed(5)}&lon=${lng.toFixed(5)}&zoom=14&accept-language=de`);
+    const a = (await r.json()).address || {};
+    const small = a.hamlet || a.suburb || a.neighbourhood || '';
+    const big = a.village || a.town || a.city || a.municipality || '';
+    return [...new Set([small, big].filter(Boolean))].join(', ').slice(0, 60);
+  } catch { return ''; }
+}
+
 function showSaveForm() {
   setFab('hidden');
+  // Ort aus dem Startpunkt der Runde ermitteln (bleibt änderbar)
+  const area = $('#sv-area');
+  area.value = '';
+  const start = rec.result.segments.flat()[0];
+  if (start) {
+    area.placeholder = 'Ort wird ermittelt …';
+    placeName(start[0], start[1]).then((name) => {
+      area.placeholder = 'z. B. Musterstadt-Nord';
+      if (name && !area.value) area.value = name;
+    });
+  }
   const { ms, meters, guide } = rec.result;
   $('#save-summary').innerHTML = `<b>${formatKm(meters)} km</b> in <b>${formatDuration(ms)}</b>${guide ? ` auf „${esc(guide.name)}“` : ''}.`;
   $('#sv-share').checked = !guide; // nachgelaufene Runden nicht doppelt anlegen
