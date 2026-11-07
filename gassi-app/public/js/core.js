@@ -118,6 +118,12 @@ export function dogInfo(breed, years) {
   return parts.join(' · ');
 }
 
+/** Gesprochene Sprachen (für Begegnungen im Grenzland). */
+export const SPOKEN = { de: ['🇩🇪', 'Deutsch'], da: ['🇩🇰', 'Dansk'], en: ['🇬🇧', 'English'] };
+export const cleanLangs = (list) => [...new Set((Array.isArray(list) ? list : []).filter((x) => SPOKEN[x]))];
+export const langFlags = (list) => cleanLangs(list).map((x) => SPOKEN[x][0]).join(' ');
+export const langNames = (list) => cleanLangs(list).map((x) => `${SPOKEN[x][0]} ${SPOKEN[x][1]}`).join(' · ');
+
 export const PACE_KMH = { welpe: 2.8, erwachsen: 4.2, senior: 3.2 }; // inkl. Schnüffelpausen
 
 export function estimateMinutes(km, dogAge = 'erwachsen') {
@@ -227,9 +233,12 @@ export function matchRoute(route, prefs) {
 
 // ---------- Anzeige ----------
 
+let DEC = ',';
+/** Dezimalzeichen für die Anzeige (Englisch: Punkt). */
+export function setDecimal(c) { DEC = c; }
 export function formatKm(m) {
   const km = m / 1000;
-  return km < 10 ? km.toFixed(2).replace('.', ',') : km.toFixed(1).replace('.', ',');
+  return (km < 10 ? km.toFixed(2) : km.toFixed(1)).replace('.', DEC);
 }
 
 export function formatDuration(ms) {
@@ -255,11 +264,11 @@ export const STATUS = {
 
 /** Demo-Spaziergänger, damit die Live-Karte ohne echte Nutzer etwas zeigt. */
 export const DEMO_WALKERS = [
-  { id: 'demo-mette', name: 'Mette', dog: 'Bella', dogBreed: 'Labrador Retriever', dogYears: 4, status: 'offen', route: 'froeslev-hundeskov', speed: 1.2, offset: 300 },
-  { id: 'demo-lars', name: 'Lars', dog: 'Rufus', dogBreed: 'Deutscher Schäferhund', dogYears: 7, status: 'abstand', route: 'froeslev-hundeskov', speed: 1.1, offset: 1800, reverse: true },
-  { id: 'demo-sofie', name: 'Sofie', dog: 'Molly', dogBreed: 'Dackel', dogYears: 3, status: 'neutral', route: 'gendarmstien-kollund', speed: 1.3, offset: 900 },
-  { id: 'demo-henrik', name: 'Henrik', dog: 'Bamse', dogBreed: 'Berner Sennenhund', dogYears: 9, status: 'abstand', route: 'gendarmstien-kollund', speed: 1.0, offset: 3200 },
-  { id: 'demo-freja', name: 'Freja', dog: 'Luna', dogBreed: 'Border Collie', dogYears: 2, status: 'offen', route: 'hundeskov-torp', speed: 1.2, offset: 400 },
+  { id: 'demo-mette', name: 'Mette', dog: 'Bella', dogBreed: 'Labrador Retriever', dogYears: 4, languages: ['da', 'de'], status: 'offen', route: 'froeslev-hundeskov', speed: 1.2, offset: 300 },
+  { id: 'demo-lars', name: 'Lars', dog: 'Rufus', dogBreed: 'Deutscher Schäferhund', dogYears: 7, languages: ['da'], status: 'abstand', route: 'froeslev-hundeskov', speed: 1.1, offset: 1800, reverse: true },
+  { id: 'demo-sofie', name: 'Sofie', dog: 'Molly', dogBreed: 'Dackel', dogYears: 3, languages: ['de'], status: 'neutral', route: 'gendarmstien-kollund', speed: 1.3, offset: 900 },
+  { id: 'demo-henrik', name: 'Henrik', dog: 'Bamse', dogBreed: 'Berner Sennenhund', dogYears: 9, languages: ['da', 'en'], status: 'abstand', route: 'gendarmstien-kollund', speed: 1.0, offset: 3200 },
+  { id: 'demo-freja', name: 'Freja', dog: 'Luna', dogBreed: 'Border Collie', dogYears: 2, languages: ['da', 'de', 'en'], status: 'offen', route: 'hundeskov-torp', speed: 1.2, offset: 400 },
 ];
 
 /** Position eines Demo-Spaziergängers zum Zeitpunkt `now` (ms). */

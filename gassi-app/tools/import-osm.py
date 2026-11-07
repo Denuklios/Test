@@ -31,6 +31,13 @@ BUSY_PARK = [1, 1, 1, 1, 2, 6, 18, 35, 38, 30, 28, 30, 32, 28, 26, 30, 42, 55, 5
 
 CACHE = os.environ.get('OSM_CACHE', os.path.expanduser('~/.cache/gassi-osm'))
 PAUSE = float(os.environ.get('OSM_PAUSE', '3'))
+BUDGET = float(os.environ.get('OSM_BUDGET_MIN', '0')) * 60  # 0 = unbegrenzt
+T0 = time.time()
+HOME = (54.92, 9.40)  # Vilsbæk: Hundeflächen in der Nähe zuerst
+
+
+def out_of_time():
+    return BUDGET and time.time() - T0 > BUDGET
 
 
 def overpass(query, tries=3, fatal=True):
@@ -205,7 +212,12 @@ class Places:
 def dog_parks(places):
     routes = []
     seen = set()
-    for box in grid(COUNTRY, 1.0, 1.2):
+    boxes = sorted(grid(COUNTRY, 1.0, 1.2), key=lambda b: dist(HOME, ((b[0] + b[2]) / 2, (b[1] + b[3]) / 2)))
+    skipped = 0
+    for box in boxes:
+        if out_of_time():
+            skipped += 1
+            continue
         els = tiled('[out:json][timeout:90];(way["leisure"="dog_park"]({bb});relation["leisure"="dog_park"]({bb}););out geom tags;'
                     'node["place"~"^(city|town|village|suburb)$"]({bb});out tags;', box)
         places.add([e for e in els if e['type'] == 'node'])
@@ -228,6 +240,8 @@ def dog_parks(places):
             routes.append({'el': e, 'ring': simplify(ring, 4)})
             n += 1
         print(f'  Hundeflächen {box}: {n}', file=sys.stderr)
+    if skipped:
+        print(f'  Zeitbudget erreicht: {skipped} Kacheln beim nächsten Lauf (Zwischenspeicher)', file=sys.stderr)
     out = []
     for r in routes:
         e, ring = r['el'], r['ring']

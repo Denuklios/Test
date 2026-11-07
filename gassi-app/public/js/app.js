@@ -1,9 +1,15 @@
 import {
   distance, pathLength, pointAlong, trimEnds, distanceToPath, acceptFix,
   estimateMinutes, dogScore, busyLevel, quietestHour, averageRating, matchRoute,
-  formatKm, formatDuration, formatDistanceShort, STATUS, LABELS, DOG_BREEDS, ageGroup, dogInfo, composeBreed, splitBreed,
+  formatKm, formatDuration, formatDistanceShort, STATUS, LABELS, DOG_BREEDS, ageGroup, dogInfo, composeBreed, splitBreed, langFlags, langNames,
 } from './core.js';
 import { createBackend, LS } from './backend.js';
+import { t, lang, locale, setLang, startI18n } from './i18n.js';
+import { setDecimal } from './core.js';
+
+// Sprache der Oberfläche
+if (lang === 'en') setDecimal('.');
+startI18n();
 
 /* global L */
 const $ = (s, root = document) => root.querySelector(s);
@@ -20,7 +26,7 @@ const ON_ROUTE = 60; // m – zählt als „auf dieser Runde“
 // Name, Hund und ID kommen aus dem Konto; Status, Teilen und Demo-Modus sind Geräte-Einstellungen.
 const savedPrefs = LS.get('gassi.me', {});
 const me = {
-  id: null, name: '', dog: '', dogAge: 'erwachsen', email: '', dogBreed: '', dogYears: null, showDog: true,
+  id: null, name: '', dog: '', dogAge: 'erwachsen', email: '', dogBreed: '', dogYears: null, showDog: true, languages: [],
   status: savedPrefs.status || 'neutral', shareLive: savedPrefs.shareLive ?? true, simulate: !!savedPrefs.simulate,
 };
 const saveMe = () => LS.set('gassi.me', { status: me.status, shareLive: me.shareLive, simulate: me.simulate });
@@ -39,11 +45,11 @@ const NATIVE = window.GassiNative || null;
 
 // ---------- Auswahllisten Rasse und Alter ----------
 function fillDogSelects() {
-  const breeds = ['<option value="">Keine Angabe</option>', '<option>Mischling</option>',
-    ...DOG_BREEDS.map((b) => `<option>${esc(b)}</option>`), '<option>Andere Rasse</option>'].join('');
+  const breeds = ['<option value="">Keine Angabe</option>', '<option value="Mischling">Mischling</option>',
+    ...DOG_BREEDS.map((b) => `<option value="${esc(b)}">${esc(b)}</option>`), '<option value="Andere Rasse">Andere Rasse</option>'].join('');
   const years = ['<option value="">Keine Angabe</option>', '<option value="0">unter 1 Jahr</option>',
     ...Array.from({ length: 20 }, (_, i) => `<option value="${i + 1}">${i + 1} ${i ? 'Jahre' : 'Jahr'}</option>`)].join('');
-  const mix = ['<option value="">Unbekannt</option>', ...DOG_BREEDS.map((b) => `<option>${esc(b)}</option>`)].join('');
+  const mix = ['<option value="">Unbekannt</option>', ...DOG_BREEDS.map((b) => `<option value="${esc(b)}">${esc(b)}</option>`)].join('');
   for (const s of $$('.breed-select')) s.innerHTML = breeds;
   for (const s of $$('.years-select')) s.innerHTML = years;
   for (const s of $$('.mix-select')) s.innerHTML = mix;
@@ -60,6 +66,10 @@ function showBreed(p, breed) {
 }
 fillDogSelects();
 const readYears = (sel) => ($(sel).value === '' ? null : Number($(sel).value));
+const readLangs = (p) => $$(`#${p}-lang-de, #${p}-lang-da, #${p}-lang-en`).filter((c) => c.checked).map((c) => c.value);
+function showLangs(p, list) { for (const c of $$(`#${p}-lang-de, #${p}-lang-da, #${p}-lang-en`)) c.checked = (list || []).includes(c.value); }
+// Vorschlag für neue Konten: die gewählte Sprache der App
+showLangs('reg', [lang]);
 
 // ---------- Karte ----------
 const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([54.85, 9.36], 11);
@@ -313,7 +323,7 @@ function renderDetail() {
     <button type="button" class="btn secondary small" id="meet-propose" style="margin-top:6px">Treffen vorschlagen</button>
 
     <h3 class="list-title">Bewertungen ${avg != null ? `· ${starsText(avg)} aus ${r.ratings.length}` : ''}</h3>
-    ${r.ratings.length ? `<ul class="ratings">${[...r.ratings].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((x) => `<li><span class="stars">${'★'.repeat(x.stars)}${'☆'.repeat(5 - x.stars)}</span> ${x.text ? esc(x.text) : ''}<div class="who">${esc(x.name)}${x.dog ? ` mit ${esc(x.dog)}` : ''}${x.date ? ` · ${new Date(x.date).toLocaleDateString('de-DE')}` : ''}</div></li>`).join('')}</ul>` : '<p class="hint">Noch keine Bewertungen. Sei die erste Person!</p>'}
+    ${r.ratings.length ? `<ul class="ratings">${[...r.ratings].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((x) => `<li><span class="stars">${'★'.repeat(x.stars)}${'☆'.repeat(5 - x.stars)}</span> ${x.text ? esc(x.text) : ''}<div class="who">${esc(x.name)}${x.dog ? ` mit ${esc(x.dog)}` : ''}${x.date ? ` · ${new Date(x.date).toLocaleDateString(locale())}` : ''}</div></li>`).join('')}</ul>` : '<p class="hint">Noch keine Bewertungen. Sei die erste Person!</p>'}
     <form class="rate-form" id="rate-form">
       <span class="label">${mine ? 'Deine Bewertung ändern' : 'Runde bewerten'}</span>
       <div class="star-input">
@@ -439,8 +449,10 @@ function fmtWhen(iso) {
   const d = new Date(iso);
   const today = new Date(); const tomorrow = new Date(Date.now() + 864e5);
   const same = (a, b) => a.toDateString() === b.toDateString();
-  const day = same(d, today) ? 'Heute' : same(d, tomorrow) ? 'Morgen' : `${WD[d.getDay()]} ${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}`;
-  return `${day}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`;
+  const day = same(d, today) ? t('Heute') : same(d, tomorrow) ? t('Morgen')
+    : lang === 'de' ? `${WD[d.getDay()]} ${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}` : d.toLocaleDateString(locale(), { weekday: 'short', day: 'numeric', month: 'numeric' });
+  const time = d.toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' });
+  return lang === 'de' ? `${day}, ${time} Uhr` : lang === 'da' ? `${day} kl. ${time}` : `${day}, ${time}`;
 }
 const meetMembers = (m) => `${m.members.length} ${m.members.length === 1 ? 'Person' : 'Personen'} dabei`;
 
@@ -543,9 +555,9 @@ function renderMeetup(m) {
     <p class="meet-when big">${esc(fmtWhen(m.startsAt))}</p>
     <h2 id="meet-title" tabindex="-1">${esc(m.routeName)}</h2>
     <p class="hint" style="margin-top:0">Treffpunkt: Start der Runde${dist ? ` · ${dist}` : ''} · vorgeschlagen von ${esc(m.creatorName)}${m.creatorDog ? ` & ${esc(m.creatorDog)}` : ''}</p>
-    ${m.note ? `<p class="meet-note">„${esc(m.note)}“</p>` : ''}
+    ${m.note ? `<p class="meet-note" data-no-i18n>„${esc(m.note)}“</p>` : ''}
     <p class="label" style="margin:10px 0 6px">${meetMembers(m)}</p>
-    <div class="member-chips">${m.members.map((x) => `<span class="member-chip">${esc(x.name)}${x.dog ? ` & ${esc(x.dog)}` : ''}</span>`).join('')}</div>
+    <div class="member-chips">${m.members.map((x) => `<span class="member-chip">${esc(x.name)}${x.dog ? ` & ${esc(x.dog)}` : ''}${x.languages?.length ? ` <span class="flags">${langFlags(x.languages)}</span>` : ''}</span>`).join('')}</div>
     <div class="meet-actions">
       ${m.joined ? (mine ? '<button class="btn danger small" data-meet-cancel>Treffen absagen</button>' : '<button class="btn secondary small" data-meet-leave>Doch nicht dabei</button>') : '<button class="btn primary small" data-meet-join>Ich bin dabei</button>'}
       <button class="btn secondary small" data-meet-route>Zur Runde & Weg dorthin</button>
@@ -562,8 +574,8 @@ function renderChat() {
   const atBottom = $('#meet-body').scrollHeight - $('#meet-body').scrollTop - $('#meet-body').clientHeight < 60;
   list.innerHTML = state.chatMsgs.map((x) => `<li class="msg${x.userId === me.id ? ' mine' : ''}">
     ${x.userId === me.id ? '' : `<span class="msg-who">${esc(x.name)}${x.dog ? ` & ${esc(x.dog)}` : ''}</span>`}
-    <span class="msg-text">${esc(x.text)}</span>
-    <span class="msg-time">${new Date(x.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
+    <span class="msg-text" data-no-i18n>${esc(x.text)}</span>
+    <span class="msg-time">${new Date(x.at).toLocaleTimeString(locale(), { hour: '2-digit', minute: '2-digit' })}</span>
   </li>`).join('') || '<li class="hint">Noch keine Nachrichten. Schreib zum Beispiel, wann du ankommst.</li>';
   if (atBottom || state.chatScroll) { $('#meet-body').scrollTop = $('#meet-body').scrollHeight; state.chatScroll = false; }
 }
@@ -678,7 +690,7 @@ function renderPeople() {
       <button class="person-row" data-person="${esc(p.id)}" aria-label="${esc(p.name)}: ${esc(STATUS[p.status]?.label || '')}, Details anzeigen">
         <span class="avatar ${esc(p.status)}" aria-hidden="true">${esc(initial(p.name))}</span>
         <span>
-          <span class="who">${esc(p.name)}${p.dog ? ` & ${esc(p.dog)}` : ''}${p.demo ? ' · Demo' : ''}</span>
+          <span class="who">${esc(p.name)}${p.dog ? ` & ${esc(p.dog)}` : ''}${p.languages?.length ? ` <span class="flags">${langFlags(p.languages)}</span>` : ''}${p.demo ? ' · Demo' : ''}</span>
           <span class="where"><span class="status-chip"><i class="sdot ${esc(p.status)}"></i>${esc(STATUS[p.status]?.short || '')}</span> · ${formatDistanceShort(d)}</span>
         </span>
         <span class="chev" aria-hidden="true">›</span>
@@ -741,6 +753,7 @@ function renderPerson(p) {
     <div class="status-box ${esc(p.status)}"><b>${esc(STATUS[p.status]?.label || '')}</b><p>${esc(STATUS_TEXT[p.status] || '')}</p></div>
     <ul class="person-facts">
       <li><span>Entfernung</span><span>${d != null ? formatDistanceShort(d) : 'erst beim Spaziergang'}</span></li>
+      ${p.languages?.length ? `<li class="wide"><span>Spricht</span><span>${esc(langNames(p.languages))}</span></li>` : ''}
       <li><span>Zuletzt gesehen</span><span>${ago < 15 ? 'gerade eben' : ago < 120 ? `vor ${ago} Sek.` : `vor ${Math.round(ago / 60)} Min.`}</span></li>
       <li class="wide"><span>Gerade auf</span><span>${route ? esc(route.name) : 'keiner bekannten Runde'}</span></li>
     </ul>
@@ -1096,7 +1109,8 @@ function syncStatusInputs() {
 async function openProfile() {
   if (backend.accounts && !state.user) return openAuth();
   $('#me-name').value = me.name; $('#me-dog').value = me.dog; $('#me-simulate').checked = me.simulate;
-  showBreed('me', me.dogBreed); $('#me-years').value = me.dogYears ?? ''; $('#me-show').checked = me.showDog !== false;
+  showBreed('me', me.dogBreed); $('#me-years').value = me.dogYears ?? ''; showLangs('me', me.languages);
+  $('#me-lang').value = lang; $('#me-show').checked = me.showDog !== false;
   $('#me-simulate').disabled = rec.active;
   $('#me-email').textContent = me.email ? `Angemeldet als ${me.email}` : '';
   $('#me-email').hidden = !me.email;
@@ -1114,7 +1128,7 @@ async function openProfile() {
     const h = await backend.getWalks();
     const total = h.reduce((sum, x) => sum + x.meters, 0);
     $('#history').innerHTML = h.length
-      ? `<li><b>Gesamt</b><b>${formatKm(total)} km · ${h.length} ${h.length === 1 ? "Spaziergang" : "Spaziergänge"}</b></li>` + h.slice(0, 50).map((x) => `<li><span>${new Date(x.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })} · ${esc(x.name)}</span><span>${formatKm(x.meters)} km · ${formatDuration(x.ms)}</span></li>`).join('')
+      ? `<li><b>Gesamt</b><b>${formatKm(total)} km · ${h.length} ${h.length === 1 ? "Spaziergang" : "Spaziergänge"}</b></li>` + h.slice(0, 50).map((x) => `<li><span>${new Date(x.date).toLocaleDateString(locale(), { day: '2-digit', month: '2-digit', year: '2-digit' })} · ${esc(x.name)}</span><span>${formatKm(x.meters)} km · ${formatDuration(x.ms)}</span></li>`).join('')
       : '<li class="hint">Noch keine Spaziergänge aufgezeichnet.</li>';
   } catch (ex) { handleApiError(ex); $('#history').innerHTML = '<li class="hint">Spaziergänge konnten nicht geladen werden.</li>'; }
 }
@@ -1128,12 +1142,13 @@ async function saveProfile(e) {
   try {
     const dogYears = readYears('#me-years');
     const user = await backend.updateProfile({
-      name, dog: $('#me-dog').value.trim(), dogBreed: readBreed('me'), dogYears, dogAge: ageGroup(dogYears), showDog: $('#me-show').checked,
+      name, dog: $('#me-dog').value.trim(), dogBreed: readBreed('me'), dogYears, dogAge: ageGroup(dogYears), showDog: $('#me-show').checked, languages: readLangs('me'),
     });
     if (!rec.active) me.simulate = $('#me-simulate').checked;
     saveMe();
     setUser(user);
     $('#me-dialog').close();
+    if ($('#me-lang').value !== lang) return switchLang($('#me-lang').value);
     toast('Profil gespeichert.');
   } catch (ex) { if (!handleApiError(ex)) meError(ex.message); }
 }
@@ -1167,6 +1182,19 @@ async function logout() {
   setUser(null);
   toast('Du bist abgemeldet.');
 }
+
+// ---------- Sprache wechseln ----------
+function switchLang(l) {
+  if (l === lang) return;
+  if (rec.active) { toast('Beende zuerst deinen Spaziergang.'); return; }
+  setLang(l);
+  location.reload();
+}
+for (const b of $$('[data-lang]')) {
+  b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+  b.onclick = () => switchLang(b.dataset.lang);
+}
+NATIVE?.setLang?.(lang);
 
 // ---------- Anmeldung ----------
 let afterLogin = null;
@@ -1220,7 +1248,7 @@ async function submitAuth(e) {
     const user = reg
       ? await backend.register({
         email, password, name: $('#reg-name').value.trim(), dog: $('#reg-dog').value.trim(),
-        dogBreed: readBreed('reg'), dogYears: readYears('#reg-years'), dogAge: ageGroup(readYears('#reg-years')), showDog: $('#reg-show').checked,
+        dogBreed: readBreed('reg'), dogYears: readYears('#reg-years'), dogAge: ageGroup(readYears('#reg-years')), showDog: $('#reg-show').checked, languages: readLangs('reg'),
       })
       : await backend.login(email, password);
     $('#auth-dialog').close();
@@ -1236,7 +1264,7 @@ function setUser(user) {
   state.user = user || null;
   Object.assign(me, {
     id: user?.id ?? null, name: user?.name ?? '', dog: user?.dog ?? '', email: user?.email ?? '',
-    dogBreed: user?.dogBreed ?? '', dogYears: user?.dogYears ?? null, showDog: user?.showDog !== false,
+    dogBreed: user?.dogBreed ?? '', dogYears: user?.dogYears ?? null, showDog: user?.showDog !== false, languages: user?.languages ?? [],
   });
   me.dogAge = user?.dogYears != null ? ageGroup(user.dogYears) : (user?.dogAge ?? 'erwachsen');
   const btn = $('#me-btn');

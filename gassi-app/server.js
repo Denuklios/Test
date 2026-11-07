@@ -50,10 +50,10 @@ function save() {
 const userById = (id) => store.users.find((u) => u.id === id);
 const publicUser = (u) => u && {
   id: u.id, email: u.email, name: u.name, dog: u.dog, dogAge: u.dogAge,
-  dogBreed: u.dogBreed || '', dogYears: u.dogYears ?? null, showDog: u.showDog !== false, createdAt: u.createdAt,
+  dogBreed: u.dogBreed || '', dogYears: u.dogYears ?? null, showDog: u.showDog !== false, languages: u.languages || [], createdAt: u.createdAt,
 };
 /** Was andere über den Hund sehen: Rasse und Alter nur, wenn freigegeben. */
-const dogPublic = (u) => (u.showDog !== false ? { dogBreed: u.dogBreed || '', dogYears: u.dogYears ?? null } : { dogBreed: '', dogYears: null });
+const dogPublic = (u) => ({ ...(u.showDog !== false ? { dogBreed: u.dogBreed || '', dogYears: u.dogYears ?? null } : { dogBreed: '', dogYears: null }), languages: u.languages || [] });
 
 // Runden aus OpenStreetMap (tools/import-osm.py): in Zellen von 0,5° gespeichert, geladen nach Bedarf
 const OSM_DIR = process.env.OSM_DIR || path.join(PUBLIC, 'data', 'osm');
@@ -211,7 +211,7 @@ function liveSnapshot() {
       const route = demoRoutes.find((r) => r.id === w.route);
       if (!route) continue;
       const [lat, lng] = demoWalkerPosition(w, route, now);
-      people.push({ id: w.id, name: w.name, dog: w.dog, dogBreed: w.dogBreed, dogYears: w.dogYears, status: w.status, lat, lng, at: now, demo: true });
+      people.push({ id: w.id, name: w.name, dog: w.dog, dogBreed: w.dogBreed, dogYears: w.dogYears, languages: w.languages, status: w.status, lat, lng, at: now, demo: true });
     }
   }
   return people;
@@ -290,6 +290,7 @@ function validateProfile(b, { partial = false } = {}) {
   if (!partial || 'dogBreed' in b) out.dogBreed = str(b.dogBreed, 120);
   if (!partial || 'dogYears' in b) out.dogYears = Number.isInteger(b.dogYears) && b.dogYears >= 0 && b.dogYears <= 25 ? b.dogYears : null;
   if (!partial || 'showDog' in b) out.showDog = b.showDog !== false;
+  if (!partial || 'languages' in b) out.languages = Array.isArray(b.languages) ? [...new Set(b.languages.filter((x) => ['de', 'da', 'en'].includes(x)))] : [];
   return out;
 }
 
@@ -414,7 +415,7 @@ function meetupJson(m, user) {
   return {
     id: m.id, routeId: m.routeId, routeName: m.routeName, lat: m.lat, lng: m.lng, startsAt: m.startsAt, note: m.note,
     creatorId: m.creatorId, creatorName: creator?.name || 'Anonym', creatorDog: creator?.dog || '',
-    members: m.members.map((x) => { const u = userById(x.userId); return { id: x.userId, name: u?.name || 'Anonym', dog: u?.dog || '' }; }),
+    members: m.members.map((x) => { const u = userById(x.userId); return { id: x.userId, name: u?.name || 'Anonym', dog: u?.dog || '', languages: u?.languages || [] }; }),
     joined: !!mine,
     unread: mine ? store.messages.filter((x) => x.meetupId === m.id && x.id > mine.lastRead && x.userId !== user.id).length : 0,
   };

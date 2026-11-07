@@ -201,5 +201,8 @@ public class MainActivity extends Activity {
         }
 
         @JavascriptInterface public void openExternal(String url) { MainActivity.this.openExternal(Uri.parse(url)); }
+
+        /** Sprache der Oberfläche, damit Benachrichtigungen passen (de, da, en). */
+        @JavascriptInterface public void setLang(String l) { TrackService.lang = l == null ? "de" : l; }
     }
 }

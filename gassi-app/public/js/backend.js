@@ -188,7 +188,7 @@ class LocalBackend {
       const route = this.demo.find((r) => r.id === w.route);
       if (!route) continue;
       const [lat, lng] = demoWalkerPosition(w, route, now);
-      people.push({ id: w.id, name: w.name, dog: w.dog, dogBreed: w.dogBreed, dogYears: w.dogYears, status: w.status, lat, lng, at: now, demo: true });
+      people.push({ id: w.id, name: w.name, dog: w.dog, dogBreed: w.dogBreed, dogYears: w.dogYears, languages: w.languages, status: w.status, lat, lng, at: now, demo: true });
     }
     this.liveFns.forEach((f) => f(people));
   }

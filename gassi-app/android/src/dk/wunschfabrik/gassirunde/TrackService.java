@@ -57,6 +57,10 @@ public class TrackService extends Service {
     static volatile double startedAt = 0;
     static volatile boolean shareLive = true;
     static volatile String status = "neutral";
+    static volatile String lang = "de";
+
+    /** Text in der Sprache der App. */
+    static String tr(String de, String da, String en) { return "da".equals(lang) ? da : "en".equals(lang) ? en : de; }
     private static final List<double[]> fixes = new ArrayList<>(); // lat, lng, Genauigkeit, Zeit (ms)
 
     private LocationManager lm;
@@ -114,7 +118,7 @@ public class TrackService extends Service {
 
     private void startTracking() {
         channels(this);
-        Notification n = trackNotification("Aufnahme läuft …");
+        Notification n = trackNotification(tr("Aufnahme läuft …", "Optager …", "Recording …"));
         if (Build.VERSION.SDK_INT >= 29) startForeground(ID_TRACK, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_LOCATION);
         else startForeground(ID_TRACK, n);
 
@@ -185,8 +189,10 @@ public class TrackService extends Service {
                     Long last = warned.get(id);
                     if (d[0] < WARN_RADIUS && (last == null || now - last > 3 * 60 * 1000)) {
                         warned.put(id, now);
-                        String who = p.optString("name") + (p.optString("dog").isEmpty() ? "" : " mit " + p.optString("dog"));
-                        alert(id.hashCode(), "Bitte Abstand halten", who + " bittet um Abstand und ist " + Math.round(d[0] / 10) * 10 + " m entfernt.");
+                        String who = p.optString("name") + (p.optString("dog").isEmpty() ? "" : tr(" mit ", " med ", " with ") + p.optString("dog"));
+                        long m = Math.round(d[0] / 10) * 10;
+                        alert(id.hashCode(), tr("Bitte Abstand halten", "Hold afstand", "Please keep your distance"),
+                                who + tr(" bittet um Abstand und ist " + m + " m entfernt.", " beder om afstand og er " + m + " m væk.", " asks for distance and is " + m + " m away."));
                     }
                 }
             }
@@ -194,8 +200,8 @@ public class TrackService extends Service {
             if (waves != null) {
                 for (int i = 0; i < waves.length(); i++) {
                     JSONObject w = waves.getJSONObject(i);
-                    String who = w.optString("fromName") + (w.optString("fromDog").isEmpty() ? "" : " mit " + w.optString("fromDog"));
-                    alert(("wave" + w.optString("from")).hashCode(), who + " winkt dir", w.optString("text"));
+                    String who = w.optString("fromName") + (w.optString("fromDog").isEmpty() ? "" : tr(" mit ", " med ", " with ") + w.optString("fromDog"));
+                    alert(("wave" + w.optString("from")).hashCode(), who + tr(" winkt dir", " vinker til dig", " waves to you"), tr("Lust auf eine gemeinsame Runde?", "Lyst til en tur sammen?", "Fancy a walk together?"));
                 }
             }
         } catch (Exception e) { /* unerwartete Antwort: beim nächsten Mal wieder */ }
@@ -236,10 +242,10 @@ public class TrackService extends Service {
     static void channels(Context ctx) {
         if (Build.VERSION.SDK_INT < 26) return;
         NotificationManager nm = ctx.getSystemService(NotificationManager.class);
-        NotificationChannel t = new NotificationChannel(CH_TRACK, "Spaziergang aufzeichnen", NotificationManager.IMPORTANCE_LOW);
+        NotificationChannel t = new NotificationChannel(CH_TRACK, tr("Spaziergang aufzeichnen", "Optag tur", "Record walk"), NotificationManager.IMPORTANCE_LOW);
         t.setShowBadge(false);
         nm.createNotificationChannel(t);
-        NotificationChannel a = new NotificationChannel(CH_ALERT, "Begegnungen und Winken", NotificationManager.IMPORTANCE_HIGH);
+        NotificationChannel a = new NotificationChannel(CH_ALERT, tr("Begegnungen und Winken", "Møder og vink", "Encounters and waves"), NotificationManager.IMPORTANCE_HIGH);
         a.enableVibration(true);
         nm.createNotificationChannel(a);
     }
@@ -252,7 +258,7 @@ public class TrackService extends Service {
     private Notification trackNotification(String text) {
         Notification.Builder b = Build.VERSION.SDK_INT >= 26 ? new Notification.Builder(this, CH_TRACK) : new Notification.Builder(this);
         return b.setSmallIcon(R.drawable.ic_paw)
-                .setContentTitle("Spaziergang läuft")
+                .setContentTitle(tr("Spaziergang läuft", "Tur i gang", "Walk in progress"))
                 .setContentText(text)
                 .setOngoing(true)
                 .setOnlyAlertOnce(true)

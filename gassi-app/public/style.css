@@ -78,6 +78,11 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: absolute; right: -3px; top: -3px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
   background: var(--accent); color: var(--accent-ink); font: 700 12px/1 Georgia, "Times New Roman", serif; font-style: italic; box-shadow: 0 0 0 2px var(--surface);
 }
+.auth-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.auth-top h2 { margin: 0; }
+.lang-switch { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; flex: none; }
+.lang-switch button { border: 0; background: var(--surface); color: var(--muted); padding: 6px 10px; font: 700 14px/1 var(--font-body); cursor: pointer; }
+.lang-switch button[aria-pressed="true"] { background: var(--accent); color: var(--accent-ink); }
 .info-badge.static { position: static; flex: none; width: 24px; height: 24px; font-size: 15px; box-shadow: none; }
 .auth-info { display: flex; gap: 10px; align-items: center; background: var(--accent-soft); border-radius: 12px; padding: 10px 12px; margin: 2px 0 6px; }
 .auth-info p { margin: 0; flex: 1; font-size: 14px; }
@@ -258,6 +263,12 @@ body:has(.sheet.collapsed) { --sheet-h: 112px; }
 .meet-dialog h2 { margin: 0 0 4px; }
 .meet-note { background: var(--surface-2); border-radius: 10px; padding: 8px 12px; margin: 8px 0 0; font-style: italic; }
 .member-chips { display: flex; flex-wrap: wrap; gap: 6px; }
+.flags { font-weight: 400; letter-spacing: 1px; }
+.lang-box { border: 0; padding: 0; margin: 4px 0 0; }
+.lang-box legend { font-weight: 700; font-size: 14px; margin-bottom: 6px; }
+.lang-checks { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.lang-checks label { display: flex; gap: 6px; align-items: center; cursor: pointer; }
+.lang-checks input { width: 20px; height: 20px; accent-color: var(--accent); }
 .member-chip { background: var(--surface-2); border-radius: 999px; padding: 4px 10px; font-size: 14px; font-weight: 700; }
 .meet-actions { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; }
 .meet-actions .btn { flex: 1 1 150px; }

@@ -224,12 +224,14 @@ test('Rasse und Alter: gespeichert, nur sichtbar wenn freigegeben', async () => 
   const u = (await c.post('/api/auth/register', { email: 'rasse@example.de', password: 'geheim123', name: 'Rita', dog: 'Bello', dogBreed: 'Labrador Retriever', dogYears: 4, showDog: true })).data.user;
   assert.equal(u.dogBreed, 'Labrador Retriever');
   assert.equal(u.dogYears, 4);
+  assert.deepEqual((await c.patch('/api/me', { languages: ['da', 'xx', 'de', 'da'] })).data.user.languages, ['da', 'de']);
   assert.equal((await c.patch('/api/me', { dogYears: 99 })).data.user.dogYears, null); // ungültig → keine Angabe
   await c.patch('/api/me', { dogYears: 4 });
   const s1 = await openStream(anna);
   await c.post('/api/live', { status: 'offen', lat: 54.8, lng: 9.3 });
   let ev = await s1.waitFor((e) => e.type === 'live' && e.data.some((p) => p.id === u.id));
   assert.equal(ev.data.find((p) => p.id === u.id).dogBreed, 'Labrador Retriever');
+  assert.deepEqual(ev.data.find((p) => p.id === u.id).languages, ['da', 'de']);
   await c.patch('/api/me', { showDog: false });
   await c.post('/api/live', { status: 'offen', lat: 54.8, lng: 9.3 });
   ev = await s1.waitFor((e) => e.type === 'live' && e.data.some((p) => p.id === u.id && p.dogBreed === ''));

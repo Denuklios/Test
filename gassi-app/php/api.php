@@ -84,6 +84,7 @@ function db(): PDO {
     if (!in_array('dog_breed', $cols, true)) $pdo->exec("ALTER TABLE users ADD COLUMN dog_breed TEXT NOT NULL DEFAULT ''");
     if (!in_array('dog_years', $cols, true)) $pdo->exec('ALTER TABLE users ADD COLUMN dog_years INTEGER');
     if (!in_array('show_dog', $cols, true)) $pdo->exec('ALTER TABLE users ADD COLUMN show_dog INTEGER NOT NULL DEFAULT 1');
+    if (!in_array('languages', $cols, true)) $pdo->exec("ALTER TABLE users ADD COLUMN languages TEXT NOT NULL DEFAULT ''");
     return $pdo;
 }
 
@@ -99,7 +100,7 @@ function publicUser(?array $u): ?array {
     if (!$u) return null;
     return ['id' => $u['id'], 'email' => $u['email'], 'name' => $u['name'], 'dog' => $u['dog'], 'dogAge' => $u['dog_age'],
         'dogBreed' => $u['dog_breed'] ?? '', 'dogYears' => isset($u['dog_years']) ? (int) $u['dog_years'] : null,
-        'showDog' => !isset($u['show_dog']) || (int) $u['show_dog'] === 1, 'createdAt' => $u['created_at']];
+        'showDog' => !isset($u['show_dog']) || (int) $u['show_dog'] === 1, 'languages' => langList($u['languages'] ?? ''), 'createdAt' => $u['created_at']];
 }
 
 function isHttps(): bool {
@@ -169,6 +170,7 @@ function validateProfile(array $b, bool $partial = false): array {
         $out['dog_years'] = is_int($y) && $y >= 0 && $y <= 25 ? $y : null;
     }
     if (!$partial || array_key_exists('showDog', $b)) $out['show_dog'] = (($b['showDog'] ?? true) === false) ? 0 : 1;
+    if (!$partial || array_key_exists('languages', $b)) $out['languages'] = implode(',', array_values(array_unique(array_intersect(is_array($b['languages'] ?? null) ? $b['languages'] : [], ['de', 'da', 'en']))));
     return $out;
 }
 
@@ -176,6 +178,8 @@ function validatePassword($pw): void {
     if (!is_string($pw) || strlen($pw) < 8) fail('Das Passwort braucht mindestens 8 Zeichen.');
     if (strlen($pw) > 200) fail('Das Passwort ist zu lang.');
 }
+
+function langList($s): array { return array_values(array_filter(explode(',', (string) $s))); }
 
 function checkPassword(array $u, $pw): bool { return is_string($pw) && password_verify($pw, $u['pw']); }
 
@@ -290,21 +294,21 @@ function routeExists(string $id): bool {
 // ---------- Live ----------
 
 const DEMO_WALKERS = [
-    ['id' => 'demo-mette', 'name' => 'Mette', 'dog' => 'Bella', 'dogBreed' => 'Labrador Retriever', 'dogYears' => 4, 'status' => 'offen', 'route' => 'froeslev-hundeskov', 'speed' => 1.2, 'offset' => 300, 'reverse' => false],
-    ['id' => 'demo-lars', 'name' => 'Lars', 'dog' => 'Rufus', 'dogBreed' => 'Deutscher Schäferhund', 'dogYears' => 7, 'status' => 'abstand', 'route' => 'froeslev-hundeskov', 'speed' => 1.1, 'offset' => 1800, 'reverse' => true],
-    ['id' => 'demo-sofie', 'name' => 'Sofie', 'dog' => 'Molly', 'dogBreed' => 'Dackel', 'dogYears' => 3, 'status' => 'neutral', 'route' => 'gendarmstien-kollund', 'speed' => 1.3, 'offset' => 900, 'reverse' => false],
-    ['id' => 'demo-henrik', 'name' => 'Henrik', 'dog' => 'Bamse', 'dogBreed' => 'Berner Sennenhund', 'dogYears' => 9, 'status' => 'abstand', 'route' => 'gendarmstien-kollund', 'speed' => 1.0, 'offset' => 3200, 'reverse' => false],
-    ['id' => 'demo-freja', 'name' => 'Freja', 'dog' => 'Luna', 'dogBreed' => 'Border Collie', 'dogYears' => 2, 'status' => 'offen', 'route' => 'hundeskov-torp', 'speed' => 1.2, 'offset' => 400, 'reverse' => false],
+    ['id' => 'demo-mette', 'name' => 'Mette', 'dog' => 'Bella', 'dogBreed' => 'Labrador Retriever', 'dogYears' => 4, 'languages' => ['da', 'de'], 'status' => 'offen', 'route' => 'froeslev-hundeskov', 'speed' => 1.2, 'offset' => 300, 'reverse' => false],
+    ['id' => 'demo-lars', 'name' => 'Lars', 'dog' => 'Rufus', 'dogBreed' => 'Deutscher Schäferhund', 'dogYears' => 7, 'languages' => ['da'], 'status' => 'abstand', 'route' => 'froeslev-hundeskov', 'speed' => 1.1, 'offset' => 1800, 'reverse' => true],
+    ['id' => 'demo-sofie', 'name' => 'Sofie', 'dog' => 'Molly', 'dogBreed' => 'Dackel', 'dogYears' => 3, 'languages' => ['de'], 'status' => 'neutral', 'route' => 'gendarmstien-kollund', 'speed' => 1.3, 'offset' => 900, 'reverse' => false],
+    ['id' => 'demo-henrik', 'name' => 'Henrik', 'dog' => 'Bamse', 'dogBreed' => 'Berner Sennenhund', 'dogYears' => 9, 'languages' => ['da', 'en'], 'status' => 'abstand', 'route' => 'gendarmstien-kollund', 'speed' => 1.0, 'offset' => 3200, 'reverse' => false],
+    ['id' => 'demo-freja', 'name' => 'Freja', 'dog' => 'Luna', 'dogBreed' => 'Border Collie', 'dogYears' => 2, 'languages' => ['da', 'de', 'en'], 'status' => 'offen', 'route' => 'hundeskov-torp', 'speed' => 1.2, 'offset' => 400, 'reverse' => false],
 ];
 
 function liveSnapshot(): array {
     q('DELETE FROM live WHERE at < ?', [time() - LIVE_TTL]);
-    $rows = q('SELECT l.*, u.name, u.dog, u.dog_breed, u.dog_years, u.show_dog FROM live l JOIN users u ON u.id = l.user_id')->fetchAll();
+    $rows = q('SELECT l.*, u.name, u.dog, u.dog_breed, u.dog_years, u.show_dog, u.languages FROM live l JOIN users u ON u.id = l.user_id')->fetchAll();
     $people = [];
     foreach ($rows as $r) {
         $show = (int) $r['show_dog'] === 1;
         $people[] = ['id' => $r['user_id'], 'name' => $r['name'], 'dog' => $r['dog'], 'status' => $r['status'], 'lat' => (float) $r['lat'], 'lng' => (float) $r['lng'], 'at' => (int) $r['at'] * 1000,
-            'dogBreed' => $show ? $r['dog_breed'] : '', 'dogYears' => $show && $r['dog_years'] !== null ? (int) $r['dog_years'] : null];
+            'dogBreed' => $show ? $r['dog_breed'] : '', 'dogYears' => $show && $r['dog_years'] !== null ? (int) $r['dog_years'] : null, 'languages' => langList($r['languages'])];
     }
     if (getenv('GASSI_DEMO_WALKERS') !== '0') {
         $now = microtime(true);
@@ -315,7 +319,7 @@ function liveSnapshot(): array {
                 $d = fmod($w['offset'] + $now * $w['speed'], $len);
                 if ($w['reverse']) $d = $len - $d;
                 $p = pointAlong($route['points'], $d);
-                $people[] = ['id' => $w['id'], 'name' => $w['name'], 'dog' => $w['dog'], 'dogBreed' => $w['dogBreed'], 'dogYears' => $w['dogYears'], 'status' => $w['status'], 'lat' => $p[0], 'lng' => $p[1], 'at' => (int) ($now * 1000), 'demo' => true];
+                $people[] = ['id' => $w['id'], 'name' => $w['name'], 'dog' => $w['dog'], 'dogBreed' => $w['dogBreed'], 'dogYears' => $w['dogYears'], 'languages' => $w['languages'], 'status' => $w['status'], 'lat' => $p[0], 'lng' => $p[1], 'at' => (int) ($now * 1000), 'demo' => true];
             }
         }
     }
@@ -345,8 +349,8 @@ try {
             if (q('SELECT 1 FROM users WHERE email = ?', [$email])->fetch()) fail('Für diese E-Mail-Adresse gibt es schon ein Konto. Melde dich stattdessen an.', 409);
             $user = ['id' => 'u-' . uuid(), 'email' => $email, 'name' => $prof['name'], 'dog' => $prof['dog'], 'dog_age' => $prof['dog_age'],
                 'pw' => password_hash($b['password'], PASSWORD_DEFAULT), 'created_at' => nowIso(),
-                'dog_breed' => $prof['dog_breed'], 'dog_years' => $prof['dog_years'], 'show_dog' => $prof['show_dog']];
-            q('INSERT INTO users (id, email, name, dog, dog_age, pw, created_at, dog_breed, dog_years, show_dog) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', array_values($user));
+                'dog_breed' => $prof['dog_breed'], 'dog_years' => $prof['dog_years'], 'show_dog' => $prof['show_dog'], 'languages' => $prof['languages']];
+            q('INSERT INTO users (id, email, name, dog, dog_age, pw, created_at, dog_breed, dog_years, show_dog, languages) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)', array_values($user));
             createSession($user);
             out(['user' => publicUser($user)], 201);
         }
@@ -486,14 +490,14 @@ try {
     if ($p0 === 'meetups') {
         $user = requireUser();
         $meetupJson = function (array $m) use ($user): array {
-            $mem = q('SELECT mm.user_id, mm.last_read, u.name, u.dog FROM meetup_members mm JOIN users u ON u.id = mm.user_id WHERE mm.meetup_id = ? ORDER BY u.name', [$m['id']])->fetchAll();
+            $mem = q('SELECT mm.user_id, mm.last_read, u.name, u.dog, u.languages FROM meetup_members mm JOIN users u ON u.id = mm.user_id WHERE mm.meetup_id = ? ORDER BY u.name', [$m['id']])->fetchAll();
             $mine = null;
             foreach ($mem as $x) if ($x['user_id'] === $user['id']) $mine = $x;
             $unread = $mine ? (int) q('SELECT COUNT(*) FROM messages WHERE meetup_id = ? AND id > ? AND user_id != ?', [$m['id'], (int) $mine['last_read'], $user['id']])->fetchColumn() : 0;
             $creator = q('SELECT name, dog FROM users WHERE id = ?', [$m['creator_id']])->fetch() ?: ['name' => 'Anonym', 'dog' => ''];
             return ['id' => $m['id'], 'routeId' => $m['route_id'], 'routeName' => $m['route_name'], 'lat' => (float) $m['lat'], 'lng' => (float) $m['lng'],
                 'startsAt' => $m['starts_at'], 'note' => $m['note'], 'creatorId' => $m['creator_id'], 'creatorName' => $creator['name'], 'creatorDog' => $creator['dog'],
-                'members' => array_map(function ($x) { return ['id' => $x['user_id'], 'name' => $x['name'], 'dog' => $x['dog']]; }, $mem),
+                'members' => array_map(function ($x) { return ['id' => $x['user_id'], 'name' => $x['name'], 'dog' => $x['dog'], 'languages' => langList($x['languages'])]; }, $mem),
                 'joined' => (bool) $mine, 'unread' => $unread];
         };
         $find = function (string $id): array {

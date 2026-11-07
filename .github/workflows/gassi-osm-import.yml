@@ -12,7 +12,7 @@ on:
     branches: ['claude/dog-walking-routes-ounny2']
 
 concurrency:
-  group: webspace-upload
+  group: gassi-osm-import
   cancel-in-progress: false
 
 env:
@@ -22,18 +22,33 @@ jobs:
   import:
     if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[osm-import]')
     runs-on: ubuntu-latest
-    timeout-minutes: 150
+    timeout-minutes: 330
     steps:
       - uses: actions/checkout@v4
+
+      - name: Zwischenspeicher früherer Läufe holen
+        uses: actions/cache/restore@v4
+        with:
+          path: ~/.cache/gassi-osm
+          key: gassi-osm-${{ github.run_id }}
+          restore-keys: gassi-osm-
 
       - name: Runden aus OpenStreetMap holen
         env:
           OVERPASS: https://overpass-api.de/api/interpreter
           OSM_PAUSE: '2'
+          OSM_BUDGET_MIN: '270'
         run: |
           python3 -u gassi-app/tools/import-osm.py
           cat gassi-app/public/data/osm/index.json
           du -sh gassi-app/public/data/osm
+
+      - name: Zwischenspeicher sichern (auch bei Abbruch)
+        if: always()
+        uses: actions/cache/save@v4
+        with:
+          path: ~/.cache/gassi-osm
+          key: gassi-osm-${{ github.run_id }}
 
       - name: Ergebnis aufheben
         uses: actions/upload-artifact@v4

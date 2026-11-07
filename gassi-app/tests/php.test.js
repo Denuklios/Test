@@ -136,8 +136,10 @@ test('PHP: Rasse und Alter nur sichtbar wenn freigegeben', opts, async () => {
   const u = (await c.post('auth/register', { email: 'rasse@example.de', password: 'geheim123', name: 'Rita', dogBreed: 'Mops', dogYears: 3 })).data.user;
   assert.equal(u.dogBreed, 'Mops');
   assert.equal(u.showDog, true);
+  assert.deepEqual((await c.patch('me', { languages: ['en', 'da', 'zz'] })).data.user.languages, ['en', 'da']);
   await c.post('live', { status: 'offen', lat: 54.8, lng: 9.3 });
   assert.equal((await anna.get('live/poll')).data.people.find((p) => p.id === u.id).dogYears, 3);
+  assert.deepEqual((await anna.get('live/poll')).data.people.find((p) => p.id === u.id).languages, ['en', 'da']);
   assert.equal((await c.patch('me', { showDog: false })).data.user.showDog, false);
   assert.equal((await anna.get('live/poll')).data.people.find((p) => p.id === u.id).dogBreed, '');
   await c.del('me', { password: 'geheim123' });

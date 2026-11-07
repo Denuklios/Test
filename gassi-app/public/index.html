@@ -225,6 +225,14 @@
       </details>
 
       <details>
+        <summary>Treffen</summary>
+        <ul>
+          <li>Öffne eine Runde und tippe auf <b>Treffen vorschlagen</b>: Tag, Uhrzeit und eine Notiz. Treffpunkt ist der Start der Runde.</li>
+          <li>Im Reiter <b>Treffen</b> siehst du deine Treffen und die in der Nähe. Mit „Ich bin dabei“ machst du mit und kannst im <b>Chat</b> schreiben. Neue Nachrichten zeigt eine Zahl am Reiter.</li>
+        </ul>
+      </details>
+
+      <details>
         <summary>Wetter</summary>
         <ul>
           <li>Tippe oben auf die <b>Temperatur</b>: Du siehst Temperatur, Regen und Wind für jetzt und die nächsten 3 Stunden.</li>
@@ -235,7 +243,7 @@
       <details>
         <summary>Profil &amp; Konto</summary>
         <ul>
-          <li>Oben rechts kommst du zu deinem Profil: Vorname, Name, <b>Rasse</b> (bei Mischlingen mit zwei Rassen) und <b>Alter</b> deines Hundes. Ob andere Rasse und Alter sehen, entscheidest du selbst.</li>
+          <li>Oben rechts kommst du zu deinem Profil: Vorname, Name, <b>Rasse</b> (bei Mischlingen mit zwei Rassen) und <b>Alter</b> deines Hundes, die <b>Sprachen</b>, die du sprichst, und die <b>Sprache der App</b> (Deutsch, Dänisch, Englisch). Ob andere Rasse und Alter sehen, entscheidest du selbst.</li>
           <li>Unter <b>Meine Spaziergänge</b> findest du alle aufgezeichneten Runden mit Kilometern und Zeit.</li>
           <li>Dort kannst du auch das Passwort ändern, dich abmelden oder dein Konto mit allen Daten löschen.</li>
           <li>Der <b>Demo-Modus</b> simuliert das GPS zum Ausprobieren am Schreibtisch.</li>
@@ -317,7 +325,10 @@
   <!-- Anmelden / Registrieren -->
   <dialog id="auth-dialog" class="dialog">
     <form id="auth-form" novalidate>
-      <h2 id="auth-title">Anmelden</h2>
+      <div class="auth-top"><h2 id="auth-title">Anmelden</h2>
+        <div class="lang-switch" role="group" aria-label="Sprache" data-no-i18n>
+          <button type="button" data-lang="de">DE</button><button type="button" data-lang="da">DA</button><button type="button" data-lang="en">EN</button>
+        </div></div>
       <p class="hint" id="auth-reason"></p>
       <div class="auth-info">
         <span class="info-badge static" aria-hidden="true">i</span>
@@ -353,6 +364,14 @@
           </label>
         </div>
         <label class="switch"><input type="checkbox" id="reg-show" checked> <span>Rasse und Alter für andere sichtbar</span></label>
+        <fieldset class="lang-box">
+          <legend>Ich spreche</legend>
+          <div class="lang-checks">
+            <label><input type="checkbox" class="lang-check" id="reg-lang-de" value="de"> 🇩🇪 Deutsch</label>
+            <label><input type="checkbox" class="lang-check" id="reg-lang-da" value="da"> 🇩🇰 Dansk</label>
+            <label><input type="checkbox" class="lang-check" id="reg-lang-en" value="en"> 🇬🇧 English</label>
+          </div>
+        </fieldset>
         <p class="hint">Rasse und Alter sind freiwillig. Andere sehen nie deine E-Mail-Adresse.</p>
       </div>
       <p class="form-error" id="auth-error" hidden></p>
@@ -389,6 +408,17 @@
           </label>
         </div>
         <label class="switch"><input type="checkbox" id="me-show" checked> <span>Rasse und Alter für andere sichtbar</span></label>
+        <fieldset class="lang-box">
+          <legend>Ich spreche</legend>
+          <div class="lang-checks">
+            <label><input type="checkbox" class="lang-check" id="me-lang-de" value="de"> 🇩🇪 Deutsch</label>
+            <label><input type="checkbox" class="lang-check" id="me-lang-da" value="da"> 🇩🇰 Dansk</label>
+            <label><input type="checkbox" class="lang-check" id="me-lang-en" value="en"> 🇬🇧 English</label>
+          </div>
+        </fieldset>
+      <label class="field">Sprache der App
+        <select id="me-lang"><option value="de">Deutsch</option><option value="da">Dansk</option><option value="en">English</option></select>
+      </label>
       <label class="switch"><input type="checkbox" id="me-simulate"> <span>Demo-Modus: GPS simulieren (zum Ausprobieren am Schreibtisch)</span></label>
       <h3 class="list-title">Meine Spaziergänge</h3>
       <ul class="history" id="history"></ul>
