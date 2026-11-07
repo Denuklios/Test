@@ -538,7 +538,7 @@ async function startWalk(guide = null, resume = false) {
 
   $('#browse').hidden = true; $('#save-form').hidden = true; $('#recording').hidden = false;
   $('#sheet').classList.remove('expanded', 'collapsed'); $('#sheet').classList.add('fit');
-  $('#start-btn').hidden = true;
+  setFab('recording');
   $('#rec-guide').textContent = guide ? `Du läufst: ${guide.name}` : 'Eigene Runde';
   syncStatusInputs();
   setPauseUi();
@@ -681,6 +681,7 @@ function stopWalk(silent = false) {
 }
 
 function showSaveForm() {
+  setFab('hidden');
   const { ms, meters, guide } = rec.result;
   $('#save-summary').innerHTML = `<b>${formatKm(meters)} km</b> in <b>${formatDuration(ms)}</b>${guide ? ` auf „${esc(guide.name)}“` : ''}.`;
   $('#sv-share').checked = !guide; // nachgelaufene Runden nicht doppelt anlegen
@@ -745,7 +746,7 @@ function resetAfterWalk() {
   recLine?.remove(); guideLine?.remove();
   recLine = null; guideLine = null;
   $('#save-form').hidden = true; $('#recording').hidden = true;
-  $('#browse').hidden = false; $('#start-btn').hidden = false;
+  $('#browse').hidden = false; setFab('idle');
   $('#sheet').classList.remove('fit', 'collapsed');
   if (me.simulate) { state.myPos = null; meMarker?.remove(); meMarker = null; $('#banner').hidden = true; }
   state.view === 'detail' ? renderDetail() : renderList();
@@ -1063,14 +1064,45 @@ function toast(text, action = null, ms = 5000) {
   el.innerHTML = `<p>${esc(text)}</p>${action ? `<button class="btn small" id="toast-action">${esc(action.label)}</button>` : ''}`;
   if (action) $('#toast-action').onclick = () => { el.hidden = true; action.fn(); };
   // Über dem unteren Fenster anzeigen (auf dem Handy), damit nichts verdeckt wird
-  el.style.bottom = innerWidth < 900 ? `${$('#sheet').getBoundingClientRect().height + 12}px` : '';
+  el.style.bottom = innerWidth < 900 ? `${$('#sheet').getBoundingClientRect().height + 88}px` : '';
   el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, ms);
 }
 
 // ---------- Ereignisse ----------
-$('#start-btn').onclick = () => requireLogin('Melde dich an, um Spaziergänge aufzuzeichnen und Runden zu teilen.', () => startWalk(null));
+// Start/Stopp-Knopf: erster Tipp fährt ihn aus, zweiter startet bzw. beendet
+let fabTimer = null;
+function setFab(mode) {
+  const b = $('#start-btn');
+  clearTimeout(fabTimer);
+  b.classList.remove('open');
+  b.hidden = mode === 'hidden';
+  b.classList.toggle('recording', mode === 'recording');
+  const label = mode === 'recording' ? 'Spaziergang beenden' : 'Spaziergang starten';
+  b.querySelector('.fab-label').textContent = label;
+  b.setAttribute('aria-label', label);
+}
+$('#start-btn').onclick = () => {
+  const b = $('#start-btn');
+  if (!b.classList.contains('open')) {
+    b.classList.add('open');
+    clearTimeout(fabTimer);
+    fabTimer = setTimeout(() => b.classList.remove('open'), 4000);
+    return;
+  }
+  clearTimeout(fabTimer);
+  b.classList.remove('open');
+  if (rec.active) stopWalk();
+  else requireLogin('Melde dich an, um Spaziergänge aufzuzeichnen und Runden zu teilen.', () => startWalk(null));
+};
+// Knopf sitzt immer knapp über dem unteren Fenster
+function placeFab() {
+  document.documentElement.style.setProperty('--fab-bottom', innerWidth < 900 ? `${Math.round($('#sheet').getBoundingClientRect().height) + 14}px` : '28px');
+}
+new ResizeObserver(placeFab).observe($('#sheet'));
+addEventListener('resize', placeFab);
+placeFab();
 $('#pause-btn').onclick = togglePause;
 $('#stop-btn').onclick = () => stopWalk();
 $('#save-form').onsubmit = saveWalk;

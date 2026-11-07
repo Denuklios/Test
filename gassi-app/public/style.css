@@ -122,14 +122,21 @@ button, input, select, textarea { font: inherit; color: inherit; }
 
 /* ---------- Start-Knopf ---------- */
 .start-fab {
-  position: fixed; z-index: 550; left: 50%; transform: translateX(-50%);
-  bottom: calc(var(--sheet-h, 46dvh) + 14px);
-  display: flex; align-items: center; gap: 10px; border: 0; cursor: pointer;
-  padding: 12px 22px; border-radius: 999px; background: var(--rec); color: #fff; box-shadow: var(--shadow);
+  position: fixed; z-index: 550; right: max(16px, env(safe-area-inset-right, 0px));
+  bottom: var(--fab-bottom, calc(46dvh + 14px));
+  display: flex; align-items: center; height: 62px; padding: 0; border: 0; cursor: pointer; overflow: hidden;
+  border-radius: 31px; background: var(--rec); color: #fff; box-shadow: var(--shadow), 0 0 0 4px rgb(255 255 255 / 0.55);
   font: 700 19px/1 var(--font-display); text-transform: uppercase; letter-spacing: 0.03em; white-space: nowrap;
 }
-.start-fab .dot, .rec-badge .dot { width: 12px; height: 12px; border-radius: 50%; background: currentColor; }
-.start-fab .dot { background: #fff; box-shadow: 0 0 0 4px rgb(255 255 255 / 0.3); }
+.start-fab .fab-label { max-width: 0; opacity: 0; padding-left: 0; transition: max-width 0.28s ease, opacity 0.2s ease, padding 0.28s ease; overflow: hidden; }
+.start-fab.open .fab-label { max-width: 280px; opacity: 1; padding-left: 22px; }
+.start-fab .fab-icon { width: 62px; height: 62px; flex: none; display: grid; place-items: center; }
+.start-fab .fab-icon i { width: 22px; height: 22px; border-radius: 50%; background: #fff; transition: border-radius 0.25s ease, width 0.25s, height 0.25s; }
+/* Während der Aufnahme: Stopp-Quadrat, sanftes Pulsieren */
+.start-fab.recording .fab-icon i { width: 20px; height: 20px; border-radius: 4px; }
+.start-fab.recording { animation: fab-pulse 2s ease-in-out infinite; }
+@keyframes fab-pulse { 50% { box-shadow: var(--shadow), 0 0 0 9px rgb(217 79 69 / 0.25); } }
+.rec-badge .dot { width: 12px; height: 12px; border-radius: 50%; background: currentColor; }
 
 /* ---------- Unteres Fenster ---------- */
 .sheet {
@@ -398,7 +405,7 @@ legend, .label { font-weight: 700; margin: 0 0 6px; padding: 0; }
   }
   body, body:has(.sheet.expanded), body:has(.sheet.collapsed) { --sheet-h: 0px; }
   .sheet-handle { display: none; }
-  .start-fab { left: calc(424px + (100% - 424px) / 2); bottom: 28px; }
+  .start-fab { bottom: 28px; }
 }
 
 /* Schmale Bildschirme oder große Systemschrift: Kopfzeile kompakt */
@@ -412,6 +419,8 @@ legend, .label { font-weight: 700; margin: 0 0 6px; padding: 0; }
 @media (prefers-reduced-motion: reduce) {
   .sheet { transition: none; }
   .rec-badge .dot { animation: none; }
+  .start-fab.recording { animation: none; }
+  .start-fab .fab-label, .start-fab .fab-icon i { transition: none; }
 }
 
 /* Konto */
