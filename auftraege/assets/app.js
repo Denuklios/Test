@@ -300,7 +300,7 @@ route(/^\/$/, async () => {
     // offene Anfragen von der Webseite werden automatisch zu Aufträgen mit Status „Angefragt“ (höchstens einmal je Minute prüfen)
     if (Date.now() - (window.__wfInqImport || 0) > 60000) {
       window.__wfInqImport = Date.now();
-      try { const r = await api('inquiries_import', { body: {} }); if (r.imported) toast(t('inq_imported', r.imported)); } catch (e) { /* Webseite nicht erreichbar: ohne weiter */ }
+      try { const r = await api('inquiries_import', { body: {} }); if (r.imported) inqImportedPopup(r.orders || []); } catch (e) { /* Webseite nicht erreichbar: ohne weiter */ }
     }
     const { orders } = await api('orders', { params });
     if (!orders.length) { list.replaceChildren(h('div', { class: 'empty' }, t('no_orders'))); return; }
@@ -342,6 +342,22 @@ route(/^\/$/, async () => {
     if (n && location.hash.replace(/^#/, '') in { '': 1, '/': 1 }) view().prepend(h('a', { class: 'alertbar', href: '#/tax' }, h('span', {}, t0.warnings.some((w) => w.level === 'bad') ? '⛔' : '⚠'), h('span', {}, t('alert_tax', n)), h('b', { style: 'margin-left:auto' }, '→')));
   }).catch(() => {});
 });
+
+// Hinweisfenster: neue Website-Anfragen wurden als Aufträge übernommen (schließt nur per Knopf)
+function inqImportedPopup(list) {
+  if (document.getElementById('inqPop')) return;
+  const close = () => m.remove();
+  const m = h('div', { class: 'modal', id: 'inqPop' },
+    h('div', { class: 'sheet', style: 'max-width:520px' },
+      h('div', { style: 'font-size:2.2rem;line-height:1;margin-bottom:6px' }, '✉️'),
+      h('h2', { style: 'margin:0 0 6px' }, t('inq_pop_h', list.length)),
+      h('p', { class: 'muted', style: 'margin:0 0 12px' }, t('inq_pop_text')),
+      h('div', { class: 'grid', style: 'grid-template-columns:minmax(0,1fr);gap:6px;max-height:50vh;overflow:auto' },
+        list.map((o) => h('a', { class: 'mrow', href: `#/order/${o.id}`, onclick: close, style: 'display:block;padding:10px 12px;border:1px solid var(--line);border-radius:12px;text-decoration:none;color:inherit' },
+          h('b', {}, o.title), h('div', { class: 'muted', style: 'font-size:.85rem' }, [o.nr, o.name].filter(Boolean).join(' · '))))),
+      h('div', { class: 'row end', style: 'margin-top:14px' }, h('button', { type: 'button', class: 'btn primary', onclick: close }, t('inq_pop_ok')))));
+  document.body.append(m);
+}
 
 // schmale Zeile je Auftrag: Statusfarbe links, Titel/Kunde, Termin, Menge/Preis, Status, nächster Schritt
 function orderRow(o) {

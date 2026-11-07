@@ -1354,6 +1354,7 @@ try {
             $rows = $site->query("SELECT * FROM inquiries WHERE status IN ('new', 'in_progress') ORDER BY created_at")->fetchAll();
             $done = array_flip(array_map('intval', $db->query('SELECT inquiry_id FROM inquiry_orders')->fetchAll(PDO::FETCH_COLUMN)));
             $made = 0;
+            $list = [];
             foreach ($rows as $q) {
                 $qid = (int)$q['id'];
                 if (isset($done[$qid])) {
@@ -1414,6 +1415,7 @@ try {
                     $db->prepare('INSERT INTO inquiry_orders (inquiry_id, order_id) VALUES (?,?)')->execute([$qid, $oid]);
                     $db->commit();
                     $made++;
+                    $list[] = ['id' => $oid, 'nr' => $nr, 'title' => mb_substr($title, 0, 200), 'name' => (string)$q['name']];
                 } catch (Throwable $e) {
                     $db->rollBack();
                     error_log('auftraege inquiries_import #' . $qid . ': ' . $e->getMessage());
@@ -1422,7 +1424,7 @@ try {
             if ($made) {
                 wf_touch();
             }
-            wf_json(['ok' => true, 'imported' => $made, 'site' => true]);
+            wf_json(['ok' => true, 'imported' => $made, 'orders' => $list, 'site' => true]);
         }
 
         // eine Anfrage von der Webseite (zum Öffnen aus der Benachrichtigung)
