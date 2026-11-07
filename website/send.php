@@ -150,6 +150,22 @@ $logoFile = $konfig ? wf_store_upload('logo', ['jpg', 'png', 'svg'], 15 * 1024 *
 $logoName = $logoFile ? mb_substr(basename((string)($_FILES['logo']['name'] ?? 'logo')), 0, 200) : null;
 $konfigJson = $konfig ? json_encode($konfig, JSON_UNESCAPED_UNICODE) : null;
 
+// Normale Datei aus dem Formular ebenfalls ablegen, damit die Auftrags-App sie an den Auftrag hängen kann
+// (kopieren statt verschieben: die Benachrichtigungs-Mail liest die Datei danach noch einmal)
+function wf_store_customer_file() {
+    $f = $_FILES['file'] ?? null;
+    if (!$f || ($f['error'] ?? 1) !== 0 || $f['size'] > 30 * 1024 * 1024 || !is_uploaded_file($f['tmp_name'])) return null;
+    $ext = strtolower(pathinfo((string)$f['name'], PATHINFO_EXTENSION));
+    if ($ext === 'jpeg') $ext = 'jpg';
+    if (!in_array($ext, ['jpg', 'png', 'gif', 'webp', 'heic', 'pdf', 'svg', 'ai', 'eps', 'psd', 'tif', 'tiff', 'zip'], true)) return null;
+    $dir = __DIR__ . '/anfrage-vorschau';
+    if (!is_dir($dir)) @mkdir($dir, 0750, true);
+    if (!is_file($dir . '/.htaccess')) @file_put_contents($dir . '/.htaccess', "Require all denied\n");
+    $name = bin2hex(random_bytes(12)) . '.' . $ext;
+    return @copy($f['tmp_name'], $dir . '/' . $name) ? $name : null;
+}
+$uploadFile = wf_store_customer_file();
+
 // ─── In Datenbank speichern ────────────────────────────────────────
 $fileName = !empty($_FILES['file']['name']) ? basename($_FILES['file']['name']) : null;
 $mysqli = wf_db_connect();
@@ -174,10 +190,10 @@ if ($mysqli) {
     $stmt->close();
     $now = date('Y-m-d H:i:s');
     $stmt = $mysqli->prepare("
-        INSERT INTO inquiries (created_at, name, email, phone, product, qty, wish_date, message, file_name, lang, status, konfig, preview_file, logo_file, logo_name)
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?)
+        INSERT INTO inquiries (created_at, name, email, phone, product, qty, wish_date, message, file_name, lang, status, konfig, preview_file, logo_file, logo_name, upload_file)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'new', ?, ?, ?, ?, ?)
     ");
-    $stmt->bind_param('ssssssssssssss', $now, $name, $email, $phone, $product, $qty, $date, $message, $fileName, $lang, $konfigJson, $previewFile, $logoFile, $logoName);
+    $stmt->bind_param('sssssssssssssss', $now, $name, $email, $phone, $product, $qty, $date, $message, $fileName, $lang, $konfigJson, $previewFile, $logoFile, $logoName, $uploadFile);
     $stmt->execute();
     $stmt->close();
     $mysqli->close();

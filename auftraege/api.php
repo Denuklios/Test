@@ -125,6 +125,81 @@ function wf_inq_link_table(PDO $db): void
     }
 }
 
+/**
+ * Dateien einer Website-Anfrage an ihren Auftrag hängen: Vorschaubild und Logo aus „Selbst gestalten“,
+ * die normale Datei aus dem Formular und – für ältere Anfragen, deren Datei nur per Mail kam – die Anhänge
+ * der Benachrichtigungs-Mail sowie Mails des Kunden mit Anhang rund um die Anfrage.
+ * Jede Quelle wird nur einmal übernommen (inquiry_att_done), damit gelöschte Dateien nicht wiederkommen.
+ */
+function wf_inq_attach_files(PDO $db, array $q, int $oid): int
+{
+    $db->exec('CREATE TABLE IF NOT EXISTS inquiry_att_done (k TEXT PRIMARY KEY)');
+    $seen = $db->prepare('SELECT 1 FROM inquiry_att_done WHERE k = ?');
+    $mark = $db->prepare('INSERT OR IGNORE INTO inquiry_att_done (k) VALUES (?)');
+    $have = $db->prepare('SELECT size FROM order_files WHERE order_id = ?');
+    $have->execute([$oid]);
+    $sizes = array_flip(array_map('intval', $have->fetchAll(PDO::FETCH_COLUMN)));
+    $up = rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/';
+    $ins = $db->prepare('INSERT INTO order_files (order_id, original_name, stored_name, mime, size) VALUES (?,?,?,?,?)');
+    $added = 0;
+    $add = function (string $key, string $src, string $name, string $mime) use (&$sizes, &$added, $seen, $mark, $up, $ins, $oid) {
+        $seen->execute([$key]);
+        if ($seen->fetchColumn() || !is_file($src)) {
+            return;
+        }
+        $size = (int)filesize($src);
+        if (!isset($sizes[$size])) {
+            $stored = bin2hex(random_bytes(16)) . '.dat';
+            if (!@copy($src, $up . $stored)) {
+                return;
+            }
+            $name = preg_replace('/[^\p{L}\p{N}._ ()-]/u', '_', $name) ?: 'datei';
+            $ins->execute([$oid, mb_substr($name, 0, 200), $stored, $mime, $size]);
+            $sizes[$size] = 1;
+            $added++;
+        }
+        $mark->execute([$key]);
+    };
+    $mimes = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'gif' => 'image/gif', 'webp' => 'image/webp', 'heic' => 'image/heic', 'svg' => 'image/svg+xml',
+        'pdf' => 'application/pdf', 'ai' => 'application/postscript', 'eps' => 'application/postscript', 'psd' => 'image/vnd.adobe.photoshop',
+        'tif' => 'image/tiff', 'tiff' => 'image/tiff', 'zip' => 'application/zip'];
+    $qid = (int)$q['id'];
+    $dir = wf_inquiry_file_dir();
+    $files = [
+        'preview_file' => 'vorschau-anfrage-' . $qid,
+        'logo_file' => pathinfo((string)($q['logo_name'] ?? '') ?: 'logo', PATHINFO_FILENAME),
+        'upload_file' => pathinfo((string)($q['file_name'] ?? '') ?: 'datei', PATHINFO_FILENAME),
+    ];
+    foreach ($files as $col => $base) {
+        $f = (string)($q[$col] ?? '');
+        if ($f !== '' && preg_match('/^[0-9a-f]{24}\.([a-z]{2,4})$/', $f, $m) && isset($mimes[$m[1]])) {
+            $add('s:' . $f, $dir . $f, $base . '.' . $m[1], $mimes[$m[1]]);
+        }
+    }
+    // Anhänge aus dem Postfach (falls das Postfach in der App eingerichtet ist)
+    $email = mb_strtolower(trim((string)($q['email'] ?? '')));
+    $hasMail = (bool)$db->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'mail_atts'")->fetchColumn();
+    if ($email !== '' && $hasMail) {
+        $at = strtotime((string)$q['created_at']) ?: time();
+        $from = gmdate('Y-m-d H:i:s', $at - 14 * 86400);
+        $to = gmdate('Y-m-d H:i:s', $at + 30 * 86400);
+        $like = '%' . str_replace(['%', '_'], ['\\%', '\\_'], $email) . '%';
+        $st = $db->prepare("SELECT a.id, a.name, a.mime, a.size, a.stored_name FROM mail_atts a JOIN mail_msgs m ON m.id = a.msg_id
+            WHERE a.inline = 0 AND m.folder = 'in' AND m.sent_at BETWEEN ? AND ?
+              AND ((m.subject LIKE '%Neue Anfrage%' AND lower(m.body_text) LIKE ? ESCAPE '\\') OR lower(trim(m.from_addr)) = ?)
+            ORDER BY m.sent_at, a.id");
+        $st->execute([$from, $to, $like, $email]);
+        foreach ($st->fetchAll() as $a) {
+            // kleine Bildchen aus Mail-Signaturen auslassen
+            if (str_starts_with((string)$a['mime'], 'image/') && (int)$a['size'] < 15000) {
+                continue;
+            }
+            $add('m:' . (int)$a['id'], wf_mail_dir() . basename((string)$a['stored_name']), (string)$a['name'], (string)$a['mime'] ?: 'application/octet-stream');
+        }
+    }
+    return $added;
+}
+
 function log_order(PDO $db, int $orderId, array $user, string $what): void
 {
     $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([$orderId, $user['name'], $what]);
@@ -1386,7 +1461,7 @@ try {
                     $qty = max(1, min(1000000, (int)preg_replace('/\D/', '', (string)($q['qty'] ?? '')) ?: 1));
                     $due = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($q['wish_date'] ?? '')) ? $q['wish_date'] : null;
                     $note = 'Aus Website-Anfrage #' . $qid . ' vom ' . date('d.m.Y', strtotime((string)$q['created_at']))
-                        . ($q['phone'] ?? '' ? "\nTelefon: " . $q['phone'] : '') . ($q['file_name'] ?? '' ? "\nDatei: " . $q['file_name'] . ' (liegt der Benachrichtigungs-Mail bei)' : '');
+                        . ($q['phone'] ?? '' ? "\nTelefon: " . $q['phone'] : '') . ($q['file_name'] ?? '' ? "\nDatei vom Kunden: " . $q['file_name'] : '');
                     $year = date('Y');
                     $n = (int)$db->query("SELECT COUNT(*) FROM orders WHERE nr LIKE '$year-%'")->fetchColumn() + 1;
                     $ex = $db->prepare('SELECT 1 FROM orders WHERE nr = ?');
@@ -1398,20 +1473,7 @@ try {
                        ->execute([$nr, $cid, mb_substr($title, 0, 200), mb_substr((string)($q['message'] ?? ''), 0, 5000), $prod !== '' ? mb_substr($prod, 0, 300) : '', $qty, 0, 0, $cur, 'open', 'inquiry', $due, 1, mb_substr($note, 0, 5000), '[]', $user['id'] ?: null]);
                     $oid = (int)$db->lastInsertId();
                     log_order($db, $oid, ['name' => 'Webseite'], 'created');
-                    // Vorschaubild und Logo aus „Selbst gestalten“ als Dateien an den Auftrag hängen
-                    $dir = wf_inquiry_file_dir();
-                    foreach (['preview_file' => 'vorschau-anfrage-' . $qid, 'logo_file' => (string)($q['logo_name'] ?? 'logo')] as $col => $name) {
-                        $f = (string)($q[$col] ?? '');
-                        if ($f === '' || !preg_match('/^[0-9a-f]{24}\.(jpg|png|svg)$/', $f, $m) || !is_file($dir . $f)) {
-                            continue;
-                        }
-                        $mime = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'svg' => 'image/svg+xml'][$m[1]];
-                        $stored = bin2hex(random_bytes(16)) . '.dat';
-                        if (@copy($dir . $f, rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/' . $stored)) {
-                            $orig = preg_replace('/[^\p{L}\p{N}._ -]/u', '_', pathinfo($name, PATHINFO_FILENAME)) . '.' . $m[1];
-                            $db->prepare('INSERT INTO order_files (order_id, original_name, stored_name, mime, size) VALUES (?,?,?,?,?)')->execute([$oid, mb_substr($orig, 0, 200), $stored, $mime, (int)filesize($dir . $f)]);
-                        }
-                    }
+                    wf_inq_attach_files($db, $q, $oid);
                     $db->prepare('INSERT INTO inquiry_orders (inquiry_id, order_id) VALUES (?,?)')->execute([$qid, $oid]);
                     $db->commit();
                     $made++;
@@ -1421,10 +1483,28 @@ try {
                     error_log('auftraege inquiries_import #' . $qid . ': ' . $e->getMessage());
                 }
             }
-            if ($made) {
+            // Dateien für schon übernommene Anfragen der letzten 30 Tage nachtragen (z. B. Anhang erst jetzt im Postfach)
+            $files = 0;
+            $byId = [];
+            foreach ($site->query('SELECT * FROM inquiries WHERE created_at > (NOW() - INTERVAL 30 DAY)')->fetchAll() as $q) {
+                $byId[(int)$q['id']] = $q;
+            }
+            if ($byId) {
+                $links = $db->query('SELECT io.inquiry_id, io.order_id FROM inquiry_orders io JOIN orders o ON o.id = io.order_id WHERE o.deleted_at IS NULL')->fetchAll();
+                foreach ($links as $l) {
+                    if (isset($byId[(int)$l['inquiry_id']])) {
+                        try {
+                            $files += wf_inq_attach_files($db, $byId[(int)$l['inquiry_id']], (int)$l['order_id']);
+                        } catch (Throwable $e) {
+                            error_log('auftraege inquiry files #' . $l['inquiry_id'] . ': ' . $e->getMessage());
+                        }
+                    }
+                }
+            }
+            if ($made || $files) {
                 wf_touch();
             }
-            wf_json(['ok' => true, 'imported' => $made, 'orders' => $list, 'site' => true]);
+            wf_json(['ok' => true, 'imported' => $made, 'orders' => $list, 'files' => $files, 'site' => true]);
         }
 
         // eine Anfrage von der Webseite (zum Öffnen aus der Benachrichtigung)

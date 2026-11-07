@@ -65,7 +65,7 @@ function wf_ensure_tables($mysqli) {
         $mysqli->query("ALTER TABLE inquiries ADD COLUMN lang VARCHAR(8) NOT NULL DEFAULT 'de' AFTER file_name");
     }
     // Vorschau-Tool: Auswahl (JSON), Vorschaubild und Logo (Dateien in anfrage-vorschau/)
-    foreach (['konfig' => 'TEXT NULL', 'preview_file' => 'VARCHAR(64) NULL', 'logo_file' => 'VARCHAR(64) NULL', 'logo_name' => 'VARCHAR(255) NULL'] as $col => $def) {
+    foreach (['konfig' => 'TEXT NULL', 'preview_file' => 'VARCHAR(64) NULL', 'logo_file' => 'VARCHAR(64) NULL', 'logo_name' => 'VARCHAR(255) NULL', 'upload_file' => 'VARCHAR(64) NULL'] as $col => $def) {
         $c = $mysqli->query("SHOW COLUMNS FROM inquiries LIKE '$col'");
         if ($c && $c->num_rows === 0) {
             $mysqli->query("ALTER TABLE inquiries ADD COLUMN $col $def");
@@ -548,11 +548,11 @@ function wf_geolocate_ip($ip = null) {
 function wf_privacy_cleanup($mysqli) {
     $mysqli->query("DELETE FROM visits WHERE last_seen < (NOW() - INTERVAL 14 MONTH)");
     // Dateien aus dem Vorschau-Tool mit der Anfrage löschen
-    $old = $mysqli->query("SELECT preview_file, logo_file FROM inquiries WHERE created_at < (NOW() - INTERVAL 12 MONTH) AND (preview_file IS NOT NULL OR logo_file IS NOT NULL)");
+    $old = $mysqli->query("SELECT preview_file, logo_file, upload_file FROM inquiries WHERE created_at < (NOW() - INTERVAL 12 MONTH) AND (preview_file IS NOT NULL OR logo_file IS NOT NULL OR upload_file IS NOT NULL)");
     if ($old) {
         while ($r = $old->fetch_assoc()) {
-            foreach ([$r['preview_file'], $r['logo_file']] as $f) {
-                if ($f && preg_match('/^[0-9a-f]{24}\.(jpg|png|svg)$/', $f)) @unlink(__DIR__ . '/anfrage-vorschau/' . $f);
+            foreach ([$r['preview_file'], $r['logo_file'], $r['upload_file']] as $f) {
+                if ($f && preg_match('/^[0-9a-f]{24}\.[a-z]{2,4}$/', $f)) @unlink(__DIR__ . '/anfrage-vorschau/' . $f);
             }
         }
     }
