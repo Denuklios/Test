@@ -135,10 +135,10 @@ test('PHP: Passwort ändern und Konto löschen', opts, async () => {
   assert.equal((await ben.post('me/password', { current: 'falsch', next: 'neuespasswort' })).status, 403);
   assert.equal((await ben.post('me/password', { current: 'passwort1', next: 'neuespasswort' })).status, 200);
   assert.equal((await ben.get('auth/me')).data.user.id, benId);
-  await ben.post('routes/grunewaldsee/ratings', { stars: 4 });
+  await ben.post('routes/froeslev-hundeskov/ratings', { stars: 4 });
   assert.equal((await ben.del('me', { password: 'falsch' })).status, 403);
   assert.equal((await ben.del('me', { password: 'neuespasswort' })).status, 200);
-  const g = (await client().get('routes')).data.find((x) => x.id === 'grunewaldsee');
+  const g = (await client().get('routes')).data.find((x) => x.id === 'froeslev-hundeskov');
   assert.ok(!g.ratings.some((x) => x.userId === benId));
   assert.equal((await client().post('auth/login', { email: 'ben@example.de', password: 'neuespasswort' })).status, 401);
 });

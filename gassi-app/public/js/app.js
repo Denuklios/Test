@@ -119,7 +119,7 @@ function renderList() {
   };
   el.innerHTML = `
     ${community.length ? `<p class="section-note">Von der Community</p><ul class="route-list">${community.sort(sortByScore).map(card).join('')}</ul>` : ''}
-    <p class="section-note">Vorgefertigte Runden (Beispiele aus Berlin)</p>
+    <p class="section-note">Vorgefertigte Runden rund um Padborg</p>
     <ul class="route-list">${demo.sort(sortByScore).map(card).join('')}</ul>
     <p class="hint">Der Hunde-Score (0–100) bewertet Wasser, Schatten, Untergrund, Straßen, Leinenregel und Mülleimer. Starte selbst einen Spaziergang, um eine eigene Runde hinzuzufügen.</p>`;
   state.listSig = listSignature();

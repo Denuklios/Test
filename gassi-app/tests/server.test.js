@@ -210,13 +210,13 @@ test('Passwort ändern meldet andere Geräte ab', async () => {
 test('Konto löschen entfernt alle Daten', async () => {
   const pts = [[52.5, 13.4], [52.501, 13.4]];
   const r = (await ben.post('/api/routes', { name: 'Bens Runde', points: pts })).data;
-  await ben.post('/api/routes/grunewaldsee/ratings', { stars: 4 });
+  await ben.post('/api/routes/froeslev-hundeskov/ratings', { stars: 4 });
   assert.equal((await ben.del('/api/me', { password: 'falsch' })).status, 403);
   assert.equal((await ben.del('/api/me', { password: 'neuespasswort' })).status, 200);
   assert.equal((await ben.get('/api/auth/me')).data.user, null);
   const routes = (await client().get('/api/routes')).data;
   assert.ok(!routes.some((x) => x.id === r.id));
-  assert.ok(!routes.find((x) => x.id === 'grunewaldsee').ratings.some((x) => x.userId === benId));
+  assert.ok(!routes.find((x) => x.id === 'froeslev-hundeskov').ratings.some((x) => x.userId === benId));
   assert.equal((await client().post('/api/auth/login', { email: 'ben@example.de', password: 'neuespasswort' })).status, 401);
 });
 

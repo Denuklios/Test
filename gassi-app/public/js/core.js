@@ -200,11 +200,11 @@ export const STATUS = {
 
 /** Demo-Spaziergänger, damit die Live-Karte ohne echte Nutzer etwas zeigt. */
 export const DEMO_WALKERS = [
-  { id: 'demo-luna', name: 'Luna', dog: 'Kira', status: 'offen', route: 'grunewaldsee', speed: 1.2, offset: 300 },
-  { id: 'demo-max', name: 'Max', dog: 'Bruno', status: 'abstand', route: 'grunewaldsee', speed: 1.1, offset: 2600, reverse: true },
-  { id: 'demo-sabine', name: 'Sabine', dog: 'Emma', status: 'neutral', route: 'tiergarten', speed: 1.3, offset: 900 },
-  { id: 'demo-tom', name: 'Tom', dog: 'Rocky', status: 'abstand', route: 'tiergarten', speed: 1.0, offset: 2500 },
-  { id: 'demo-jana', name: 'Jana', dog: 'Paul', status: 'offen', route: 'friedrichshain', speed: 1.2, offset: 400 },
+  { id: 'demo-mette', name: 'Mette', dog: 'Bella', status: 'offen', route: 'froeslev-hundeskov', speed: 1.2, offset: 300 },
+  { id: 'demo-lars', name: 'Lars', dog: 'Rufus', status: 'abstand', route: 'froeslev-hundeskov', speed: 1.1, offset: 1800, reverse: true },
+  { id: 'demo-sofie', name: 'Sofie', dog: 'Molly', status: 'neutral', route: 'gendarmstien-kollund', speed: 1.3, offset: 900 },
+  { id: 'demo-henrik', name: 'Henrik', dog: 'Bamse', status: 'abstand', route: 'gendarmstien-kollund', speed: 1.0, offset: 3200 },
+  { id: 'demo-freja', name: 'Freja', dog: 'Luna', status: 'offen', route: 'hundeskov-torp', speed: 1.2, offset: 400 },
 ];
 
 /** Position eines Demo-Spaziergängers zum Zeitpunkt `now` (ms). */
