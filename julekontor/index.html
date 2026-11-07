@@ -1,0 +1,676 @@
+<title>Julekontor</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<meta name="description" content="Julekontor – gammeldags julebutik. Julen er på vej: julekalender, Julemandens brevkasse og vores sortiment.">
+<meta name="theme-color" content="#d3101f">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Yesteryear&family=Barlow+Condensed:wght@500;600;700;800&family=Nunito:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: a red-and-white Christmas advert from the 1950s come to life. Snowy night hero with a convoy of
+   lit-up Julekontor vans; white ribbon waves cut between full-width red, snow-white and midnight bands. */
+:root {
+  --red: #d3101f; --red-deep: #9c0715; --red-ink: #7a0410;
+  --snow: #fbfcff; --snow-2: #eef3fb; --frost: #c9d7ec;
+  --night: #0c1f4d; --night-2: #17357a; --night-3: #071436;
+  --gold: #ffd77a; --pine: #1d5a3c; --ink: #1d1a24; --ink-soft: #565466;
+  --f-script: "Yesteryear", "Brush Script MT", cursive;
+  --f-head: "Barlow Condensed", "Arial Narrow", "Roboto Condensed", sans-serif;
+  --f-body: "Nunito", "Segoe UI", system-ui, sans-serif;
+  --ease: cubic-bezier(.2,.7,.2,1); --bounce: cubic-bezier(.3,1.6,.5,1);
+  color-scheme: light;
+}
+*, *::before, *::after { box-sizing: border-box; }
+html { scroll-behavior: smooth; scroll-padding-top: 76px; }
+body { margin: 0; background: var(--snow); color: var(--ink); font-family: var(--f-body); font-size: 1.05rem; line-height: 1.6; overflow-x: hidden; -webkit-font-smoothing: antialiased; }
+body::before { content: ""; position: fixed; inset: 0 0 auto; height: env(safe-area-inset-top, 0px); z-index: 90; background: var(--red); }
+h1, h2, h3, p { margin: 0; }
+h2, h3 { text-wrap: balance; }
+a { color: inherit; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; border-radius: 6px; }
+.wrap { max-width: 1180px; margin-inline: auto; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+
+/* ---------- buttons ---------- */
+.btn { display: inline-flex; align-items: center; gap: .5em; font: 800 1rem/1 var(--f-body); padding: 1em 1.7em; border-radius: 999px; border: 0; cursor: pointer; text-decoration: none; transition: transform .25s var(--bounce), box-shadow .25s; }
+.btn:hover { transform: translateY(-2px) scale(1.03); }
+.btn:active { transform: scale(.97); }
+.btn-red { background: var(--red); color: #fff; box-shadow: 0 5px 0 var(--red-deep), 0 16px 26px -12px rgba(156,7,21,.7); }
+.btn-white { background: #fff; color: var(--red); box-shadow: 0 5px 0 var(--frost), 0 16px 26px -12px rgba(0,0,0,.5); }
+.btn-ghost { background: transparent; color: #fff; box-shadow: inset 0 0 0 2px rgba(255,255,255,.7); }
+.btn-ghost:hover { box-shadow: inset 0 0 0 2px #fff; }
+
+/* ---------- header ---------- */
+.head { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 60; background: var(--red); color: #fff; box-shadow: 0 6px 20px -10px rgba(0,0,0,.45); }
+.head .wrap { display: flex; align-items: center; justify-content: space-between; gap: 14px; min-height: 66px; }
+.logo { font-family: var(--f-script); font-size: 2.3rem; line-height: 1; text-decoration: none; color: #fff; text-shadow: 0 2px 0 var(--red-deep); padding-top: 4px; }
+.nav { display: flex; gap: clamp(12px, 2vw, 28px); font: 700 1.05rem var(--f-head); letter-spacing: .08em; text-transform: uppercase; }
+.nav a { text-decoration: none; opacity: .92; padding: 6px 0; border-bottom: 2px solid transparent; }
+.nav a:hover { opacity: 1; border-color: #fff; }
+.lang { display: flex; gap: 2px; padding: 3px; border-radius: 999px; background: var(--red-deep); }
+.lang button { font: 700 .82rem/1 var(--f-head); letter-spacing: .1em; padding: .55em .75em; border: 0; border-radius: 999px; background: transparent; color: #ffd9dc; cursor: pointer; }
+.lang button[aria-pressed="true"] { background: #fff; color: var(--red); }
+@media (max-width: 860px) { .nav { display: none; } }
+
+/* ---------- hero ---------- */
+.hero { position: relative; overflow: hidden; color: #fff; padding-top: clamp(40px, 7vw, 84px);
+  background: radial-gradient(900px 420px at 50% 100%, #3c63b8 0, transparent 70%), linear-gradient(180deg, var(--night-3) 0, var(--night) 45%, var(--night-2) 100%); }
+#snow { position: absolute; inset: 0; width: 100%; height: 100%; pointer-events: none; z-index: 5; }
+.stars { position: absolute; inset: 0; pointer-events: none; }
+.stars i { position: absolute; width: 2px; height: 2px; border-radius: 50%; background: #fff; animation: tw 3s ease-in-out infinite; }
+@keyframes tw { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+.moon { position: absolute; right: 9%; top: 9%; width: clamp(54px, 7vw, 96px); aspect-ratio: 1; border-radius: 50%; background: radial-gradient(circle at 38% 36%, #fffbea, #f3e6bf 60%, #d9c995); box-shadow: 0 0 60px 18px rgba(255,240,190,.22); }
+.hero-copy { position: relative; z-index: 4; display: grid; justify-items: center; text-align: center; gap: 14px; }
+.eyebrow { font: 700 clamp(.85rem, .8rem + .3vw, 1.05rem) var(--f-head); letter-spacing: .32em; text-transform: uppercase; color: var(--gold); }
+.hero h1 { font-family: var(--f-script); font-weight: 400; font-size: clamp(3.4rem, 2rem + 7vw, 8rem); line-height: .95; color: #fff; text-shadow: 0 4px 0 var(--red), 0 0 40px rgba(255,255,255,.25); transform: rotate(-3deg); padding-inline: .2em; }
+.hero .lede { max-width: 36rem; font-size: clamp(1.02rem, .95rem + .3vw, 1.18rem); color: #dfe8fb; }
+.count { display: flex; flex-wrap: wrap; justify-content: center; gap: clamp(10px, 2vw, 22px); margin-top: 8px; }
+.cap { position: relative; width: clamp(72px, 9vw, 96px); aspect-ratio: 1; display: grid; place-content: center; text-align: center; }
+.cap::before { content: ""; position: absolute; inset: 0; border-radius: 50%; background: repeating-conic-gradient(var(--red-deep) 0 7.5deg, var(--red) 7.5deg 15deg); }
+.cap::after { content: ""; position: absolute; inset: 7%; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #f0303d, var(--red) 60%, var(--red-deep)); box-shadow: inset 0 0 0 3px rgba(255,255,255,.85), inset 0 0 0 6px var(--red); }
+.cap b, .cap span { position: relative; z-index: 1; }
+.cap b { font: 800 clamp(1.6rem, 1.2rem + 1.4vw, 2.3rem)/1 var(--f-head); font-variant-numeric: tabular-nums; }
+.cap span { font: 700 .66rem/1.2 var(--f-head); letter-spacing: .14em; text-transform: uppercase; }
+.count-note { font: 600 1rem var(--f-body); color: #dfe8fb; }
+.ctas { display: flex; flex-wrap: wrap; justify-content: center; gap: 12px; margin-top: 10px; }
+.land { position: relative; z-index: 3; height: clamp(230px, 30vw, 380px); margin-top: clamp(-10px, -2vw, 0px); }
+.land svg.scape { position: absolute; inset: 0; width: 100%; height: 100%; display: block; }
+.win { animation: win 4s ease-in-out infinite; }
+.win:nth-of-type(3n) { animation-delay: -1.4s; } .win:nth-of-type(3n+1) { animation-delay: -2.6s; }
+@keyframes win { 0%,100% { opacity: .75; } 50% { opacity: 1; } }
+.convoy { position: absolute; z-index: 4; bottom: 6%; left: 0; display: flex; gap: clamp(20px, 4vw, 60px); animation: drive 30s linear infinite; will-change: transform; }
+@keyframes drive { from { transform: translateX(-110%); } to { transform: translateX(100vw); } }
+.convoy:hover { animation-play-state: paused; }
+.van { width: clamp(150px, 19vw, 270px); cursor: pointer; animation: bob .5s ease-in-out infinite alternate; background: none; border: 0; padding: 0; }
+.van:nth-child(2) { animation-delay: -.2s; } .van:nth-child(3) { animation-delay: -.35s; }
+@keyframes bob { to { transform: translateY(-2px); } }
+.van svg { width: 100%; height: auto; display: block; overflow: visible; }
+.van .wheel { transform-box: fill-box; transform-origin: center; animation: spin .7s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
+.van .bulb { animation: bulb 1.2s ease-in-out infinite; }
+.van .bulb:nth-child(2n) { animation-delay: -.6s; }
+@keyframes bulb { 0%,100% { opacity: 1; } 50% { opacity: .3; } }
+.van.honk .bulb { animation-duration: .25s; }
+.bubble { position: fixed; z-index: 95; transform: translate(-50%, -110%); background: #fff; color: var(--red); font: 800 1.05rem var(--f-body); padding: .5em .9em; border-radius: 14px; box-shadow: 0 10px 24px -10px rgba(0,0,0,.6); pointer-events: none; animation: pop .4s var(--bounce) both; }
+@keyframes pop { from { transform: translate(-50%, -80%) scale(.5); opacity: 0; } }
+
+/* ---------- white ribbon dividers ---------- */
+.ribbon { display: block; width: 100%; height: clamp(46px, 7vw, 100px); }
+
+/* ---------- section titles ---------- */
+.title { display: grid; justify-items: center; text-align: center; gap: 6px; margin: 0 auto clamp(28px, 4vw, 46px); max-width: 44rem; }
+.title .script { font-family: var(--f-script); font-size: clamp(1.9rem, 1.4rem + 1.8vw, 2.9rem); line-height: 1; color: var(--red); transform: rotate(-2deg); }
+.title h2 { font: 800 clamp(2.2rem, 1.5rem + 3vw, 3.9rem)/1 var(--f-head); letter-spacing: .02em; text-transform: uppercase; color: var(--ink); }
+.title p { color: var(--ink-soft); font-size: 1.1rem; margin-top: 6px; }
+.on-red .title .script { color: #fff; } .on-red .title h2 { color: #fff; } .on-red .title p { color: #ffdfe2; }
+.on-night .title .script { color: var(--gold); } .on-night .title h2 { color: #fff; } .on-night .title p { color: #c9d7ec; }
+.band { padding-block: clamp(56px, 8vw, 104px); }
+
+/* ---------- shop (red band) ---------- */
+.on-red { background: radial-gradient(1000px 500px at 50% 0, #ec2433, transparent 70%), var(--red); color: #fff; }
+.cards { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: clamp(14px, 2.4vw, 26px); }
+@media (max-width: 860px) { .cards { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 480px) { .cards { grid-template-columns: minmax(0, 1fr); } }
+.card { background: #fff; color: var(--ink); border-radius: 18px; padding: 22px 22px 24px; display: grid; gap: 8px; align-content: start; box-shadow: inset 0 0 0 3px #fff, inset 0 0 0 5px var(--red), 0 22px 40px -22px rgba(60,0,8,.75); transition: transform .35s var(--bounce); }
+.card:hover { transform: translateY(-6px) rotate(-1deg); }
+.card .art { height: 130px; display: grid; place-items: center; border-radius: 12px; background: radial-gradient(circle at 50% 60%, var(--snow-2), #fff 70%); }
+.card .art svg { height: 112px; width: auto; overflow: visible; }
+.card:hover .art svg { animation: wob .9s var(--ease); }
+@keyframes wob { 0%,100% { transform: rotate(0); } 25% { transform: rotate(-8deg); } 55% { transform: rotate(6deg); } 80% { transform: rotate(-2deg); } }
+.card h3 { font: 800 1.6rem/1.1 var(--f-head); text-transform: uppercase; letter-spacing: .03em; color: var(--red); }
+.card p { color: var(--ink-soft); }
+.about { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(18px, 4vw, 48px); margin-top: clamp(40px, 6vw, 70px); color: #ffe9eb; font-size: 1.1rem; }
+.about p:first-child::first-letter { font-family: var(--f-script); font-size: 3.6em; float: left; line-height: .8; padding: .08em .1em 0 0; color: #fff; }
+@media (max-width: 760px) { .about { grid-template-columns: minmax(0, 1fr); } }
+
+/* ---------- Santa (snow band) ---------- */
+.santa { display: grid; grid-template-columns: minmax(0, .9fr) minmax(0, 1.1fr); gap: clamp(22px, 5vw, 60px); align-items: center; }
+@media (max-width: 860px) { .santa { grid-template-columns: minmax(0, 1fr); } }
+.portrait { position: relative; width: min(400px, 88%); aspect-ratio: 1; justify-self: center; border-radius: 50%; cursor: pointer; border: 0; padding: 0;
+  background: radial-gradient(circle at 50% 40%, #fff, var(--snow-2) 60%, var(--frost)); box-shadow: 0 0 0 10px #fff, 0 0 0 14px var(--red), 0 40px 60px -30px rgba(12,31,77,.6); }
+.portrait svg { position: absolute; inset: 0; width: 100%; height: 100%; }
+.portrait.ho svg { animation: ho .9s var(--ease); }
+@keyframes ho { 0%,100% { transform: none; } 25% { transform: rotate(-5deg) translateY(-6px); } 55% { transform: rotate(4deg); } }
+.chat { background: #fff; border-radius: 22px; box-shadow: 0 0 0 1px var(--frost), 0 30px 60px -30px rgba(12,31,77,.45); display: flex; flex-direction: column; overflow: hidden; min-width: 0; }
+.chat-head { background: var(--red); color: #fff; padding: 14px 20px; display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; }
+.chat-head b { font-family: var(--f-script); font-weight: 400; font-size: 1.9rem; line-height: 1; }
+.chat-head span { font: 600 .8rem var(--f-head); letter-spacing: .14em; text-transform: uppercase; color: #ffd9dc; }
+.log { height: 300px; overflow-y: auto; padding: 18px; display: flex; flex-direction: column; gap: 12px; background: linear-gradient(180deg, var(--snow-2), #fff 30%); overscroll-behavior: contain; }
+.msg { max-width: 86%; padding: .65em 1em; border-radius: 18px; line-height: 1.45; overflow-wrap: anywhere; white-space: pre-wrap; }
+.msg.s { align-self: flex-start; background: #fff; box-shadow: 0 0 0 1.5px var(--frost); border-bottom-left-radius: 4px; }
+.msg.s::before { content: "Julemanden"; display: block; font: 700 .72rem var(--f-head); letter-spacing: .12em; text-transform: uppercase; color: var(--red); }
+.msg.u { align-self: flex-end; background: var(--night); color: #fff; border-bottom-right-radius: 4px; }
+.msg.typing { color: var(--ink-soft); font-style: italic; }
+.chips { display: flex; flex-wrap: wrap; gap: 8px; padding: 0 18px 12px; }
+.chips button { font: 600 .9rem var(--f-body); padding: .45em .9em; border-radius: 999px; border: 1.5px solid var(--frost); background: #fff; color: var(--ink); cursor: pointer; }
+.chips button:hover { border-color: var(--red); color: var(--red); }
+.chat form { display: flex; gap: 10px; padding: 12px; border-top: 1px solid var(--snow-2); }
+.chat textarea { flex: 1; min-width: 0; resize: none; font: 1rem/1.4 var(--f-body); color: var(--ink); background: var(--snow); border: 1.5px solid var(--frost); border-radius: 14px; padding: .7em .9em; }
+.chat textarea:focus { outline: 2px solid var(--red); outline-offset: 0; }
+.chat form button { flex: none; width: 52px; height: 52px; align-self: end; border-radius: 50%; border: 0; background: var(--red); color: #fff; cursor: pointer; display: grid; place-items: center; box-shadow: 0 4px 0 var(--red-deep); }
+.chat form button svg { width: 22px; height: 22px; }
+.santa-copy { display: grid; gap: 16px; min-width: 0; }
+.santa-copy > p { color: var(--ink-soft); font-size: 1.1rem; }
+.note { font-size: .82rem; color: var(--ink-soft); }
+
+/* ---------- advent calendar (night band) ---------- */
+.on-night { background: radial-gradient(900px 500px at 50% 0, var(--night-2), transparent 70%), var(--night); color: #fff; position: relative; overflow: hidden; }
+.cal { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: clamp(8px, 1.4vw, 16px); }
+@media (max-width: 760px) { .cal { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.door { position: relative; aspect-ratio: 1; perspective: 700px; }
+.door .back { position: absolute; inset: 0; border-radius: 12px; background: #fff; color: var(--red); display: grid; place-items: center; font-size: clamp(1.6rem, 1rem + 2vw, 2.6rem); box-shadow: inset 0 0 0 3px var(--gold); }
+.door button { position: absolute; inset: 0; border: 0; padding: 0; border-radius: 12px; cursor: pointer; transform-origin: 0 50%; transition: transform .9s var(--ease); backface-visibility: hidden; display: grid; place-items: center;
+  font: 400 clamp(1.8rem, 1.1rem + 2.6vw, 3.1rem)/1 var(--f-script); }
+.door:nth-child(odd) button { background: radial-gradient(circle at 30% 25%, #ef2a38, var(--red) 55%, var(--red-deep)); color: #fff; box-shadow: inset 0 0 0 2px rgba(255,255,255,.5), 0 8px 16px -8px #000; }
+.door:nth-child(even) button { background: radial-gradient(circle at 30% 25%, #fff, var(--snow-2)); color: var(--red); box-shadow: inset 0 0 0 2px var(--red), 0 8px 16px -8px #000; }
+.door.open button { transform: rotateY(-110deg); }
+.door.today button { animation: nudge 2.4s ease-in-out infinite; box-shadow: 0 0 0 3px var(--gold), 0 0 24px 4px rgba(255,215,122,.7); }
+@keyframes nudge { 0%,85%,100% { transform: rotate(0); } 90% { transform: rotate(-3deg); } 95% { transform: rotate(3deg); } }
+.door.shake button { animation: shake .5s; }
+@keyframes shake { 20% { transform: translateX(-5px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-3px); } 80% { transform: translateX(3px); } }
+.cal-note { text-align: center; margin-top: 22px; color: #c9d7ec; font-weight: 600; }
+.dlg { position: fixed; z-index: 97; inset: 0; display: grid; place-items: center; padding: 20px; background: rgba(7,20,54,.6); }
+.dlg .box { width: min(420px, 100%); background: #fff; color: var(--ink); border-radius: 24px; padding: 30px 26px 26px; text-align: center; display: grid; gap: 12px; justify-items: center; box-shadow: 0 0 0 6px #fff, 0 0 0 9px var(--red), 0 40px 80px -30px #000; animation: dpop .5s var(--bounce) both; }
+@keyframes dpop { from { transform: scale(.6) rotate(-6deg); opacity: 0; } }
+.dlg .num { font-family: var(--f-script); font-size: 4.4rem; line-height: .9; color: var(--red); }
+.dlg p { font-size: 1.15rem; font-weight: 700; }
+
+/* ---------- visit (snow band with polar bears) ---------- */
+.visit { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: clamp(22px, 5vw, 60px); align-items: center; }
+@media (max-width: 860px) { .visit { grid-template-columns: minmax(0, 1fr); } }
+.bears { width: 100%; max-width: 520px; justify-self: center; cursor: pointer; }
+.bears svg { width: 100%; height: auto; display: block; overflow: visible; }
+.bears .cub { transform-box: fill-box; transform-origin: 50% 100%; }
+.bears.wave .cub { animation: hop .8s var(--ease); }
+@keyframes hop { 30% { transform: translateY(-14px) rotate(-5deg); } 60% { transform: scale(1.04,.96); } }
+.info { display: grid; gap: 14px; min-width: 0; }
+.info .title { justify-items: start; text-align: left; margin: 0; }
+.info > p { color: var(--ink-soft); font-size: 1.1rem; }
+.soon { padding: 16px 18px; border-radius: 14px; background: var(--snow-2); border: 2px dashed var(--frost); font-weight: 700; color: var(--night); }
+
+/* ---------- footer ---------- */
+footer { position: relative; background: var(--red); color: #fff; margin-top: 24px; }
+footer::before { content: ""; position: absolute; left: 0; right: 0; top: -20px; height: 22px; background: radial-gradient(circle at 11px 22px, var(--red) 11px, transparent 11.5px) 0 0 / 22px 22px repeat-x; }
+footer .wrap { display: grid; justify-items: center; gap: 10px; text-align: center; padding-block: 46px calc(36px + env(safe-area-inset-bottom, 0px)); }
+footer .gj { font-family: var(--f-script); font-size: clamp(2.6rem, 2rem + 2.4vw, 4rem); line-height: 1; text-shadow: 0 3px 0 var(--red-deep); }
+footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 6px 22px; font: 700 1rem var(--f-head); letter-spacing: .1em; text-transform: uppercase; }
+footer nav a { text-decoration: none; }
+footer small { opacity: .8; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; }
+  .convoy { animation: none; left: 50%; transform: translateX(-50%); }
+}
+</style>
+
+<header class="head">
+  <div class="wrap">
+    <a class="logo" href="#top">Julekontor</a>
+    <nav class="nav" aria-label="Menu">
+      <a href="#butik" data-i="navShop">Butikken</a>
+      <a href="#julemand" data-i="navSanta">Julemanden</a>
+      <a href="#kalender" data-i="navCal">Julekalender</a>
+      <a href="#besog" data-i="navVisit">Besøg os</a>
+    </nav>
+    <div class="lang" role="group" aria-label="Sprog / Sprache / Language">
+      <button type="button" data-lang="da" aria-pressed="true">DA</button>
+      <button type="button" data-lang="de" aria-pressed="false">DE</button>
+      <button type="button" data-lang="en" aria-pressed="false">EN</button>
+    </div>
+  </div>
+</header>
+
+<main id="top">
+<section class="hero" aria-labelledby="hero-title">
+  <div class="stars" id="stars"></div>
+  <div class="moon" aria-hidden="true"></div>
+  <canvas id="snow" aria-hidden="true"></canvas>
+  <div class="wrap hero-copy">
+    <span class="eyebrow" data-i="eyebrow">Gammeldags julebutik</span>
+    <h1 id="hero-title" data-i="heroTitle">Julen er på vej</h1>
+    <p class="lede" data-i="heroLede">Nisser, glaskugler, flettede hjerter og kalenderlys – julepynt, som vi husker den fra barndommen, samlet under ét tag.</p>
+    <div class="count" id="count" aria-live="polite">
+      <div class="cap"><b id="cd-d">0</b><span data-i="days">Dage</span></div>
+      <div class="cap"><b id="cd-h">0</b><span data-i="hours">Timer</span></div>
+      <div class="cap"><b id="cd-m">0</b><span data-i="mins">Min.</span></div>
+      <div class="cap"><b id="cd-s">0</b><span data-i="secs">Sek.</span></div>
+    </div>
+    <p class="count-note" id="count-note" data-i="countNote">til juleaften</p>
+    <div class="ctas">
+      <a class="btn btn-red" href="#julemand" data-i="ctaSanta">Skriv til Julemanden</a>
+      <a class="btn btn-ghost" href="#butik" data-i="ctaShop">Se sortimentet</a>
+    </div>
+  </div>
+  <div class="land" aria-hidden="true">
+    <svg class="scape" viewBox="0 0 1600 380" preserveAspectRatio="xMidYMax slice">
+      <path d="M0 210 C 200 150 380 170 560 200 C 760 232 940 150 1160 170 C 1340 186 1480 200 1600 180 L1600 380 L0 380 Z" fill="#9db4dc"/>
+      <g fill="#0f2557">
+        <rect x="560" y="150" width="70" height="70"/><path d="M552 152 L595 112 L638 152 Z"/>
+        <rect x="640" y="130" width="40" height="90"/><path d="M636 132 L660 60 L684 132 Z"/>
+        <rect x="690" y="160" width="90" height="60"/><path d="M684 162 L735 124 L786 162 Z"/>
+        <rect x="800" y="150" width="64" height="70"/><path d="M794 152 L832 118 L870 152 Z"/>
+        <rect x="880" y="168" width="80" height="52"/><path d="M874 170 L920 136 L966 170 Z"/>
+      </g>
+      <g fill="#ffd77a">
+        <rect class="win" x="572" y="166" width="12" height="14"/><rect class="win" x="606" y="166" width="12" height="14"/>
+        <rect class="win" x="654" y="150" width="12" height="16"/><circle class="win" cx="660" cy="104" r="5"/>
+        <rect class="win" x="704" y="176" width="14" height="14"/><rect class="win" x="728" y="176" width="14" height="14"/><rect class="win" x="752" y="176" width="14" height="14"/>
+        <rect class="win" x="814" y="166" width="12" height="14"/><rect class="win" x="838" y="166" width="12" height="14"/>
+        <rect class="win" x="896" y="182" width="14" height="12"/><rect class="win" x="928" y="182" width="14" height="12"/>
+      </g>
+      <path d="M0 250 C 260 196 520 230 800 236 C 1080 242 1340 200 1600 228 L1600 380 L0 380 Z" fill="#dfe8f6"/>
+      <g fill="#123d2b">
+        <path d="M120 240 l26 -70 l26 70 Z"/><path d="M160 236 l20 -54 l20 54 Z"/><path d="M1380 230 l28 -78 l28 78 Z"/><path d="M1430 236 l20 -52 l20 52 Z"/><path d="M1060 238 l18 -48 l18 48 Z"/><path d="M420 236 l18 -50 l18 50 Z"/>
+      </g>
+      <g fill="#fff"><path d="M133 206 l13 -36 l13 36 Z" opacity=".9"/><path d="M1394 192 l14 -40 l14 40 Z" opacity=".9"/></g>
+      <path d="M0 300 C 300 270 600 296 900 290 C 1200 284 1400 276 1600 290 L1600 380 L0 380 Z" fill="#fff"/>
+      <path d="M0 336 C 400 326 1200 326 1600 334" stroke="#c9d7ec" stroke-width="3" fill="none" stroke-dasharray="26 22"/>
+    </svg>
+    <div class="convoy" id="convoy"></div>
+  </div>
+</section>
+
+<svg class="ribbon" viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="background:#fff">
+  <path d="M0 0 H1440 V40 C 1180 100 900 0 640 40 C 400 78 180 70 0 30 Z" fill="#fff"/>
+  <path d="M0 0 H1440 V22 C 1180 82 900 -10 640 26 C 400 60 180 52 0 14 Z" fill="#17357a"/>
+  <path d="M0 50 C 200 100 420 98 660 64 C 920 28 1180 112 1440 60 V100 H0 Z" fill="#d3101f"/>
+</svg>
+
+<section class="band on-red" id="butik" aria-labelledby="shop-title" style="margin-top:-1px">
+  <div class="wrap">
+    <div class="title"><span class="script" data-i="shopScript">For hele familien</span><h2 id="shop-title" data-i="shopTitle">I butikken</h2><p data-i="shopLede">Seks ting, vi aldrig løber tør for. Resten skifter med årstiden.</p></div>
+    <div class="cards" id="cards"></div>
+    <div class="about"><p data-i="about1"></p><p data-i="about2"></p></div>
+  </div>
+</section>
+
+<svg class="ribbon" viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="background:#fbfcff">
+  <path d="M0 0 H1440 V50 C 1180 0 900 100 640 60 C 400 24 180 30 0 70 Z" fill="#d3101f"/>
+  <path d="M0 78 C 200 40 420 46 640 78 C 900 116 1180 30 1440 70" stroke="#fff" stroke-width="10" fill="none" opacity=".0"/>
+</svg>
+
+<section class="band" id="julemand" aria-labelledby="santa-title" style="padding-top:clamp(20px,4vw,50px)">
+  <div class="wrap santa">
+    <button class="portrait" id="portrait" type="button" aria-label="Ho ho ho!">
+      <svg viewBox="0 0 400 400" aria-hidden="true">
+        <defs>
+          <radialGradient id="sk" cx=".5" cy=".4" r=".7"><stop offset="0" stop-color="#ffe0c7"/><stop offset="1" stop-color="#efb48e"/></radialGradient>
+          <radialGradient id="hat" cx=".6" cy=".3" r=".9"><stop offset="0" stop-color="#f23443"/><stop offset=".6" stop-color="#d3101f"/><stop offset="1" stop-color="#8f0613"/></radialGradient>
+          <radialGradient id="fur" cx=".45" cy=".3" r=".9"><stop offset="0" stop-color="#ffffff"/><stop offset=".7" stop-color="#f1f4fa"/><stop offset="1" stop-color="#c9d4e6"/></radialGradient>
+          <clipPath id="pc"><circle cx="200" cy="200" r="196"/></clipPath>
+        </defs>
+        <g clip-path="url(#pc)">
+          <path d="M40 400 C 50 320 110 290 200 290 C 290 290 350 320 360 400 Z" fill="#d3101f"/>
+          <path d="M186 292 h28 v108 h-28 Z" fill="#fff"/>
+          <circle cx="200" cy="330" r="7" fill="#1d1a24"/><circle cx="200" cy="368" r="7" fill="#1d1a24"/>
+          <path d="M96 160 C 96 98 140 72 200 72 C 260 72 304 98 304 160 L 304 196 L 96 196 Z" fill="url(#sk)"/>
+          <ellipse cx="96" cy="190" rx="18" ry="24" fill="#efb48e"/><ellipse cx="304" cy="190" rx="18" ry="24" fill="#efb48e"/>
+          <path d="M92 200 C 86 270 130 340 200 344 C 270 340 314 270 308 200 C 280 230 250 236 200 236 C 150 236 120 230 92 200 Z" fill="url(#fur)"/>
+          <path d="M130 270 c 14 16 30 20 44 12 M210 300 c 16 10 32 8 44 -6 M150 310 c 12 10 26 12 38 4" stroke="#c9d4e6" stroke-width="3" fill="none" stroke-linecap="round"/>
+          <circle cx="146" cy="194" r="20" fill="#f08b8b" opacity=".55"/><circle cx="254" cy="194" r="20" fill="#f08b8b" opacity=".55"/>
+          <path d="M150 168 q14 -14 28 0" stroke="#3a2016" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="M222 168 q14 -14 28 0" stroke="#3a2016" stroke-width="5" fill="none" stroke-linecap="round"/>
+          <path d="M140 148 q24 -18 44 -4 M216 144 q20 -14 44 4" stroke="#fff" stroke-width="10" fill="none" stroke-linecap="round"/>
+          <ellipse cx="200" cy="196" rx="22" ry="18" fill="#ee9c86"/>
+          <path d="M200 214 C 176 206 140 212 126 232 C 150 246 182 240 200 226 C 218 240 250 246 274 232 C 260 212 224 206 200 214 Z" fill="#fff" stroke="#dde5f1" stroke-width="2"/>
+          <path d="M178 250 q22 16 44 0" stroke="#9c3a32" stroke-width="5" fill="#c4544a" stroke-linecap="round"/>
+          <path d="M92 108 C 100 40 160 10 220 18 C 290 28 330 70 352 140 C 358 160 350 176 338 178 C 320 120 290 92 250 86 L 92 120 Z" fill="url(#hat)"/>
+          <circle cx="342" cy="186" r="26" fill="url(#fur)"/>
+          <path d="M76 128 C 70 100 90 88 120 86 C 180 80 240 78 300 86 C 330 90 336 112 328 128 C 322 140 300 140 280 138 C 220 132 170 132 110 140 C 92 142 80 140 76 128 Z" fill="url(#fur)"/>
+        </g>
+      </svg>
+    </button>
+    <div class="santa-copy">
+      <div class="title" style="justify-items:start;text-align:left;margin:0"><span class="script" data-i="santaScript">Julemandens brevkasse</span><h2 id="santa-title" data-i="santaTitle">Snak med Julemanden</h2></div>
+      <p data-i="santaLede">Spørg ham om rensdyrene, om nisserne i værkstedet, eller hvad han ønsker sig selv. Han svarer på dit sprog – dansk, tysk eller engelsk.</p>
+      <div class="chat">
+        <div class="chat-head"><b>Julemanden</b><span data-i="chatSub">Nordpolen · svarer med det samme</span></div>
+        <div class="log" id="log" aria-live="polite"></div>
+        <div class="chips" id="chips"></div>
+        <form id="chatform">
+          <label for="msg" class="note" style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)" data-i="msgLabel">Din besked</label>
+          <textarea id="msg" rows="1" maxlength="400" placeholder="Kære Julemand …" data-ph="msgPh"></textarea>
+          <button type="submit" aria-label="Send"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12h15M13 6l6 6-6 6"/></svg></button>
+        </form>
+      </div>
+      <p class="note" data-i="chatNote">Julemanden spørger aldrig om navn, adresse eller telefonnummer.</p>
+    </div>
+  </div>
+</section>
+
+<svg class="ribbon" viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="background:#0c1f4d">
+  <path d="M0 0 H1440 V60 C 1180 10 900 100 640 56 C 400 16 180 30 0 70 Z" fill="#fbfcff"/>
+  <path d="M0 76 C 200 34 420 34 640 70 C 900 112 1180 26 1440 74" stroke="#d3101f" stroke-width="8" fill="none"/>
+</svg>
+
+<section class="band on-night" id="kalender" aria-labelledby="cal-title" style="margin-top:-1px">
+  <div class="wrap">
+    <div class="title"><span class="script" data-i="calScript">24 små overraskelser</span><h2 id="cal-title" data-i="calTitle">Julekalenderen</h2><p data-i="calLede">Én låge om dagen fra 1. december. Hvad mon der gemmer sig bag dagens låge?</p></div>
+    <div class="cal" id="cal"></div>
+    <p class="cal-note" id="cal-note"></p>
+  </div>
+</section>
+
+<svg class="ribbon" viewBox="0 0 1440 100" preserveAspectRatio="none" aria-hidden="true" style="background:#fbfcff">
+  <path d="M0 0 H1440 V40 C 1180 100 900 0 640 44 C 400 84 180 70 0 30 Z" fill="#0c1f4d"/>
+</svg>
+
+<section class="band" id="besog" aria-labelledby="visit-title" style="padding-top:clamp(20px,4vw,50px)">
+  <div class="wrap visit">
+    <button class="bears" id="bears" type="button" aria-label="Isbjørne" style="border:0;background:none;padding:0">
+      <svg viewBox="0 0 520 340" aria-hidden="true">
+        <defs><radialGradient id="pb" cx=".4" cy=".3" r=".9"><stop offset="0" stop-color="#ffffff"/><stop offset=".7" stop-color="#eef3fb"/><stop offset="1" stop-color="#bccbe3"/></radialGradient></defs>
+        <ellipse cx="260" cy="318" rx="250" ry="22" fill="#e3ebf7"/>
+        <g>
+          <ellipse cx="200" cy="232" rx="120" ry="92" fill="url(#pb)"/>
+          <ellipse cx="130" cy="300" rx="40" ry="22" fill="url(#pb)"/><ellipse cx="250" cy="304" rx="40" ry="20" fill="url(#pb)"/>
+          <circle cx="206" cy="122" r="64" fill="url(#pb)"/>
+          <circle cx="158" cy="76" r="18" fill="url(#pb)"/><circle cx="158" cy="76" r="8" fill="#c9d4e6"/>
+          <circle cx="252" cy="74" r="18" fill="url(#pb)"/><circle cx="252" cy="74" r="8" fill="#c9d4e6"/>
+          <ellipse cx="214" cy="148" rx="32" ry="24" fill="#f6f8fd"/>
+          <ellipse cx="216" cy="136" rx="12" ry="9" fill="#1d1a24"/>
+          <circle cx="184" cy="114" r="6" fill="#1d1a24"/><circle cx="240" cy="112" r="6" fill="#1d1a24"/>
+          <path d="M204 156 q12 10 24 0" stroke="#1d1a24" stroke-width="3" fill="none" stroke-linecap="round"/>
+        </g>
+        <g class="cub">
+          <ellipse cx="380" cy="262" rx="70" ry="56" fill="url(#pb)"/>
+          <circle cx="388" cy="196" r="44" fill="url(#pb)"/>
+          <circle cx="356" cy="160" r="13" fill="url(#pb)"/><circle cx="420" cy="160" r="13" fill="url(#pb)"/>
+          <ellipse cx="394" cy="214" rx="20" ry="15" fill="#f6f8fd"/>
+          <ellipse cx="396" cy="206" rx="8" ry="6" fill="#1d1a24"/>
+          <circle cx="372" cy="190" r="4.5" fill="#1d1a24"/><circle cx="408" cy="188" r="4.5" fill="#1d1a24"/>
+          <path d="M340 230 C 370 246 410 246 436 228 L 440 246 C 410 264 370 264 338 250 Z" fill="#d3101f"/>
+          <path d="M350 246 l -10 50 l 22 0 l 4 -46 Z" fill="#d3101f"/>
+          <path d="M343 262 h18 M342 276 h19" stroke="#fff" stroke-width="4"/>
+          <ellipse cx="350" cy="312" rx="24" ry="13" fill="url(#pb)"/><ellipse cx="414" cy="312" rx="24" ry="13" fill="url(#pb)"/>
+        </g>
+        <g fill="#fff"><circle cx="40" cy="40" r="4"/><circle cx="480" cy="70" r="5"/><circle cx="470" cy="20" r="3"/><circle cx="80" cy="120" r="3"/><circle cx="320" cy="40" r="3.5"/></g>
+      </svg>
+    </button>
+    <div class="info">
+      <div class="title"><span class="script" data-i="visitScript">Besøg os</span><h2 id="visit-title" data-i="visitTitle">Kom ind fra kulden</h2></div>
+      <p data-i="visitLede">Julepynt skal ses i virkeligheden. Tag dig god tid, rør ved tingene, og spørg endelig.</p>
+      <p class="soon" data-i="visitSoon">Åbningstider og adresse for sæsonen kommer her snart.</p>
+    </div>
+  </div>
+</section>
+</main>
+
+<footer>
+  <div class="wrap">
+    <p class="gj" data-i="merry">Glædelig jul</p>
+    <nav aria-label="Footer">
+      <a href="#butik" data-i="navShop">Butikken</a><a href="#julemand" data-i="navSanta">Julemanden</a><a href="#kalender" data-i="navCal">Julekalender</a><a href="#besog" data-i="navVisit">Besøg os</a>
+    </nav>
+    <small>© <span id="yr"></span> Julekontor</small>
+  </div>
+</footer>
+
+<script>
+(() => {
+const $ = id => document.getElementById(id);
+const T = {
+  da: {
+    navShop: "Butikken", navSanta: "Julemanden", navCal: "Julekalender", navVisit: "Besøg os",
+    eyebrow: "Gammeldags julebutik", heroTitle: "Julen er på vej",
+    heroLede: "Nisser, glaskugler, flettede hjerter og kalenderlys – julepynt, som vi husker den fra barndommen, samlet under ét tag.",
+    days: "Dage", hours: "Timer", mins: "Min.", secs: "Sek.", countNote: "til juleaften", countDone: "Glædelig jul!",
+    ctaSanta: "Skriv til Julemanden", ctaShop: "Se sortimentet",
+    shopScript: "For hele familien", shopTitle: "I butikken", shopLede: "Seks ting, vi aldrig løber tør for. Resten skifter med årstiden.",
+    about1: "Hos Julekontor finder du den jul, mange af os husker fra barndommen: røde nisser med uldhuer, tynde glaskugler, der fanger lyset fra stearinlysene, og kalenderlys, der brænder ned dag for dag frem mod juleaften.",
+    about2: "Vi vælger varerne én for én og foretrækker det, der holder i mange år. Kig ind, rør ved tingene, og tag dig god tid.",
+    cards: [["Nisser","Store og små, i uld, filt og træ."],["Glaskugler","Mundblæste og håndmalede."],["Flettede hjerter","Færdige hjerter og ark til at flette selv."],["Kalenderlys","Fra 1 til 24 – ét mærke om dagen."],["Træpynt","Stjerner og figurer i træ."],["Gavepapir & bånd","Mønstret papir, bånd og mærkater."]],
+    santaScript: "Julemandens brevkasse", santaTitle: "Snak med Julemanden",
+    santaLede: "Spørg ham om rensdyrene, om nisserne i værkstedet, eller hvad han ønsker sig selv. Han svarer på dit sprog – dansk, tysk eller engelsk.",
+    chatSub: "Nordpolen · svarer med det samme", msgLabel: "Din besked", msgPh: "Kære Julemand …",
+    chatNote: "Julemanden spørger aldrig om navn, adresse eller telefonnummer.",
+    chips: ["Hvordan har rensdyrene det?", "Hvad laver nisserne?", "Jeg ønsker mig …"],
+    calScript: "24 små overraskelser", calTitle: "Julekalenderen", calLede: "Én låge om dagen fra 1. december. Hvad mon der gemmer sig bag dagens låge?",
+    calWait: n => `Lågerne åbner 1. december – om ${n} ${n === 1 ? "dag" : "dage"}.`, calOpen: "Tryk på dagens låge.", calLocked: d => `Låge ${d} åbner ${d}. december.`, close: "Luk",
+    visitScript: "Besøg os", visitTitle: "Kom ind fra kulden", visitLede: "Julepynt skal ses i virkeligheden. Tag dig god tid, rør ved tingene, og spørg endelig.",
+    visitSoon: "Åbningstider og adresse for sæsonen kommer her snart.", merry: "Glædelig jul",
+    honk: ["Dut dut!", "Julen er på vej!", "Næste stop: Julekontor"], ho: ["Ho ho ho!", "Har du været sød i år?", "Hvor er mine briller nu?"], bears: ["Brrr … dejligt!", "Vi venter på sne."],
+    advent: ["Tænd det første kalenderlys i aften.","Hvad kalder man en snemand i solen? En vandpyt!","Klip en julestjerne af papir.","Syng en julesang højt – også selvom du ikke kan teksten.","Bag pebernødder sammen med en voksen.","Tæl julestjernerne i vinduerne på vej hjem.","Giv en, du holder af, et stort kram.","Flet et julehjerte og hæng det på træet.","Drik varm kakao og fortæl en julehistorie.","Tegn julemandens kane med alle rensdyrene.","Hvad spiser snemænd til morgenmad? Snefnug med mælk!","Lav en sneengel – i sneen eller på gulvtæppet.","Luciadag! Tænd et lys og syng med.","Skriv et lille julekort til en nabo.","Kig efter isbjørnene nederst på siden. Tryk på dem!","Hvorfor er Rudolfs næse rød? Den fryser!","Pak en gave ind helt selv.","Gå en tur i mørket og kig på julelys.","Lær at sige glædelig jul på et nyt sprog.","Byg en snemand – eller en lille en af vat.","Vintersolhverv: I dag er årets korteste dag.","Sæt en skål risengrød frem til nissen i aften.","I morgen er det juleaften! Kun én nat endnu.","Glædelig jul! I aften kommer julemanden."]
+  },
+  de: {
+    navShop: "Der Laden", navSanta: "Weihnachtsmann", navCal: "Adventskalender", navVisit: "Besuch",
+    eyebrow: "Weihnachtsladen wie früher", heroTitle: "Weihnachten kommt",
+    heroLede: "Wichtel, Glaskugeln, geflochtene Herzen und Kalenderkerzen – Weihnachtsschmuck, wie wir ihn aus der Kindheit kennen, unter einem Dach.",
+    days: "Tage", hours: "Std.", mins: "Min.", secs: "Sek.", countNote: "bis Heiligabend", countDone: "Frohe Weihnachten!",
+    ctaSanta: "Dem Weihnachtsmann schreiben", ctaShop: "Sortiment ansehen",
+    shopScript: "Für die ganze Familie", shopTitle: "Im Laden", shopLede: "Sechs Dinge, die uns nie ausgehen. Der Rest wechselt mit der Jahreszeit.",
+    about1: "Im Julekontor findest du das Weihnachten, an das sich viele von uns aus der Kindheit erinnern: rote Wichtel mit Wollmützen, dünne Glaskugeln, die das Kerzenlicht einfangen, und Kalenderkerzen, die Tag für Tag bis Heiligabend herunterbrennen.",
+    about2: "Wir wählen jedes Stück einzeln aus und nehmen lieber, was viele Jahre hält. Schau herein, nimm die Dinge in die Hand und lass dir Zeit.",
+    cards: [["Wichtel (Nisser)","Groß und klein, aus Wolle, Filz und Holz."],["Glaskugeln","Mundgeblasen und handbemalt."],["Geflochtene Herzen","Fertige Herzen und Bögen zum Selberflechten."],["Kalenderkerzen","Von 1 bis 24 – eine Markierung pro Tag."],["Holzschmuck","Sterne und Figuren aus Holz."],["Geschenkpapier & Band","Gemustertes Papier, Bänder und Anhänger."]],
+    santaScript: "Der Briefkasten des Weihnachtsmanns", santaTitle: "Sprich mit dem Weihnachtsmann",
+    santaLede: "Frag ihn nach den Rentieren, nach den Wichteln in der Werkstatt oder was er sich selbst wünscht. Er antwortet in deiner Sprache – Deutsch, Dänisch oder Englisch.",
+    chatSub: "Nordpol · antwortet sofort", msgLabel: "Deine Nachricht", msgPh: "Lieber Weihnachtsmann …",
+    chatNote: "Der Weihnachtsmann fragt nie nach Name, Adresse oder Telefonnummer.",
+    chips: ["Wie geht es den Rentieren?", "Was machen die Wichtel?", "Ich wünsche mir …"],
+    calScript: "24 kleine Überraschungen", calTitle: "Der Adventskalender", calLede: "Ein Türchen pro Tag ab dem 1. Dezember. Was wohl hinter dem heutigen Türchen steckt?",
+    calWait: n => `Die Türchen öffnen am 1. Dezember – in ${n} ${n === 1 ? "Tag" : "Tagen"}.`, calOpen: "Tipp auf das heutige Türchen.", calLocked: d => `Türchen ${d} öffnet am ${d}. Dezember.`, close: "Schließen",
+    visitScript: "Komm vorbei", visitTitle: "Komm rein aus der Kälte", visitLede: "Weihnachtsschmuck muss man in echt sehen. Lass dir Zeit, nimm die Dinge in die Hand und frag ruhig.",
+    visitSoon: "Öffnungszeiten und Adresse für die Saison folgen hier in Kürze.", merry: "Frohe Weihnachten",
+    honk: ["Tut tut!", "Weihnachten kommt!", "Nächster Halt: Julekontor"], ho: ["Ho ho ho!", "Warst du dieses Jahr brav?", "Wo ist nur meine Brille?"], bears: ["Brrr … herrlich!", "Wir warten auf Schnee."],
+    advent: ["Zünde heute Abend die erste Kalenderkerze an.","Wie nennt man einen Schneemann in der Sonne? Eine Pfütze!","Schneide einen Papierstern aus.","Sing laut ein Weihnachtslied – auch ohne den Text zu kennen.","Back mit einem Erwachsenen Pfeffernüsse.","Zähl die Sterne in den Fenstern auf dem Heimweg.","Gib jemandem, den du lieb hast, eine große Umarmung.","Flechte ein Herz und häng es an den Baum.","Trink heißen Kakao und erzähl eine Weihnachtsgeschichte.","Mal den Schlitten mit allen Rentieren.","Was essen Schneemänner zum Frühstück? Schneeflocken mit Milch!","Mach einen Schneeengel – im Schnee oder auf dem Teppich.","Luciatag! Zünde eine Kerze an und sing mit.","Schreib eine kleine Weihnachtskarte an die Nachbarn.","Such die Eisbären unten auf der Seite. Tipp sie an!","Warum ist Rudolphs Nase rot? Sie friert!","Pack ein Geschenk ganz allein ein.","Mach einen Spaziergang im Dunkeln und schau Lichter an.","Lerne „Frohe Weihnachten“ in einer neuen Sprache.","Bau einen Schneemann – oder einen kleinen aus Watte.","Wintersonnenwende: Heute ist der kürzeste Tag.","Stell heute Abend dem Wichtel eine Schale Milchreis hin.","Morgen ist Heiligabend! Nur noch einmal schlafen.","Frohe Weihnachten! Heute Abend kommt der Weihnachtsmann."]
+  },
+  en: {
+    navShop: "The shop", navSanta: "Santa", navCal: "Advent calendar", navVisit: "Visit",
+    eyebrow: "An old-fashioned Christmas shop", heroTitle: "Christmas is near",
+    heroLede: "Nisse elves, glass baubles, woven hearts and calendar candles – Christmas decorations the way we remember them from childhood, under one roof.",
+    days: "Days", hours: "Hours", mins: "Min", secs: "Sec", countNote: "until Christmas Eve", countDone: "Merry Christmas!",
+    ctaSanta: "Write to Santa", ctaShop: "See what we sell",
+    shopScript: "For the whole family", shopTitle: "In the shop", shopLede: "Six things we never run out of. Everything else changes with the season.",
+    about1: "At Julekontor you'll find the Christmas many of us remember from childhood: red nisser in woollen caps, thin glass baubles that catch the candlelight, and calendar candles that burn down day by day towards Christmas Eve.",
+    about2: "We pick every item one by one and prefer things that last for years. Come in, pick things up and take your time.",
+    cards: [["Nisser","Danish Christmas elves in wool, felt and wood."],["Glass baubles","Mouth-blown and hand-painted."],["Woven hearts","Finished hearts and paper to weave your own."],["Calendar candles","Marked 1 to 24 – one mark a day."],["Wooden ornaments","Stars and figures in wood."],["Wrapping & ribbon","Patterned paper, ribbon and tags."]],
+    santaScript: "Santa's letterbox", santaTitle: "Talk to Santa",
+    santaLede: "Ask him about the reindeer, the elves in the workshop, or what he wishes for himself. He answers in your language – English, Danish or German.",
+    chatSub: "North Pole · replies right away", msgLabel: "Your message", msgPh: "Dear Santa …",
+    chatNote: "Santa never asks for your name, address or phone number.",
+    chips: ["How are the reindeer?", "What are the elves doing?", "I wish for …"],
+    calScript: "24 little surprises", calTitle: "The advent calendar", calLede: "One door a day from 1 December. What could be hiding behind today's door?",
+    calWait: n => `The doors open on 1 December – in ${n} ${n === 1 ? "day" : "days"}.`, calOpen: "Tap today's door.", calLocked: d => `Door ${d} opens on ${d} December.`, close: "Close",
+    visitScript: "Visit us", visitTitle: "Come in from the cold", visitLede: "Christmas decorations should be seen for real. Take your time, pick things up, and do ask.",
+    visitSoon: "Opening hours and address for the season will appear here soon.", merry: "Merry Christmas",
+    honk: ["Toot toot!", "Christmas is coming!", "Next stop: Julekontor"], ho: ["Ho ho ho!", "Have you been good this year?", "Now where are my glasses?"], bears: ["Brrr … lovely!", "We're waiting for snow."],
+    advent: ["Light the first calendar candle tonight.","What do you call a snowman in the sun? A puddle!","Cut out a paper star.","Sing a Christmas song out loud – even if you don't know the words.","Bake pepper nuts with a grown-up.","Count the stars in the windows on your way home.","Give someone you love a big hug.","Weave a paper heart and hang it on the tree.","Drink hot cocoa and tell a Christmas story.","Draw Santa's sleigh with all the reindeer.","What do snowmen eat for breakfast? Snowflakes with milk!","Make a snow angel – in the snow or on the rug.","St Lucia's Day! Light a candle and sing along.","Write a little Christmas card to a neighbour.","Look for the polar bears at the bottom of the page. Tap them!","Why is Rudolph's nose red? He's cold!","Wrap a present all by yourself.","Take a walk in the dark and look at the lights.","Learn to say Merry Christmas in a new language.","Build a snowman – or a small one from cotton wool.","Winter solstice: today is the shortest day of the year.","Leave a bowl of rice pudding out for the nisse tonight.","Tomorrow is Christmas Eve! Just one more sleep.","Merry Christmas! Santa comes tonight."]
+  }
+};
+
+/* ---------- Santa's replies ---------- */
+const R = {
+  da: { greet: ["Ho ho ho, hej med dig! Hvor er det dejligt, at du skriver. Hvad har du på hjerte?"],
+    deer: ["Rensdyrene har det strålende! Rudolf pudser sin næse hver aften, og Comet øver sig i at lande på skrå tage."],
+    elves: ["Nisserne har travlt! Nogle maler glaskugler, andre fletter hjerter – og én sover vist i risengrøden igen."],
+    wish: ["Et ønske! Det skriver jeg på min lange liste med min fineste pen. Fortæl det også til dine forældre – så hjælper vi hinanden."],
+    shop: ["Julekontor er min yndlingsbutik! Åbningstider og adresse står nederst på siden, så snart sæsonen begynder."],
+    thanks: ["Det var så lidt! Skriv endelig igen."], self: ["Jeg ønsker mig bare, at alle får en hyggelig jul – og måske en ekstra småkage."],
+    fall: ["Ho ho ho, det lyder spændende! Fortæl mig lidt mere.", "Det må jeg skrive ned i min store bog. Hvad glæder du dig mest til i julen?"] },
+  de: { greet: ["Ho ho ho, hallo! Wie schön, dass du mir schreibst. Was hast du auf dem Herzen?"],
+    deer: ["Den Rentieren geht es prächtig! Rudolph poliert jeden Abend seine Nase, und Komet übt Landungen auf schrägen Dächern."],
+    elves: ["Die Wichtel haben viel zu tun! Einige bemalen Glaskugeln, andere flechten Herzen – und einer schläft schon wieder im Milchreis."],
+    wish: ["Ein Wunsch! Den schreibe ich mit meiner schönsten Feder auf meine lange Liste. Erzähl ihn auch deinen Eltern – dann helfen wir alle zusammen."],
+    shop: ["Das Julekontor ist mein Lieblingsladen! Öffnungszeiten und Adresse stehen unten auf der Seite, sobald die Saison beginnt."],
+    thanks: ["Gern geschehen! Schreib mir ruhig wieder."], self: ["Ich wünsche mir nur, dass alle ein gemütliches Weihnachten haben – und vielleicht einen Keks mehr."],
+    fall: ["Ho ho ho, das klingt spannend! Erzähl mir mehr.", "Das schreibe ich in mein großes Buch. Worauf freust du dich an Weihnachten am meisten?"] },
+  en: { greet: ["Ho ho ho, hello there! How lovely of you to write. What's on your mind?"],
+    deer: ["The reindeer are splendid! Rudolph polishes his nose every evening, and Comet is practising landings on steep roofs."],
+    elves: ["The elves are busy! Some paint glass baubles, some weave hearts – and one has fallen asleep in the rice pudding again."],
+    wish: ["A wish! I'll write it on my long list with my very best pen. Tell your parents too, so we can all help each other."],
+    shop: ["Julekontor is my favourite shop! Opening hours and address appear at the bottom of the page once the season starts."],
+    thanks: ["You're very welcome! Do write again."], self: ["All I wish for is a cosy Christmas for everyone – and perhaps one extra biscuit."],
+    fall: ["Ho ho ho, that sounds exciting! Tell me more.", "I must write that in my big book. What are you looking forward to most this Christmas?"] }
+};
+const TOPICS = [
+  ["deer", /(rensdyr|rentier|reindeer|rudolf|rudolph)/],
+  ["elves", /(nisse|wichtel|elf|elves|værksted|werkstatt|workshop)/],
+  ["self", /(du selv|dig selv|selbst|yourself|for you)/],
+  ["wish", /(ønsk|wünsch|wunsch|wish|want|gave|geschenk|present|gift)/],
+  ["shop", /(butik|laden|shop|åbn|öffn|open|adresse|address|hours)/],
+  ["thanks", /(tak|danke|thank)/],
+  ["greet", /^(hej|hallo|hello|hi|hey|goddag|guten|moin)\b/]
+];
+const WORDS = {
+  da: /\b(jeg|og|ikke|hvad|hvordan|hej|ønsker|julemand|rensdyrene|nisserne|tak|mig|har|det|er)\b/g,
+  de: /\b(ich|und|nicht|was|wie|hallo|wünsche|weihnachtsmann|rentiere|wichtel|danke|mir|habe|das|ist)\b/g,
+  en: /\b(i|and|not|what|how|hello|wish|santa|reindeer|elves|thanks|me|have|the|is)\b/g
+};
+const pick = a => a[Math.floor(Math.random() * a.length)];
+
+let lang = "da";
+try { lang = localStorage.getItem("jk-lang") || ""; } catch (e) {}
+if (!T[lang]) { const n = (navigator.language || "da").slice(0, 2); lang = T[n] ? n : "da"; }
+
+function applyLang(l) {
+  lang = l; const t = T[l];
+  document.documentElement.lang = l;
+  document.querySelectorAll("[data-i]").forEach(el => { const v = t[el.dataset.i]; if (typeof v === "string") el.textContent = v; });
+  document.querySelectorAll("[data-ph]").forEach(el => el.placeholder = t[el.dataset.ph]);
+  document.querySelectorAll(".lang button").forEach(b => b.setAttribute("aria-pressed", b.dataset.lang === l));
+  renderCards(); renderChips(); calNote(); tick();
+  try { localStorage.setItem("jk-lang", l); } catch (e) {}
+}
+document.querySelectorAll(".lang button").forEach(b => b.addEventListener("click", () => applyLang(b.dataset.lang)));
+
+/* ---------- little bubbles ---------- */
+function bubble(x, y, text) {
+  const b = document.createElement("div"); b.className = "bubble"; b.textContent = text;
+  b.style.left = x + "px"; b.style.top = y + "px"; document.body.appendChild(b);
+  setTimeout(() => b.remove(), 1600);
+}
+
+/* ---------- stars + snow ---------- */
+const stars = $("stars");
+for (let i = 0; i < 70; i++) { const s = document.createElement("i"); s.style.left = Math.random() * 100 + "%"; s.style.top = Math.random() * 55 + "%"; s.style.animationDelay = -Math.random() * 3 + "s"; stars.appendChild(s); }
+const cv = $("snow"), cx = cv.getContext("2d"); let flakes = [], W = 0, H = 0;
+const still = matchMedia("(prefers-reduced-motion: reduce)").matches;
+function size() {
+  const r = cv.getBoundingClientRect(), d = Math.min(devicePixelRatio || 1, 2);
+  W = r.width; H = r.height; cv.width = W * d; cv.height = H * d; cx.setTransform(d, 0, 0, d, 0, 0);
+  const n = Math.round(W / 9);
+  flakes = Array.from({ length: n }, () => ({ x: Math.random() * W, y: Math.random() * H, r: Math.random() * 2.4 + .6, v: Math.random() * .6 + .3, p: Math.random() * 6 }));
+  if (still) draw(0);
+}
+function draw(tm) {
+  cx.clearRect(0, 0, W, H); cx.fillStyle = "rgba(255,255,255,.9)";
+  for (const f of flakes) {
+    if (!still) { f.y += f.v; f.x += Math.sin(tm / 1400 + f.p) * .35; if (f.y > H + 4) { f.y = -4; f.x = Math.random() * W; } }
+    cx.beginPath(); cx.arc(f.x, f.y, f.r, 0, 6.283); cx.fill();
+  }
+  if (!still) requestAnimationFrame(draw);
+}
+addEventListener("resize", size); size(); if (!still) requestAnimationFrame(draw);
+
+/* ---------- convoy of vans ---------- */
+function vanSVG(i) {
+  const bulbs = []; const cols = ["#ffd77a", "#ffffff", "#ff6b6b", "#9be7ff"];
+  for (let k = 0; k < 15; k++) bulbs.push(`<circle class="bulb" cx="${18 + k * 13}" cy="${22 + (k % 2) * 2}" r="3.4" fill="${cols[(k + i) % 4]}"/>`);
+  for (let k = 0; k < 4; k++) bulbs.push(`<circle class="bulb" cx="14" cy="${36 + k * 14}" r="3.2" fill="${cols[(k + 1 + i) % 4]}"/>`);
+  return `<svg viewBox="0 0 280 130" aria-hidden="true">
+    <defs><linearGradient id="vb${i}" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ef2a38"/><stop offset=".6" stop-color="#d3101f"/><stop offset="1" stop-color="#9c0715"/></linearGradient>
+    <radialGradient id="hl${i}" cx="0" cy=".5" r="1"><stop offset="0" stop-color="#fff3c4" stop-opacity=".9"/><stop offset="1" stop-color="#fff3c4" stop-opacity="0"/></radialGradient></defs>
+    <path d="M262 74 L 360 52 L 360 112 Z" fill="url(#hl${i})"/>
+    <ellipse cx="140" cy="118" rx="128" ry="6" fill="#000" opacity=".18"/>
+    <path d="M10 30 Q10 20 20 20 H200 Q206 20 208 26 L214 50 H246 Q256 50 262 60 L270 78 Q272 84 272 90 V104 Q272 108 268 108 H14 Q10 108 10 104 Z" fill="url(#vb${i})"/>
+    <path d="M14 20 Q60 10 110 16 Q160 10 204 20 Q160 26 110 22 Q60 28 14 24 Z" fill="#fff"/>
+    <path d="M216 56 H244 Q250 56 254 62 L262 78 H216 Z" fill="#bfe1ff" stroke="#fff" stroke-width="2"/>
+    <path d="M10 82 C 60 64 120 98 200 72 C 230 62 256 70 272 78 V90 C 250 82 228 78 200 86 C 120 110 60 80 10 96 Z" fill="#fff"/>
+    <text x="104" y="66" text-anchor="middle" font-family="Yesteryear, cursive" font-size="34" fill="#fff">Julekontor</text>
+    <rect x="262" y="88" width="10" height="7" rx="2" fill="#ffd77a"/>
+    <circle cx="236" cy="96" r="7" fill="#1d5a3c"/><circle cx="236" cy="96" r="3" fill="#d3101f"/>
+    ${bulbs.join("")}
+    <g class="wheel"><circle cx="64" cy="108" r="17" fill="#1d1a24"/><circle cx="64" cy="108" r="8" fill="#dfe8f6"/><path d="M64 100 V116 M56 108 H72" stroke="#1d1a24" stroke-width="2.5"/></g>
+    <g class="wheel"><circle cx="226" cy="108" r="17" fill="#1d1a24"/><circle cx="226" cy="108" r="8" fill="#dfe8f6"/><path d="M226 100 V116 M218 108 H234" stroke="#1d1a24" stroke-width="2.5"/></g>
+  </svg>`;
+}
+const convoy = $("convoy");
+for (let i = 0; i < 3; i++) {
+  const b = document.createElement("button"); b.type = "button"; b.className = "van"; b.setAttribute("aria-label", "Julekontor"); b.innerHTML = vanSVG(i);
+  b.addEventListener("click", e => { b.classList.add("honk"); setTimeout(() => b.classList.remove("honk"), 1500); bubble(e.clientX, e.clientY, pick(T[lang].honk)); });
+  convoy.appendChild(b);
+}
+
+/* ---------- countdown ---------- */
+function target() { const n = new Date(); let y = n.getFullYear(); if (n > new Date(y, 11, 26)) y++; return new Date(y, 11, 24); }
+function tick() {
+  const n = new Date(), t = target(), ms = t - n;
+  if (ms <= 0) { ["d","h","m","s"].forEach(k => $("cd-" + k).textContent = "0"); $("count-note").textContent = T[lang].countDone; return; }
+  const s = Math.floor(ms / 1000);
+  $("cd-d").textContent = Math.floor(s / 86400); $("cd-h").textContent = Math.floor(s % 86400 / 3600);
+  $("cd-m").textContent = Math.floor(s % 3600 / 60); $("cd-s").textContent = s % 60;
+  $("count-note").textContent = T[lang].countNote;
+}
+setInterval(tick, 1000);
+
+/* ---------- product cards ---------- */
+const ART = [
+  `<svg viewBox="0 0 120 130"><path d="M60 6 L94 66 H26 Z" fill="#d3101f"/><circle cx="60" cy="8" r="8" fill="#fff"/><rect x="24" y="62" width="72" height="12" rx="6" fill="#fff"/><circle cx="60" cy="84" r="16" fill="#ffd9c0"/><circle cx="60" cy="86" r="4" fill="#ee9c86"/><path d="M40 90 C 44 120 76 120 80 90 C 72 98 48 98 40 90 Z" fill="#fff"/><path d="M34 128 C 36 108 48 102 60 102 C 72 102 84 108 86 128 Z" fill="#9c0715"/></svg>`,
+  `<svg viewBox="0 0 120 130"><path d="M60 0 V18" stroke="#c9a24a" stroke-width="2"/><rect x="50" y="16" width="20" height="12" rx="2" fill="#c9a24a"/><circle cx="60" cy="74" r="46" fill="#d3101f"/><path d="M16 66 C 40 56 80 56 104 66 M14 82 C 40 92 80 92 106 82" stroke="#fff" stroke-width="5" fill="none"/><path d="M30 74 l6 -5 6 5 6 -5 6 5 6 -5 6 5 6 -5 6 5 6 -5 6 5 6 -5" stroke="#ffd77a" stroke-width="3" fill="none"/><ellipse cx="42" cy="50" rx="10" ry="6" fill="#fff" opacity=".55" transform="rotate(-30 42 50)"/></svg>`,
+  `<svg viewBox="0 0 120 130"><defs><clipPath id="hc"><path d="M60 118 C 20 90 8 66 12 46 C 16 26 40 18 60 40 C 80 18 104 26 108 46 C 112 66 100 90 60 118 Z"/></clipPath></defs><path d="M60 40 C 60 20 60 8 60 4" stroke="#d3101f" stroke-width="3" fill="none"/><g clip-path="url(#hc)"><rect width="120" height="130" fill="#fff"/><g fill="#d3101f" transform="rotate(45 60 64)"><rect x="-20" y="-20" width="20" height="20"/><rect x="20" y="-20" width="20" height="20"/><rect x="60" y="-20" width="20" height="20"/><rect x="100" y="-20" width="20" height="20"/><rect x="0" y="0" width="20" height="20"/><rect x="40" y="0" width="20" height="20"/><rect x="80" y="0" width="20" height="20"/><rect x="-20" y="20" width="20" height="20"/><rect x="20" y="20" width="20" height="20"/><rect x="60" y="20" width="20" height="20"/><rect x="100" y="20" width="20" height="20"/><rect x="0" y="40" width="20" height="20"/><rect x="40" y="40" width="20" height="20"/><rect x="80" y="40" width="20" height="20"/><rect x="-20" y="60" width="20" height="20"/><rect x="20" y="60" width="20" height="20"/><rect x="60" y="60" width="20" height="20"/><rect x="100" y="60" width="20" height="20"/><rect x="0" y="80" width="20" height="20"/><rect x="40" y="80" width="20" height="20"/><rect x="80" y="80" width="20" height="20"/><rect x="-20" y="100" width="20" height="20"/><rect x="20" y="100" width="20" height="20"/><rect x="60" y="100" width="20" height="20"/><rect x="100" y="100" width="20" height="20"/></g></g><path d="M60 118 C 20 90 8 66 12 46 C 16 26 40 18 60 40 C 80 18 104 26 108 46 C 112 66 100 90 60 118 Z" fill="none" stroke="#9c0715" stroke-width="3"/></svg>`,
+  `<svg viewBox="0 0 120 130"><ellipse cx="60" cy="18" rx="10" ry="18" fill="#ffd77a"/><ellipse cx="60" cy="24" rx="5" ry="10" fill="#fff6d6"/><path d="M60 34 V40" stroke="#1d1a24" stroke-width="2"/><rect x="40" y="40" width="40" height="84" rx="4" fill="#fff" stroke="#c9d7ec" stroke-width="2"/><g fill="#d3101f" font-family="Barlow Condensed, sans-serif" font-weight="800" font-size="11"><text x="44" y="56">1</text><text x="44" y="78">2</text><text x="44" y="100">3</text><text x="44" y="120">4</text></g><path d="M54 52 H76 M54 74 H76 M54 96 H76 M54 116 H76" stroke="#d3101f" stroke-width="2"/><path d="M54 63 H72 M54 85 H72 M54 107 H72" stroke="#1d5a3c" stroke-width="1.5"/></svg>`,
+  `<svg viewBox="0 0 120 130"><path d="M60 4 V16" stroke="#d3101f" stroke-width="2.5"/><path d="M60 16 L72 50 L108 50 L79 72 L90 106 L60 85 L30 106 L41 72 L12 50 L48 50 Z" fill="#c8955a" stroke="#8a5a2b" stroke-width="3" stroke-linejoin="round"/><path d="M60 30 L60 85 M24 52 L96 52 M36 98 L84 60 M84 98 L36 60" stroke="#a5713d" stroke-width="1.5" opacity=".6"/><circle cx="60" cy="64" r="8" fill="#d3101f"/></svg>`,
+  `<svg viewBox="0 0 120 130"><rect x="16" y="52" width="88" height="70" rx="6" fill="#d3101f"/><rect x="10" y="38" width="100" height="22" rx="5" fill="#ef2a38"/><rect x="52" y="38" width="16" height="84" fill="#fff"/><path d="M60 38 C 40 10 18 22 30 34 C 38 42 52 40 60 38 C 68 40 82 42 90 34 C 102 22 80 10 60 38 Z" fill="#fff" stroke="#c9d7ec" stroke-width="2"/><circle cx="34" cy="90" r="3" fill="#fff"/><circle cx="86" cy="76" r="3" fill="#fff"/><circle cx="84" cy="106" r="3" fill="#fff"/><circle cx="32" cy="110" r="3" fill="#fff"/></svg>`
+];
+function renderCards() {
+  $("cards").innerHTML = T[lang].cards.map(([h, p], i) => `<article class="card"><div class="art" aria-hidden="true">${ART[i]}</div><h3>${h}</h3><p>${p}</p></article>`).join("");
+}
+
+/* ---------- Santa chat ---------- */
+const log = $("log");
+function add(cls, text) { const d = document.createElement("div"); d.className = "msg " + cls; d.textContent = text; log.appendChild(d); log.scrollTop = log.scrollHeight; return d; }
+function detect(text) {
+  const s = text.toLowerCase(); let best = lang, top = 0;
+  for (const l in WORDS) { const n = (s.match(WORDS[l]) || []).length; if (n > top) { top = n; best = l; } }
+  if (/[æøå]/.test(s)) best = "da"; else if (/[äöüß]/.test(s)) best = "de";
+  return best;
+}
+function reply(text) {
+  const l = detect(text), s = text.toLowerCase().trim();
+  const topic = (TOPICS.find(([, re]) => re.test(s)) || ["fall"])[0];
+  const t = add("s typing", "…");
+  setTimeout(() => { t.className = "msg s"; t.textContent = pick(R[l][topic]); log.scrollTop = log.scrollHeight; }, 900 + Math.random() * 600);
+}
+function send(text) { text = text.trim(); if (!text) return; add("u", text); reply(text); }
+$("chatform").addEventListener("submit", e => { e.preventDefault(); send($("msg").value); $("msg").value = ""; });
+$("msg").addEventListener("keydown", e => { if (e.key === "Enter" && !e.shiftKey) { e.preventDefault(); $("chatform").requestSubmit(); } });
+function renderChips() {
+  $("chips").innerHTML = ""; T[lang].chips.forEach(c => { const b = document.createElement("button"); b.type = "button"; b.textContent = c;
+    b.addEventListener("click", () => { if (c.endsWith("…")) { $("msg").value = c.replace("…", "").trimEnd() + " "; $("msg").focus(); } else send(c); }); $("chips").appendChild(b); });
+}
+$("portrait").addEventListener("click", e => { const p = e.currentTarget; p.classList.remove("ho"); void p.offsetWidth; p.classList.add("ho"); bubble(e.clientX, e.clientY, pick(T[lang].ho)); });
+$("bears").addEventListener("click", e => { const p = e.currentTarget; p.classList.remove("wave"); void p.offsetWidth; p.classList.add("wave"); bubble(e.clientX, e.clientY, pick(T[lang].bears)); });
+
+/* ---------- advent calendar ---------- */
+const ORDER = [7, 15, 1, 22, 11, 4, 18, 9, 24, 13, 2, 20, 6, 16, 10, 23, 3, 12, 19, 5, 21, 14, 8, 17];
+const ICONS = ["★", "❄", "♥", "✦"];
+function dayNow() { const n = new Date(); return n.getMonth() === 11 ? n.getDate() : 0; }
+const cal = $("cal");
+ORDER.forEach((d, i) => {
+  const w = document.createElement("div"); w.className = "door";
+  w.innerHTML = `<div class="back" aria-hidden="true">${ICONS[d % 4]}</div><button type="button">${d}</button>`;
+  const today = dayNow(); if (d === today) w.classList.add("today"); if (d < today) w.classList.add("open");
+  w.querySelector("button").addEventListener("click", () => {
+    if (dayNow() >= d) { w.classList.add("open"); setTimeout(() => showDay(d), 500); }
+    else { w.classList.remove("shake"); void w.offsetWidth; w.classList.add("shake"); const r = w.getBoundingClientRect(); bubble(r.left + r.width / 2, r.top, T[lang].calLocked(d)); }
+  });
+  cal.appendChild(w);
+});
+function showDay(d) {
+  const o = document.createElement("div"); o.className = "dlg"; o.setAttribute("role", "dialog"); o.setAttribute("aria-modal", "true");
+  o.innerHTML = `<div class="box"><div class="num">${d}</div><p></p><button type="button" class="btn btn-red"></button></div>`;
+  o.querySelector("p").textContent = T[lang].advent[d - 1]; const b = o.querySelector("button"); b.textContent = T[lang].close;
+  const close = () => o.remove(); b.addEventListener("click", close); o.addEventListener("click", e => { if (e.target === o) close(); });
+  document.addEventListener("keydown", function k(e) { if (e.key === "Escape") { close(); document.removeEventListener("keydown", k); } });
+  document.body.appendChild(o); b.focus();
+}
+function calNote() {
+  const n = new Date(), t = dayNow();
+  if (t >= 1 && t <= 24) $("cal-note").textContent = T[lang].calOpen;
+  else if (t > 24) $("cal-note").textContent = T[lang].countDone;
+  else { let y = n.getFullYear(); const dec = new Date(y, 11, 1); const days = Math.ceil((dec - new Date(y, n.getMonth(), n.getDate())) / 86400000); $("cal-note").textContent = T[lang].calWait(days); }
+}
+
+$("yr").textContent = new Date().getFullYear();
+applyLang(lang);
+add("s", R[lang].greet[0]);
+})();
+</script>
