@@ -1,0 +1,101 @@
+/* Julekontor Admin – Farben aus dem Logo: Papier, Weihnachtsrot, Gold, Tannengrün */
+:root {
+  --paper: #f6efe2; --card: #fffaf1; --ink: #3a1d17; --muted: #7a6152; --line: #e2d3b9;
+  --red: #a3201d; --red-dark: #7d1714; --on-red: #fff7ec; --gold: #a87b2e; --green: #2e5a3c;
+  --ok-bg: #e6f0e8; --err-bg: #f8e1df; --err: #b3261e;
+  --shadow: 0 1px 0 rgba(90,50,20,.06), 0 6px 18px -10px rgba(90,50,20,.35);
+  --f-display: Georgia, "Times New Roman", serif;
+  --f-body: system-ui, -apple-system, "Segoe UI", sans-serif;
+  color-scheme: light;
+}
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #1c1412; --card: #281d19; --ink: #f3e7d3; --muted: #bba48f; --line: #47362d;
+    --red: #d8463d; --red-dark: #b8352d; --on-red: #1c1412; --gold: #d9ab5c; --green: #82b592;
+    --ok-bg: #20352a; --err-bg: #3d1f1c; --err: #ff8a80;
+    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 8px 20px -12px rgba(0,0,0,.7);
+    color-scheme: dark;
+  }
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 var(--f-body); }
+h1, h2 { font-family: var(--f-display); color: var(--red); margin: 0 0 16px; line-height: 1.2; }
+h1 { font-size: 1.7rem; }
+h2 { font-size: 1.2rem; margin-bottom: 4px; }
+p { margin: 4px 0; }
+a { color: inherit; }
+.muted { color: var(--muted); }
+.small { font-size: .85rem; }
+:focus-visible { outline: 3px solid var(--gold); outline-offset: 2px; }
+
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: .4em; min-height: 44px; padding: 0 20px;
+  border: 2px solid var(--red); border-radius: 999px; background: var(--red); color: var(--on-red);
+  font: 700 1rem var(--f-body); text-decoration: none; cursor: pointer; }
+.btn:hover { background: var(--red-dark); border-color: var(--red-dark); }
+.btn.ghost { background: transparent; color: var(--red); }
+.btn.ghost:hover { background: var(--card); }
+.btn.small { min-height: 36px; padding: 0 14px; font-size: .9rem; }
+
+.flash { padding: 12px 16px; border-radius: 10px; margin: 0 0 16px; background: var(--ok-bg); color: var(--green); font-weight: 600; }
+.flash.err { background: var(--err-bg); color: var(--err); }
+
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow); padding: 20px; }
+
+/* Anmelden */
+body.auth { min-height: 100dvh; display: grid; place-items: center; padding: 16px;
+  background: radial-gradient(circle at 30% 20%, #fffaf1 0, transparent 60%), var(--paper); }
+.auth-card { width: 100%; max-width: 400px; background: var(--card); border: 2px solid var(--gold); border-radius: 16px; padding: 28px 24px; box-shadow: var(--shadow); }
+.auth-card .brand { font: italic 700 2rem var(--f-display); color: var(--red); margin-bottom: 8px; }
+.auth-card form { display: grid; gap: 14px; margin-top: 18px; }
+
+label { display: grid; gap: 6px; font-weight: 600; font-size: .95rem; }
+input:not([type=checkbox]) { width: 100%; min-height: 44px; padding: 8px 12px; border: 1px solid var(--line); border-radius: 10px;
+  background: var(--paper); color: var(--ink); font: 1rem var(--f-body); }
+input:focus { border-color: var(--gold); }
+label.check { display: flex; align-items: center; gap: 10px; font-weight: 500; }
+label.check input { width: 20px; height: 20px; accent-color: var(--red); }
+
+/* Rahmen */
+.top { position: sticky; top: 0; z-index: 5; display: flex; align-items: center; gap: 12px; padding: 10px 16px;
+  background: var(--red); color: var(--on-red); border-bottom: 3px solid var(--gold); }
+.top .brand { font: italic 700 1.35rem var(--f-display); text-decoration: none; }
+.top .brand span { font: 600 .8rem var(--f-body); letter-spacing: .08em; text-transform: uppercase; opacity: .85; margin-left: 4px; }
+.top .view-site { margin-left: auto; font-weight: 600; font-size: .9rem; }
+.menu-btn { display: none; background: none; border: 0; color: inherit; font-size: 1.5rem; width: 44px; height: 44px; cursor: pointer; }
+
+.shell { display: grid; grid-template-columns: 240px 1fr; min-height: calc(100dvh - 60px); }
+.side { border-right: 1px solid var(--line); padding: 16px 10px; display: flex; flex-direction: column; gap: 2px; }
+.side a { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 10px; text-decoration: none; font-weight: 600; }
+.side a:hover { background: var(--card); }
+.side a.active { background: var(--card); color: var(--red); box-shadow: inset 3px 0 0 var(--red); }
+.side a.soon { color: var(--muted); }
+.side a small { margin-left: auto; font-size: .72rem; font-weight: 700; color: var(--gold); text-transform: uppercase; letter-spacing: .05em; }
+.side .ic { width: 1.4em; text-align: center; }
+.side .logout { margin-top: auto; padding: 16px 12px 0; display: grid; gap: 8px; border-top: 1px solid var(--line); }
+.side .logout span { overflow-wrap: anywhere; }
+.content { padding: 24px; max-width: 900px; width: 100%; }
+
+/* Übersicht */
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+.tile { display: block; text-decoration: none; transition: transform .15s, border-color .15s; }
+.tile:hover { transform: translateY(-2px); border-color: var(--gold); }
+.tile.soon { opacity: .65; }
+.big { font-size: 2rem; display: block; margin-bottom: 8px; }
+.empty { text-align: center; padding: 48px 20px; }
+
+/* Formulare */
+.form { display: grid; gap: 20px; }
+fieldset { border: 0; padding: 0; margin: 0; display: grid; gap: 14px; }
+legend { font: 700 1.1rem var(--f-display); color: var(--red); padding: 0 0 6px; border-bottom: 1px dashed var(--gold); width: 100%; margin-bottom: 4px; }
+.row4 { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; }
+.actions { display: flex; flex-wrap: wrap; gap: 10px; }
+
+@media (max-width: 760px) {
+  .menu-btn { display: inline-block; }
+  .top .view-site { font-size: .8rem; }
+  .shell { grid-template-columns: 1fr; }
+  .side { display: none; border-right: 0; border-bottom: 1px solid var(--line); }
+  body.nav-open .side { display: flex; }
+  .content { padding: 16px; }
+  .row4 { grid-template-columns: repeat(2, 1fr); }
+}

@@ -8,6 +8,8 @@
     <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎅</text></svg>">
 
     <style>
+        [hidden] { display: none !important; }
+
         /* Grundlayout */
         body, html {
             margin: 0; padding: 0; height: 100%; width: 100%;
@@ -155,10 +157,10 @@
                 </div>
 
                 <div id="countdown">
-                    <div class="time-segment glass-box info-box"><span id="days">00</span><span class="time-label">Dage</span></div>
-                    <div class="time-segment glass-box info-box"><span id="hours">00</span><span class="time-label">Timer</span></div>
-                    <div class="time-segment glass-box info-box"><span id="minutes">00</span><span class="time-label">Minutter</span></div>
-                    <div class="time-segment glass-box info-box"><span id="seconds">00</span><span class="time-label">Sekunder</span></div>
+                    <div class="time-segment glass-box info-box"><span id="days">00</span><span class="time-label" data-label="days">Dage</span></div>
+                    <div class="time-segment glass-box info-box"><span id="hours">00</span><span class="time-label" data-label="hours">Timer</span></div>
+                    <div class="time-segment glass-box info-box"><span id="minutes">00</span><span class="time-label" data-label="minutes">Minutter</span></div>
+                    <div class="time-segment glass-box info-box"><span id="seconds">00</span><span class="time-label" data-label="seconds">Sekunder</span></div>
                 </div>
             </div>
 
@@ -171,16 +173,37 @@
     <audio id="christmasBell" src="glocke.mp3" preload="auto"></audio>
 
     <script>
+        /* --- EINSTELLUNGEN aus dem Admin (data/site.json) --- */
+        const DEFAULTS = {
+            title: "Vi åbner snart", countdownEnabled: true, countdownTarget: "2027-11-14T00:00",
+            afterTitle: "Glædelig jul!", footer: "© 2026 - 6330 Padborg / Vilsbæk", snow: true, bell: true,
+            labels: { days: "Dage", hours: "Timer", minutes: "Minutter", seconds: "Sekunder" }
+        };
+        let site = DEFAULTS, targetDate = 0, timer = 0;
+
+        function applySite(s) {
+            site = Object.assign({}, DEFAULTS, s, { labels: Object.assign({}, DEFAULTS.labels, s && s.labels) });
+            document.getElementById("main-title").textContent = site.title;
+            document.querySelector(".footer-copyright").textContent = site.footer;
+            for (const k of ["days", "hours", "minutes", "seconds"])
+                document.querySelector('[data-label="' + k + '"]').textContent = site.labels[k];
+            document.getElementById("bell-button").hidden = !site.bell;
+            canvas.style.display = site.snow ? "" : "none";
+            targetDate = new Date(site.countdownTarget).getTime();
+            document.getElementById("countdown").style.display = site.countdownEnabled ? "" : "none";
+            clearInterval(timer);
+            if (site.countdownEnabled) { timer = setInterval(updateCountdown, 1000); updateCountdown(); }
+        }
+
         /* --- COUNTDOWN LOGIK --- */
-        const targetDate = new Date("Nov 14, 2027 00:00:00").getTime();
-        
         function updateCountdown() {
             const now = new Date().getTime();
             const diff = targetDate - now;
             
             if (diff < 0) {
-                document.getElementById("main-title").innerText = "Glædelig jul!";
+                document.getElementById("main-title").textContent = site.afterTitle;
                 document.getElementById("countdown").style.display = "none";
+                clearInterval(timer);
                 return;
             }
 
@@ -189,8 +212,6 @@
             document.getElementById("minutes").innerText = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
             document.getElementById("seconds").innerText = Math.floor((diff % (1000 * 60)) / 1000).toString().padStart(2, '0');
         }
-        setInterval(updateCountdown, 1000);
-        updateCountdown();
 
         /* --- SCHNEE-EFFEKT --- */
         const canvas = document.getElementById('snow-canvas');
@@ -242,6 +263,12 @@
             bellAudio.currentTime = 0;
             bellAudio.play().catch(e => console.log("Audio blockiert"));
         });
+        /* --- Einstellungen laden --- */
+        applySite(DEFAULTS);
+        fetch("data/site.json", { cache: "no-store" })
+            .then(r => r.ok ? r.json() : null)
+            .then(s => { if (s) applySite(s); })
+            .catch(() => {});
     </script>
 </body>
 </html>
