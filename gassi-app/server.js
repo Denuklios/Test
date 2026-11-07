@@ -287,7 +287,7 @@ function validateProfile(b, { partial = false } = {}) {
   }
   if (!partial || 'dog' in b) out.dog = str(b.dog, 40);
   if (!partial || 'dogAge' in b) out.dogAge = ONE_OF(b.dogAge, DOG_AGES, 'erwachsen');
-  if (!partial || 'dogBreed' in b) out.dogBreed = str(b.dogBreed, 60);
+  if (!partial || 'dogBreed' in b) out.dogBreed = str(b.dogBreed, 120);
   if (!partial || 'dogYears' in b) out.dogYears = Number.isInteger(b.dogYears) && b.dogYears >= 0 && b.dogYears <= 25 ? b.dogYears : null;
   if (!partial || 'showDog' in b) out.showDog = b.showDog !== false;
   return out;

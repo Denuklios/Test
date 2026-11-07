@@ -87,7 +87,21 @@ export const DOG_BREEDS = [
   'Windhund', 'Yorkshire Terrier', 'Zwergpinscher', 'Zwergpudel', 'Zwergschnauzer', 'Zwergspitz',
 ];
 /** Kurznasige Rassen: überhitzen schnell. */
-const BRACHY = new Set(['Mops', 'Französische Bulldogge', 'Englische Bulldogge', 'Shih Tzu', 'Boxer', 'Cavalier King Charles Spaniel']);
+const BRACHY = ['Mops', 'Französische Bulldogge', 'Englische Bulldogge', 'Shih Tzu', 'Boxer', 'Cavalier King Charles Spaniel'];
+/** Kurznasig? Auch für Mischungen wie „Mischling (Mops × Beagle)“. */
+export const isBrachy = (breed = '') => BRACHY.some((b) => breed.includes(b));
+
+/** Rassenangabe zusammensetzen bzw. zerlegen: „Mischling (Labrador Retriever × Pudel)“. */
+export function composeBreed(main, mix1 = '', mix2 = '') {
+  if (main !== 'Mischling') return main || '';
+  const parts = [mix1, mix2].filter(Boolean);
+  return parts.length ? `Mischling (${parts.join(' × ')})` : 'Mischling';
+}
+export function splitBreed(breed = '') {
+  const m = breed.match(/^Mischling(?: \((.+?)(?: × (.+))?\))?$/);
+  if (!m) return { main: breed, mix1: '', mix2: '' };
+  return { main: 'Mischling', mix1: m[1] || '', mix2: m[2] || '' };
+}
 
 /** Altersgruppe aus Jahren (null = unbekannt → erwachsen). */
 export function ageGroup(years) {
@@ -149,7 +163,7 @@ export function dogScore(attrs = {}, { tempC = null, dogAge = 'erwachsen', km = 
     if (attrs.water !== true) warnings.push(attrs.water === false ? 'Kein Wasser unterwegs. Nimm eine Trinkflasche für den Hund mit.' : 'Ob es unterwegs Wasser gibt, ist nicht bekannt. Nimm eine Trinkflasche für den Hund mit.');
     if (shade !== null && shade < 50) warnings.push('Wenig Schatten. Lieber früh morgens oder abends gehen.');
   }
-  if (tempC != null && tempC >= 21 && BRACHY.has(breed)) warnings.push(`Kurznasige Hunde wie ${breed === 'Mops' ? 'Möpse' : 'deiner'} überhitzen schon ab etwa 21 °C. Kurze Runde im Schatten, Wasser mitnehmen, Pausen machen.`);
+  if (tempC != null && tempC >= 21 && isBrachy(breed)) warnings.push('Kurznasige Hunde überhitzen schon ab etwa 21 °C. Kurze Runde im Schatten, Wasser mitnehmen, Pausen machen.');
   if (tempC != null && tempC <= 0 && attrs.surface === 'asphalt') warnings.push('Streusalz möglich. Pfoten nach der Runde abwaschen.');
   if (km != null && dogAge === 'welpe' && km > 2) warnings.push('Für Welpen ist die Runde lang. Plane Pausen ein oder kürze ab.');
   if (km != null && dogAge === 'senior' && km > 4) warnings.push('Für ältere Hunde eher lang. Achte auf Pausen.');

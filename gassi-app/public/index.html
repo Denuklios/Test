@@ -24,7 +24,7 @@
       <span>Gassirunde</span>
     </div>
     <div class="topbar-actions">
-      <span class="chip" id="weather" title="Temperatur am Kartenmittelpunkt" hidden></span>
+      <button class="chip weather-chip" id="weather" title="Wetter der nächsten 3 Stunden" hidden></button>
       <button class="icon-btn" id="locate-btn" title="Mich auf der Karte zeigen" aria-label="Mich auf der Karte zeigen">
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" fill="none"/></svg>
       </button>
@@ -157,6 +157,11 @@
     </form>
   </section>
 
+  <!-- Wetter der nächsten Stunden mit Tipps -->
+  <dialog id="weather-dialog" class="dialog weather-dialog" aria-labelledby="weather-title">
+    <div id="weather-body"></div>
+  </dialog>
+
   <!-- Person aus der Live-Liste oder von der Karte -->
   <dialog id="person-dialog" class="dialog person-dialog" aria-labelledby="person-name">
     <div id="person-body"></div>
@@ -187,6 +192,14 @@
             <select id="reg-years" class="years-select"></select>
           </label>
         </div>
+        <div class="grid2 mix-fields" id="reg-mix" hidden>
+          <label class="field">Mischung aus
+            <select id="reg-mix1" class="mix-select"></select>
+          </label>
+          <label class="field">und
+            <select id="reg-mix2" class="mix-select"></select>
+          </label>
+        </div>
         <label class="switch"><input type="checkbox" id="reg-show" checked> <span>Rasse und Alter für andere sichtbar</span></label>
         <p class="hint">Rasse und Alter sind freiwillig. Andere sehen nie deine E-Mail-Adresse.</p>
       </div>
@@ -213,6 +226,14 @@
           </label>
           <label class="field">Alter
             <select id="me-years" class="years-select"></select>
+          </label>
+        </div>
+        <div class="grid2 mix-fields" id="me-mix" hidden>
+          <label class="field">Mischung aus
+            <select id="me-mix1" class="mix-select"></select>
+          </label>
+          <label class="field">und
+            <select id="me-mix2" class="mix-select"></select>
           </label>
         </div>
         <label class="switch"><input type="checkbox" id="me-show" checked> <span>Rasse und Alter für andere sichtbar</span></label>

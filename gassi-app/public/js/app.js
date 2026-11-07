@@ -1,7 +1,7 @@
 import {
   distance, pathLength, pointAlong, trimEnds, distanceToPath, acceptFix,
   estimateMinutes, dogScore, busyLevel, quietestHour, averageRating, matchRoute,
-  formatKm, formatDuration, formatDistanceShort, STATUS, LABELS, DOG_BREEDS, ageGroup, dogInfo,
+  formatKm, formatDuration, formatDistanceShort, STATUS, LABELS, DOG_BREEDS, ageGroup, dogInfo, composeBreed, splitBreed,
 } from './core.js';
 import { createBackend, LS } from './backend.js';
 
@@ -43,8 +43,20 @@ function fillDogSelects() {
     ...DOG_BREEDS.map((b) => `<option>${esc(b)}</option>`), '<option>Andere Rasse</option>'].join('');
   const years = ['<option value="">Keine Angabe</option>', '<option value="0">unter 1 Jahr</option>',
     ...Array.from({ length: 20 }, (_, i) => `<option value="${i + 1}">${i + 1} ${i ? 'Jahre' : 'Jahr'}</option>`)].join('');
+  const mix = ['<option value="">Unbekannt</option>', ...DOG_BREEDS.map((b) => `<option>${esc(b)}</option>`)].join('');
   for (const s of $$('.breed-select')) s.innerHTML = breeds;
   for (const s of $$('.years-select')) s.innerHTML = years;
+  for (const s of $$('.mix-select')) s.innerHTML = mix;
+  // Bei „Mischling“ die zwei Rassen der Mischung anbieten
+  for (const p of ['reg', 'me']) $(`#${p}-breed`).addEventListener('change', () => { $(`#${p}-mix`).hidden = $(`#${p}-breed`).value !== 'Mischling'; });
+}
+const readBreed = (p) => composeBreed($(`#${p}-breed`).value, $(`#${p}-mix1`).value, $(`#${p}-mix2`).value);
+function showBreed(p, breed) {
+  const b = splitBreed(breed || '');
+  const known = [...$(`#${p}-breed`).options].some((o) => o.value === b.main || o.text === b.main);
+  $(`#${p}-breed`).value = known ? b.main : (b.main ? 'Andere Rasse' : '');
+  $(`#${p}-mix1`).value = b.mix1; $(`#${p}-mix2`).value = b.mix2;
+  $(`#${p}-mix`).hidden = b.main !== 'Mischling';
 }
 fillDogSelects();
 const readYears = (sel) => ($(sel).value === '' ? null : Number($(sel).value));
@@ -749,7 +761,7 @@ function syncStatusInputs() {
 async function openProfile() {
   if (backend.accounts && !state.user) return openAuth();
   $('#me-name').value = me.name; $('#me-dog').value = me.dog; $('#me-simulate').checked = me.simulate;
-  $('#me-breed').value = me.dogBreed || ''; $('#me-years').value = me.dogYears ?? ''; $('#me-show').checked = me.showDog !== false;
+  showBreed('me', me.dogBreed); $('#me-years').value = me.dogYears ?? ''; $('#me-show').checked = me.showDog !== false;
   $('#me-simulate').disabled = rec.active;
   $('#me-email').textContent = me.email ? `Angemeldet als ${me.email}` : '';
   $('#me-email').hidden = !me.email;
@@ -781,7 +793,7 @@ async function saveProfile(e) {
   try {
     const dogYears = readYears('#me-years');
     const user = await backend.updateProfile({
-      name, dog: $('#me-dog').value.trim(), dogBreed: $('#me-breed').value, dogYears, dogAge: ageGroup(dogYears), showDog: $('#me-show').checked,
+      name, dog: $('#me-dog').value.trim(), dogBreed: readBreed('me'), dogYears, dogAge: ageGroup(dogYears), showDog: $('#me-show').checked,
     });
     if (!rec.active) me.simulate = $('#me-simulate').checked;
     saveMe();
@@ -873,7 +885,7 @@ async function submitAuth(e) {
     const user = reg
       ? await backend.register({
         email, password, name: $('#reg-name').value.trim(), dog: $('#reg-dog').value.trim(),
-        dogBreed: $('#reg-breed').value, dogYears: readYears('#reg-years'), dogAge: ageGroup(readYears('#reg-years')), showDog: $('#reg-show').checked,
+        dogBreed: readBreed('reg'), dogYears: readYears('#reg-years'), dogAge: ageGroup(readYears('#reg-years')), showDog: $('#reg-show').checked,
       })
       : await backend.login(email, password);
     $('#auth-dialog').close();
@@ -913,19 +925,125 @@ function switchTab(tab) {
 }
 
 // ---------- Wetter ----------
+// Wettercodes (WMO) → Symbol und Wort
+const WMO = {
+  0: ['☀️', 'klar'], 1: ['🌤️', 'überwiegend klar'], 2: ['⛅', 'teils bewölkt'], 3: ['☁️', 'bedeckt'],
+  45: ['🌫️', 'Nebel'], 48: ['🌫️', 'Nebel mit Reif'],
+  51: ['🌦️', 'leichter Niesel'], 53: ['🌦️', 'Niesel'], 55: ['🌧️', 'starker Niesel'], 56: ['🌧️', 'gefrierender Niesel'], 57: ['🌧️', 'gefrierender Niesel'],
+  61: ['🌦️', 'leichter Regen'], 63: ['🌧️', 'Regen'], 65: ['🌧️', 'starker Regen'], 66: ['🌧️', 'gefrierender Regen'], 67: ['🌧️', 'gefrierender Regen'],
+  71: ['🌨️', 'leichter Schnee'], 73: ['🌨️', 'Schnee'], 75: ['❄️', 'starker Schnee'], 77: ['🌨️', 'Schneegriesel'],
+  80: ['🌦️', 'Regenschauer'], 81: ['🌧️', 'kräftige Schauer'], 82: ['⛈️', 'heftige Schauer'], 85: ['🌨️', 'Schneeschauer'], 86: ['🌨️', 'Schneeschauer'],
+  95: ['⛈️', 'Gewitter'], 96: ['⛈️', 'Gewitter mit Hagel'], 99: ['⛈️', 'Gewitter mit Hagel'],
+};
+const NIGHT = { 0: '🌙', 1: '🌙', 2: '☁️', 51: '🌧️', 53: '🌧️', 61: '🌧️', 80: '🌧️' };
+/** Symbol und Wort; nachts ohne Sonne. */
+const wmo = (c, night = false) => { const [i, w] = WMO[c] || ['🌡️', '']; return [night && NIGHT[c] ? NIGHT[c] : i, w]; };
+/** Ist es zu dieser Ortszeit (ISO ohne Zone) dunkel? Sonnenauf-/untergang gelten für heute, daher grob nach Uhrzeit. */
+const isNight = (iso) => { const w = state.weather; if (!w?.sunrise || !w?.sunset || !iso) return false; const t = iso.slice(11, 16); return t < w.sunrise.slice(11, 16) || t >= w.sunset.slice(11, 16); };
+
 async function loadWeather(lat, lng) {
   try {
-    const r = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}&current=temperature_2m`);
-    const t = (await r.json()).current?.temperature_2m;
+    const url = `https://api.open-meteo.com/v1/forecast?latitude=${lat.toFixed(3)}&longitude=${lng.toFixed(3)}`
+      + '&current=temperature_2m,weather_code,wind_speed_10m,wind_gusts_10m,precipitation'
+      + '&hourly=temperature_2m,precipitation_probability,precipitation,weather_code,wind_speed_10m,wind_gusts_10m'
+      + '&past_hours=6&forecast_hours=4&daily=sunrise,sunset&forecast_days=1&timezone=auto';
+    const d = await (await fetch(url)).json();
+    const t = d.current?.temperature_2m;
     if (typeof t !== 'number') return;
+    const nowHour = d.current.time.slice(0, 13);
+    const idx = Math.max(0, d.hourly.time.findIndex((x) => x.startsWith(nowHour)));
+    const h = d.hourly;
+    const hour = (i) => ({ time: h.time[i], temp: h.temperature_2m[i], prob: h.precipitation_probability[i] ?? 0, rain: h.precipitation[i] ?? 0, code: h.weather_code[i], wind: h.wind_speed_10m[i], gust: h.wind_gusts_10m[i] });
+    state.weather = {
+      at: Date.now(), lat, lng, here: !!state.myPos,
+      now: { time: d.current.time, temp: t, code: d.current.weather_code, wind: d.current.wind_speed_10m, gust: d.current.wind_gusts_10m, rain: d.current.precipitation ?? 0, prob: h.precipitation_probability[idx] ?? 0 },
+      next: [1, 2, 3].map((k) => idx + k).filter((i) => i < h.time.length).map(hour),
+      pastRain: h.precipitation.slice(Math.max(0, idx - 6), idx).reduce((s, x) => s + (x || 0), 0),
+      sunrise: d.daily?.sunrise?.[0], sunset: d.daily?.sunset?.[0], localNow: d.current.time,
+    };
     state.tempC = t;
     const chip = $('#weather');
-    chip.textContent = `${Math.round(t)} °C`;
+    chip.textContent = `${wmo(state.weather.now.code, isNight(state.weather.now.time))[0]} ${Math.round(t)} °C`;
     chip.hidden = false;
     chip.classList.toggle('hot', t >= 25);
-    chip.title = t >= 25 ? 'Heiß: Achte auf Schatten, Wasser und heißen Asphalt' : 'Temperatur am Kartenmittelpunkt';
+    if ($('#weather-dialog').open) renderWeather();
     state.view === 'detail' ? renderDetail() : renderList();
   } catch { /* ohne Wetter geht es auch */ }
+}
+
+/** Tipps für die Runde – ehrlich, aber mit Augenzwinkern. */
+function weatherTips(w) {
+  const tips = [];
+  const all = [w.now, ...w.next];
+  const maxProb = Math.max(...all.map((x) => x.prob || 0));
+  const sumRain = w.next.reduce((s, x) => s + (x.rain || 0), 0) + (w.now.rain || 0);
+  const maxGust = Math.max(...all.map((x) => x.gust || 0));
+  const codes = all.map((x) => x.code);
+  const minT = Math.min(...all.map((x) => x.temp)); const maxT = Math.max(...all.map((x) => x.temp));
+  const thunder = codes.some((c) => c >= 95);
+  const snow = codes.some((c) => (c >= 71 && c <= 77) || c === 85 || c === 86);
+  const fog = codes.some((c) => c === 45 || c === 48);
+  const hm = (iso) => (iso ? iso.slice(11, 16) : '');
+  if (thunder) tips.push(['⚡', 'Gewitter möglich. Lieber eine kurze Runde in Hausnähe, und nicht unter einzelnen Bäumen unterstellen.']);
+  if (maxProb >= 60 || sumRain >= 1) tips.push(['☔', 'Regen im Anmarsch: Regenjacke an, Schirm einpacken und das Hundehandtuch schon mal an die Haustür legen.']);
+  else if (maxProb >= 30) tips.push(['🌂', `Vielleicht ein paar Tropfen (bis ${maxProb} %). Der kleine Schirm passt in die Jackentasche.`]);
+  const wetNow = (c) => (c >= 51 && c <= 67) || (c >= 80 && c <= 82);
+  if (wetNow(w.now.code) && !(maxProb >= 60 || sumRain >= 1)) tips.push(['🧥', `Gerade ${wmo(w.now.code)[1]}. Kapuze auf, dem Hund ist das sowieso egal.`]);
+  if (w.pastRain >= 0.5 && !(maxProb >= 60)) tips.push(['🥾', 'Es hat vorhin geregnet: Auf Wald- und Feldwegen wird es matschig. Gummistiefel an, und danach ab mit dem Hund unter die Pfotendusche.']);
+  if (maxGust >= 60) tips.push(['🌪️', `Sturmböen bis ${Math.round(maxGust)} km/h: Heute bitte nicht in den Wald, da können Äste brechen. Besser offenes Feld oder Strand.`]);
+  else if (maxGust >= 40) tips.push(['💨', `Ganz schön windig, Böen bis ${Math.round(maxGust)} km/h. Hundeohren flattern lassen und im Wald auf herabfallende Äste achten.`]);
+  if (snow) tips.push(['❄️', 'Schnee! Für die meisten Hunde das Größte. Danach Eisklumpen aus dem Pfotenfell holen und die Pfoten abspülen.']);
+  if (minT <= 0) tips.push(['🧊', 'Frost: Wege können glatt sein, und Streusalz brennt an den Pfoten. Vorher Pfotenbalsam, hinterher lauwarm abspülen.']);
+  else if (minT <= 6) tips.push(['🧣', 'Frisch draußen. Mütze auf, und kurzhaarige oder ältere Hunde freuen sich über einen Mantel.']);
+  if (maxT >= 28) tips.push(['🔥', 'Hitze! Nur früh morgens oder spät abends raus, Asphalt meiden (Handrücken 7 Sekunden auf den Boden) und reichlich Wasser mitnehmen.']);
+  else if (maxT >= 23) tips.push(['🥤', 'Warm heute: Wasser für den Hund mitnehmen und eine schattige Runde wählen. Der Filter „Schattig“ hilft dabei.']);
+  if (maxT >= 21 && /Mops|Bulldogge|Shih Tzu|Boxer|Cavalier/.test(me.dogBreed || '')) tips.push(['🐶', 'Kurznasige Hunde überhitzen schnell. Heute lieber eine kurze Runde im Schatten.']);
+  if (fog) tips.push(['🌫️', 'Nebel: Mit Leuchthalsband sehen euch Radfahrer und Autos rechtzeitig.']);
+  const now = w.localNow; const rise = w.sunrise; const set = w.sunset;
+  if (set && rise && now) {
+    const minsToSet = (Date.parse(set) - Date.parse(now)) / 60000;
+    if (now > set || now < rise) tips.push(['🔦', 'Draußen ist es dunkel. Leuchthalsband oder Blinklicht an, und die Taschenlampe nicht vergessen.']);
+    else if (minsToSet <= 90) tips.push(['🌇', `Um ${hm(set)} geht die Sonne unter. Leuchthalsband einpacken, falls die Runde länger wird.`]);
+  }
+  const nice = maxProb < 30 && maxGust < 40 && minT >= 8 && maxT <= 22 && !thunder && !snow;
+  if (nice) tips.unshift(['🐕', 'Perfektes Gassiwetter! Heute darf es ruhig die große Runde sein.']);
+  if (!tips.length) tips.push(['👍', 'Nichts Besonderes in Sicht. Leine schnappen und los!']);
+  return tips;
+}
+
+function renderWeather() {
+  const w = state.weather;
+  if (!w) return;
+  const col = (x, label) => {
+    const [ico, word] = wmo(x.code, isNight(x.time));
+    return `<div class="wx-col">
+      <span class="wx-time">${label}</span>
+      <span class="wx-ico" title="${esc(word)}">${ico}</span>
+      <b class="wx-temp">${Math.round(x.temp)}°</b>
+      <span class="wx-row" title="Regenwahrscheinlichkeit und Menge">💧 ${x.prob ?? 0} %${x.rain >= 0.1 ? `<small>${x.rain.toFixed(1).replace('.', ',')} mm</small>` : ''}</span>
+      <span class="wx-row" title="Wind (Böen)">💨 ${Math.round(x.wind)}<small>Böen ${Math.round(x.gust)}</small></span>
+    </div>`;
+  };
+  $('#weather-body').innerHTML = `
+    <h2 id="weather-title">Wetter für die Runde</h2>
+    <p class="hint" style="margin-top:-4px">${w.here ? 'An deinem Standort' : 'Rund um die Kartenmitte'} · ${esc(wmo(w.now.code)[1])} · Stand ${w.localNow.slice(11, 16)} Uhr</p>
+    <div class="wx-hours">${col(w.now, 'Jetzt')}${w.next.map((x) => col(x, `${x.time.slice(11, 13)} Uhr`)).join('')}</div>
+    <h3 class="list-title">Tipps für unterwegs</h3>
+    <ul class="wx-tips">${weatherTips(w).map(([i, t]) => `<li><span class="tip-ico" aria-hidden="true">${i}</span><p>${esc(t)}</p></li>`).join('')}</ul>
+    <p class="hint">Wetterdaten: Open-Meteo. Wind in km/h.</p>
+    <div class="rec-actions"><button class="btn primary" data-close-weather>Alles klar</button></div>`;
+}
+
+function openWeather() {
+  if (!state.weather) return;
+  renderWeather();
+  $('#weather-dialog').showModal();
+  // älter als 20 Minuten oder inzwischen eigener Standort bekannt: neu laden
+  const w = state.weather;
+  if (Date.now() - w.at > 20 * 60000 || (state.myPos && !w.here)) {
+    const [la, lo] = state.myPos || [map.getCenter().lat, map.getCenter().lng];
+    loadWeather(la, lo);
+  }
 }
 
 // ---------- Kleine Meldungen ----------
@@ -949,6 +1067,7 @@ $('#save-form').onsubmit = saveWalk;
 $('#discard-btn').onclick = discardWalk;
 $('#sv-share').onchange = toggleShareFields;
 $('#me-btn').onclick = openProfile;
+$('#weather').onclick = openWeather;
 $('#me-form').onsubmit = saveProfile;
 $('#pw-btn').onclick = changePassword;
 $('#del-btn').onclick = deleteAccount;
@@ -984,6 +1103,7 @@ document.addEventListener('click', (e) => {
   const pr = e.target.closest('[data-person]');
   if (pr) openPerson(pr.dataset.person);
   if (e.target.closest('[data-close-person]')) $('#person-dialog').close();
+  if (e.target.closest('[data-close-weather]')) $('#weather-dialog').close();
   if (e.target.closest('[data-wave]') && $('#person-dialog').open) $('#person-dialog').close();
   if (e.target.closest('[data-login]')) openAuth();
   const d = e.target.closest('[data-dismiss]');

@@ -160,7 +160,7 @@ function validateProfile(array $b, bool $partial = false): array {
     }
     if (!$partial || array_key_exists('dog', $b)) $out['dog'] = s($b['dog'] ?? null, 40);
     if (!$partial || array_key_exists('dogAge', $b)) $out['dog_age'] = oneOf($b['dogAge'] ?? null, DOG_AGES, 'erwachsen');
-    if (!$partial || array_key_exists('dogBreed', $b)) $out['dog_breed'] = s($b['dogBreed'] ?? null, 60);
+    if (!$partial || array_key_exists('dogBreed', $b)) $out['dog_breed'] = s($b['dogBreed'] ?? null, 120);
     if (!$partial || array_key_exists('dogYears', $b)) {
         $y = $b['dogYears'] ?? null;
         $out['dog_years'] = is_int($y) && $y >= 0 && $y <= 25 ? $y : null;

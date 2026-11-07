@@ -79,6 +79,20 @@ button, input, select, textarea { font: inherit; color: inherit; }
   background: var(--surface); box-shadow: var(--shadow); font: 600 17px/1.2 var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .chip.hot { background: var(--warn); color: var(--warn-ink); }
+.weather-chip { border: 0; cursor: pointer; color: var(--ink); }
+.weather-dialog h2 { margin: 0 0 6px; }
+.wx-hours { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 4px 0 6px; }
+.wx-col { display: grid; justify-items: center; gap: 2px; background: var(--surface-2); border-radius: 12px; padding: 8px 4px; text-align: center; }
+.wx-col:first-child { background: var(--accent-soft); }
+.wx-time { font: 600 15px/1 var(--font-display); text-transform: uppercase; letter-spacing: 0.03em; color: var(--muted); }
+.wx-ico { font-size: 28px; line-height: 1.1; }
+.wx-temp { font: 700 26px/1 var(--font-display); font-variant-numeric: tabular-nums; }
+.wx-row { font-size: 13px; display: grid; line-height: 1.2; font-variant-numeric: tabular-nums; }
+.wx-row small { color: var(--muted); font-size: 11px; }
+.wx-tips { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.wx-tips li { display: grid; grid-template-columns: 32px 1fr; gap: 8px; align-items: start; background: var(--surface-2); border-radius: 12px; padding: 10px 12px; }
+.wx-tips .tip-ico { font-size: 22px; line-height: 1.2; }
+.wx-tips p { margin: 0; }
 .icon-btn {
   width: 42px; height: 42px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer;
   background: var(--surface); box-shadow: var(--shadow);
