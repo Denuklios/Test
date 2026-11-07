@@ -174,7 +174,12 @@ route(/^\/inquiry\/(\d+)$/, async (id) => {
         tel ? h('a', { class: 'btn', href: 'tel:' + tel }, '📞 ' + t('inq_call')) : null,
         tel ? h('a', { class: 'btn', href: 'https://wa.me/' + tel.replace(/^\+/, '').replace(/^00/, ''), target: '_blank', rel: 'noopener' }, '💬 WhatsApp') : null)),
     window.konfigInquiryCard ? window.konfigInquiryCard(q) : null,
-    h('div', { class: 'card' }, row('q_message', q.message), q.file_name ? h('p', { class: 'muted', style: 'margin:8px 0 0' }, '📎 ' + t('inq_file', q.file_name)) : null),
+    h('div', { class: 'card' }, row('q_message', q.message)),
+    (q.files || []).length || q.file_name ? h('div', { class: 'card' }, h('h3', { style: 'margin:0 0 10px' }, '📎 ' + t('inq_files')),
+      (q.files || []).length ? h('div', { class: 'files' }, q.files.map((f) => h('div', { class: 'file' },
+        h('a', { href: `${BASE}file.php?id=${f.id}`, target: '_blank', rel: 'noopener' }, (f.mime || '').startsWith('image/') ? h('img', { src: `${BASE}file.php?id=${f.id}&thumb=1`, alt: f.original_name, loading: 'lazy' }) : h('div', { class: 'pdf' }, (f.original_name.split('.').pop() || 'Datei').toUpperCase())),
+        h('div', { class: 'n' }, h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, f.original_name)))))
+        : h('p', { class: 'muted', style: 'margin:0' }, t('inq_file_missing', q.file_name))) : null,
     h('div', { class: 'card' }, h('div', { class: 'grid', style: 'grid-template-columns:minmax(0,1fr);gap:8px' }, h('div', {}, h('label', {}, t('inq_status')), sel),
       h('label', { class: 'row', style: 'gap:8px;margin:0;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, notify, t('inq_notify')))));
 });

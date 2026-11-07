@@ -1520,7 +1520,7 @@ try {
                 wf_fail('not_found', 404);
             }
             // Auswahl aus dem Vorschau-Tool der Webseite (falls vorhanden)
-            $out = array_intersect_key($r, array_flip(['id', 'created_at', 'name', 'email', 'phone', 'product', 'qty', 'wish_date', 'message', 'lang', 'status']));
+            $out = array_intersect_key($r, array_flip(['id', 'created_at', 'name', 'email', 'phone', 'product', 'qty', 'wish_date', 'message', 'file_name', 'lang', 'status']));
             $out['konfig'] = !empty($r['konfig']) ? json_decode((string)$r['konfig'], true) : null;
             $out['has_preview'] = !empty($r['preview_file']) && is_file(wf_inquiry_file_dir() . basename((string)$r['preview_file']));
             $out['has_logo'] = !empty($r['logo_file']) && is_file(wf_inquiry_file_dir() . basename((string)$r['logo_file']));
@@ -1530,6 +1530,18 @@ try {
             $lo = $db->prepare('SELECT io.order_id FROM inquiry_orders io JOIN orders o ON o.id = io.order_id WHERE io.inquiry_id = ? AND o.deleted_at IS NULL');
             $lo->execute([(int)$r['id']]);
             $out['order_id'] = ($x = $lo->fetchColumn()) ? (int)$x : null;
+            // Dateien des Kunden: liegen am Auftrag (beim Öffnen fehlende aus Formular/Postfach nachtragen)
+            $out['files'] = [];
+            if ($out['order_id']) {
+                try {
+                    wf_inq_attach_files($db, $r, $out['order_id']);
+                } catch (Throwable $e) {
+                    error_log('auftraege inquiry files #' . $r['id'] . ': ' . $e->getMessage());
+                }
+                $fs = $db->prepare('SELECT id, original_name, mime FROM order_files WHERE order_id = ? ORDER BY id');
+                $fs->execute([$out['order_id']]);
+                $out['files'] = $fs->fetchAll();
+            }
             wf_json(['ok' => true, 'inquiry' => $out]);
         }
 
