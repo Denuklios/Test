@@ -1470,6 +1470,14 @@ $('#discard-btn').onclick = discardWalk;
 $('#sv-share').onchange = toggleShareFields;
 $('#me-btn').onclick = openProfile;
 $('#weather').onclick = openWeather;
+// Jedes Fenster bekommt ein X oben rechts
+for (const dlg of $$('dialog')) {
+  const wrap = document.createElement('div');
+  wrap.className = 'dialog-x-wrap';
+  wrap.innerHTML = '<button type="button" class="dialog-x" aria-label="Schließen">×</button>';
+  dlg.prepend(wrap);
+  wrap.firstChild.onclick = () => { if (dlg.id === 'auth-dialog') afterLogin = null; dlg.close(); };
+}
 $('#info-btn').onclick = () => {
   $('#info-version').textContent = NATIVE ? `App-Version ${NATIVE.version()}.` : 'Web-Version.';
   $('#info-dialog').showModal();
@@ -1578,20 +1586,58 @@ function moveSheet(dir) {
   if (sizes[i]) s.classList.add(sizes[i]);
 }
 $('#sheet-handle').onclick = () => moveSheet();
-// Wischen am Griff oder an der Kopfzeile des Fensters
+// Unteres Fenster mit dem Finger ziehen: am Griff, an den Reitern oder an der Kopfzeile folgt es dem Finger
+// und rastet beim Loslassen ein; in Listen genügt ein Wisch nach unten (ganz oben) bzw. nach oben (kleines Fenster).
 {
-  let y0 = null;
-  const start = (e) => { y0 = e.touches[0].clientY; };
-  const end = (e) => {
-    if (y0 == null) return;
-    const dy = e.changedTouches[0].clientY - y0;
-    y0 = null;
-    if (Math.abs(dy) > 30) { e.preventDefault(); moveSheet(dy > 0 ? 'down' : 'up'); }
-  };
-  for (const el of [$('#sheet-handle'), $('.rec-head'), $('.tabs'), $('.stats')]) {
-    el.addEventListener('touchstart', start, { passive: true });
-    el.addEventListener('touchend', end);
-  }
+  const sheet = $('#sheet');
+  let drag = null;
+  const sizes = () => [112, innerHeight * 0.46, innerHeight * 0.86];
+  const isHeader = (el) => el.closest('#sheet-handle, .tabs, .rec-head, .stats, .save-form > h2');
+  const scroller = (el) => el.closest('.panel, .save-form, #recording');
+  sheet.addEventListener('touchstart', (e) => {
+    if (innerWidth >= 900 || e.touches.length !== 1) return;
+    const t0 = e.touches[0];
+    const sc = scroller(e.target);
+    drag = { y0: t0.clientY, x0: t0.clientX, h0: sheet.getBoundingClientRect().height, header: !!isHeader(e.target), top: !sc || sc.scrollTop <= 0, live: false, t: Date.now() };
+  }, { passive: true });
+  sheet.addEventListener('touchmove', (e) => {
+    if (!drag) return;
+    const t1 = e.touches[0];
+    const dy = t1.clientY - drag.y0, dx = t1.clientX - drag.x0;
+    if (!drag.live) {
+      if (Math.abs(dy) < 8 || Math.abs(dy) < Math.abs(dx) * 1.3) return;
+      // Live-Ziehen: an der Kopfzeile immer, in Listen nur ganz oben nach unten
+      drag.live = drag.header || (drag.top && dy > 0 && !sheet.classList.contains('fit'));
+      if (!drag.live) return;
+      sheet.classList.add('dragging');
+    }
+    e.preventDefault();
+    const [min, , max] = sizes();
+    sheet.style.height = `${Math.max(min * 0.8, Math.min(max, drag.h0 - dy))}px`;
+    sheet.style.maxHeight = 'none';
+  }, { passive: false });
+  sheet.addEventListener('touchend', (e) => {
+    if (!drag) return;
+    const d = drag; drag = null;
+    const dy = e.changedTouches[0].clientY - d.y0;
+    const fast = Math.abs(dy) / Math.max(1, Date.now() - d.t) > 0.5; // schneller Wisch
+    if (d.live) {
+      sheet.classList.remove('dragging');
+      const h = sheet.getBoundingClientRect().height;
+      sheet.style.height = ''; sheet.style.maxHeight = '';
+      if (sheet.classList.contains('fit')) { moveSheet(dy > 0 ? 'down' : 'up'); return; }
+      const s = sizes();
+      let i = s.reduce((best, v, k) => (Math.abs(v - h) < Math.abs(s[best] - h) ? k : best), 0);
+      if (fast) i = dy > 0 ? Math.max(0, s.findIndex((v) => v >= d.h0 - 2) - 1) : Math.min(2, s.findIndex((v) => v > d.h0 + 2));
+      if (i < 0) i = dy > 0 ? 0 : 2;
+      sheet.classList.remove('collapsed', 'expanded');
+      if (i === 0) sheet.classList.add('collapsed');
+      if (i === 2) sheet.classList.add('expanded');
+      return;
+    }
+    // Kurzer Wisch in einer Liste: kleines Fenster nach oben vergrößern
+    if (dy < -40 && !sheet.classList.contains('expanded') && !sheet.classList.contains('fit') && Math.abs(dy) > 40) moveSheet('up');
+  });
 }
 // In der schmalen Leiste: Antippen der Zahlen holt alles zurück
 $('.stats').addEventListener('click', () => { if ($('#sheet').classList.contains('collapsed')) moveSheet('up'); });

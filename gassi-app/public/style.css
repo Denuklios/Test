@@ -78,7 +78,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
   position: absolute; right: -3px; top: -3px; width: 18px; height: 18px; border-radius: 50%; display: grid; place-items: center;
   background: var(--accent); color: var(--accent-ink); font: 700 12px/1 Georgia, "Times New Roman", serif; font-style: italic; box-shadow: 0 0 0 2px var(--surface);
 }
-.auth-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.auth-top { display: flex; justify-content: space-between; align-items: center; gap: 8px; padding-right: 36px; }
 .auth-top h2 { margin: 0; }
 .lang-switch { display: flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; flex: none; }
 .lang-switch button { border: 0; background: var(--surface); color: var(--muted); padding: 6px 10px; font: 700 14px/1 var(--font-body); cursor: pointer; }
@@ -186,7 +186,9 @@ body:has(.sheet.collapsed) { --sheet-h: 112px; }
 .sheet.fit.collapsed .stats div { padding: 6px 4px; }
 .sheet.fit.collapsed .stat-value { font-size: 30px; }
 .sheet.fit.collapsed .stat-label { font-size: 12px; }
-.sheet-handle { border: 0; background: none; padding: 12px 0 10px; margin: 0 -16px; cursor: pointer; display: flex; justify-content: center; flex: none; touch-action: none; }
+.sheet-handle { border: 0; background: none; padding: 14px 0 12px; margin: 0 -16px; cursor: grab; display: flex; justify-content: center; flex: none; touch-action: none; }
+.sheet.dragging { transition: none; }
+.tabs, .rec-head { touch-action: pan-x; }
 .sheet-handle span { width: 44px; height: 5px; border-radius: 3px; background: var(--line); }
 #browse, #recording, .save-form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 #recording { overflow-y: auto; gap: 12px; }
@@ -389,7 +391,7 @@ legend, .label { font-weight: 700; margin: 0 0 6px; padding: 0; }
 .status-chip .sdot { width: 10px; height: 10px; }
 
 /* Karte einer Person */
-.person-dialog { padding: 0; overflow: hidden; }
+.person-dialog { padding: 0; overflow-y: auto; }
 .person-head { display: flex; gap: 12px; align-items: center; padding: 16px 18px 10px; }
 .person-head .avatar { width: 52px; height: 52px; font-size: 24px; }
 .person-head h2 { margin: 0; font: 700 26px/1.05 var(--font-display); overflow-wrap: anywhere; }
@@ -450,7 +452,16 @@ legend, .label { font-weight: 700; margin: 0 0 6px; padding: 0; }
 .summary { margin: 0; font-size: 18px; }
 
 /* Profil */
-.dialog { border: 0; border-radius: 20px; padding: 20px; width: min(480px, calc(100% - 24px)); background: var(--surface); color: var(--ink); box-shadow: var(--shadow); max-height: 90dvh; }
+.dialog { border: 0; border-radius: 20px; padding: 20px; width: min(480px, calc(100% - 24px)); background: var(--surface); color: var(--ink); box-shadow: var(--shadow); max-height: 90dvh; overflow-y: auto; overscroll-behavior: contain; }
+/* X zum Schließen: bleibt oben rechts, auch beim Scrollen */
+.dialog-x-wrap { position: sticky; top: 0; height: 0; z-index: 5; }
+.dialog-x {
+  position: absolute; right: -10px; top: -10px; width: 40px; height: 40px; border-radius: 50%; border: 0; cursor: pointer;
+  display: grid; place-items: center; background: var(--surface-2); color: var(--ink); font: 400 26px/1 var(--font-body); box-shadow: 0 1px 4px rgb(0 0 0 / 0.12);
+}
+.dialog-x:hover { background: var(--line); }
+.person-dialog .dialog-x { right: 10px; top: 10px; }
+.dialog h2 { padding-right: 36px; }
 .dialog::backdrop { background: rgb(0 0 0 / 0.4); }
 .dialog h2 { margin: 0 0 12px; font: 700 28px/1 var(--font-display); }
 .dialog form { display: grid; gap: 10px; }
