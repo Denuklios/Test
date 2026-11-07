@@ -1222,6 +1222,46 @@ try {
             exit;
         }
 
+        // Anhänge einer Mail als Dateien an einen Auftrag hängen
+        case 'mail_att_to_order': {
+            need_post();
+            $oid = (int)($in['order_id'] ?? 0);
+            $o = $db->prepare('SELECT id FROM orders WHERE id = ? AND deleted_at IS NULL');
+            $o->execute([$oid]);
+            if (!$o->fetchColumn()) {
+                wf_fail('not_found', 404);
+            }
+            $ids = array_values(array_filter(array_map('intval', (array)($in['att_ids'] ?? []))));
+            $st = $db->prepare('SELECT * FROM mail_atts WHERE id = ?');
+            $dup = $db->prepare('SELECT 1 FROM order_files WHERE order_id = ? AND original_name = ? AND size = ?');
+            $ins = $db->prepare('INSERT INTO order_files (order_id, original_name, stored_name, mime, size) VALUES (?,?,?,?,?)');
+            $up = rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/';
+            $n = 0;
+            foreach (array_slice($ids, 0, 50) as $aid) {
+                $st->execute([$aid]);
+                $a = $st->fetch();
+                $src = $a ? wf_mail_dir() . basename((string)$a['stored_name']) : '';
+                if (!$a || !is_file($src)) {
+                    continue;
+                }
+                $name = mb_substr(preg_replace('/[^\p{L}\p{N}._ ()-]/u', '_', (string)$a['name']) ?: 'datei', 0, 200);
+                $size = (int)filesize($src);
+                $dup->execute([$oid, $name, $size]);
+                if ($dup->fetchColumn()) {
+                    continue;
+                }
+                $stored = bin2hex(random_bytes(16)) . '.dat';
+                if (@copy($src, $up . $stored)) {
+                    $ins->execute([$oid, $name, $stored, (string)$a['mime'] ?: 'application/octet-stream', $size]);
+                    $n++;
+                }
+            }
+            if ($n) {
+                wf_touch();
+            }
+            wf_json(['ok' => true, 'added' => $n]);
+        }
+
         case 'mail_update': {
             need_post();
             $id = (int)($in['id'] ?? 0);
@@ -1541,6 +1581,20 @@ try {
                 $fs = $db->prepare('SELECT id, original_name, mime FROM order_files WHERE order_id = ? ORDER BY id');
                 $fs->execute([$out['order_id']]);
                 $out['files'] = $fs->fetchAll();
+            }
+            // Wenn nichts gefunden: sagen, woran es liegt (Postfach nicht eingerichtet, Mail nicht da, zu groß …)
+            if (!$out['files'] && !empty($r['file_name'])) {
+                $em = '%' . str_replace(['%', '_'], ['\\%', '\\_'], mb_strtolower(trim((string)$r['email']))) . '%';
+                $hit = $db->prepare("SELECT COUNT(*) AS n, SUM(too_large) AS big, SUM(has_att) AS att FROM mail_msgs WHERE lower(body_text) LIKE ? ESCAPE '\\' OR lower(from_addr) LIKE ? ESCAPE '\\'");
+                $hit->execute([$em, $em]);
+                $h = $hit->fetch();
+                $out['mail_check'] = [
+                    'configured' => (bool)wf_imap_cfg(),
+                    'inbox' => (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in'")->fetchColumn(),
+                    'since' => (string)$db->query("SELECT MIN(sent_at) FROM mail_msgs WHERE folder = 'in'")->fetchColumn(),
+                    'last_sync' => (string)$db->query("SELECT value FROM meta WHERE key = 'mail_sync_last'")->fetchColumn(),
+                    'found' => (int)$h['n'], 'with_att' => (int)$h['att'], 'too_large' => (int)$h['big'],
+                ];
             }
             wf_json(['ok' => true, 'inquiry' => $out]);
         }

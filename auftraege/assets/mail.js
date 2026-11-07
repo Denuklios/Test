@@ -179,7 +179,10 @@ route(/^\/inquiry\/(\d+)$/, async (id) => {
       (q.files || []).length ? h('div', { class: 'files' }, q.files.map((f) => h('div', { class: 'file' },
         h('a', { href: `${BASE}file.php?id=${f.id}`, target: '_blank', rel: 'noopener' }, (f.mime || '').startsWith('image/') ? h('img', { src: `${BASE}file.php?id=${f.id}&thumb=1`, alt: f.original_name, loading: 'lazy' }) : h('div', { class: 'pdf' }, (f.original_name.split('.').pop() || 'Datei').toUpperCase())),
         h('div', { class: 'n' }, h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, f.original_name)))))
-        : h('p', { class: 'muted', style: 'margin:0' }, t('inq_file_missing', q.file_name))) : null,
+        : [h('p', { class: 'muted', style: 'margin:0 0 6px' }, t('inq_file_missing', q.file_name)), q.mail_check ? h('p', { class: 'muted', style: 'margin:0;font-size:.85rem' }, '🔎 ' + (
+          !q.mail_check.configured ? t('inq_chk_nobox')
+            : t('inq_chk', q.mail_check.inbox, (q.mail_check.since || '–').slice(0, 10), (q.mail_check.last_sync || '–').slice(0, 16), q.mail_check.found, q.mail_check.with_att)
+              + (q.mail_check.too_large ? ' ' + t('inq_chk_big') : ''))) : null]) : null,
     h('div', { class: 'card' }, h('div', { class: 'grid', style: 'grid-template-columns:minmax(0,1fr);gap:8px' }, h('div', {}, h('label', {}, t('inq_status')), sel),
       h('label', { class: 'row', style: 'gap:8px;margin:0;text-transform:none;letter-spacing:0;font-size:.9rem;color:var(--text)' }, notify, t('inq_notify')))));
 });
@@ -232,7 +235,7 @@ route(/^\/mail\/(\d+)$/, async (id) => {
       att.length ? h('div', { class: 'card' }, h('h3', {}, '📎 ' + t('mail_attachments')),
         h('div', { class: 'matts' }, ...att.map((a) => h('a', { class: 'matt', href: attUrl(a, !/^(image\/(jpeg|png|gif|webp)|application\/pdf)$/.test(a.mime)), target: '_blank', rel: 'noopener' },
           /^image\//.test(a.mime) ? h('img', { src: attUrl(a), alt: '', loading: 'lazy' }) : h('span', { class: 'mico' }, /pdf/.test(a.mime) ? 'PDF' : '📄'),
-          h('span', { class: 'mn' }, a.name), h('small', { class: 'muted' }, fsize(+a.size)))))) : null,
+          h('span', { class: 'mn' }, a.name), h('small', { class: 'muted' }, fsize(+a.size))))), attToOrder(m, att)) : null,
       r.thread.length > 1 ? h('div', { class: 'card' }, h('h3', {}, '🧵 ' + t('mail_thread', r.thread.length)),
         h('div', { class: 'mthread' }, ...r.thread.map((x) => h('a', { class: 'mtrow' + (+x.id === +m.id ? ' on' : ''), href: `#/mail/${x.id}` },
           h('span', {}, x.folder === 'sent' ? '📤 ' : '📥 ', h('b', {}, x.folder === 'sent' ? t('mail_me') : (x.from_name || x.from_addr))), h('span', { class: 'muted' }, mailDate(x.sent_at)), h('span', { class: 'msnip' }, x.snippet))))) : null);
@@ -419,6 +422,23 @@ route(/^\/mail\/new(?:\?([\s\S]*))?$/, async (qs) => {
 });
 
 // ---------- Mails zu Kunde / Auftrag (Karte für die Detailseiten) ----------
+// Anhänge einer Mail an einen Auftrag hängen (zugeordneter Auftrag oder einer des Kunden)
+function attToOrder(m, att) {
+  const box = h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap;margin-top:10px;align-items:center' });
+  const put = async (oid) => {
+    try { const r = await api('mail_att_to_order', { body: { order_id: oid, att_ids: att.map((a) => +a.id) } }); toast(t('mail_att_added', r.added)); } catch (e) { toast(e.message); }
+  };
+  (async () => {
+    let list = [];
+    try { list = (await api('orders', { params: { show: 'all', ...(m.customer_id ? { customer_id: m.customer_id } : {}) } })).orders || []; } catch (e) { list = []; }
+    if (!m.customer_id) list = list.slice(0, 40);
+    const sel = h('select', { style: 'max-width:340px' }, h('option', { value: '' }, '— ' + t('mail_att_pick') + ' —'),
+      ...list.map((o) => h('option', { value: o.id, selected: +o.id === +m.order_id }, `${o.nr} · ${o.title || ''}${o.customer_name ? ' · ' + o.customer_name : ''}`)));
+    box.replaceChildren(sel, h('button', { type: 'button', class: 'btn small primary', onclick: () => { if (+sel.value) put(+sel.value); else toast(t('mail_att_pick')); } }, '📋 ' + t('mail_att_to_order')));
+  })();
+  return box;
+}
+
 function mailCard({ customer_id = 0, order_id = 0 }) {
   const box = h('div', { class: 'mthread' }, h('span', { class: 'muted' }, '…'));
   const card = h('div', { class: 'card' }, h('div', { class: 'row', style: 'justify-content:space-between;align-items:center' }, h('h3', { style: 'margin:0' }, '✉ ' + (customer_id ? t('mail_card_h_c') : t('mail_card_h'))),
