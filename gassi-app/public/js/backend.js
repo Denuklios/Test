@@ -1,6 +1,7 @@
-// Datenquelle der App. Mit Server: echte gemeinsame Runden, Bewertungen und
-// Live-Positionen aller Nutzer. Ohne Server (z. B. reine Datei oder statisches
-// Hosting): alles lokal im Browser, Live nur zwischen Tabs + Demo-Spaziergänger.
+// Datenquelle der App. Mit Server: Konten, gemeinsame Runden, Bewertungen und
+// Live-Positionen aller angemeldeten Nutzer. Ohne Server (statisches Hosting):
+// alles lokal im Browser, ein lokales Profil statt Konto, Live nur zwischen
+// Tabs + Demo-Spaziergänger.
 
 import { DEMO_WALKERS, demoWalkerPosition } from './core.js';
 
@@ -15,31 +16,46 @@ export async function createBackend() {
 async function api(path, opts = {}) {
   const res = await fetch(path, {
     ...opts,
+    credentials: 'same-origin',
     headers: { 'content-type': 'application/json', ...(opts.headers || {}) },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
+    body: opts.body !== undefined ? JSON.stringify(opts.body) : (opts.method && opts.method !== 'GET' ? '{}' : undefined),
   });
   const data = await res.json().catch(() => ({}));
-  if (!res.ok) throw new Error(data.error || `Fehler ${res.status}`);
+  if (!res.ok) throw Object.assign(new Error(data.error || `Fehler ${res.status}`), { status: res.status });
   return data;
 }
 
 class ServerBackend {
-  constructor() { this.mode = 'server'; this.liveFns = []; this.waveFns = []; this.connect(); }
+  constructor() { this.mode = 'server'; this.accounts = true; this.liveFns = []; this.waveFns = []; this.es = null; }
 
+  // Konto
+  async me() { return (await api('api/auth/me')).user; }
+  async register(data) { return (await api('api/auth/register', { method: 'POST', body: data })).user; }
+  async login(email, password) { return (await api('api/auth/login', { method: 'POST', body: { email, password } })).user; }
+  async logout() { this.disconnect(); await api('api/auth/logout', { method: 'POST' }); }
+  async updateProfile(p) { return (await api('api/me', { method: 'PATCH', body: p })).user; }
+  changePassword(current, next) { return api('api/me/password', { method: 'POST', body: { current, next } }); }
+  async deleteAccount(password) { this.disconnect(); await api('api/me', { method: 'DELETE', body: { password } }); }
+  getWalks() { return api('api/me/walks'); }
+  addWalk(w) { return api('api/me/walks', { method: 'POST', body: w }); }
+
+  // Live (nur angemeldet)
   connect() {
+    if (this.es) return;
     this.es = new EventSource('api/live/stream');
     this.es.addEventListener('live', (e) => { const d = JSON.parse(e.data); this.liveFns.forEach((f) => f(d)); });
     this.es.addEventListener('wave', (e) => { const d = JSON.parse(e.data); this.waveFns.forEach((f) => f(d)); });
-    this.es.onopen = () => this.onStatus?.(true);
-    this.es.onerror = () => this.onStatus?.(false); // EventSource verbindet sich selbst neu
   }
+  disconnect() { this.es?.close(); this.es = null; this.liveFns.forEach((f) => f([])); }
 
+  // Runden
   getRoutes() { return api('api/routes'); }
   addRoute(route) { return api('api/routes', { method: 'POST', body: route }); }
+  deleteRoute(id) { return api(`api/routes/${encodeURIComponent(id)}`, { method: 'DELETE' }); }
   rate(routeId, rating) { return api(`api/routes/${encodeURIComponent(routeId)}/ratings`, { method: 'POST', body: rating }); }
   sendPosition(p) { return api('api/live', { method: 'POST', body: p }).catch(() => {}); }
-  stopSharing(id) { return api(`api/live/${encodeURIComponent(id)}`, { method: 'DELETE' }).catch(() => {}); }
-  wave(msg) { return api('api/live/wave', { method: 'POST', body: msg }); }
+  stopSharing() { return api('api/live', { method: 'DELETE' }).catch(() => {}); }
+  wave(to) { return api('api/live/wave', { method: 'POST', body: { to } }); }
   onLive(fn) { this.liveFns.push(fn); }
   onWave(fn) { this.waveFns.push(fn); }
 }
@@ -51,7 +67,7 @@ const LS = {
 
 class LocalBackend {
   constructor() {
-    this.mode = 'local';
+    this.mode = 'local'; this.accounts = false;
     this.liveFns = []; this.waveFns = [];
     this.mine = null; // eigene geteilte Position
     this.others = new Map(); // aus anderen Tabs
@@ -66,6 +82,18 @@ class LocalBackend {
     setInterval(() => this.emit(), 3000);
   }
 
+  // Lokales Profil statt Konto
+  async me() {
+    let p = LS.get('gassi.localUser', null);
+    if (!p) { p = { id: 'u-' + Math.random().toString(36).slice(2, 12), name: '', dog: '', dogAge: 'erwachsen', email: '' }; LS.set('gassi.localUser', p); }
+    return p;
+  }
+  async updateProfile(patch) { const p = { ...(await this.me()), ...patch }; LS.set('gassi.localUser', p); return p; }
+  async getWalks() { return LS.get('gassi.history', []); }
+  async addWalk(w) { const h = LS.get('gassi.history', []); h.unshift(w); LS.set('gassi.history', h.slice(0, 1000)); return w; }
+  connect() {}
+  disconnect() {}
+
   async getRoutes() {
     if (!this.demo) this.demo = await (await fetch('data/demo-routes.json')).json();
     const ratings = LS.get('gassi.ratings', {});
@@ -73,25 +101,34 @@ class LocalBackend {
   }
 
   async addRoute(route) {
+    const me = await this.me();
     const list = LS.get('gassi.routes', []);
-    const saved = { ...route, id: 'r-' + Math.random().toString(36).slice(2, 10), source: 'nutzer', createdAt: new Date().toISOString(), busyness: new Array(24).fill(15) };
+    const saved = { ...route, id: 'r-' + Math.random().toString(36).slice(2, 10), source: 'nutzer', authorId: me.id, author: me.name || 'Ich', createdAt: new Date().toISOString(), busyness: new Array(24).fill(15) };
     list.push(saved);
     LS.set('gassi.routes', list);
     return { ...saved, ratings: [] };
   }
 
+  async deleteRoute(id) { LS.set('gassi.routes', LS.get('gassi.routes', []).filter((r) => r.id !== id)); }
+
   async rate(routeId, rating) {
+    const me = await this.me();
     const all = LS.get('gassi.ratings', {});
-    const list = (all[routeId] || []).filter((r) => r.userId !== rating.userId);
-    list.push({ ...rating, date: new Date().toISOString() });
+    const list = (all[routeId] || []).filter((r) => r.userId !== me.id);
+    list.push({ ...rating, userId: me.id, name: me.name || 'Ich', dog: me.dog, date: new Date().toISOString() });
     all[routeId] = list;
     LS.set('gassi.ratings', all);
     return list;
   }
 
-  async sendPosition(p) { this.mine = { ...p, at: Date.now() }; this.bc?.postMessage({ type: 'pos', p }); }
-  async stopSharing(id) { this.mine = null; this.bc?.postMessage({ type: 'stop', id }); }
-  async wave(msg) { this.bc?.postMessage({ type: 'wave', msg: { ...msg, at: Date.now() } }); }
+  async sendPosition(p) {
+    const me = await this.me();
+    const full = { ...p, id: me.id, name: me.name || 'Jemand', dog: me.dog };
+    this.mine = { ...full, at: Date.now() };
+    this.bc?.postMessage({ type: 'pos', p: full });
+  }
+  async stopSharing() { const me = await this.me(); this.mine = null; this.bc?.postMessage({ type: 'stop', id: me.id }); }
+  async wave(to) { const me = await this.me(); this.bc?.postMessage({ type: 'wave', msg: { to, from: me.id, fromName: me.name || 'Jemand', fromDog: me.dog, text: 'Lust auf eine gemeinsame Runde?', at: Date.now() } }); }
   onLive(fn) { this.liveFns.push(fn); this.emit(); }
   onWave(fn) { this.waveFns.push(fn); }
 

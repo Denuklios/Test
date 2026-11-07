@@ -6,6 +6,7 @@ Web-App für Spaziergänge mit Hund: Runden aufzeichnen, gute Gassirunden finden
 
 | Bereich | Funktion |
 |---|---|
+| **Konten** | Registrieren mit E-Mail, Passwort (mind. 8 Zeichen), Vorname, Hundename und Alter des Hundes. Anmelden, Abmelden, Profil ändern, Passwort ändern (meldet andere Geräte ab), Konto löschen (löscht auch Spaziergänge, Bewertungen und geteilte Runden). Andere sehen nur Vorname und Hundename, nie die E-Mail-Adresse. Ohne Anmeldung kann man Runden ansehen. Zum Aufzeichnen, Bewerten, Winken und für die Live-Karte meldet man sich an, danach geht es direkt mit der gewünschten Aktion weiter. |
 | **Aufzeichnen** | „Spaziergang starten“ zeichnet per GPS den Weg auf, mit Kilometern, Zeit und Tempo. Die Runde beginnt erst dort, wo man auf Start drückt, nicht an der Haustür. Optional werden Anfang und Ende um 100 m gekürzt, falls man direkt vor der Tür startet oder endet. Pause/Weiter ohne geraden Strich über die Pause. Ungenaue GPS-Punkte und Sprünge werden herausgefiltert. Der Bildschirm bleibt an. |
 | **Runden teilen** | Nach dem Spaziergang mit Name, Beschreibung, Schatten, Untergrund, Leinenregel, Wasser, Mülleimern und Straßen speichern. Danach sehen alle die Runde. |
 | **Vorgefertigte Runden** | 6 Beispielrunden in Berlin, z. B. das Hundeauslaufgebiet am Grunewaldsee. Sie folgen echten Fußwegen aus OpenStreetMap. |
@@ -15,7 +16,7 @@ Web-App für Spaziergänge mit Hund: Runden aufzeichnen, gute Gassirunden finden
 | **Belebtheit** | Tagesverlauf je Runde mit Hinweis auf die ruhigste Uhrzeit, dazu die Zahl der Hunde, die gerade live auf der Runde sind. |
 | **Live-Karte** | Wer beim Spaziergang die Position teilt, erscheint für alle auf der Karte. Drei Status-Arten: **Gern zusammen** (grün), **Unterwegs** (grau), **Bitte Abstand** (gelb, wie die gelbe Schleife an der Leine). |
 | **Begegnungen** | Warnung mit Vibration, wenn jemand mit „Bitte Abstand“ näher als 150 m ist. Hinweis mit „Winken“-Knopf, wenn jemand mit „Gern zusammen“ näher als 300 m ist. Das Winken kommt beim anderen als Nachricht an, und man kann zurückwinken. |
-| **Meine Spaziergänge** | Verlauf mit Datum, km und Zeit sowie Gesamt-Kilometern (im Profil). |
+| **Meine Spaziergänge** | Verlauf mit Datum, km und Zeit sowie Gesamt-Kilometern, gespeichert im Konto und damit auf jedem Gerät sichtbar (im Profil). |
 | **Demo-Modus** | GPS-Simulation im 3-fachen Zeitraffer und 5 Demo-Spaziergänger, damit man alles am Schreibtisch ausprobieren kann. |
 
 ## Starten
@@ -28,7 +29,7 @@ npm start            # → http://localhost:8080
 npm test             # Logik- und Server-Tests
 ```
 
-Zum Ausprobieren am Computer: Oben rechts das Profil öffnen, **„Demo-Modus: GPS simulieren“** einschalten und eine Runde starten. Öffnet man die App in zwei Browserfenstern mit zwei verschiedenen Profilen, sehen sich beide live auf der Karte.
+Zum Ausprobieren am Computer: Oben rechts auf **Anmelden**, ein Konto anlegen, dann im Profil **„Demo-Modus: GPS simulieren“** einschalten und eine Runde starten. Mit einem zweiten Konto in einem privaten Browserfenster sehen sich beide live auf der Karte und können sich zuwinken.
 
 ### Auf dem Handy testen
 
@@ -57,11 +58,18 @@ gassi-app/
   tests/                    node:test
 ```
 
-API: `GET /api/routes` · `POST /api/routes` · `POST /api/routes/:id/ratings` · `GET /api/live/stream` (SSE) · `POST /api/live` · `DELETE /api/live/:id` · `POST /api/live/wave`
+API:
+- Konto: `POST /api/auth/register` · `POST /api/auth/login` · `POST /api/auth/logout` · `GET /api/auth/me` · `PATCH /api/me` · `POST /api/me/password` · `DELETE /api/me` · `GET/POST /api/me/walks`
+- Runden: `GET /api/routes` (öffentlich) · `POST /api/routes` · `DELETE /api/routes/:id` (nur Autor) · `POST /api/routes/:id/ratings`
+- Live (nur angemeldet): `GET /api/live/stream` (SSE) · `POST /api/live` · `DELETE /api/live` · `POST /api/live/wave` (geht nur an die gemeinte Person, nicht an Personen mit „Bitte Abstand“)
+
+Sicherheit: Passwörter werden mit scrypt und eigenem Salt gespeichert. Die Session steckt in einem HttpOnly-Cookie mit SameSite=Lax (hinter https automatisch Secure), auf dem Server liegt nur ein Hash des Tokens. Schreibende Anfragen werden nur als JSON angenommen (Schutz gegen Formular-Angriffe von fremden Seiten). Nach 10 falschen Passwörtern ist für 15 Minuten Schluss. Name und ID kommen immer aus dem Konto, nie aus der Anfrage.
 
 ## Grenzen des Prototyps
 
-- **Keine Anmeldung.** Jede Person bekommt eine zufällige ID im Browser. Bewertungen und Live-Positionen lassen sich deshalb noch fälschen. Vor einem echten Start braucht es Konten, Moderation (melden, löschen) und Missbrauchsschutz.
+- **Noch kein E-Mail-Versand:** Es gibt keine Bestätigung der E-Mail-Adresse und kein „Passwort vergessen“. Dafür braucht es einen Mail-Dienst. Bis dahin: Passwort gut merken.
+- **Moderation fehlt:** Unpassende Runden oder Bewertungen kann man noch nicht melden, Nutzer kann man noch nicht sperren.
+- **Speicher:** Alles liegt in einer JSON-Datei. Für einige hundert Nutzer reicht das, danach sollte eine Datenbank her (z. B. SQLite oder PostgreSQL).
 - **GPS bei gesperrtem Bildschirm:** Web-Apps zeichnen auf dem iPhone nicht weiter auf, wenn der Bildschirm aus ist. Deshalb hält die App den Bildschirm an. Für den echten Einsatz sollte die App als native App ausgeliefert werden (z. B. mit Capacitor oder React Native, mit demselben Code für die Logik).
 - **Belebtheit** ist ein typischer Tagesverlauf. Mit echten Nutzern sollte sie aus den aufgezeichneten Spaziergängen gelernt werden.
 - **Hunde-Score** wird bei eigenen Runden aus den Angaben der Person berechnet. Nächster Schritt: Wasser, Wald und Straßen automatisch aus OpenStreetMap ermitteln, damit die App auch Runden vorschlagen kann, die noch niemand eingetragen hat.

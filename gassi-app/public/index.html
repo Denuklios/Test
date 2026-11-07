@@ -157,10 +157,41 @@
     </form>
   </section>
 
+  <!-- Anmelden / Registrieren -->
+  <dialog id="auth-dialog" class="dialog">
+    <form id="auth-form" novalidate>
+      <h2 id="auth-title">Anmelden</h2>
+      <p class="hint" id="auth-reason"></p>
+      <div class="seg auth-seg" role="tablist">
+        <label><input type="radio" name="authmode" value="login" id="am-login" checked><span>Anmelden</span></label>
+        <label><input type="radio" name="authmode" value="register" id="am-register"><span>Neues Konto</span></label>
+      </div>
+      <label class="field">E-Mail-Adresse<input id="auth-email" type="email" autocomplete="email" maxlength="200" required></label>
+      <label class="field">Passwort<input id="auth-password" type="password" autocomplete="current-password" minlength="8" maxlength="200" required></label>
+      <div id="register-fields" hidden>
+        <p class="hint" style="margin-top:0">Mindestens 8 Zeichen.</p>
+        <div class="grid2">
+          <label class="field">Dein Vorname<input id="reg-name" maxlength="40" autocomplete="given-name" placeholder="z. B. Robert"></label>
+          <label class="field">Name des Hundes<input id="reg-dog" maxlength="40" placeholder="z. B. Bello"></label>
+        </div>
+        <label class="field">Alter des Hundes
+          <select id="reg-age"><option value="welpe">Welpe (bis 1 Jahr)</option><option value="erwachsen" selected>Erwachsen</option><option value="senior">Senior (ab ca. 8 Jahren)</option></select>
+        </label>
+        <p class="hint">Andere sehen nur deinen Vornamen und den Namen deines Hundes, nie deine E-Mail-Adresse.</p>
+      </div>
+      <p class="form-error" id="auth-error" hidden></p>
+      <div class="rec-actions">
+        <button type="button" class="btn secondary" id="auth-cancel">Abbrechen</button>
+        <button type="submit" class="btn primary" id="auth-submit">Anmelden</button>
+      </div>
+    </form>
+  </dialog>
+
   <!-- Profil -->
   <dialog id="me-dialog" class="dialog">
-    <form method="dialog" id="me-form">
+    <form id="me-form" novalidate>
       <h2>Du &amp; dein Hund</h2>
+      <p class="hint" id="me-email" style="margin-top:-6px"></p>
       <div class="grid2">
         <label class="field">Dein Vorname<input id="me-name" maxlength="40" placeholder="z. B. Robert"></label>
         <label class="field">Name des Hundes<input id="me-dog" maxlength="40" placeholder="z. B. Bello"></label>
@@ -171,8 +202,26 @@
       <label class="switch"><input type="checkbox" id="me-simulate"> <span>Demo-Modus: GPS simulieren (zum Ausprobieren am Schreibtisch)</span></label>
       <h3 class="list-title">Meine Spaziergänge</h3>
       <ul class="history" id="history"></ul>
+      <div id="account-section">
+        <details class="account-box">
+          <summary>Passwort ändern</summary>
+          <label class="field">Aktuelles Passwort<input id="pw-current" type="password" autocomplete="current-password"></label>
+          <label class="field">Neues Passwort (mind. 8 Zeichen)<input id="pw-next" type="password" autocomplete="new-password" minlength="8"></label>
+          <button type="button" class="btn small secondary" id="pw-btn">Passwort ändern</button>
+        </details>
+        <details class="account-box danger-zone">
+          <summary>Konto löschen</summary>
+          <p class="hint">Löscht dein Konto, deine Spaziergänge, deine Bewertungen und die Runden, die du geteilt hast. Das lässt sich nicht rückgängig machen.</p>
+          <label class="field">Zur Bestätigung dein Passwort<input id="del-password" type="password" autocomplete="current-password"></label>
+          <button type="button" class="btn small danger" id="del-btn">Konto endgültig löschen</button>
+        </details>
+      </div>
+      <p class="form-error" id="me-error" hidden></p>
       <p class="hint" id="mode-hint"></p>
-      <div class="rec-actions"><button class="btn primary" value="ok">Fertig</button></div>
+      <div class="rec-actions">
+        <button type="button" class="btn secondary" id="logout-btn">Abmelden</button>
+        <button type="submit" class="btn primary">Speichern</button>
+      </div>
     </form>
   </dialog>
 

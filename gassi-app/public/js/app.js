@@ -17,15 +17,16 @@ const MEET_RADIUS = 300; // m – „Gern zusammen“
 const ON_ROUTE = 60; // m – zählt als „auf dieser Runde“
 
 // ---------- Profil ----------
-const me = Object.assign(
-  { id: null, name: '', dog: '', dogAge: 'erwachsen', status: 'neutral', shareLive: true, simulate: false },
-  LS.get('gassi.me', {}),
-);
-if (!me.id) me.id = 'u-' + (crypto.randomUUID?.() || Math.random().toString(36).slice(2));
-const saveMe = () => LS.set('gassi.me', me);
-saveMe();
+// Name, Hund und ID kommen aus dem Konto; Status, Teilen und Demo-Modus sind Geräte-Einstellungen.
+const savedPrefs = LS.get('gassi.me', {});
+const me = {
+  id: null, name: '', dog: '', dogAge: 'erwachsen', email: '',
+  status: savedPrefs.status || 'neutral', shareLive: savedPrefs.shareLive ?? true, simulate: !!savedPrefs.simulate,
+};
+const saveMe = () => LS.set('gassi.me', { status: me.status, shareLive: me.shareLive, simulate: me.simulate });
 
 const state = {
+  user: null,
   routes: [], selected: null, view: 'list', tab: 'runden',
   tempC: null, people: [], myPos: null, listSig: '',
   dismissed: new Map(), // Banner, die man weggeklickt hat: id -> Zeitpunkt
@@ -198,20 +199,34 @@ function renderDetail() {
       <button class="btn primary small" type="submit">Bewertung speichern</button>
     </form>
 
+    ${r.source !== 'vorgefertigt' && me.id && r.authorId === me.id ? `<div class="route-owner"><button class="btn small secondary" id="delete-route-btn">Meine Runde löschen</button></div>` : ''}
+
     <div class="detail-actions"><button class="btn danger" id="walk-route-btn">Diese Runde laufen</button></div>
   </article>`;
   $('#back-btn').onclick = closeDetail;
-  $('#walk-route-btn').onclick = () => startWalk(r);
-  $('#rate-form').onsubmit = async (e) => {
+  $('#walk-route-btn').onclick = () => requireLogin('Melde dich an, um die Runde zu laufen und aufzuzeichnen.', () => startWalk(r));
+  const del = $('#delete-route-btn');
+  if (del) del.onclick = async () => {
+    if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = 'Wirklich löschen?'; return; }
+    try {
+      await backend.deleteRoute(r.id);
+      state.routes = state.routes.filter((x) => x.id !== r.id);
+      drawRoutes(); closeDetail(); toast('Deine Runde wurde gelöscht.');
+    } catch (ex) { handleApiError(ex); }
+  };
+  $('#rate-form').onsubmit = (e) => {
     e.preventDefault();
     const stars = Number($('input[name="stars"]:checked', e.target)?.value);
     const err = $('#rate-error');
     if (!stars) { err.textContent = 'Bitte wähle 1 bis 5 Sterne.'; err.hidden = false; return; }
-    try {
-      r.ratings = await backend.rate(r.id, { userId: me.id, name: me.name || 'Anonym', dog: me.dog, stars, text: $('#rate-text').value.trim() });
-      toast('Danke! Deine Bewertung ist gespeichert.');
-      renderDetail();
-    } catch (ex) { err.textContent = ex.message; err.hidden = false; }
+    const text = $('#rate-text').value.trim();
+    requireLogin('Melde dich an, um Runden zu bewerten.', async () => {
+      try {
+        r.ratings = await backend.rate(r.id, { stars, text });
+        toast('Danke! Deine Bewertung ist gespeichert.');
+        renderDetail();
+      } catch (ex) { if (!handleApiError(ex)) { err.textContent = ex.message; err.hidden = false; } }
+    });
   };
   state.listSig = listSignature();
 }
@@ -242,6 +257,11 @@ function renderFind() {
 
 // ---------- Live ----------
 function renderPeople() {
+  if (backend.accounts && !state.user) {
+    $('#live-count').textContent = '0';
+    $('#people-list').innerHTML = `<li class="login-cta"><p>Melde dich an, um zu sehen, wer gerade mit Hund unterwegs ist, und um selbst auf der Karte zu erscheinen.</p><button class="btn small primary" data-login>Anmelden</button></li>`;
+    return;
+  }
   const ref = state.myPos || [map.getCenter().lat, map.getCenter().lng];
   const list = others().map((p) => ({ p, d: distance(ref, [p.lat, p.lng]) })).sort((a, b) => a.d - b.d);
   $('#live-count').textContent = list.length;
@@ -297,13 +317,16 @@ function onLive(people) {
 }
 
 async function wave(p) {
+  if (backend.accounts && !state.user) return requireLogin('Melde dich an, um anderen zu winken.', () => wave(p));
   try {
-    await backend.wave({ to: p.id, from: me.id, fromName: me.name || 'Jemand', fromDog: me.dog, text: 'Lust auf eine gemeinsame Runde?' });
-    toast(`Du hast ${p.name} gewunken.`);
     if (p.demo) {
+      // Demo-Spaziergänger antworten automatisch
       setTimeout(() => showWave({ from: p.id, fromName: p.name, fromDog: p.dog, text: 'Gerne! Ich gehe langsam weiter, komm einfach nach.' }, false), 3500);
+    } else {
+      await backend.wave(p.id);
     }
-  } catch (e) { toast(e.message); }
+    toast(`Du hast ${p.name} gewunken.`);
+  } catch (e) { if (!handleApiError(e)) toast(e.message); }
 }
 
 function showWave(msg, offerReply = true) {
@@ -411,7 +434,7 @@ function shareMyPosition(force = false) {
   const now = Date.now();
   if (!force && now - rec.lastSent < 4000) return;
   rec.lastSent = now;
-  backend.sendPosition({ id: me.id, name: me.name || 'Jemand', dog: me.dog, status: me.status, lat: state.myPos[0], lng: state.myPos[1] });
+  backend.sendPosition({ status: me.status, lat: state.myPos[0], lng: state.myPos[1] });
 }
 
 function onGeoError(err) {
@@ -469,7 +492,7 @@ function stopWalk(silent = false) {
   clearInterval(rec.sim); clearInterval(rec.timer);
   rec.watchId = null; rec.sim = null;
   rec.wakeLock?.release?.().catch(() => {});
-  backend.stopSharing(me.id);
+  backend.stopSharing();
   $('#recording').hidden = true;
   rec.result = { ms, meters, segments: rec.segments.filter((s) => s.length > 1), guide: rec.guide, date: new Date().toISOString() };
   if (silent || meters < 30) {
@@ -514,24 +537,24 @@ async function saveWalk(e) {
     try {
       created = await backend.addRoute({
         name, area: $('#sv-area').value.trim(), description: $('#sv-desc').value.trim(),
-        author: me.name || 'Anonym', authorId: me.id, points,
+        points,
         distanceKm: +(pathLength(points) / 1000).toFixed(2), durationMin: Math.round(res.ms / 60000),
         attrs: {
           water: $('#sv-water').checked, shade: Number($('#sv-shade').value), surface: $('#sv-surface').value,
           crossings: Number($('#sv-crossings').value) || 0, leash: $('#sv-leash').value, bins: $('#sv-bins').checked,
         },
       });
-    } catch (ex) { err.textContent = ex.message; err.hidden = false; return; }
+    } catch (ex) { if (!handleApiError(ex)) { err.textContent = ex.message; err.hidden = false; } return; }
     state.routes.push(created);
     drawRoutes();
   }
-  const history = LS.get('gassi.history', []);
-  history.unshift({ date: res.date, meters: res.meters, ms: res.ms, name: created?.name || res.guide?.name || 'Eigene Runde' });
-  LS.set('gassi.history', history.slice(0, 200));
+  try {
+    await backend.addWalk({ date: res.date, meters: Math.round(res.meters), ms: Math.round(res.ms), name: created?.name || res.guide?.name || 'Eigene Runde' });
+  } catch (ex) { if (!handleApiError(ex)) { err.textContent = ex.message; err.hidden = false; return; } }
   resetAfterWalk();
   if (created) { toast('Deine Runde ist gespeichert und für andere sichtbar.'); openRoute(created.id); }
   else if (res.guide) { openRoute(res.guide.id); setTimeout(() => $('#rate-form')?.scrollIntoView({ behavior: 'smooth' }), 200); toast('Gespeichert. Wie war die Runde? Gib ihr ein paar Sterne.'); }
-  else toast('Spaziergang gespeichert (nur für dich).');
+  else toast('Spaziergang gespeichert. Du findest ihn in deinem Profil.');
 }
 
 function discardWalk() {
@@ -563,27 +586,150 @@ function syncStatusInputs() {
   $('#share-live').checked = me.shareLive;
 }
 
-function openProfile() {
+async function openProfile() {
+  if (backend.accounts && !state.user) return openAuth();
   $('#me-name').value = me.name; $('#me-dog').value = me.dog; $('#me-age').value = me.dogAge; $('#me-simulate').checked = me.simulate;
   $('#me-simulate').disabled = rec.active;
-  const h = LS.get('gassi.history', []);
-  const total = h.reduce((s, x) => s + x.meters, 0);
-  $('#history').innerHTML = h.length
-    ? `<li><b>Gesamt</b><b>${formatKm(total)} km · ${h.length} Spaziergänge</b></li>` + h.slice(0, 30).map((x) => `<li><span>${new Date(x.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })} · ${esc(x.name)}</span><span>${formatKm(x.meters)} km · ${formatDuration(x.ms)}</span></li>`).join('')
-    : '<li class="hint">Noch keine Spaziergänge aufgezeichnet.</li>';
+  $('#me-email').textContent = me.email ? `Angemeldet als ${me.email}` : '';
+  $('#me-email').hidden = !me.email;
+  $('#account-section').hidden = !backend.accounts;
+  $('#logout-btn').hidden = !backend.accounts;
+  for (const id of ['pw-current', 'pw-next', 'del-password']) $('#' + id).value = '';
+  for (const d of $$('#me-dialog details')) d.open = false;
+  $('#me-error').hidden = true;
   $('#mode-hint').textContent = backend.mode === 'server'
-    ? 'Verbunden mit dem Gassirunde-Server: Runden, Bewertungen und Live-Positionen sehen alle Nutzer.'
-    : 'Ohne Server: Runden und Bewertungen bleiben in diesem Browser. Live siehst du die Demo-Spaziergänger und andere Tabs auf diesem Gerät.';
+    ? 'Andere sehen nur deinen Vornamen und den Namen deines Hundes.'
+    : 'Ohne Server: Profil, Runden und Bewertungen bleiben in diesem Browser. Live siehst du die Demo-Spaziergänger und andere Tabs auf diesem Gerät.';
+  $('#history').innerHTML = '<li class="hint">Lade …</li>';
   $('#me-dialog').showModal();
+  try {
+    const h = await backend.getWalks();
+    const total = h.reduce((sum, x) => sum + x.meters, 0);
+    $('#history').innerHTML = h.length
+      ? `<li><b>Gesamt</b><b>${formatKm(total)} km · ${h.length} ${h.length === 1 ? "Spaziergang" : "Spaziergänge"}</b></li>` + h.slice(0, 50).map((x) => `<li><span>${new Date(x.date).toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: '2-digit' })} · ${esc(x.name)}</span><span>${formatKm(x.meters)} km · ${formatDuration(x.ms)}</span></li>`).join('')
+      : '<li class="hint">Noch keine Spaziergänge aufgezeichnet.</li>';
+  } catch (ex) { handleApiError(ex); $('#history').innerHTML = '<li class="hint">Spaziergänge konnten nicht geladen werden.</li>'; }
 }
 
-function closeProfile() {
-  me.name = $('#me-name').value.trim(); me.dog = $('#me-dog').value.trim(); me.dogAge = $('#me-age').value;
-  if (!rec.active) me.simulate = $('#me-simulate').checked;
-  saveMe();
-  $('#me-initial').textContent = initial(me.name || me.dog);
+function meError(text) { const e = $('#me-error'); e.textContent = text; e.hidden = !text; }
+
+async function saveProfile(e) {
+  e.preventDefault();
+  const name = $('#me-name').value.trim();
+  if (backend.accounts && !name) return meError('Bitte gib deinen Vornamen an.');
+  try {
+    const user = await backend.updateProfile({ name, dog: $('#me-dog').value.trim(), dogAge: $('#me-age').value });
+    if (!rec.active) me.simulate = $('#me-simulate').checked;
+    saveMe();
+    setUser(user);
+    $('#me-dialog').close();
+    toast('Profil gespeichert.');
+  } catch (ex) { if (!handleApiError(ex)) meError(ex.message); }
+}
+
+async function changePassword() {
+  try {
+    await backend.changePassword($('#pw-current').value, $('#pw-next').value);
+    $('#pw-current').value = ''; $('#pw-next').value = '';
+    $('#pw-btn').closest('details').open = false;
+    meError('');
+    toast('Passwort geändert. Auf anderen Geräten musst du dich neu anmelden.');
+  } catch (ex) { if (!handleApiError(ex)) meError(ex.message); }
+}
+
+async function deleteAccount() {
+  if (rec.active) return meError('Beende zuerst deinen Spaziergang.');
+  try {
+    await backend.deleteAccount($('#del-password').value);
+    $('#me-dialog').close();
+    state.routes = await backend.getRoutes();
+    drawRoutes();
+    setUser(null);
+    toast('Dein Konto und deine Daten wurden gelöscht.');
+  } catch (ex) { if (!handleApiError(ex)) meError(ex.message); }
+}
+
+async function logout() {
+  if (rec.active) return meError('Beende zuerst deinen Spaziergang.');
+  await backend.logout().catch(() => {});
+  $('#me-dialog').close();
+  setUser(null);
+  toast('Du bist abgemeldet.');
+}
+
+// ---------- Anmeldung ----------
+let afterLogin = null;
+
+/** Führt `action` aus, wenn angemeldet – sonst erst das Anmelde-Fenster zeigen. */
+function requireLogin(reason, action) {
+  if (!backend.accounts || state.user) return action();
+  afterLogin = action;
+  openAuth(reason);
+}
+
+/** Sitzung abgelaufen o. ä.: zurück zur Anmeldung. Gibt true zurück, wenn behandelt. */
+function handleApiError(ex) {
+  if (ex?.status !== 401 || !backend.accounts) return false;
+  setUser(null);
+  openAuth('Deine Anmeldung ist abgelaufen. Bitte melde dich neu an.');
+  return true;
+}
+
+function setAuthMode(mode) {
+  const reg = mode === 'register';
+  $('#am-login').checked = !reg; $('#am-register').checked = reg;
+  $('#register-fields').hidden = !reg;
+  $('#auth-title').textContent = reg ? 'Konto anlegen' : 'Anmelden';
+  $('#auth-submit').textContent = reg ? 'Konto anlegen' : 'Anmelden';
+  $('#auth-password').autocomplete = reg ? 'new-password' : 'current-password';
+  $('#auth-error').hidden = true;
+}
+
+function openAuth(reason = '') {
+  $('#auth-reason').textContent = reason;
+  $('#auth-reason').hidden = !reason;
+  setAuthMode('login');
+  $('#auth-password').value = '';
+  if (!$('#auth-dialog').open) $('#auth-dialog').showModal();
+  $('#auth-email').focus();
+}
+
+async function submitAuth(e) {
+  e.preventDefault();
+  const err = $('#auth-error');
+  const show = (t) => { err.textContent = t; err.hidden = false; };
+  const email = $('#auth-email').value.trim();
+  const password = $('#auth-password').value;
+  const reg = $('#am-register').checked;
+  if (!email) return show('Bitte gib deine E-Mail-Adresse ein.');
+  if (password.length < (reg ? 8 : 1)) return show(reg ? 'Das Passwort braucht mindestens 8 Zeichen.' : 'Bitte gib dein Passwort ein.');
+  if (reg && !$('#reg-name').value.trim()) return show('Bitte gib deinen Vornamen an.');
+  $('#auth-submit').disabled = true;
+  try {
+    const user = reg
+      ? await backend.register({ email, password, name: $('#reg-name').value.trim(), dog: $('#reg-dog').value.trim(), dogAge: $('#reg-age').value })
+      : await backend.login(email, password);
+    $('#auth-dialog').close();
+    setUser(user);
+    toast(reg ? `Willkommen, ${user.name}! Dein Konto ist angelegt.` : `Hallo ${user.name}, schön, dass du da bist.`);
+    const next = afterLogin; afterLogin = null;
+    next?.();
+  } catch (ex) { show(ex.message); }
+  finally { $('#auth-submit').disabled = false; }
+}
+
+function setUser(user) {
+  state.user = user || null;
+  Object.assign(me, { id: user?.id ?? null, name: user?.name ?? '', dog: user?.dog ?? '', dogAge: user?.dogAge ?? 'erwachsen', email: user?.email ?? '' });
+  const btn = $('#me-btn');
+  const out = backend.accounts && !user;
+  btn.classList.toggle('logged-out', out);
+  $('#me-initial').textContent = out ? 'Anmelden' : initial(me.name || me.dog);
+  btn.setAttribute('aria-label', out ? 'Anmelden' : 'Mein Profil');
+  if (user) backend.connect(); else { backend.disconnect(); state.people = []; }
   state.view === 'detail' ? renderDetail() : renderList();
   renderFind();
+  renderPeople();
 }
 
 function switchTab(tab) {
@@ -623,14 +769,21 @@ function toast(text, action = null, ms = 5000) {
 }
 
 // ---------- Ereignisse ----------
-$('#start-btn').onclick = () => startWalk(null);
+$('#start-btn').onclick = () => requireLogin('Melde dich an, um Spaziergänge aufzuzeichnen und Runden zu teilen.', () => startWalk(null));
 $('#pause-btn').onclick = togglePause;
 $('#stop-btn').onclick = () => stopWalk();
 $('#save-form').onsubmit = saveWalk;
 $('#discard-btn').onclick = discardWalk;
 $('#sv-share').onchange = toggleShareFields;
 $('#me-btn').onclick = openProfile;
-$('#me-dialog').addEventListener('close', closeProfile);
+$('#me-form').onsubmit = saveProfile;
+$('#pw-btn').onclick = changePassword;
+$('#del-btn').onclick = deleteAccount;
+$('#logout-btn').onclick = logout;
+$('#auth-form').onsubmit = submitAuth;
+$('#auth-cancel').onclick = () => { afterLogin = null; $('#auth-dialog').close(); };
+$('#auth-dialog').addEventListener('cancel', () => { afterLogin = null; });
+for (const i of $$('input[name="authmode"]')) i.onchange = () => setAuthMode(i.value);
 for (const t of $$('.tab')) t.onclick = () => switchTab(t.dataset.tab);
 $('#find-form').addEventListener('change', renderFind);
 $('#find-results').addEventListener('click', (e) => { const li = e.target.closest('li[data-id]'); if (li) openRoute(li.dataset.id); });
@@ -639,7 +792,7 @@ $('#panel-runden').addEventListener('click', (e) => { const b = e.target.closest
 for (const i of $$('input[name="status"], input[name="rstatus"]')) i.onchange = () => setStatus(i.value);
 $('#share-live').onchange = (e) => {
   me.shareLive = e.target.checked; saveMe();
-  if (!me.shareLive) backend.stopSharing(me.id); else shareMyPosition(true);
+  if (!me.shareLive) backend.stopSharing(); else shareMyPosition(true);
   updateRecStats();
 };
 document.addEventListener('click', (e) => {
@@ -647,6 +800,7 @@ document.addEventListener('click', (e) => {
   if (w) { const p = state.people.find((x) => x.id === w.dataset.wave); if (p) wave(p); }
   const s = e.target.closest('[data-show]');
   if (s) { const p = state.people.find((x) => x.id === s.dataset.show); if (p) map.flyTo([p.lat, p.lng], 16); }
+  if (e.target.closest('[data-login]')) openAuth();
   const d = e.target.closest('[data-dismiss]');
   if (d) { state.dismissed.set(d.dataset.dismiss, Date.now()); checkProximity(); }
 });
@@ -673,7 +827,6 @@ document.addEventListener('visibilitychange', async () => {
 
 // ---------- Start ----------
 const backend = await createBackend();
-$('#me-initial').textContent = initial(me.name || me.dog);
 syncStatusInputs();
 try {
   state.routes = await backend.getRoutes();
@@ -686,5 +839,6 @@ renderList();
 renderFind();
 backend.onLive(onLive);
 backend.onWave((msg) => { if (msg.to === me.id) showWave(msg); });
+try { setUser(await backend.me()); } catch { setUser(null); }
 const c = map.getCenter();
 loadWeather(c.lat, c.lng);

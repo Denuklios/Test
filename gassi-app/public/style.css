@@ -311,3 +311,15 @@ legend, .label { font-weight: 700; margin: 0 0 6px; padding: 0; }
   .sheet { transition: none; }
   .rec-badge .dot { animation: none; }
 }
+
+/* Konto */
+.auth-seg { margin-bottom: 4px; }
+.account-box { border: 1px solid var(--line); border-radius: 12px; padding: 8px 12px; margin-top: 8px; display: grid; gap: 8px; }
+.account-box[open] { padding-bottom: 12px; }
+.account-box summary { cursor: pointer; font-weight: 700; }
+.account-box > * + * { margin-top: 8px; }
+.danger-zone summary { color: var(--rec); }
+.login-cta { display: grid; gap: 10px; justify-items: start; padding: 14px; border: 1px dashed var(--line); border-radius: var(--r); }
+.login-cta p { margin: 0; }
+.route-owner { margin-top: 10px; }
+.me-btn.logged-out { width: auto; padding: 0 16px; border-radius: 999px; font-size: 18px; text-transform: uppercase; letter-spacing: 0.03em; }
