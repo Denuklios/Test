@@ -76,6 +76,9 @@ function db(): PDO {
     $pdo->exec('CREATE TABLE IF NOT EXISTS live (user_id TEXT PRIMARY KEY REFERENCES users(id) ON DELETE CASCADE, status TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL, at INTEGER NOT NULL)');
     $pdo->exec('CREATE TABLE IF NOT EXISTS waves (id INTEGER PRIMARY KEY AUTOINCREMENT, to_id TEXT NOT NULL, from_id TEXT NOT NULL, at INTEGER NOT NULL)');
     $pdo->exec('CREATE TABLE IF NOT EXISTS failures (ip TEXT PRIMARY KEY, count INTEGER NOT NULL, since INTEGER NOT NULL)');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS meetups (id TEXT PRIMARY KEY, route_id TEXT NOT NULL, route_name TEXT NOT NULL, lat REAL NOT NULL, lng REAL NOT NULL, creator_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, starts_at TEXT NOT NULL, note TEXT NOT NULL DEFAULT \'\', created_at TEXT NOT NULL)');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS meetup_members (meetup_id TEXT NOT NULL REFERENCES meetups(id) ON DELETE CASCADE, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, last_read INTEGER NOT NULL DEFAULT 0, PRIMARY KEY (meetup_id, user_id))');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS messages (id INTEGER PRIMARY KEY AUTOINCREMENT, meetup_id TEXT NOT NULL REFERENCES meetups(id) ON DELETE CASCADE, user_id TEXT NOT NULL REFERENCES users(id) ON DELETE CASCADE, text TEXT NOT NULL, at TEXT NOT NULL)');
     // Neuere Spalten in bestehender Datenbank ergänzen
     $cols = array_column($pdo->query('PRAGMA table_info(users)')->fetchAll(), 'name');
     if (!in_array('dog_breed', $cols, true)) $pdo->exec("ALTER TABLE users ADD COLUMN dog_breed TEXT NOT NULL DEFAULT ''");
@@ -475,6 +478,98 @@ try {
             if (!is_int($stars) || $stars < 1 || $stars > 5) fail('Bitte 1 bis 5 Sterne vergeben.');
             q('INSERT OR REPLACE INTO ratings (route_id, user_id, stars, text, date) VALUES (?, ?, ?, ?, ?)', [$p1, $user['id'], $stars, s($b['text'] ?? null, 500), nowIso()]);
             out(ratingsFor([$p1])[$p1] ?? []);
+        }
+        fail('Unbekannte Anfrage.', 404);
+    }
+
+    // ----- Treffen und Chat (nur angemeldet) -----
+    if ($p0 === 'meetups') {
+        $user = requireUser();
+        $meetupJson = function (array $m) use ($user): array {
+            $mem = q('SELECT mm.user_id, mm.last_read, u.name, u.dog FROM meetup_members mm JOIN users u ON u.id = mm.user_id WHERE mm.meetup_id = ? ORDER BY u.name', [$m['id']])->fetchAll();
+            $mine = null;
+            foreach ($mem as $x) if ($x['user_id'] === $user['id']) $mine = $x;
+            $unread = $mine ? (int) q('SELECT COUNT(*) FROM messages WHERE meetup_id = ? AND id > ? AND user_id != ?', [$m['id'], (int) $mine['last_read'], $user['id']])->fetchColumn() : 0;
+            $creator = q('SELECT name, dog FROM users WHERE id = ?', [$m['creator_id']])->fetch() ?: ['name' => 'Anonym', 'dog' => ''];
+            return ['id' => $m['id'], 'routeId' => $m['route_id'], 'routeName' => $m['route_name'], 'lat' => (float) $m['lat'], 'lng' => (float) $m['lng'],
+                'startsAt' => $m['starts_at'], 'note' => $m['note'], 'creatorId' => $m['creator_id'], 'creatorName' => $creator['name'], 'creatorDog' => $creator['dog'],
+                'members' => array_map(function ($x) { return ['id' => $x['user_id'], 'name' => $x['name'], 'dog' => $x['dog']]; }, $mem),
+                'joined' => (bool) $mine, 'unread' => $unread];
+        };
+        $find = function (string $id): array {
+            $m = q('SELECT * FROM meetups WHERE id = ?', [$id])->fetch();
+            if (!$m) fail('Dieses Treffen gibt es nicht mehr.', 404);
+            return $m;
+        };
+        $isMember = function (string $id) use ($user): bool {
+            return (bool) q('SELECT 1 FROM meetup_members WHERE meetup_id = ? AND user_id = ?', [$id, $user['id']])->fetch();
+        };
+
+        if ($method === 'GET' && $p1 === null) {
+            $since = gmdate('Y-m-d\TH:i:s\Z', time() - 3 * 3600); // bis 3 Stunden nach Beginn sichtbar
+            $rows = q('SELECT * FROM meetups WHERE starts_at > ? ORDER BY starts_at', [$since])->fetchAll();
+            $out = [];
+            foreach ($rows as $m) {
+                if (isset($_GET['route']) && $m['route_id'] !== $_GET['route']) continue;
+                if (isset($_GET['lat'], $_GET['lng']) && !isset($_GET['route'])) {
+                    $r = max(1.0, min(200.0, (float) ($_GET['r'] ?? 50)));
+                    $joined = $isMember($m['id']);
+                    if (!$joined && geoDistance([(float) $_GET['lat'], (float) $_GET['lng']], [(float) $m['lat'], (float) $m['lng']]) / 1000 > $r) continue;
+                }
+                $out[] = $meetupJson($m);
+                if (count($out) >= 100) break;
+            }
+            out($out);
+        }
+        if ($method === 'POST' && $p1 === null) {
+            $b = body();
+            $lat = n($b['lat'] ?? null, -90, 90); $lng = n($b['lng'] ?? null, -180, 180);
+            $routeId = s($b['routeId'] ?? null, 64); $routeName = s($b['routeName'] ?? null, 80);
+            if ($lat === null || $lng === null || $routeId === '' || $routeName === '') fail('Runde für das Treffen fehlt.');
+            $ts = strtotime((string) ($b['startsAt'] ?? ''));
+            if (!$ts || $ts < time() - 3600 || $ts > time() + 60 * 86400) fail('Bitte wähle einen Termin in den nächsten 60 Tagen.');
+            $count = (int) q('SELECT COUNT(*) FROM meetups WHERE creator_id = ? AND starts_at > ?', [$user['id'], gmdate('Y-m-d\TH:i:s\Z')])->fetchColumn();
+            if ($count >= 20) fail('Du hast schon 20 offene Treffen.', 429);
+            $id = 'm-' . substr(uuid(), 0, 12);
+            q('INSERT INTO meetups (id, route_id, route_name, lat, lng, creator_id, starts_at, note, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)',
+                [$id, $routeId, $routeName, $lat, $lng, $user['id'], gmdate('Y-m-d\TH:i:s\Z', $ts), s($b['note'] ?? null, 300), nowIso()]);
+            q('INSERT INTO meetup_members (meetup_id, user_id) VALUES (?, ?)', [$id, $user['id']]);
+            out($meetupJson($find($id)), 201);
+        }
+        if ($p1 !== null && $p2 === null && $method === 'GET') out($meetupJson($find($p1)));
+        if ($p1 !== null && $p2 === null && $method === 'DELETE') {
+            body();
+            $m = $find($p1);
+            if ($m['creator_id'] !== $user['id']) fail('Nur wer das Treffen vorgeschlagen hat, kann es absagen.', 403);
+            q('DELETE FROM meetups WHERE id = ?', [$p1]);
+            out(['ok' => true]);
+        }
+        if ($p1 !== null && $p2 === 'join') {
+            $m = $find($p1);
+            body();
+            if ($method === 'POST') { q('INSERT OR IGNORE INTO meetup_members (meetup_id, user_id) VALUES (?, ?)', [$p1, $user['id']]); out($meetupJson($m)); }
+            if ($method === 'DELETE') {
+                if ($m['creator_id'] === $user['id']) fail('Du hast das Treffen vorgeschlagen. Sag es ab, statt auszutreten.', 400);
+                q('DELETE FROM meetup_members WHERE meetup_id = ? AND user_id = ?', [$p1, $user['id']]);
+                out($meetupJson($m));
+            }
+        }
+        if ($p1 !== null && $p2 === 'messages') {
+            $find($p1);
+            if (!$isMember($p1)) fail('Den Chat sehen nur Teilnehmer. Mach mit, um mitzuschreiben.', 403);
+            if ($method === 'GET') {
+                $after = (int) ($_GET['after'] ?? 0);
+                $rows = q('SELECT m.id, m.user_id, m.text, m.at, u.name, u.dog FROM messages m JOIN users u ON u.id = m.user_id WHERE m.meetup_id = ? AND m.id > ? ORDER BY m.id LIMIT 300', [$p1, $after])->fetchAll();
+                if ($rows) q('UPDATE meetup_members SET last_read = MAX(last_read, ?) WHERE meetup_id = ? AND user_id = ?', [(int) end($rows)['id'], $p1, $user['id']]);
+                out(array_map(function ($x) { return ['id' => (int) $x['id'], 'userId' => $x['user_id'], 'name' => $x['name'], 'dog' => $x['dog'], 'text' => $x['text'], 'at' => $x['at']]; }, $rows));
+            }
+            if ($method === 'POST') {
+                $b = body();
+                $text = s($b['text'] ?? null, 500);
+                if ($text === '') fail('Die Nachricht ist leer.');
+                q('INSERT INTO messages (meetup_id, user_id, text, at) VALUES (?, ?, ?, ?)', [$p1, $user['id'], $text, nowIso()]);
+                out(['ok' => true, 'id' => (int) db()->lastInsertId()], 201);
+            }
         }
         fail('Unbekannte Anfrage.', 404);
     }

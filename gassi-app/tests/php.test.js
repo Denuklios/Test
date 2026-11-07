@@ -143,6 +143,28 @@ test('PHP: Rasse und Alter nur sichtbar wenn freigegeben', opts, async () => {
   await c.del('me', { password: 'geheim123' });
 });
 
+test('PHP: Treffen und Chat', opts, async () => {
+  const org = client(); const gast = client(); const fremd = client();
+  await org.post('auth/register', { email: 'org@example.de', password: 'geheim123', name: 'Olga' });
+  await gast.post('auth/register', { email: 'gast@example.de', password: 'geheim123', name: 'Gerd' });
+  await fremd.post('auth/register', { email: 'fremd@example.de', password: 'geheim123', name: 'Frida' });
+  const when = new Date(Date.now() + 86400e3).toISOString();
+  const m = (await org.post('meetups', { routeId: 'osm-w1', routeName: 'Hundeauslauf', lat: 54.85, lng: 9.37, startsAt: when })).data;
+  assert.equal(m.joined, true);
+  assert.ok((await gast.get('meetups&lat=54.85&lng=9.37&r=10')).data.some((x) => x.id === m.id));
+  assert.equal((await gast.get(`meetups/${m.id}/messages`)).status, 403);
+  await gast.post(`meetups/${m.id}/join`);
+  await org.post(`meetups/${m.id}/messages`, { text: 'Bin am Parkplatz' });
+  assert.equal((await gast.get(`meetups/${m.id}`)).data.unread, 1);
+  assert.equal((await gast.get(`meetups/${m.id}/messages`)).data[0].text, 'Bin am Parkplatz');
+  assert.equal((await gast.get(`meetups/${m.id}`)).data.unread, 0);
+  assert.equal((await fremd.post(`meetups/${m.id}/messages`, { text: 'x' })).status, 403);
+  assert.equal((await gast.del(`meetups/${m.id}`)).status, 403);
+  assert.equal((await org.del(`meetups/${m.id}`)).status, 200);
+  assert.equal((await gast.get(`meetups/${m.id}`)).status, 404);
+  for (const c of [org, gast, fremd]) await c.del('me', { password: 'geheim123' });
+});
+
 test('PHP: Passwort ändern und Konto löschen', opts, async () => {
   assert.equal((await ben.post('me/password', { current: 'falsch', next: 'neuespasswort' })).status, 403);
   assert.equal((await ben.post('me/password', { current: 'passwort1', next: 'neuespasswort' })).status, 200);

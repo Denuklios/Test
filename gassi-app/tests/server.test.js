@@ -238,6 +238,41 @@ test('Rasse und Alter: gespeichert, nur sichtbar wenn freigegeben', async () => 
   await c.del('/api/me', { password: 'geheim123' });
 });
 
+test('Treffen: vorschlagen, mitmachen, Chat nur für Teilnehmer, absagen', async () => {
+  const org = client(); const gast = client(); const fremd = client();
+  await org.post('/api/auth/register', { email: 'org@example.de', password: 'geheim123', name: 'Olga', dog: 'Fiete' });
+  const g = (await gast.post('/api/auth/register', { email: 'gast@example.de', password: 'geheim123', name: 'Gerd' })).data.user;
+  await fremd.post('/api/auth/register', { email: 'fremd@example.de', password: 'geheim123', name: 'Frida' });
+  assert.equal((await client().get('/api/meetups')).status, 401);
+  const when = new Date(Date.now() + 86400e3).toISOString();
+  assert.equal((await org.post('/api/meetups', { routeId: 'lyreskoven', routeName: 'Lyreskoven', lat: 54.85, lng: 9.37, startsAt: '2000-01-01T10:00:00Z' })).status, 400);
+  const m = (await org.post('/api/meetups', { routeId: 'lyreskoven', routeName: 'Lyreskoven', lat: 54.85, lng: 9.37, startsAt: when, note: 'Langsames Tempo' })).data;
+  assert.equal(m.creatorName, 'Olga');
+  assert.equal(m.members.length, 1);
+  assert.ok((await gast.get('/api/meetups?lat=54.85&lng=9.37&r=10')).data.some((x) => x.id === m.id));
+  assert.ok(!(await gast.get('/api/meetups?lat=52.5&lng=13.4&r=10')).data.some((x) => x.id === m.id)); // Berlin: zu weit
+  assert.equal((await gast.get(`/api/meetups?route=lyreskoven`)).data[0].id, m.id);
+  assert.equal((await gast.get(`/api/meetups/${m.id}/messages`)).status, 403);
+  const joined = (await gast.post(`/api/meetups/${m.id}/join`)).data;
+  assert.equal(joined.joined, true);
+  assert.equal(joined.members.length, 2);
+  assert.equal((await org.post(`/api/meetups/${m.id}/messages`, { text: 'Treffpunkt Parkplatz' })).status, 201);
+  assert.equal((await gast.get(`/api/meetups/${m.id}`)).data.unread, 1);
+  const msgs = (await gast.get(`/api/meetups/${m.id}/messages`)).data;
+  assert.equal(msgs[0].text, 'Treffpunkt Parkplatz');
+  assert.equal(msgs[0].name, 'Olga');
+  assert.equal((await gast.get(`/api/meetups/${m.id}`)).data.unread, 0); // gelesen
+  assert.equal((await gast.get(`/api/meetups/${m.id}/messages?after=${msgs[0].id}`)).data.length, 0);
+  assert.equal((await fremd.post(`/api/meetups/${m.id}/messages`, { text: 'Hallo' })).status, 403);
+  assert.equal((await gast.del(`/api/meetups/${m.id}`)).status, 403); // nur Organisatorin
+  assert.equal((await gast.del(`/api/meetups/${m.id}/join`)).data.joined, false);
+  assert.equal((await org.del(`/api/meetups/${m.id}/join`)).status, 400);
+  assert.equal((await org.del(`/api/meetups/${m.id}`)).status, 200);
+  assert.equal((await gast.get(`/api/meetups/${m.id}`)).status, 404);
+  for (const c of [org, gast, fremd]) await c.del('/api/me', { password: 'geheim123' });
+  assert.ok(g.id);
+});
+
 test('Passwort ändern meldet andere Geräte ab', async () => {
   const other = client();
   await other.post('/api/auth/login', { email: 'ben@example.de', password: 'passwort1' });

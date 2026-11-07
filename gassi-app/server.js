@@ -33,7 +33,7 @@ const demoRoutes = JSON.parse(await readFile(path.join(PUBLIC, 'data', 'demo-rou
 // sessions: { sha256(token): {userId, expires} }
 // ratings: { routeId: [{userId, stars, text, date}] }
 // walks: { userId: [{date, meters, ms, name}] }
-let store = { users: [], sessions: {}, routes: [], ratings: {}, walks: {} };
+let store = { users: [], sessions: {}, routes: [], ratings: {}, walks: {}, meetups: [], messages: [] };
 if (existsSync(STORE)) store = { ...store, ...JSON.parse(await readFile(STORE, 'utf8')) };
 
 let saving = Promise.resolve();
@@ -375,6 +375,10 @@ async function handleMe(req, res, parts) {
       else store.ratings[id] = store.ratings[id].filter((x) => x.userId !== user.id);
     }
     delete store.walks[user.id];
+    const ownMeetups = new Set(store.meetups.filter((m) => m.creatorId === user.id).map((m) => m.id));
+    store.meetups = store.meetups.filter((m) => !ownMeetups.has(m.id));
+    for (const m of store.meetups) m.members = m.members.filter((x) => x.userId !== user.id);
+    store.messages = store.messages.filter((x) => x.userId !== user.id && !ownMeetups.has(x.meetupId));
     dropSessionsOf(user.id);
     live.delete(user.id);
     await save();
@@ -397,6 +401,105 @@ async function handleMe(req, res, parts) {
     return sendJson(res, 201, walk);
   }
 
+  throw new HttpError(404, 'Unbekannte Anfrage.');
+}
+
+// ---------- Treffen und Chat ----------
+
+let msgSeq = Math.max(0, ...store.messages.map((x) => x.id));
+
+function meetupJson(m, user) {
+  const mine = m.members.find((x) => x.userId === user.id);
+  const creator = userById(m.creatorId);
+  return {
+    id: m.id, routeId: m.routeId, routeName: m.routeName, lat: m.lat, lng: m.lng, startsAt: m.startsAt, note: m.note,
+    creatorId: m.creatorId, creatorName: creator?.name || 'Anonym', creatorDog: creator?.dog || '',
+    members: m.members.map((x) => { const u = userById(x.userId); return { id: x.userId, name: u?.name || 'Anonym', dog: u?.dog || '' }; }),
+    joined: !!mine,
+    unread: mine ? store.messages.filter((x) => x.meetupId === m.id && x.id > mine.lastRead && x.userId !== user.id).length : 0,
+  };
+}
+
+async function handleMeetups(req, res, parts, url) {
+  const user = requireUser(req);
+  const id = parts[2];
+  const find = () => {
+    const m = store.meetups.find((x) => x.id === id);
+    if (!m) throw new HttpError(404, 'Dieses Treffen gibt es nicht mehr.');
+    return m;
+  };
+  if (req.method === 'GET' && !id) {
+    const since = Date.now() - 3 * 3600 * 1000;
+    const route = url.searchParams.get('route');
+    const lat = Number(url.searchParams.get('lat')), lng = Number(url.searchParams.get('lng'));
+    const r = Math.min(200, Math.max(1, Number(url.searchParams.get('r')) || 50));
+    const list = store.meetups
+      .filter((m) => Date.parse(m.startsAt) > since)
+      .filter((m) => (route ? m.routeId === route : true))
+      .filter((m) => route || !url.searchParams.has('lat') || m.members.some((x) => x.userId === user.id) || distance([lat, lng], [m.lat, m.lng]) / 1000 <= r)
+      .sort((a, b) => a.startsAt.localeCompare(b.startsAt))
+      .slice(0, 100);
+    return sendJson(res, 200, list.map((m) => meetupJson(m, user)));
+  }
+  if (req.method === 'POST' && !id) {
+    const b = await readBody(req, 10_000);
+    const lat = num(b.lat, -90, 90), lng = num(b.lng, -180, 180);
+    const routeId = str(b.routeId, 64), routeName = str(b.routeName, 80);
+    if (lat == null || lng == null || !routeId || !routeName) throw new HttpError(400, 'Runde für das Treffen fehlt.');
+    const ts = Date.parse(b.startsAt);
+    if (!ts || ts < Date.now() - 3600e3 || ts > Date.now() + 60 * 864e5) throw new HttpError(400, 'Bitte wähle einen Termin in den nächsten 60 Tagen.');
+    if (store.meetups.filter((m) => m.creatorId === user.id && Date.parse(m.startsAt) > Date.now()).length >= 20) throw new HttpError(429, 'Du hast schon 20 offene Treffen.');
+    const m = { id: 'm-' + crypto.randomUUID().slice(0, 12), routeId, routeName, lat, lng, creatorId: user.id, startsAt: new Date(ts).toISOString(), note: str(b.note, 300), createdAt: new Date().toISOString(), members: [{ userId: user.id, lastRead: 0 }] };
+    store.meetups.push(m);
+    await save();
+    return sendJson(res, 201, meetupJson(m, user));
+  }
+  if (id && !parts[3] && req.method === 'GET') return sendJson(res, 200, meetupJson(find(), user));
+  if (id && !parts[3] && req.method === 'DELETE') {
+    requireJsonForDelete(req);
+    const m = find();
+    if (m.creatorId !== user.id) throw new HttpError(403, 'Nur wer das Treffen vorgeschlagen hat, kann es absagen.');
+    store.meetups = store.meetups.filter((x) => x.id !== m.id);
+    store.messages = store.messages.filter((x) => x.meetupId !== m.id);
+    await save();
+    return sendJson(res, 200, { ok: true });
+  }
+  if (id && parts[3] === 'join') {
+    const m = find();
+    if (req.method === 'POST') {
+      await readBody(req, 1000);
+      if (!m.members.some((x) => x.userId === user.id)) m.members.push({ userId: user.id, lastRead: 0 });
+      await save();
+      return sendJson(res, 200, meetupJson(m, user));
+    }
+    if (req.method === 'DELETE') {
+      requireJsonForDelete(req);
+      if (m.creatorId === user.id) throw new HttpError(400, 'Du hast das Treffen vorgeschlagen. Sag es ab, statt auszutreten.');
+      m.members = m.members.filter((x) => x.userId !== user.id);
+      await save();
+      return sendJson(res, 200, meetupJson(m, user));
+    }
+  }
+  if (id && parts[3] === 'messages') {
+    const m = find();
+    const mine = m.members.find((x) => x.userId === user.id);
+    if (!mine) throw new HttpError(403, 'Den Chat sehen nur Teilnehmer. Mach mit, um mitzuschreiben.');
+    if (req.method === 'GET') {
+      const after = Number(url.searchParams.get('after')) || 0;
+      const list = store.messages.filter((x) => x.meetupId === m.id && x.id > after).slice(0, 300);
+      if (list.length) { mine.lastRead = Math.max(mine.lastRead, list.at(-1).id); await save(); }
+      return sendJson(res, 200, list.map((x) => { const u = userById(x.userId); return { id: x.id, userId: x.userId, name: u?.name || 'Anonym', dog: u?.dog || '', text: x.text, at: x.at }; }));
+    }
+    if (req.method === 'POST') {
+      const b = await readBody(req, 10_000);
+      const text = str(b.text, 500);
+      if (!text) throw new HttpError(400, 'Die Nachricht ist leer.');
+      const msg = { id: ++msgSeq, meetupId: m.id, userId: user.id, text, at: new Date().toISOString() };
+      store.messages.push(msg);
+      await save();
+      return sendJson(res, 201, { ok: true, id: msg.id });
+    }
+  }
   throw new HttpError(404, 'Unbekannte Anfrage.');
 }
 
@@ -472,6 +575,9 @@ async function handleApi(req, res, url, ip) {
     await save();
     return sendJson(res, 200, withRatings(osm || allRoutes().find((r) => r.id === id)).ratings);
   }
+
+  // Treffen und Chat (nur angemeldet)
+  if (parts[1] === 'meetups') return handleMeetups(req, res, parts, url);
 
   // Live-Positionen sehen nur angemeldete Nutzer
   if (req.method === 'GET' && parts[1] === 'live' && parts[2] === 'stream') {

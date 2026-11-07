@@ -308,6 +308,10 @@ function renderDetail() {
     <div class="busy-axis"><span>6</span><span>9</span><span>12</span><span>15</span><span>18</span><span>21</span><span>23 Uhr</span></div>
     <p class="hint">Typischer Tagesverlauf. Mit echten Nutzern lernt die App ihn aus den aufgezeichneten Spaziergängen.</p>
 
+    <h3 class="list-title">Gemeinsam gehen</h3>
+    <div id="route-meets"><p class="hint">Lade Treffen …</p></div>
+    <button type="button" class="btn secondary small" id="meet-propose" style="margin-top:6px">Treffen vorschlagen</button>
+
     <h3 class="list-title">Bewertungen ${avg != null ? `· ${starsText(avg)} aus ${r.ratings.length}` : ''}</h3>
     ${r.ratings.length ? `<ul class="ratings">${[...r.ratings].sort((a, b) => (b.date || '').localeCompare(a.date || '')).map((x) => `<li><span class="stars">${'★'.repeat(x.stars)}${'☆'.repeat(5 - x.stars)}</span> ${x.text ? esc(x.text) : ''}<div class="who">${esc(x.name)}${x.dog ? ` mit ${esc(x.dog)}` : ''}${x.date ? ` · ${new Date(x.date).toLocaleDateString('de-DE')}` : ''}</div></li>`).join('')}</ul>` : '<p class="hint">Noch keine Bewertungen. Sei die erste Person!</p>'}
     <form class="rate-form" id="rate-form">
@@ -327,6 +331,8 @@ function renderDetail() {
   $('#back-btn').onclick = closeDetail;
   $('#walk-route-btn').onclick = () => requireLogin('Melde dich an, um die Runde zu laufen und aufzuzeichnen.', () => startWalk(r));
   setupNav(r);
+  $('#meet-propose').onclick = () => requireLogin('Melde dich an, um ein Treffen vorzuschlagen.', () => openNewMeetup(r));
+  loadRouteMeetups(r);
   const del = $('#delete-route-btn');
   if (del) del.onclick = async () => {
     if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = 'Wirklich löschen?'; return; }
@@ -425,6 +431,213 @@ async function showWay(r) {
     map.fitBounds(navLine.getBounds().extend(L.latLngBounds(r.points)), mapPadding());
     out.textContent = state.navText = `Routenplaner gerade nicht erreichbar, Luftlinie ${formatDistanceShort(distance(state.myPos, r.points[0]))}. „Navigation starten“ öffnet Google Maps.`;
   }
+}
+
+// ---------- Treffen und Chat ----------
+const WD = ['So', 'Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa'];
+function fmtWhen(iso) {
+  const d = new Date(iso);
+  const today = new Date(); const tomorrow = new Date(Date.now() + 864e5);
+  const same = (a, b) => a.toDateString() === b.toDateString();
+  const day = same(d, today) ? 'Heute' : same(d, tomorrow) ? 'Morgen' : `${WD[d.getDay()]} ${d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit' })}`;
+  return `${day}, ${d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })} Uhr`;
+}
+const meetMembers = (m) => `${m.members.length} ${m.members.length === 1 ? 'Person' : 'Personen'} dabei`;
+
+function meetCard(m) {
+  const ref = state.myPos || [map.getCenter().lat, map.getCenter().lng];
+  return `<li><button class="meet-card${m.joined ? ' joined' : ''}" data-meet="${esc(m.id)}">
+    <span class="meet-when">${esc(fmtWhen(m.startsAt))}</span>
+    <b>${esc(m.routeName)}</b>
+    <span class="meta"><span>von ${esc(m.creatorName)}${m.creatorDog ? ` & ${esc(m.creatorDog)}` : ''}</span><span>${meetMembers(m)}</span><span>${formatDistanceShort(distance(ref, [m.lat, m.lng]))}</span></span>
+    ${m.unread ? `<span class="pill unread-pill">${m.unread} neue ${m.unread === 1 ? 'Nachricht' : 'Nachrichten'}</span>` : m.joined ? '<span class="pill ruhig">Du bist dabei</span>' : ''}
+  </button></li>`;
+}
+
+async function loadMeetups() {
+  const el = $('#panel-treffen');
+  if (backend.accounts && !state.user) {
+    el.innerHTML = '<div class="login-cta"><p>Melde dich an, um Treffen zu sehen, mitzumachen und im Chat zu schreiben.</p><button class="btn small primary" data-login>Anmelden</button></div>';
+    return;
+  }
+  if (!el.innerHTML) el.innerHTML = '<p class="hint">Lade Treffen …</p>';
+  try {
+    const c = state.myPos || [map.getCenter().lat, map.getCenter().lng];
+    const list = await backend.meetups({ lat: c[0].toFixed(4), lng: c[1].toFixed(4), r: 50 });
+    state.meetups = list;
+    updateMeetBadge();
+    const mine = list.filter((m) => m.joined);
+    const near = list.filter((m) => !m.joined);
+    el.innerHTML = `
+      ${mine.length ? `<h3 class="list-title" style="margin-top:4px">Meine Treffen</h3><ul class="meet-list">${mine.map(meetCard).join('')}</ul>` : ''}
+      <h3 class="list-title"${mine.length ? '' : ' style="margin-top:4px"'}>In der Nähe</h3>
+      ${near.length ? `<ul class="meet-list">${near.map(meetCard).join('')}</ul>` : '<p class="empty">Gerade ist hier kein Treffen geplant. Öffne eine Runde und tippe auf „Treffen vorschlagen“.</p>'}
+      <p class="hint">Treffen sehen nur angemeldete Nutzer. Den Chat eines Treffens lesen und schreiben nur, wer mitmacht.</p>`;
+  } catch (ex) { if (!handleApiError(ex)) el.innerHTML = `<p class="empty">${esc(ex.message)}</p>`; }
+}
+
+function updateMeetBadge() {
+  const n = (state.meetups || []).reduce((s, m) => s + (m.unread || 0), 0);
+  $('#meet-count').hidden = !n;
+  $('#meet-count').textContent = n;
+}
+
+async function loadRouteMeetups(r) {
+  const box = $('#route-meets');
+  if (!box) return;
+  if (backend.accounts && !state.user) { box.innerHTML = '<p class="hint">Melde dich an, um geplante Treffen auf dieser Runde zu sehen.</p>'; return; }
+  try {
+    const list = await backend.meetups({ route: r.id });
+    if (state.selected !== r.id || !$('#route-meets')) return;
+    $('#route-meets').innerHTML = list.length
+      ? `<ul class="meet-list">${list.map(meetCard).join('')}</ul>`
+      : '<p class="hint">Noch kein Treffen auf dieser Runde geplant.</p>';
+  } catch { box.innerHTML = '<p class="hint">Treffen konnten nicht geladen werden.</p>'; }
+}
+
+function openNewMeetup(r) {
+  state.newMeetRoute = r;
+  const d = new Date(Date.now() + 3600e3); d.setMinutes(0, 0, 0);
+  const pad = (n) => String(n).padStart(2, '0');
+  $('#mn-date').value = `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  $('#mn-time').value = `${pad(d.getHours())}:00`;
+  $('#mn-note').value = '';
+  $('#mn-error').hidden = true;
+  $('#meet-new-route').textContent = `Runde: ${r.name}`;
+  showFromTop($('#meet-new-dialog'), '#meet-new-title');
+}
+
+async function submitNewMeetup(e) {
+  e.preventDefault();
+  const r = state.newMeetRoute;
+  const err = $('#mn-error');
+  const when = new Date(`${$('#mn-date').value}T${$('#mn-time').value}`);
+  if (!$('#mn-date').value || !$('#mn-time').value || Number.isNaN(when.getTime())) { err.textContent = 'Bitte Tag und Uhrzeit wählen.'; err.hidden = false; return; }
+  try {
+    const m = await backend.createMeetup({ routeId: r.id, routeName: r.name, lat: r.points[0][0], lng: r.points[0][1], startsAt: when.toISOString(), note: $('#mn-note').value.trim() });
+    $('#meet-new-dialog').close();
+    toast('Dein Treffen ist eingetragen. Andere in der Nähe sehen es jetzt.');
+    loadRouteMeetups(r);
+    openMeetup(m.id, m);
+  } catch (ex) { if (!handleApiError(ex)) { err.textContent = ex.message; err.hidden = false; } }
+}
+
+// Treffen-Fenster mit Chat
+let chatTimer = null;
+async function openMeetup(id, preset = null) {
+  state.meetId = id; state.chatAfter = 0; state.chatMsgs = [];
+  const dlg = $('#meet-dialog');
+  try {
+    const m = preset || await backend.meetup(id);
+    renderMeetup(m);
+    if (!dlg.open) showFromTop(dlg, '#meet-title');
+    if (m.joined) pollChat(true);
+  } catch (ex) { if (!handleApiError(ex)) toast(ex.message); }
+}
+
+function renderMeetup(m) {
+  state.meet = m;
+  const dist = state.myPos ? `${formatDistanceShort(distance(state.myPos, [m.lat, m.lng]))} von dir` : '';
+  const mine = m.creatorId === me.id;
+  $('#meet-body').innerHTML = `
+    <p class="meet-when big">${esc(fmtWhen(m.startsAt))}</p>
+    <h2 id="meet-title" tabindex="-1">${esc(m.routeName)}</h2>
+    <p class="hint" style="margin-top:0">Treffpunkt: Start der Runde${dist ? ` · ${dist}` : ''} · vorgeschlagen von ${esc(m.creatorName)}${m.creatorDog ? ` & ${esc(m.creatorDog)}` : ''}</p>
+    ${m.note ? `<p class="meet-note">„${esc(m.note)}“</p>` : ''}
+    <p class="label" style="margin:10px 0 6px">${meetMembers(m)}</p>
+    <div class="member-chips">${m.members.map((x) => `<span class="member-chip">${esc(x.name)}${x.dog ? ` & ${esc(x.dog)}` : ''}</span>`).join('')}</div>
+    <div class="meet-actions">
+      ${m.joined ? (mine ? '<button class="btn danger small" data-meet-cancel>Treffen absagen</button>' : '<button class="btn secondary small" data-meet-leave>Doch nicht dabei</button>') : '<button class="btn primary small" data-meet-join>Ich bin dabei</button>'}
+      <button class="btn secondary small" data-meet-route>Zur Runde & Weg dorthin</button>
+    </div>
+    <h3 class="list-title">Chat</h3>
+    ${m.joined ? '<ul class="chat" id="chat-list"><li class="hint">Noch keine Nachrichten. Schreib zum Beispiel, wann du ankommst.</li></ul>' : '<p class="hint">Mach mit, um den Chat zu lesen und zu schreiben.</p>'}`;
+  $('#chat-bar').hidden = !m.joined;
+  if (m.joined && state.chatMsgs.length) renderChat();
+}
+
+function renderChat() {
+  const list = $('#chat-list');
+  if (!list) return;
+  const atBottom = $('#meet-body').scrollHeight - $('#meet-body').scrollTop - $('#meet-body').clientHeight < 60;
+  list.innerHTML = state.chatMsgs.map((x) => `<li class="msg${x.userId === me.id ? ' mine' : ''}">
+    ${x.userId === me.id ? '' : `<span class="msg-who">${esc(x.name)}${x.dog ? ` & ${esc(x.dog)}` : ''}</span>`}
+    <span class="msg-text">${esc(x.text)}</span>
+    <span class="msg-time">${new Date(x.at).toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' })}</span>
+  </li>`).join('') || '<li class="hint">Noch keine Nachrichten. Schreib zum Beispiel, wann du ankommst.</li>';
+  if (atBottom || state.chatScroll) { $('#meet-body').scrollTop = $('#meet-body').scrollHeight; state.chatScroll = false; }
+}
+
+async function pollChat(first = false) {
+  clearTimeout(chatTimer);
+  if (!$('#meet-dialog').open || !state.meet?.joined) return;
+  try {
+    const list = await backend.messages(state.meetId, state.chatAfter);
+    // Teilnehmerliste gelegentlich auffrischen (wer ist neu dabei?)
+    state.chatTick = (state.chatTick || 0) + 1;
+    if (list.length || state.chatTick % 5 === 0) {
+      const fresh = await backend.meetup(state.meetId).catch(() => null);
+      if (fresh && fresh.members.length !== state.meet.members.length) renderMeetup(fresh);
+    }
+    if (list.length) {
+      state.chatMsgs.push(...list);
+      state.chatAfter = list[list.length - 1].id;
+      if (first) state.chatScroll = true;
+      renderChat();
+      const m = (state.meetups || []).find((x) => x.id === state.meetId);
+      if (m) { m.unread = 0; updateMeetBadge(); }
+    }
+  } catch { /* nächster Versuch */ }
+  chatTimer = setTimeout(pollChat, document.hidden ? 15000 : 4000);
+}
+
+async function meetAction(fn, msg) {
+  try {
+    const m = await fn();
+    if (m && m.id) { renderMeetup(m); if (m.joined) pollChat(true); }
+    if (msg) toast(msg);
+    loadMeetups();
+    const r = state.selected && routeById(state.selected);
+    if (r) loadRouteMeetups(r);
+  } catch (ex) { if (!handleApiError(ex)) toast(ex.message); }
+}
+
+$('#chat-form').onsubmit = async (e) => {
+  e.preventDefault();
+  const input = $('#chat-input');
+  const text = input.value.trim();
+  if (!text) return;
+  input.value = '';
+  try { await backend.sendMessage(state.meetId, text); state.chatScroll = true; pollChat(); } catch (ex) { input.value = text; if (!handleApiError(ex)) toast(ex.message); }
+};
+$('#meet-new-form').onsubmit = submitNewMeetup;
+$('#meet-dialog').addEventListener('close', () => clearTimeout(chatTimer));
+document.addEventListener('click', (e) => {
+  const c = e.target.closest('[data-meet]'); if (c) openMeetup(c.dataset.meet);
+  if (e.target.closest('[data-close-meet]')) $('#meet-dialog').close();
+  if (e.target.closest('[data-close-meetnew]')) $('#meet-new-dialog').close();
+  if (e.target.closest('[data-meet-join]')) meetAction(() => backend.joinMeetup(state.meetId), 'Du bist dabei! Im Chat kannst du dich mit den anderen abstimmen.');
+  if (e.target.closest('[data-meet-leave]')) meetAction(() => backend.leaveMeetup(state.meetId), 'Du bist beim Treffen nicht mehr dabei.');
+  if (e.target.closest('[data-meet-cancel]')) {
+    const b = e.target.closest('[data-meet-cancel]');
+    if (!b.dataset.armed) { b.dataset.armed = '1'; b.textContent = 'Wirklich absagen?'; return; }
+    meetAction(async () => { await backend.cancelMeetup(state.meetId); $('#meet-dialog').close(); return null; }, 'Das Treffen ist abgesagt.');
+  }
+  if (e.target.closest('[data-meet-route]')) {
+    const m = state.meet;
+    $('#meet-dialog').close();
+    if (routeById(m.routeId)) openRoute(m.routeId);
+    else { map.setView([m.lat, m.lng], 14); toast('Die Runde wird geladen …'); setTimeout(() => routeById(m.routeId) && openRoute(m.routeId), 1500); }
+  }
+});
+// Ungelesene Nachrichten im Hintergrund prüfen (Zahl am Reiter)
+setInterval(() => { if (state.user && backend.accounts && !document.hidden) (state.tab === 'treffen' ? loadMeetups() : refreshMeetBadge()); }, 30000);
+async function refreshMeetBadge() {
+  try {
+    const c = state.myPos || [map.getCenter().lat, map.getCenter().lng];
+    state.meetups = await backend.meetups({ lat: c[0].toFixed(4), lng: c[1].toFixed(4), r: 50 });
+    updateMeetBadge();
+  } catch { /* egal */ }
 }
 
 // ---------- Runde finden ----------
@@ -1031,7 +1244,7 @@ function setUser(user) {
   btn.classList.toggle('logged-out', out);
   $('#me-initial').textContent = out ? 'Anmelden' : initial(me.name || me.dog);
   btn.setAttribute('aria-label', out ? 'Anmelden' : 'Mein Profil');
-  if (user) backend.connect(); else { backend.disconnect(); state.people = []; }
+  if (user) { backend.connect(); setTimeout(refreshMeetBadge, 500); } else { backend.disconnect(); state.people = []; state.meetups = []; $('#panel-treffen').innerHTML = ''; updateMeetBadge(); }
   state.view === 'detail' ? renderDetail() : renderList();
   renderFind();
   renderPeople();
@@ -1043,6 +1256,7 @@ function switchTab(tab) {
   for (const p of $$('.panel')) p.hidden = p.dataset.panel !== tab;
   if (tab === 'finden') renderFind();
   if (tab === 'live') renderPeople();
+  if (tab === 'treffen') loadMeetups();
   if (tab === 'runden' && state.view === 'list') renderList();
 }
 

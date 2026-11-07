@@ -54,6 +54,7 @@
         <button role="tab" class="tab" data-tab="runden" aria-selected="true">Runden</button>
         <button role="tab" class="tab" data-tab="finden" aria-selected="false">Finden</button>
         <button role="tab" class="tab" data-tab="live" aria-selected="false">Live <span class="count" id="live-count">0</span></button>
+        <button role="tab" class="tab" data-tab="treffen" aria-selected="false">Treffen <span class="count unread" id="meet-count" hidden>0</span></button>
       </nav>
 
       <div class="panel" data-panel="runden" id="panel-runden"></div>
@@ -100,6 +101,8 @@
                     <label class="switch"><input type="checkbox" id="share-live"> <span>Meine Position während des Spaziergangs teilen</span></label>
         </div>
       </div>
+
+      <div class="panel" data-panel="treffen" id="panel-treffen" hidden></div>
     </div>
 
     <!-- Während der Aufnahme -->
@@ -273,6 +276,37 @@
   <!-- Wetter der nächsten Stunden mit Tipps -->
   <dialog id="weather-dialog" class="dialog weather-dialog" aria-labelledby="weather-title">
     <div id="weather-body"></div>
+  </dialog>
+
+  <!-- Treffen mit Chat -->
+  <dialog id="meet-dialog" class="dialog meet-dialog" aria-labelledby="meet-title">
+    <div class="meet-scroll" id="meet-body"></div>
+    <div class="chat-bar" id="chat-bar" hidden>
+      <form id="chat-form" class="chat-form">
+        <input id="chat-input" maxlength="500" autocomplete="off" placeholder="Nachricht an die Gruppe …" aria-label="Nachricht">
+        <button class="btn primary small" type="submit">Senden</button>
+      </form>
+    </div>
+    <div class="rec-actions"><button class="btn secondary" data-close-meet>Schließen</button></div>
+  </dialog>
+
+  <!-- Treffen vorschlagen -->
+  <dialog id="meet-new-dialog" class="dialog" aria-labelledby="meet-new-title">
+    <form id="meet-new-form" novalidate>
+      <h2 id="meet-new-title" tabindex="-1">Treffen vorschlagen</h2>
+      <p class="hint" id="meet-new-route"></p>
+      <div class="grid2">
+        <label class="field">Tag<input type="date" id="mn-date" required></label>
+        <label class="field">Uhrzeit<input type="time" id="mn-time" required step="300"></label>
+      </div>
+      <label class="field">Notiz (freiwillig)<textarea id="mn-note" rows="2" maxlength="300" placeholder="z. B. Langsames Tempo, Welpe dabei"></textarea></label>
+      <p class="hint">Treffpunkt ist der Start der Runde. Alle in der Nähe sehen dein Treffen und können mitmachen.</p>
+      <p class="form-error" id="mn-error" hidden></p>
+      <div class="rec-actions">
+        <button type="button" class="btn secondary" data-close-meetnew>Abbrechen</button>
+        <button type="submit" class="btn primary">Vorschlagen</button>
+      </div>
+    </form>
   </dialog>
 
   <!-- Person aus der Live-Liste oder von der Karte -->

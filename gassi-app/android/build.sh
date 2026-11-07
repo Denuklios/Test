@@ -3,8 +3,8 @@
 # Ergebnis: dist/gassirunde.apk und dist/version.json (werden mit der Testversion auf den Server geladen).
 # Neue Version: VERSION und CODE erhöhen.
 set -e
-VERSION=1.1.0
-CODE=11
+VERSION=1.2.0
+CODE=12
 cd "$(dirname "$0")"
 SDK=${ANDROID_SDK:-/opt/android-sdk}
 BT=$SDK/build-tools/35.0.0

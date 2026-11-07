@@ -90,6 +90,16 @@ class ServerBackend {
   sendPosition(p) { return api('api/live', { method: 'POST', body: p }).catch(() => {}); }
   stopSharing() { return api('api/live', { method: 'DELETE' }).catch(() => {}); }
   wave(to) { return api('api/live/wave', { method: 'POST', body: { to } }); }
+
+  // Treffen und Chat
+  meetups(q = {}) { return api('meetups?' + new URLSearchParams(q).toString()); }
+  meetup(id) { return api(`meetups/${encodeURIComponent(id)}`); }
+  createMeetup(b) { return api('meetups', { method: 'POST', body: b }); }
+  joinMeetup(id) { return api(`meetups/${encodeURIComponent(id)}/join`, { method: 'POST' }); }
+  leaveMeetup(id) { return api(`meetups/${encodeURIComponent(id)}/join`, { method: 'DELETE' }); }
+  cancelMeetup(id) { return api(`meetups/${encodeURIComponent(id)}`, { method: 'DELETE' }); }
+  messages(id, after = 0) { return api(`meetups/${encodeURIComponent(id)}/messages?after=${after}`); }
+  sendMessage(id, text) { return api(`meetups/${encodeURIComponent(id)}/messages`, { method: 'POST', body: { text } }); }
   onLive(fn) { this.liveFns.push(fn); }
   onWave(fn) { this.waveFns.push(fn); }
 }
@@ -162,6 +172,8 @@ class LocalBackend {
     this.bc?.postMessage({ type: 'pos', p: full });
   }
   async stopSharing() { const me = await this.me(); this.mine = null; this.bc?.postMessage({ type: 'stop', id: me.id }); }
+  async meetups() { return []; }
+  async createMeetup() { throw new Error('Treffen gibt es nur mit Server.'); }
   async wave(to) { const me = await this.me(); this.bc?.postMessage({ type: 'wave', msg: { to, from: me.id, fromName: me.name || 'Jemand', fromDog: me.dog, text: 'Lust auf eine gemeinsame Runde?', at: Date.now() } }); }
   onLive(fn) { this.liveFns.push(fn); this.emit(); }
   onWave(fn) { this.waveFns.push(fn); }
