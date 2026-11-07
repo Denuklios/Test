@@ -1,0 +1,77 @@
+# Lädt die Gassirunde-Testversion per SFTP in einen versteckten Ordner auf www.wunsch-fabrik.dk (one.com):
+#   https://www.wunsch-fabrik.dk/gassi-ljv0zkx2/
+# Der Ordnername ist zufällig und steht nirgends auf der Website verlinkt; Suchmaschinen werden
+# per robots-Angaben ausgesperrt.
+#
+# Läuft, wenn eine Änderung mit „[hochladen]“ in der Beschreibung auf diesen Zweig geschoben wird,
+# oder von Hand (Actions → „Gassirunde hochladen“ → Run workflow).
+#
+# Nutzt dieselben Zugangsdaten wie der Website-Upload (Settings → Secrets and variables → Actions):
+#   FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, optional FTP_DIR (Website-Ordner auf dem Server).
+# Den Website-Ordner erkennt es an db_config.php (liegt nur auf dem Server).
+# Auf dem Server bleibt daten/ (Konten, Runden, Datenbank) unangetastet. Gelöscht wird nichts.
+name: Gassirunde hochladen
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['claude/dog-walking-routes-ounny2']
+
+concurrency:
+  group: webspace-upload
+  cancel-in-progress: false
+
+env:
+  ZIEL: gassi-ljv0zkx2
+
+jobs:
+  hochladen:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[hochladen]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Paket zusammenstellen
+        run: |
+          set -e
+          bash gassi-app/tools/build-php.sh _upload
+          test ! -e _upload/daten/gassi.sqlite
+
+      - name: Per SFTP hochladen
+        env:
+          SFTP_HOST: ${{ secrets.FTP_SERVER }}
+          SFTP_USER: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          SFTP_DIR: ${{ secrets.FTP_DIR }}
+        run: |
+          set -e
+          if [ -z "$SFTP_HOST" ] || [ -z "$SFTP_USER" ] || [ -z "$LFTP_PASSWORD" ]; then
+            echo "::error::FTP_SERVER, FTP_USERNAME und FTP_PASSWORD fehlen unter Settings → Secrets and variables → Actions."; exit 1
+          fi
+          sudo apt-get -qq update && sudo apt-get -qq install -y lftp >/dev/null
+          CONN="set sftp:auto-confirm yes; set net:max-retries 3; set net:timeout 30; open -u '$SFTP_USER' --env-password 'sftp://$SFTP_HOST'"
+          FOUND=""
+          if [ -n "$SFTP_DIR" ]; then
+            CANDS="$SFTP_DIR"
+          else
+            LIST=$(lftp -e "$CONN; cls -1 webroots/ webroots/by-route/; bye" 2>/dev/null | sed 's#/*$##; s#@$##' || true)
+            CANDS="$LIST httpd.www ."
+          fi
+          for c in $CANDS; do
+            if lftp -e "$CONN; cls -1 '$c/db_config.php'; bye" 2>/dev/null | grep -q 'db_config.php'; then FOUND="$c"; break; fi
+          done
+          if [ -z "$FOUND" ]; then
+            echo "::error::Kein Website-Ordner mit db_config.php gefunden. FTP_DIR unter Settings → Secrets eintragen."; exit 1
+          fi
+          echo "Ziel auf dem Server: $FOUND/$ZIEL"
+          lftp -e "$CONN; mkdir -p -f '$FOUND/$ZIEL'; mirror --reverse --no-perms --parallel=4 --verbose=1 ./_upload/ '$FOUND/$ZIEL'; bye"
+
+      - name: Prüfen, ob die App online ist
+        run: |
+          sleep 5
+          curl -sS --max-time 30 "https://www.wunsch-fabrik.dk/$ZIEL/api.php?p=health" | tee /dev/stderr | grep -q '"ok":true'
+          curl -sS --max-time 30 -o /dev/null -w "Startseite: %{http_code}\n" "https://www.wunsch-fabrik.dk/$ZIEL/"
+          code=$(curl -s -o /dev/null -w "%{http_code}" "https://www.wunsch-fabrik.dk/$ZIEL/daten/gassi.sqlite")
+          echo "Datenbank von außen: $code (muss 403 oder 404 sein)"
+          [ "$code" = 403 ] || [ "$code" = 404 ]

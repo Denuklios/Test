@@ -1,0 +1,9 @@
+# Gassirunde (Testversion): nicht in Suchmaschinen, keine Ordnerlisten
+Options -Indexes
+<IfModule mod_headers.c>
+  Header set X-Robots-Tag "noindex, nofollow"
+</IfModule>
+# Interne Dateien nie ausliefern
+<FilesMatch "\.(sqlite|sqlite-wal|sqlite-shm|md)$">
+  Require all denied
+</FilesMatch>

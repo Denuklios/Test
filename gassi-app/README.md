@@ -31,6 +31,15 @@ npm test             # Logik- und Server-Tests
 
 Zum Ausprobieren am Computer: Oben rechts auf **Anmelden**, ein Konto anlegen, dann im Profil **„Demo-Modus: GPS simulieren“** einschalten und eine Runde starten. Mit einem zweiten Konto in einem privaten Browserfenster sehen sich beide live auf der Karte und können sich zuwinken.
 
+### Testversion auf wunsch-fabrik.dk
+
+Die Testversion liegt in einem versteckten Ordner: **https://www.wunsch-fabrik.dk/gassi-ljv0zkx2/**. Der Ordner ist nirgends verlinkt, Suchmaschinen werden ausgesperrt.
+
+- Dort läuft der PHP-Server `php/api.php` (PHP 7.4+ mit SQLite), weil der one.com-Webspace kein Node.js kann. Er hat dieselben Funktionen wie `server.js`. Live-Positionen und Winken holt die App alle 3 Sekunden ab, statt über eine Dauerverbindung.
+- Hochladen: einen Commit mit `[hochladen]` in der Beschreibung auf den Zweig `claude/dog-walking-routes-ounny2` pushen, oder in GitHub unter Actions → „Gassirunde hochladen“ → Run workflow. Die Automatik nutzt dieselben Zugangsdaten wie der Website-Upload.
+- Konten und Runden liegen auf dem Server in `daten/gassi.sqlite`. Ein neuer Upload überschreibt sie nicht, und der Ordner ist von außen gesperrt.
+- Das Paket baut `bash tools/build-php.sh <ordner>`. Getestet wird es mit `npm test` (startet `php -S`, wenn PHP installiert ist).
+
 ### Auf dem Handy testen
 
 Browser geben GPS nur über **https** frei. Die App muss dafür auf einem Server mit https laufen, zum Beispiel bei Render, Railway, Fly.io oder auf einem eigenen Server hinter einem Reverse-Proxy. Einstellungen über Umgebungsvariablen:

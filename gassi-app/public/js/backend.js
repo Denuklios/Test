@@ -6,15 +6,24 @@
 import { DEMO_WALKERS, demoWalkerPosition } from './core.js';
 
 export async function createBackend() {
-  try {
-    const r = await fetch('api/health', { cache: 'no-store' });
-    if (r.ok) return new ServerBackend();
-  } catch { /* kein Server erreichbar */ }
+  // 1. Node-Server (server.js): /api/…   2. PHP-Webspace (php/api.php): api.php?p=…
+  for (const [url, toUrl] of [
+    ['api/health', (p) => `api/${p}`],
+    ['api.php?p=health', (p) => `api.php?p=${p}`],
+  ]) {
+    try {
+      const r = await fetch(url, { cache: 'no-store' });
+      const info = r.ok ? await r.json().catch(() => null) : null;
+      if (info?.ok) return new ServerBackend(toUrl, info.live === 'poll');
+    } catch { /* nächste Möglichkeit */ }
+  }
   return new LocalBackend();
 }
 
+let toUrl = (p) => `api/${p}`;
+
 async function api(path, opts = {}) {
-  const res = await fetch(path, {
+  const res = await fetch(toUrl(path.replace(/^api\//, '')), {
     ...opts,
     credentials: 'same-origin',
     headers: { 'content-type': 'application/json', ...(opts.headers || {}) },
@@ -26,7 +35,11 @@ async function api(path, opts = {}) {
 }
 
 class ServerBackend {
-  constructor() { this.mode = 'server'; this.accounts = true; this.liveFns = []; this.waveFns = []; this.es = null; }
+  constructor(urlFn, poll) {
+    toUrl = urlFn;
+    this.mode = 'server'; this.accounts = true; this.poll = poll;
+    this.liveFns = []; this.waveFns = []; this.es = null; this.timer = null;
+  }
 
   // Konto
   async me() { return (await api('api/auth/me')).user; }
@@ -41,12 +54,30 @@ class ServerBackend {
 
   // Live (nur angemeldet)
   connect() {
+    if (this.poll) {
+      // PHP-Webspace: alle 3 Sekunden abfragen (im Hintergrund-Tab seltener)
+      if (this.timer) return;
+      const tick = async () => {
+        try {
+          const d = await api('live/poll');
+          this.liveFns.forEach((f) => f(d.people));
+          d.waves.forEach((w) => this.waveFns.forEach((f) => f(w)));
+        } catch (e) { if (e.status === 401) { this.disconnect(); return; } }
+        this.timer = setTimeout(tick, document.hidden ? 15000 : 3000);
+      };
+      this.timer = setTimeout(tick, 0);
+      return;
+    }
     if (this.es) return;
-    this.es = new EventSource('api/live/stream');
+    this.es = new EventSource(toUrl('live/stream'));
     this.es.addEventListener('live', (e) => { const d = JSON.parse(e.data); this.liveFns.forEach((f) => f(d)); });
     this.es.addEventListener('wave', (e) => { const d = JSON.parse(e.data); this.waveFns.forEach((f) => f(d)); });
   }
-  disconnect() { this.es?.close(); this.es = null; this.liveFns.forEach((f) => f([])); }
+  disconnect() {
+    this.es?.close(); this.es = null;
+    clearTimeout(this.timer); this.timer = null;
+    this.liveFns.forEach((f) => f([]));
+  }
 
   // Runden
   getRoutes() { return api('api/routes'); }
