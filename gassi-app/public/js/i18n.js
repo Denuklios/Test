@@ -27,6 +27,7 @@ const ROWS = [
   ['Spaziergang beenden', 'Afslut tur', 'End walk'],
   ['Runden und Live', 'Ruter og live', 'Routes and live'],
   ['Fenster vergrößern oder verkleinern', 'Gør vinduet større eller mindre', 'Enlarge or shrink window'],
+  ['Runden anzeigen', 'Vis ruter', 'Show routes'],
   ['Runden', 'Ruter', 'Routes'],
   ['Finden', 'Find', 'Find'],
   ['Live', 'Live', 'Live'],

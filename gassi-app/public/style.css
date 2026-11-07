@@ -188,6 +188,23 @@ body:has(.sheet.collapsed) { --sheet-h: 112px; }
 .sheet.fit.collapsed .stat-label { font-size: 12px; }
 .sheet-handle { border: 0; background: none; padding: 14px 0 12px; margin: 0 -16px; cursor: grab; display: flex; justify-content: center; flex: none; touch-action: none; }
 .sheet.dragging { transition: none; }
+/* Ganz ausgeblendet: nur ein kleiner, durchsichtiger Pfeil unten zum Ausklappen */
+.sheet { will-change: transform; }
+.sheet.away { transform: translateY(calc(100% + 24px)); box-shadow: none; transition: height 0.25s ease, transform 0.28s ease; }
+.sheet:not(.away) { transition: height 0.25s ease, transform 0.28s ease; }
+.sheet.dragging { transition: none !important; }
+body:has(.sheet.away) { --sheet-h: 0px; }
+.sheet-open {
+  position: fixed; z-index: 515; left: 50%; bottom: calc(env(safe-area-inset-bottom, 0px) + 14px); transform: translateX(-50%);
+  width: 52px; height: 40px; border: 0; border-radius: 20px; cursor: pointer; display: grid; place-items: center;
+  background: rgb(255 255 255 / 0.55); color: var(--accent); backdrop-filter: blur(6px); -webkit-backdrop-filter: blur(6px);
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.18); animation: sheet-open-hint 2.4s ease-in-out 1s 2;
+}
+.sheet-open[hidden] { display: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .sheet-open { background: rgb(30 24 34 / 0.55); } }
+:root[data-theme="dark"] .sheet-open { background: rgb(30 24 34 / 0.55); }
+@keyframes sheet-open-hint { 0%, 100% { transform: translateX(-50%); } 50% { transform: translate(-50%, -6px); } }
+@media (prefers-reduced-motion: reduce) { .sheet-open { animation: none; } }
 .tabs, .rec-head { touch-action: pan-x; }
 .sheet-handle span { width: 44px; height: 5px; border-radius: 3px; background: var(--line); }
 #browse, #recording, .save-form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
@@ -490,6 +507,9 @@ legend, .label { font-weight: 700; margin: 0 0 6px; padding: 0; }
   body, body:has(.sheet.expanded), body:has(.sheet.collapsed) { --sheet-h: 0px; }
   .sheet-handle { display: none; }
   .start-fab { bottom: 28px; }
+  .sheet.away { transform: none; box-shadow: var(--shadow); }
+  body:has(.sheet.away) { --sheet-h: 0px; }
+  .sheet-open { display: none !important; }
 }
 
 /* Schmale Bildschirme oder große Systemschrift: Kopfzeile kompakt */

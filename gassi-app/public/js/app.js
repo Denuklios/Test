@@ -247,9 +247,28 @@ function listSignature() {
 }
 
 // ---------- Detail einer Runde ----------
+// Unteres Fenster ganz ausblenden (nur Handy): dann zeigt ein kleiner Pfeil unten, dass es da ist
+const isPhone = () => innerWidth < 900;
+function hideSheet() {
+  if (!isPhone() || rec.active) return;
+  const s = $('#sheet');
+  s.classList.remove('expanded', 'collapsed');
+  s.classList.add('away');
+  $('#sheet-open').hidden = false;
+  placeFab();
+}
+function showSheet() {
+  const s = $('#sheet');
+  if (!s.classList.contains('away')) return;
+  s.classList.remove('away');
+  $('#sheet-open').hidden = true;
+  placeFab();
+}
+
 function openRoute(id, { fly = true } = {}) {
   const r = routeById(id);
   if (!r) return;
+  showSheet();
   if (state.selected !== id) clearNav();
   state.selected = id;
   state.view = 'detail';
@@ -852,7 +871,7 @@ async function startWalk(guide = null, resume = false) {
   if (guide) guideLine = L.polyline(guide.points, { color: css('--accent'), weight: 6, opacity: 0.85, dashArray: '1 12', lineCap: 'round' }).addTo(map);
 
   $('#browse').hidden = true; $('#save-form').hidden = true; $('#recording').hidden = false;
-  $('#sheet').classList.remove('expanded', 'collapsed'); $('#sheet').classList.add('fit');
+  showSheet(); $('#sheet').classList.remove('expanded', 'collapsed'); $('#sheet').classList.add('fit');
   setFab('recording');
   $('#rec-guide').textContent = guide ? `Du läufst: ${guide.name}` : 'Eigene Runde';
   syncStatusInputs();
@@ -888,6 +907,7 @@ window.__gassiBack = () => {
   for (const d of $$('dialog[open]')) { d.close(); return true; }
   if (state.view === 'detail' && !rec.active) { closeDetail(); return true; }
   if (state.tab !== 'runden' && !rec.active) { switchTab('runden'); return true; }
+  if (!rec.active && isPhone() && !$('#sheet').classList.contains('away')) { hideSheet(); return true; }
   return false;
 };
 
@@ -1458,7 +1478,8 @@ $('#start-btn').onclick = () => {
 };
 // Knopf sitzt immer knapp über dem unteren Fenster
 function placeFab() {
-  document.documentElement.style.setProperty('--fab-bottom', innerWidth < 900 ? `${Math.round($('#sheet').getBoundingClientRect().height) + 14}px` : '28px');
+  const away = $('#sheet').classList.contains('away');
+  document.documentElement.style.setProperty('--fab-bottom', innerWidth < 900 ? `${away ? 14 : Math.round($('#sheet').getBoundingClientRect().height) + 14}px` : '28px');
 }
 new ResizeObserver(placeFab).observe($('#sheet'));
 addEventListener('resize', placeFab);
@@ -1580,12 +1601,21 @@ function moveSheet(dir) {
   const sizes = ['collapsed', '', 'expanded'];
   let i = s.classList.contains('collapsed') ? 0 : s.classList.contains('expanded') ? 2 : 1;
   if (dir === 'up') i = Math.min(2, i + 1);
-  else if (dir === 'down') i = Math.max(0, i - 1);
+  else if (dir === 'down') { if (i === 0) return hideSheet(); i = Math.max(0, i - 1); }
   else i = i === 1 ? 2 : i === 2 ? 0 : 1; // Antippen: normal → groß → klein → normal
   s.classList.remove('collapsed', 'expanded');
   if (sizes[i]) s.classList.add(sizes[i]);
 }
 $('#sheet-handle').onclick = () => moveSheet();
+$('#sheet-open').onclick = () => showSheet();
+// Pfeil auch nach oben wischen
+{
+  let y0 = null;
+  $('#sheet-open').addEventListener('touchstart', (e) => { y0 = e.touches[0].clientY; }, { passive: true });
+  $('#sheet-open').addEventListener('touchend', (e) => { if (y0 !== null && e.changedTouches[0].clientY - y0 < -20) showSheet(); y0 = null; });
+}
+// Beim Start ist das Fenster auf dem Handy eingeklappt
+if (isPhone()) hideSheet();
 // Unteres Fenster mit dem Finger ziehen: am Griff, an den Reitern oder an der Kopfzeile folgt es dem Finger
 // und rastet beim Loslassen ein; in Listen genügt ein Wisch nach unten (ganz oben) bzw. nach oben (kleines Fenster).
 {
@@ -1613,7 +1643,7 @@ $('#sheet-handle').onclick = () => moveSheet();
     }
     e.preventDefault();
     const [min, , max] = sizes();
-    sheet.style.height = `${Math.max(min * 0.8, Math.min(max, drag.h0 - dy))}px`;
+    sheet.style.height = `${Math.max(40, Math.min(max, drag.h0 - dy))}px`;
     sheet.style.maxHeight = 'none';
   }, { passive: false });
   sheet.addEventListener('touchend', (e) => {
@@ -1626,6 +1656,8 @@ $('#sheet-handle').onclick = () => moveSheet();
       const h = sheet.getBoundingClientRect().height;
       sheet.style.height = ''; sheet.style.maxHeight = '';
       if (sheet.classList.contains('fit')) { moveSheet(dy > 0 ? 'down' : 'up'); return; }
+      // Unter die schmale Leiste gezogen (oder schnell aus der Leiste nach unten): ganz ausblenden
+      if (h < 80 || (fast && dy > 0 && d.h0 < 130)) { hideSheet(); return; }
       const s = sizes();
       let i = s.reduce((best, v, k) => (Math.abs(v - h) < Math.abs(s[best] - h) ? k : best), 0);
       if (fast) i = dy > 0 ? Math.max(0, s.findIndex((v) => v >= d.h0 - 2) - 1) : Math.min(2, s.findIndex((v) => v > d.h0 + 2));
