@@ -192,7 +192,15 @@ body:has(.sheet.collapsed) { --sheet-h: 112px; }
 .pill.voll { background: var(--warn-soft); }
 .pill.live { background: var(--accent-soft); }
 .stars { color: var(--warn); letter-spacing: 1px; }
-.filters { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: none; }
+.filters-wrap { position: relative; }
+.filters { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: none; scroll-behavior: smooth; }
+.filter-arrow {
+  position: absolute; top: 0; bottom: 6px; width: 44px; border: 0; cursor: pointer; z-index: 1; display: none;
+  font: 700 26px/1 var(--font-body); color: var(--accent);
+}
+.filter-arrow.right { right: -2px; justify-content: flex-end; padding-right: 2px; background: linear-gradient(to right, transparent, var(--surface) 55%); }
+.filter-arrow.left { left: -2px; justify-content: flex-start; padding-left: 2px; background: linear-gradient(to left, transparent, var(--surface) 55%); }
+.filters-wrap.more-right .filter-arrow.right, .filters-wrap.more-left .filter-arrow.left { display: flex; align-items: center; }
 .filters::-webkit-scrollbar { display: none; }
 .chip-filter {
   flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px;
@@ -338,6 +346,26 @@ legend, .label { font-weight: 700; margin: 0 0 6px; padding: 0; }
 .rec-actions { display: flex; gap: 8px; margin-top: auto; padding-top: 6px; }
 .rec-actions .btn { flex: 1; }
 .compact span { font-size: 14px; padding: 7px 6px; }
+
+/* Status-Auswahl als Dropdown */
+.status-picker { position: relative; }
+.status-btn {
+  width: 100%; display: flex; align-items: center; gap: 10px; padding: 11px 14px; border-radius: 12px; cursor: pointer;
+  border: 1px solid var(--line); background: var(--surface); color: var(--ink); font: 700 17px/1.2 var(--font-body); text-align: left;
+}
+.status-btn .status-text { flex: 1; min-width: 0; }
+.status-btn .caret { color: var(--muted); font-size: 16px; }
+.status-btn[aria-expanded="true"] { border-color: var(--accent); }
+.status-btn .sdot { width: 14px; height: 14px; }
+.status-menu {
+  position: fixed; z-index: 800; list-style: none; margin: 0; padding: 6px; max-height: 70dvh; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--line); border-radius: 14px; box-shadow: var(--shadow);
+}
+.status-menu li { display: grid; grid-template-columns: 16px 1fr; gap: 10px; align-items: start; padding: 10px; border-radius: 10px; cursor: pointer; }
+.status-menu li:hover, .status-menu li[aria-selected="true"] { background: var(--accent-soft); }
+.status-menu li .sdot { margin-top: 4px; width: 14px; height: 14px; }
+.status-menu b { display: block; }
+.status-menu small { display: block; color: var(--muted); font-size: 13px; line-height: 1.35; }
 .save-form h2 { margin: 0; font: 700 28px/1 var(--font-display); }
 .summary { margin: 0; font-size: 18px; }
 

@@ -217,12 +217,18 @@ function renderList() {
   };
   const chips = FILTERS.map((f) => `<button class="chip-filter${state.filters.has(f.key) ? ' on' : ''}" data-filter="${f.key}" aria-pressed="${state.filters.has(f.key)}">${esc(f.label)}</button>`).join('');
   el.innerHTML = `
-    <div class="filters" role="group" aria-label="Runden filtern">${chips}</div>
+    <div class="filters-wrap">
+      <button class="filter-arrow left" data-scroll="-1" aria-label="Filter nach links schieben">‹</button>
+      <div class="filters" role="group" aria-label="Runden filtern">${chips}</div>
+      <button class="filter-arrow right" data-scroll="1" aria-label="Weitere Filter">›</button>
+    </div>
     <p class="section-note">${list.length} ${list.length === 1 ? 'Runde' : 'Runden'} ${state.myPos ? 'in deiner Nähe' : 'rund um die Kartenmitte'}${state.filters.size ? ' (gefiltert)' : ''}</p>
     ${list.length ? `<ul class="route-list">${list.slice(0, state.listLimit).map(card).join('')}</ul>` : `<p class="empty">Keine Runde passt zu den Filtern. Nimm einen Filter heraus oder verschiebe die Karte.</p>`}
     ${list.length > state.listLimit ? `<button class="btn secondary small more-btn" data-more>Weitere ${Math.min(30, list.length - state.listLimit)} anzeigen</button>` : ''}
     <p class="hint">Der Hunde-Score (0–100) bewertet Wasser, Schatten, Untergrund, Straßen, Leinenregel und Mülleimer. Hundeausläufe und Wanderwege stammen aus OpenStreetMap (© OpenStreetMap-Mitwirkende, ODbL). Verschiebe die Karte, um Runden in anderen Gegenden zu sehen.</p>`;
   state.listSig = listSignature();
+  const f = $('.filters');
+  if (f) { f.scrollLeft = state.filterScroll || 0; f.onscroll = () => { state.filterScroll = f.scrollLeft; updateFilterArrows(); }; requestAnimationFrame(updateFilterArrows); }
 }
 
 function listSignature() {
@@ -754,7 +760,11 @@ function setStatus(s) {
 }
 
 function syncStatusInputs() {
-  for (const i of $$('input[name="status"], input[name="rstatus"]')) i.checked = i.value === me.status;
+  for (const p of $$('.status-picker')) {
+    p.querySelector('.status-btn .sdot').className = `sdot ${me.status}`;
+    p.querySelector('.status-text').textContent = STATUS[me.status]?.short || '';
+    for (const o of p.querySelectorAll('[data-status]')) o.setAttribute('aria-selected', String(o.dataset.status === me.status));
+  }
   $('#share-live').checked = me.shareLive;
 }
 
@@ -1083,9 +1093,39 @@ $('#find-results').addEventListener('keydown', (e) => { const li = e.target.clos
 $('#panel-runden').addEventListener('click', (e) => {
   const b = e.target.closest('.route-card'); if (b) return openRoute(b.dataset.id);
   const f = e.target.closest('[data-filter]'); if (f) return toggleFilter(f.dataset.filter);
+  const sc = e.target.closest('[data-scroll]');
+  if (sc) { $('.filters').scrollBy({ left: Number(sc.dataset.scroll) * 160, behavior: 'smooth' }); return; }
   if (e.target.closest('[data-more]')) { state.listLimit += 30; renderList(); }
 });
-for (const i of $$('input[name="status"], input[name="rstatus"]')) i.onchange = () => setStatus(i.value);
+// Status-Auswahl (Dropdown)
+function closePickers(except) {
+  for (const p of $$('.status-picker')) if (p !== except) { p.querySelector('.status-menu').hidden = true; p.querySelector('.status-btn').setAttribute('aria-expanded', 'false'); }
+}
+for (const p of $$('.status-picker')) {
+  const btn = p.querySelector('.status-btn');
+  const menu = p.querySelector('.status-menu');
+  btn.onclick = (e) => {
+    e.stopPropagation(); closePickers(p);
+    menu.hidden = !menu.hidden;
+    btn.setAttribute('aria-expanded', String(!menu.hidden));
+    if (!menu.hidden) {
+      // Über dem Knopf einblenden, über allem anderen (wird so nicht vom Fenster abgeschnitten)
+      const r = btn.getBoundingClientRect();
+      Object.assign(menu.style, { left: `${r.left}px`, width: `${r.width}px`, bottom: `${innerHeight - r.top + 6}px` });
+    }
+  };
+  menu.onclick = (e) => { const o = e.target.closest('[data-status]'); if (!o) return; setStatus(o.dataset.status); closePickers(); };
+}
+document.addEventListener('click', (e) => { if (!e.target.closest('.status-picker')) closePickers(); });
+
+// Filter-Leiste: Pfeile zeigen, dass man wischen kann
+function updateFilterArrows() {
+  const f = $('.filters');
+  if (!f) return;
+  const wrap = f.parentElement;
+  wrap.classList.toggle('more-right', f.scrollLeft + f.clientWidth < f.scrollWidth - 4);
+  wrap.classList.toggle('more-left', f.scrollLeft > 4);
+}
 $('#share-live').onchange = (e) => {
   me.shareLive = e.target.checked; saveMe();
   NATIVE?.setLive(me.shareLive, me.status);

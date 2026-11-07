@@ -85,13 +85,17 @@
         <ul class="people" id="people-list"></ul>
         <h3 class="list-title">Dein Status</h3>
         <div class="status-pick">
-          <div class="seg status-seg" id="status-seg">
-            <label><input type="radio" name="status" value="offen" id="st-offen"><span><i class="sdot offen"></i>Gern zusammen</span></label>
-            <label><input type="radio" name="status" value="neutral" id="st-neutral"><span><i class="sdot neutral"></i>Unterwegs</span></label>
-            <label><input type="radio" name="status" value="abstand" id="st-abstand"><span><i class="sdot abstand"></i>Bitte Abstand</span></label>
+          <div class="status-picker" id="status-picker">
+            <button type="button" class="status-btn" aria-haspopup="listbox" aria-expanded="false">
+              <i class="sdot"></i><span class="status-text"></span><span class="caret" aria-hidden="true">▾</span>
+            </button>
+            <ul class="status-menu" role="listbox" hidden>
+              <li role="option" data-status="offen"><i class="sdot offen"></i><span><b>Gern zusammen</b><small>Andere sehen dich grün und dürfen dir winken.</small></span></li>
+              <li role="option" data-status="neutral"><i class="sdot neutral"></i><span><b>Unterwegs</b><small>Einfach sichtbar, ohne besonderen Wunsch.</small></span></li>
+              <li role="option" data-status="abstand"><i class="sdot abstand"></i><span><b>Bitte Abstand</b><small>Wie die gelbe Schleife: Andere werden ab 150 m gewarnt.</small></span></li>
+            </ul>
           </div>
-          <p class="hint">„Bitte Abstand“ ist wie die gelbe Schleife an der Leine: Wer näher als 150 m kommt, wird gewarnt.</p>
-          <label class="switch"><input type="checkbox" id="share-live"> <span>Meine Position während des Spaziergangs teilen</span></label>
+                    <label class="switch"><input type="checkbox" id="share-live"> <span>Meine Position während des Spaziergangs teilen</span></label>
         </div>
       </div>
     </div>
@@ -108,11 +112,16 @@
         <div><span class="stat-value" id="rec-pace">–</span><span class="stat-label">Min. pro km</span></div>
       </div>
       <p class="hint" id="rec-info"></p>
-      <div class="seg status-seg compact" id="rec-status-seg">
-        <label><input type="radio" name="rstatus" value="offen" id="rst-offen"><span><i class="sdot offen"></i>Gern zusammen</span></label>
-        <label><input type="radio" name="rstatus" value="neutral" id="rst-neutral"><span><i class="sdot neutral"></i>Unterwegs</span></label>
-        <label><input type="radio" name="rstatus" value="abstand" id="rst-abstand"><span><i class="sdot abstand"></i>Abstand</span></label>
-      </div>
+      <div class="status-picker" id="rec-status-seg">
+            <button type="button" class="status-btn" aria-haspopup="listbox" aria-expanded="false">
+              <i class="sdot"></i><span class="status-text"></span><span class="caret" aria-hidden="true">▾</span>
+            </button>
+            <ul class="status-menu" role="listbox" hidden>
+              <li role="option" data-status="offen"><i class="sdot offen"></i><span><b>Gern zusammen</b><small>Andere sehen dich grün und dürfen dir winken.</small></span></li>
+              <li role="option" data-status="neutral"><i class="sdot neutral"></i><span><b>Unterwegs</b><small>Einfach sichtbar, ohne besonderen Wunsch.</small></span></li>
+              <li role="option" data-status="abstand"><i class="sdot abstand"></i><span><b>Bitte Abstand</b><small>Wie die gelbe Schleife: Andere werden ab 150 m gewarnt.</small></span></li>
+            </ul>
+          </div>
       <div class="rec-actions">
         <button class="btn secondary" id="pause-btn">Pause</button>
         <button class="btn danger" id="stop-btn">Beenden</button>
