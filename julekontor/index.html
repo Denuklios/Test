@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="da">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Julekontor - Vi åbner snart</title>
+    
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎅</text></svg>">
+
+    <style>
+        /* Grundlayout */
+        body, html {
+            margin: 0; padding: 0; height: 100%; width: 100%;
+            overflow: hidden; font-family: 'Georgia', serif;
+            background-color: #051101;
+        }
+
+        .bg-container {
+            position: relative; width: 100%; height: 100dvh;
+            background: #000;
+        }
+
+        /* Hintergrundbild-Optimierung */
+        .fullscreen-image {
+            width: 100%; height: 100%; object-fit: cover; display: block;
+        }
+
+        #snow-canvas {
+            position: absolute; top: 0; left: 0; pointer-events: none;
+            z-index: 1;
+        }
+
+        .overlay {
+            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0, 0, 0, 0.2);
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            color: white; text-align: center;
+            z-index: 2;
+            padding: 20px;
+            box-sizing: border-box;
+        }
+
+        /* Gemeinsamer Container für exakt gleiche Breite */
+        .content-wrapper {
+            width: 100%;
+            max-width: 480px; 
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        /* Glas-Effekt Basis-Klasse */
+        .glass-box {
+            background: rgba(255, 255, 255, 0.25); 
+            backdrop-filter: blur(10px);
+            -webkit-backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.4);
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+        }
+
+        .info-box {
+            border-radius: 12px;
+        }
+
+        h1 {
+            font-size: clamp(1.4rem, 6vw, 2.5rem);
+            margin: 0;
+            padding: 20px;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            font-weight: bold;
+            color: #8B0000; 
+            text-shadow: 0 0 15px rgba(255, 255, 255, 0.9), 1px 1px 2px rgba(0,0,0,0.2);
+        }
+
+        #countdown {
+            display: flex; 
+            gap: 8px;
+            justify-content: center;
+        }
+
+        .time-segment {
+            flex: 1;
+            padding: clamp(8px, 2.5vw, 20px);
+            display: flex; 
+            flex-direction: column; 
+            align-items: center;
+            min-width: 0;
+        }
+
+        .time-segment span:first-child {
+            font-size: clamp(1.2rem, 5.5vw, 2.8rem);
+            font-weight: bold;
+            line-height: 1;
+            color: #8B0000; 
+            text-shadow: 0 0 10px rgba(255,255,255,0.5); 
+        }
+
+        .time-label {
+            font-size: clamp(0.4rem, 1.5vw, 0.65rem); 
+            text-transform: uppercase; 
+            color: #8B0000; 
+            font-weight: bold;
+            margin-top: 8px; 
+            letter-spacing: 0.5px;
+        }
+
+        /* Glocken-Button Style */
+        #bell-button {
+            position: absolute;
+            top: 20px; right: 20px;
+            width: 50px; height: 50px;
+            border-radius: 50%;
+            display: flex; justify-content: center; align-items: center;
+            font-size: 1.8rem;
+            cursor: pointer;
+            z-index: 10;
+            padding: 0;
+            transition: transform 0.1s ease, background 0.3s ease;
+        }
+
+        #bell-button:hover { background: rgba(255, 255, 255, 0.4); }
+        #bell-button:active { transform: scale(0.9); }
+
+        /* Copyright Fußzeile */
+        .footer-copyright {
+            position: absolute;
+            bottom: 15px;
+            right: 20px;
+            font-size: clamp(0.6rem, 1.5vw, 0.85rem);
+            color: rgba(255, 255, 255, 0.6);
+            z-index: 10;
+            letter-spacing: 0.5px;
+            text-shadow: 1px 1px 3px rgba(0,0,0,0.5);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="bg-container">
+        <picture>
+            <source srcset="weihnachtsbildhochkant.jpeg" media="(orientation: portrait)">
+            <img src="weihnachtsbild.jpeg" alt="Julekontor" class="fullscreen-image">
+        </picture>
+
+        <canvas id="snow-canvas"></canvas>
+        
+        <div class="overlay">
+            <button id="bell-button" class="glass-box" aria-label="Afspil julelyd">🔔</button>
+
+            <div class="content-wrapper">
+                <div class="glass-box info-box">
+                    <h1 id="main-title">Vi åbner snart</h1>
+                </div>
+
+                <div id="countdown">
+                    <div class="time-segment glass-box info-box"><span id="days">00</span><span class="time-label">Dage</span></div>
+                    <div class="time-segment glass-box info-box"><span id="hours">00</span><span class="time-label">Timer</span></div>
+                    <div class="time-segment glass-box info-box"><span id="minutes">00</span><span class="time-label">Minutter</span></div>
+                    <div class="time-segment glass-box info-box"><span id="seconds">00</span><span class="time-label">Sekunder</span></div>
+                </div>
+            </div>
+
+            <div class="footer-copyright">
+                &copy; 2026 - 6330 Padborg / Vilsbæk
+            </div>
+        </div>
+    </div>
+
+    <audio id="christmasBell" src="glocke.mp3" preload="auto"></audio>
+
+    <script>
+        /* --- COUNTDOWN LOGIK --- */
+        const targetDate = new Date("Nov 14, 2027 00:00:00").getTime();
+        
+        function updateCountdown() {
+            const now = new Date().getTime();
+            const diff = targetDate - now;
+            
+            if (diff < 0) {
+                document.getElementById("main-title").innerText = "Glædelig jul!";
+                document.getElementById("countdown").style.display = "none";
+                return;
+            }
+
+            document.getElementById("days").innerText = Math.floor(diff / (1000 * 60 * 60 * 24)).toString().padStart(2, '0');
+            document.getElementById("hours").innerText = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60)).toString().padStart(2, '0');
+            document.getElementById("minutes").innerText = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)).toString().padStart(2, '0');
+            document.getElementById("seconds").innerText = Math.floor((diff % (1000 * 60)) / 1000).toString().padStart(2, '0');
+        }
+        setInterval(updateCountdown, 1000);
+        updateCountdown();
+
+        /* --- SCHNEE-EFFEKT --- */
+        const canvas = document.getElementById('snow-canvas');
+        const ctx = canvas.getContext('2d');
+        let width, height, snowflakes = [];
+
+        function initSnow() {
+            width = window.innerWidth; height = window.innerHeight;
+            canvas.width = width; canvas.height = height;
+            snowflakes = [];
+            let count = width < 768 ? 60 : 130;
+            for (let i = 0; i < count; i++) {
+                snowflakes.push({
+                    x: Math.random() * width,
+                    y: Math.random() * height,
+                    r: Math.random() * 3 + 1,
+                    speed: Math.random() * 1 + 0.5
+                });
+            }
+        }
+
+        function drawSnow() {
+            ctx.clearRect(0, 0, width, height);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.8)';
+            ctx.beginPath();
+            for (let f of snowflakes) {
+                ctx.moveTo(f.x, f.y);
+                ctx.arc(f.x, f.y, f.r, 0, Math.PI * 2, true);
+            }
+            ctx.fill();
+            for (let f of snowflakes) {
+                f.y += f.speed;
+                f.x += Math.sin(f.y / 50) * 0.5;
+                if (f.y > height) { f.y = -10; f.x = Math.random() * width; }
+            }
+            requestAnimationFrame(drawSnow);
+        }
+
+        window.addEventListener('resize', initSnow);
+        initSnow();
+        requestAnimationFrame(drawSnow);
+
+        /* --- GLOCKEN-SOUND --- */
+        const bellAudio = document.getElementById('christmasBell');
+        const bellBtn = document.getElementById('bell-button');
+        bellAudio.volume = 0.5;
+
+        bellBtn.addEventListener('click', function() {
+            bellAudio.currentTime = 0;
+            bellAudio.play().catch(e => console.log("Audio blockiert"));
+        });
+    </script>
+</body>
+</html>
