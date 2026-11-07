@@ -1,0 +1,192 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Gassirunde</title>
+  <meta name="description" content="Gassirunden aufzeichnen, finden, bewerten – und sehen, wer gerade mit Hund unterwegs ist.">
+  <meta name="theme-color" content="#1C6E73">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Barlow+Condensed:wght@500;600;700&display=swap">
+  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" integrity="sha256-p4NxAoJBhIIN+hmNHrzRCf9tD/miZyoHS5obTRR9BMY=" crossorigin="">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="map" aria-label="Karte"></div>
+
+  <!-- Oben auf der Karte -->
+  <div class="topbar">
+    <div class="brand">
+      <svg viewBox="0 0 32 32" aria-hidden="true"><use href="#paw"/></svg>
+      <span>Gassirunde</span>
+    </div>
+    <div class="topbar-actions">
+      <span class="chip" id="weather" title="Temperatur am Kartenmittelpunkt" hidden></span>
+      <button class="icon-btn" id="locate-btn" title="Mich auf der Karte zeigen" aria-label="Mich auf der Karte zeigen">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="4"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/><circle cx="12" cy="12" r="8" fill="none"/></svg>
+      </button>
+      <button class="icon-btn me-btn" id="me-btn" aria-label="Mein Profil">
+        <span id="me-initial">?</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- Hinweise bei Begegnungen -->
+  <div class="banner" id="banner" hidden role="status" aria-live="polite"></div>
+  <div class="toast" id="toast" hidden role="status" aria-live="polite"></div>
+
+  <!-- Großer Start-Knopf -->
+  <button class="start-fab" id="start-btn">
+    <span class="dot" aria-hidden="true"></span>Spaziergang starten
+  </button>
+
+  <!-- Unteres Fenster (Handy) bzw. Seitenleiste (Desktop) -->
+  <section class="sheet" id="sheet" aria-label="Runden und Live">
+    <button class="sheet-handle" id="sheet-handle" aria-label="Fenster vergrößern oder verkleinern"><span></span></button>
+
+    <div id="browse">
+      <nav class="tabs" role="tablist">
+        <button role="tab" class="tab" data-tab="runden" aria-selected="true">Runden</button>
+        <button role="tab" class="tab" data-tab="finden" aria-selected="false">Runde finden</button>
+        <button role="tab" class="tab" data-tab="live" aria-selected="false">Live <span class="count" id="live-count">0</span></button>
+      </nav>
+
+      <div class="panel" data-panel="runden" id="panel-runden"></div>
+
+      <div class="panel" data-panel="finden" hidden>
+        <form id="find-form" class="find-form">
+          <fieldset>
+            <legend>Wie viel Zeit hast du?</legend>
+            <div class="seg" id="find-minutes">
+              <label><input type="radio" name="minutes" value="20" id="fm-20"><span>20 Min.</span></label>
+              <label><input type="radio" name="minutes" value="40" id="fm-40" checked><span>40 Min.</span></label>
+              <label><input type="radio" name="minutes" value="60" id="fm-60"><span>1 Std.</span></label>
+              <label><input type="radio" name="minutes" value="90" id="fm-90"><span>1,5 Std.</span></label>
+            </div>
+          </fieldset>
+          <fieldset>
+            <legend>Was ist dir wichtig?</legend>
+            <div class="checks">
+              <label><input type="checkbox" name="needWater" id="f-water" checked> Wasser für den Hund</label>
+              <label><input type="checkbox" name="quiet" id="f-quiet"> Möglichst wenig Begegnungen</label>
+              <label><input type="checkbox" name="offLeash" id="f-offleash"> Freilauf</label>
+            </div>
+          </fieldset>
+          <p class="hint" id="find-context"></p>
+        </form>
+        <ol class="results" id="find-results"></ol>
+      </div>
+
+      <div class="panel" data-panel="live" hidden>
+        <div class="status-pick">
+          <p class="label">Dein Status für andere</p>
+          <div class="seg status-seg" id="status-seg">
+            <label><input type="radio" name="status" value="offen" id="st-offen"><span><i class="sdot offen"></i>Gern zusammen</span></label>
+            <label><input type="radio" name="status" value="neutral" id="st-neutral"><span><i class="sdot neutral"></i>Unterwegs</span></label>
+            <label><input type="radio" name="status" value="abstand" id="st-abstand"><span><i class="sdot abstand"></i>Bitte Abstand</span></label>
+          </div>
+          <p class="hint">„Bitte Abstand“ funktioniert wie die gelbe Schleife an der Leine: Andere sehen dich gelb auf der Karte und bekommen eine Warnung, wenn sie näher als 150 m kommen.</p>
+          <label class="switch"><input type="checkbox" id="share-live"> <span>Meine Position während des Spaziergangs teilen</span></label>
+        </div>
+        <h3 class="list-title">Gerade unterwegs</h3>
+        <ul class="people" id="people-list"></ul>
+      </div>
+    </div>
+
+    <!-- Während der Aufnahme -->
+    <div id="recording" hidden>
+      <div class="rec-head">
+        <span class="rec-badge" id="rec-badge"><span class="dot"></span>Aufnahme läuft</span>
+        <span class="rec-guide" id="rec-guide"></span>
+      </div>
+      <div class="stats">
+        <div><span class="stat-value" id="rec-dist">0,00</span><span class="stat-label">Kilometer</span></div>
+        <div><span class="stat-value" id="rec-time">00:00</span><span class="stat-label">Zeit</span></div>
+        <div><span class="stat-value" id="rec-pace">–</span><span class="stat-label">Min. pro km</span></div>
+      </div>
+      <p class="hint" id="rec-info"></p>
+      <div class="seg status-seg compact" id="rec-status-seg">
+        <label><input type="radio" name="rstatus" value="offen" id="rst-offen"><span><i class="sdot offen"></i>Gern zusammen</span></label>
+        <label><input type="radio" name="rstatus" value="neutral" id="rst-neutral"><span><i class="sdot neutral"></i>Unterwegs</span></label>
+        <label><input type="radio" name="rstatus" value="abstand" id="rst-abstand"><span><i class="sdot abstand"></i>Abstand</span></label>
+      </div>
+      <div class="rec-actions">
+        <button class="btn secondary" id="pause-btn">Pause</button>
+        <button class="btn danger" id="stop-btn">Beenden</button>
+      </div>
+    </div>
+
+    <!-- Nach der Aufnahme: speichern -->
+    <form id="save-form" class="save-form" hidden>
+      <h2>Spaziergang beendet</h2>
+      <p class="summary" id="save-summary"></p>
+      <label class="switch"><input type="checkbox" id="sv-share" checked> <span>Als Runde mit anderen teilen</span></label>
+      <div id="share-fields">
+        <label class="field">Name der Runde<input id="sv-name" maxlength="60" required placeholder="z. B. Feldweg hinter dem Sportplatz"></label>
+        <label class="field">Ort / Gegend<input id="sv-area" maxlength="60" placeholder="z. B. Musterstadt-Nord"></label>
+        <label class="field">Beschreibung<textarea id="sv-desc" maxlength="400" rows="2" placeholder="Was macht die Runde besonders?"></textarea></label>
+        <div class="grid2">
+          <label class="field">Schatten
+            <select id="sv-shade"><option value="25">wenig</option><option value="55" selected>mittel</option><option value="85">viel</option></select>
+          </label>
+          <label class="field">Untergrund
+            <select id="sv-surface"><option value="natur">Wald &amp; Wiese</option><option value="gemischt" selected>gemischt</option><option value="asphalt">viel Asphalt</option></select>
+          </label>
+          <label class="field">Leine
+            <select id="sv-leash"><option value="frei">Freilauf erlaubt</option><option value="teilweise" selected>teilweise Pflicht</option><option value="pflicht">Leinenpflicht</option></select>
+          </label>
+          <label class="field">Straßen zu queren
+            <input id="sv-crossings" type="number" min="0" max="20" value="0" inputmode="numeric">
+          </label>
+        </div>
+        <div class="checks">
+          <label><input type="checkbox" id="sv-water"> Wasser unterwegs (Bach, See, Brunnen)</label>
+          <label><input type="checkbox" id="sv-bins"> Mülleimer für Kotbeutel</label>
+          <label><input type="checkbox" id="sv-trim"> Anfang und Ende um 100 m kürzen</label>
+        </div>
+        <p class="hint">Die Runde beginnt dort, wo du auf „Spaziergang starten“ gedrückt hast. Wenn du direkt vor der Haustür startest oder endest, kürze Anfang und Ende, damit niemand sieht, wo du wohnst.</p>
+      </div>
+      <p class="form-error" id="save-error" hidden></p>
+      <div class="rec-actions">
+        <button type="button" class="btn secondary" id="discard-btn">Verwerfen</button>
+        <button type="submit" class="btn primary" id="save-btn">Speichern</button>
+      </div>
+    </form>
+  </section>
+
+  <!-- Profil -->
+  <dialog id="me-dialog" class="dialog">
+    <form method="dialog" id="me-form">
+      <h2>Du &amp; dein Hund</h2>
+      <div class="grid2">
+        <label class="field">Dein Vorname<input id="me-name" maxlength="40" placeholder="z. B. Robert"></label>
+        <label class="field">Name des Hundes<input id="me-dog" maxlength="40" placeholder="z. B. Bello"></label>
+      </div>
+      <label class="field">Alter des Hundes
+        <select id="me-age"><option value="welpe">Welpe (bis 1 Jahr)</option><option value="erwachsen" selected>Erwachsen</option><option value="senior">Senior (ab ca. 8 Jahren)</option></select>
+      </label>
+      <label class="switch"><input type="checkbox" id="me-simulate"> <span>Demo-Modus: GPS simulieren (zum Ausprobieren am Schreibtisch)</span></label>
+      <h3 class="list-title">Meine Spaziergänge</h3>
+      <ul class="history" id="history"></ul>
+      <p class="hint" id="mode-hint"></p>
+      <div class="rec-actions"><button class="btn primary" value="ok">Fertig</button></div>
+    </form>
+  </dialog>
+
+  <svg width="0" height="0" style="position:absolute" aria-hidden="true">
+    <symbol id="paw" viewBox="0 0 32 32">
+      <ellipse cx="16" cy="21" rx="7" ry="6"/>
+      <ellipse cx="7.5" cy="13" rx="3" ry="3.8"/>
+      <ellipse cx="13" cy="8" rx="3" ry="3.8"/>
+      <ellipse cx="19" cy="8" rx="3" ry="3.8"/>
+      <ellipse cx="24.5" cy="13" rx="3" ry="3.8"/>
+    </symbol>
+  </svg>
+
+  <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js" integrity="sha256-20nQCchB9co0qIjJZRGuk2/Z9VM+kNiyxNV1lvTlZBo=" crossorigin=""></script>
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

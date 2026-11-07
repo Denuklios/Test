@@ -1,0 +1,11 @@
+{
+  "name": "Gassirunde",
+  "short_name": "Gassirunde",
+  "description": "Gassirunden aufzeichnen, finden, bewerten – und sehen, wer gerade mit Hund unterwegs ist.",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f1f4f0",
+  "theme_color": "#1c6e73",
+  "lang": "de",
+  "icons": [{ "src": "icon.svg", "sizes": "any", "type": "image/svg+xml", "purpose": "any" }]
+}

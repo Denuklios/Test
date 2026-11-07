@@ -1,0 +1,12 @@
+{
+  "name": "gassirunde",
+  "private": true,
+  "description": "Gassirunde – Gassirunden aufzeichnen, finden, bewerten und live sehen, wer unterwegs ist (Prototyp)",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "test": "node --test tests/*.test.js",
+    "demo-routes": "node tools/build-demo-routes.mjs"
+  },
+  "engines": { "node": ">=20" }
+}
