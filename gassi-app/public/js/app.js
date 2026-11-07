@@ -269,20 +269,16 @@ function renderPeople() {
   const ref = state.myPos || [map.getCenter().lat, map.getCenter().lng];
   const list = others().map((p) => ({ p, d: distance(ref, [p.lat, p.lng]) })).sort((a, b) => a.d - b.d);
   $('#live-count').textContent = list.length;
-  const routeName = (p) => state.routes.find((r) => distanceToPath([p.lat, p.lng], r.points) < ON_ROUTE)?.name;
-  $('#people-list').innerHTML = list.length ? list.map(({ p, d }) => {
-    const rn = routeName(p);
-    const canWave = p.status !== 'abstand';
-    return `<li>
-      <span class="avatar ${esc(p.status)}">${esc(initial(p.name))}</span>
-      <span><span class="who">${esc(p.name)}${p.dog ? ` mit ${esc(p.dog)}` : ''}</span>${p.demo ? ' <span class="pill">Demo</span>' : ''}
-        <span class="where" style="display:block">${esc(STATUS[p.status]?.label || '')} · ${formatDistanceShort(d)} ${state.myPos ? 'entfernt' : 'vom Kartenmittelpunkt'}${rn ? ` · ${esc(rn)}` : ''}</span></span>
-      <span style="display:flex;gap:6px">
-        <button class="btn small secondary" data-show="${esc(p.id)}" aria-label="${esc(p.name)} auf der Karte zeigen">Karte</button>
-        ${canWave ? `<button class="btn small primary" data-wave="${esc(p.id)}">Winken</button>` : ''}
-      </span>
-    </li>`;
-  }).join('') : '<li class="empty">Gerade ist niemand live unterwegs. Starte einen Spaziergang und teile deine Position, dann sehen dich andere hier.</li>';
+  $('#people-list').innerHTML = list.length ? list.map(({ p, d }) => `<li>
+      <button class="person-row" data-person="${esc(p.id)}" aria-label="${esc(p.name)}: ${esc(STATUS[p.status]?.label || '')}, Details anzeigen">
+        <span class="avatar ${esc(p.status)}" aria-hidden="true">${esc(initial(p.name))}</span>
+        <span>
+          <span class="who">${esc(p.name)}${p.dog ? ` & ${esc(p.dog)}` : ''}${p.demo ? ' · Demo' : ''}</span>
+          <span class="where"><span class="status-chip"><i class="sdot ${esc(p.status)}"></i>${esc(STATUS[p.status]?.short || '')}</span> · ${formatDistanceShort(d)}</span>
+        </span>
+        <span class="chev" aria-hidden="true">›</span>
+      </button>
+    </li>`).join('') : '<li class="empty">Gerade ist niemand live unterwegs. Starte einen Spaziergang und teile deine Position, dann sehen dich andere hier.</li>';
 }
 
 function personIcon(p) {
@@ -301,7 +297,7 @@ function updatePeopleMarkers() {
     const key = `${p.status}|${p.name}|${p.dog}`;
     if (!m) {
       m = L.marker([p.lat, p.lng], { icon: personIcon(p), keyboard: false }).addTo(map);
-      m.on('click', () => { switchTab('live'); });
+      m.on('click', () => openPerson(p.id));
       m._key = key;
       peopleMarkers.set(p.id, m);
     } else {
@@ -312,10 +308,54 @@ function updatePeopleMarkers() {
   for (const [id, m] of peopleMarkers) if (!seen.has(id)) { m.remove(); peopleMarkers.delete(id); }
 }
 
+const STATUS_TEXT = {
+  offen: 'Freut sich über Gesellschaft. Wink ihr oder ihm zu, dann könnt ihr ein Stück zusammen gehen.',
+  neutral: 'Ist einfach unterwegs, ohne besonderen Wunsch. Ein freundlicher Gruß ist in Ordnung.',
+  abstand: 'Wie die gelbe Schleife an der Leine: Bitte mindestens 150 m Abstand halten oder einen anderen Weg nehmen.',
+};
+
+/** Karte einer Person: Status mit Erklärung, Entfernung, Runde, Aktionen. */
+function openPerson(id) {
+  const p = state.people.find((x) => x.id === id);
+  if (!p) return;
+  state.personId = id;
+  renderPerson(p);
+  const dlg = $('#person-dialog');
+  if (!dlg.open) dlg.showModal();
+}
+
+function renderPerson(p) {
+  const d = state.myPos ? distance(state.myPos, [p.lat, p.lng]) : null;
+  const route = state.routes.find((r) => distanceToPath([p.lat, p.lng], r.points) < ON_ROUTE);
+  const ago = Math.max(0, Math.round((Date.now() - (p.at || Date.now())) / 1000));
+  $('#person-body').innerHTML = `
+    <div class="person-head">
+      <span class="avatar ${esc(p.status)}" aria-hidden="true">${esc(initial(p.name))}</span>
+      <div><h2 id="person-name">${esc(p.name)}</h2><p class="sub">${p.dog ? `mit ${esc(p.dog)}` : 'ohne Hundenamen'}${p.demo ? ' · Demo' : ''}</p></div>
+    </div>
+    <div class="status-box ${esc(p.status)}"><b>${esc(STATUS[p.status]?.label || '')}</b><p>${esc(STATUS_TEXT[p.status] || '')}</p></div>
+    <ul class="person-facts">
+      <li><span>Entfernung</span><span>${d != null ? formatDistanceShort(d) : 'erst beim Spaziergang'}</span></li>
+      <li><span>Zuletzt gesehen</span><span>${ago < 15 ? 'gerade eben' : ago < 120 ? `vor ${ago} Sek.` : `vor ${Math.round(ago / 60)} Min.`}</span></li>
+      <li class="wide"><span>Gerade auf</span><span>${route ? esc(route.name) : 'keiner bekannten Runde'}</span></li>
+    </ul>
+    <div class="person-actions">
+      <button class="btn secondary" data-show="${esc(p.id)}">Auf Karte zeigen</button>
+      ${p.status !== 'abstand' ? `<button class="btn primary" data-wave="${esc(p.id)}">Winken</button>` : ''}
+      <button class="btn secondary" data-close-person>Schließen</button>
+    </div>`;
+}
+
 function onLive(people) {
   state.people = people;
   updatePeopleMarkers();
   renderPeople();
+  const dlg = $('#person-dialog');
+  if (dlg.open) {
+    const p = people.find((x) => x.id === state.personId);
+    if (p) renderPerson(p);
+    else $('#person-body').querySelector('.person-facts li:nth-child(2) span:last-child').textContent = 'nicht mehr unterwegs';
+  }
   if (state.view === 'list' && state.tab === 'runden' && listSignature() !== state.listSig) renderList();
   checkProximity();
 }
@@ -835,7 +875,14 @@ document.addEventListener('click', (e) => {
   const w = e.target.closest('[data-wave]');
   if (w) { const p = state.people.find((x) => x.id === w.dataset.wave); if (p) wave(p); }
   const s = e.target.closest('[data-show]');
-  if (s) { const p = state.people.find((x) => x.id === s.dataset.show); if (p) map.flyTo([p.lat, p.lng], 16); }
+  if (s) {
+    const p = state.people.find((x) => x.id === s.dataset.show);
+    if (p) { $('#person-dialog').close(); $('#sheet').classList.remove('expanded'); map.flyTo([p.lat, p.lng], 16); }
+  }
+  const pr = e.target.closest('[data-person]');
+  if (pr) openPerson(pr.dataset.person);
+  if (e.target.closest('[data-close-person]')) $('#person-dialog').close();
+  if (e.target.closest('[data-wave]') && $('#person-dialog').open) $('#person-dialog').close();
   if (e.target.closest('[data-login]')) openAuth();
   const d = e.target.closest('[data-dismiss]');
   if (d) { state.dismissed.set(d.dataset.dismiss, Date.now()); checkProximity(); }
@@ -875,7 +922,12 @@ renderList();
 renderFind();
 backend.onLive(onLive);
 backend.onWave((msg) => { if (msg.to === me.id) showWave(msg); });
-try { setUser(await backend.me()); } catch { setUser(null); }
+{
+  // Wer sich anmeldet, während diese Abfrage noch läuft, soll nicht wieder abgemeldet werden.
+  let startUser = null;
+  try { startUser = await backend.me(); } catch { /* offline */ }
+  if (!state.user) setUser(startUser);
+}
 
 if (NATIVE) {
   // Läuft im Hintergrund noch eine Aufnahme (App wurde neu geöffnet)? Dann dort weitermachen.

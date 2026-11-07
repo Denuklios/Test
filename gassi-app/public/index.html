@@ -50,7 +50,7 @@
     <div id="browse">
       <nav class="tabs" role="tablist">
         <button role="tab" class="tab" data-tab="runden" aria-selected="true">Runden</button>
-        <button role="tab" class="tab" data-tab="finden" aria-selected="false">Runde finden</button>
+        <button role="tab" class="tab" data-tab="finden" aria-selected="false">Finden</button>
         <button role="tab" class="tab" data-tab="live" aria-selected="false">Live <span class="count" id="live-count">0</span></button>
       </nav>
 
@@ -81,18 +81,18 @@
       </div>
 
       <div class="panel" data-panel="live" hidden>
+        <h3 class="list-title" style="margin-top:4px">Gerade unterwegs</h3>
+        <ul class="people" id="people-list"></ul>
+        <h3 class="list-title">Dein Status</h3>
         <div class="status-pick">
-          <p class="label">Dein Status für andere</p>
           <div class="seg status-seg" id="status-seg">
             <label><input type="radio" name="status" value="offen" id="st-offen"><span><i class="sdot offen"></i>Gern zusammen</span></label>
             <label><input type="radio" name="status" value="neutral" id="st-neutral"><span><i class="sdot neutral"></i>Unterwegs</span></label>
             <label><input type="radio" name="status" value="abstand" id="st-abstand"><span><i class="sdot abstand"></i>Bitte Abstand</span></label>
           </div>
-          <p class="hint">„Bitte Abstand“ funktioniert wie die gelbe Schleife an der Leine: Andere sehen dich gelb auf der Karte und bekommen eine Warnung, wenn sie näher als 150 m kommen.</p>
+          <p class="hint">„Bitte Abstand“ ist wie die gelbe Schleife an der Leine: Wer näher als 150 m kommt, wird gewarnt.</p>
           <label class="switch"><input type="checkbox" id="share-live"> <span>Meine Position während des Spaziergangs teilen</span></label>
         </div>
-        <h3 class="list-title">Gerade unterwegs</h3>
-        <ul class="people" id="people-list"></ul>
       </div>
     </div>
 
@@ -156,6 +156,11 @@
       </div>
     </form>
   </section>
+
+  <!-- Person aus der Live-Liste oder von der Karte -->
+  <dialog id="person-dialog" class="dialog person-dialog" aria-labelledby="person-name">
+    <div id="person-body"></div>
+  </dialog>
 
   <!-- Anmelden / Registrieren -->
   <dialog id="auth-dialog" class="dialog">

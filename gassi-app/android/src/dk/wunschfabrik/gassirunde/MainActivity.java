@@ -73,6 +73,9 @@ public class MainActivity extends Activity {
         s.setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
         s.setSupportMultipleWindows(false);
         s.setUserAgentString(s.getUserAgentString() + " Gassirunde/" + BuildInfo.VERSION);
+        // Große Systemschrift: mitgehen, aber höchstens bis 115 %, sonst passt die Oberfläche nicht mehr aufs Handy
+        int zoom = Math.round(getResources().getConfiguration().fontScale * 100);
+        s.setTextZoom(Math.max(85, Math.min(115, zoom)));
         CookieManager.getInstance().setAcceptCookie(true);
 
         web.addJavascriptInterface(new Bridge(), "GassiNative");
