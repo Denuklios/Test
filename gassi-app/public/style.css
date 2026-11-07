@@ -101,6 +101,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .chip.hot { background: var(--warn); color: var(--warn-ink); }
 .weather-chip { border: 0; cursor: pointer; color: var(--ink); }
 .weather-dialog h2 { margin: 0 0 6px; }
+.dialog h2:focus { outline: none; }
 .wx-hours { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; margin: 4px 0 6px; }
 .wx-col { display: grid; justify-items: center; gap: 2px; background: var(--surface-2); border-radius: 12px; padding: 8px 4px; text-align: center; }
 .wx-col:first-child { background: var(--accent-soft); }

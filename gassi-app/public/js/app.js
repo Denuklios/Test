@@ -513,7 +513,7 @@ function openPerson(id) {
   state.personId = id;
   renderPerson(p);
   const dlg = $('#person-dialog');
-  if (!dlg.open) dlg.showModal();
+  if (!dlg.open) showFromTop(dlg, '#person-name');
 }
 
 function renderPerson(p) {
@@ -523,7 +523,7 @@ function renderPerson(p) {
   $('#person-body').innerHTML = `
     <div class="person-head">
       <span class="avatar ${esc(p.status)}" aria-hidden="true">${esc(initial(p.name))}</span>
-      <div><h2 id="person-name">${esc(p.name)}</h2><p class="sub">${p.dog ? `mit ${esc(p.dog)}` : 'ohne Hundenamen'}${p.demo ? ' · Demo' : ''}</p>${dogInfo(p.dogBreed, p.dogYears) ? `<p class="dog-info">${esc(dogInfo(p.dogBreed, p.dogYears))}</p>` : ''}</div>
+      <div><h2 id="person-name" tabindex="-1">${esc(p.name)}</h2><p class="sub">${p.dog ? `mit ${esc(p.dog)}` : 'ohne Hundenamen'}${p.demo ? ' · Demo' : ''}</p>${dogInfo(p.dogBreed, p.dogYears) ? `<p class="dog-info">${esc(dogInfo(p.dogBreed, p.dogYears))}</p>` : ''}</div>
     </div>
     <div class="status-box ${esc(p.status)}"><b>${esc(STATUS[p.status]?.label || '')}</b><p>${esc(STATUS_TEXT[p.status] || '')}</p></div>
     <ul class="person-facts">
@@ -1147,7 +1147,7 @@ function renderWeather() {
     </div>`;
   };
   $('#weather-body').innerHTML = `
-    <h2 id="weather-title">Wetter für die Runde</h2>
+    <h2 id="weather-title" tabindex="-1">Wetter für die Runde</h2>
     <p class="hint" style="margin-top:-4px">${w.here ? 'An deinem Standort' : 'Rund um die Kartenmitte'} · ${esc(wmo(w.now.code)[1])} · Stand ${w.localNow.slice(11, 16)} Uhr</p>
     <div class="wx-hours">${col(w.now, 'Jetzt')}${w.next.map((x) => col(x, `${x.time.slice(11, 13)} Uhr`)).join('')}</div>
     <h3 class="list-title">Tipps für unterwegs</h3>
@@ -1159,13 +1159,20 @@ function renderWeather() {
 function openWeather() {
   if (!state.weather) return;
   renderWeather();
-  $('#weather-dialog').showModal();
+  showFromTop($('#weather-dialog'), '#weather-title');
   // älter als 20 Minuten oder inzwischen eigener Standort bekannt: neu laden
   const w = state.weather;
   if (Date.now() - w.at > 20 * 60000 || (state.myPos && !w.here)) {
     const [la, lo] = state.myPos || [map.getCenter().lat, map.getCenter().lng];
     loadWeather(la, lo);
   }
+}
+
+/** Fenster öffnen und oben bei der Überschrift beginnen (nicht beim ersten Knopf unten). */
+function showFromTop(dlg, headingSel) {
+  dlg.showModal();
+  $(headingSel)?.focus({ preventScroll: true });
+  dlg.scrollTop = 0;
 }
 
 // ---------- Kleine Meldungen ----------
