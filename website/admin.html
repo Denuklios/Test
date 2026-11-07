@@ -71,7 +71,8 @@ body {
 }
 .login-btn:hover { background: var(--purple-bright); }
 .login-error {
-  color: var(--red); font-size: 0.82rem; margin-top: 1rem; display: none;
+  color: #b91c1c; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 10px; padding: 0.7rem 0.9rem;
+  font-size: 0.9rem; font-weight: 600; margin-top: 1rem; display: none;
 }
 .login-error.show { display: block; }
 
@@ -1442,8 +1443,11 @@ function doLogin() {
         errEl.classList.remove('show');
         checkSession();
       } else {
-        errEl.textContent = data.error || 'Anmeldung fehlgeschlagen.';
+        errEl.textContent = '⚠️ ' + (data.error || 'Anmeldung fehlgeschlagen.');
         errEl.classList.add('show');
+        // am Handy: Tastatur schließen, damit die Meldung zu sehen ist
+        if (document.activeElement) document.activeElement.blur();
+        errEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
       }
     })
     .catch(() => {

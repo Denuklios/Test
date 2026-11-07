@@ -90,13 +90,6 @@ if ($action === 'logout') {
     exit;
 }
 
-// ─── Selbsttest: bleibt die Sitzung zwischen zwei Aufrufen erhalten? (ohne Login, speichert nur einen Zähler) ─
-if ($action === 'session_test') {
-    $_SESSION['wf_session_test'] = (int)($_SESSION['wf_session_test'] ?? 0) + 1;
-    echo json_encode(['ok' => true, 'n' => $_SESSION['wf_session_test'], 'save_path_writable' => is_writable(session_save_path() ?: sys_get_temp_dir()), 'https' => !empty($_SERVER['HTTPS'])]);
-    exit;
-}
-
 // ─── AUTH CHECK für alle weiteren Aktionen ──────────────────────────
 $me = wf_admin_current($mysqli);
 if (!$me) {
