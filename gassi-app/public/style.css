@@ -128,7 +128,15 @@ body:has(.sheet.collapsed) { --sheet-h: 112px; }
 .sheet.collapsed { --sheet-h: 112px; }
 /* Während Aufnahme und Speichern passt sich das Fenster dem Inhalt an */
 .sheet.fit { height: auto; max-height: 88dvh; }
-.sheet-handle { border: 0; background: none; padding: 10px 0 6px; cursor: pointer; display: flex; justify-content: center; flex: none; }
+/* … und lässt sich auf eine schmale Leiste mit Kilometern und Zeit verkleinern */
+.sheet.fit.collapsed #rec-info, .sheet.fit.collapsed #rec-status-seg, .sheet.fit.collapsed .rec-actions,
+.sheet.fit.collapsed .rec-guide, .sheet.fit.collapsed .save-form > :not(h2):not(.summary) { display: none !important; }
+.sheet.fit.collapsed #recording { gap: 8px; }
+.sheet.fit.collapsed .stats { cursor: pointer; }
+.sheet.fit.collapsed .stats div { padding: 6px 4px; }
+.sheet.fit.collapsed .stat-value { font-size: 30px; }
+.sheet.fit.collapsed .stat-label { font-size: 12px; }
+.sheet-handle { border: 0; background: none; padding: 12px 0 10px; margin: 0 -16px; cursor: pointer; display: flex; justify-content: center; flex: none; touch-action: none; }
 .sheet-handle span { width: 44px; height: 5px; border-radius: 3px; background: var(--line); }
 #browse, #recording, .save-form { display: flex; flex-direction: column; min-height: 0; flex: 1; }
 #recording { overflow-y: auto; gap: 12px; }

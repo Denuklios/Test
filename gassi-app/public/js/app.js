@@ -643,7 +643,7 @@ function resetAfterWalk() {
   recLine = null; guideLine = null;
   $('#save-form').hidden = true; $('#recording').hidden = true;
   $('#browse').hidden = false; $('#start-btn').hidden = false;
-  $('#sheet').classList.remove('fit');
+  $('#sheet').classList.remove('fit', 'collapsed');
   if (me.simulate) { state.myPos = null; meMarker?.remove(); meMarker = null; $('#banner').hidden = true; }
   state.view === 'detail' ? renderDetail() : renderList();
 }
@@ -838,6 +838,8 @@ function toast(text, action = null, ms = 5000) {
   const el = $('#toast');
   el.innerHTML = `<p>${esc(text)}</p>${action ? `<button class="btn small" id="toast-action">${esc(action.label)}</button>` : ''}`;
   if (action) $('#toast-action').onclick = () => { el.hidden = true; action.fn(); };
+  // Über dem unteren Fenster anzeigen (auf dem Handy), damit nichts verdeckt wird
+  el.style.bottom = innerWidth < 900 ? `${$('#sheet').getBoundingClientRect().height + 12}px` : '';
   el.hidden = false;
   clearTimeout(toastTimer);
   toastTimer = setTimeout(() => { el.hidden = true; }, ms);
@@ -896,12 +898,44 @@ $('#locate-btn').onclick = () => {
     { enableHighAccuracy: true, timeout: 15000 },
   );
 };
-$('#sheet-handle').onclick = () => {
+/**
+ * Unteres Fenster größer/kleiner machen. dir: 'up', 'down' oder leer (Antippen).
+ * Während Aufnahme und Speichern gibt es zwei Größen: ganz oder nur eine schmale Leiste.
+ */
+function moveSheet(dir) {
   const s = $('#sheet');
-  if (s.classList.contains('expanded')) { s.classList.remove('expanded'); s.classList.add('collapsed'); }
-  else if (s.classList.contains('collapsed')) s.classList.remove('collapsed');
-  else s.classList.add('expanded');
-};
+  if (s.classList.contains('fit')) {
+    if (dir === 'up') s.classList.remove('collapsed');
+    else if (dir === 'down') s.classList.add('collapsed');
+    else s.classList.toggle('collapsed');
+    return;
+  }
+  const sizes = ['collapsed', '', 'expanded'];
+  let i = s.classList.contains('collapsed') ? 0 : s.classList.contains('expanded') ? 2 : 1;
+  if (dir === 'up') i = Math.min(2, i + 1);
+  else if (dir === 'down') i = Math.max(0, i - 1);
+  else i = i === 1 ? 2 : i === 2 ? 0 : 1; // Antippen: normal → groß → klein → normal
+  s.classList.remove('collapsed', 'expanded');
+  if (sizes[i]) s.classList.add(sizes[i]);
+}
+$('#sheet-handle').onclick = () => moveSheet();
+// Wischen am Griff oder an der Kopfzeile des Fensters
+{
+  let y0 = null;
+  const start = (e) => { y0 = e.touches[0].clientY; };
+  const end = (e) => {
+    if (y0 == null) return;
+    const dy = e.changedTouches[0].clientY - y0;
+    y0 = null;
+    if (Math.abs(dy) > 30) { e.preventDefault(); moveSheet(dy > 0 ? 'down' : 'up'); }
+  };
+  for (const el of [$('#sheet-handle'), $('.rec-head'), $('.tabs'), $('.stats')]) {
+    el.addEventListener('touchstart', start, { passive: true });
+    el.addEventListener('touchend', end);
+  }
+}
+// In der schmalen Leiste: Antippen der Zahlen holt alles zurück
+$('.stats').addEventListener('click', () => { if ($('#sheet').classList.contains('collapsed')) moveSheet('up'); });
 document.addEventListener('visibilitychange', async () => {
   if (document.visibilityState === 'visible' && rec.active && (!rec.wakeLock || rec.wakeLock.released)) {
     try { rec.wakeLock = await navigator.wakeLock?.request('screen'); } catch { /* egal */ }
