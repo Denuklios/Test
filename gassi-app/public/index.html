@@ -19,10 +19,11 @@
 
   <!-- Oben auf der Karte -->
   <div class="topbar">
-    <div class="brand">
+    <button class="brand" id="info-btn" aria-label="Anleitung: So funktioniert Gassirunde">
       <svg viewBox="0 0 32 32" aria-hidden="true"><use href="#paw"/></svg>
       <span>Gassirunde</span>
-    </div>
+      <b class="info-badge" aria-hidden="true">i</b>
+    </button>
     <div class="topbar-actions">
       <button class="chip weather-chip" id="weather" title="Wetter der nächsten 3 Stunden" hidden></button>
       <button class="icon-btn" id="locate-btn" title="Mich auf der Karte zeigen" aria-label="Mich auf der Karte zeigen">
@@ -166,6 +167,108 @@
       </div>
     </form>
   </section>
+
+  <!-- Anleitung -->
+  <dialog id="info-dialog" class="dialog info-dialog" aria-labelledby="info-title">
+    <div class="info-scroll">
+      <h2 id="info-title">So funktioniert Gassirunde</h2>
+      <p class="info-lead">Runden mit Hund aufzeichnen, schöne Wege finden und sehen, wer gerade unterwegs ist: zum Ausweichen oder um gemeinsam zu gehen.</p>
+
+      <details open>
+        <summary>Spaziergang aufzeichnen</summary>
+        <ul>
+          <li>Tippe rechts unten auf den <b>roten Punkt</b>. Er fährt aus und zeigt „Spaziergang starten“. Ein zweiter Tipp startet die Aufnahme.</li>
+          <li>Während der Aufnahme wird der Punkt zu einem <b>Stopp-Quadrat</b>. Zum Beenden ebenfalls zweimal tippen. So stoppt nichts aus Versehen in der Tasche.</li>
+          <li>Die App zeichnet <b>auch bei ausgeschaltetem Bildschirm</b> weiter auf. Oben in der Benachrichtigung siehst du Kilometer und Zeit.</li>
+          <li>Mit <b>Pause</b> unterbrichst du die Aufnahme, ohne dass ein gerader Strich über die Pause entsteht.</li>
+          <li>Nach dem Spaziergang kannst du die Runde <b>mit anderen teilen</b> oder nur für dich speichern. Der Ort wird automatisch eingetragen.</li>
+          <li>Die Runde beginnt erst dort, wo du auf Start tippst. Startest oder endest du vor der Haustür, wähle „<b>Anfang und Ende um 100 m kürzen</b>“, damit niemand sieht, wo du wohnst.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Runden finden</summary>
+        <ul>
+          <li>Unter <b>Runden</b> stehen alle Runden in der Nähe, die nächsten zuerst. Verschiebst du die Karte, lädt die App die Runden der neuen Gegend.</li>
+          <li>Die <b>Filter</b> (schattig, mit Wasser, Freilauf, Hundeauslauf, Länge) lassen sich kombinieren und wirken auch auf der Karte. Der Pfeil › zeigt weitere Filter.</li>
+          <li>Woher eine Runde stammt, steht darüber: <b>Gassirunde-Tipp</b>, <b>Von der Community</b>, <b>Hundeauslauf</b> oder <b>Wanderweg</b> (beides aus OpenStreetMap). Hundeausläufe sind auf der Karte grüne Flächen.</li>
+          <li>Unter <b>Finden</b> sagst du, wie viel Zeit du hast und was dir wichtig ist. Die App schlägt die drei passendsten Runden vor, passend zu Wetter, Alter deines Hundes und dazu, wie voll es gerade ist.</li>
+          <li>Tippe eine Runde an für Details. Mit „<b>Diese Runde laufen</b>“ wird sie als gepunktete Linie angezeigt, und deine Aufnahme startet.</li>
+          <li>Jede Runde kannst du mit <b>1 bis 5 Sternen</b> bewerten. Eigene Runden kannst du wieder löschen.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Der Hunde-Score</summary>
+        <p>Jede Runde bekommt 0 bis 100 Punkte dafür, wie gut sie für Hunde ist:</p>
+        <ul>
+          <li><b>Wasser</b> unterwegs (bis 20), <b>Schatten</b> (bis 25), <b>Untergrund</b> Wald und Wiese statt Asphalt (bis 20), wenige <b>Straßen</b> zu queren (bis 15), <b>Freilauf</b> erlaubt (bis 10), <b>Mülleimer</b> für Kotbeutel (bis 10).</li>
+          <li>Was nicht bekannt ist, steht als „unbekannt“ da und zählt mittel. Dazu kommen Hinweise zu Hitze, Frost, Länge und kurznasigen Rassen.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Live: Wer ist unterwegs?</summary>
+        <ul>
+          <li>Wer beim Spaziergang seine Position teilt, erscheint auf der Karte. Es gibt drei Status-Arten:
+            <span class="info-status"><i class="sdot offen"></i><b>Gern zusammen</b>: freut sich über Gesellschaft, du darfst winken.</span>
+            <span class="info-status"><i class="sdot neutral"></i><b>Unterwegs</b>: einfach sichtbar, ohne besonderen Wunsch.</span>
+            <span class="info-status"><i class="sdot abstand"></i><b>Bitte Abstand</b>: wie die gelbe Schleife an der Leine. Wer näher als 150 m kommt, wird gewarnt.</span>
+          </li>
+          <li>Personen in der Liste oder auf der Karte antippen zeigt Status, Entfernung, Hund und Runde. Mit <b>Winken</b> schickst du eine Nachricht „Lust auf eine gemeinsame Runde?“.</li>
+          <li>Ist jemand mit „Gern zusammen“ näher als 300 m, zeigt die App einen Hinweis. Bei „Bitte Abstand“ unter 150 m warnt sie, auch im Hintergrund mit Vibration.</li>
+          <li>Deinen eigenen Status wählst du im Live-Reiter oder während der Aufnahme.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Wetter</summary>
+        <ul>
+          <li>Tippe oben auf die <b>Temperatur</b>: Du siehst Temperatur, Regen und Wind für jetzt und die nächsten 3 Stunden.</li>
+          <li>Dazu gibt es Tipps für die Runde, zum Beispiel Regenjacke, Gummistiefel nach Regen, Leuchthalsband im Dunkeln oder Hitzewarnung.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Profil &amp; Konto</summary>
+        <ul>
+          <li>Oben rechts kommst du zu deinem Profil: Vorname, Name, <b>Rasse</b> (bei Mischlingen mit zwei Rassen) und <b>Alter</b> deines Hundes. Ob andere Rasse und Alter sehen, entscheidest du selbst.</li>
+          <li>Unter <b>Meine Spaziergänge</b> findest du alle aufgezeichneten Runden mit Kilometern und Zeit.</li>
+          <li>Dort kannst du auch das Passwort ändern, dich abmelden oder dein Konto mit allen Daten löschen.</li>
+          <li>Der <b>Demo-Modus</b> simuliert das GPS zum Ausprobieren am Schreibtisch.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Bedienung</summary>
+        <ul>
+          <li>Das <b>untere Fenster</b> lässt sich mit dem grauen Strich oben vergrößern und verkleinern: antippen oder wischen. Während der Aufnahme wird es zur schmalen Leiste mit km und Zeit.</li>
+          <li>Der <b>Zielkreis</b> oben zeigt deinen Standort auf der Karte.</li>
+          <li>Die Zurück-Taste schließt Fenster und Details. Während einer Aufnahme läuft die App im Hintergrund weiter.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Datenschutz</summary>
+        <ul>
+          <li>Andere sehen nur deinen <b>Vornamen</b> und den Namen deines Hundes, dazu Rasse und Alter, wenn du das erlaubst. Deine E-Mail-Adresse sieht niemand.</li>
+          <li>Deine Position wird nur <b>während eines Spaziergangs</b> geteilt und nur, wenn der Schalter an ist. Sie wird nicht gespeichert und verschwindet nach 2 Minuten ohne Signal.</li>
+          <li>Kontodaten, geteilte Runden und Bewertungen liegen auf dem Server der Wunsch-Fabrik. Beim Löschen des Kontos wird alles entfernt.</li>
+        </ul>
+      </details>
+
+      <details>
+        <summary>Tipps fürs Handy</summary>
+        <ul>
+          <li>Bricht die Aufnahme im Hintergrund ab, nimm Gassirunde von der Akku-Optimierung aus: Einstellungen → Apps → Gassirunde → Akku → „Nicht einschränken“.</li>
+          <li>Gibt es eine neue Version, zeigt die App beim Öffnen einen Hinweis zum Herunterladen.</li>
+        </ul>
+      </details>
+
+      <p class="hint info-credits">Karten und Runden: © OpenStreetMap-Mitwirkende (ODbL), Kartenstil HOT. Wetter: Open-Meteo. <span id="info-version"></span></p>
+    </div>
+    <div class="rec-actions"><button class="btn primary" data-close-info>Alles klar</button></div>
+  </dialog>
 
   <!-- Wetter der nächsten Stunden mit Tipps -->
   <dialog id="weather-dialog" class="dialog weather-dialog" aria-labelledby="weather-title">

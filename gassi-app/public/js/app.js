@@ -1132,6 +1132,11 @@ $('#discard-btn').onclick = discardWalk;
 $('#sv-share').onchange = toggleShareFields;
 $('#me-btn').onclick = openProfile;
 $('#weather').onclick = openWeather;
+$('#info-btn').onclick = () => {
+  $('#info-version').textContent = NATIVE ? `App-Version ${NATIVE.version()}.` : 'Web-Version.';
+  $('#info-dialog').showModal();
+  $('#info-dialog .info-scroll').scrollTop = 0;
+};
 $('#me-form').onsubmit = saveProfile;
 $('#pw-btn').onclick = changePassword;
 $('#del-btn').onclick = deleteAccount;
@@ -1198,6 +1203,7 @@ document.addEventListener('click', (e) => {
   if (pr) openPerson(pr.dataset.person);
   if (e.target.closest('[data-close-person]')) $('#person-dialog').close();
   if (e.target.closest('[data-close-weather]')) $('#weather-dialog').close();
+  if (e.target.closest('[data-close-info]')) $('#info-dialog').close();
   if (e.target.closest('[data-wave]') && $('#person-dialog').open) $('#person-dialog').close();
   if (e.target.closest('[data-login]')) openAuth();
   const d = e.target.closest('[data-dismiss]');
