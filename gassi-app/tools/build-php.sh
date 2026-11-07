@@ -2,8 +2,9 @@
 # Baut das Upload-Paket für einen PHP-Webspace (z. B. one.com) in den angegebenen Ordner.
 # Aufruf: bash tools/build-php.sh <zielordner>
 set -euo pipefail
-cd "$(dirname "$0")/.."
 OUT="${1:?Zielordner fehlt}"
+mkdir -p "$OUT" && OUT="$(cd "$OUT" && pwd)"   # absolut machen, bevor wir den Ordner wechseln
+cd "$(dirname "$0")/.."
 rm -rf "$OUT"; mkdir -p "$OUT/daten"
 cp -r public/. "$OUT/"
 cp php/api.php php/.htaccess php/robots.txt "$OUT/"
