@@ -137,7 +137,7 @@ function wf_events(PDO $db, string $cursor, string $selfName = ''): array
     }
     $next['mail'] = (int)$db->query("SELECT COALESCE(MAX(id), 0) FROM mail_msgs WHERE folder = 'in'")->fetchColumn();
     if (!$first && isset($c['mail'])) {
-        $q = $db->prepare("SELECT id, from_addr, from_name, subject, snippet, order_id FROM mail_msgs WHERE folder = 'in' AND archived = 0 AND seen = 0 AND id > ? ORDER BY id LIMIT 20");
+        $q = $db->prepare("SELECT id, from_addr, from_name, subject, snippet, order_id FROM mail_msgs WHERE folder = 'in' AND archived = 0 AND junk = 0 AND seen = 0 AND id > ? ORDER BY id LIMIT 20");
         $q->execute([$c['mail']]);
         foreach ($q->fetchAll() as $r) {
             $items[] = ['kind' => 'mail', 'id' => (int)$r['id'], 'title' => trim((string)$r['from_name']) ?: (string)$r['from_addr'],

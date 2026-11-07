@@ -565,7 +565,174 @@ function wf_mail_store(PDO $db, string $raw, string $folder, ?int $uid, bool $se
         @chmod($dir . $stored, 0640);
         $ins->execute([$id, $a['name'], mb_substr($a['mime'], 0, 100), strlen($a['data']), mb_substr($a['cid'], 0, 200), $a['inline'] ? 1 : 0, $stored]);
     }
+    if ($folder === 'in') {
+        wf_mail_filter_ready($db);
+        $row = ['id' => $id, 'from_addr' => $from['addr'], 'subject' => $subject, 'body_text' => $text, 'body_html' => $p['html'],
+            'customer_id' => $cid, 'order_id' => $oid, 'in_reply_to' => $irt, 'refs' => implode(' ', $refs)];
+        $junk = wf_mail_is_junk($db, $row, $H, $realAtts);
+        if ($junk) {
+            $db->prepare('UPDATE mail_msgs SET junk = 1 WHERE id = ?')->execute([$id]);
+        } elseif ($realAtts) {
+            // Bilder/Dateien vom Kunden an seinen Auftrag hängen: genannte Auftragsnummer, sonst sein einziger offener Auftrag
+            $target = $oid;
+            if (!$target && $cid) {
+                $o = $db->prepare("SELECT id FROM orders WHERE customer_id = ? AND deleted_at IS NULL AND status NOT IN ('delivered', 'cancelled') ORDER BY id DESC LIMIT 2");
+                $o->execute([$cid]);
+                $open = $o->fetchAll(PDO::FETCH_COLUMN);
+                $target = count($open) === 1 ? (int)$open[0] : null;
+            }
+            if ($target) {
+                try {
+                    wf_mail_atts_to_order($db, $id, (int)$target, null, true);
+                } catch (Throwable $e) {
+                    error_log('auftraege mail atts: ' . $e->getMessage());
+                }
+            }
+        }
+    }
     return $id;
+}
+
+// ---------- Filter: nur Kunden und Anfragen im Posteingang, Werbung & Co. nach „Aussortiert“ ----------
+
+/** Spalte junk und Absender-Regeln anlegen; vorhandene Mails einmalig einsortieren. */
+function wf_mail_filter_ready(PDO $db): void
+{
+    static $done = false;
+    if ($done) {
+        return;
+    }
+    $done = true;
+    if (!$db->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'mail_msgs'")->fetchColumn()) {
+        return;
+    }
+    $cols = array_column($db->query('PRAGMA table_info(mail_msgs)')->fetchAll(), 'name');
+    if (!in_array('junk', $cols, true)) {
+        $db->exec('ALTER TABLE mail_msgs ADD COLUMN junk INTEGER NOT NULL DEFAULT 0');
+    }
+    $db->exec("CREATE TABLE IF NOT EXISTS mail_senders (addr TEXT PRIMARY KEY, rule TEXT NOT NULL CHECK (rule IN ('allow', 'block')))");
+    if (!$db->query("SELECT 1 FROM meta WHERE key = 'mail_filter_v1'")->fetchColumn()) {
+        $up = $db->prepare('UPDATE mail_msgs SET junk = ? WHERE id = ?');
+        foreach ($db->query("SELECT * FROM mail_msgs WHERE folder = 'in'")->fetchAll() as $m) {
+            $up->execute([wf_mail_is_junk($db, $m, null) ? 1 : 0, (int)$m['id']]);
+        }
+        $db->exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('mail_filter_v1', '1')");
+    }
+}
+
+/**
+ * Gehört eine eingehende Mail aussortiert? Durch kommen: erlaubte Absender, eigene Adressen, bekannte Kunden,
+ * Antworten auf eigene Mails, Mails mit Anfrage-Wörtern oder Bildern/Dateien. Werbung (Abmelde-Link, Verteiler,
+ * noreply …) und alles ohne Bezug wird aussortiert. $H = Kopfzeilen (beim Abholen), null = nur gespeicherte Felder.
+ */
+function wf_mail_is_junk(PDO $db, array $m, ?array $H, ?array $atts = null): bool
+{
+    $from = mb_strtolower(trim((string)($m['from_addr'] ?? '')));
+    $dom = substr(strrchr($from, '@') ?: '', 1);
+    $rule = $db->prepare('SELECT rule FROM mail_senders WHERE addr = ? OR addr = ?');
+    $rule->execute([$from, '@' . $dom]);
+    $r = $rule->fetchAll(PDO::FETCH_COLUMN);
+    if (in_array('allow', $r, true)) {
+        return false;
+    }
+    if (in_array('block', $r, true)) {
+        return true;
+    }
+    if ($dom === 'wunsch-fabrik.dk') {
+        return false;
+    }
+    if (!empty($m['customer_id']) || !empty($m['order_id'])) {
+        return false;
+    }
+    // Antwort auf eine eigene Mail
+    $ids = array_values(array_filter(array_merge(preg_split('/\s+/', (string)($m['refs'] ?? '')) ?: [], [(string)($m['in_reply_to'] ?? '')])));
+    if ($ids) {
+        $q = $db->prepare("SELECT 1 FROM mail_msgs WHERE folder = 'sent' AND message_id IN (" . implode(',', array_fill(0, count($ids), '?')) . ') LIMIT 1');
+        $q->execute($ids);
+        if ($q->fetchColumn()) {
+            return false;
+        }
+    }
+    // Massenmail / Automatik
+    $bulk = false;
+    if ($H !== null) {
+        $prec = strtolower((string)($H['precedence'] ?? ''));
+        $auto = strtolower(trim((string)($H['auto-submitted'] ?? '')));
+        $bulk = !empty($H['list-unsubscribe']) || !empty($H['list-id']) || in_array($prec, ['bulk', 'list', 'junk'], true)
+            || ($auto !== '' && $auto !== 'no') || stripos((string)($H['x-spam-flag'] ?? ''), 'yes') !== false
+            || !empty($H['x-campaign']) || !empty($H['x-mailchimp-id']) || !empty($H['feedback-id']) || !empty($H['x-csa-complaints']);
+    }
+    $local = strstr($from, '@', true) ?: $from;
+    if (preg_match('/^(no-?reply|do-?not-?reply|donotreply|newsletter|news|marketing|mailer-daemon|postmaster|bounce|notifications?|nyhedsbrev|kampagne|promo|offers?|deals?)\b/', $local)) {
+        $bulk = true;
+    }
+    $txt = mb_strtolower((string)($m['subject'] ?? '') . "\n" . (string)($m['body_text'] ?? ''));
+    $html = mb_strtolower((string)($m['body_html'] ?? ''));
+    if (preg_match('/unsubscribe|abmelden|abbestellen|newsletter abbestellen|afmeld|frameld|opt-out|view (this email )?in (your )?browser|im browser (an)?sehen|vis i browser/u', $txt . ' ' . $html)) {
+        $bulk = true;
+    }
+    if ($bulk) {
+        return true;
+    }
+    if (preg_match('/angebot|anfrage|preis|kosten|bestell|auftrag|stick|druck|textil|t-?shirt|shirt|hoodie|pullover|pulli|polo|jacke|weste|arbeitskleidung|kleidung|logo|motiv|stück|menge|vereinskleidung|tasse|cap\b|kappe|tilbud|pris|forespørg|bestil|ordre|broderi|brodér|brodere|tryk|trøje|bluse|jakke|stk\b|antal/u', $txt)) {
+        return false;
+    }
+    // Bilder oder Grafikdateien im Anhang (keine Signatur-Bildchen)
+    if ($atts === null && !empty($m['id'])) {
+        $a = $db->prepare('SELECT name, mime, size FROM mail_atts WHERE msg_id = ? AND inline = 0');
+        $a->execute([(int)$m['id']]);
+        $atts = $a->fetchAll();
+    }
+    foreach ($atts ?? [] as $a) {
+        if (wf_mail_att_useful($a)) {
+            return false;
+        }
+    }
+    return true;
+}
+
+/** Anhang, der für einen Auftrag taugt (Bild, PDF, Vektor-/Grafikdatei), ohne kleine Signatur-Bildchen. */
+function wf_mail_att_useful(array $a): bool
+{
+    $mime = strtolower((string)($a['mime'] ?? ''));
+    $ext = strtolower(pathinfo((string)($a['name'] ?? ''), PATHINFO_EXTENSION));
+    $size = (int)($a['size'] ?? strlen((string)($a['data'] ?? '')));
+    if (str_starts_with($mime, 'image/')) {
+        return $size >= 15000;
+    }
+    return $mime === 'application/pdf' || in_array($ext, ['pdf', 'ai', 'eps', 'svg', 'psd', 'cdr', 'tif', 'tiff', 'dst', 'pes', 'emb', 'zip'], true);
+}
+
+/** Anhänge einer Mail als Dateien an einen Auftrag hängen (ohne Doppelte). $only = nur diese Anhang-IDs. */
+function wf_mail_atts_to_order(PDO $db, int $msgId, int $oid, ?array $only = null, bool $usefulOnly = false): int
+{
+    $st = $db->prepare('SELECT * FROM mail_atts WHERE msg_id = ? AND inline = 0 ORDER BY id');
+    $st->execute([$msgId]);
+    $dup = $db->prepare('SELECT 1 FROM order_files WHERE order_id = ? AND size = ? AND (original_name = ? OR ? = 1)');
+    $ins = $db->prepare('INSERT INTO order_files (order_id, original_name, stored_name, mime, size) VALUES (?,?,?,?,?)');
+    $up = rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/';
+    $n = 0;
+    foreach ($st->fetchAll() as $a) {
+        if (($only !== null && !in_array((int)$a['id'], $only, true)) || ($usefulOnly && !wf_mail_att_useful($a))) {
+            continue;
+        }
+        $src = wf_mail_dir() . basename((string)$a['stored_name']);
+        if (!is_file($src)) {
+            continue;
+        }
+        $name = mb_substr(preg_replace('/[^\p{L}\p{N}._ ()-]/u', '_', (string)$a['name']) ?: 'datei', 0, 200);
+        $size = (int)filesize($src);
+        $dup->execute([$oid, $size, $name, $usefulOnly ? 1 : 0]);
+        if ($dup->fetchColumn()) {
+            continue;
+        }
+        $stored = bin2hex(random_bytes(16)) . '.dat';
+        if (@copy($src, $up . $stored)) {
+            $ins->execute([$oid, $name, $stored, (string)$a['mime'] ?: 'application/octet-stream', $size]);
+            $n++;
+        }
+    }
+    return $n;
 }
 
 // ---------- Abgleich ----------

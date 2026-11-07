@@ -117,7 +117,7 @@ route(/^\/mail$/, async () => {
     if (append) list.append(...rows); else list.replaceChildren(...(rows.length ? rows : [h('div', { class: 'empty' }, mailQ ? t('mail_none_found') : t('mail_empty'))]));
     more.classList.toggle('hidden', !r.more);
   };
-  const tabs = h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, ...[['inq', '📝 ' + t('inq_tab'), MAIL.inqNew], ['in', '📥 ' + t('mail_inbox'), MAIL.unread], ['sent', '📤 ' + t('mail_sent')], ['archived', '🗄 ' + t('mail_archive')]]
+  const tabs = h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap' }, ...[['inq', '📝 ' + t('inq_tab'), MAIL.inqNew], ['in', '📥 ' + t('mail_inbox'), MAIL.unread], ['junk', '🧹 ' + t('mail_junk')], ['sent', '📤 ' + t('mail_sent')], ['archived', '🗄 ' + t('mail_archive')]]
     .filter(([k]) => k !== 'inq' || st.site_db).map(([k, l, n]) =>
       h('button', { class: 'chip' + (mailFolder === k ? ' on' : ''), onclick: () => { mailFolder = k; render(); } }, l, n ? h('b', { class: 'cnt' }, ' ' + n) : null)));
   const search = h('input', { type: 'search', placeholder: mailFolder === 'inq' ? t('inq_search') : t('mail_search'), value: mailQ, oninput: (e) => { mailQ = e.target.value; clearTimeout(search._t); search._t = setTimeout(() => load(), 300); } });
@@ -213,7 +213,10 @@ route(/^\/mail\/(\d+)$/, async (id) => {
         try { toast(t('mail_translating')); translated = (await api('mail_translate', { body: { html: m.html, target: W.lang === 'da' ? 'da' : 'de' } })).html; draw(); } catch (e) { toast(e.message); }
       } }, translated ? '↶ ' + t('mail_original') : '🌐 ' + t(W.lang === 'da' ? 'mail_tr_to_da' : 'mail_tr_to_de')),
       h('button', { class: 'btn', onclick: async () => { await api('mail_update', { body: { id: m.id, archived: +m.archived ? 0 : 1 } }); toast(+m.archived ? t('mail_unarchived') : t('mail_archived')); location.hash = '#/mail'; } }, +m.archived ? '📥 ' + t('mail_unarchive') : '🗄 ' + t('mail_do_archive')),
-      m.folder === 'in' ? h('button', { class: 'btn', onclick: async () => { await api('mail_update', { body: { id: m.id, seen: 0 } }); MAIL.unread++; mailBadge(); location.hash = '#/mail'; } }, '● ' + t('mail_mark_unread')) : null);
+      m.folder === 'in' ? h('button', { class: 'btn', onclick: async () => { await api('mail_update', { body: { id: m.id, seen: 0 } }); MAIL.unread++; mailBadge(); location.hash = '#/mail'; } }, '● ' + t('mail_mark_unread')) : null,
+      m.folder === 'in' ? h('button', { class: 'btn', onclick: async () => {
+        try { await api('mail_junk', { body: { id: m.id, junk: +m.junk ? 0 : 1 } }); toast(+m.junk ? t('mail_unjunked', m.from_addr) : t('mail_junked', m.from_addr)); mailStatus(true); location.hash = '#/mail'; } catch (e) { toast(e.message); }
+      } }, +m.junk ? '✅ ' + t('mail_unjunk') : '🧹 ' + t('mail_do_junk')) : null);
     show(h('div', { class: 'row', style: 'margin-bottom:8px' }, h('a', { class: 'btn small', href: '#/mail' }, '← ' + t('nav_mail'))),
       h('div', { class: 'card mhead' },
         h('h2', { style: 'margin:0 0 8px' }, m.subject || t('mail_no_subject')),
@@ -229,6 +232,7 @@ route(/^\/mail\/(\d+)$/, async (id) => {
           !m.customer_id && m.folder === 'in' ? h('a', { class: 'chip', href: `#/customer/new`, onclick: () => { try { sessionStorage.setItem('wf_new_customer', JSON.stringify({ name: m.from_name || '', email: m.from_addr })); } catch (e) { /* egal */ } } }, '👤＋ ' + t('mail_new_customer')) : null,
           m.customer_id ? h('a', { class: 'chip', href: `#/new/customer/${m.customer_id}` }, '📋＋ ' + t('mail_new_order')) : null),
         assign, actions),
+      +m.junk ? h('div', { class: 'warnline' }, '🧹 ' + t('mail_junk_note')) : null,
       +m.too_large ? h('div', { class: 'warnline' }, '⚠ ' + t('mail_too_large')) : null,
       m.blocked && !remote ? h('div', { class: 'warnline' }, '🖼 ' + t('mail_blocked', m.blocked), ' ', h('button', { class: 'btn small', onclick: () => { remote = true; draw(); } }, t('mail_show_images'))) : null,
       h('div', { class: 'card', style: 'padding:10px' }, body),

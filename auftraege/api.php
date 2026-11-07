@@ -58,6 +58,7 @@ if ($isPost) {
     }
 }
 $db = wf_db();
+wf_mail_filter_ready($db);
 wf_public_base($db, true);   // Adresse für Links in Kundenmails merken (nur angemeldete Aufrufe)
 // Archiv bei Dritten: nach der Antwort offene Einträge senden (höchstens alle 2 Minuten)
 register_shutdown_function(function () use ($db): void {
@@ -1054,7 +1055,7 @@ try {
             $meta = fn($k) => (string)($db->query("SELECT value FROM meta WHERE key = " . $db->quote($k))->fetchColumn() ?: '');
             wf_json(['ok' => true, 'configured' => (bool)$c, 'smtp' => (bool)wf_smtp_cfg(), 'from' => wf_mail_from(),
                 'imap' => ['host' => (string)($raw['host'] ?? ''), 'port' => (int)($raw['port'] ?? 993), 'user' => (string)($raw['user'] ?? ''), 'own_pass' => (string)($raw['pass'] ?? '') !== ''],
-                'unread' => (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in' AND seen = 0 AND archived = 0")->fetchColumn(),
+                'unread' => (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in' AND seen = 0 AND archived = 0 AND junk = 0")->fetchColumn(),
                 'last_sync' => $meta('mail_sync_last'), 'error' => $meta('mail_sync_error'), 'sent_box' => (string)($st['sent_box'] ?? ''),
                 'signature' => wf_mail_signature($db, $user), 'deepl' => wf_deepl_key() !== '', 'deepl_own' => $meta('deepl_key') !== '',
                 'site_db' => (bool)wf_events_site_db(), 'inq_new' => wf_inq_new()]);
@@ -1116,7 +1117,7 @@ try {
             session_write_close();
             @set_time_limit(60);
             $r = wf_mail_sync($db, 20);
-            $r['unread'] = (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in' AND seen = 0 AND archived = 0")->fetchColumn();
+            $r['unread'] = (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in' AND seen = 0 AND archived = 0 AND junk = 0")->fetchColumn();
             $r['inq_new'] = wf_inq_new();
             if (!$r['ok'] && ($r['error'] ?? '') === 'imap_not_configured') {
                 wf_json(['ok' => true, 'new' => 0, 'unread' => $r['unread'], 'inq_new' => $r['inq_new'], 'not_configured' => true]);
@@ -1125,15 +1126,18 @@ try {
         }
 
         case 'mail_unread':
-            wf_json(['ok' => true, 'unread' => (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in' AND seen = 0 AND archived = 0")->fetchColumn(), 'inq_new' => wf_inq_new()]);
+            wf_json(['ok' => true, 'unread' => (int)$db->query("SELECT COUNT(*) FROM mail_msgs WHERE folder = 'in' AND seen = 0 AND archived = 0 AND junk = 0")->fetchColumn(), 'inq_new' => wf_inq_new()]);
 
         case 'mail_list': {
             $folder = (string)($_GET['folder'] ?? 'in');
             $w = [];
             $p = [];
-            if (in_array($folder, ['in', 'sent'], true)) {
-                $w[] = 'm.folder = ? AND m.archived = 0';
-                $p[] = $folder;
+            if ($folder === 'in') {
+                $w[] = "m.folder = 'in' AND m.archived = 0 AND m.junk = 0";
+            } elseif ($folder === 'junk') {
+                $w[] = "m.folder = 'in' AND m.archived = 0 AND m.junk = 1";
+            } elseif ($folder === 'sent') {
+                $w[] = "m.folder = 'sent' AND m.archived = 0";
             } elseif ($folder === 'archived') {
                 $w[] = 'm.archived = 1';
             }
@@ -1232,34 +1236,41 @@ try {
                 wf_fail('not_found', 404);
             }
             $ids = array_values(array_filter(array_map('intval', (array)($in['att_ids'] ?? []))));
-            $st = $db->prepare('SELECT * FROM mail_atts WHERE id = ?');
-            $dup = $db->prepare('SELECT 1 FROM order_files WHERE order_id = ? AND original_name = ? AND size = ?');
-            $ins = $db->prepare('INSERT INTO order_files (order_id, original_name, stored_name, mime, size) VALUES (?,?,?,?,?)');
-            $up = rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/';
+            $msgs = [];
+            if ($ids) {
+                $q = $db->prepare('SELECT DISTINCT msg_id FROM mail_atts WHERE id IN (' . implode(',', array_fill(0, count($ids), '?')) . ')');
+                $q->execute($ids);
+                $msgs = array_map('intval', $q->fetchAll(PDO::FETCH_COLUMN));
+            }
             $n = 0;
-            foreach (array_slice($ids, 0, 50) as $aid) {
-                $st->execute([$aid]);
-                $a = $st->fetch();
-                $src = $a ? wf_mail_dir() . basename((string)$a['stored_name']) : '';
-                if (!$a || !is_file($src)) {
-                    continue;
-                }
-                $name = mb_substr(preg_replace('/[^\p{L}\p{N}._ ()-]/u', '_', (string)$a['name']) ?: 'datei', 0, 200);
-                $size = (int)filesize($src);
-                $dup->execute([$oid, $name, $size]);
-                if ($dup->fetchColumn()) {
-                    continue;
-                }
-                $stored = bin2hex(random_bytes(16)) . '.dat';
-                if (@copy($src, $up . $stored)) {
-                    $ins->execute([$oid, $name, $stored, (string)$a['mime'] ?: 'application/octet-stream', $size]);
-                    $n++;
-                }
+            foreach ($msgs as $mid) {
+                $n += wf_mail_atts_to_order($db, $mid, $oid, $ids);
             }
             if ($n) {
                 wf_touch();
             }
             wf_json(['ok' => true, 'added' => $n]);
+        }
+
+        // Mail aussortieren bzw. zurückholen; gilt künftig für alle Mails dieses Absenders
+        case 'mail_junk': {
+            need_post();
+            $st = $db->prepare("SELECT id, from_addr FROM mail_msgs WHERE id = ? AND folder = 'in'");
+            $st->execute([(int)($in['id'] ?? 0)]);
+            $m = $st->fetch();
+            if (!$m) {
+                wf_fail('not_found', 404);
+            }
+            $junk = !empty($in['junk']) ? 1 : 0;
+            $addr = mb_strtolower(trim((string)$m['from_addr']));
+            if ($addr !== '' && !str_ends_with($addr, '@wunsch-fabrik.dk')) {
+                $db->prepare('INSERT OR REPLACE INTO mail_senders (addr, rule) VALUES (?, ?)')->execute([$addr, $junk ? 'block' : 'allow']);
+                $db->prepare("UPDATE mail_msgs SET junk = ? WHERE folder = 'in' AND lower(trim(from_addr)) = ?")->execute([$junk, $addr]);
+            } else {
+                $db->prepare('UPDATE mail_msgs SET junk = ? WHERE id = ?')->execute([$junk, (int)$m['id']]);
+            }
+            wf_touch();
+            wf_json(['ok' => true, 'junk' => $junk]);
         }
 
         case 'mail_update': {

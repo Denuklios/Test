@@ -60,15 +60,22 @@ try {
     const st = (await call('mail_status')).j; assert.equal(st.configured, true); assert.equal(st.deepl, true); assert.equal(st.imap.own_pass, true);
   });
   let m1;
-  await ok('Abruf: 2 neue Mails, Kunde zugeordnet, Ordner Gesendet erkannt', async () => {
+  await ok('Abruf: 2 neue Mails, Kunde zugeordnet, Newsletter aussortiert, Ordner Gesendet erkannt', async () => {
     const r = (await call('mail_sync')).j;
-    assert.equal(r.ok, true, JSON.stringify(r)); assert.equal(r.new, 2); assert.equal(r.unread, 2);
+    assert.equal(r.ok, true, JSON.stringify(r)); assert.equal(r.new, 2); assert.equal(r.unread, 1, 'Aussortiertes zählt nicht als ungelesen');
     assert.equal((await call('mail_sync')).j.new, 0, 'nichts doppelt');
     const list = (await call('mail_list', { params: { folder: 'in' } })).j.mails;
-    assert.equal(list.length, 2);
+    assert.equal(list.length, 1, 'nur die Kundenmail im Posteingang');
     m1 = list.find((m) => m.subject === 'Hoodies mit Logo');
     assert.equal(m1.from_name, 'Søren Kunde'); assert.equal(m1.from_addr, 'soeren@kunde.dk'); assert.equal(+m1.customer_id, cust); assert.equal(+m1.has_att, 1);
-    assert.equal(list.find((m) => m.from_addr === 'news@shop.example').snippet, 'Schöne Grüße', 'Zeichensatz umgewandelt');
+    const junk = (await call('mail_list', { params: { folder: 'junk' } })).j.mails;
+    assert.equal(junk.length, 1); assert.equal(junk[0].from_addr, 'news@shop.example');
+    assert.equal(junk[0].snippet, 'Schöne Grüße', 'Zeichensatz umgewandelt');
+    // Absender durchlassen und wieder aussortieren
+    await call('mail_junk', { body: { id: junk[0].id, junk: 0 } });
+    assert.equal((await call('mail_list', { params: { folder: 'in' } })).j.mails.length, 2);
+    await call('mail_junk', { body: { id: junk[0].id, junk: 1 } });
+    assert.equal((await call('mail_list', { params: { folder: 'in' } })).j.mails.length, 1);
     assert.equal((await call('mail_status')).j.sent_box, 'Sent');
     assert.equal((await call('mail_list', { params: { folder: 'all', customer_id: cust } })).j.mails.length, 1, 'Mails je Kunde');
   });
@@ -79,7 +86,7 @@ try {
     const pdf = r.atts.find((a) => a.name === 'Skizze.pdf'); assert.ok(pdf);
     const f = await fetch(`${B}/api.php?a=mail_att&id=${pdf.id}`, { headers: { cookie } });
     assert.equal(f.headers.get('content-type'), 'application/pdf'); assert.equal((await f.text()).slice(0, 5), '%PDF-');
-    assert.equal((await call('mail_unread')).j.unread, 1);
+    assert.equal((await call('mail_unread')).j.unread, 0);
   });
   await ok('Antworten mit Anhang und eingefügtem Bild: Versand, Kopie in Gesendet, gleicher Verlauf', async () => {
     await call('mail_sig_save', { body: { html: '<p>Viele Grüße<br><b>Robert</b></p>' } });
@@ -104,7 +111,7 @@ try {
     assert.ok(imapLog().INBOX.find((m) => m.uid === 1).flags.includes('\\Seen'), 'gelesen zurückgeschrieben');
   });
   await ok('Archivieren, Suche, Kunde umhängen', async () => {
-    const news = (await call('mail_list', { params: { q: 'Woche' } })).j.mails[0];
+    const news = (await call('mail_list', { params: { folder: 'junk', q: 'Woche' } })).j.mails[0];
     await call('mail_update', { body: { id: news.id, archived: 1 } });
     assert.equal((await call('mail_list', { params: { folder: 'in' } })).j.mails.length, 1);
     assert.equal((await call('mail_list', { params: { folder: 'archived' } })).j.mails.length, 1);
