@@ -9,7 +9,7 @@ export async function createBackend() {
   // 1. Node-Server (server.js): /api/…   2. PHP-Webspace (php/api.php): api.php?p=…
   for (const [url, toUrl] of [
     ['api/health', (p) => `api/${p}`],
-    ['api.php?p=health', (p) => `api.php?p=${p}`],
+    ['api.php?p=health', (p) => `api.php?p=${p.replace('?', '&')}`],
   ]) {
     try {
       const r = await fetch(url, { cache: 'no-store' });
@@ -80,7 +80,10 @@ class ServerBackend {
   }
 
   // Runden
-  getRoutes() { return api('api/routes'); }
+  /** Runden: eigene + vorgefertigte, dazu OpenStreetMap-Runden im Umkreis von r km um near. */
+  getRoutes(near) {
+    return api(near ? `routes?lat=${near.lat.toFixed(4)}&lng=${near.lng.toFixed(4)}&r=${Math.round(near.r)}` : 'routes');
+  }
   addRoute(route) { return api('api/routes', { method: 'POST', body: route }); }
   deleteRoute(id) { return api(`api/routes/${encodeURIComponent(id)}`, { method: 'DELETE' }); }
   rate(routeId, rating) { return api(`api/routes/${encodeURIComponent(routeId)}/ratings`, { method: 'POST', body: rating }); }

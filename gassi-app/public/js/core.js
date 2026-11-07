@@ -93,21 +93,31 @@ export const LABELS = {
  * passend zu Wetter und Hund.
  */
 export function dogScore(attrs = {}, { tempC = null, dogAge = 'erwachsen', km = null } = {}) {
-  const shade = Math.max(0, Math.min(100, attrs.shade ?? 50));
-  const crossings = Math.max(0, attrs.crossings ?? 0);
+  // null/undefined = unbekannt (z. B. bei Runden aus OpenStreetMap): mittlere Punkte, ehrlich beschriftet
+  const known = (v) => v !== null && v !== undefined;
+  const shade = known(attrs.shade) ? Math.max(0, Math.min(100, attrs.shade)) : null;
+  const crossings = known(attrs.crossings) ? Math.max(0, attrs.crossings) : null;
   const parts = [
-    { key: 'water', label: 'Wasser unterwegs', pts: attrs.water ? 20 : 0, max: 20 },
-    { key: 'shade', label: 'Schatten', pts: Math.round(shade * 0.25), max: 25 },
+    known(attrs.water)
+      ? { key: 'water', label: attrs.water ? 'Wasser unterwegs' : 'Kein Wasser unterwegs', pts: attrs.water ? 20 : 0, max: 20 }
+      : { key: 'water', label: 'Wasser: unbekannt', pts: 8, max: 20, unknown: true },
+    shade !== null
+      ? { key: 'shade', label: `Schatten (${shade} %)`, pts: Math.round(shade * 0.25), max: 25 }
+      : { key: 'shade', label: 'Schatten: unbekannt', pts: 12, max: 25, unknown: true },
     { key: 'surface', label: LABELS.surface[attrs.surface] || 'Untergrund unbekannt', pts: SURFACE_PTS[attrs.surface] ?? 10, max: 20 },
-    { key: 'crossings', label: crossings === 0 ? 'Keine Straßen zu queren' : `${crossings} Straße${crossings > 1 ? 'n' : ''} zu queren`, pts: Math.max(0, 15 - crossings * 5), max: 15 },
-    { key: 'leash', label: LABELS.leash[attrs.leash] || 'Leinenregel unbekannt', pts: LEASH_PTS[attrs.leash] ?? 5, max: 10 },
-    { key: 'bins', label: attrs.bins ? 'Mülleimer für Kotbeutel' : 'Keine Mülleimer bekannt', pts: attrs.bins ? 10 : 0, max: 10 },
+    crossings !== null
+      ? { key: 'crossings', label: crossings === 0 ? 'Keine Straßen zu queren' : `${crossings} Straße${crossings > 1 ? 'n' : ''} zu queren`, pts: Math.max(0, 15 - crossings * 5), max: 15 }
+      : { key: 'crossings', label: 'Straßen: unbekannt', pts: 8, max: 15, unknown: true },
+    { key: 'leash', label: LABELS.leash[attrs.leash] || 'Leinenregel: vor Ort prüfen', pts: LEASH_PTS[attrs.leash] ?? 5, max: 10, unknown: !LABELS.leash[attrs.leash] },
+    known(attrs.bins)
+      ? { key: 'bins', label: attrs.bins ? 'Mülleimer für Kotbeutel' : 'Keine Mülleimer bekannt', pts: attrs.bins ? 10 : 0, max: 10 }
+      : { key: 'bins', label: 'Mülleimer: unbekannt', pts: 4, max: 10, unknown: true },
   ];
   const warnings = [];
   if (tempC != null && tempC >= 25) {
     if (attrs.surface === 'asphalt') warnings.push(`Bei ${Math.round(tempC)} °C wird Asphalt heiß. Mach den Handrücken-Test: 7 Sekunden auf den Boden legen.`);
-    if (!attrs.water) warnings.push('Kein Wasser unterwegs. Nimm eine Trinkflasche für den Hund mit.');
-    if (shade < 50) warnings.push('Wenig Schatten. Lieber früh morgens oder abends gehen.');
+    if (attrs.water !== true) warnings.push(attrs.water === false ? 'Kein Wasser unterwegs. Nimm eine Trinkflasche für den Hund mit.' : 'Ob es unterwegs Wasser gibt, ist nicht bekannt. Nimm eine Trinkflasche für den Hund mit.');
+    if (shade !== null && shade < 50) warnings.push('Wenig Schatten. Lieber früh morgens oder abends gehen.');
   }
   if (tempC != null && tempC <= 0 && attrs.surface === 'asphalt') warnings.push('Streusalz möglich. Pfoten nach der Runde abwaschen.');
   if (km != null && dogAge === 'welpe' && km > 2) warnings.push('Für Welpen ist die Runde lang. Plane Pausen ein oder kürze ab.');
@@ -162,7 +172,7 @@ export function matchRoute(route, prefs) {
     if (busy < 20 && live === 0) reasons.push('jetzt gerade ruhig');
   }
   if (prefs.tempC != null && prefs.tempC >= 25) {
-    fit += (route.attrs.shade - 50) / 5;
+    fit += ((route.attrs.shade ?? 50) - 50) / 5;
     if (route.attrs.shade >= 80) reasons.push('viel Schatten bei der Hitze');
   }
   const avg = averageRating(route.ratings);

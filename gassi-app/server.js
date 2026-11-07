@@ -14,7 +14,7 @@ import path from 'node:path';
 import { fileURLToPath } from 'node:url';
 import crypto from 'node:crypto';
 import { promisify } from 'node:util';
-import { DEMO_WALKERS, demoWalkerPosition, pathLength } from './public/js/core.js';
+import { DEMO_WALKERS, demoWalkerPosition, pathLength, distance } from './public/js/core.js';
 
 const scrypt = promisify(crypto.scrypt);
 const ROOT = path.dirname(fileURLToPath(import.meta.url));
@@ -49,6 +49,53 @@ function save() {
 
 const userById = (id) => store.users.find((u) => u.id === id);
 const publicUser = (u) => u && { id: u.id, email: u.email, name: u.name, dog: u.dog, dogAge: u.dogAge, createdAt: u.createdAt };
+
+// Runden aus OpenStreetMap (tools/import-osm.py): in Zellen von 0,5° gespeichert, geladen nach Bedarf
+const OSM_DIR = process.env.OSM_DIR || path.join(PUBLIC, 'data', 'osm');
+const osmCells = new Map();
+async function osmCell(key) {
+  if (!osmCells.has(key)) {
+    let list = [];
+    try { list = JSON.parse(await readFile(path.join(OSM_DIR, key + '.json'), 'utf8')); } catch { /* keine Runden in dieser Zelle */ }
+    osmCells.set(key, list);
+  }
+  return osmCells.get(key);
+}
+
+/** OSM-Runden im Umkreis von rKm um lat/lng, die nächsten zuerst (höchstens `limit`). */
+async function osmNear(lat, lng, rKm, limit = 250) {
+  const dLat = rKm / 111, dLng = rKm / (111 * Math.cos((lat * Math.PI) / 180));
+  const found = [];
+  for (let a = Math.floor((lat - dLat) * 2); a <= Math.floor((lat + dLat) * 2); a++) {
+    for (let b = Math.floor((lng - dLng) * 2); b <= Math.floor((lng + dLng) * 2); b++) {
+      for (const r of await osmCell(`${a}_${b}`)) {
+        const d = distance([lat, lng], r.points[0]) / 1000;
+        if (d <= rKm) found.push([d, r]);
+      }
+    }
+  }
+  return found.sort((x, y) => x[0] - y[0]).slice(0, limit).map(([, r]) => r);
+}
+
+async function findOsmRoute(id) {
+  // ID allein verrät die Zelle nicht: in allen bereits geladenen und notfalls allen Zellen suchen
+  for (const list of osmCells.values()) { const r = list.find((x) => x.id === id); if (r) return r; }
+  try {
+    const idx = JSON.parse(await readFile(path.join(OSM_DIR, 'index.json'), 'utf8'));
+    for (const key of idx.cells) { const r = (await osmCell(key)).find((x) => x.id === id); if (r) return r; }
+  } catch { /* kein Import vorhanden */ }
+  return null;
+}
+
+function withRatings(r) {
+  return {
+    ...r,
+    ratings: (store.ratings[r.id] || []).map((x) => {
+      const u = userById(x.userId);
+      return { ...x, name: u?.name || 'Anonym', dog: u?.dog || '' };
+    }),
+  };
+}
 
 function allRoutes() {
   return [...demoRoutes, ...store.routes].map((r) => {
@@ -355,7 +402,12 @@ async function handleApi(req, res, url, ip) {
   if (parts[1] === 'me') return handleMe(req, res, parts);
 
   // Runden lesen darf jeder – so kann man sich die App vor der Anmeldung ansehen
-  if (req.method === 'GET' && parts[1] === 'routes' && parts.length === 2) return sendJson(res, 200, allRoutes());
+  if (req.method === 'GET' && parts[1] === 'routes' && parts.length === 2) {
+    const lat = Number(url.searchParams.get('lat')), lng = Number(url.searchParams.get('lng'));
+    const r = Math.min(80, Math.max(1, Number(url.searchParams.get('r')) || 25));
+    const near = Number.isFinite(lat) && Number.isFinite(lng) && url.searchParams.has('lat') ? (await osmNear(lat, lng, r)).map(withRatings) : [];
+    return sendJson(res, 200, [...allRoutes(), ...near]);
+  }
 
   if (req.method === 'POST' && parts[1] === 'routes' && parts.length === 2) {
     const user = requireUser(req);
@@ -401,7 +453,8 @@ async function handleApi(req, res, url, ip) {
   if (req.method === 'POST' && parts[1] === 'routes' && parts[3] === 'ratings') {
     const user = requireUser(req);
     const id = parts[2];
-    if (!allRoutes().some((r) => r.id === id)) throw new HttpError(404, 'Runde nicht gefunden.');
+    const osm = id.startsWith('osm-') ? await findOsmRoute(id) : null;
+    if (!osm && !allRoutes().some((r) => r.id === id)) throw new HttpError(404, 'Runde nicht gefunden.');
     const b = await readBody(req, 10_000);
     const stars = num(b.stars, 1, 5);
     if (!stars || !Number.isInteger(stars)) throw new HttpError(400, 'Bitte 1 bis 5 Sterne vergeben.');
@@ -409,7 +462,7 @@ async function handleApi(req, res, url, ip) {
     list.push({ userId: user.id, stars, text: str(b.text, 500), date: new Date().toISOString() });
     store.ratings[id] = list;
     await save();
-    return sendJson(res, 200, allRoutes().find((r) => r.id === id).ratings);
+    return sendJson(res, 200, withRatings(osm || allRoutes().find((r) => r.id === id)).ratings);
   }
 
   // Live-Positionen sehen nur angemeldete Nutzer

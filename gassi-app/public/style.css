@@ -175,6 +175,18 @@ body:has(.sheet.collapsed) { --sheet-h: 112px; }
 .pill.voll { background: var(--warn-soft); }
 .pill.live { background: var(--accent-soft); }
 .stars { color: var(--warn); letter-spacing: 1px; }
+.filters { display: flex; gap: 6px; overflow-x: auto; padding: 2px 2px 6px; margin: 0 -2px; scrollbar-width: none; }
+.filters::-webkit-scrollbar { display: none; }
+.chip-filter {
+  flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--ink); border-radius: 999px;
+  padding: 7px 13px; font: 600 15px/1 var(--font-body); cursor: pointer; white-space: nowrap;
+}
+.chip-filter.on { background: var(--accent); border-color: var(--accent); color: var(--accent-ink); }
+.kind { display: inline-block; font-size: 12px; font-weight: 700; letter-spacing: 0.04em; text-transform: uppercase; color: var(--muted); }
+.kind-hundeauslauf { color: var(--ok); }
+.kind-nutzer { color: var(--accent); }
+.more-btn { width: 100%; margin-top: 8px; }
+.breakdown li.unknown span:first-child { color: var(--muted); font-style: italic; }
 .section-note { color: var(--muted); font-size: 14px; margin: 14px 2px 6px; }
 .list-title { font: 600 18px/1.2 var(--font-display); text-transform: uppercase; letter-spacing: 0.04em; color: var(--muted); margin: 16px 0 8px; }
 

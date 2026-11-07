@@ -38,7 +38,7 @@ const state = {
 const NATIVE = window.GassiNative || null;
 
 // ---------- Karte ----------
-const map = L.map('map', { zoomControl: false }).setView([52.49, 13.3], 12);
+const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([54.85, 9.36], 11);
 L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', {
   maxZoom: 19,
   attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>',
@@ -58,8 +58,15 @@ function mapPadding() {
 function drawRoutes() {
   for (const l of routeLines.values()) l.remove();
   routeLines.clear();
+  const shown = new Set(filteredRoutes().map((r) => r.id));
+  if (state.selected) shown.add(state.selected);
   for (const r of state.routes) {
-    const line = L.polyline(r.points, { color: css('--accent'), weight: 5, opacity: 0.55 }).addTo(map);
+    if (!shown.has(r.id)) continue;
+    const area = r.kind === 'hundeauslauf';
+    const line = area
+      ? L.polygon(r.points, { color: css('--ok'), weight: 3, fillColor: css('--ok'), fillOpacity: 0.18 })
+      : L.polyline(r.points, { color: css('--accent'), weight: 5, opacity: 0.6 });
+    line.addTo(map);
     line.bindTooltip(r.name, { sticky: true });
     line.on('click', () => openRoute(r.id));
     routeLines.set(r.id, line);
@@ -70,9 +77,59 @@ function drawRoutes() {
 function styleRouteLines() {
   for (const [id, line] of routeLines) {
     const sel = id === state.selected;
-    line.setStyle({ weight: sel ? 8 : 5, opacity: state.selected && !sel ? 0.3 : sel ? 0.95 : 0.6 });
+    line.setStyle({ weight: sel ? 8 : (line instanceof L.Polygon ? 3 : 5), opacity: state.selected && !sel ? 0.3 : sel ? 0.95 : 0.6 });
     if (sel) line.bringToFront();
   }
+}
+
+// ---------- Runden passend zum Kartenausschnitt nachladen ----------
+let lastQuery = null;
+let loadTimer = null;
+async function loadNearby(force = false) {
+  const c = map.getCenter();
+  const corner = map.getBounds().getNorthEast();
+  const r = Math.min(60, Math.max(4, distance([c.lat, c.lng], [corner.lat, corner.lng]) / 1000 * 1.2));
+  if (!force && lastQuery) {
+    const moved = distance([c.lat, c.lng], [lastQuery.lat, lastQuery.lng]) / 1000;
+    if (moved < lastQuery.r * 0.35 && r <= lastQuery.r * 1.25) return;
+  }
+  const q = { lat: c.lat, lng: c.lng, r };
+  lastQuery = q;
+  try {
+    const list = await backend.getRoutes(q);
+    if (lastQuery !== q) return; // inzwischen weitergeschoben
+    const sel = state.selected && routeById(state.selected);
+    state.routes = sel && !list.some((x) => x.id === sel.id) ? [...list, sel] : list;
+    drawRoutes();
+    if (state.view === 'list' && state.tab === 'runden') renderList();
+  } catch { /* offline: bisherige Runden behalten */ }
+}
+map.on('moveend', () => { clearTimeout(loadTimer); loadTimer = setTimeout(() => loadNearby(), 500); });
+
+// ---------- Filter ----------
+const FILTERS = [
+  { key: 'schatten', label: 'Schattig', test: (r) => (r.attrs.shade ?? 0) >= 60 },
+  { key: 'wasser', label: 'Mit Wasser', test: (r) => r.attrs.water === true },
+  { key: 'freilauf', label: 'Freilauf', test: (r) => r.attrs.leash === 'frei' },
+  { key: 'auslauf', label: 'Hundeauslauf', test: (r) => r.kind === 'hundeauslauf' },
+  { key: 'kurz', label: 'bis 3 km', group: 'len', test: (r) => r.distanceKm <= 3 },
+  { key: 'mittel', label: '3–6 km', group: 'len', test: (r) => r.distanceKm > 3 && r.distanceKm <= 6 },
+  { key: 'lang', label: 'über 6 km', group: 'len', test: (r) => r.distanceKm > 6 },
+];
+state.filters = new Set(LS.get('gassi.filters', []));
+
+function filteredRoutes() {
+  const on = FILTERS.filter((f) => state.filters.has(f.key));
+  const plain = on.filter((f) => !f.group);
+  const len = on.filter((f) => f.group === 'len');
+  return state.routes.filter((r) => plain.every((f) => f.test(r)) && (!len.length || len.some((f) => f.test(r))));
+}
+
+function toggleFilter(key) {
+  state.filters.has(key) ? state.filters.delete(key) : state.filters.add(key);
+  LS.set('gassi.filters', [...state.filters]);
+  drawRoutes();
+  renderList();
 }
 
 function fitAll() {
@@ -102,34 +159,49 @@ function starsText(avg) {
 }
 
 // ---------- Runden-Liste ----------
+const KIND = {
+  hundeauslauf: 'Hundeauslauf',
+  wanderweg: 'Wanderweg',
+  vorgefertigt: 'Gassirunde-Tipp',
+  nutzer: 'Von der Community',
+};
+const kindOf = (r) => r.kind || (r.source === 'vorgefertigt' ? 'vorgefertigt' : 'nutzer');
+state.listLimit = 30;
+
 function renderList() {
   const el = $('#panel-runden');
-  const demo = state.routes.filter((r) => r.source === 'vorgefertigt');
-  const community = state.routes.filter((r) => r.source !== 'vorgefertigt');
-  const sortByScore = (a, b) => scoreOf(b).score - scoreOf(a).score;
-  const card = (r) => {
+  const ref = state.myPos || [map.getCenter().lat, map.getCenter().lng];
+  const list = filteredRoutes()
+    .map((r) => ({ r, d: distance(ref, r.points[0]) }))
+    .sort((x, y) => x.d - y.d);
+  const card = ({ r, d }) => {
     const { score } = scoreOf(r);
     const busy = busyLevel(r.busyness?.[hourNow()] ?? 20);
     const liveN = liveOnRoute(r).length;
     const avg = averageRating(r.ratings);
+    const k = kindOf(r);
     return `<li><button class="route-card${r.id === state.selected ? ' active' : ''}" data-id="${esc(r.id)}">
       <span class="score" style="--s:${score}"><b>${score}<small>Hund</small></b></span>
       <span>
+        <span class="kind kind-${k}">${esc(KIND[k])}</span>
         <h3>${esc(r.name)}</h3>
-        <span class="meta"><span>${formatKm(r.distanceKm * 1000)} km</span><span>ca. ${estimateMinutes(r.distanceKm, me.dogAge)} Min.</span>${avg != null ? `<span>${starsText(avg)} (${r.ratings.length})</span>` : ''}</span>
-        <span class="meta"><span class="pill ${busy.key}">jetzt ${busy.label}</span>${liveN ? `<span class="pill live">${liveN} ${liveN === 1 ? 'Hund' : 'Hunde'} gerade dort</span>` : ''}<span>${esc(LABELS.leash[r.attrs.leash] || '')}</span></span>
+        <span class="meta"><span>${formatDistanceShort(d)} entfernt</span><span>${formatKm(r.distanceKm * 1000)} km</span><span>ca. ${estimateMinutes(r.distanceKm, me.dogAge)} Min.</span>${avg != null ? `<span>${starsText(avg)} (${r.ratings.length})</span>` : ''}</span>
+        <span class="meta">${r.attrs.shade >= 60 ? '<span class="pill">schattig</span>' : ''}${r.attrs.water ? '<span class="pill">Wasser</span>' : ''}${r.attrs.leash === 'frei' ? '<span class="pill ruhig">Freilauf</span>' : ''}${liveN ? `<span class="pill live">${liveN} ${liveN === 1 ? 'Hund' : 'Hunde'} gerade dort</span>` : `<span class="pill ${busy.key}">jetzt ${busy.label}</span>`}</span>
       </span>
     </button></li>`;
   };
+  const chips = FILTERS.map((f) => `<button class="chip-filter${state.filters.has(f.key) ? ' on' : ''}" data-filter="${f.key}" aria-pressed="${state.filters.has(f.key)}">${esc(f.label)}</button>`).join('');
   el.innerHTML = `
-    ${community.length ? `<p class="section-note">Von der Community</p><ul class="route-list">${community.sort(sortByScore).map(card).join('')}</ul>` : ''}
-    <p class="section-note">Vorgefertigte Runden rund um Padborg</p>
-    <ul class="route-list">${demo.sort(sortByScore).map(card).join('')}</ul>
-    <p class="hint">Der Hunde-Score (0–100) bewertet Wasser, Schatten, Untergrund, Straßen, Leinenregel und Mülleimer. Starte selbst einen Spaziergang, um eine eigene Runde hinzuzufügen.</p>`;
+    <div class="filters" role="group" aria-label="Runden filtern">${chips}</div>
+    <p class="section-note">${list.length} ${list.length === 1 ? 'Runde' : 'Runden'} ${state.myPos ? 'in deiner Nähe' : 'rund um die Kartenmitte'}${state.filters.size ? ' (gefiltert)' : ''}</p>
+    ${list.length ? `<ul class="route-list">${list.slice(0, state.listLimit).map(card).join('')}</ul>` : `<p class="empty">Keine Runde passt zu den Filtern. Nimm einen Filter heraus oder verschiebe die Karte.</p>`}
+    ${list.length > state.listLimit ? `<button class="btn secondary small more-btn" data-more>Weitere ${Math.min(30, list.length - state.listLimit)} anzeigen</button>` : ''}
+    <p class="hint">Der Hunde-Score (0–100) bewertet Wasser, Schatten, Untergrund, Straßen, Leinenregel und Mülleimer. Hundeausläufe und Wanderwege stammen aus OpenStreetMap (© OpenStreetMap-Mitwirkende, ODbL). Verschiebe die Karte, um Runden in anderen Gegenden zu sehen.</p>`;
   state.listSig = listSignature();
 }
 
 function listSignature() {
+  if (!state.people.length) return 'leer';
   return state.routes.map((r) => `${r.id}:${liveOnRoute(r).length}`).join('|');
 }
 
@@ -169,7 +241,7 @@ function renderDetail() {
     const v = r.busyness?.[i] ?? 0;
     bars.push(`<i class="${i === h ? 'now' : ''}" style="height:${Math.max(4, v)}%" title="${i} Uhr: ${busyLevel(v).label}"></i>`);
   }
-  const by = r.source === 'vorgefertigt' ? 'Vorgefertigte Runde' : `Hinzugefügt von ${esc(r.author || 'Anonym')}`;
+  const by = r.source === 'vorgefertigt' ? 'Gassirunde-Tipp' : r.source === 'osm' ? `${esc(KIND[kindOf(r)])} · Daten: © OpenStreetMap-Mitwirkende` : `Hinzugefügt von ${esc(r.author || 'Anonym')}`;
   el.innerHTML = `<article class="detail">
     <div class="detail-head"><button class="back" id="back-btn">← Alle Runden</button></div>
     <h2>${esc(r.name)}</h2>
@@ -183,7 +255,7 @@ function renderDetail() {
     ${sc.warnings.length ? `<ul class="warnings">${sc.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
 
     <h3 class="list-title">So setzt sich der Score zusammen</h3>
-    <ul class="breakdown">${sc.parts.map((p) => `<li><span>${esc(p.label)}</span><span class="bar"><i style="width:${(p.pts / p.max) * 100}%"></i></span><span class="pts">${p.pts}/${p.max}</span></li>`).join('')}</ul>
+    <ul class="breakdown">${sc.parts.map((p) => `<li${p.unknown ? ' class="unknown"' : ''}><span>${esc(p.label)}</span><span class="bar"><i style="width:${(p.pts / p.max) * 100}%"></i></span><span class="pts">${p.pts}/${p.max}</span></li>`).join('')}</ul>
 
     <h3 class="list-title">Wie voll ist es?</h3>
     <p style="margin:0">Jetzt ${busy.label}${liveN ? `, <b>${liveN} ${liveN === 1 ? 'Hund' : 'Hunde'} gerade auf der Runde</b>` : ', gerade niemand live auf der Runde'}. Am ruhigsten gegen ${quiet} Uhr.</p>
@@ -865,7 +937,11 @@ for (const t of $$('.tab')) t.onclick = () => switchTab(t.dataset.tab);
 $('#find-form').addEventListener('change', renderFind);
 $('#find-results').addEventListener('click', (e) => { const li = e.target.closest('li[data-id]'); if (li) openRoute(li.dataset.id); });
 $('#find-results').addEventListener('keydown', (e) => { const li = e.target.closest('li[data-id]'); if (li && (e.key === 'Enter' || e.key === ' ')) { e.preventDefault(); openRoute(li.dataset.id); } });
-$('#panel-runden').addEventListener('click', (e) => { const b = e.target.closest('.route-card'); if (b) openRoute(b.dataset.id); });
+$('#panel-runden').addEventListener('click', (e) => {
+  const b = e.target.closest('.route-card'); if (b) return openRoute(b.dataset.id);
+  const f = e.target.closest('[data-filter]'); if (f) return toggleFilter(f.dataset.filter);
+  if (e.target.closest('[data-more]')) { state.listLimit += 30; renderList(); }
+});
 for (const i of $$('input[name="status"], input[name="rstatus"]')) i.onchange = () => setStatus(i.value);
 $('#share-live').onchange = (e) => {
   me.shareLive = e.target.checked; saveMe();
@@ -953,6 +1029,7 @@ try {
 drawRoutes();
 fitAll();
 renderList();
+loadNearby(true);
 renderFind();
 backend.onLive(onLive);
 backend.onWave((msg) => { if (msg.to === me.id) showWave(msg); });

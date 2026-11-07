@@ -227,7 +227,46 @@ function allRoutes(): array {
     return $out;
 }
 
+// ---------- Runden aus OpenStreetMap (data/osm/<zelle>.json, Zellen 0,5°) ----------
+
+function osmCell(string $key): array {
+    static $cache = [];
+    if (!isset($cache[$key])) {
+        $f = __DIR__ . '/data/osm/' . $key . '.json';
+        $cache[$key] = (preg_match('/^-?\d+_-?\d+$/', $key) && is_file($f)) ? (json_decode((string) file_get_contents($f), true) ?: []) : [];
+    }
+    return $cache[$key];
+}
+
+function osmNear(float $lat, float $lng, float $rKm, int $limit = 250): array {
+    $dLat = $rKm / 111; $dLng = $rKm / (111 * cos(deg2rad($lat)));
+    $found = [];
+    for ($a = (int) floor(($lat - $dLat) * 2); $a <= (int) floor(($lat + $dLat) * 2); $a++) {
+        for ($b = (int) floor(($lng - $dLng) * 2); $b <= (int) floor(($lng + $dLng) * 2); $b++) {
+            foreach (osmCell("{$a}_{$b}") as $r) {
+                $d = geoDistance([$lat, $lng], $r['points'][0]) / 1000;
+                if ($d <= $rKm) $found[] = [$d, $r];
+            }
+        }
+    }
+    usort($found, function ($x, $y) { return $x[0] <=> $y[0]; });
+    return array_map(function ($x) { return $x[1]; }, array_slice($found, 0, $limit));
+}
+
+function ratingsFor(array $ids): array {
+    if (!$ids) return [];
+    $rows = q('SELECT * FROM ratings WHERE route_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY date', $ids)->fetchAll();
+    $names = namesById(array_column($rows, 'user_id'));
+    $out = [];
+    foreach ($rows as $x) {
+        $u = $names[$x['user_id']] ?? null;
+        $out[$x['route_id']][] = ['userId' => $x['user_id'], 'stars' => (int) $x['stars'], 'text' => $x['text'], 'date' => $x['date'], 'name' => $u['name'] ?? 'Anonym', 'dog' => $u['dog'] ?? ''];
+    }
+    return $out;
+}
+
 function routeExists(string $id): bool {
+    if (preg_match('/^osm-[wr]\d{1,12}$/', $id)) return true; // Runde aus OpenStreetMap
     foreach (demoRoutes() as $r) if ($r['id'] === $id) return true;
     return (bool) q('SELECT 1 FROM routes WHERE id = ?', [$id])->fetch();
 }
@@ -358,7 +397,16 @@ try {
 
     // ----- Runden -----
     if ($p0 === 'routes') {
-        if ($method === 'GET' && $p1 === null) out(allRoutes()); // lesen darf jeder
+        if ($method === 'GET' && $p1 === null) { // lesen darf jeder
+            $all = allRoutes();
+            if (isset($_GET['lat'], $_GET['lng']) && is_numeric($_GET['lat']) && is_numeric($_GET['lng'])) {
+                $r = max(1.0, min(80.0, (float) ($_GET['r'] ?? 25)));
+                $near = osmNear((float) $_GET['lat'], (float) $_GET['lng'], $r);
+                $rat = ratingsFor(array_column($near, 'id'));
+                foreach ($near as $x) { $x['ratings'] = $rat[$x['id']] ?? []; $all[] = $x; }
+            }
+            out($all);
+        }
 
         if ($method === 'POST' && $p1 === null) {
             $user = requireUser();
@@ -409,7 +457,7 @@ try {
             $stars = $b['stars'] ?? null;
             if (!is_int($stars) || $stars < 1 || $stars > 5) fail('Bitte 1 bis 5 Sterne vergeben.');
             q('INSERT OR REPLACE INTO ratings (route_id, user_id, stars, text, date) VALUES (?, ?, ?, ?, ?)', [$p1, $user['id'], $stars, s($b['text'] ?? null, 500), nowIso()]);
-            foreach (allRoutes() as $r) if ($r['id'] === $p1) out($r['ratings']);
+            out(ratingsFor([$p1])[$p1] ?? []);
         }
         fail('Unbekannte Anfrage.', 404);
     }

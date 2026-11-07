@@ -13,7 +13,15 @@ let proc; let dataDir;
 
 before(async () => {
   dataDir = await mkdtemp(path.join(tmpdir(), 'gassi-'));
-  proc = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir }, stdio: 'pipe' });
+  // Beispiel-OSM-Daten: zwei Runden in einer Zelle bei Padborg
+  const { mkdir, writeFile } = await import('node:fs/promises');
+  const osmDir = path.join(dataDir, 'osm');
+  await mkdir(osmDir, { recursive: true });
+  const mk = (id, lat) => ({ id, name: id, source: 'osm', kind: 'hundeauslauf', points: [[lat, 9.33], [lat + 0.001, 9.33], [lat, 9.331], [lat, 9.33]], distanceKm: 0.3,
+    attrs: { water: null, shade: null, surface: 'natur', crossings: 0, leash: 'frei', bins: null }, busyness: new Array(24).fill(10) });
+  await writeFile(path.join(osmDir, '109_18.json'), JSON.stringify([mk('osm-w1', 54.845), mk('osm-w2', 54.99)]));
+  await writeFile(path.join(osmDir, 'index.json'), JSON.stringify({ cells: ['109_18'] }));
+  proc = spawn(process.execPath, ['server.js'], { cwd: ROOT, env: { ...process.env, PORT: String(PORT), DATA_DIR: dataDir, OSM_DIR: osmDir }, stdio: 'pipe' });
   for (let i = 0; i < 50; i++) {
     try { if ((await fetch(`${BASE}/api/health`)).ok) return; } catch { /* startet noch */ }
     await new Promise((r) => setTimeout(r, 100));
@@ -51,6 +59,19 @@ test('liefert App und Demo-Runden auch ohne Anmeldung aus', async () => {
   const { data } = await client().get('/api/routes');
   assert.ok(data.length >= 6);
   assert.equal((await client().get('/api/auth/me')).data.user, null);
+});
+
+test('OSM-Runden nur im gefragten Umkreis, Bewertung möglich', async () => {
+  const near = (await client().get('/api/routes?lat=54.845&lng=9.33&r=5')).data;
+  assert.ok(near.some((r) => r.id === 'osm-w1'));
+  assert.ok(!near.some((r) => r.id === 'osm-w2')); // 16 km entfernt
+  assert.ok(!(await client().get('/api/routes')).data.some((r) => r.id === 'osm-w1')); // ohne Ort keine OSM-Runden
+  const c = client();
+  await c.post('/api/auth/register', { email: 'osm@example.de', password: 'geheim123', name: 'Osmo' });
+  const list = (await c.post('/api/routes/osm-w1/ratings', { stars: 4 })).data;
+  assert.equal(list[0].name, 'Osmo');
+  assert.equal((await c.post('/api/routes/osm-w999/ratings', { stars: 4 })).status, 404);
+  await c.del('/api/me', { password: 'geheim123' });
 });
 
 test('verweigert Pfade außerhalb von public/', async () => {
