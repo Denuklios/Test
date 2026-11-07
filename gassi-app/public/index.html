@@ -285,6 +285,11 @@
     <form id="auth-form" novalidate>
       <h2 id="auth-title">Anmelden</h2>
       <p class="hint" id="auth-reason"></p>
+      <div class="auth-info">
+        <span class="info-badge static" aria-hidden="true">i</span>
+        <p>Neu hier? Die <b>Pfote mit dem i</b> oben links erklärt dir die ganze App.</p>
+        <button type="button" class="btn small secondary" data-open-info>Anleitung</button>
+      </div>
       <div class="seg auth-seg" role="tablist">
         <label><input type="radio" name="authmode" value="login" id="am-login" checked><span>Anmelden</span></label>
         <label><input type="radio" name="authmode" value="register" id="am-register"><span>Neues Konto</span></label>
@@ -318,7 +323,7 @@
       </div>
       <p class="form-error" id="auth-error" hidden></p>
       <div class="rec-actions">
-        <button type="button" class="btn secondary" id="auth-cancel">Abbrechen</button>
+        <button type="button" class="btn secondary" id="auth-cancel">Erst umsehen</button>
         <button type="submit" class="btn primary" id="auth-submit">Anmelden</button>
       </div>
     </form>

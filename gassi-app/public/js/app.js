@@ -240,6 +240,7 @@ function listSignature() {
 function openRoute(id, { fly = true } = {}) {
   const r = routeById(id);
   if (!r) return;
+  if (state.selected !== id) clearNav();
   state.selected = id;
   state.view = 'detail';
   switchTab('runden');
@@ -249,6 +250,7 @@ function openRoute(id, { fly = true } = {}) {
 }
 
 function closeDetail() {
+  clearNav();
   state.selected = null;
   state.view = 'list';
   styleRouteLines();
@@ -283,6 +285,18 @@ function renderDetail() {
       <div><b>ca. ${minutes}</b><span>Minuten (${me.dogAge === 'welpe' ? 'Welpe' : me.dogAge === 'senior' ? 'Senior' : 'erwachsener Hund'})</span></div>
       <div><b>${sc.score}</b><span>Hunde-Score</span></div>
     </div>
+    <div class="nav-box" id="nav-box">
+      <div class="nav-head"><span>Startpunkt von dir aus</span><b id="nav-dist">–</b></div>
+      <div class="nav-mode" role="group" aria-label="Verkehrsmittel">
+        <button type="button" data-navmode="car">Auto</button>
+        <button type="button" data-navmode="foot">Zu Fuß</button>
+      </div>
+      <p class="nav-result" id="nav-result" hidden></p>
+      <div class="nav-actions">
+        <button type="button" class="btn secondary small" id="nav-show">Weg dorthin</button>
+        <button type="button" class="btn primary small" id="nav-go">Navigation starten</button>
+      </div>
+    </div>
     ${sc.warnings.length ? `<ul class="warnings">${sc.warnings.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>` : ''}
 
     <h3 class="list-title">So setzt sich der Score zusammen</h3>
@@ -312,6 +326,7 @@ function renderDetail() {
   </article>`;
   $('#back-btn').onclick = closeDetail;
   $('#walk-route-btn').onclick = () => requireLogin('Melde dich an, um die Runde zu laufen und aufzuzeichnen.', () => startWalk(r));
+  setupNav(r);
   const del = $('#delete-route-btn');
   if (del) del.onclick = async () => {
     if (!del.dataset.armed) { del.dataset.armed = '1'; del.textContent = 'Wirklich löschen?'; return; }
@@ -336,6 +351,80 @@ function renderDetail() {
     });
   };
   state.listSig = listSignature();
+}
+
+// ---------- Navigation zum Startpunkt einer Runde ----------
+let navLine = null;
+function clearNav() { navLine?.remove(); navLine = null; state.navText = ''; }
+
+/** Eigener Standort: schon bekannt oder einmal abfragen. */
+function ensureMyPos() {
+  if (state.myPos) return Promise.resolve(state.myPos);
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) return reject(new Error('Dieses Gerät liefert keinen Standort.'));
+    navigator.geolocation.getCurrentPosition(
+      (p) => { setMyPos(p.coords.latitude, p.coords.longitude); resolve(state.myPos); },
+      () => reject(new Error('Standort nicht verfügbar. Bitte den Standortzugriff erlauben.')),
+      { enableHighAccuracy: true, timeout: 15000, maximumAge: 60000 },
+    );
+  });
+}
+
+const fmtMin = (min) => (min < 60 ? `${Math.round(min)} Min.` : `${Math.floor(min / 60)} Std. ${Math.round(min % 60)} Min.`);
+
+function setupNav(r) {
+  const start = r.points[0];
+  const showDist = () => {
+    const d = distance(state.myPos, start);
+    $('#nav-dist').textContent = `${formatDistanceShort(d)} Luftlinie`;
+    if (!state.navMode) state.navMode = d > 3000 ? 'car' : 'foot';
+    for (const b of $$('[data-navmode]')) b.setAttribute('aria-pressed', String(b.dataset.navmode === state.navMode));
+  };
+  if (state.myPos) showDist();
+  else {
+    $('#nav-dist').innerHTML = '<button type="button" class="btn small secondary" id="nav-locate">Entfernung zeigen</button>';
+    $('#nav-locate').onclick = () => ensureMyPos().then(showDist).catch((e) => toast(e.message));
+    for (const b of $$('[data-navmode]')) b.setAttribute('aria-pressed', String(b.dataset.navmode === (state.navMode || 'car')));
+  }
+  for (const b of $$('[data-navmode]')) b.onclick = () => {
+    state.navMode = b.dataset.navmode;
+    for (const x of $$('[data-navmode]')) x.setAttribute('aria-pressed', String(x === b));
+    if (navLine) showWay(r);
+  };
+  $('#nav-show').onclick = () => showWay(r);
+  if (navLine && state.navText) { $('#nav-result').hidden = false; $('#nav-result').textContent = state.navText; }
+  $('#nav-go').onclick = () => {
+    const url = `https://www.google.com/maps/dir/?api=1&destination=${start[0]},${start[1]}&travelmode=${(state.navMode || 'car') === 'car' ? 'driving' : 'walking'}`;
+    if (NATIVE) NATIVE.openExternal(url); else window.open(url, '_blank', 'noopener');
+  };
+}
+
+/** Weg vom Standort zum Startpunkt berechnen (OpenStreetMap-Routing) und auf der Karte zeigen. */
+async function showWay(r) {
+  const out = $('#nav-result');
+  out.hidden = false;
+  out.textContent = 'Weg wird berechnet …';
+  try {
+    const me0 = await ensureMyPos();
+    const mode = state.navMode || 'car';
+    const start = r.points[0];
+    const url = `https://routing.openstreetmap.de/routed-${mode}/route/v1/driving/${me0[1]},${me0[0]};${start[1]},${start[0]}?overview=full&geometries=geojson`;
+    const d = await (await fetch(url)).json();
+    const way = d.routes?.[0];
+    if (!way) throw new Error('Kein Weg gefunden.');
+    clearNav();
+    navLine = L.polyline(way.geometry.coordinates.map(([lo, la]) => [la, lo]), { color: css('--ink'), weight: 5, opacity: 0.75, dashArray: '8 8' }).addTo(map);
+    map.fitBounds(navLine.getBounds().extend(L.latLngBounds(r.points)), mapPadding());
+    out.textContent = state.navText = `${mode === 'car' ? 'Mit dem Auto' : 'Zu Fuß'}: ${formatDistanceShort(way.distance)} · ca. ${fmtMin(way.duration / 60)}`;
+    $('#nav-dist').textContent = `${formatDistanceShort(distance(me0, start))} Luftlinie`;
+  } catch (e) {
+    if (!state.myPos) { out.textContent = e.message || 'Standort nicht verfügbar.'; return; }
+    // Routenplaner nicht erreichbar: wenigstens die Luftlinie zeigen
+    clearNav();
+    navLine = L.polyline([state.myPos, r.points[0]], { color: css('--ink'), weight: 4, opacity: 0.6, dashArray: '2 10' }).addTo(map);
+    map.fitBounds(navLine.getBounds().extend(L.latLngBounds(r.points)), mapPadding());
+    out.textContent = state.navText = `Routenplaner gerade nicht erreichbar, Luftlinie ${formatDistanceShort(distance(state.myPos, r.points[0]))}. „Navigation starten“ öffnet Google Maps.`;
+  }
 }
 
 // ---------- Runde finden ----------
@@ -1204,6 +1293,7 @@ document.addEventListener('click', (e) => {
   if (e.target.closest('[data-close-person]')) $('#person-dialog').close();
   if (e.target.closest('[data-close-weather]')) $('#weather-dialog').close();
   if (e.target.closest('[data-close-info]')) $('#info-dialog').close();
+  if (e.target.closest('[data-open-info]')) $('#info-btn').click();
   if (e.target.closest('[data-wave]') && $('#person-dialog').open) $('#person-dialog').close();
   if (e.target.closest('[data-login]')) openAuth();
   const d = e.target.closest('[data-dismiss]');
@@ -1282,6 +1372,7 @@ backend.onWave((msg) => { if (msg.to === me.id) showWave(msg); });
   let startUser = null;
   try { startUser = await backend.me(); } catch { /* offline */ }
   if (!state.user) setUser(startUser);
+  if (backend.accounts && !state.user) openAuth('Willkommen bei Gassirunde! Melde dich an oder lege ein Konto an.');
 }
 
 if (NATIVE) {
