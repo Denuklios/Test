@@ -775,7 +775,8 @@ input::placeholder, textarea::placeholder { color: var(--text-dim); }
       </div>
       <div class="sb-group">
         <div class="sb-group-title">Kunden &amp; Aufträge</div>
-        <button class="main-tab" data-tab="inquiries" onclick="switchTab('inquiries')"><span class="ic">✉️</span>Anfragen<span class="badge-count" id="navBadgeInquiries"></span></button>
+        <!-- Anfragen stehen jetzt als Aufträge („Angefragt“) im Auftragsprogramm -->
+        <button class="main-tab" data-tab="inquiries" hidden style="display:none" onclick="switchTab('inquiries')"><span class="ic">✉️</span>Anfragen<span class="badge-count" id="navBadgeInquiries"></span></button>
         <button class="main-tab" data-tab="auftraege" onclick="switchTab('auftraege')"><span class="ic">🧾</span>Aufträge &amp; Rechnungen</button>
       </div>
       <div class="sb-group">
@@ -836,7 +837,7 @@ input::placeholder, textarea::placeholder { color: var(--text-dim); }
             <button class="qa-btn primary" data-need="auftraege" onclick="openOrdersApp('#/new')">＋ Neuer Auftrag</button>
             <button class="qa-btn" data-need="auftraege" onclick="openOrdersApp('#/calendar')">📅 Kalender</button>
             <button class="qa-btn" data-need="auftraege" onclick="openOrdersApp('#/invoices')">🧾 Rechnungen</button>
-            <button class="qa-btn" data-need="inquiries" onclick="switchTab('inquiries')">✉️ Anfragen</button>
+            <button class="qa-btn" data-need="auftraege" onclick="switchTab('auftraege')">✉️ Anfragen &amp; Aufträge</button>
           </div>
         </div>
       </div>
@@ -852,12 +853,12 @@ input::placeholder, textarea::placeholder { color: var(--text-dim); }
           <div class="stat-label">Besucher gesamt</div>
           <div class="stat-value" id="statTotal">–</div>
         </div>
-        <div class="stat-card clickable" onclick="switchTab('inquiries')">
+        <div class="stat-card clickable" onclick="switchTab('auftraege')">
           <span class="stat-ic">📨</span>
           <div class="stat-label">Anfragen gesamt</div>
           <div class="stat-value" id="statInquiries">–</div>
         </div>
-        <div class="stat-card clickable" onclick="switchTab('inquiries')">
+        <div class="stat-card clickable" onclick="switchTab('auftraege')">
           <span class="stat-ic">✨</span>
           <div class="stat-label">Neue Anfragen</div>
           <div class="stat-value" id="statNew">–</div>
@@ -1501,6 +1502,7 @@ function showDashboard(username) {
   startWelcomeCanvas();
   let start = 'overview';
   try { start = localStorage.getItem('wfAdminTab') || 'overview'; } catch (e) { /* kein Speicher */ }
+  if (start === 'inquiries') start = 'auftraege';
   if (!can(start) || !TAB_TITLES[start]) start = Object.keys(TAB_TITLES).find(can) || 'settings';
   if (can('inquiries')) loadInquiries();
   switchTab(start);
