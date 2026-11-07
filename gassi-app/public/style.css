@@ -73,7 +73,7 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .topbar-actions { display: flex; gap: 8px; align-items: center; }
 .chip {
   display: inline-flex; align-items: center; gap: 4px; padding: 6px 12px; border-radius: 999px;
-  background: var(--surface); box-shadow: var(--shadow); font: 600 17px/1.2 var(--font-display); font-variant-numeric: tabular-nums;
+  background: var(--surface); box-shadow: var(--shadow); font: 600 17px/1.2 var(--font-display); font-variant-numeric: tabular-nums; white-space: nowrap;
 }
 .chip.hot { background: var(--warn); color: var(--warn-ink); }
 .icon-btn {
