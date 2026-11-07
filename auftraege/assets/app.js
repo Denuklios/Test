@@ -297,12 +297,13 @@ route(/^\/$/, async () => {
     const params = { show: filt.show, q: filt.q };
     for (const k of ['status', 'pay', 'process', 'worker']) if (filt[k]) params[k] = filt[k];
     if (filt.overdue) params.overdue = 1;
-    // offene Anfragen von der Webseite (neu oder in Bearbeitung, noch kein Auftrag) oben anzeigen – nur bei „Alle Status“ oder „Angefragt“
-    const wantInq = filt.show === 'active' && (!filt.status || filt.status === 'inquiry') && !filt.pay && !filt.process && !filt.worker && !filt.overdue;
-    const [{ orders }, inqs] = await Promise.all([api('orders', { params }),
-      wantInq ? api('inquiries', { params: { status: 'open', q: filt.q } }).then((r) => r.inquiries || []).catch(() => []) : Promise.resolve([])]);
-    const inqPart = inqs.length ? [h('div', { class: 'ogroup inq' }, '✉ ' + t('inq_new_h'), h('small', {}, String(inqs.length))), ...inqs.map(inquiryRow)] : [];
-    if (!orders.length) { list.replaceChildren(...inqPart, h('div', { class: 'empty' }, t('no_orders'))); return; }
+    // offene Anfragen von der Webseite werden automatisch zu Aufträgen mit Status „Angefragt“ (höchstens einmal je Minute prüfen)
+    if (Date.now() - (window.__wfInqImport || 0) > 60000) {
+      window.__wfInqImport = Date.now();
+      try { const r = await api('inquiries_import', { body: {} }); if (r.imported) toast(t('inq_imported', r.imported)); } catch (e) { /* Webseite nicht erreichbar: ohne weiter */ }
+    }
+    const { orders } = await api('orders', { params });
+    if (!orders.length) { list.replaceChildren(h('div', { class: 'empty' }, t('no_orders'))); return; }
     // von oben nach unten nach Abgabetermin, in Abschnitten: überfällig, diese Woche, nächste Woche, später, ohne Termin
     const td = today(), wd = (new Date(td + 'T12:00:00').getDay() + 6) % 7;
     const addD = (n) => { const x = new Date(td + 'T12:00:00'); x.setDate(x.getDate() + n); return x.toISOString().slice(0, 10); };
@@ -317,7 +318,7 @@ route(/^\/$/, async () => {
       if (bk !== last) { out.push(h('div', { class: 'ogroup' + (bk === 'b_late' ? ' late' : '') }, t(bk), h('small', {}, String(sorted.filter((x) => bucket(x) === bk).length)))); last = bk; }
       out.push(orderRow(o));
     }
-    list.replaceChildren(...inqPart, ...out);
+    list.replaceChildren(...out);
   };
   let timer;
   const sel = (key, opts, ph) => h('select', { onchange: (e) => { filt[key] = e.target.value; load(); } },
@@ -355,19 +356,6 @@ function orderRow(o) {
     nextS && !o.deleted_at ? h('button', { class: 'btn small or-next', title: t('st_' + nextS), onclick: async (e) => { e.preventDefault(); e.stopPropagation(); const r = await setStatus(o, nextS); if (r) { toast(r.invoice_id ? t('inv_draft_auto') : t('saved')); render(); } } }, '→ ' + t('st_' + nextS)) : h('span', { class: 'or-next' }));
 }
 
-// Zeile für eine neue Anfrage von der Webseite (öffnet die Anfrage mit „Als Auftrag übernehmen“)
-function inquiryRow(q) {
-  const what = [q.qty ? parseInt(q.qty, 10) + '× ' : '', q.product || t('inq_title')].join('');
-  const got = q.created_at ? dfmt(String(q.created_at).slice(0, 10)) : '';
-  return h('a', { href: `#/inquiry/${q.id}`, class: 'orow inq', style: `--sc:${SCOL.inquiry}` },
-    h('span', { class: 'or-th none', style: `--sc:${SCOL.inquiry}` }, '✉'),
-    h('span', { class: 'or-main' }, h('b', {}, what), h('small', {}, [q.name, got ? t('inq_received', got) : ''].filter(Boolean).join(' · '))),
-    h('span', { class: 'or-due' }, q.wish_date ? dfmt(q.wish_date) : '—'),
-    h('span', { class: 'or-qty muted' }, q.snippet ? String(q.snippet).replace(/\s+/g, ' ').slice(0, 60) : ''),
-    h('span', { class: 'or-st' }, statusPill('inquiry')),
-    h('span', { class: 'btn small or-next' }, '→ ' + t('inq_view')));
-}
-
 function orderCard(o) {
   const late = o.due_date && o.due_date < today() && !['done', 'delivered'].includes(o.status);
   const idx = me.statuses.indexOf(o.status);
@@ -397,7 +385,8 @@ route(/^\/order\/(\d+)$/, async (id) => {
   const dayMin = wk ? wk.day_min : 480;
   show(
     h('a', { href: '#/', class: 'muted' }, '← ' + t('nav_orders')),
-    h('div', { class: 'page-head', style: 'margin-top:8px' }, h('div', {}, h('div', { class: 'eyebrow' }, o.nr), h('h1', {}, o.title), h('div', { class: 'muted' }, h('a', { href: `#/customer/${o.customer_id}` }, o.customer_name + (o.customer_company ? ' · ' + o.customer_company : '')))),
+    h('div', { class: 'page-head', style: 'margin-top:8px' }, h('div', {}, h('div', { class: 'eyebrow' }, o.nr), h('h1', {}, o.title), h('div', { class: 'muted' }, h('a', { href: `#/customer/${o.customer_id}` }, o.customer_name + (o.customer_company ? ' · ' + o.customer_company : '')),
+      o.inquiry_id ? [' · ', h('a', { href: `#/inquiry/${o.inquiry_id}` }, '✉ ' + t('inq_from_site'))] : null)),
       h('div', { class: 'row' }, o.deleted_at ? h('button', { class: 'btn', onclick: async () => { await api('order_restore', { body: { id: o.id } }); reload(); } }, t('restore')) : [
         h('a', { class: 'btn', href: `#/order/${o.id}/edit` }, t('edit')),
         h('button', { class: 'btn danger', onclick: async () => { if (confirm(t('confirm_delete'))) { await api('order_delete', { body: { id: o.id } }); location.hash = '#/'; } } }, t('delete'))])),

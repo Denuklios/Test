@@ -1,6 +1,6 @@
 window.WF_I18N = {
 de: {
-  inq_new_h: 'Neue Anfragen von der Webseite', inq_received: 'eingegangen {0}', inq_view: 'Ansehen',
+  inq_from_site: 'Website-Anfrage', inq_imported: '{0} neue Anfrage(n) von der Webseite als Auftrag übernommen', inq_to_order_open: 'Zum Auftrag',
   kc_color: 'Farbe', kc_tech: 'Veredelung', kc_pos: 'Position',
   konfig_btn: 'Konfigurator', konfig_title: 'Produkt-Konfigurator', konfig_sub: 'Schnell planen: Produkt, Farbe, Logo, Position und Größe wählen – mit Vorschau aller vier Ansichten.',
   konfig_to_order: 'Neuer Auftrag damit', konfig_err: 'Der Konfigurator konnte nicht geladen werden.', konfig_open_inq: 'Im Konfigurator öffnen',
@@ -226,7 +226,7 @@ de: {
   err_duplicate_admin_id: 'Admin-ID doppelt vergeben.', err_unknown_action: 'Unbekannte Aktion.', err_bad_json: 'Ungültige Daten.', err_bad_date: 'Datum ungültig.', err_range_too_large: 'Zeitraum zu groß.', err_nothing: 'Nichts zu ändern.', err_post_required: 'Ungültige Anfrage.'
 },
 da: {
-  inq_new_h: 'Nye forespørgsler fra hjemmesiden', inq_received: 'modtaget {0}', inq_view: 'Se',
+  inq_from_site: 'Forespørgsel fra hjemmesiden', inq_imported: '{0} ny(e) forespørgsel(er) fra hjemmesiden overtaget som ordre', inq_to_order_open: 'Til ordren',
   kc_color: 'Farve', kc_tech: 'Forædling', kc_pos: 'Placering',
   konfig_btn: 'Konfigurator', konfig_title: 'Produkt-konfigurator', konfig_sub: 'Planlæg hurtigt: vælg produkt, farve, logo, placering og størrelse – med visning fra alle fire sider.',
   konfig_to_order: 'Ny ordre med dette', konfig_err: 'Konfiguratoren kunne ikke indlæses.', konfig_open_inq: 'Åbn i konfiguratoren',

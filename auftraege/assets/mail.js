@@ -164,7 +164,7 @@ route(/^\/inquiry\/(\d+)$/, async (id) => {
         q.lang ? h('dt', {}, t('inq_lang')) : null, q.lang ? h('dd', {}, { de: '🇩🇪 Deutsch', da: '🇩🇰 Dansk', en: '🇬🇧 English' }[q.lang] || q.lang) : null),
       h('div', { class: 'row', style: 'gap:6px;flex-wrap:wrap;margin-top:10px' },
         h('a', { class: 'btn primary', href: `#/mail/new?inquiry=${q.id}` }, '↩ ' + t('inq_reply')),
-        h('a', { class: 'btn', href: '#/new?note=' + encodeURIComponent(note), onclick: () => {
+        q.order_id ? h('a', { class: 'btn', href: `#/order/${q.order_id}` }, '🧾 ' + t('inq_to_order_open')) : h('a', { class: 'btn', href: '#/new?note=' + encodeURIComponent(note), onclick: () => {
           // Kunde bekommt wie bisher „in Bearbeitung“; danach gilt die Anfrage als erledigt (ohne Mail), weil sie jetzt ein Auftrag ist
           (q.status === 'new' ? api('inquiry_status', { body: { id: q.id, status: 'in_progress', notify: 1 } }) : Promise.resolve())
             .then(() => (['done', 'archived'].includes(q.status) ? null : api('inquiry_status', { body: { id: q.id, status: 'done', notify: 0 } })))

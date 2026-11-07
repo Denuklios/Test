@@ -115,6 +115,16 @@ function need_post(): void
         wf_fail('post_required', 405);
     }
 }
+/** Verknüpfung Website-Anfrage → Auftrag (eigene kleine Tabelle, wird bei Bedarf angelegt). */
+function wf_inq_link_table(PDO $db): void
+{
+    static $ok = false;
+    if (!$ok) {
+        $db->exec('CREATE TABLE IF NOT EXISTS inquiry_orders (inquiry_id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE)');
+        $ok = true;
+    }
+}
+
 function log_order(PDO $db, int $orderId, array $user, string $what): void
 {
     $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([$orderId, $user['name'], $what]);
@@ -415,8 +425,14 @@ try {
             wf_json(['ok' => true, 'orders' => $st->fetchAll()]);
         }
 
-        case 'order':
-            wf_json(['ok' => true, 'order' => order_row($db, (int)($_GET['id'] ?? 0))]);
+        case 'order': {
+            $o = order_row($db, (int)($_GET['id'] ?? 0));
+            wf_inq_link_table($db);
+            $li = $db->prepare('SELECT inquiry_id FROM inquiry_orders WHERE order_id = ?');
+            $li->execute([(int)$o['id']]);
+            $o['inquiry_id'] = ($x = $li->fetchColumn()) ? (int)$x : null;
+            wf_json(['ok' => true, 'order' => $o]);
+        }
 
         case 'order_save': {
             need_post();
@@ -1327,6 +1343,88 @@ try {
             wf_json(['ok' => true, 'mail' => $m, 'atts' => $a->fetchAll()]);
         }
 
+        // Offene Anfragen der Webseite automatisch als Aufträge (Status „Angefragt“) übernehmen – je Anfrage nur einmal
+        case 'inquiries_import': {
+            need_post();
+            $site = wf_events_site_db();
+            if (!$site) {
+                wf_json(['ok' => true, 'imported' => 0, 'site' => false]);
+            }
+            wf_inq_link_table($db);
+            $rows = $site->query("SELECT * FROM inquiries WHERE status IN ('new', 'in_progress') ORDER BY created_at")->fetchAll();
+            $done = array_flip(array_map('intval', $db->query('SELECT inquiry_id FROM inquiry_orders')->fetchAll(PDO::FETCH_COLUMN)));
+            $made = 0;
+            foreach ($rows as $q) {
+                $qid = (int)$q['id'];
+                if (isset($done[$qid])) {
+                    continue;
+                }
+                $db->beginTransaction();
+                try {
+                    // Kunde über die Mailadresse finden, sonst anlegen
+                    $email = mb_strtolower(trim((string)$q['email']));
+                    $cid = 0;
+                    if ($email !== '') {
+                        $c = $db->prepare('SELECT id FROM customers WHERE lower(trim(email)) = ? AND anonymized_at IS NULL ORDER BY id DESC LIMIT 1');
+                        $c->execute([$email]);
+                        $cid = (int)$c->fetchColumn();
+                    }
+                    $lang = in_array($q['lang'] ?? 'de', ['de', 'da', 'en'], true) ? $q['lang'] : 'de';
+                    if (!$cid) {
+                        $db->prepare('INSERT INTO customers (name, email, phone, currency, country) VALUES (?,?,?,?,?)')
+                           ->execute([mb_substr(trim((string)$q['name']) ?: $email, 0, 200), $email, mb_substr(trim((string)($q['phone'] ?? '')), 0, 60), $lang === 'de' ? 'EUR' : 'DKK', $lang === 'de' ? 'DE' : 'DK']);
+                        $cid = (int)$db->lastInsertId();
+                    }
+                    $cur = (string)$db->query('SELECT currency FROM customers WHERE id = ' . $cid)->fetchColumn() ?: 'DKK';
+                    if (!in_array($cur, wf_cfg('currencies'), true)) {
+                        $cur = 'DKK';
+                    }
+                    $k = !empty($q['konfig']) ? json_decode((string)$q['konfig'], true) : null;
+                    $prod = trim((string)($q['product'] ?? ''));
+                    $title = $k && !empty($k['product_name']) ? $k['product_name'] . ($k['tech_name'] ?? '' ? ' – ' . $k['tech_name'] : '') : ($prod !== '' ? $prod : 'Anfrage');
+                    $qty = max(1, min(1000000, (int)preg_replace('/\D/', '', (string)($q['qty'] ?? '')) ?: 1));
+                    $due = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($q['wish_date'] ?? '')) ? $q['wish_date'] : null;
+                    $note = 'Aus Website-Anfrage #' . $qid . ' vom ' . date('d.m.Y', strtotime((string)$q['created_at']))
+                        . ($q['phone'] ?? '' ? "\nTelefon: " . $q['phone'] : '') . ($q['file_name'] ?? '' ? "\nDatei: " . $q['file_name'] . ' (liegt der Benachrichtigungs-Mail bei)' : '');
+                    $year = date('Y');
+                    $n = (int)$db->query("SELECT COUNT(*) FROM orders WHERE nr LIKE '$year-%'")->fetchColumn() + 1;
+                    $ex = $db->prepare('SELECT 1 FROM orders WHERE nr = ?');
+                    do {
+                        $nr = sprintf('%s-%04d', $year, $n++);
+                        $ex->execute([$nr]);
+                    } while ($ex->fetchColumn());
+                    $db->prepare('INSERT INTO orders (nr, customer_id, title, description, article, qty, price, deposit, currency, pay_status, status, due_date, worker_id, notes, items, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+                       ->execute([$nr, $cid, mb_substr($title, 0, 200), mb_substr((string)($q['message'] ?? ''), 0, 5000), $prod !== '' ? mb_substr($prod, 0, 300) : '', $qty, 0, 0, $cur, 'open', 'inquiry', $due, 1, mb_substr($note, 0, 5000), '[]', $user['id'] ?: null]);
+                    $oid = (int)$db->lastInsertId();
+                    log_order($db, $oid, ['name' => 'Webseite'], 'created');
+                    // Vorschaubild und Logo aus „Selbst gestalten“ als Dateien an den Auftrag hängen
+                    $dir = wf_inquiry_file_dir();
+                    foreach (['preview_file' => 'vorschau-anfrage-' . $qid, 'logo_file' => (string)($q['logo_name'] ?? 'logo')] as $col => $name) {
+                        $f = (string)($q[$col] ?? '');
+                        if ($f === '' || !preg_match('/^[0-9a-f]{24}\.(jpg|png|svg)$/', $f, $m) || !is_file($dir . $f)) {
+                            continue;
+                        }
+                        $mime = ['jpg' => 'image/jpeg', 'png' => 'image/png', 'svg' => 'image/svg+xml'][$m[1]];
+                        $stored = bin2hex(random_bytes(16)) . '.dat';
+                        if (@copy($dir . $f, rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/' . $stored)) {
+                            $orig = preg_replace('/[^\p{L}\p{N}._ -]/u', '_', pathinfo($name, PATHINFO_FILENAME)) . '.' . $m[1];
+                            $db->prepare('INSERT INTO order_files (order_id, original_name, stored_name, mime, size) VALUES (?,?,?,?,?)')->execute([$oid, mb_substr($orig, 0, 200), $stored, $mime, (int)filesize($dir . $f)]);
+                        }
+                    }
+                    $db->prepare('INSERT INTO inquiry_orders (inquiry_id, order_id) VALUES (?,?)')->execute([$qid, $oid]);
+                    $db->commit();
+                    $made++;
+                } catch (Throwable $e) {
+                    $db->rollBack();
+                    error_log('auftraege inquiries_import #' . $qid . ': ' . $e->getMessage());
+                }
+            }
+            if ($made) {
+                wf_touch();
+            }
+            wf_json(['ok' => true, 'imported' => $made, 'site' => true]);
+        }
+
         // eine Anfrage von der Webseite (zum Öffnen aus der Benachrichtigung)
         case 'app_inquiry': {
             $site = wf_events_site_db();
@@ -1346,6 +1444,10 @@ try {
             $out['has_logo'] = !empty($r['logo_file']) && is_file(wf_inquiry_file_dir() . basename((string)$r['logo_file']));
             $out['logo_name'] = $r['logo_name'] ?? null;
             $out['logo_ext'] = !empty($r['logo_file']) ? pathinfo((string)$r['logo_file'], PATHINFO_EXTENSION) : null;
+            wf_inq_link_table($db);
+            $lo = $db->prepare('SELECT io.order_id FROM inquiry_orders io JOIN orders o ON o.id = io.order_id WHERE io.inquiry_id = ? AND o.deleted_at IS NULL');
+            $lo->execute([(int)$r['id']]);
+            $out['order_id'] = ($x = $lo->fetchColumn()) ? (int)$x : null;
             wf_json(['ok' => true, 'inquiry' => $out]);
         }
 
