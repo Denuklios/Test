@@ -1,7 +1,7 @@
 /* Wunsch-Fabrik Werkstatt – Handy-App (läuft in der Android-App, spricht mit api.php über den App-Schlüssel). */
 (() => {
 'use strict';
-const APP_VERSION = '1.2.0';
+const APP_VERSION = '1.2.1';
 
 // ---------- Speicher & Sprache ----------
 const store = {
@@ -117,7 +117,19 @@ async function api(a, { params = {}, body = null, form = null } = {}) {
   try { r = await fetch(`${base()}api.php?${new URLSearchParams({ a, ...params })}`, opt); } catch (e) { setNet(false); throw new Error(t('err_network')); }
   setNet(true);
   let j = null; try { j = await r.json(); } catch (e) { /* leer */ }
-  if (r.status === 401) { store.del('cfg'); cfg = null; toast(t('a_logged_out')); pairView(); throw new Error('not_logged_in'); }
+  if (r.status === 401) {
+    // Erst nach einer zweiten Prüfung abkoppeln: ein kurzer Aussetzer des Servers (z. B. während eines Updates)
+    // soll die App nicht abmelden. Nur wenn der Schlüssel wirklich ungültig ist, braucht es einen neuen Code.
+    let really = true;
+    try {
+      await new Promise((ok) => setTimeout(ok, 4000));
+      const r2 = await fetch(`${base()}api.php?a=app_whoami`, { headers: { 'X-App-Token': cfg.token } });
+      really = r2.status === 401;
+    } catch (e) { really = false; }
+    if (!really) { setNet(false); throw new Error(t('err_network')); }
+    store.del('cfg'); cfg = null; toast(t('a_logged_out')); pairView(); throw new Error('not_logged_in');
+  }
+  if (r.status === 503) throw new Error(t('err_network'));
   if (r.status === 403 && j && j.error === 'app_forbidden') throw new Error(t('a_forbidden'));
   if (!j || !j.ok) { const code = j ? j.error : 'server_error'; const m = t('err_' + code); throw new Error(m === 'err_' + code ? code : m); }
   return j;

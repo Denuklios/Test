@@ -270,7 +270,9 @@ function wf_app_user(string $tok): ?array
         }
         return ['id' => 0, 'name' => (string)$t['name'], 'wf_admin_id' => '', 'active' => 1, 'app' => (int)$t['id'], 'worker_id' => $t['worker_id'] !== null ? (int)$t['worker_id'] : null];
     } catch (Throwable $e) {
-        return null;
+        // Datenbank kurz nicht erreichbar (z. B. während eines Updates): NICHT als „abgemeldet“ melden,
+        // sonst löscht die Handy-App ihre Kopplung. Stattdessen „bitte gleich nochmal“.
+        wf_fail('server_busy', 503);
     }
 }
 

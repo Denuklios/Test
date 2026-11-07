@@ -3,8 +3,8 @@
 # Ergebnis: ../auftraege/app/wunsch-fabrik-werkstatt.apk (+ version.json), wird mit der Auftrags-App hochgeladen.
 # Version: hier und in www/mobile.js (APP_VERSION) gleich halten.
 set -e
-VERSION=1.2.0
-CODE=5
+VERSION=1.2.1
+CODE=6
 cd "$(dirname "$0")"
 SDK=${ANDROID_SDK:-/opt/android-sdk}
 BT=$SDK/build-tools/35.0.0
