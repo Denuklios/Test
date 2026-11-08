@@ -63,7 +63,7 @@
   };
 
   /* ---------- Farben ---------- */
-  const IMGV = 2;   // bei neuen Produktfotos hochzählen (Browser-Zwischenspeicher)
+  const IMGV = 3;   // bei neuen Produktfotos hochzählen (Browser-Zwischenspeicher)
   const COLORS = {
     weiss: ['Weiß', 'Hvid', 'White', '#ffffff'], natur: ['Natur', 'Natur', 'Natural', '#efe6d2'], sand: ['Sand', 'Sand', 'Sand', '#d6c4a1'],
     grau: ['Grau meliert', 'Gråmeleret', 'Heather grey', '#a3a5a8'], anthrazit: ['Anthrazit', 'Antracit', 'Charcoal', '#3c3e42'], schwarz: ['Schwarz', 'Sort', 'Black', '#151515'],
