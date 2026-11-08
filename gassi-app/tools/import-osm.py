@@ -218,9 +218,10 @@ def dog_parks(places):
         if out_of_time():
             skipped += 1
             continue
+        # Orte für Namen namenloser Flächen (mit Koordinaten)
+        places.add(tiled('[out:json][timeout:90];node["place"~"^(city|town|village|suburb)$"]({bb});out;', box))
         els = tiled('[out:json][timeout:90];(way["leisure"="dog_park"]({bb});relation["leisure"="dog_park"]({bb}););out geom tags;'
                     'node["place"~"^(city|town|village|suburb)$"]({bb});out tags;', box)
-        places.add([e for e in els if e['type'] == 'node'])
         n = 0
         for e in els:
             if e['type'] == 'node' or (e['type'], e['id']) in seen:
@@ -271,7 +272,8 @@ def region_routes(places):
     rel = {'elements': []}
     ids = set()
     for box in grid(REGION, 0.45, 0.65):
-        for e in tiled('[out:json][timeout:90];relation["route"~"^(hiking|foot)$"]({bb});out geom tags;', box):
+        # „out geom;“ (nicht „out geom tags;“): nur so kommen die Wegstücke der Relation mit
+        for e in tiled('[out:json][timeout:90];relation["route"~"^(hiking|foot)$"]({bb});out geom;', box):
             if e['id'] not in ids:
                 ids.add(e['id']); rel['elements'].append(e)
     print(f'  {len(ids)} Wanderwege. Wald und Wasser der Region …', file=sys.stderr)
@@ -283,7 +285,8 @@ def region_routes(places):
         water['elements'] += tiled('[out:json][timeout:90];(way["natural"="water"]({bb});way["waterway"~"^(river|stream|canal)$"]({bb});'
                                    'way["natural"="coastline"]({bb}););out geom;', box)
     print(f'  {len(nature["elements"])} Waldflächen, {len(water["elements"])} Gewässer', file=sys.stderr)
-    places.add(tiled('[out:json][timeout:90];node["place"~"^(city|town|village|suburb|hamlet)$"]({bb});out tags;', REGION))
+    # „out;“ statt „out tags;“: nur so kommen die Koordinaten der Orte mit
+    places.add(tiled('[out:json][timeout:90];node["place"~"^(city|town|village|suburb|hamlet)$"]({bb});out;', REGION))
 
     forests = []
     for e in nature['elements']:
