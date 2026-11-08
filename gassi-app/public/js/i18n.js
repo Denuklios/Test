@@ -28,6 +28,7 @@ const ROWS = [
   ['Runden und Live', 'Ruter og live', 'Routes and live'],
   ['Fenster vergrößern oder verkleinern', 'Gør vinduet større eller mindre', 'Enlarge or shrink window'],
   ['Runden anzeigen', 'Vis ruter', 'Show routes'],
+  ['Web-Version.', 'Webversion.', 'Web version.'],
   ['Daten: © OpenStreetMap-Mitwirkende (ODbL)', 'Data: © OpenStreetMap-bidragydere (ODbL)', 'Data: © OpenStreetMap contributors (ODbL)'],
   ['Näher heranzoomen, um Runden zu sehen', 'Zoom ind for at se ruter', 'Zoom in to see routes'],
   ['Runden', 'Ruter', 'Routes'],
@@ -495,7 +496,7 @@ const GUIDE = {
       <details><summary>Tips til telefonen</summary><ul>
         <li>Stopper optagelsen i baggrunden, så fjern Gassirunde fra batterioptimering: Indstillinger → Apps → Gassirunde → Batteri → „Ingen begrænsning“.</li>
       </ul></details>
-      <p class="hint info-credits">Kort og ruter: © OpenStreetMap-bidragydere (ODbL), kortstil HOT. Vejr: Open-Meteo. <span id="info-version"></span></p>`,
+      <div class="info-legal"><div class="legal-links" data-no-i18n></div><p class="hint"><span id="info-version"></span></p></div>`,
   en: `
       <h2 id="info-title">How Gassirunde works</h2>
       <p class="info-lead">Record walks with your dog, find good paths and see who is out right now: to avoid each other or to walk together.</p>
@@ -551,5 +552,5 @@ const GUIDE = {
       <details><summary>Phone tips</summary><ul>
         <li>If recording stops in the background, exclude Gassirunde from battery optimisation: Settings → Apps → Gassirunde → Battery → “Unrestricted”.</li>
       </ul></details>
-      <p class="hint info-credits">Maps and routes: © OpenStreetMap contributors (ODbL), map style HOT. Weather: Open-Meteo. <span id="info-version"></span></p>`,
+      <div class="info-legal"><div class="legal-links" data-no-i18n></div><p class="hint"><span id="info-version"></span></p></div>`,
 };

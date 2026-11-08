@@ -445,6 +445,13 @@ function meetupJson(m, user) {
 
 async function handleMeetups(req, res, parts, url) {
   const user = requireUser(req);
+  // Datensparsam: Treffen samt Chat 30 Tage nach dem Termin löschen
+  const cutoff = new Date(Date.now() - 30 * 864e5).toISOString();
+  const old = new Set(store.meetups.filter((m) => m.startsAt < cutoff).map((m) => m.id));
+  if (old.size) {
+    store.meetups = store.meetups.filter((m) => !old.has(m.id));
+    store.messages = store.messages.filter((x) => !old.has(x.meetupId));
+  }
   const id = parts[2];
   const find = () => {
     const m = store.meetups.find((x) => x.id === id);

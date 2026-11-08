@@ -5,6 +5,7 @@ import {
 } from './core.js';
 import { createBackend, LS } from './backend.js';
 import { t, lang, locale, setLang, startI18n } from './i18n.js';
+import { legalHtml, LEGAL_TITLES, LEGAL_SECTIONS, LEGAL_STAND } from './legal.js';
 import { setDecimal } from './core.js';
 
 // Sprache der Oberfläche
@@ -1583,6 +1584,27 @@ $('#discard-btn').onclick = discardWalk;
 $('#sv-share').onchange = toggleShareFields;
 $('#me-btn').onclick = openProfile;
 $('#weather').onclick = openWeather;
+// ---------- Rechtliches ----------
+const LT = LEGAL_TITLES[lang] || LEGAL_TITLES.de;
+function openLegal(section = 'impressum') {
+  const dlg = $('#legal-dialog');
+  $('#legal-title').textContent = LT.heading;
+  $('.legal-tabs').innerHTML = LEGAL_SECTIONS.map((k) => `<button type="button" role="tab" data-legal-tab="${k}" aria-selected="${k === section}">${LT[k]}</button>`).join('');
+  $('#legal-body').innerHTML = legalHtml(lang, section);
+  $('#legal-stand').textContent = `${LT.stand}: ${new Date(LEGAL_STAND).toLocaleDateString(locale())}`;
+  for (const b of $$('[data-legal-tab]')) b.onclick = () => openLegal(b.dataset.legalTab);
+  if (!dlg.open) showFromTop(dlg, '#legal-title'); else dlg.scrollTop = 0;
+}
+for (const box of $$('.legal-links')) {
+  box.innerHTML = LEGAL_SECTIONS.map((k) => `<button type="button" data-legal="${k}">${LT[k]}</button>`).join('');
+}
+$('#auth-legal').innerHTML = {
+  de: 'Mit dem Konto gelten die <button type="button" data-legal="nutzung">Nutzungsbedingungen</button>. Was mit deinen Daten passiert: <button type="button" data-legal="datenschutz">Datenschutz</button>.',
+  da: 'Med kontoen gælder <button type="button" data-legal="nutzung">vilkårene for brug</button>. Hvad der sker med dine data: <button type="button" data-legal="datenschutz">privatlivspolitik</button>.',
+  en: 'Your account is subject to the <button type="button" data-legal="nutzung">terms of use</button>. What happens to your data: <button type="button" data-legal="datenschutz">privacy policy</button>.',
+}[lang] || '';
+document.addEventListener('click', (e) => { const b = e.target.closest('[data-legal]'); if (b) { e.preventDefault(); openLegal(b.dataset.legal); } });
+
 // Jedes Fenster bekommt ein X oben rechts
 for (const dlg of $$('dialog')) {
   const wrap = document.createElement('div');

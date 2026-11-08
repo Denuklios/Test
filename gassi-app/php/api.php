@@ -519,6 +519,8 @@ try {
     // ----- Treffen und Chat (nur angemeldet) -----
     if ($p0 === 'meetups') {
         $user = requireUser();
+        // Datensparsam: Treffen samt Chat 30 Tage nach dem Termin löschen
+        q('DELETE FROM meetups WHERE starts_at < ?', [gmdate('Y-m-d\TH:i:s\Z', time() - 30 * 86400)]);
         $meetupJson = function (array $m) use ($user): array {
             $mem = q('SELECT mm.user_id, mm.last_read, u.name, u.dog, u.languages FROM meetup_members mm JOIN users u ON u.id = mm.user_id WHERE mm.meetup_id = ? ORDER BY u.name', [$m['id']])->fetchAll();
             $mine = null;

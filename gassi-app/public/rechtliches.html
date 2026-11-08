@@ -1,0 +1,57 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Gassirunde – Rechtliches</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="stylesheet" href="fonts/fonts.css">
+  <link rel="stylesheet" href="style.css">
+  <style>
+    body { background: var(--bg); color: var(--ink); font-family: var(--font-body); margin: 0; overflow: auto; height: auto; }
+    .page { max-width: 760px; margin: 0 auto; padding: 24px 16px 48px; }
+    .page header { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex-wrap: wrap; }
+    .page h1 { font: 700 34px/1.1 var(--font-display); text-transform: uppercase; letter-spacing: 0.02em; margin: 0; color: var(--accent); }
+    .page section { background: var(--surface); border-radius: 16px; padding: 18px 20px; margin: 18px 0; box-shadow: var(--shadow); }
+    .page h2 { font: 700 24px/1.2 var(--font-display); text-transform: uppercase; margin: 0 0 6px; }
+    .toc { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 14px 0 0; }
+    .toc a, .page a { color: var(--accent); }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header>
+      <h1 id="title">Rechtliches</h1>
+      <div class="lang-switch" role="group" aria-label="Sprache">
+        <button type="button" data-lang="de">DE</button><button type="button" data-lang="da">DA</button><button type="button" data-lang="en">EN</button>
+      </div>
+    </header>
+    <nav class="toc" id="toc"></nav>
+    <div id="sections"></div>
+    <p class="legal-stand" id="stand"></p>
+  </main>
+  <script type="module">
+    import { legalHtml, LEGAL_TITLES, LEGAL_SECTIONS, LEGAL_STAND } from './js/legal.js';
+    const pick = () => {
+      const q = new URLSearchParams(location.search).get('lang');
+      let saved = null; try { saved = localStorage.getItem('gassi.lang'); } catch { /* privat */ }
+      const nav = (navigator.language || 'de').slice(0, 2);
+      return [q, saved, nav].find((l) => ['de', 'da', 'en'].includes(l)) || 'de';
+    };
+    function render(lang) {
+      const T = LEGAL_TITLES[lang];
+      document.documentElement.lang = lang;
+      document.title = `Gassirunde – ${T.heading}`;
+      document.getElementById('title').textContent = T.heading;
+      document.getElementById('toc').innerHTML = LEGAL_SECTIONS.map((k) => `<a href="#${k}">${T[k]}</a>`).join('');
+      document.getElementById('sections').innerHTML = LEGAL_SECTIONS.map((k) => `<section id="${k}" class="legal-body"><h2>${T[k]}</h2>${legalHtml(lang, k)}</section>`).join('');
+      document.getElementById('stand').textContent = `${T.stand}: ${new Date(LEGAL_STAND).toLocaleDateString({ de: 'de-DE', da: 'da-DK', en: 'en-GB' }[lang])}`;
+      for (const b of document.querySelectorAll('[data-lang]')) b.setAttribute('aria-pressed', String(b.dataset.lang === lang));
+      if (location.hash) document.querySelector(location.hash)?.scrollIntoView();
+    }
+    for (const b of document.querySelectorAll('[data-lang]')) b.onclick = () => { history.replaceState(null, '', `?lang=${b.dataset.lang}${location.hash}`); render(b.dataset.lang); };
+    render(pick());
+  </script>
+</body>
+</html>

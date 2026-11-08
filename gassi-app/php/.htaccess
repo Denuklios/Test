@@ -10,3 +10,4 @@ Options -Indexes
 
 # Android-App
 AddType application/vnd.android.package-archive .apk
+AddType font/woff2 .woff2
