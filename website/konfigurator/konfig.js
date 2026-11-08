@@ -63,6 +63,7 @@
   };
 
   /* ---------- Farben ---------- */
+  const IMGV = 2;   // bei neuen Produktfotos hochzählen (Browser-Zwischenspeicher)
   const COLORS = {
     weiss: ['Weiß', 'Hvid', 'White', '#ffffff'], natur: ['Natur', 'Natur', 'Natural', '#efe6d2'], sand: ['Sand', 'Sand', 'Sand', '#d6c4a1'],
     grau: ['Grau meliert', 'Gråmeleret', 'Heather grey', '#a3a5a8'], anthrazit: ['Anthrazit', 'Antracit', 'Charcoal', '#3c3e42'], schwarz: ['Schwarz', 'Sort', 'Black', '#151515'],
@@ -323,7 +324,7 @@
       const t = T(), p = S.prod;
       secProd.replaceChildren(el('h4', {}, t.product, el('b', {}, L(p.name, lang))), el('div', { class: 'wfk-prods' },
         PRODUCTS.map((q) => el('button', { type: 'button', class: q.id === p.id ? 'on' : '', title: L(q.name, lang), onclick: () => choose(q.id) },
-          el('img', { alt: '', src: base + 'img/' + q.id + '-t.jpg', loading: 'lazy' }), L(q.name, lang)))));
+          el('img', { alt: '', src: base + 'img/' + q.id + '-t.jpg?v=' + IMGV, loading: 'lazy' }), L(q.name, lang)))));
       const cname = COLORS[S.color] ? L(COLORS[S.color], lang) : S.hex.toUpperCase();
       secColor.replaceChildren(el('h4', {}, t.color, el('b', {}, cname)), el('div', { class: 'wfk-sw' },
         p.colors.map((c) => el('button', { type: 'button', title: L(COLORS[c], lang), 'aria-label': L(COLORS[c], lang), class: c === S.color ? 'on' : '', style: 'background:' + COLORS[c][3], onclick: () => setColor(c) }))),
@@ -383,7 +384,7 @@
       stage.classList.add('loading');
       try {
         if (!prepared.has(p.id)) {
-          const [img, mask] = await Promise.all([loadImg(base + 'img/' + p.id + '.jpg'), loadImg(base + 'img/' + p.id + '-m.png')]);
+          const [img, mask] = await Promise.all([loadImg(base + 'img/' + p.id + '.jpg?v=' + IMGV), loadImg(base + 'img/' + p.id + '-m.png?v=' + IMGV)]);
           await new Promise((r) => setTimeout(r, 16));
           prepared.set(p.id, prepare(img, mask, false, p.views === 'mug' ? 3 : 4));
         }
