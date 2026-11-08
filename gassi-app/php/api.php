@@ -273,6 +273,35 @@ function osmNear(float $lat, float $lng, float $rKm, int $limit = 250): array {
     return array_map(function ($x) { return $x[1]; }, array_slice($found, 0, $limit));
 }
 
+/** Übersicht für die herausgezoomte Karte: je Zelle Anzahl der Runden und ihre Mitte (zwischengespeichert). */
+function osmOverview(): array {
+    $idxFile = __DIR__ . '/data/osm/index.json';
+    if (!is_file($idxFile)) return [];
+    $sig = (string) filemtime($idxFile) . '-' . filesize($idxFile);
+    $cache = DATA_DIR . '/osm-overview.json';
+    if (is_file($cache)) {
+        $c = json_decode((string) file_get_contents($cache), true);
+        if (is_array($c) && ($c['sig'] ?? '') === $sig) return $c['list'];
+    }
+    $idx = json_decode((string) file_get_contents($idxFile), true);
+    $list = [];
+    foreach ((array) ($idx['cells'] ?? []) as $key) {
+        $key = (string) $key;
+        if (!preg_match('/^-?\d+_-?\d+$/', $key)) continue;
+        $f = __DIR__ . '/data/osm/' . $key . '.json';
+        if (!is_file($f)) continue;
+        $rs = json_decode((string) file_get_contents($f), true);
+        if (!$rs) continue;
+        $la = 0; $ln = 0;
+        foreach ($rs as $r) { $la += $r['points'][0][0]; $ln += $r['points'][0][1]; }
+        $list[] = ['lat' => round($la / count($rs), 4), 'lng' => round($ln / count($rs), 4), 'n' => count($rs)];
+        unset($rs);
+    }
+    if (!is_dir(DATA_DIR)) mkdir(DATA_DIR, 0775, true);
+    @file_put_contents($cache, json_encode(['sig' => $sig, 'list' => $list]));
+    return $list;
+}
+
 function ratingsFor(array $ids): array {
     if (!$ids) return [];
     $rows = q('SELECT * FROM ratings WHERE route_id IN (' . implode(',', array_fill(0, count($ids), '?')) . ') ORDER BY date', $ids)->fetchAll();
@@ -421,6 +450,7 @@ try {
 
     // ----- Runden -----
     if ($p0 === 'routes') {
+        if ($method === 'GET' && $p1 === 'overview') out(osmOverview());
         if ($method === 'GET' && $p1 === null) { // lesen darf jeder
             $all = allRoutes();
             if (isset($_GET['lat'], $_GET['lng']) && is_numeric($_GET['lat']) && is_numeric($_GET['lng'])) {

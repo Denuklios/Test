@@ -84,6 +84,7 @@ class ServerBackend {
   getRoutes(near) {
     return api(near ? `routes?lat=${near.lat.toFixed(4)}&lng=${near.lng.toFixed(4)}&r=${Math.round(near.r)}` : 'routes');
   }
+  getOverview() { return api('routes/overview'); }
   addRoute(route) { return api('api/routes', { method: 'POST', body: route }); }
   deleteRoute(id) { return api(`api/routes/${encodeURIComponent(id)}`, { method: 'DELETE' }); }
   rate(routeId, rating) { return api(`api/routes/${encodeURIComponent(routeId)}/ratings`, { method: 'POST', body: rating }); }

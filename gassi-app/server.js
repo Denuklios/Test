@@ -8,7 +8,7 @@
 //   COOKIE_SECURE=1 erzwingt das Secure-Flag (sonst automatisch hinter https-Proxy)
 
 import http from 'node:http';
-import { readFile, writeFile, mkdir, rename } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, rename, stat } from 'node:fs/promises';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
@@ -80,6 +80,28 @@ async function osmNear(lat, lng, rKm, limit = 250) {
     }
   }
   return found.sort((x, y) => x[0] - y[0]).slice(0, limit).map(([, r]) => r);
+}
+
+/** Übersicht für die herausgezoomte Karte: je Zelle Anzahl der Runden und ihre Mitte. */
+let osmOverviewCache = null;
+async function osmOverview() {
+  let st;
+  try { st = await stat(path.join(OSM_DIR, 'index.json')); } catch { return []; }
+  if (osmOverviewCache?.mtime === st.mtimeMs) return osmOverviewCache.list;
+  const list = [];
+  try {
+    const idx = JSON.parse(await readFile(path.join(OSM_DIR, 'index.json'), 'utf8'));
+    for (const key of idx.cells || []) {
+      let rs;
+      try { rs = JSON.parse(await readFile(path.join(OSM_DIR, key + '.json'), 'utf8')); } catch { continue; }
+      if (!rs.length) continue;
+      let la = 0, ln = 0;
+      for (const r of rs) { la += r.points[0][0]; ln += r.points[0][1]; }
+      list.push({ lat: +(la / rs.length).toFixed(4), lng: +(ln / rs.length).toFixed(4), n: rs.length });
+    }
+  } catch { /* Index kaputt: leere Übersicht */ }
+  osmOverviewCache = { mtime: st.mtimeMs, list };
+  return list;
 }
 
 async function findOsmRoute(id) {
@@ -514,6 +536,9 @@ async function handleApi(req, res, url, ip) {
   if (parts[1] === 'me') return handleMe(req, res, parts);
 
   // Runden lesen darf jeder – so kann man sich die App vor der Anmeldung ansehen
+  if (req.method === 'GET' && parts[1] === 'routes' && parts[2] === 'overview' && parts.length === 3) {
+    return sendJson(res, 200, await osmOverview());
+  }
   if (req.method === 'GET' && parts[1] === 'routes' && parts.length === 2) {
     const lat = Number(url.searchParams.get('lat')), lng = Number(url.searchParams.get('lng'));
     const r = Math.min(80, Math.max(1, Number(url.searchParams.get('r')) || 25));

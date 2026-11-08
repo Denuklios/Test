@@ -139,7 +139,55 @@ async function loadNearby(force = false) {
     if (state.view === 'list' && state.tab === 'runden') renderList();
   } catch { /* offline: bisherige Runden behalten */ }
 }
-map.on('moveend', () => { clearTimeout(loadTimer); loadTimer = setTimeout(() => loadNearby(), 500); });
+map.on('moveend', () => { clearTimeout(loadTimer); loadTimer = setTimeout(() => loadNearby(), 500); drawOverview(); });
+
+// ---------- Übersicht beim Herauszoomen ----------
+// Weiter draußen als die App Runden lädt: Kreise mit der Anzahl der Runden je Gegend; Antippen zoomt hinein.
+const OVERVIEW_ZOOM = 10; // ab dieser Zoomstufe (und näher) gibt es die Runden selbst
+let overview = null; // [{lat, lng, n}]
+let overviewLoading = false;
+let overviewReady = false; // erst wenn Server und Aufnahme-Zustand bereitstehen
+const overviewLayer = L.layerGroup().addTo(map);
+async function drawOverview() {
+  if (!overviewReady) return;
+  overviewLayer.clearLayers();
+  const far = map.getZoom() < OVERVIEW_ZOOM && !rec.active;
+  $('#zoom-hint').hidden = !far;
+  if (!far) return;
+  if (!overview) {
+    if (overviewLoading || !backend.getOverview) return;
+    overviewLoading = true;
+    try { overview = await backend.getOverview(); } catch { overview = null; }
+    overviewLoading = false;
+    if (!overview) return;
+    return drawOverview();
+  }
+  // Nahe Zellen auf dem Bildschirm zusammenfassen, damit sich die Kreise nicht überdecken
+  const view = map.getBounds().pad(0.3);
+  const groups = [];
+  for (const c of overview) {
+    if (!view.contains([c.lat, c.lng])) continue;
+    const pt = map.latLngToContainerPoint([c.lat, c.lng]);
+    const g = groups.find((x) => Math.hypot(x.x - pt.x, x.y - pt.y) < 54);
+    if (g) { g.lat = (g.lat * g.n + c.lat * c.n) / (g.n + c.n); g.lng = (g.lng * g.n + c.lng * c.n) / (g.n + c.n); g.n += c.n; g.bounds.extend([c.lat, c.lng]); }
+    else groups.push({ x: pt.x, y: pt.y, lat: c.lat, lng: c.lng, n: c.n, bounds: L.latLngBounds([[c.lat, c.lng], [c.lat, c.lng]]) });
+  }
+  for (const g of groups) {
+    const size = Math.round(Math.min(58, 30 + Math.log10(g.n + 1) * 10));
+    const label = g.n >= 1000 ? `${(g.n / 1000).toFixed(1).replace('.', lang === 'en' ? '.' : ',')}k` : String(g.n);
+    const m = L.marker([g.lat, g.lng], {
+      icon: L.divIcon({ className: 'ov-marker', html: `<div class="ov-bubble" title="${g.n}">${label}</div>`, iconSize: [size, size], iconAnchor: [size / 2, size / 2] }),
+      keyboard: false, zIndexOffset: 500,
+    });
+    // Antippen: auf die Gegend dieser Runden zoomen (eine einzelne Gegend: gleich so nah, dass die Runden kommen)
+    m.on('click', () => {
+      const b = g.bounds.pad(0.5);
+      const z = Math.min(map.getBoundsZoom(b), 13);
+      map.flyTo(b.getCenter(), z < OVERVIEW_ZOOM && g.bounds.getNorthEast().distanceTo(g.bounds.getSouthWest()) < 60000 ? OVERVIEW_ZOOM + 1 : z);
+    });
+    overviewLayer.addLayer(m);
+  }
+}
 
 // ---------- Filter ----------
 const FILTERS = [
@@ -1666,6 +1714,8 @@ document.addEventListener('visibilitychange', async () => {
 
 // ---------- Start ----------
 const backend = await createBackend();
+overviewReady = true;
+setTimeout(drawOverview, 0);
 syncStatusInputs();
 try {
   state.routes = await backend.getRoutes();

@@ -66,6 +66,10 @@ test('OSM-Runden nur im gefragten Umkreis, Bewertung möglich', async () => {
   assert.ok(near.some((r) => r.id === 'osm-w1'));
   assert.ok(!near.some((r) => r.id === 'osm-w2')); // 16 km entfernt
   assert.ok(!(await client().get('/api/routes')).data.some((r) => r.id === 'osm-w1')); // ohne Ort keine OSM-Runden
+  const ov = (await client().get('/api/routes/overview')).data; // Übersicht für die herausgezoomte Karte
+  assert.equal(ov.length, 1);
+  assert.equal(ov[0].n, 2);
+  assert.ok(Math.abs(ov[0].lat - 54.9175) < 0.01 && Math.abs(ov[0].lng - 9.33) < 0.01);
   const c = client();
   await c.post('/api/auth/register', { email: 'osm@example.de', password: 'geheim123', name: 'Osmo' });
   const list = (await c.post('/api/routes/osm-w1/ratings', { stars: 4 })).data;

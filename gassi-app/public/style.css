@@ -127,6 +127,21 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .me-btn { background: var(--accent); color: var(--accent-ink); font: 700 20px/1 var(--font-display); }
 
 /* ---------- Hinweise ---------- */
+/* Übersicht beim Herauszoomen: Kreise mit der Anzahl der Runden */
+.ov-marker { background: none; border: 0; }
+.ov-bubble {
+  display: grid; place-items: center; width: 100%; height: 100%; border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 88%, transparent); color: var(--accent-ink);
+  font: 700 14px/1 var(--font-body); border: 3px solid rgb(255 255 255 / 0.85); box-shadow: 0 2px 8px rgb(0 0 0 / 0.25); cursor: pointer;
+}
+.zoom-hint {
+  position: fixed; z-index: 500; left: 50%; transform: translateX(-50%); top: calc(env(safe-area-inset-top, 0px) + 66px);
+  padding: 7px 14px; border-radius: 999px; background: rgb(255 255 255 / 0.85); color: var(--ink); font: 600 14px/1.2 var(--font-body);
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.15); pointer-events: none; white-space: nowrap; backdrop-filter: blur(4px);
+}
+.zoom-hint[hidden] { display: none; }
+@media (prefers-color-scheme: dark) { :root:not([data-theme="light"]) .zoom-hint { background: rgb(30 24 34 / 0.85); } }
+:root[data-theme="dark"] .zoom-hint { background: rgb(30 24 34 / 0.85); }
 .banner {
   position: fixed; z-index: 600; left: 50%; transform: translateX(-50%);
   top: calc(env(safe-area-inset-top, 0px) + 64px); width: min(560px, calc(100% - 24px));

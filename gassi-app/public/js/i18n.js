@@ -28,6 +28,7 @@ const ROWS = [
   ['Runden und Live', 'Ruter og live', 'Routes and live'],
   ['Fenster vergrößern oder verkleinern', 'Gør vinduet større eller mindre', 'Enlarge or shrink window'],
   ['Runden anzeigen', 'Vis ruter', 'Show routes'],
+  ['Näher heranzoomen, um Runden zu sehen', 'Zoom ind for at se ruter', 'Zoom in to see routes'],
   ['Runden', 'Ruter', 'Routes'],
   ['Finden', 'Find', 'Find'],
   ['Live', 'Live', 'Live'],
