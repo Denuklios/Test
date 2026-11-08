@@ -9,6 +9,11 @@ import androidx.exifinterface.media.ExifInterface
 import org.opencv.android.Utils
 import org.opencv.core.*
 import org.opencv.imgproc.Imgproc
+import com.google.android.gms.tasks.Tasks
+import com.google.mlkit.vision.common.InputImage
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmentation
+import com.google.mlkit.vision.segmentation.subject.SubjectSegmenterOptions
+import java.util.concurrent.TimeUnit
 import kotlin.math.max
 import kotlin.math.min
 import kotlin.math.roundToInt
@@ -71,17 +76,74 @@ object Segment {
         return Prepared(bmp, out, k, minX, minY, det.markerCount)
     }
 
-    /** GrabCut inside the user rectangle; the marker sheet is always background. Returns outline in image px. */
-    fun outline(prep: Prepared, rect: android.graphics.RectF): List<Pt> {
+    /** Scales the prepared image down to a working size (all editing happens in this pixel space). */
+    fun shrink(p: Prepared, maxSide: Int = 1400): Prepared {
+        val s = min(1.0, maxSide.toDouble() / max(p.bitmap.width, p.bitmap.height))
+        if (s >= 1.0) return p
+        val w = (p.bitmap.width * s).roundToInt(); val h = (p.bitmap.height * s).roundToInt()
+        val bmp = Bitmap.createScaledBitmap(p.bitmap, w, h, true)
+        val rgb = Mat(); Imgproc.resize(p.rgb, rgb, Size(w.toDouble(), h.toDouble()), 0.0, 0.0, Imgproc.INTER_AREA)
+        p.rgb.release()
+        return Prepared(bmp, rgb, p.pxPerMm * s, p.minX, p.minY, p.markerCount)
+    }
+
+    /** On-device "main subject" detection (ML Kit). One 0/255 mask per subject, in image pixels. */
+    fun mlSubjects(bmp: Bitmap): List<Mat> {
+        val opts = SubjectSegmenterOptions.Builder()
+            .enableMultipleSubjects(SubjectSegmenterOptions.SubjectResultOptions.Builder().enableConfidenceMask().build())
+            .build()
+        val seg = SubjectSegmentation.getClient(opts)
+        try {
+            val res = Tasks.await(seg.process(InputImage.fromBitmap(bmp, 0)), 60, TimeUnit.SECONDS)
+            return res.subjects.mapNotNull { sub ->
+                val fb = sub.confidenceMask ?: return@mapNotNull null
+                fb.rewind()
+                val n = sub.width * sub.height
+                val bytes = ByteArray(n)
+                for (i in 0 until n) bytes[i] = if (fb.get() > 0.5f) 255.toByte() else 0
+                val part = Mat(sub.height, sub.width, CvType.CV_8UC1); part.put(0, 0, bytes)
+                val full = Mat.zeros(bmp.height, bmp.width, CvType.CV_8UC1)
+                val r = Rect(sub.startX, sub.startY, min(sub.width, bmp.width - sub.startX), min(sub.height, bmp.height - sub.startY))
+                part.submat(Rect(0, 0, r.width, r.height)).copyTo(full.submat(r))
+                part.release()
+                if (Core.countNonZero(full) < 100) { full.release(); null } else full
+            }
+        } finally { seg.close() }
+    }
+
+    /** Picks the subject that best covers the centre of the picture. */
+    fun pickCentral(masks: List<Mat>): Int {
+        if (masks.isEmpty()) return -1
+        return masks.indices.maxByOrNull { i ->
+            val m = masks[i]
+            val c = m.submat(Rect(m.cols() / 4, m.rows() / 4, m.cols() / 2, m.rows() / 2))
+            Core.countNonZero(c) * 3.0 + Core.countNonZero(m)
+        } ?: -1
+    }
+
+    fun indexAt(masks: List<Mat>, x: Double, y: Double): Int {
+        val xi = x.toInt(); val yi = y.toInt()
+        masks.forEachIndexed { i, m ->
+            if (xi in 0 until m.cols() && yi in 0 until m.rows() && m.get(yi, xi)[0] > 0) return i
+        }
+        return -1
+    }
+
+    /** Fallback without ML Kit: GrabCut, by default on the central 80 % of the picture. */
+    fun grabCut(prep: Prepared, rect: android.graphics.RectF?): Mat {
         val img = prep.rgb
-        val scale = min(1.0, 900.0 / max(img.cols(), img.rows()))
+        val rr = rect ?: android.graphics.RectF(img.cols() * 0.1f, img.rows() * 0.1f, img.cols() * 0.9f, img.rows() * 0.9f)
+        val scale = min(1.0, 700.0 / max(img.cols(), img.rows()))
         val small = Mat(); Imgproc.resize(img, small, Size(0.0, 0.0), scale, scale, Imgproc.INTER_AREA)
         val mask = Mat(small.size(), CvType.CV_8UC1, Scalar(Imgproc.GC_BGD.toDouble()))
         val r = Rect(
-            Point((rect.left * scale).toDouble().coerceIn(1.0, small.cols() - 2.0), (rect.top * scale).toDouble().coerceIn(1.0, small.rows() - 2.0)),
-            Point((rect.right * scale).toDouble().coerceIn(2.0, small.cols() - 1.0), (rect.bottom * scale).toDouble().coerceIn(2.0, small.rows() - 1.0)),
+            Point((rr.left * scale).toDouble().coerceIn(1.0, small.cols() - 2.0), (rr.top * scale).toDouble().coerceIn(1.0, small.rows() - 2.0)),
+            Point((rr.right * scale).toDouble().coerceIn(2.0, small.cols() - 1.0), (rr.bottom * scale).toDouble().coerceIn(2.0, small.rows() - 1.0)),
         )
         Imgproc.rectangle(mask, r.tl(), r.br(), Scalar(Imgproc.GC_PR_FGD.toDouble()), -1)
+        // the centre of the selection is very likely the object
+        val cx = (r.x + r.width / 2).toDouble(); val cy = (r.y + r.height / 2).toDouble()
+        Imgproc.ellipse(mask, Point(cx, cy), Size(r.width * 0.12, r.height * 0.12), 0.0, 0.0, 360.0, Scalar(Imgproc.GC_FGD.toDouble()), -1)
         if (prep.hasScale) {
             val a = prep.toPx(Pt(-5.0, -5.0)); val b = prep.toPx(Pt(Board.W + 5, Board.H + 5))
             Imgproc.rectangle(mask, Point(a.x * scale, a.y * scale), Point(b.x * scale, b.y * scale), Scalar(Imgproc.GC_BGD.toDouble()), -1)
@@ -92,14 +154,27 @@ object Segment {
         Core.compare(mask, Scalar(Imgproc.GC_FGD.toDouble()), fg1, Core.CMP_EQ)
         Core.compare(mask, Scalar(Imgproc.GC_PR_FGD.toDouble()), fg2, Core.CMP_EQ)
         val fg = Mat(); Core.bitwise_or(fg1, fg2, fg)
-        val ker = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(7.0, 7.0))
-        Imgproc.morphologyEx(fg, fg, Imgproc.MORPH_CLOSE, ker)
-        Imgproc.morphologyEx(fg, fg, Imgproc.MORPH_OPEN, ker)
-        val cs = ArrayList<MatOfPoint>()
-        Imgproc.findContours(fg, cs, Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_NONE)
+        val big = Mat(); Imgproc.resize(fg, big, img.size(), 0.0, 0.0, Imgproc.INTER_LINEAR)
+        Imgproc.threshold(big, big, 127.0, 255.0, Imgproc.THRESH_BINARY)
         listOf(small, mask, bgd, fgd, fg1, fg2, fg).forEach { it.release() }
+        return big
+    }
+
+    /** Removes the marker sheet from a mask and returns the outline of the largest region (image px). */
+    fun outlineOf(prep: Prepared, mask: Mat): List<Pt> {
+        val m = mask.clone()
+        if (prep.hasScale) {
+            val a = prep.toPx(Pt(-5.0, -5.0)); val b = prep.toPx(Pt(Board.W + 5, Board.H + 5))
+            Imgproc.rectangle(m, Point(a.x, a.y), Point(b.x, b.y), Scalar(0.0), -1)
+        }
+        val ker = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(5.0, 5.0))
+        Imgproc.morphologyEx(m, m, Imgproc.MORPH_CLOSE, ker)
+        Imgproc.morphologyEx(m, m, Imgproc.MORPH_OPEN, ker)
+        val cs = ArrayList<MatOfPoint>()
+        Imgproc.findContours(m, cs, Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_NONE)
+        m.release()
         val best = cs.maxByOrNull { Imgproc.contourArea(it) } ?: return emptyList()
-        if (Imgproc.contourArea(best) < 200) return emptyList()
-        return best.toArray().map { Pt(it.x / scale, it.y / scale) }
+        if (Imgproc.contourArea(best) < 150) return emptyList()
+        return best.toArray().map { Pt(it.x, it.y) }
     }
 }

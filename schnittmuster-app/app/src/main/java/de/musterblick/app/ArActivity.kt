@@ -59,18 +59,20 @@ class ArActivity : ComponentActivity() {
         overlay = ArOverlay(this, p)
         root.addView(overlay)
         status = TextView(this).apply {
-            setTextColor(Color.WHITE); textSize = 15f; setBackgroundColor(Color.argb(150, 0, 0, 0))
+            setTextColor(Color.WHITE); textSize = 15f; setBackgroundColor(Color.argb(170, 47, 74, 58))
             val d = Ui.dp(context, 10); setPadding(d, d + Ui.dp(context, 18), d, d)
             text = "Marker-Blatt suchen …"
         }
         root.addView(status, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
         val bar = LinearLayout(this).apply {
-            orientation = LinearLayout.HORIZONTAL; setBackgroundColor(Color.argb(170, 0, 0, 0))
+            orientation = LinearLayout.HORIZONTAL; setBackgroundColor(Color.argb(110, 0, 0, 0))
             val d = Ui.dp(context, 6); setPadding(d, d, d, d + Ui.dp(context, 16))
         }
-        fun btn(t: String, f: (android.widget.Button) -> Unit) = android.widget.Button(this).apply {
+        fun btn(t: String, f: (android.widget.Button) -> Unit) = com.google.android.material.button.MaterialButton(this).apply {
             text = t; isAllCaps = false; textSize = 13f; setOnClickListener { f(this) }
-            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f)
+            cornerRadius = Ui.dp(context, 22); minHeight = Ui.dp(context, 48)
+            backgroundTintList = android.content.res.ColorStateList.valueOf(Color.argb(200, 47, 74, 58)); setTextColor(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f).apply { marginEnd = Ui.dp(context, 6) }
         }
         bar.addView(btn("Drehen 90°") { overlay.angle += Math.PI / 2; overlay.invalidate() })
         bar.addView(btn("Spiegeln") { overlay.mirrored = !overlay.mirrored; overlay.invalidate() })
