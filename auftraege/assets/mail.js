@@ -454,23 +454,28 @@ function attToOrder(m, att) {
 }
 
 function mailCard({ customer_id = 0, order_id = 0 }) {
-  const box = h('div', { class: 'mthread' }, h('span', { class: 'muted' }, '…'));
-  const card = h('div', { class: 'card' }, h('div', { class: 'row', style: 'justify-content:space-between;align-items:center' }, h('h3', { style: 'margin:0' }, '✉ ' + (customer_id ? t('mail_card_h_c') : t('mail_card_h'))),
+  const box = h('div', { class: 'mchat mchat-card' }, h('span', { class: 'muted' }, '…'));
+  const card = h('div', { class: 'card' }, h('div', { class: 'row', style: 'justify-content:space-between;align-items:center;margin-bottom:10px' }, h('h3', { style: 'margin:0' }, '✉ ' + (customer_id ? t('mail_card_h_c') : t('mail_card_h'))),
     h('a', { class: 'btn small primary', href: `#/mail/new?${order_id ? 'order=' + order_id : 'customer=' + customer_id}` }, '✏️ ' + t('mail_write'))), box);
   (async () => {
     try {
-      // Mails (Postfach) und – beim Kunden – seine Anfragen von der Webseite, zusammen nach Datum
+      // Mails (Postfach) und – beim Kunden – seine Anfragen von der Webseite als Chat: Kunde links, ich rechts, Neuestes unten
       const [r, iq] = await Promise.all([
-        api('mail_list', { params: { folder: 'all', ...(order_id ? { order_id } : { customer_id }) } }).catch(() => ({ mails: [] })),
+        api('mail_list', { params: { folder: 'all', chat: 1, ...(order_id ? { order_id } : { customer_id }) } }).catch(() => ({ mails: [] })),
         customer_id ? api('inquiries', { params: { customer_id } }).catch(() => ({ inquiries: [] })) : Promise.resolve({ inquiries: [] })]);
+      const bub = (mine, href, who, at, text, extra, unread) => h('a', { class: 'mbub ' + (mine ? 'me' : 'them') + (unread ? ' unread' : ''), href },
+        h('div', { class: 'mbub-h' }, h('b', {}, who), h('span', {}, mailDate(at))), extra, h('div', { class: 'mbub-t' }, text));
       const items = [
-        ...r.mails.map((x) => ({ at: x.sent_at, el: h('a', { class: 'mtrow' + (+x.seen || x.folder === 'sent' ? '' : ' unread'), href: `#/mail/${x.id}` },
-          h('span', {}, x.folder === 'sent' ? '📤 ' : '📥 ', h('b', {}, x.subject || t('mail_no_subject'))), h('span', { class: 'muted' }, mailDate(x.sent_at)), h('span', { class: 'msnip' }, x.snippet)) })),
-        ...iq.inquiries.map((q) => ({ at: localToUtc(q.created_at), el: h('a', { class: 'mtrow' + (q.status === 'new' ? ' unread' : ''), href: `#/inquiry/${q.id}` },
-          h('span', {}, '📝 ', h('b', {}, t('inq_title') + ': ' + ([q.qty, q.product].filter(Boolean).join(' × ') || '—')), ' ', h('span', { class: 'chip inq-' + q.status, style: 'font-size:.7rem;padding:1px 7px;min-height:0' }, t(INQ_ST[q.status] || 'inq_st_new'))),
-          h('span', { class: 'muted' }, mailDate(localToUtc(q.created_at))), h('span', { class: 'msnip' }, q.snippet || '')) }))]
-        .sort((a, b) => String(b.at).localeCompare(String(a.at)));
-      box.replaceChildren(...(items.length ? items.slice(0, 30).map((x) => x.el) : [h('span', { class: 'muted' }, customer_id ? t('mail_card_none_c') : t('mail_card_none'))]));
+        ...r.mails.map((x) => {
+          const mine = x.folder === 'sent';
+          return { at: x.sent_at, el: bub(mine, `#/mail/${x.id}`, mine ? t('mail_me') : (x.from_name || x.from_addr), x.sent_at, x.text || x.snippet || '',
+            [x.subject ? h('div', { class: 'mbub-s' }, x.subject) : null, +x.has_att ? h('div', { class: 'mbub-a' }, '📎 ' + t('mail_attachments')) : null], !mine && !+x.seen) };
+        }),
+        ...iq.inquiries.map((q) => ({ at: localToUtc(q.created_at), el: bub(false, `#/inquiry/${q.id}`, '📝 ' + t('inq_title'), localToUtc(q.created_at), q.snippet || '',
+          h('div', { class: 'mbub-s' }, [q.qty, q.product].filter(Boolean).join(' × ') || '—', ' ', h('span', { class: 'chip inq-' + q.status, style: 'font-size:.7rem;padding:1px 7px;min-height:0' }, t(INQ_ST[q.status] || 'inq_st_new'))), q.status === 'new') }))]
+        .sort((a, b) => String(a.at).localeCompare(String(b.at))).slice(-30);
+      box.replaceChildren(...(items.length ? items.map((x) => x.el) : [h('span', { class: 'muted' }, customer_id ? t('mail_card_none_c') : t('mail_card_none'))]));
+      requestAnimationFrame(() => { box.scrollTop = box.scrollHeight; });
     } catch (e) { box.replaceChildren(h('span', { class: 'muted' }, e.message)); }
   })();
   return card;

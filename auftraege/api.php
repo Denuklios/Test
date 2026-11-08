@@ -1162,7 +1162,7 @@ try {
                 array_push($p, $like, $like, $like, $like, $like);
             }
             $off = max(0, (int)($_GET['offset'] ?? 0));
-            $st = $db->prepare('SELECT m.id, m.folder, m.from_addr, m.from_name, m.to_json, m.subject, m.snippet, m.sent_at, m.seen, m.has_att, m.archived, m.customer_id, m.order_id, m.thread,
+            $st = $db->prepare('SELECT m.id, m.folder, m.from_addr, m.from_name, m.to_json, m.subject, m.snippet, m.sent_at, m.seen, m.has_att, m.archived, m.customer_id, m.order_id, m.thread,' . (!empty($_GET['chat']) ? ' m.body_text,' : '') . '
                 c.name AS customer_name, o.nr AS order_nr FROM mail_msgs m LEFT JOIN customers c ON c.id = m.customer_id LEFT JOIN orders o ON o.id = m.order_id'
                 . ($w ? ' WHERE ' . implode(' AND ', $w) : '') . ' ORDER BY m.sent_at DESC, m.id DESC LIMIT 51 OFFSET ' . $off);
             $st->execute($p);
@@ -1170,6 +1170,10 @@ try {
             $more = count($rows) > 50;
             wf_json(['ok' => true, 'more' => $more, 'mails' => array_map(function ($r) {
                 $r['to'] = json_decode((string)$r['to_json'], true) ?: [];
+                if (array_key_exists('body_text', $r)) {
+                    $r['text'] = wf_mail_own_text((string)$r['body_text']);
+                    unset($r['body_text']);
+                }
                 unset($r['to_json']);
                 return $r;
             }, array_slice($rows, 0, 50))]);

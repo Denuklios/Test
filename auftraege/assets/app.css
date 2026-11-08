@@ -649,3 +649,6 @@ body.noscroll{overflow:hidden}
 .mbub-t{white-space:pre-wrap;overflow-wrap:anywhere;font-size:.93rem;line-height:1.4;max-height:22em;overflow:hidden}
 .mbub-a{font-size:.8rem;opacity:.75;margin-top:4px}
 :root[data-theme="dark"] .mbub.them{background:#1e3a2a;color:#e6f4ea;border-color:#2d5a3f}
+.mchat-card{max-height:560px;overflow-y:auto;padding:2px 4px}
+.mbub-s{font-size:.8rem;font-weight:600;margin-bottom:2px;opacity:.85}
+.mbub.unread .mbub-h b::after{content:" ●";color:var(--p2)}
