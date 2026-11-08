@@ -1054,5 +1054,25 @@ function wf_translate(string $html, string $target): ?string
         $GLOBALS['wf_translate_err'] = $code === 456 ? 'quota' : ($code === 403 ? 'key' : 'http' . $code);
         return null;
     }
+    $GLOBALS['wf_translate_src'] = (string)($j['translations'][0]['detected_source_language'] ?? '');
     return (string)$j['translations'][0]['text'];
+}
+
+/** Nur der neue Teil einer Mail (ohne zitierte ältere Nachrichten und Signatur-Trenner), für die Chat-Ansicht. */
+function wf_mail_own_text(string $t): string
+{
+    $t = str_replace("\r\n", "\n", $t);
+    $out = [];
+    foreach (explode("\n", $t) as $line) {
+        $l = trim($line);
+        if (preg_match('/^(-{2,}\s*(Original|Ursprüngliche|Oprindelig|Weitergeleitete|Videresendt)|_{5,}$|(Am|On|Den|Le)\s.{4,120}\s(schrieb|wrote|skrev|a écrit)\b.*:?$|(Von|From|Fra):\s.+@)/iu', $l)) {
+            break;
+        }
+        if (str_starts_with($l, '>')) {
+            continue;
+        }
+        $out[] = rtrim($line);
+    }
+    $t = trim(preg_replace("/\n{3,}/", "\n\n", implode("\n", $out)) ?? '');
+    return mb_strlen($t) > 3000 ? mb_substr($t, 0, 3000) . ' …' : $t;
 }

@@ -210,7 +210,12 @@ route(/^\/mail\/(\d+)$/, async (id) => {
       h('a', { class: 'btn', href: `#/mail/new?mode=fwd&id=${m.id}` }, '↪ ' + t('mail_forward')),
       h('button', { class: 'btn', onclick: async () => {
         if (translated) { translated = null; draw(); return; }
-        try { toast(t('mail_translating')); translated = (await api('mail_translate', { body: { html: m.html, target: W.lang === 'da' ? 'da' : 'de' } })).html; draw(); } catch (e) { toast(e.message); }
+        try {
+          toast(t('mail_translating'));
+          const r = await api('mail_translate', { body: { id: m.id, remote: remote ? 1 : 0, target: W.lang === 'da' ? 'da' : 'de' } });
+          if (r.same) { toast(t('mail_tr_same')); return; }
+          translated = r.html; draw();
+        } catch (e) { toast(e.message); }
       } }, translated ? '↶ ' + t('mail_original') : '🌐 ' + t(W.lang === 'da' ? 'mail_tr_to_da' : 'mail_tr_to_de')),
       h('button', { class: 'btn', onclick: async () => { await api('mail_update', { body: { id: m.id, archived: +m.archived ? 0 : 1 } }); toast(+m.archived ? t('mail_unarchived') : t('mail_archived')); location.hash = '#/mail'; } }, +m.archived ? '📥 ' + t('mail_unarchive') : '🗄 ' + t('mail_do_archive')),
       m.folder === 'in' ? h('button', { class: 'btn', onclick: async () => { await api('mail_update', { body: { id: m.id, seen: 0 } }); MAIL.unread++; mailBadge(); location.hash = '#/mail'; } }, '● ' + t('mail_mark_unread')) : null,
@@ -241,8 +246,13 @@ route(/^\/mail\/(\d+)$/, async (id) => {
           /^image\//.test(a.mime) ? h('img', { src: attUrl(a), alt: '', loading: 'lazy' }) : h('span', { class: 'mico' }, /pdf/.test(a.mime) ? 'PDF' : '📄'),
           h('span', { class: 'mn' }, a.name), h('small', { class: 'muted' }, fsize(+a.size))))), attToOrder(m, att)) : null,
       r.thread.length > 1 ? h('div', { class: 'card' }, h('h3', {}, '🧵 ' + t('mail_thread', r.thread.length)),
-        h('div', { class: 'mthread' }, ...r.thread.map((x) => h('a', { class: 'mtrow' + (+x.id === +m.id ? ' on' : ''), href: `#/mail/${x.id}` },
-          h('span', {}, x.folder === 'sent' ? '📤 ' : '📥 ', h('b', {}, x.folder === 'sent' ? t('mail_me') : (x.from_name || x.from_addr))), h('span', { class: 'muted' }, mailDate(x.sent_at)), h('span', { class: 'msnip' }, x.snippet))))) : null);
+        h('div', { class: 'mchat' }, ...r.thread.map((x) => {
+          const mine = x.folder === 'sent';
+          return h('a', { class: 'mbub ' + (mine ? 'me' : 'them') + (+x.id === +m.id ? ' on' : ''), href: `#/mail/${x.id}` },
+            h('div', { class: 'mbub-h' }, h('b', {}, mine ? t('mail_me') : (x.from_name || x.from_addr)), h('span', {}, mailDate(x.sent_at))),
+            h('div', { class: 'mbub-t' }, x.text || x.snippet || x.subject || ''),
+            +x.has_att ? h('div', { class: 'mbub-a' }, '📎 ' + t('mail_attachments')) : null);
+        }))) : null);
   };
   await draw();
 });

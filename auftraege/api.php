@@ -1190,7 +1190,7 @@ try {
             $safe = wf_mail_safe_html($db, $m, !empty($_GET['remote']));
             $at = $db->prepare('SELECT id, name, mime, size, inline FROM mail_atts WHERE msg_id = ? ORDER BY id');
             $at->execute([$id]);
-            $th = $db->prepare('SELECT id, folder, from_addr, from_name, to_json, subject, snippet, sent_at FROM mail_msgs WHERE thread = ? AND thread <> "" ORDER BY sent_at, id');
+            $th = $db->prepare('SELECT id, folder, from_addr, from_name, to_json, subject, snippet, sent_at, body_text, has_att FROM mail_msgs WHERE thread = ? AND thread <> "" ORDER BY sent_at, id');
             $th->execute([(string)$m['thread']]);
             unset($m['body_html']);
             $m['to'] = json_decode((string)$m['to_json'], true) ?: [];
@@ -1199,7 +1199,8 @@ try {
             wf_json(['ok' => true, 'mail' => $m + ['html' => $safe['html'], 'blocked' => $safe['blocked']], 'atts' => $at->fetchAll(),
                 'thread' => array_map(function ($r) {
                     $r['to'] = json_decode((string)$r['to_json'], true) ?: [];
-                    unset($r['to_json']);
+                    $r['text'] = wf_mail_own_text((string)$r['body_text']);
+                    unset($r['to_json'], $r['body_text']);
                     return $r;
                 }, $th->fetchAll())]);
         }
@@ -1312,17 +1313,45 @@ try {
             need_post();
             $target = ['de' => 'DE', 'da' => 'DA', 'en' => 'EN-GB'][(string)($in['target'] ?? '')] ?? null;
             $html = (string)($in['html'] ?? '');
-            if (!$target || strlen($html) > 200000) {
+            // eine gespeicherte Mail: Inhalt hier laden (eingebettete Bilder machen den Text sonst zu groß)
+            if (!empty($in['id'])) {
+                $st = $db->prepare('SELECT * FROM mail_msgs WHERE id = ?');
+                $st->execute([(int)$in['id']]);
+                $m = $st->fetch();
+                if (!$m) {
+                    wf_fail('not_found', 404);
+                }
+                $html = wf_mail_safe_html($db, $m, !empty($in['remote']))['html'];
+            }
+            if (!$target || $html === '') {
                 wf_fail('bad_input');
             }
             if (wf_deepl_key() === '') {
                 wf_fail('deepl_missing');
             }
-            $r = wf_translate($html, $target);
+            // Bilder und lange Attribute für die Übersetzung durch Platzhalter ersetzen, danach wieder einsetzen
+            $keep = [];
+            $slim = preg_replace_callback('/\s(src|srcset|style|href)\s*=\s*("[^"]*"|\'[^\']*\')/i', function ($mm) use (&$keep) {
+                if (strlen($mm[2]) < 80) {
+                    return $mm[0];
+                }
+                $keep[] = $mm[0];
+                return ' data-wfk="' . (count($keep) - 1) . '"';
+            }, $html) ?? $html;
+            $slim = preg_replace('#<(style|script)\b[^>]*>.*?</\1>#is', '', $slim) ?? $slim;
+            if (strlen($slim) > 120000) {
+                // sehr lange Mail: nur den Text übersetzen
+                $txt = trim(html_entity_decode(strip_tags(preg_replace('#<(br|/p|/div|/tr|/li|/h\d)\b[^>]*>#i', "\n", $slim) ?? $slim), ENT_QUOTES, 'UTF-8'));
+                $slim = '<div style="white-space:pre-wrap">' . htmlspecialchars(mb_substr($txt, 0, 60000), ENT_QUOTES, 'UTF-8') . '</div>';
+                $keep = [];
+            }
+            $r = wf_translate($slim, $target);
             if ($r === null) {
                 wf_fail('translate_failed', 502, ['detail' => (string)($GLOBALS['wf_translate_err'] ?? '')]);
             }
-            wf_json(['ok' => true, 'html' => $r]);
+            $r = preg_replace_callback('/\sdata-wfk="(\d+)"/', fn($mm) => $keep[(int)$mm[1]] ?? '', $r) ?? $r;
+            $src = (string)($GLOBALS['wf_translate_src'] ?? '');
+            wf_json(['ok' => true, 'html' => $r, 'same' => $src !== '' && strtoupper(substr($target, 0, 2)) === strtoupper(substr($src, 0, 2))]);
         }
 
         case 'mail_send': {
