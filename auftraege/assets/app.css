@@ -640,7 +640,16 @@ body.noscroll{overflow:hidden}
 .orow .or-qty,.orow .or-main small{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;min-width:0}
 
 /* Mail-Verlauf: Kunde leicht nach links, eigene Mails leicht nach rechts (Datum beim Kunden rechts, bei mir links) */
-.mtrow.them{margin-right:14%}
-.mtrow.me{margin-left:14%;grid-template-columns:auto minmax(0,1fr)}
+.mthread{gap:8px}
+.mtrow.them,.mtrow.me{border:1px solid;border-radius:14px;padding:9px 12px}
+.mtrow.them{margin-right:14%;background:#eef3ec;border-color:#c9d8c3}
+.mtrow.me{margin-left:14%;grid-template-columns:auto minmax(0,1fr);background:#f3edfb;border-color:#d9c8f0}
+.mtrow.them:hover,.mtrow.them.on{background:#e2ecdf}
+.mtrow.me:hover,.mtrow.me.on{background:#ebe1f8}
+.mtrow.on{box-shadow:0 0 0 2px var(--p2)}
+:root[data-theme="dark"] .mtrow.them{background:#18221a;border-color:#2e4232}
+:root[data-theme="dark"] .mtrow.me{background:#1d1628;border-color:#3d2c57}
+:root[data-theme="dark"] .mtrow.them:hover,:root[data-theme="dark"] .mtrow.them.on{background:#1f2c22}
+:root[data-theme="dark"] .mtrow.me:hover,:root[data-theme="dark"] .mtrow.me.on{background:#251c33}
 .mtrow.me .mtd{order:-1}
 .mtrow.me .mtt,.mtrow.me .msnip{text-align:right}
