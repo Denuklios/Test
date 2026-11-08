@@ -127,6 +127,19 @@ button, input, select, textarea { font: inherit; color: inherit; }
 .me-btn { background: var(--accent); color: var(--accent-ink); font: 700 20px/1 var(--font-display); }
 
 /* ---------- Hinweise ---------- */
+/* Pfoten-Stecknadeln für Runden (mittlere Zoomstufen) */
+.route-pin-wrap { background: none; border: 0; }
+.route-pin {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center; cursor: pointer;
+  border: 2px solid #fff; box-shadow: 0 1px 5px rgb(0 0 0 / 0.3); color: #fff; transition: transform 0.15s, opacity 0.15s;
+}
+.route-pin svg { width: 17px; height: 17px; fill: currentColor; }
+.route-pin.area { background: var(--ok); }
+.route-pin.walk { background: var(--accent); }
+.route-pin.sel { transform: scale(1.3); }
+.pins-small .route-pin { width: 20px; height: 20px; margin: 5px; border-width: 1.5px; }
+.pins-small .route-pin svg { width: 12px; height: 12px; }
+.route-pin.dim { opacity: 0.55; }
 /* Übersicht beim Herauszoomen: Kreise mit der Anzahl der Runden */
 .ov-marker { background: none; border: 0; }
 .ov-bubble {

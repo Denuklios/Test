@@ -90,9 +90,38 @@ function mapPadding() {
   return { paddingTopLeft: [20, 70], paddingBottomRight: [20, $('#sheet').offsetHeight + 70] };
 }
 
+// Kleine Pfoten-Stecknadeln: weiter weg sind Hundewiesen und Runden sonst nur Pünktchen
+const OVERVIEW_ZOOM = 10; // weiter draußen: Kreise mit Zahlen statt einzelner Runden
+const PIN_ZOOM = 15; // ab hier (näher) reichen die Flächen und Linien selbst
+const pinLayer = L.layerGroup();
+const routePins = new Map();
+function pinIcon(r) {
+  const area = r.kind === 'hundeauslauf';
+  return L.divIcon({
+    className: 'route-pin-wrap',
+    html: `<div class="route-pin ${area ? 'area' : 'walk'}${r.id === state.selected ? ' sel' : ''}"><svg viewBox="0 0 32 32" aria-hidden="true"><use href="#paw"/></svg></div>`,
+    iconSize: [30, 30], iconAnchor: [15, 15],
+  });
+}
+function pinPos(r) {
+  if (r.kind !== 'hundeauslauf') return r.points[0];
+  let la = 0, ln = 0;
+  for (const p of r.points) { la += p[0]; ln += p[1]; }
+  return [la / r.points.length, ln / r.points.length];
+}
+function updatePinVisibility() {
+  const on = map.getZoom() < PIN_ZOOM && map.getZoom() >= OVERVIEW_ZOOM;
+  map.getContainer().classList.toggle('pins-small', map.getZoom() < 12);
+  if (on && !map.hasLayer(pinLayer)) pinLayer.addTo(map);
+  if (!on && map.hasLayer(pinLayer)) pinLayer.remove();
+}
+map.on('zoomend', () => updatePinVisibility());
+
 function drawRoutes() {
   for (const l of routeLines.values()) l.remove();
   routeLines.clear();
+  pinLayer.clearLayers();
+  routePins.clear();
   const shown = new Set(filteredRoutes().map((r) => r.id));
   if (state.selected) shown.add(state.selected);
   for (const r of state.routes) {
@@ -105,8 +134,13 @@ function drawRoutes() {
     line.bindTooltip(r.name, { sticky: true });
     line.on('click', () => openRoute(r.id));
     routeLines.set(r.id, line);
+    const pin = L.marker(pinPos(r), { icon: pinIcon(r), keyboard: false, title: r.name });
+    pin.on('click', () => openRoute(r.id));
+    pinLayer.addLayer(pin);
+    routePins.set(r.id, pin);
   }
   styleRouteLines();
+  updatePinVisibility();
 }
 
 function styleRouteLines() {
@@ -114,6 +148,11 @@ function styleRouteLines() {
     const sel = id === state.selected;
     line.setStyle({ weight: sel ? 8 : (line instanceof L.Polygon ? 3 : 5), opacity: state.selected && !sel ? 0.3 : sel ? 0.95 : 0.6 });
     if (sel) line.bringToFront();
+  }
+  for (const [id, pin] of routePins) {
+    const el = pin.getElement()?.querySelector('.route-pin');
+    if (el) { el.classList.toggle('sel', id === state.selected); el.classList.toggle('dim', !!state.selected && id !== state.selected); }
+    pin.setZIndexOffset(id === state.selected ? 1000 : 0);
   }
 }
 
@@ -143,7 +182,6 @@ map.on('moveend', () => { clearTimeout(loadTimer); loadTimer = setTimeout(() => 
 
 // ---------- Übersicht beim Herauszoomen ----------
 // Weiter draußen als die App Runden lädt: Kreise mit der Anzahl der Runden je Gegend; Antippen zoomt hinein.
-const OVERVIEW_ZOOM = 10; // ab dieser Zoomstufe (und näher) gibt es die Runden selbst
 let overview = null; // [{lat, lng, n}]
 let overviewLoading = false;
 let overviewReady = false; // erst wenn Server und Aufnahme-Zustand bereitstehen
