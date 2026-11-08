@@ -73,10 +73,21 @@ showLangs('reg', [lang]);
 
 // ---------- Karte ----------
 const map = L.map('map', { zoomControl: false, preferCanvas: true }).setView([54.85, 9.36], 11);
+// Kartenhinweis (© OpenStreetMap) links unten über dem Fenster; nach ein paar Sekunden nur noch ein kleines ©, antippen zeigt ihn wieder
+map.attributionControl.setPosition('bottomleft').setPrefix(false);
+{
+  const el = map.attributionControl.getContainer();
+  let t = setTimeout(() => el.classList.add('mini'), 6000);
+  el.addEventListener('click', (e) => {
+    if (!el.classList.contains('mini')) return;
+    e.preventDefault(); el.classList.remove('mini');
+    clearTimeout(t); t = setTimeout(() => el.classList.add('mini'), 6000);
+  });
+}
 L.tileLayer('https://{s}.tile.openstreetmap.fr/hot/{z}/{x}/{y}.png', {
   maxZoom: 19,
   subdomains: 'abc',
-  attribution: '© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>-Mitwirkende, Kartenstil <a href="https://www.hotosm.org/">HOT</a>',
+  attribution: `© <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>${{ de: '-Mitwirkende, Kartenstil', da: '-bidragydere, kortstil', en: ' contributors, map style' }[lang] || '-Mitwirkende, Kartenstil'} <a href="https://www.hotosm.org/">HOT</a>`,
 }).addTo(map);
 
 const routeLines = new Map();
@@ -321,7 +332,7 @@ function renderList() {
     <p class="section-note">${list.length} ${list.length === 1 ? 'Runde' : 'Runden'} ${state.myPos ? 'in deiner Nähe' : 'rund um die Kartenmitte'}${state.filters.size ? ' (gefiltert)' : ''}</p>
     ${list.length ? `<ul class="route-list">${list.slice(0, state.listLimit).map(card).join('')}</ul>` : `<p class="empty">Keine Runde passt zu den Filtern. Nimm einen Filter heraus oder verschiebe die Karte.</p>`}
     ${list.length > state.listLimit ? `<button class="btn secondary small more-btn" data-more>Weitere ${Math.min(30, list.length - state.listLimit)} anzeigen</button>` : ''}
-    <p class="hint">Der Hunde-Score (0–100) bewertet Wasser, Schatten, Untergrund, Straßen, Leinenregel und Mülleimer. Hundeausläufe und Wanderwege stammen aus OpenStreetMap (© OpenStreetMap-Mitwirkende, ODbL). Verschiebe die Karte, um Runden in anderen Gegenden zu sehen.</p>`;
+    <p class="hint">Der Hunde-Score (0–100) bewertet Wasser, Schatten, Untergrund, Straßen, Leinenregel und Mülleimer. Verschiebe die Karte, um Runden in anderen Gegenden zu sehen.</p>`;
   state.listSig = listSignature();
   const f = $('.filters');
   if (f) { f.scrollLeft = state.filterScroll || 0; f.onscroll = () => { state.filterScroll = f.scrollLeft; updateFilterArrows(); }; requestAnimationFrame(updateFilterArrows); }
@@ -384,7 +395,7 @@ function renderDetail() {
     const v = r.busyness?.[i] ?? 0;
     bars.push(`<i class="${i === h ? 'now' : ''}" style="height:${Math.max(4, v)}%" title="${i} Uhr: ${busyLevel(v).label}"></i>`);
   }
-  const by = r.source === 'vorgefertigt' ? 'Gassirunde-Tipp' : r.source === 'osm' ? `${esc(KIND[kindOf(r)])} · Daten: © OpenStreetMap-Mitwirkende` : `Hinzugefügt von ${esc(r.author || 'Anonym')}`;
+  const by = r.source === 'vorgefertigt' ? 'Gassirunde-Tipp' : r.source === 'osm' ? esc(KIND[kindOf(r)]) : `Hinzugefügt von ${esc(r.author || 'Anonym')}`;
   el.innerHTML = `<article class="detail">
     <div class="detail-head"><button class="back" id="back-btn">← Alle Runden</button></div>
     <h2>${esc(r.name)}</h2>
@@ -437,6 +448,7 @@ function renderDetail() {
     ${r.source !== 'vorgefertigt' && me.id && r.authorId === me.id ? `<div class="route-owner"><button class="btn small secondary" id="delete-route-btn">Meine Runde löschen</button></div>` : ''}
 
     <div class="detail-actions"><button class="btn danger" id="walk-route-btn">Diese Runde laufen</button></div>
+    ${r.source === 'osm' ? '<p class="legal-note">Daten: © OpenStreetMap-Mitwirkende (ODbL)</p>' : ''}
   </article>`;
   $('#back-btn').onclick = closeDetail;
   $('#walk-route-btn').onclick = () => requireLogin('Melde dich an, um die Runde zu laufen und aufzuzeichnen.', () => startWalk(r));

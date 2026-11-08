@@ -57,7 +57,12 @@ button, input, select, textarea { font: inherit; color: inherit; }
 #map { position: fixed; inset: 0; background: var(--surface-2); }
 .leaflet-tile-pane { filter: var(--tile-filter); }
 .leaflet-container { font: inherit; }
-.leaflet-control-attribution { font-size: 11px; }
+.leaflet-control-attribution { font-size: 11px; border-radius: 8px 8px 0 0; }
+/* Klein gemacht: nur ein „©“ */
+.leaflet-control-attribution.mini { font-size: 0; padding: 2px 7px; border-radius: 10px; margin: 0 0 6px 6px !important; cursor: pointer; opacity: 0.8; }
+.leaflet-control-attribution.mini::after { content: '©'; font-size: 13px; }
+.legal-note { margin: 18px 0 4px; font-size: 12px; color: var(--muted); text-align: center; }
+@media (max-width: 899px) { .leaflet-bottom { bottom: var(--sheet-h, 0px); transition: bottom 0.25s ease; } }
 
 /* ---------- Kopfzeile ---------- */
 .topbar {
