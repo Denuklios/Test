@@ -1058,6 +1058,83 @@ function wf_translate(string $html, string $target): ?string
     return (string)$j['translations'][0]['text'];
 }
 
+/**
+ * Mail-HTML übersetzen, Absatz für Absatz: jeder Textteil wird einzeln erkannt, damit auch gemischte Mails
+ * (z. B. oben Dänisch, unten Deutsch) vollständig in die Zielsprache kommen. Bilder und Aufbau bleiben unangetastet.
+ * Liefert ['html' => …, 'changed' => Anzahl übersetzter Teile] oder null bei Fehler.
+ */
+function wf_translate_html_parts(string $html, string $target): ?array
+{
+    $key = wf_deepl_key();
+    if ($key === '') {
+        return null;
+    }
+    $doc = new DOMDocument();
+    libxml_use_internal_errors(true);
+    $doc->loadHTML('<?xml encoding="UTF-8"><html><body><div id="wfroot">' . $html . '</div></body></html>', LIBXML_NONET | LIBXML_COMPACT);
+    libxml_clear_errors();
+    $xp = new DOMXPath($doc);
+    $nodes = [];
+    foreach ($xp->query('//div[@id="wfroot"]//text()[not(ancestor::script) and not(ancestor::style)]') as $n) {
+        $v = $n->nodeValue;
+        // nur echte Wörter (keine Zahlen, Adressen, Links, Trennlinien)
+        if (mb_strlen(trim($v)) < 2 || !preg_match('/\p{L}{2,}/u', $v) || preg_match('#^\s*(https?://|www\.|\S+@\S+\.\w+\s*$)#i', $v)) {
+            continue;
+        }
+        $nodes[] = $n;
+    }
+    $changed = 0;
+    $total = 0;
+    $tgt = strtoupper(substr($target, 0, 2));
+    for ($i = 0; $i < count($nodes); $i += 50) {
+        $batch = array_slice($nodes, $i, 50);
+        $texts = array_map(fn($n) => $n->nodeValue, $batch);
+        $total += array_sum(array_map('strlen', $texts));
+        if ($total > 120000) {
+            break;
+        }
+        if (getenv('WF_OFFLINE')) {
+            // Testbetrieb ohne Netz: Dänisch grob an Buchstaben/Wörtern erkennen, sonst Deutsch; Übersetzung = Kennzeichnung
+            $out = array_map(function ($t) use ($target) {
+                $src = preg_match('/[æøå]|\b(og|det|vi|til|med|hilsner|hej)\b/iu', $t) ? 'DA' : 'DE';
+                return ['text' => '[' . $target . '] ' . $t, 'detected_source_language' => $src];
+            }, $texts);
+        } else {
+            $url = (str_ends_with($key, ':fx') ? 'https://api-free.deepl.com' : 'https://api.deepl.com') . '/v2/translate';
+            $ch = curl_init($url);
+            curl_setopt_array($ch, [CURLOPT_RETURNTRANSFER => true, CURLOPT_TIMEOUT => 30, CURLOPT_POST => true,
+                CURLOPT_HTTPHEADER => ['Authorization: DeepL-Auth-Key ' . $key, 'Content-Type: application/json'],
+                CURLOPT_POSTFIELDS => json_encode(['text' => array_values($texts), 'target_lang' => $target, 'preserve_formatting' => true])]);
+            $r = curl_exec($ch);
+            $code = (int)curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
+            curl_close($ch);
+            $j = $code === 200 ? json_decode((string)$r, true) : null;
+            if (!is_array($j) || !isset($j['translations'])) {
+                $GLOBALS['wf_translate_err'] = $code === 456 ? 'quota' : ($code === 403 ? 'key' : 'http' . $code);
+                return null;
+            }
+            $out = $j['translations'];
+        }
+        foreach ($batch as $k => $n) {
+            $tr = $out[$k] ?? null;
+            if (!$tr || strtoupper((string)($tr['detected_source_language'] ?? '')) === $tgt) {
+                continue;   // schon in der Zielsprache: so lassen
+            }
+            // Leerraum am Rand wie im Original behalten
+            preg_match('/^\s*/u', $n->nodeValue, $l);
+            preg_match('/\s*$/u', $n->nodeValue, $t);
+            $n->nodeValue = $l[0] . trim((string)$tr['text']) . $t[0];
+            $changed++;
+        }
+    }
+    $root = $doc->getElementById('wfroot');
+    $res = '';
+    foreach ($root ? $root->childNodes : [] as $c) {
+        $res .= $doc->saveHTML($c);
+    }
+    return ['html' => $res, 'changed' => $changed];
+}
+
 /** Nur der neue Teil einer Mail (ohne zitierte ältere Nachrichten und Signatur-Trenner), für die Chat-Ansicht. */
 function wf_mail_own_text(string $t): string
 {

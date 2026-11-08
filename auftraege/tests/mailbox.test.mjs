@@ -136,7 +136,12 @@ try {
   });
   await ok('Übersetzen (offline: Kennzeichnung), ungültige Zielsprache, falsche Adresse', async () => {
     const r = (await call('mail_translate', { body: { html: '<p>Hallo</p>', target: 'da' } })).j;
-    assert.equal(r.html, '[DA] <p>Hallo</p>');
+    assert.equal(r.html, '<p>[DA] Hallo</p>');
+    // gemischte Mail: nur der dänische Teil wird ins Deutsche übersetzt, Bild bleibt
+    const mix = (await call('mail_translate', { body: { html: '<p>Vi glæder os til at se dig</p><p>Wir freuen uns</p><img src="data:image/png;base64,AAAA">', target: 'de' } })).j;
+    assert.equal(mix.html, '<p>[DE] Vi glæder os til at se dig</p><p>Wir freuen uns</p><img src="data:image/png;base64,AAAA">');
+    assert.equal(mix.same, false);
+    assert.equal((await call('mail_translate', { body: { html: '<p>Schon deutsch</p>', target: 'de' } })).j.same, true);
     assert.equal((await call('mail_translate', { body: { html: 'x', target: 'fr' } })).j.error, 'bad_input');
     const fd = new FormData(); fd.append('data', JSON.stringify({ to: 'kein-gueltiger', subject: 'x', html: 'x' }));
     assert.equal((await call('mail_send', { form: fd })).j.error, 'mail_no_to');

@@ -1333,29 +1333,11 @@ try {
             if (wf_deepl_key() === '') {
                 wf_fail('deepl_missing');
             }
-            // Bilder und lange Attribute für die Übersetzung durch Platzhalter ersetzen, danach wieder einsetzen
-            $keep = [];
-            $slim = preg_replace_callback('/\s(src|srcset|style|href)\s*=\s*("[^"]*"|\'[^\']*\')/i', function ($mm) use (&$keep) {
-                if (strlen($mm[2]) < 80) {
-                    return $mm[0];
-                }
-                $keep[] = $mm[0];
-                return ' data-wfk="' . (count($keep) - 1) . '"';
-            }, $html) ?? $html;
-            $slim = preg_replace('#<(style|script)\b[^>]*>.*?</\1>#is', '', $slim) ?? $slim;
-            if (strlen($slim) > 120000) {
-                // sehr lange Mail: nur den Text übersetzen
-                $txt = trim(html_entity_decode(strip_tags(preg_replace('#<(br|/p|/div|/tr|/li|/h\d)\b[^>]*>#i', "\n", $slim) ?? $slim), ENT_QUOTES, 'UTF-8'));
-                $slim = '<div style="white-space:pre-wrap">' . htmlspecialchars(mb_substr($txt, 0, 60000), ENT_QUOTES, 'UTF-8') . '</div>';
-                $keep = [];
-            }
-            $r = wf_translate($slim, $target);
+            $r = wf_translate_html_parts($html, $target);
             if ($r === null) {
                 wf_fail('translate_failed', 502, ['detail' => (string)($GLOBALS['wf_translate_err'] ?? '')]);
             }
-            $r = preg_replace_callback('/\sdata-wfk="(\d+)"/', fn($mm) => $keep[(int)$mm[1]] ?? '', $r) ?? $r;
-            $src = (string)($GLOBALS['wf_translate_src'] ?? '');
-            wf_json(['ok' => true, 'html' => $r, 'same' => $src !== '' && strtoupper(substr($target, 0, 2)) === strtoupper(substr($src, 0, 2))]);
+            wf_json(['ok' => true, 'html' => $r['html'], 'same' => $r['changed'] === 0]);
         }
 
         case 'mail_send': {
