@@ -20,7 +20,8 @@ class PatternActivity : ComponentActivity() {
         Ui.initCv()
         val p = PatternStore.load(this, intent.getStringExtra("id") ?: "") ?: return finish()
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(Ui.header(this, p.name, "Schnittmuster"))
+        val head = Ui.header(this, p.name, "Schnittmuster")
+        root.addView(head)
         val col = Ui.column(this)
         val pc = Ui.card(this)
         pc.addView(PatternView(this, p))
@@ -46,6 +47,7 @@ class PatternActivity : ComponentActivity() {
         }, 1f, 0))
         col.addView(r)
         root.addView(col, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        Ui.insets(root, head, root)
         setContentView(root)
     }
 }

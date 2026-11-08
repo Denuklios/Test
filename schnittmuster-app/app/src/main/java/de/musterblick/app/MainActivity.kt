@@ -36,12 +36,13 @@ class MainActivity : ComponentActivity() {
         Ui.initCv()
         PatternStore.ensureSample(this)
         val root = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        root.addView(Ui.header(this, "MusterBlick", "Vom Foto zum Schnittmuster – direkt auf den Stoff", back = false))
+        val head = Ui.header(this, "MusterBlick", "Vom Foto zum Schnittmuster – direkt auf den Stoff", back = false)
+        root.addView(head)
         val col = Ui.column(this)
 
         val newCard = Ui.card(this); val nb = Ui.cardBody(this, newCard)
         nb.addView(Ui.h2(this, "Neues Schnittmuster"))
-        nb.addView(Ui.body(this, "Fotografiere den Gegenstand oder nimm ein Bild aus der Galerie. Das Hauptmotiv in der Mitte wird automatisch erkannt."))
+        nb.addView(Ui.body(this, "Fotografiere den Gegenstand oder nimm ein Bild aus der Galerie. Das Motiv in der Bildmitte wird automatisch erkannt – ein Marker-Blatt ist dafür nicht nötig."))
         val r = Ui.row(this)
         r.addView(Ui.weighted(Ui.button(this, "Foto", Ui.Kind.PRIMARY, R.drawable.ic_camera) {
             if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED) launchCamera()
@@ -52,8 +53,8 @@ class MainActivity : ComponentActivity() {
         col.addView(newCard)
 
         val mk = Ui.card(this); val mb = Ui.cardBody(this, mk)
-        mb.addView(Ui.h2(this, "Marker-Blatt"))
-        mb.addView(Ui.body(this, "Einmal in 100 % ausdrucken. Liegt es beim Foto neben dem Gegenstand, kennt die App die echte Größe. Auf dem Stoff hält es das projizierte Muster fest."))
+        mb.addView(Ui.h2(this, "Marker-Blatt (für die Projektion)"))
+        mb.addView(Ui.body(this, "Einmal in 100 % ausdrucken und auf den Stoff legen: Es hält das projizierte Muster fest. Optional: Liegt es beim Foto daneben, misst die App die Größe selbst."))
         mb.addView(Ui.button(this, "Marker-Blatt drucken", Ui.Kind.OUTLINE, R.drawable.ic_print) {
             Executors.newSingleThreadExecutor().execute {
                 val f = Pdf.markerSheet(this)
@@ -66,6 +67,7 @@ class MainActivity : ComponentActivity() {
         list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         col.addView(list)
         root.addView(ScrollView(this).apply { addView(col) }, LinearLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, 0, 1f))
+        Ui.insets(root, head, root)
         setContentView(root)
     }
 

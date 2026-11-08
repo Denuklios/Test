@@ -60,13 +60,13 @@ class ArActivity : ComponentActivity() {
         root.addView(overlay)
         status = TextView(this).apply {
             setTextColor(Color.WHITE); textSize = 15f; setBackgroundColor(Color.argb(170, 47, 74, 58))
-            val d = Ui.dp(context, 10); setPadding(d, d + Ui.dp(context, 18), d, d)
+            val d = Ui.dp(context, 10); setPadding(d, d, d, d)
             text = "Marker-Blatt suchen …"
         }
         root.addView(status, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.TOP))
         val bar = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL; setBackgroundColor(Color.argb(110, 0, 0, 0))
-            val d = Ui.dp(context, 6); setPadding(d, d, d, d + Ui.dp(context, 16))
+            val d = Ui.dp(context, 8); setPadding(d, d, d, d)
         }
         fun btn(t: String, f: (android.widget.Button) -> Unit) = com.google.android.material.button.MaterialButton(this).apply {
             text = t; isAllCaps = false; textSize = 13f; setOnClickListener { f(this) }
@@ -79,6 +79,7 @@ class ArActivity : ComponentActivity() {
         bar.addView(btn("Sperren") { b -> overlay.locked = !overlay.locked; b.text = if (overlay.locked) "Entsperren" else "Sperren" })
         bar.addView(btn("Licht") { torch = !torch; camera?.cameraControl?.enableTorch(torch) })
         root.addView(bar, FrameLayout.LayoutParams(ViewGroup.LayoutParams.MATCH_PARENT, ViewGroup.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM))
+        Ui.insets(root, status, bar)
         setContentView(root)
         Toast.makeText(this, "Muster mit einem Finger verschieben, mit zwei Fingern drehen. Dann „Sperren“.", Toast.LENGTH_LONG).show()
 

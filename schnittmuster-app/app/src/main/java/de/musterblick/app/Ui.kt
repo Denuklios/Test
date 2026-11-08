@@ -18,6 +18,7 @@ import com.google.android.material.card.MaterialCardView
 import com.google.android.material.chip.Chip
 import org.opencv.android.OpenCVLoader
 import java.io.File
+import kotlin.math.max
 
 object Ui {
     val INK = Color.rgb(43, 38, 34)
@@ -65,6 +66,19 @@ object Ui {
         subtitle?.let { texts.addView(TextView(act).apply { text = it; setTextColor(Color.argb(210, 255, 255, 255)); textSize = 14f }) }
         bar.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         return bar
+    }
+
+    /** Android 15 draws apps edge to edge: keep the header below the status bar and content above the nav bar / keyboard. */
+    fun insets(root: View, top: View?, bottom: View?) {
+        val t0 = top?.paddingTop ?: 0
+        val b0 = bottom?.paddingBottom ?: 0
+        androidx.core.view.ViewCompat.setOnApplyWindowInsetsListener(root) { _, ins ->
+            val bars = ins.getInsets(androidx.core.view.WindowInsetsCompat.Type.systemBars())
+            val ime = ins.getInsets(androidx.core.view.WindowInsetsCompat.Type.ime())
+            top?.let { it.setPadding(it.paddingLeft, t0 + bars.top, it.paddingRight, it.paddingBottom) }
+            bottom?.let { it.setPadding(it.paddingLeft, it.paddingTop, it.paddingRight, b0 + max(bars.bottom, ime.bottom)) }
+            androidx.core.view.WindowInsetsCompat.CONSUMED
+        }
     }
 
     fun card(ctx: Context) = MaterialCardView(ctx).apply {

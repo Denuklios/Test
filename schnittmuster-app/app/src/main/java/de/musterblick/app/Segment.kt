@@ -111,14 +111,197 @@ object Segment {
         } finally { seg.close() }
     }
 
-    /** Picks the subject that best covers the centre of the picture. */
-    fun pickCentral(masks: List<Mat>): Int {
-        if (masks.isEmpty()) return -1
-        return masks.indices.maxByOrNull { i ->
-            val m = masks[i]
-            val c = m.submat(Rect(m.cols() / 4, m.rows() / 4, m.cols() / 2, m.rows() / 2))
-            Core.countNonZero(c) * 3.0 + Core.countNonZero(m)
-        } ?: -1
+    /** Drops "subjects" that are really the background (huge, or touching three or more image edges). */
+    fun plausible(m: Mat): Boolean {
+        val area = Core.countNonZero(m).toDouble() / (m.rows() * m.cols())
+        if (area > 0.7 || area < 0.002) return false
+        val r = Imgproc.boundingRect(m)
+        val touch = listOf(r.x <= 2, r.y <= 2, r.x + r.width >= m.cols() - 2, r.y + r.height >= m.rows() - 2).count { it }
+        return touch < 3
+    }
+
+    /** How likely a region is "the main motif": big, compact, near the centre, not cut off by the edges. */
+    fun score(m: Mat): Double {
+        val area = Core.countNonZero(m).toDouble()
+        if (area < 1) return 0.0
+        val r = Imgproc.boundingRect(m)
+        val cx = r.x + r.width / 2.0; val cy = r.y + r.height / 2.0
+        val dist = Math.hypot((cx - m.cols() / 2.0) / m.cols(), (cy - m.rows() / 2.0) / m.rows())
+        val touch = listOf(r.x <= 2, r.y <= 2, r.x + r.width >= m.cols() - 2, r.y + r.height >= m.rows() - 2).count { it }
+        val cs = ArrayList<MatOfPoint>()
+        Imgproc.findContours(m.clone(), cs, Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
+        val c = cs.maxByOrNull { Imgproc.contourArea(it) } ?: return 0.0
+        val hullIdx = MatOfInt(); Imgproc.convexHull(c, hullIdx)
+        val pts = c.toArray(); val hull = MatOfPoint(*hullIdx.toArray().map { pts[it] }.toTypedArray())
+        val solidity = Imgproc.contourArea(c) / max(1.0, Imgproc.contourArea(hull))
+        return Math.sqrt(area) * solidity / (1 + 5 * dist) / (1 + 3 * touch)
+    }
+
+    /** Closed regions bounded by strong colour edges (works well for an object lying on a table or floor). */
+    fun edgeCandidates(prep: Prepared): List<Mat> {
+        val img = prep.rgb
+        val s = min(1.0, 700.0 / max(img.cols(), img.rows()))
+        val small = Mat(); Imgproc.resize(img, small, Size(0.0, 0.0), s, s, Imgproc.INTER_AREA)
+        Imgproc.GaussianBlur(small, small, Size(0.0, 0.0), 1.5)
+        val lab = Mat(); Imgproc.cvtColor(small, lab, Imgproc.COLOR_RGB2Lab)
+        lab.convertTo(lab, CvType.CV_32F)
+        val ch = ArrayList<Mat>(); Core.split(lab, ch)
+        val g2 = Mat.zeros(small.size(), CvType.CV_32F)
+        for (c in ch) {
+            val gx = Mat(); val gy = Mat()
+            Imgproc.Sobel(c, gx, CvType.CV_32F, 1, 0); Imgproc.Sobel(c, gy, CvType.CV_32F, 0, 1)
+            Core.multiply(gx, gx, gx); Core.multiply(gy, gy, gy)
+            Core.add(g2, gx, g2); Core.add(g2, gy, g2)
+            gx.release(); gy.release(); c.release()
+        }
+        val n = g2.rows() * g2.cols()
+        val arr = FloatArray(n); g2.get(0, 0, arr)
+        val sorted = arr.copyOf(); sorted.sort()
+        val thr = sorted[(n * 0.92).toInt()].toDouble()
+        val e = Mat(); Imgproc.threshold(g2, e, thr, 255.0, Imgproc.THRESH_BINARY); e.convertTo(e, CvType.CV_8U)
+        Imgproc.morphologyEx(e, e, Imgproc.MORPH_CLOSE, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(7.0, 7.0)))
+        val cs = ArrayList<MatOfPoint>()
+        Imgproc.findContours(e, cs, Mat(), Imgproc.RETR_EXTERNAL, Imgproc.CHAIN_APPROX_SIMPLE)
+        val fill = Mat.zeros(small.size(), CvType.CV_8UC1)
+        Imgproc.drawContours(fill, cs, -1, Scalar(255.0), -1)
+        Imgproc.morphologyEx(fill, fill, Imgproc.MORPH_OPEN, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(15.0, 15.0)))
+        val labels = Mat(); val stats = Mat(); val cents = Mat()
+        val count = Imgproc.connectedComponentsWithStats(fill, labels, stats, cents)
+        val out = ArrayList<Mat>()
+        val total = small.rows() * small.cols()
+        for (i in 1 until count) {
+            val a = stats.get(i, Imgproc.CC_STAT_AREA)[0]
+            if (a < 0.003 * total || a > 0.6 * total) continue
+            val m = Mat(); Core.compare(labels, Scalar(i.toDouble()), m, Core.CMP_EQ)
+            val big = Mat(); Imgproc.resize(m, big, img.size(), 0.0, 0.0, Imgproc.INTER_LINEAR)
+            Imgproc.threshold(big, big, 127.0, 255.0, Imgproc.THRESH_BINARY)
+            m.release(); out.add(big)
+        }
+        listOf(small, lab, g2, e, fill, labels, stats, cents).forEach { it.release() }
+        return out
+    }
+
+    /** Sharpens a rough region with GrabCut: inner part = object, wide ring around it = maybe background. */
+    fun refineSeed(prep: Prepared, rough: Mat): Mat {
+        val img = prep.rgb
+        val s = min(1.0, 700.0 / max(img.cols(), img.rows()))
+        val small = Mat(); Imgproc.resize(img, small, Size(0.0, 0.0), s, s, Imgproc.INTER_AREA)
+        val fg = Mat(); Imgproc.resize(rough, fg, small.size(), 0.0, 0.0, Imgproc.INTER_NEAREST)
+        val r = Imgproc.boundingRect(fg)
+        val ring = max(8, (max(r.width, r.height) * 0.15).toInt()) or 1
+        val gm = Mat(small.size(), CvType.CV_8UC1, Scalar(Imgproc.GC_BGD.toDouble()))
+        val dil = Mat(); Imgproc.dilate(fg, dil, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(ring * 2.0 + 1, ring * 2.0 + 1)))
+        gm.setTo(Scalar(Imgproc.GC_PR_BGD.toDouble()), dil)
+        gm.setTo(Scalar(Imgproc.GC_PR_FGD.toDouble()), fg)
+        val er = Mat(); Imgproc.erode(fg, er, Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(ring.toDouble(), ring.toDouble())))
+        gm.setTo(Scalar(Imgproc.GC_FGD.toDouble()), er)
+        val res = runGrab(small, gm, 5)
+        listOf(small, fg, dil, er, gm).forEach { it.release() }
+        return keepBest(upscale(res, img.size()), rough)
+    }
+
+    /** Smart brush: user strokes (hint 1 = belongs to motif, 2 = does not) steer GrabCut. */
+    fun refineHints(prep: Prepared, current: Mat?, hints: Mat): Mat {
+        val img = prep.rgb
+        val s = min(1.0, 700.0 / max(img.cols(), img.rows()))
+        val small = Mat(); Imgproc.resize(img, small, Size(0.0, 0.0), s, s, Imgproc.INTER_AREA)
+        val h = Mat(); Imgproc.resize(hints, h, small.size(), 0.0, 0.0, Imgproc.INTER_NEAREST)
+        val gm = Mat(small.size(), CvType.CV_8UC1, Scalar(Imgproc.GC_PR_BGD.toDouble()))
+        if (current != null) {
+            val c = Mat(); Imgproc.resize(current, c, small.size(), 0.0, 0.0, Imgproc.INTER_NEAREST)
+            gm.setTo(Scalar(Imgproc.GC_PR_FGD.toDouble()), c); c.release()
+        }
+        Imgproc.rectangle(gm, Point(0.0, 0.0), Point(small.cols() - 1.0, small.rows() - 1.0), Scalar(Imgproc.GC_BGD.toDouble()), 2)
+        val one = Mat(); Core.compare(h, Scalar(1.0), one, Core.CMP_EQ)
+        val two = Mat(); Core.compare(h, Scalar(2.0), two, Core.CMP_EQ)
+        gm.setTo(Scalar(Imgproc.GC_FGD.toDouble()), one)
+        gm.setTo(Scalar(Imgproc.GC_BGD.toDouble()), two)
+        val res = runGrab(small, gm, 5)
+        val big = upscale(res, img.size())
+        val oneBig = Mat(); Core.compare(hints, Scalar(1.0), oneBig, Core.CMP_EQ)
+        listOf(small, h, gm, one, two).forEach { it.release() }
+        val out = keepBest(big, oneBig); oneBig.release()
+        return out
+    }
+
+    private fun runGrab(small: Mat, gm: Mat, iters: Int): Mat {
+        val bgd = Mat(); val fgd = Mat()
+        val hasFg = Core.countNonZero(Mat().also { Core.compare(gm, Scalar(Imgproc.GC_PR_FGD.toDouble()), it, Core.CMP_EQ) }) +
+            Core.countNonZero(Mat().also { Core.compare(gm, Scalar(Imgproc.GC_FGD.toDouble()), it, Core.CMP_EQ) })
+        if (hasFg == 0) return Mat.zeros(small.size(), CvType.CV_8UC1)
+        Imgproc.grabCut(small, gm, Rect(), bgd, fgd, iters, Imgproc.GC_INIT_WITH_MASK)
+        val a = Mat(); val b = Mat()
+        Core.compare(gm, Scalar(Imgproc.GC_FGD.toDouble()), a, Core.CMP_EQ)
+        Core.compare(gm, Scalar(Imgproc.GC_PR_FGD.toDouble()), b, Core.CMP_EQ)
+        Core.bitwise_or(a, b, a); b.release(); bgd.release(); fgd.release()
+        return a
+    }
+
+    private fun upscale(m: Mat, size: Size): Mat {
+        val big = Mat(); Imgproc.resize(m, big, size, 0.0, 0.0, Imgproc.INTER_LINEAR)
+        Imgproc.threshold(big, big, 127.0, 255.0, Imgproc.THRESH_BINARY); m.release()
+        return big
+    }
+
+    /** Keeps the connected region that overlaps the reference most (or the largest). */
+    private fun keepBest(m: Mat, ref: Mat): Mat {
+        val labels = Mat(); val stats = Mat(); val cents = Mat()
+        val n = Imgproc.connectedComponentsWithStats(m, labels, stats, cents)
+        if (n <= 2) { labels.release(); stats.release(); cents.release(); return m }
+        var best = 1; var bestScore = -1.0
+        for (i in 1 until n) {
+            val comp = Mat(); Core.compare(labels, Scalar(i.toDouble()), comp, Core.CMP_EQ)
+            val ov = Mat(); Core.bitwise_and(comp, ref, ov)
+            val sc = Core.countNonZero(ov) * 10.0 + stats.get(i, Imgproc.CC_STAT_AREA)[0]
+            if (sc > bestScore) { bestScore = sc; best = i }
+            comp.release(); ov.release()
+        }
+        val out = Mat(); Core.compare(labels, Scalar(best.toDouble()), out, Core.CMP_EQ)
+        listOf(m, labels, stats, cents).forEach { it.release() }
+        return out
+    }
+
+    /** Like the sticker feature on iPhone/Samsung: find the object under the finger. */
+    fun liftAt(prep: Prepared, mlAll: List<Mat>, edges: List<Mat>, x: Double, y: Double): Mat? {
+        val xi = x.toInt(); val yi = y.toInt()
+        fun hit(m: Mat) = xi in 0 until m.cols() && yi in 0 until m.rows() && m.get(yi, xi)[0] > 0
+        fun nearHit(m: Mat): Boolean {
+            if (hit(m)) return true
+            val r = max(6, (max(m.cols(), m.rows()) * 0.02).toInt())
+            val x0 = (xi - r).coerceAtLeast(0); val y0 = (yi - r).coerceAtLeast(0)
+            val x1 = (xi + r).coerceAtMost(m.cols() - 1); val y1 = (yi + r).coerceAtMost(m.rows() - 1)
+            if (x1 <= x0 || y1 <= y0) return false
+            return Core.countNonZero(m.submat(y0, y1, x0, x1)) > 0
+        }
+        val bmp = prep.bitmap
+        val total = bmp.width.toDouble() * bmp.height
+        // 1) a subject in the whole picture under the finger
+        val whole = mlAll.filter { hit(it) && plausible(it) }.minByOrNull { Core.countNonZero(it) }
+        if (whole != null && Core.countNonZero(whole) < 0.15 * total) return whole.clone()
+        // 2) zoom in around the finger and ask again; the result counts only if it is not cut off by the zoom window
+        val side = (max(bmp.width, bmp.height) * 0.55).toInt().coerceAtMost(min(bmp.width, bmp.height))
+        val cx = (xi - side / 2).coerceIn(0, bmp.width - side)
+        val cy = (yi - side / 2).coerceIn(0, bmp.height - side)
+        val crop = Bitmap.createBitmap(bmp, cx, cy, side, side)
+        val subs = runCatching { mlSubjects(crop) }.getOrElse { emptyList() }
+        val lx = xi - cx; val ly = yi - cy
+        val inCrop = subs.filter { m -> lx in 0 until m.cols() && ly in 0 until m.rows() && m.get(ly, lx)[0] > 0 }.minByOrNull { Core.countNonZero(it) }
+        if (inCrop != null) {
+            val r = Imgproc.boundingRect(inCrop)
+            val cut = (r.x <= 1 && cx > 0) || (r.y <= 1 && cy > 0) ||
+                (r.x + r.width >= side - 1 && cx + side < bmp.width) || (r.y + r.height >= side - 1 && cy + side < bmp.height)
+            if (!cut) {
+                val full = Mat.zeros(bmp.height, bmp.width, CvType.CV_8UC1)
+                inCrop.copyTo(full.submat(Rect(cx, cy, side, side)))
+                subs.forEach { it.release() }
+                return full
+            }
+        }
+        subs.forEach { it.release() }
+        if (whole != null) return whole.clone()
+        // 3) a region with a closed outline under the finger
+        edges.filter { nearHit(it) }.minByOrNull { Core.countNonZero(it) }?.let { return refineSeed(prep, it) }
+        return null
     }
 
     fun indexAt(masks: List<Mat>, x: Double, y: Double): Int {
