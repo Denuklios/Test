@@ -26,39 +26,70 @@ object Pdf {
         close()
     }
 
-    /** Marker sheet to print at 100 %. */
-    fun markerSheet(ctx: Context): File {
-        val doc = PdfDocument()
-        val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
-        val c = page.canvas
-        c.scale(PT, PT)
+    private fun drawSheet(c: Canvas, sh: Board.Sheet, ox: Float, oy: Float) {
         val nearest = Paint().apply { isFilterBitmap = false; isAntiAlias = false }
-        for ((id, tl) in Board.markers) {
+        for ((id, tl) in sh.markers) {
             val m = Mat()
             Objdetect.generateImageMarker(Board.dictionary, id, 240, m)
             val bmp = Bitmap.createBitmap(240, 240, Bitmap.Config.ARGB_8888)
             Utils.matToBitmap(m, bmp); m.release()
-            c.drawBitmap(bmp, null, RectF(tl.x.toFloat(), tl.y.toFloat(), (tl.x + Board.S).toFloat(), (tl.y + Board.S).toFloat()), nearest)
+            c.drawBitmap(bmp, null, RectF(ox + tl.x.toFloat(), oy + tl.y.toFloat(), ox + (tl.x + sh.size).toFloat(), oy + (tl.y + sh.size).toFloat()), nearest)
         }
-        val t = text(6f, true)
-        c.drawText("MusterBlick Marker-Blatt", 62f, 30f, t)
+    }
+
+    private fun cutFrame(c: Canvas, x: Float, y: Float, w: Float, h: Float) {
+        c.drawRect(x, y, x + w, y + h, paint(Color.GRAY, 0.25f, true))
+    }
+
+    /** Marker sheets to print at 100 %: page 1 = A4 (most accurate), page 2 = small square and strips to cut out. */
+    fun markerSheet(ctx: Context): File {
+        val doc = PdfDocument()
         val s = text(3.6f)
-        listOf(
-            "Mit 100 % / Tatsächliche Größe drucken.",
-            "Blatt flach auf den Stoff legen (am besten",
-            "auf Pappe kleben, damit es sich nicht wellt).",
-            "Marker nicht knicken oder abdecken.",
-        ).forEachIndexed { i, l -> c.drawText(l, 62f, 42f + i * 5.5f, s) }
-        // control ruler 100 mm
-        val y = 175f
-        val rp = paint(Color.BLACK, 0.5f)
-        c.drawLine(55f, y, 155f, y, rp)
-        for (i in 0..10) c.drawLine(55f + i * 10, y - (if (i % 5 == 0) 4 else 2), 55f + i * 10, y, rp)
-        c.drawText("Kontrolle: diese Linie muss genau 10 cm lang sein", 55f, y + 7f, s)
-        c.drawText("Muster wird neben dem Blatt angezeigt – Blatt bleibt beim", 55f, 215f, s)
-        c.drawText("Abzeichnen liegen und darf nicht verrutschen.", 55f, 220.5f, s)
-        doc.finishPage(page)
-        return write(ctx, doc, "MusterBlick-Marker-Blatt.pdf")
+        // page 1: A4
+        run {
+            val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, 1).create())
+            val c = page.canvas; c.scale(PT, PT)
+            drawSheet(c, Board.A4, 0f, 0f)
+            c.drawText("MusterBlick Marker A4", 62f, 30f, text(6f, true))
+            listOf(
+                "Am genauesten – für große Schnittteile.",
+                "Mit 100 % / Tatsächliche Größe drucken.",
+                "Flach hinlegen, am besten auf Pappe kleben.",
+            ).forEachIndexed { i, l -> c.drawText(l, 62f, 42f + i * 5.5f, s) }
+            val y = 175f; val rp = paint(Color.BLACK, 0.5f)
+            c.drawLine(55f, y, 155f, y, rp)
+            for (i in 0..10) c.drawLine(55f + i * 10, y - (if (i % 5 == 0) 4 else 2), 55f + i * 10, y, rp)
+            c.drawText("Kontrolle: diese Linie muss genau 10 cm lang sein", 55f, y + 7f, s)
+            doc.finishPage(page)
+        }
+        // page 2: small markers
+        run {
+            val page = doc.startPage(PdfDocument.PageInfo.Builder(595, 842, 2).create())
+            val c = page.canvas; c.scale(PT, PT)
+            c.drawText("MusterBlick Mini-Marker zum Ausschneiden", 15f, 20f, text(6f, true))
+            listOf(
+                "Mit 100 % drucken, an der gestrichelten Linie ausschneiden.",
+                "Der Marker muss nicht auf dem Stoff liegen: neben den Stoff auf dieselbe Tischfläche legen reicht.",
+                "Quadrat = genauer, Streifen = passt an schmale Stoffreste. Nur einen Marker gleichzeitig ins Bild nehmen.",
+            ).forEachIndexed { i, l -> c.drawText(l, 15f, 30f + i * 5.5f, s) }
+            val sq = Board.SQUARE
+            drawSheet(c, sq, 20f, 55f); cutFrame(c, 20f, 55f, sq.w.toFloat(), sq.h.toFloat())
+            c.drawText("Quadrat 10 × 10 cm", 20f, 162f, s)
+            drawSheet(c, sq, 130f, 55f); cutFrame(c, 130f, 55f, sq.w.toFloat(), sq.h.toFloat())
+            c.drawText("Quadrat (Ersatz)", 130f, 162f, s)
+            val st = Board.STRIP
+            for (i in 0 until 3) {
+                val y = 180f + i * 55f
+                drawSheet(c, st, 20f, y); cutFrame(c, 20f, y, st.w.toFloat(), st.h.toFloat())
+                c.drawText("Streifen 15 × 4 cm", 20f, y + st.h.toFloat() + 5f, s)
+            }
+            val y = 160f + 3 * 55f + 20f; val rp = paint(Color.BLACK, 0.5f)
+            c.drawLine(20f, y, 120f, y, rp)
+            for (i in 0..10) c.drawLine(20f + i * 10, y - (if (i % 5 == 0) 4 else 2), 20f + i * 10, y, rp)
+            c.drawText("Kontrolle: 10 cm", 20f, y + 7f, s)
+            doc.finishPage(page)
+        }
+        return write(ctx, doc, "MusterBlick-Marker.pdf")
     }
 
     /** Pattern at 1:1 split onto A4 pages, with an info page first. */

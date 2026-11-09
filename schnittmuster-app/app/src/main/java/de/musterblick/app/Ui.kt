@@ -21,13 +21,18 @@ import java.io.File
 import kotlin.math.max
 
 object Ui {
-    val INK = Color.rgb(43, 38, 34)
-    val MUTED = Color.rgb(110, 100, 91)
-    val PINE = Color.rgb(47, 74, 58)
-    val PINE_SOFT = Color.rgb(220, 230, 222)
-    val BERRY = Color.rgb(178, 58, 58)
-    val LINEN = Color.rgb(243, 238, 230)
-    val LINE = Color.rgb(226, 218, 207)
+    // Julekontor colours (from the shop logo): paper, Christmas red, gold, pine green
+    val INK = Color.rgb(58, 29, 23)
+    val MUTED = Color.rgb(122, 97, 82)
+    val PINE = Color.rgb(46, 90, 60)
+    val PINE_SOFT = Color.rgb(230, 240, 232)
+    val BERRY = Color.rgb(163, 32, 29)
+    val RED_DARK = Color.rgb(125, 23, 20)
+    val GOLD = Color.rgb(168, 123, 46)
+    val GOLD_SOFT = Color.rgb(246, 233, 205)
+    val LINEN = Color.rgb(246, 239, 226)
+    val CARD = Color.rgb(255, 250, 241)
+    val LINE = Color.rgb(226, 211, 185)
 
     private var cvReady = false
     fun initCv() { if (!cvReady) cvReady = OpenCVLoader.initLocal() }
@@ -47,7 +52,10 @@ object Ui {
     /** Coloured top bar with title, optional subtitle and back arrow. */
     fun header(act: Activity, title: String, subtitle: String? = null, back: Boolean = true): View {
         val bar = row(act).apply {
-            setBackgroundColor(PINE)
+            background = android.graphics.drawable.LayerDrawable(arrayOf(
+                android.graphics.drawable.ColorDrawable(GOLD),
+                android.graphics.drawable.GradientDrawable(android.graphics.drawable.GradientDrawable.Orientation.TL_BR, intArrayOf(BERRY, RED_DARK)),
+            )).apply { setLayerInset(1, 0, 0, 0, dp(act, 3)) }
             setPadding(dp(act, if (back) 6 else 20), dp(act, 14), dp(act, 20), dp(act, 16))
         }
         if (back) {
@@ -63,7 +71,7 @@ object Ui {
             text = title; setTextColor(Color.WHITE); textSize = if (back) 20f else 28f
             typeface = Typeface.create("serif", Typeface.BOLD); maxLines = 1; ellipsize = android.text.TextUtils.TruncateAt.END
         })
-        subtitle?.let { texts.addView(TextView(act).apply { text = it; setTextColor(Color.argb(210, 255, 255, 255)); textSize = 14f }) }
+        subtitle?.let { texts.addView(TextView(act).apply { text = it; setTextColor(Color.rgb(246, 225, 180)); textSize = 14f }) }
         bar.addView(texts, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
         return bar
     }
@@ -84,8 +92,29 @@ object Ui {
     fun card(ctx: Context) = MaterialCardView(ctx).apply {
         radius = dpf(ctx, 20f); cardElevation = 0f
         strokeColor = LINE; strokeWidth = dp(ctx, 1)
-        setCardBackgroundColor(Color.WHITE)
+        setCardBackgroundColor(CARD)
     }
+    /** Big square-ish action tile with an icon disc, title and a short line of text. */
+    fun tile(ctx: Context, title: String, sub: String, icon: Int, bg: Int, fg: Int, disc: Int, onClick: () -> Unit) = MaterialCardView(ctx).apply {
+        radius = dpf(ctx, 22f); cardElevation = 0f; setCardBackgroundColor(bg)
+        strokeWidth = if (bg == CARD) dp(ctx, 1) else 0; strokeColor = LINE
+        isClickable = true; isFocusable = true; setOnClickListener { onClick() }
+        rippleColor = ColorStateList.valueOf(Color.argb(40, 255, 255, 255))
+        val col = column(ctx, 16)
+        val d = dp(ctx, 46)
+        col.addView(ImageView(ctx).apply {
+            setImageResource(icon); setColorFilter(fg)
+            background = android.graphics.drawable.GradientDrawable().apply { shape = android.graphics.drawable.GradientDrawable.OVAL; setColor(disc) }
+            val p = dp(ctx, 11); setPadding(p, p, p, p)
+        }, LinearLayout.LayoutParams(d, d))
+        col.addView(TextView(ctx).apply {
+            text = title; textSize = 17f; setTextColor(fg); typeface = Typeface.create("serif", Typeface.BOLD)
+            setPadding(0, dp(ctx, 12), 0, dp(ctx, 2))
+        })
+        col.addView(TextView(ctx).apply { text = sub; textSize = 13f; setTextColor(if (bg == CARD) MUTED else Color.argb(215, Color.red(fg), Color.green(fg), Color.blue(fg))); setLineSpacing(0f, 1.1f) })
+        addView(col)
+    }
+
     fun cardBody(ctx: Context, card: MaterialCardView) = column(ctx, 18).also { card.addView(it) }
 
     fun h2(ctx: Context, s: String) = TextView(ctx).apply {

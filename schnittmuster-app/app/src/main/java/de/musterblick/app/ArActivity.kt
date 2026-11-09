@@ -127,9 +127,9 @@ class ArActivity : ComponentActivity() {
                 if (det != null) misses = 0 else misses++
                 runOnUiThread {
                     if (det != null) {
-                        overlay.update(det.h, iw, ih)
-                        status.text = if (det.markerCount >= 3) "Marker erkannt (${det.markerCount}/6) – Muster liegt fest" + (if (overlay.locked) " · gesperrt" else "")
-                        else "Nur ${det.markerCount}/6 Marker sichtbar – etwas weiter weg halten"
+                        overlay.update(det.h, iw, ih, det.sheet)
+                        status.text = if (det.markerCount >= minOf(3, det.sheet.markers.size)) "Marker ${det.sheet.name} erkannt (${det.markerCount}/${det.sheet.markers.size}) – Muster liegt fest" + (if (overlay.locked) " · gesperrt" else "")
+                        else "Nur ${det.markerCount}/${det.sheet.markers.size} Marker sichtbar – ganz ins Bild nehmen"
                     } else if (misses > 12) {
                         overlay.update(null, iw, ih)
                         status.text = "Marker-Blatt suchen … (ganz ins Bild bringen, gutes Licht)"
@@ -143,18 +143,24 @@ class ArActivity : ComponentActivity() {
 class ArOverlay(ctx: Context, private val p: Pattern) : View(ctx) {
     private var h: DoubleArray? = null
     private var iw = 1; private var ih = 1
-    var tx = Board.W + 30 + (p.maxX - p.minX) / 2
-    var ty = Board.H / 2
+    private var sheet: Board.Sheet? = null
+    private var placed = false
+    var tx = 0.0
+    var ty = 0.0
     var angle = 0.0
     var mirrored = false
     var locked = false
     private val cutBg = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = Color.BLACK; strokeWidth = 10f; strokeJoin = Paint.Join.ROUND }
     private val cut = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = Color.rgb(255, 225, 0); strokeWidth = 5f; strokeJoin = Paint.Join.ROUND }
     private val seam = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = Color.rgb(0, 230, 255); strokeWidth = 3f; pathEffect = DashPathEffect(floatArrayOf(16f, 10f), 0f) }
-    private val sheet = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = Color.argb(160, 120, 255, 120); strokeWidth = 3f }
+    private val sheetP = Paint(Paint.ANTI_ALIAS_FLAG).apply { style = Paint.Style.STROKE; color = Color.argb(160, 120, 255, 120); strokeWidth = 3f }
 
-    fun update(newH: DoubleArray?, w: Int, hh: Int) {
+    fun update(newH: DoubleArray?, w: Int, hh: Int, sh: Board.Sheet? = null) {
         iw = w; ih = hh
+        if (sh != null && sh !== sheet) {
+            sheet = sh; h = null
+            if (!placed) { tx = sh.w + 25 + (p.maxX - p.minX) / 2; ty = sh.h / 2; placed = true }
+        }
         val cur = h
         h = when {
             newH == null -> null
@@ -189,11 +195,12 @@ class ArOverlay(ctx: Context, private val p: Pattern) : View(ctx) {
             close()
         }
         val sh = Path().apply {
-            listOf(Pt(0.0, 0.0), Pt(Board.W, 0.0), Pt(Board.W, Board.H), Pt(0.0, Board.H)).forEachIndexed { i, q ->
+            val sw = sheet?.w ?: 0.0; val shh = sheet?.h ?: 0.0
+            listOf(Pt(0.0, 0.0), Pt(sw, 0.0), Pt(sw, shh), Pt(0.0, shh)).forEachIndexed { i, q ->
                 val v = boardToView(q, hm); if (i == 0) moveTo(v.x.toFloat(), v.y.toFloat()) else lineTo(v.x.toFloat(), v.y.toFloat())
             }; close()
         }
-        c.drawPath(sh, sheet)
+        c.drawPath(sh, sheetP)
         val cp = path(p.cut)
         c.drawPath(cp, cutBg); c.drawPath(cp, cut)
         c.drawPath(path(p.seam), seam)

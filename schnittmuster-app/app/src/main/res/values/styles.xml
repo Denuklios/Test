@@ -1,22 +1,22 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="ink">#2B2622</color>
-    <color name="muted">#6E645B</color>
-    <color name="linen">#F3EEE6</color>
-    <color name="card">#FFFFFF</color>
-    <color name="pine">#2F4A3A</color>
-    <color name="pine_soft">#DCE6DE</color>
-    <color name="berry">#B23A3A</color>
+    <color name="ink">#3A1D17</color>
+    <color name="paper">#F6EFE2</color>
+    <color name="red">#A3201D</color>
+    <color name="red_dark">#7D1714</color>
+    <color name="green">#2E5A3C</color>
+    <color name="green_soft">#E6F0E8</color>
     <style name="AppTheme" parent="Theme.Material3.Light.NoActionBar">
-        <item name="colorPrimary">@color/berry</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorSecondary">@color/pine</item>
-        <item name="colorSecondaryContainer">@color/pine_soft</item>
-        <item name="colorOnSecondaryContainer">@color/pine</item>
-        <item name="android:colorBackground">@color/linen</item>
-        <item name="android:windowBackground">@color/linen</item>
-        <item name="android:statusBarColor">@color/pine</item>
-        <item name="android:navigationBarColor">@color/linen</item>
+        <item name="colorPrimary">@color/red</item>
+        <item name="colorOnPrimary">#FFF7EC</item>
+        <item name="colorSecondary">@color/green</item>
+        <item name="colorSecondaryContainer">@color/green_soft</item>
+        <item name="colorOnSecondaryContainer">@color/green</item>
+        <item name="colorSurface">#FFFAF1</item>
+        <item name="android:colorBackground">@color/paper</item>
+        <item name="android:windowBackground">@color/paper</item>
+        <item name="android:statusBarColor">@color/red_dark</item>
+        <item name="android:navigationBarColor">@color/paper</item>
         <item name="android:windowLightNavigationBar">true</item>
     </style>
     <style name="AppTheme.Full" parent="AppTheme">

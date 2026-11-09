@@ -25,6 +25,7 @@ class Prepared(
     val pxPerMm: Double,      // 1.0 when no marker (units are pixels)
     val minX: Double, val minY: Double, // board-mm at pixel (0,0)
     val markerCount: Int,
+    val sheet: Board.Sheet? = null,
 ) {
     val hasScale get() = markerCount > 0
     fun toMm(x: Double, y: Double) = Pt(x / pxPerMm + minX, y / pxPerMm + minY)
@@ -59,7 +60,7 @@ object Segment {
         val lim = 1500.0
         val cs = listOf(Pt(0.0, 0.0), Pt(w, 0.0), Pt(w, h), Pt(0.0, h)).map {
             val p = Homo.apply(inv, it.x, it.y)
-            Pt(p.x.coerceIn(-lim, Board.W + lim), p.y.coerceIn(-lim, Board.H + lim))
+            Pt(p.x.coerceIn(-lim, det.sheet.w + lim), p.y.coerceIn(-lim, det.sheet.h + lim))
         }
         val minX = cs.minOf { it.x }; val maxX = cs.maxOf { it.x }
         val minY = cs.minOf { it.y }; val maxY = cs.maxOf { it.y }
@@ -73,7 +74,7 @@ object Segment {
         rgb.release(); mm.release()
         val bmp = Bitmap.createBitmap(out.cols(), out.rows(), Bitmap.Config.ARGB_8888)
         Utils.matToBitmap(out, bmp)
-        return Prepared(bmp, out, k, minX, minY, det.markerCount)
+        return Prepared(bmp, out, k, minX, minY, det.markerCount, det.sheet)
     }
 
     /** Scales the prepared image down to a working size (all editing happens in this pixel space). */
@@ -84,7 +85,7 @@ object Segment {
         val bmp = Bitmap.createScaledBitmap(p.bitmap, w, h, true)
         val rgb = Mat(); Imgproc.resize(p.rgb, rgb, Size(w.toDouble(), h.toDouble()), 0.0, 0.0, Imgproc.INTER_AREA)
         p.rgb.release()
-        return Prepared(bmp, rgb, p.pxPerMm * s, p.minX, p.minY, p.markerCount)
+        return Prepared(bmp, rgb, p.pxPerMm * s, p.minX, p.minY, p.markerCount, p.sheet)
     }
 
     /** On-device "main subject" detection (ML Kit). One 0/255 mask per subject, in image pixels. */
@@ -327,8 +328,8 @@ object Segment {
         // the centre of the selection is very likely the object
         val cx = (r.x + r.width / 2).toDouble(); val cy = (r.y + r.height / 2).toDouble()
         Imgproc.ellipse(mask, Point(cx, cy), Size(r.width * 0.12, r.height * 0.12), 0.0, 0.0, 360.0, Scalar(Imgproc.GC_FGD.toDouble()), -1)
-        if (prep.hasScale) {
-            val a = prep.toPx(Pt(-5.0, -5.0)); val b = prep.toPx(Pt(Board.W + 5, Board.H + 5))
+        prep.sheet?.let { sh ->
+            val a = prep.toPx(Pt(-5.0, -5.0)); val b = prep.toPx(Pt(sh.w + 5, sh.h + 5))
             Imgproc.rectangle(mask, Point(a.x * scale, a.y * scale), Point(b.x * scale, b.y * scale), Scalar(Imgproc.GC_BGD.toDouble()), -1)
         }
         val bgd = Mat(); val fgd = Mat()
@@ -346,8 +347,8 @@ object Segment {
     /** Removes the marker sheet from a mask and returns the outline of the largest region (image px). */
     fun outlineOf(prep: Prepared, mask: Mat): List<Pt> {
         val m = mask.clone()
-        if (prep.hasScale) {
-            val a = prep.toPx(Pt(-5.0, -5.0)); val b = prep.toPx(Pt(Board.W + 5, Board.H + 5))
+        prep.sheet?.let { sh ->
+            val a = prep.toPx(Pt(-5.0, -5.0)); val b = prep.toPx(Pt(sh.w + 5, sh.h + 5))
             Imgproc.rectangle(m, Point(a.x, a.y), Point(b.x, b.y), Scalar(0.0), -1)
         }
         val ker = Imgproc.getStructuringElement(Imgproc.MORPH_ELLIPSE, Size(5.0, 5.0))
