@@ -352,91 +352,197 @@ def tip_box(x, y, w, text, title="Tipp", col=PINE, icon="star"):
 def caption(x, y, w, text):
     return para(text, x, y, w, size=8.5, font="I", color=GREY)
 
-# ================================================================ PRICE SIGN (A4)
-def check(x, y, col=PINE):
-    c.setFillColor(col); c.circle(x, y, 6, fill=1, stroke=0)
-    c.setStrokeColor(white); c.setLineWidth(1.5); c.line(x - 3, y, x - .5, y - 2.5); c.line(x - .5, y - 2.5, x + 3.2, y + 2.5)
+# ================================================================ PRICE SIGN (A4) – Weihnachtskugel
+FIR1, FIR2, FIR3 = HexColor("#1F5E34"), HexColor("#2E7A44"), HexColor("#14472A")
+
+def needle_branch(x0, y0, length, ang, scale=1.0, seed=0, snow=True):
+    rnd = random.Random(seed)
+    a = math.radians(ang)
+    pts = []
+    for i in range(41):
+        t = i / 40
+        bend = math.sin(t * math.pi) * 0.12 * length * (1 if seed % 2 else -1)
+        x = x0 + math.cos(a) * length * t - math.sin(a) * bend
+        y = y0 + math.sin(a) * length * t + math.cos(a) * bend
+        pts.append((x, y, t))
+    c.saveState(); c.setLineCap(1)
+    c.setStrokeColor(HexColor("#5A3A1E")); c.setLineWidth(2.2 * scale)
+    for i in range(40): c.line(pts[i][0], pts[i][1], pts[i + 1][0], pts[i + 1][1])
+    for layer, col, lw in ((0, FIR3, 2.0), (1, FIR1, 1.7), (2, FIR2, 1.3)):
+        c.setStrokeColor(col); c.setLineWidth(lw * scale)
+        for i in range(0, 40):
+            x, y, t = pts[i]
+            nl = (20 - 11 * t) * scale * (1 - layer * 0.12)
+            for side in (-1, 1):
+                for k in range(2):
+                    da = a + side * math.radians(48 + rnd.uniform(-12, 12)) + math.radians(rnd.uniform(-8, 8))
+                    ox, oy = rnd.uniform(-1.5, 1.5), rnd.uniform(-1.5, 1.5)
+                    c.line(x + ox, y + oy, x + ox + math.cos(da) * nl, y + oy + math.sin(da) * nl)
+    if snow:
+        c.setFillColor(white)
+        for i in range(0, 40, 2):
+            x, y, t = pts[i]
+            c.setFillAlpha(rnd.uniform(.5, .9))
+            c.circle(x + rnd.uniform(-6, 6) * scale, y + rnd.uniform(0, 6) * scale, rnd.uniform(1.0, 2.6) * scale, fill=1, stroke=0)
+    c.restoreState()
+
+def berries(x, y, s=1.0):
+    for dx, dy in ((0, 0), (6, 3), (3, -5)):
+        c.setFillColor(HexColor("#B0101E")); c.circle(x + dx * s, y + dy * s, 4.2 * s, fill=1, stroke=0)
+        c.setFillColor(white); c.setFillAlpha(.6); c.circle(x + dx * s - 1.3 * s, y + dy * s + 1.3 * s, 1.2 * s, fill=1, stroke=0); c.setFillAlpha(1)
+
+def holly(x, y, ang, s=1.0):
+    c.saveState(); c.translate(x, y); c.rotate(ang)
+    p = c.beginPath(); p.moveTo(0, 0)
+    for i in range(1, 6):
+        t = i / 5; p.lineTo(28 * s * t, (8 if i % 2 else 4) * s * math.sin(t * math.pi) + 2 * s)
+    for i in range(5, -1, -1):
+        t = i / 5; p.lineTo(28 * s * t, -(8 if i % 2 else 4) * s * math.sin(t * math.pi) + 2 * s)
+    c.setFillColor(HexColor("#1B5A30")); c.setStrokeColor(HexColor("#0E3A1E")); c.setLineWidth(.6)
+    c.drawPath(p, fill=1, stroke=1); c.restoreState()
+
+def bokeh(n, seed, ymin, ymax):
+    rnd = random.Random(seed)
+    c.saveState()
+    for _ in range(n):
+        col = rnd.choice([GOLD, HexColor("#FFE7A6"), white])
+        c.setFillColor(col); c.setFillAlpha(rnd.uniform(.05, .16))
+        c.circle(rnd.uniform(0, W), rnd.uniform(ymin, ymax), rnd.uniform(6, 22), fill=1, stroke=0)
+    c.restoreState()
+
+def ornament(cx, cy, R, base, light, dark, glossy=True):
+    c.saveState()
+    c.setFillColor(black); c.setFillAlpha(.35); c.circle(cx + R * .05, cy - R * .07, R, fill=1, stroke=0)
+    c.restoreState()
+    c.saveState()
+    p = c.beginPath(); p.circle(cx, cy, R); c.clipPath(p, stroke=0)
+    c.radialGradient(cx - R * .35, cy + R * .38, R * 1.55, (light, base, dark), (0, .45, 1), extend=True)
+    if glossy:
+        c.setFillColor(white); c.setFillAlpha(.13 if R > 100 else .22)
+        c.ellipse(cx - R * .9, cy + R * .05, cx - R * .45, cy + R * .7, fill=1, stroke=0)
+        c.setFillAlpha(.45); c.circle(cx - R * .66, cy + R * .48, R * .045, fill=1, stroke=0)
+        c.setFillAlpha(.12); c.ellipse(cx + R * .2, cy - R * .95, cx + R * .9, cy - R * .55, fill=1, stroke=0)
+    c.restoreState()
+    # cap
+    cw, ch = R * .34, R * .17
+    c.setFillColor(HexColor("#8A6A1E")); c.roundRect(cx - cw / 2, cy + R - ch * .35, cw, ch, 2, fill=1, stroke=0)
+    c.saveState(); p = c.beginPath(); p.roundRect(cx - cw / 2, cy + R - ch * .35, cw, ch, 2); c.clipPath(p, stroke=0)
+    c.linearGradient(cx - cw / 2, 0, cx + cw / 2, 0, (HexColor("#9C7A22"), HexColor("#F6D77A"), HexColor("#B8901F")), extend=False)
+    c.setStrokeColor(HexColor("#7A5C14")); c.setLineWidth(.6)
+    for i in range(1, 7):
+        xx = cx - cw / 2 + i * cw / 7; c.line(xx, cy + R - ch * .35, xx, cy + R + ch * .65)
+    c.restoreState()
+    c.setStrokeColor(GOLD); c.setLineWidth(max(1.2, R * .02))
+    c.circle(cx, cy + R + ch * .65 + R * .05, R * .05, fill=0, stroke=1)
+    return cy + R + ch * .65 + R * .1
+
+def bow(x, y, s=1.0):
+    c.saveState(); c.translate(x, y)
+    for side in (-1, 1):
+        c.saveState(); c.scale(side, 1)
+        p = c.beginPath(); p.moveTo(0, 0)
+        p.curveTo(20 * s, 22 * s, 46 * s, 18 * s, 44 * s, 0); p.curveTo(46 * s, -16 * s, 20 * s, -18 * s, 0, 0)
+        c.setFillColor(HexColor("#C8961E")); c.setStrokeColor(HexColor("#8A6410")); c.setLineWidth(.8); c.drawPath(p, fill=1, stroke=1)
+        p = c.beginPath(); p.moveTo(0, 0); p.curveTo(16 * s, 12 * s, 34 * s, 10 * s, 36 * s, 1 * s); p.lineTo(0, 0)
+        c.setFillColor(HexColor("#F2CC63")); c.drawPath(p, fill=1, stroke=0)
+        p = c.beginPath(); p.moveTo(2 * s, -2 * s); p.lineTo(26 * s, -44 * s); p.lineTo(18 * s, -40 * s); p.lineTo(12 * s, -48 * s); p.lineTo(-2 * s, -4 * s); p.close()
+        c.setFillColor(HexColor("#B8861A")); c.drawPath(p, fill=1, stroke=0)
+        c.restoreState()
+    c.setFillColor(HexColor("#E0B040")); c.setStrokeColor(HexColor("#8A6410")); c.roundRect(-7 * s, -7 * s, 14 * s, 14 * s, 4 * s, fill=1, stroke=1)
+    c.restoreState()
+
+def strike_text(txt, strike, x, y, font, size, col):
+    c.setFillColor(col); c.setFont(font, size)
+    w = c.stringWidth(txt, font, size); x0 = x - w / 2
+    c.drawString(x0, y, txt)
+    i = txt.index(strike); sx = x0 + c.stringWidth(txt[:i], font, size); sw = c.stringWidth(strike, font, size)
+    c.setStrokeColor(GOLD); c.setLineWidth(1.6); c.line(sx - 1, y + size * .33, sx + sw + 1, y + size * .33)
 
 def sign():
-    c.linearGradient(0, H, 0, 0, (HexColor("#D3132A"), HexColor("#8E0915")), extend=True)
-    random.seed(11)
-    for _ in range(70):
-        snowflake(random.uniform(0, W), random.uniform(0, H), random.uniform(2.5, 8), alpha=random.uniform(.12, .4))
-    logo(M - 6, H - 140, 100, hat=True)
-    c.saveState(); c.translate(W - M - 190, H - 82); c.rotate(4)
-    rrect(0, 0, 190, 32, 16, fill=GOLD)
-    c.setFillColor(DRED); c.setFont("B", 13); c.drawCentredString(95, 11, "WEIHNACHTS-ANGEBOT")
-    c.restoreState()
-    sparkle(W - M - 4, H - 40, 9, white, .9); sparkle(W - M - 196, H - 110, 6, GOLD)
+    c.linearGradient(0, H, 0, 0, (HexColor("#0E3F29"), HexColor("#082A1A"), HexColor("#05170E")), (0, .55, 1), extend=True)
+    bokeh(60, 21, 0, H)
+    random.seed(12)
+    for _ in range(55):
+        snowflake(random.uniform(0, W), random.uniform(0, H), random.uniform(2.5, 7), alpha=random.uniform(.12, .35))
+    for _ in range(80):
+        c.setFillColor(white); c.setFillAlpha(random.uniform(.3, .8))
+        c.circle(random.uniform(0, W), random.uniform(0, H), random.uniform(.5, 1.6), fill=1, stroke=0)
+    c.setFillAlpha(1)
 
-    # title tag
-    c.saveState(); c.translate(W / 2 + 40, H - 190); c.rotate(-3)
-    tw, th = 400, 86
-    poly([(-tw / 2 + 4, -th / 2 - 6), (tw / 2 + 4, -th / 2 - 6), (tw / 2 + 4, th / 2 - 6), (-tw / 2 + 4, th / 2 - 6)], fill=DRED, alpha=.9)
-    pts = [(-tw / 2, th / 2), (tw / 2, th / 2)]
-    for i in range(7): pts.append((tw / 2 + (7 if i % 2 else 0), th / 2 - i * th / 6))
-    pts.append((-tw / 2, -th / 2))
-    for i in range(7): pts.append((-tw / 2 - (7 if i % 2 else 0), -th / 2 + i * th / 6))
-    poly(pts, fill=white)
-    c.setFillColor(RED); c.setFont("B", 36); c.drawCentredString(0, 4, "XXL-WEIHNACHTSSTERN")
-    c.setFillColor(INK); c.setFont("B", 18); c.drawCentredString(0, -26, "Bausatz zum Selberbauen · ca. 2 × 2 m")
-    c.restoreState()
+    BX, BY, BR = W / 2, 432, 212
+    top_hook = BY + BR + 52
+    # strings of side ornaments + main ribbon
+    c.setStrokeColor(GOLD); c.setLineWidth(1.2)
+    c.line(78, H - 70, 78, 612); c.line(520, H - 60, 520, 586)
+    c.setStrokeColor(HexColor("#C8961E")); c.setLineWidth(5); c.line(BX, H - 92, BX, top_hook - 12)
+    c.setStrokeColor(HexColor("#F2CC63")); c.setLineWidth(1.4); c.line(BX - 1.2, H - 92, BX - 1.2, top_hook - 12)
 
-    # hero image
-    px, py, pw, ph = M, H - 480, W - 2 * M, 245
-    c.saveState(); c.setFillColor(black); c.setFillAlpha(.25); c.roundRect(px + 3, py - 4, pw, ph, 18, fill=1, stroke=0); c.restoreState()
-    place_cover("night", px, py, pw, ph, r=18)
-    c.setStrokeColor(GOLD); c.setLineWidth(1.5); c.roundRect(px, py, pw, ph, 18, fill=0, stroke=1)
+    # garland on top
+    for i, (x, ang, L, sc) in enumerate([(-30, -12, 230, 1.15), (120, 8, 210, 1.05), (250, -4, 200, 1.1), (380, 10, 210, 1.05),
+                                          (W + 30, 192, 230, 1.15), (470, 185, 200, 1.0), (180, -18, 170, .95), (330, 196, 180, .95)]):
+        needle_branch(x, H - 30 - (i % 3) * 12, L, ang, sc, seed=i + 3)
+    for x, y, a in ((150, H - 52, -30), (420, H - 46, 210), (300, H - 62, -80)):
+        holly(x, y, a); holly(x, y, a + 60); berries(x, y)
+    bow(BX, H - 88, 1.1)
 
-    # contents box
-    y = py - 22
-    bh = 182
-    rrect(M, y - bh, W - 2 * M, bh, 14, fill=white)
-    c.setFillColor(RED); c.setFont("B", 16); c.drawString(M + 18, y - 28, "Im Bausatz enthalten")
-    sparkle(M + 190, y - 22, 5)
-    items = [("5 ×", "Klappbock aus Holz", "ca. 80 cm hoch", "p_klappbock"),
-             ("10 ×", "Winkelverbinder", "40×40×40 mm, 2 mm", "p_winkel"),
-             ("60 ×", "Schrauben", "4,0 × 20 mm, Torx", "p_schraube"),
-             ("1 ×", "Clusterlichterkette", "1200 LEDs · 23,98 m", "p_lichterkette")]
-    cw = (W - 2 * M - 36 - 30) / 4
-    for i, (q, n, note, img) in enumerate(items):
-        x = M + 18 + i * (cw + 10)
-        place(img, x + 6, y - 128, cw - 12, 76)
-        rrect(x, y - 52, c.stringWidth(q, "B", 11) + 14, 17, 8.5, fill=RED)
-        c.setFillColor(white); c.setFont("B", 11); c.drawString(x + 7, y - 47.5, q)
-        c.setFillColor(INK); c.setFont("B", 11); c.drawCentredString(x + cw / 2, y - 144, n)
-        c.setFillColor(GREY); c.setFont("R", 9); c.drawCentredString(x + cw / 2, y - 156, note)
-    check(M + 24, y - bh + 14)
-    c.setFillColor(INK); c.setFont("B", 10.5); c.drawString(M + 36, y - bh + 10, "Bauanleitung mit Schritt-für-Schritt-Bildern gratis dazu")
-    y -= bh + 14
+    # side ornaments
+    ornament(78, 572, 36, HexColor("#D9A62A"), HexColor("#FFF0B0"), HexColor("#7A5A10"))
+    ornament(520, 548, 34, HexColor("#C9CED6"), white, HexColor("#5E6670"))
 
-    # optional paint box
-    oh = 96
-    rrect(M, y - oh, W - 2 * M, oh, 14, fill=HexColor("#FFF4D6"), stroke=GOLD, lw=1.2)
-    place("p_spraygroup", M + 12, y - oh + 8, 110, oh - 16, bg=(255, 244, 214))
-    tx = M + 136
-    c.setFillColor(DRED); c.setFont("B", 15); c.drawString(tx, y - 28, "Optional: Farbe nach Wunsch")
-    para("<b>Color Spray Acryl, glänzend</b> – für den Stern werden <b>2 Dosen</b> benötigt.<br/>"
-         "Preis je nach Farbe, nicht im Bausatzpreis enthalten.", tx, y - 38, W - M - tx - 14, size=11)
-    # price burst overlapping image bottom-right
-    bx, by = W - M - 95, py + 62
-    poly(star_path(bx + 3, by - 4, 112, 96, rot=90, n=20), fill=black, alpha=.28)
-    poly(star_path(bx, by, 112, 96, rot=90, n=20), fill=GOLD)
-    c.setFillColor(white); c.circle(bx, by, 88, fill=1, stroke=0)
-    c.setFillColor(INK); c.setFont("B", 13); c.drawCentredString(bx, by + 46, "Komplett-Bausatz")
-    c.setFillColor(RED); c.setFont("B", 54); c.drawCentredString(bx - 8, by - 2, "58,")
-    c.setFont("B", 26); c.drawString(bx + 30, by + 18, "00")
-    c.setFont("B", 26); c.drawString(bx + 30, by - 4, "€")
-    c.setFillColor(GREY); c.setFont("R", 11.5)
-    t = "statt 61,87 € einzeln"
-    c.drawCentredString(bx, by - 28, t)
-    tw_ = c.stringWidth("61,87 €", "R", 11.5); tx0 = bx - c.stringWidth(t, "R", 11.5) / 2 + c.stringWidth("statt ", "R", 11.5)
-    c.setStrokeColor(RED); c.setLineWidth(1.4); c.line(tx0 - 1, by - 24, tx0 + tw_ + 1, by - 24)
-    rrect(bx - 58, by - 62, 116, 22, 11, fill=RED)
-    c.setFillColor(white); c.setFont("B", 12); c.drawCentredString(bx, by - 55, "Du sparst 3,87 €")
+    # main bauble
+    ornament(BX, BY, BR, HexColor("#C8102A"), HexColor("#FF5A6A"), HexColor("#5C0510"))
+    # gold decorative bands
+    for yy, amp in ((BY + 88, 6), (BY - 108, 6)):
+        half = math.sqrt(BR * BR - (yy - BY) ** 2) - 6
+        c.setStrokeColor(GOLD); c.setLineWidth(2)
+        p = c.beginPath(); p.moveTo(BX - half, yy)
+        for i in range(1, 61):
+            x = BX - half + 2 * half * i / 60; p.lineTo(x, yy + amp * math.sin(i / 60 * math.pi * 10))
+        c.drawPath(p, fill=0, stroke=1)
+        for i in range(0, 11):
+            x = BX - half + 2 * half * (i + .25) / 10.5
+            c.setFillColor(HexColor("#FFE7A6")); c.circle(x, yy + amp * math.sin((i + .25) / 10.5 * math.pi * 10) , 1.8, fill=1, stroke=0)
 
-    c.setFillColor(white); c.setFont("B", 13)
-    c.drawCentredString(W / 2, 30, "Frag uns gern im Markt – wir beraten dich!")
-    sparkle(M + 40, 34, 6, GOLD); sparkle(W - M - 40, 34, 6, GOLD)
+    # content inside bauble
+    glow(BX, BY + 156, 26, GOLD, amax=.5)
+    poly(star_path(BX, BY + 156, 17, 7), fill=GOLD)
+    c.setFillColor(white); c.setFont("B", 27); c.drawCentredString(BX, BY + 113, "XXL-WEIHNACHTSSTERN")
+    c.setFillColor(HexColor("#FFD9D9")); c.setFont("B", 12.5); c.drawCentredString(BX, BY + 98 - 3, "")
+    c.setFont("R", 12.5); c.drawCentredString(BX, BY + 66, "Bausatz zum Selberbauen · ca. 2 × 2 m")
+    c.setFillColor(GOLD); c.setFont("B", 13); c.drawCentredString(BX, BY + 38, "KOMPLETT-BAUSATZ NUR")
+    # price
+    c.setFillColor(black); c.setFillAlpha(.25); c.setFont("B", 104); c.drawRightString(BX + 34 + 3, BY - 50 - 3, "58,"); c.setFillAlpha(1)
+    c.setFillColor(white); c.setFont("B", 104); c.drawRightString(BX + 34, BY - 50, "58,")
+    c.setFont("B", 46); c.drawString(BX + 38, BY + 4, "00")
+    c.setFont("B", 42); c.drawString(BX + 40, BY - 46, "€")
+    strike_text("statt 61,87 € einzeln", "61,87 €", BX, BY - 82, "R", 14, HexColor("#FFE3E3"))
+    # savings pill
+    rrect(BX - 72, BY - 146, 144, 26, 13, fill=GOLD)
+    c.setFillColor(DRED); c.setFont("B", 13.5); c.drawCentredString(BX, BY - 137.5, "Du sparst 3,87 €")
+    c.setFillColor(white); c.setFont("B", 10.5); c.drawCentredString(BX, BY - 162, "Im Set:")
+    c.setFont("R", 10.5)
+    c.drawCentredString(BX, BY - 176, "5 Klappböcke · 10 Winkelverbinder")
+    c.drawCentredString(BX, BY - 190, "60 Schrauben · Lichterkette 1200 LEDs")
+
+    # logo on top (over strings/garland)
+    lx, ly, ls = M - 8, H - 182, 86
+    c.saveState(); c.setFillColor(black); c.setFillAlpha(.3); c.roundRect(lx - 7 + 3, ly - 7 - 3, ls + 14, ls + 14, 6, fill=1, stroke=0); c.restoreState()
+    c.setFillColor(white); c.roundRect(lx - 7, ly - 7, ls + 14, ls + 14, 6, fill=1, stroke=0)
+    c.drawImage(LOGO, lx, ly, ls, ls)
+
+    # optional paint panel
+    py, ph = 92, 104
+    rrect(M, py, W - 2 * M, ph, 16, fill=HexColor("#FFF7EA"), stroke=GOLD, lw=1.5)
+    place("p_spraygroup", M + 14, py + 8, 110, ph - 16, bg=(255, 247, 234))
+    tx = M + 140
+    c.setFillColor(RED); c.setFont("B", 16); c.drawString(tx, py + ph - 30, "Optional: Farbe nach Wunsch")
+    para("<b>Color Spray Acryl, glänzend</b> – für den Stern werden <b>2 Dosen</b> benötigt. "
+         "Preis je nach Farbe, nicht im Bausatzpreis enthalten.", tx, py + ph - 40, W - M - tx - 16, size=11)
+    for x, y, a in ((W - M - 6, py + ph + 4, 160), (M + 6, py + ph + 4, 20)):
+        needle_branch(x, y, 90, a, .7, seed=int(x), snow=True)
+    berries(W - M - 40, py + ph + 10, .9); berries(M + 36, py + ph + 10, .9)
+    c.setFillColor(white); c.setFont("B", 14)
+    c.drawCentredString(W / 2, 52, "Frag uns gern im Markt – wir beraten dich!")
+    sparkle(M + 40, 56, 6, GOLD); sparkle(W - M - 40, 56, 6, GOLD)
 
 sign(); c.showPage(); c.save(); print("ok")
