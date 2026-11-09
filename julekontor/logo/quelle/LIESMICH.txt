@@ -1,0 +1,10 @@
+Julekontor-Logo – Bauplan
+
+Das Logo ist nachgebaut, nicht ausgeschnitten: Die Schrift ist in Vektorpfade umgewandelt, die Goldranken sind gezeichnet.
+
+Schriften: Elsie Black (Julekontor) und Elsie Swash Caps Black (Danmarks Gammeldags Julebutik),
+beide von Alejandro Inler, SIL Open Font License 1.1 – frei nutzbar, auch gewerblich.
+
+Neu erzeugen (Python 3 mit fonttools und uharfbuzz):
+  python3 make_logo.py .
+Danach entsteht julekontor-logo.svg in diesem Ordner. Der Rand wird beim Export auf den Inhalt zugeschnitten.
