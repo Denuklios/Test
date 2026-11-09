@@ -144,6 +144,12 @@ table.rep td { padding: 7px 4px; border-bottom: 1px solid var(--line); }
 table.rep td:last-child { text-align: right; font-variant-numeric: tabular-nums; font-weight: 700; }
 .done { text-align: center; }
 .done .ok { font-size: 3.4rem; line-height: 1; }
+.done.with-qr { display: grid; grid-template-columns: 260px 1fr; gap: 24px; align-items: center; text-align: center; }
+.qr-box { background: #fff; color: #222; border-radius: 16px; padding: 14px; border: 2px solid var(--gold-soft); }
+.qr-box .qr svg, .qr-big svg { display: block; width: 100%; height: auto; }
+.qr-box p { margin: 6px 0 0; font-weight: 700; font-size: .95rem; }
+.qr-big { width: min(420px, 70vh); margin: 10px auto; background: #fff; padding: 12px; border-radius: 16px; }
+@media (max-width: 700px) { .done.with-qr { grid-template-columns: 1fr; } .qr-box { max-width: 240px; margin: 0 auto; } }
 .mp { text-align: center; background: #5a78ff; color: #fff; border-radius: 16px; padding: 16px; margin-top: 14px; }
 .mp b { display: block; font-size: 2rem; letter-spacing: .04em; }
 

@@ -45,6 +45,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     set_setting('invoice_note', $txt('invoice_note', 300));
     set_setting('print_default', ($_POST['print_default'] ?? '') === 'a4' ? 'a4' : 'bon');
     set_setting('bon_width', ($_POST['bon_width'] ?? '') === '58' ? '58' : '80');
+    set_setting('receipt_qr', !empty($_POST['receipt_qr']) ? '1' : '0');
     set_setting('currency', in_array($_POST['currency'] ?? '', ['DKK', 'EUR', 'SEK', 'NOK'], true) ? $_POST['currency'] : 'DKK');
     $rates = array_values(array_unique(array_filter(array_map(fn($x) => (int)round((float)str_replace(',', '.', trim($x)) * 100), explode(';', str_replace(' ', '', (string)($_POST['vat_rates'] ?? '25')))), fn($v) => $v >= 0 && $v <= 5000)));
     set_setting('vat_rates', implode(',', $rates ?: [2500]));
@@ -84,6 +85,7 @@ page_start('einstellungen', 'Kassen-Einstellungen');
         <option value="80" <?= setting('bon_width') !== '58' ? 'selected' : '' ?>>80 mm (Standard)</option>
         <option value="58" <?= setting('bon_width') === '58' ? 'selected' : '' ?>>58 mm (kleine Drucker)</option></select></label>
     </div>
+    <label class="check"><input type="checkbox" name="receipt_qr" value="1" <?= setting('receipt_qr') === '1' ? 'checked' : '' ?>> Nach dem Bezahlen einen <b>QR-Code für den digitalen Beleg</b> zeigen (spart Papier – der Kunde scannt ihn mit dem Handy)</label>
     <label>Text unten auf der A4-Rechnung<textarea name="invoice_note" rows="2" placeholder="z. B. Bank: Sydbank · Reg. 1234 · Konto 12345678"><?= $s('invoice_note') ?></textarea></label>
   </fieldset>
   <fieldset>

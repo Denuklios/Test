@@ -337,6 +337,27 @@ function receipt_data(array $s): array {
         'hash' => substr($s['hash'], 0, 12),
     ];
 }
+/* Geheimer Link-Schlüssel für den digitalen Beleg (32 Zeichen, nicht zu erraten). Wird beim ersten Bedarf vergeben. */
+function receipt_token(int $saleId): string {
+    $st = db()->prepare('SELECT receipt_token FROM sales WHERE id = ?');
+    $st->execute([$saleId]);
+    $t = (string)$st->fetchColumn();
+    if ($t === '') {
+        $t = bin2hex(random_bytes(16));
+        db()->prepare("UPDATE sales SET receipt_token = ? WHERE id = ? AND receipt_token = ''")->execute([$t, $saleId]);
+        $st->execute([$saleId]);
+        $t = (string)$st->fetchColumn();
+    }
+    return $t;
+}
+/* Absolute Adresse des digitalen Belegs (für den QR-Code) */
+function receipt_public_url(int $saleId): string {
+    $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+    $admin = rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'])), '/');      // …/admin
+    if (str_ends_with($admin, '/kasse')) $admin = substr($admin, 0, -6);
+    $root = substr($admin, 0, (int)strrpos($admin, '/'));                              // Website-Ordner
+    return ($https ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . $root . '/beleg.php?t=' . receipt_token($saleId);
+}
 function shop_header(): array {
     return ['name' => setting('shop_name'), 'line' => setting('shop_line'), 'address' => setting('shop_address'),
             'cvr' => setting('shop_cvr'), 'phone' => setting('shop_phone'), 'footer' => setting('receipt_footer'),

@@ -51,6 +51,7 @@ try {
                     'payments' => enabled_payments(),
                     'mobilepay_number' => setting('mobilepay_number'),
                     'print_default' => setting('print_default'),
+                    'receipt_qr' => setting('receipt_qr') === '1',
                     'sumup' => sumup_ready() ? ['reader' => setting('sumup_reader_name') ?: 'SumUp Solo'] : null,
                 ],
                 'categories' => $db->query('SELECT id, name, color FROM categories ORDER BY sort, name')->fetchAll(),
@@ -64,7 +65,7 @@ try {
 
         case 'sale':
             $s = create_sale($in, $who);
-            out(['receipt' => receipt_data($s)]);
+            out(['receipt' => receipt_data($s) + ['url' => receipt_public_url((int)$s['id'])]]);
 
         case 'cash_move':
             cash_move((int)($in['amount'] ?? 0), (string)($in['note'] ?? ''), $who);
@@ -87,7 +88,7 @@ try {
         case 'receipt':
             $s = sale_full((int)($_GET['id'] ?? 0));
             if (!$s) throw new ShopError('Beleg nicht gefunden.');
-            out(['receipt' => receipt_data($s)]);
+            out(['receipt' => receipt_data($s) + ['url' => receipt_public_url((int)$s['id'])]]);
 
         case 'sumup_start':
             $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';

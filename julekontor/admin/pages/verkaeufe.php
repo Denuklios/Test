@@ -48,7 +48,15 @@ if (isset($_GET['id'])) {
         <?php if ($s['note']): ?><p class="muted">Notiz: <?= h($s['note']) ?></p><?php endif; ?>
         <?php if ($refunds): ?><p class="mt">Rückgaben: <?php foreach ($refunds as $r): ?><a class="pill red" href="./?p=verkaeufe&id=<?= (int)$r['id'] ?>">Beleg <?= (int)$r['number'] ?> (<?= money((int)$r['total']) ?>)</a> <?php endforeach; ?></p><?php endif; ?>
         <p class="mt no-print"><a class="btn ghost small" href="bon.php?fmt=bon&id=<?= (int)$s['id'] ?>" target="_blank">🧾 Bon drucken</a>
-          <a class="btn ghost small" href="bon.php?fmt=a4&id=<?= (int)$s['id'] ?>" target="_blank">📄 A4-Rechnung</a></p>
+          <a class="btn ghost small" href="bon.php?fmt=a4&id=<?= (int)$s['id'] ?>" target="_blank">📄 A4-Rechnung</a>
+          <?php $pub = receipt_public_url((int)$s['id']); ?>
+          <a class="btn ghost small" href="<?= h($pub) ?>" target="_blank" rel="noopener">📱 Digitaler Beleg</a></p>
+        <details class="no-print mt"><summary>QR-Code / Link für den Kunden</summary>
+          <div id="pubqr" data-url="<?= h($pub) ?>" style="width:180px;background:#fff;padding:8px;border-radius:10px;margin-top:8px"></div>
+          <p class="hint" style="overflow-wrap:anywhere"><?= h($pub) ?></p></details>
+        <script src="assets/qrcode.js"></script>
+        <script>(function(){ const el = document.getElementById('pubqr'); const q = qrcode(0, 'M'); q.addData(el.dataset.url); q.make();
+          el.innerHTML = q.createSvgTag({ cellSize: 4, margin: 2, scalable: true }); })();</script>
       </div>
       <?php if ($s['type'] === 'sale'): ?>
       <form method="post" class="card form no-print" onsubmit="return confirm('Rückgabe jetzt buchen?')">

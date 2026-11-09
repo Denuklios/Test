@@ -458,16 +458,33 @@
     items.forEach(i => { const p = i.product_id && byId(i.product_id); if (p && p.track) p.stock = Math.round((p.stock - i.qty) * 1000) / 1000; });
     LS.set("jk-data", D); renderTiles();
   }
+  /* QR-Code als SVG (Bibliothek qrcode-generator, liegt lokal in ../assets) */
+  function qrSvg(text) {
+    if (!window.qrcode) return "";
+    const q = qrcode(0, "M"); q.addData(text); q.make();
+    return q.createSvgTag({ cellSize: 6, margin: 2, scalable: true });
+  }
+  function showQrBig(r) {
+    const s = openModal(`<div class="done"><h2>Digitaler Beleg · Bon ${r.number}</h2>
+      <div class="qr-big">${qrSvg(r.url)}</div>
+      <p class="muted">Mit der Handy-Kamera scannen · Scan med kameraet · Scan with your camera</p>
+      <div class="row"><button type="button" class="btn green" data-x="close">Fertig</button></div></div>`, "wide");
+    s.querySelector('[data-x="close"]').onclick = closeModal;
+  }
   function done(r) {
     const a4 = D.settings.print_default === "a4";
-    const s = openModal(`<div class="done"><div class="ok">✅</div><h2>Bon ${r.number}</h2>
+    const qr = D.settings.receipt_qr && r.url;
+    const s = openModal(`<div class="done ${qr ? "with-qr" : ""}">
+      ${qr ? `<div class="qr-box"><div class="qr">${qrSvg(r.url)}</div><p>Beleg aufs Handy:<br>QR-Code scannen</p><button type="button" class="link" data-x="qrbig">🔍 Groß zeigen</button></div>` : ""}
+      <div><div class="ok">✅</div><h2>Bon ${r.number}</h2>
       <p class="muted">${esc(r.payment_label)} · ${fmt(r.total)}</p>
       ${r.payment === "cash" ? `<div class="change">Rückgeld<b class="num">${fmt(r.change)}</b></div>` : ""}
       <div class="row"><button type="button" class="btn ${a4 ? "gray" : "ghost"}" data-x="bon">🧾 Bon drucken</button><button type="button" class="btn ${a4 ? "ghost" : "gray"}" data-x="a4">📄 A4-Rechnung</button></div>
-      <div class="row"><button type="button" class="btn green" data-x="new">Neuer Verkauf</button></div></div>`);
+      <div class="row"><button type="button" class="btn green" data-x="new">Neuer Verkauf</button></div></div></div>`, qr ? "wide" : "");
     s.addEventListener("click", e => {
       const b = e.target.closest("button"); if (!b) return;
       if (b.dataset.x === "bon" || b.dataset.x === "a4") printReceipt(r.id, b.dataset.x);
+      if (b.dataset.x === "qrbig") { showQrBig(r); }
       if (b.dataset.x === "new") { closeModal(); $("search").focus(); }
     });
     if (window.matchMedia("(max-width: 860px)").matches) document.body.classList.remove("cart-open");
@@ -522,9 +539,14 @@
       const q = LS.get("jk-queue", []);
       s.innerHTML = `<h2>Letzte Bons</h2>${q.length ? `<p style="color:var(--err)">${q.length} Verkauf/Verkäufe warten noch auf Übertragung.</p>` : ""}
         <table class="rep">${r.sales.map(x => `<tr><td><b>${x.number}</b> · ${new Date(x.created.replace(" ", "T")).toLocaleString("de-DE", { day: "2-digit", month: "2-digit", hour: "2-digit", minute: "2-digit" })}${x.type === "refund" ? " · Rückgabe" : ""}</td>
-          <td>${fmt(+x.total)}</td><td style="width:1%"><button type="button" class="btn ghost" style="min-height:44px" data-id="${x.id}">🖨</button></td></tr>`).join("") || "<tr><td>Noch keine Bons.</td></tr>"}</table>
+          <td>${fmt(+x.total)}</td><td style="width:1%;white-space:nowrap"><button type="button" class="btn ghost" style="min-height:44px" data-qr="${x.id}" title="QR-Code für den digitalen Beleg">📱</button> <button type="button" class="btn ghost" style="min-height:44px" data-id="${x.id}">🖨</button></td></tr>`).join("") || "<tr><td>Noch keine Bons.</td></tr>"}</table>
         <div class="row"><button type="button" class="btn gray" data-x="close">Schließen</button></div>`;
-      s.onclick = e => { const b = e.target.closest("button"); if (!b) return; if (b.dataset.id) printReceipt(b.dataset.id); if (b.dataset.x === "close") closeModal(); };
+      s.onclick = async e => {
+        const b = e.target.closest("button"); if (!b) return;
+        if (b.dataset.id) printReceipt(b.dataset.id);
+        if (b.dataset.qr) { try { showQrBig((await api("receipt", null, { qs: "&id=" + encodeURIComponent(b.dataset.qr) })).receipt); } catch (err) { toast(esc(err.message), true); } }
+        if (b.dataset.x === "close") closeModal();
+      };
     } catch (e) { s.innerHTML = `<h2>Letzte Bons</h2><p>${esc(e.message)}</p>`; }
   }
   async function report() {

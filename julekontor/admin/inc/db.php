@@ -113,6 +113,12 @@ function migrate(PDO $db): void {
         PRAGMA user_version = 3;
         SQL);
     }
+    if ($v < 4) {
+        $db->exec(<<<SQL
+        ALTER TABLE sales ADD COLUMN receipt_token TEXT NOT NULL DEFAULT '';   -- geheimer Link zum digitalen Beleg
+        PRAGMA user_version = 4;
+        SQL);
+    }
 }
 
 /* ---------- Einstellungen ---------- */
@@ -133,6 +139,7 @@ const SHOP_DEFAULTS = [
     'round_cash'   => '50',            // Barzahlung auf 50 Øre runden (Dänemark); 0 = aus
     'next_ean'     => '1',
     'print_default' => 'bon',          // bon = Bondrucker, a4 = A4-Rechnung
+    'receipt_qr'   => '1',             // nach dem Bezahlen QR-Code für den digitalen Beleg zeigen
     'bon_width'    => '80',            // Bonrolle 80 oder 58 mm
     'invoice_note' => '',              // z. B. Bankverbindung unter der A4-Rechnung
     'sumup_enabled' => '0',

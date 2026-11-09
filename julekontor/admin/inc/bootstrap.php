@@ -42,6 +42,7 @@ if (!is_dir($sessDir)) @mkdir($sessDir, 0750, true);
 if (is_dir($sessDir) && is_writable($sessDir)) session_save_path($sessDir);
 ini_set('session.gc_maxlifetime', '43200');
 ini_set('session.use_strict_mode', '1');
+if (!defined('JK_NO_SESSION')) {
 session_name('jk_admin');
 session_set_cookie_params([
     'lifetime' => 43200,
@@ -51,6 +52,7 @@ session_set_cookie_params([
     'samesite' => 'Lax',
 ]);
 session_start();
+}
 
 function h(?string $s): string { return htmlspecialchars((string)$s, ENT_QUOTES, 'UTF-8'); }
 

@@ -43,7 +43,7 @@ Alles liegt im Admin unter **Laden**. Die Kasse läuft im Browser auf dem Tablet
 
 | Bereich | Was er kann |
 |---|---|
-| **Kasse öffnen** (`/admin/kasse/`) | Artikel als Kacheln nach Kategorie, Suche, Scannen mit Kamera oder Hand-Scanner, Mengen/Preis/Rabatt je Position, Bonrabatt, „Diverse“ mit freiem Betrag. Kacheln mit Produktfoto. Bezahlen bar (Rückgeld, Rundung auf 50 Øre), Karte (beliebiges Kartenterminal, Belegnummer optional), MobilePay, Sonstige. Danach Bon oder A4-Rechnung drucken. Ohne Netz werden Verkäufe im Tablet gespeichert und später automatisch gebucht. |
+| **Kasse öffnen** (`/admin/kasse/`) | Artikel als Kacheln nach Kategorie, Suche, Scannen mit Kamera oder Hand-Scanner, Mengen/Preis/Rabatt je Position, Bonrabatt, „Diverse“ mit freiem Betrag. Kacheln mit Produktfoto. Bezahlen bar (Rückgeld, Rundung auf 50 Øre), Karte (beliebiges Kartenterminal, Belegnummer optional), MobilePay, Sonstige. Danach zeigt die Kasse einen **QR-Code für den digitalen Beleg** (spart Papier) – oder auf Wunsch Bon bzw. A4-Rechnung drucken. Ohne Netz werden Verkäufe im Tablet gespeichert und später automatisch gebucht. |
 | **Artikel** | Anlegen per Scan (unbekannter Code → neuer Artikel), Foto direkt mit der Tablet-Kamera, Preis inkl. Moms, Einkaufspreis mit Rohertrag, Kategorien mit Farben, freier Preis, eigene EAN-13-Strichcodes (beginnen mit 20) – einzeln oder für alle Artikel ohne Code auf einmal, CSV-Import/-Export (Excel). |
 | **Lager** | Wareneingang, Inventur, Bruch/Schwund, Korrektur – per Scan, Menge, Enter. Nachbestell-Liste, Lagerwert, alle Bewegungen. |
 | **Belege** | Alle Bons je Tag, nachdrucken als Bon oder A4-Rechnung (mit Logo und Kundenadresse), Rückgabe/Storno (ganz oder teilweise) als eigener Beleg. |
@@ -60,6 +60,10 @@ Alles liegt im Admin unter **Laden**. Die Kasse läuft im Browser auf dem Tablet
 3. Kamera-Scan: beim ersten Mal den Kamera-Zugriff erlauben (geht nur über https).
 4. **Hand-Scanner** (USB oder Bluetooth, z. B. Netum, Zebra, Honeywell): einfach koppeln. Er tippt den Code wie eine Tastatur, die Kasse erkennt das automatisch.
 5. **Drucken**: Nach jedem Verkauf „Bon drucken“ (Bondrucker 80 oder 58 mm mit AirPrint bzw. Android-Druckdienst, z. B. Epson TM-m30, Star mC-Print3) oder „A4-Rechnung“ (jeder normale Drucker). Was standardmäßig hervorgehoben ist, stellst du in den Kassen-Einstellungen ein.
+
+### Digitaler Beleg (QR-Code)
+
+Nach jedem Verkauf zeigt die Kasse einen QR-Code. Der Kunde scannt ihn mit der Handy-Kamera und sieht seinen Beleg unter `beleg.php` – als Kvittering oder Faktura (A4), zum Speichern als PDF. Keine Anmeldung nötig; jeder Beleg hat einen eigenen, nicht zu erratenden Link. Unter „Letzte Bons“ (📱) und in den Belegen im Admin lässt sich der QR-Code jederzeit wieder zeigen. Abschalten: Kassen-Einstellungen → Drucken.
 
 ### Kartenzahlung
 
