@@ -9,8 +9,6 @@ Disallow: /products_api.php
 Disallow: /reviews_api.php
 Disallow: /workshop_photos_api.php
 Disallow: /stripe_checkout.php
-Disallow: /product-images/
-Disallow: /workshop-images/
 Disallow: /uploads/
 Disallow: /runa.html
 Disallow: /auftraege/
