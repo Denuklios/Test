@@ -1,9 +1,39 @@
 <?php
 declare(strict_types=1);
-$check = null;
+require_once __DIR__ . '/../inc/sumup.php';
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
-    if (($_POST['do'] ?? '') === 'verify') {
+    $do = (string)($_POST['do'] ?? '');
+    /* ---------- SumUp ---------- */
+    if ($do === 'sumup_save') {
+        $key = trim((string)($_POST['sumup_api_key'] ?? ''));
+        if ($key !== '') set_setting('sumup_api_key', mb_substr($key, 0, 300));       // leer = alten Schlüssel behalten
+        set_setting('sumup_affiliate_key', mb_substr(trim((string)($_POST['sumup_affiliate_key'] ?? '')), 0, 200));
+        set_setting('sumup_app_id', mb_substr(trim((string)($_POST['sumup_app_id'] ?? '')), 0, 200));
+        $mc = mb_substr(trim((string)($_POST['sumup_merchant'] ?? '')), 0, 40);
+        if ($mc === '' && setting('sumup_api_key') !== '') $mc = sumup_merchant_code(setting('sumup_api_key'));   // automatisch holen
+        set_setting('sumup_merchant', $mc);
+        set_setting('sumup_enabled', !empty($_POST['sumup_enabled']) ? '1' : '0');
+        flash('SumUp gespeichert' . ($mc !== '' ? ' – Verbindung zum Konto ' . $mc . ' steht.' : '.'));
+        redirect('einstellungen#sumup');
+    }
+    if ($do === 'sumup_pair') {
+        $r = sumup_pair((string)($_POST['pairing_code'] ?? ''), mb_substr(trim((string)($_POST['reader_name'] ?? '')), 0, 60) ?: 'Kasse');
+        flash('Gerät gekoppelt (' . ($r['device']['model'] ?? 'Solo') . ' ' . ($r['device']['identifier'] ?? '') . '). Status: ' . ($r['status'] ?? '?') . '.');
+        redirect('einstellungen#sumup');
+    }
+    if ($do === 'sumup_unpair') {
+        sumup_unpair();
+        flash('Gerät entkoppelt. Am Solo zusätzlich unter Verbindungen → API → Trennen.');
+        redirect('einstellungen#sumup');
+    }
+    if ($do === 'sumup_remove_key') {
+        foreach (['sumup_api_key', 'sumup_merchant', 'sumup_reader_id', 'sumup_reader_name'] as $k) set_setting($k, '');
+        set_setting('sumup_enabled', '0');
+        flash('SumUp-Zugang gelöscht.');
+        redirect('einstellungen#sumup');
+    }
+    if ($do === 'verify') {
         $bad = verify_chain();
         flash($bad === null ? 'Prüfung bestanden: Alle Belege sind unverändert.' : 'ACHTUNG: Beleg ' . $bad . ' wurde nachträglich verändert!', $bad === null ? 'ok' : 'err');
         redirect('einstellungen');
@@ -72,6 +102,76 @@ page_start('einstellungen', 'Kassen-Einstellungen');
   </fieldset>
   <div class="actions"><button class="btn" type="submit">Speichern</button></div>
 </form>
+<?php
+  $rdr = null; $rst = null; $sumErr = '';
+  if (setting('sumup_reader_id') !== '') { try { $rdr = sumup_reader(); $rst = sumup_reader_status(); } catch (ShopError $e) { $sumErr = $e->getMessage(); } }
+  $recent = db()->query("SELECT c.*, s.number FROM card_payments c LEFT JOIN sales s ON s.uuid = c.uuid ORDER BY c.created DESC LIMIT 12")->fetchAll();
+?>
+<div class="card mt" id="sumup">
+  <h2>SumUp Solo – Kartenzahlung automatisch</h2>
+  <p class="muted">Die Kasse schickt den Betrag direkt an das SumUp Solo. Der Kunde zahlt am Gerät, und die Kasse bucht von selbst, sobald SumUp „bezahlt“ meldet. Ohne diese Einrichtung funktioniert „Karte“ wie bisher: Betrag am Gerät eintippen und bestätigen.</p>
+  <?php if ($sumErr): ?><p class="flash err"><?= h($sumErr) ?></p><?php endif; ?>
+  <form method="post" class="form mt">
+    <?= csrf_field() ?><input type="hidden" name="do" value="sumup_save">
+    <details <?= setting('sumup_api_key') === '' ? 'open' : '' ?>><summary>So bekommst du die Schlüssel (einmalig, ca. 5 Minuten)</summary>
+      <ol class="hint" style="margin-top:8px">
+        <li>Auf <b>me.sumup.com</b> anmelden → oben rechts Profil → <b>Einstellungen</b> → <b>Für Entwickler</b> → <b>Toolkit</b>.</li>
+        <li><b>API Keys</b> → <b>Erstellen</b>, Namen „Julekontor Kasse“ geben, Schlüssel kopieren (SumUp zeigt ihn nur einmal!) und unten eintragen.</li>
+        <li><b>Affiliate Keys</b> → als „Application identifier“ z. B. <code>dk.julekontor.kasse</code> eintragen → <b>Hinzufügen</b>. Den Key und genau diese App-ID unten eintragen.</li>
+        <li>Speichern – die Händlernummer holt die Kasse dann selbst.</li>
+      </ol></details>
+    <div class="row2">
+      <label>API-Schlüssel (geheim)<input type="password" name="sumup_api_key" autocomplete="off" placeholder="<?= setting('sumup_api_key') !== '' ? 'gespeichert – leer lassen zum Behalten' : 'sup_sk_…' ?>"></label>
+      <label>Händlernummer (Merchant Code)<input name="sumup_merchant" value="<?= $s('sumup_merchant') ?>" placeholder="wird automatisch geholt"></label>
+      <label>Affiliate-Key<input name="sumup_affiliate_key" value="<?= $s('sumup_affiliate_key') ?>" autocomplete="off"></label>
+      <label>App-ID (Application identifier)<input name="sumup_app_id" value="<?= $s('sumup_app_id') ?>" placeholder="dk.julekontor.kasse"></label>
+    </div>
+    <label class="check"><input type="checkbox" name="sumup_enabled" value="1" <?= setting('sumup_enabled') === '1' ? 'checked' : '' ?>> In der Kasse verwenden</label>
+    <div class="actions"><button class="btn" type="submit">Speichern &amp; Verbindung prüfen</button></div>
+  </form>
+
+  <?php if (setting('sumup_merchant') !== ''): ?>
+    <h2 class="mt">Gerät</h2>
+    <?php if (setting('sumup_reader_id') === ''): ?>
+      <form method="post" class="form">
+        <?= csrf_field() ?><input type="hidden" name="do" value="sumup_pair">
+        <p class="hint">Am Solo <b>abmelden</b> (falls angemeldet) → <b>Verbindungen → API → Verbinden</b>. Das Gerät zeigt einen Code, der 5 Minuten gilt.</p>
+        <div class="row2">
+          <label>Kopplungs-Code vom Solo<input name="pairing_code" required maxlength="12" autocomplete="off" style="text-transform:uppercase;letter-spacing:.15em;font-weight:700"></label>
+          <label>Name des Geräts<input name="reader_name" maxlength="60" value="Kasse"></label>
+        </div>
+        <div class="actions"><button class="btn" type="submit">Koppeln</button></div>
+      </form>
+    <?php else: ?>
+      <p><b><?= h(setting('sumup_reader_name') ?: 'SumUp Solo') ?></b>
+        <?php if ($rdr): ?> · <?= h(($rdr['device']['model'] ?? '') . ' ' . ($rdr['device']['identifier'] ?? '')) ?> · Kopplung: <span class="pill <?= ($rdr['status'] ?? '') === 'paired' ? 'green' : 'gold' ?>"><?= h($rdr['status'] ?? '?') ?></span><?php endif; ?>
+        <?php if ($rst): ?> · <span class="pill <?= ($rst['status'] ?? '') === 'ONLINE' ? 'green' : 'red' ?>"><?= ($rst['status'] ?? '') === 'ONLINE' ? 'online' : 'offline' ?></span>
+          <?= isset($rst['battery_level']) ? ' · Akku ' . (int)$rst['battery_level'] . ' %' : '' ?><?= !empty($rst['connection_type']) ? ' · ' . h($rst['connection_type']) : '' ?><?php endif; ?></p>
+      <?php if ($rdr && ($rdr['status'] ?? '') === 'processing'): ?><p class="hint">Warte auf Bestätigung am Gerät … Seite in ein paar Sekunden neu laden.</p><?php endif; ?>
+      <?php if ($rdr && ($rdr['status'] ?? '') === 'expired'): ?><p class="flash err">Die Kopplung ist abgelaufen. Bitte entkoppeln und neu koppeln.</p><?php endif; ?>
+      <form method="post" class="actions" onsubmit="return confirm('Gerät entkoppeln?')"><?= csrf_field() ?><input type="hidden" name="do" value="sumup_unpair">
+        <a class="btn ghost small" href="./?p=einstellungen#sumup">Status aktualisieren</a><button class="btn ghost small" type="submit">Entkoppeln</button></form>
+    <?php endif; ?>
+    <p class="hint mt">Status in der Kasse: <?= sumup_ready() ? '<span class="pill green">aktiv</span>' : '<span class="pill">noch nicht aktiv</span> – braucht Schlüssel, Affiliate-Key, App-ID, gekoppeltes Gerät und den Haken „In der Kasse verwenden“.' ?></p>
+  <?php endif; ?>
+
+  <?php if ($recent): ?>
+    <h2 class="mt">Letzte Kartenzahlungen</h2>
+    <div class="table-wrap"><table class="list">
+      <thead><tr><th>Zeit</th><th class="num">Betrag</th><th>SumUp</th><th>Karte</th><th>Bon</th></tr></thead>
+      <tbody><?php foreach ($recent as $c): ?>
+        <tr><td class="small"><?= h(fmt_dt($c['created'])) ?></td><td class="num"><?= money((int)$c['amount']) ?></td>
+          <td><span class="pill <?= $c['status'] === 'successful' ? 'green' : ($c['status'] === 'pending' ? 'gold' : 'red') ?>"><?= h(['successful' => 'bezahlt', 'pending' => 'offen', 'failed' => 'fehlgeschlagen', 'cancelled' => 'abgebrochen'][$c['status']] ?? $c['status']) ?></span> <span class="muted small"><?= h($c['tx_code']) ?></span></td>
+          <td class="small"><?= h($c['card']) ?></td>
+          <td><?= $c['number'] ? '<a href="./?p=verkaeufe&nr=' . (int)$c['number'] . '">' . (int)$c['number'] . '</a>' : ($c['status'] === 'successful' ? '<span class="pill red">bezahlt, aber kein Bon!</span>' : '–') ?></td></tr>
+      <?php endforeach; ?></tbody></table></div>
+    <p class="hint">„Bezahlt, aber kein Bon“ heißt: Das Geld ist bei SumUp, der Verkauf wurde in der Kasse aber nicht gebucht (z. B. Tablet abgestürzt). Dann den Verkauf in der Kasse noch einmal eingeben und mit „Karte (manuell)“ abschließen.</p>
+  <?php endif; ?>
+  <?php if (setting('sumup_api_key') !== ''): ?>
+    <form method="post" class="mt" onsubmit="return confirm('SumUp-Zugang komplett löschen?')"><?= csrf_field() ?><input type="hidden" name="do" value="sumup_remove_key"><button class="btn ghost small" type="submit">SumUp-Zugang löschen</button></form>
+  <?php endif; ?>
+</div>
+
 <form method="post" class="card mt">
   <?= csrf_field() ?><input type="hidden" name="do" value="verify">
   <h2>Belege prüfen</h2>

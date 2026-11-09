@@ -100,6 +100,19 @@ function migrate(PDO $db): void {
         PRAGMA user_version = 2;
         SQL);
     }
+    if ($v < 3) {
+        $db->exec(<<<SQL
+        CREATE TABLE card_payments (                 -- Kartenzahlungen über SumUp Solo
+            uuid TEXT PRIMARY KEY,                   -- = uuid des Verkaufs
+            amount INTEGER NOT NULL, currency TEXT NOT NULL,
+            reader_id TEXT NOT NULL, client_tx_id TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'pending',  -- pending, successful, failed, cancelled
+            tx_code TEXT NOT NULL DEFAULT '', card TEXT NOT NULL DEFAULT '', message TEXT NOT NULL DEFAULT '',
+            user TEXT NOT NULL, created TEXT NOT NULL, updated TEXT NOT NULL);
+        CREATE INDEX card_payments_ctx ON card_payments(client_tx_id);
+        PRAGMA user_version = 3;
+        SQL);
+    }
 }
 
 /* ---------- Einstellungen ---------- */
@@ -122,6 +135,13 @@ const SHOP_DEFAULTS = [
     'print_default' => 'bon',          // bon = Bondrucker, a4 = A4-Rechnung
     'bon_width'    => '80',            // Bonrolle 80 oder 58 mm
     'invoice_note' => '',              // z. B. Bankverbindung unter der A4-Rechnung
+    'sumup_enabled' => '0',
+    'sumup_api_key' => '',
+    'sumup_affiliate_key' => '',
+    'sumup_app_id' => '',
+    'sumup_merchant' => '',
+    'sumup_reader_id' => '',
+    'sumup_reader_name' => '',
 ];
 
 function setting(string $key): string {

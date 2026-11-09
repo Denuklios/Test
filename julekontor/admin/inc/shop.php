@@ -180,6 +180,16 @@ function create_sale(array $in, string $user): array {
     if ($payment === 'cash') { $r = round_cash($total); $rounding = $r - $total; $total = $r; }
     $given = $payment === 'cash' ? max((int)($in['given'] ?? 0), $total) : $total;
 
+    // Kartenzahlung über SumUp Solo: nur buchen, wenn SumUp „bezahlt“ gemeldet hat und der Betrag stimmt
+    $cst = $db->prepare('SELECT * FROM card_payments WHERE uuid = ?');
+    $cst->execute([$uuid]);
+    if ($cp = $cst->fetch()) {
+        if ($payment !== 'card') throw new ShopError('Für diesen Verkauf läuft eine Kartenzahlung.');
+        if ($cp['status'] !== 'successful') throw new ShopError('SumUp hat die Zahlung nicht bestätigt.');
+        if ((int)$cp['amount'] !== $total) throw new ShopError('Der bei SumUp bezahlte Betrag (' . money((int)$cp['amount']) . ') passt nicht zum Warenkorb (' . money($total) . ').');
+        $in['card_ref'] = trim('SumUp ' . $cp['tx_code'] . ' ' . $cp['card']);
+    }
+
     $db->beginTransaction();
     try {
         $c = open_closing();

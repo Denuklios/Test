@@ -61,6 +61,7 @@
     }
     renderAll();
     flushQueue();
+    if (online) resumeCard();
   }
   const products = () => (D ? D.products : []);
   const byId = id => products().find(p => p.id === id);
@@ -261,6 +262,7 @@
     let method = methods.cash ? "cash" : Object.keys(methods)[0];
     let typed = "";                                          // eingetippter Betrag „Gegeben“ in Øre
     let given = 0;
+    let manualCard = false;                                  // Karte ohne SumUp-Gerät bestätigen
     const s = openModal(`<h2>Bezahlen</h2><div class="big num" id="p-total"></div>
       <div class="methods">${Object.entries(methods).map(([k, n]) => `<button type="button" data-m="${k}"><span>${icons[k] || ""}</span>${esc(n)}</button>`).join("")}</div>
       <div id="p-body"></div>
@@ -277,7 +279,7 @@
       s.querySelectorAll("[data-m]").forEach(b => b.classList.toggle("on", b.dataset.m === method));
       s.querySelector("#p-total").textContent = fmt(due());
       const ok = s.querySelector("#p-ok"), b = s.querySelector("#p-body");
-      ok.disabled = false;
+      ok.disabled = false; ok.hidden = false;
       if (method === "cash") {
         const d = due();
         const notes = [...new Set([d, Math.ceil(d / 5000) * 5000, Math.ceil(d / 10000) * 10000, Math.ceil(d / 20000) * 20000, Math.ceil(d / 50000) * 50000, Math.ceil(d / 100000) * 100000])].filter(v => v >= d).slice(0, 4);
@@ -290,6 +292,11 @@
           </div>`;
         ok.textContent = "Abschließen";
         cashInfo();
+      } else if (method === "card" && D.settings.sumup && online && !manualCard) {
+        b.innerHTML = `<div class="row"><button type="button" class="btn green" data-x="sumup" style="min-height:76px;font-size:1.2rem">💳 ${fmt(due())} an ${esc(D.settings.sumup.reader)} senden</button></div>
+          <p class="muted" style="text-align:center">Der Kunde zahlt am Gerät, die Kasse bucht dann von selbst.<br>
+          <button type="button" class="link" data-x="manual" style="text-decoration:underline">Gerät geht nicht? Karte manuell bestätigen</button></p>`;
+        ok.hidden = true;
       } else if (method === "card") {
         b.innerHTML = `<p style="text-align:center;margin-top:16px">Gib <b>${fmt(due())}</b> am Kartenterminal ein.<br><span class="muted">Wenn die Zahlung durch ist: „Karte bezahlt“.</span></p>
           <input type="text" id="p-ref" placeholder="Belegnummer vom Kartenterminal (optional)" maxlength="80" inputmode="numeric">`;
@@ -314,7 +321,9 @@
       if (b.dataset.g) { given = +b.dataset.g; typed = ""; cashInfo(); }
       if (b.dataset.k) key(b.dataset.k);
       if (b.dataset.x === "cancel") { document.removeEventListener("keydown", kd, true); closeModal(); }
-      if (b.dataset.x === "ok" && !b.disabled) {
+      if (b.dataset.x === "manual") { manualCard = true; body(); }
+      if (b.dataset.x === "sumup") { document.removeEventListener("keydown", kd, true); cardFlow(salePayload({ payment: "card" }), false); }
+      if (b.dataset.x === "ok" && !b.disabled && !b.hidden) {
         b.disabled = true;
         document.removeEventListener("keydown", kd, true);
         const note = (s.querySelector("#p-note") || {}).value || "";
@@ -331,6 +340,74 @@
     };
     document.addEventListener("keydown", kd, true);
     body();
+  }
+
+  /* ---------- Kartenzahlung über SumUp Solo ---------- */
+  async function cardFlow(payload, resume) {
+    const amount = payload._total;
+    LS.set("jk-cardpending", { payload, at: Date.now() });
+    $("modal").dataset.lock = "1";
+    const s = openModal(`<div class="done"><div class="ok" id="cf-icon">💳</div><h2 id="cf-title">${resume ? "Kartenzahlung läuft noch …" : "Wird an das Gerät gesendet …"}</h2>
+      <div class="big num">${fmt(amount)}</div><p class="muted" id="cf-msg"></p>
+      <div class="row" id="cf-btns"><button type="button" class="btn gray" data-x="abort">Abbrechen</button></div></div>`);
+    const title = s.querySelector("#cf-title"), msg = s.querySelector("#cf-msg"), btns = s.querySelector("#cf-btns");
+    let stop = false, cancelAt = 0;
+    const end = () => { stop = true; LS.del("jk-cardpending"); delete $("modal").dataset.lock; };
+    const fail = (text) => {
+      stop = true; delete $("modal").dataset.lock; errSound();
+      s.querySelector("#cf-icon").textContent = "⚠️"; title.textContent = "Nicht bezahlt"; msg.textContent = text;
+      btns.innerHTML = `<button type="button" class="btn gray" data-x="close">Zurück zum Warenkorb</button><button type="button" class="btn green" data-x="retry">Nochmal senden</button>`;
+    };
+    s.addEventListener("click", async e => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.x === "abort") {
+        b.disabled = true; b.textContent = "Wird abgebrochen …"; cancelAt = Date.now();
+        try { await api("sumup_cancel", { uuid: payload.uuid }); } catch (err) {}
+      }
+      if (b.dataset.x === "close") { LS.del("jk-cardpending"); closeModal(); }
+      if (b.dataset.x === "retry") cardFlow(payload, false);
+    });
+    if (!resume) {
+      try { await api("sumup_start", { uuid: payload.uuid, amount }); }
+      catch (e) { LS.del("jk-cardpending"); fail(e.server ? e.message : "Keine Verbindung zum Server."); return; }
+    }
+    title.textContent = "Bitte Karte an das Gerät halten";
+    msg.textContent = "Warte auf die Zahlung am " + D.settings.sumup.reader + " …";
+    while (!stop) {
+      await new Promise(r => setTimeout(r, 2000));
+      if (stop) return;
+      let p = null;
+      try { p = (await api("sumup_status", null, { qs: "&uuid=" + encodeURIComponent(payload.uuid) })).payment; }
+      catch (e) { if (e.server && e.status === 422) { end(); closeModal(); return; } msg.textContent = "Verbindung wackelt – prüfe weiter …"; continue; }
+      if (p.status === "successful") { stop = true; delete $("modal").dataset.lock; await bookPaid(payload); return; }
+      if (p.status === "failed" || p.status === "cancelled") { LS.del("jk-cardpending"); fail(cancelAt ? "Die Zahlung wurde abgebrochen." : "Die Karte wurde abgelehnt oder die Zahlung abgebrochen." + (p.message ? " (" + p.message + ")" : "")); return; }
+      // Abbruch angefordert, Gerät meldet nichts mehr: nach 15 s endgültig aufgeben (vorher noch einmal prüfen)
+      if (cancelAt && Date.now() - cancelAt > 15000) {
+        try {
+          const g = (await api("sumup_giveup", { uuid: payload.uuid })).payment;
+          if (g && g.status === "successful") { stop = true; delete $("modal").dataset.lock; await bookPaid(payload); return; }
+        } catch (e) {}
+        LS.del("jk-cardpending"); fail("Die Zahlung wurde abgebrochen."); return;
+      }
+    }
+  }
+  /* Bei SumUp bezahlt → Verkauf buchen. Klappt das nicht, bleibt der Vorgang gemerkt und kann
+     mit derselben Nummer nachgebucht werden – es wird nie ein zweites Mal von der Karte abgebucht. */
+  async function bookPaid(payload) {
+    await finish(null, payload);
+    if (!cart.lines.length) { LS.del("jk-cardpending"); return; }
+    $("modal").dataset.lock = "1";
+    const s = openModal(`<div class="done"><div class="ok">⚠️</div><h2>Bezahlt, aber noch nicht gebucht</h2>
+      <p>Die Karte wurde bei SumUp belastet. Die Buchung in der Kasse hat noch nicht geklappt. <b>Nicht noch einmal kassieren!</b></p>
+      <div class="row"><button type="button" class="btn green" data-x="again">Buchung wiederholen</button></div></div>`);
+    s.querySelector('[data-x="again"]').onclick = () => { delete $("modal").dataset.lock; bookPaid(payload); };
+  }
+  /* Tablet neu geladen, während eine Kartenzahlung lief: Ergebnis abholen */
+  function resumeCard() {
+    const pend = LS.get("jk-cardpending", null);
+    if (!pend || !D || !D.settings.sumup) return;
+    if (Date.now() - pend.at > 30 * 60000) { LS.del("jk-cardpending"); return; }
+    cardFlow(pend.payload, true);
   }
 
   function salePayload(extra) {

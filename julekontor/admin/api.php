@@ -3,6 +3,7 @@
 declare(strict_types=1);
 require __DIR__ . '/inc/bootstrap.php';
 require __DIR__ . '/inc/shop.php';
+require __DIR__ . '/inc/sumup.php';
 
 header('Content-Type: application/json; charset=utf-8');
 
@@ -30,6 +31,9 @@ function product_out(array $p): array {
             'stock' => (float)$p['stock'], 'track' => (bool)$p['track_stock'], 'open' => (bool)$p['open_price'],
             'fav' => (bool)$p['favorite'], 'unit' => $p['unit'], 'img' => product_image_url((string)$p['image'])];
 }
+function card_out(?array $c): ?array {
+    return $c ? ['status' => $c['status'], 'amount' => (int)$c['amount'], 'tx_code' => $c['tx_code'], 'card' => $c['card'], 'message' => $c['message']] : null;
+}
 function closing_out(): ?array {
     $c = open_closing();
     return $c ? ['id' => (int)$c['id'], 'opened_at' => $c['opened_at'], 'opened_by' => $c['opened_by'], 'float' => (int)$c['float']] : null;
@@ -47,6 +51,7 @@ try {
                     'payments' => enabled_payments(),
                     'mobilepay_number' => setting('mobilepay_number'),
                     'print_default' => setting('print_default'),
+                    'sumup' => sumup_ready() ? ['reader' => setting('sumup_reader_name') ?: 'SumUp Solo'] : null,
                 ],
                 'categories' => $db->query('SELECT id, name, color FROM categories ORDER BY sort, name')->fetchAll(),
                 'products' => array_map('product_out', $db->query('SELECT * FROM products WHERE active = 1 ORDER BY name COLLATE NOCASE')->fetchAll()),
@@ -83,6 +88,25 @@ try {
             $s = sale_full((int)($_GET['id'] ?? 0));
             if (!$s) throw new ShopError('Beleg nicht gefunden.');
             out(['receipt' => receipt_data($s)]);
+
+        case 'sumup_start':
+            $https = !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off';
+            $hook = ($https ? 'https://' : 'http://') . $_SERVER['HTTP_HOST'] . rtrim(dirname($_SERVER['SCRIPT_NAME']), '/') . '/sumup-hook.php';
+            $cp = sumup_start((string)($in['uuid'] ?? ''), (int)($in['amount'] ?? 0), $who, $hook);
+            out(['payment' => card_out($cp)]);
+
+        case 'sumup_status':
+            $cp = sumup_refresh((string)($_GET['uuid'] ?? ''));
+            if (!$cp) throw new ShopError('Keine Kartenzahlung zu diesem Vorgang.');
+            out(['payment' => card_out($cp)]);
+
+        case 'sumup_cancel':
+            sumup_cancel((string)($in['uuid'] ?? ''));
+            out(['ok' => true]);
+
+        case 'sumup_giveup':
+            $cp = sumup_give_up((string)($in['uuid'] ?? ''));
+            out(['payment' => $cp ? card_out($cp) : null]);
 
         case 'product':
             $st = db()->prepare('SELECT * FROM products WHERE (barcode = ? OR sku = ?) AND active = 1 LIMIT 1');

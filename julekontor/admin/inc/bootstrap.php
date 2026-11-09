@@ -148,7 +148,8 @@ function flash(?string $msg = null, string $type = 'ok'): ?array {
 }
 /* redirect('artikel') oder redirect('artikel&id=5') – der Teil nach dem ersten & muss schon kodiert sein */
 function redirect(string $page): never {
+    [$page, $frag] = array_pad(explode('#', $page, 2), 2, null);
     [$p, $rest] = array_pad(explode('&', $page, 2), 2, null);
-    header('Location: ./?p=' . rawurlencode($p) . ($rest !== null ? '&' . $rest : ''));
+    header('Location: ./?p=' . rawurlencode($p) . ($rest !== null ? '&' . $rest : '') . ($frag !== null ? '#' . rawurlencode($frag) : ''));
     exit;
 }

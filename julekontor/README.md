@@ -63,7 +63,20 @@ Alles liegt im Admin unter **Laden**. Die Kasse läuft im Browser auf dem Tablet
 
 ### Kartenzahlung
 
-Die Kasse arbeitet eigenständig und ist mit keinem Zahlungsanbieter verbunden. Du gibst den Betrag am Kartenterminal deiner Wahl ein (SumUp, Nets/Nexi, Zettle, Viva …), und wenn die Zahlung durch ist, tippst du in der Kasse auf „Karte bezahlt“. Die Belegnummer vom Terminal kann man dazuschreiben, dann lässt sich jede Zahlung später zuordnen.
+**Ohne Einrichtung:** Betrag am Kartenterminal eintippen (SumUp, Nets, Flatpay …), Kunde zahlt, in der Kasse „Karte bezahlt“. Die Belegnummer vom Terminal kann man dazuschreiben.
+
+**Mit SumUp Solo automatisch (Cloud API):** Die Kasse schickt den Betrag direkt an das Solo, der Kunde zahlt, die Kasse bucht von selbst.
+
+1. Auf me.sumup.com → Einstellungen → Für Entwickler → Toolkit:
+   - **API Keys** → Erstellen → Schlüssel kopieren (wird nur einmal angezeigt).
+   - **Affiliate Keys** → Application identifier z. B. `dk.julekontor.kasse` → Hinzufügen.
+2. Admin → Kassen-Einstellungen → **SumUp Solo**: API-Schlüssel, Affiliate-Key und App-ID eintragen, „In der Kasse verwenden“ anhaken, speichern. Die Händlernummer holt die Kasse selbst.
+3. Am Solo abmelden → **Verbindungen → API → Verbinden**. Den angezeigten Code (gilt 5 Minuten) im Admin unter „Kopplungs-Code“ eintragen → Koppeln.
+4. In der Kasse bei „Karte“ erscheint jetzt **„… an Solo senden“**.
+
+Sicherheit: Der API-Schlüssel bleibt auf dem Server (data/private), das Tablet sieht ihn nie. Ein Kartenverkauf wird nur gebucht, wenn SumUp selbst „bezahlt“ meldet und der Betrag stimmt. Wird das Tablet während der Zahlung neu geladen, holt die Kasse das Ergebnis ab. Ist bezahlt, aber die Buchung scheitert, wird **nie ein zweites Mal** abgebucht – die Kasse bucht mit derselben Vorgangsnummer nach. Die Liste „Letzte Kartenzahlungen“ in den Einstellungen zeigt jede Zahlung mit Bonnummer und warnt bei „bezahlt, aber kein Bon“.
+
+Hinweise: Das Solo braucht WLAN (oder Mobilfunk). Rückerstattungen auf die Karte macht man in der SumUp-App bzw. auf me.sumup.com; in der Kasse wird die Rückgabe wie gewohnt unter „Belege“ gebucht. Reine Dankort-Karten (ohne Visa) nimmt SumUp nicht an. **Mit einem echten SumUp-Konto ist die Anbindung noch nicht getestet** (nur mit einem Simulator nach der SumUp-Dokumentation) – bitte zuerst mit einem kleinen Betrag ausprobieren.
 
 ### Daten und Sicherheit
 
