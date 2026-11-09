@@ -11,7 +11,8 @@ function page_head(string $title): void { ?>
 <meta name="robots" content="noindex, nofollow">
 <title><?= h($title) ?> · Julekontor Admin</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎅</text></svg>">
-<link rel="stylesheet" href="admin.css">
+<link rel="stylesheet" href="admin.css?v=2">
+<script src="assets/scanner.js?v=2" defer></script>
 </head>
 <?php }
 
@@ -53,19 +54,20 @@ function page_start(string $active, string $title): void {
 </header>
 <div class="shell">
   <nav class="side" aria-label="Bereiche">
-    <?php foreach (JK_MODULES as $id => $m): ?>
-      <a href="./?p=<?= h($id) ?>" class="<?= $id === $active ? 'active' : '' ?> <?= $m['ready'] ? '' : 'soon' ?>"<?= $id === $active ? ' aria-current="page"' : '' ?>>
+    <?php $g = null; foreach (JK_MODULES as $id => $m): if (!can($id)) continue; ?>
+      <?php if ($m['group'] !== $g): $g = $m['group']; if ($g !== ''): ?><div class="nav-group"><?= h($g) ?></div><?php endif; endif; ?>
+      <a href="<?= h($m['href'] ?? './?p=' . $id) ?>" class="<?= $id === $active ? 'active' : '' ?> <?= $m['ready'] ? '' : 'soon' ?> <?= $id === 'kasse' ? 'nav-kasse' : '' ?>"<?= $id === $active ? ' aria-current="page"' : '' ?>>
         <span class="ic" aria-hidden="true"><?= $m['icon'] ?></span><?= h($m['title']) ?>
         <?php if (!$m['ready']): ?><small>bald</small><?php endif; ?>
       </a>
     <?php endforeach; ?>
     <form method="post" action="./?p=logout" class="logout">
       <?= csrf_field() ?>
-      <span class="muted small"><?= h($u['email'] ?? '') ?></span>
+      <span class="muted small"><?= h(user_name($u)) ?><?= role() === 'kasse' ? ' · Kasse' : '' ?></span>
       <button type="submit" class="btn ghost small">Abmelden</button>
     </form>
   </nav>
-  <main class="content">
+  <main class="content<?= !empty($GLOBALS['wide']) ? ' wide' : '' ?>">
     <h1><?= h($title) ?></h1>
     <?php flash_box();
 }

@@ -9,29 +9,46 @@ const JK_CONFIG  = JK_PRIVATE . '/config.php';
 const JK_LOCK    = JK_PRIVATE . '/login-attempts.php';
 
 /* Bereiche des Admin. Neue Bereiche: hier eintragen und eine Datei pages/<id>.php anlegen.
-   'ready' => false zeigt den Bereich als „kommt bald“. */
+   'ready' => false zeigt den Bereich als „kommt bald“. 'roles' = wer ihn sehen darf. */
+const JK_ALL = ['admin', 'kasse'];
 const JK_MODULES = [
-    'dashboard'  => ['title' => 'Übersicht',       'icon' => '🏠', 'ready' => true],
-    'startseite' => ['title' => 'Startseite',      'icon' => '⏳', 'ready' => true],
-    'kontakt'    => ['title' => 'Kontakt & Adresse', 'icon' => '📍', 'ready' => false],
-    'zeiten'     => ['title' => 'Öffnungszeiten',  'icon' => '🕯️', 'ready' => false],
-    'bilder'     => ['title' => 'Bilder',          'icon' => '🖼️', 'ready' => false],
-    'konto'      => ['title' => 'Mein Konto',      'icon' => '🔑', 'ready' => true],
+    'dashboard'     => ['title' => 'Übersicht',        'icon' => '🏠', 'ready' => true,  'group' => '',        'roles' => JK_ALL],
+    'kasse'         => ['title' => 'Kasse öffnen',     'icon' => '🧾', 'ready' => true,  'group' => 'Laden',   'roles' => JK_ALL, 'href' => 'kasse/'],
+    'artikel'       => ['title' => 'Artikel',          'icon' => '🏷️', 'ready' => true,  'group' => 'Laden',   'roles' => ['admin']],
+    'lager'         => ['title' => 'Lager',            'icon' => '📦', 'ready' => true,  'group' => 'Laden',   'roles' => ['admin']],
+    'verkaeufe'     => ['title' => 'Belege',           'icon' => '🧮', 'ready' => true,  'group' => 'Laden',   'roles' => JK_ALL],
+    'abschluss'     => ['title' => 'Tagesabschluss',   'icon' => '🔒', 'ready' => true,  'group' => 'Laden',   'roles' => JK_ALL],
+    'berichte'      => ['title' => 'Berichte',         'icon' => '📊', 'ready' => true,  'group' => 'Laden',   'roles' => ['admin']],
+    'etiketten'     => ['title' => 'Etiketten',        'icon' => '🔖', 'ready' => true,  'group' => 'Laden',   'roles' => ['admin']],
+    'einstellungen' => ['title' => 'Kassen-Einstellungen', 'icon' => '⚙️', 'ready' => true, 'group' => 'Laden', 'roles' => ['admin']],
+    'startseite'    => ['title' => 'Startseite',       'icon' => '⏳', 'ready' => true,  'group' => 'Website', 'roles' => ['admin']],
+    'kontakt'       => ['title' => 'Kontakt & Adresse', 'icon' => '📍', 'ready' => false, 'group' => 'Website', 'roles' => ['admin']],
+    'zeiten'        => ['title' => 'Öffnungszeiten',   'icon' => '🕯️', 'ready' => false, 'group' => 'Website', 'roles' => ['admin']],
+    'bilder'        => ['title' => 'Bilder',           'icon' => '🖼️', 'ready' => false, 'group' => 'Website', 'roles' => ['admin']],
+    'benutzer'      => ['title' => 'Benutzer',         'icon' => '👥', 'ready' => true,  'group' => 'Konto',   'roles' => ['admin']],
+    'konto'         => ['title' => 'Mein Konto',       'icon' => '🔑', 'ready' => true,  'group' => 'Konto',   'roles' => JK_ALL],
 ];
 
+date_default_timezone_set('Europe/Copenhagen');
 ini_set('display_errors', '0');
 header('X-Frame-Options: DENY');
 header('X-Content-Type-Options: nosniff');
 header('Referrer-Policy: same-origin');
 header('Cache-Control: no-store');
 
+/* Eigene Sitzungsablage mit 12 Stunden Laufzeit: Das Kassen-Tablet soll nicht nach 24 Minuten Pause abgemeldet werden. */
+$sessDir = JK_PRIVATE . '/sessions';
+if (!is_dir($sessDir)) @mkdir($sessDir, 0750, true);
+if (is_dir($sessDir) && is_writable($sessDir)) session_save_path($sessDir);
+ini_set('session.gc_maxlifetime', '43200');
+ini_set('session.use_strict_mode', '1');
 session_name('jk_admin');
 session_set_cookie_params([
-    'lifetime' => 0,
-    'path'     => dirname($_SERVER['SCRIPT_NAME']) . '/',
+    'lifetime' => 43200,
+    'path'     => rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'], basename(dirname($_SERVER['SCRIPT_NAME'])) === 'kasse' ? 2 : 1)), '/') . '/',
     'secure'   => !empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off',
     'httponly' => true,
-    'samesite' => 'Strict',
+    'samesite' => 'Lax',
 ]);
 session_start();
 
@@ -76,6 +93,10 @@ function current_user(): ?array {
     foreach (config()['users'] ?? [] as $u) if ($u['email'] === $email) return $u;
     return null;
 }
+function role(): string { return current_user()['role'] ?? 'admin'; }
+function can(string $module): bool { return isset(JK_MODULES[$module]) && in_array(role(), JK_MODULES[$module]['roles'], true); }
+function user_name(?array $u = null): string { $u ??= current_user(); return (string)($u['name'] ?? '') ?: (string)($u['email'] ?? ''); }
+
 function login_user(string $email): void {
     session_regenerate_id(true);
     $_SESSION['user'] = $email;
@@ -125,7 +146,9 @@ function flash(?string $msg = null, string $type = 'ok'): ?array {
     unset($_SESSION['flash']);
     return $f;
 }
+/* redirect('artikel') oder redirect('artikel&id=5') – der Teil nach dem ersten & muss schon kodiert sein */
 function redirect(string $page): never {
-    header('Location: ./?p=' . rawurlencode($page));
+    [$p, $rest] = array_pad(explode('&', $page, 2), 2, null);
+    header('Location: ./?p=' . rawurlencode($p) . ($rest !== null ? '&' . $rest : ''));
     exit;
 }

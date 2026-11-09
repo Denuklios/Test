@@ -2,6 +2,7 @@
 declare(strict_types=1);
 require __DIR__ . '/inc/bootstrap.php';
 require __DIR__ . '/inc/layout.php';
+require __DIR__ . '/inc/shop.php';
 
 $p = (string)($_GET['p'] ?? 'dashboard');
 
@@ -17,7 +18,7 @@ if (!is_set_up()) {
         elseif ($pw !== ($_POST['password2'] ?? '')) $error = 'Die beiden Passwörter stimmen nicht überein.';
         elseif (!is_set_up()) {
             $cfg = config();
-            $cfg['users'] = [['email' => $email, 'hash' => password_hash($pw, PASSWORD_DEFAULT), 'created' => date('c')]];
+            $cfg['users'] = [['email' => $email, 'name' => '', 'role' => 'admin', 'hash' => password_hash($pw, PASSWORD_DEFAULT), 'created' => date('c')]];
             write_private(JK_CONFIG, $cfg);
             login_user($email);
             flash('Willkommen! Dein Admin-Konto ist angelegt.');
@@ -65,7 +66,9 @@ if (!$user) {
 /* ---------- Bereiche ---------- */
 if ($p === 'login') redirect('dashboard');
 if (!isset(JK_MODULES[$p])) { http_response_code(404); $p = 'dashboard'; }
+if (!can($p)) { flash('Für diesen Bereich fehlt dir die Berechtigung.', 'err'); redirect('dashboard'); }
 $mod = JK_MODULES[$p];
+if (!empty($mod['href'])) { header('Location: ' . $mod['href']); exit; }
 $file = __DIR__ . '/pages/' . $p . '.php';
 
 if (!$mod['ready'] || !is_file($file)) {
@@ -75,4 +78,9 @@ if (!$mod['ready'] || !is_file($file)) {
     page_end();
     exit;
 }
-require $file;
+try {
+    require $file;
+} catch (ShopError $e) {
+    flash($e->getMessage(), 'err');
+    redirect($p);
+}
