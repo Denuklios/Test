@@ -1,0 +1,602 @@
+<!doctype html>
+<html><head><meta charset="utf-8">
+<style>html,body{margin:0;background:transparent;overflow:hidden}</style>
+<script type="importmap">
+{"imports":{"three":"./node_modules/three/build/three.module.js","three/addons/":"./node_modules/three/examples/jsm/"}}
+</script>
+</head><body>
+<script type="module">
+import * as THREE from 'three';
+import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/addons/postprocessing/OutputPass.js';
+import { RoundedBoxGeometry } from 'three/addons/geometries/RoundedBoxGeometry.js';
+import { RoomEnvironment } from 'three/addons/environments/RoomEnvironment.js';
+
+const P = new URLSearchParams(location.search);
+const SCENE = P.get('scene');
+const Wpx = +P.get('w') || 1600, Hpx = +P.get('h') || 1100;
+
+const renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true, preserveDrawingBuffer: true });
+renderer.setPixelRatio(1);
+renderer.setSize(Wpx, Hpx);
+renderer.shadowMap.enabled = true;
+renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+renderer.toneMapping = THREE.ACESFilmicToneMapping;
+renderer.toneMappingExposure = P.get("scene") === "night" ? 1.05 : 0.82;
+renderer.outputColorSpace = THREE.SRGBColorSpace;
+renderer.setClearColor(0x000000, 0);
+document.body.appendChild(renderer.domElement);
+
+const scene = new THREE.Scene();
+
+// ---------- materials
+function rand(s) { let x = Math.sin(s) * 10000; return x - Math.floor(x); }
+function woodTexture(seed = 1, base = [224, 192, 150]) {
+  const c = document.createElement('canvas'); c.width = 1024; c.height = 128;
+  const g = c.getContext('2d');
+  g.fillStyle = `rgb(${base})`; g.fillRect(0, 0, 1024, 128);
+  for (let i = 0; i < 70; i++) {
+    const y = rand(seed * 31 + i) * 128, amp = 2 + rand(i * 7 + seed) * 6, dark = 0.72 + rand(i * 3 + seed) * 0.22;
+    g.strokeStyle = `rgba(${base[0] * dark | 0},${base[1] * dark * 0.95 | 0},${base[2] * dark * 0.85 | 0},${0.25 + rand(i + seed * 5) * 0.4})`;
+    g.lineWidth = 0.6 + rand(i * 11 + seed) * 2.2;
+    g.beginPath();
+    for (let x = 0; x <= 1024; x += 16) {
+      const yy = y + Math.sin(x / (90 + rand(i) * 120) + i) * amp;
+      x ? g.lineTo(x, yy) : g.moveTo(x, yy);
+    }
+    g.stroke();
+  }
+  for (let k = 0; k < 3; k++) { // knots
+    const x = rand(seed * 9 + k) * 1024, y = 20 + rand(seed * 5 + k) * 88;
+    const gr = g.createRadialGradient(x, y, 1, x, y, 10);
+    gr.addColorStop(0, 'rgba(110,65,25,.8)'); gr.addColorStop(1, 'rgba(110,65,25,0)');
+    g.fillStyle = gr; g.beginPath(); g.ellipse(x, y, 14, 6, 0, 0, 7); g.fill();
+  }
+  const t = new THREE.CanvasTexture(c); t.colorSpace = THREE.SRGBColorSpace; t.anisotropy = 8;
+  return t;
+}
+const PAINT = P.get('paint');
+const paintMat = PAINT === 'red' ? new THREE.MeshStandardMaterial({ color: 0xb80d1c, roughness: 0.28, metalness: 0.0 })
+  : PAINT === 'green' ? new THREE.MeshStandardMaterial({ color: 0x2f8a2c, roughness: 0.35, metalness: 0.0 })
+  : new THREE.MeshStandardMaterial({ color: 0xf3eee6, roughness: 0.55 });
+const woodMats = [1, 2, 3, 4].map(s => PAINT
+  ? paintMat
+  : new THREE.MeshStandardMaterial({ map: woodTexture(s), roughness: 0.75 }));
+const topMat = PAINT ? woodMats[0] : new THREE.MeshStandardMaterial({ map: woodTexture(9, [226, 196, 156]), roughness: 0.7 });
+const steel = new THREE.MeshStandardMaterial({ color: 0xd4d9de, metalness: 0.55, roughness: 0.38, envMapIntensity: 4 });
+const zinc = new THREE.MeshStandardMaterial({ color: 0xe6dcb0, metalness: 0.7, roughness: 0.3, envMapIntensity: 4 });
+const hingeMat = new THREE.MeshStandardMaterial({ color: 0x8a8f96, metalness: 0.8, roughness: 0.4 });
+
+// ---------- geometry helpers (units: cm). Lying layout: ground = XZ, up = Y.
+// Klappbock modelled after the classic beech trestle: 2 frames, each 2 legs + bottom rung,
+// double top rail, metal spreader rods on both sides.
+const LEG = 80, SD = 2.4, SW = 4.4, HF = 68, LIFT = 2.0, HALF = 18 * Math.PI / 180;
+function box(lx, ly, lz, mat) {
+  const m = new THREE.Mesh(new RoundedBoxGeometry(lx, ly, lz, 2, Math.min(lx, ly, lz) * 0.15), mat);
+  m.castShadow = m.receiveShadow = true; return m;
+}
+function beamXZ(p, q, y0, w, h, mat) { // p,q: Vector2(x,z); w = horizontal thickness, h = vertical
+  const d = q.clone().sub(p), len = d.length();
+  const m = box(len, h, w, mat);
+  m.position.set((p.x + q.x) / 2, y0 + h / 2, (p.y + q.y) / 2);
+  m.rotation.y = -Math.atan2(d.y, d.x);
+  return m;
+}
+const v2 = (x, y) => new THREE.Vector2(x, y);
+const perp = d => v2(-d.y, d.x);
+let mi = 0;
+const brass = new THREE.MeshStandardMaterial({ color: 0xd8b85a, metalness: 0.9, roughness: 0.3 });
+function cyl(a3, b3, r, mat) {
+  const d = b3.clone().sub(a3), len = d.length();
+  const m = new THREE.Mesh(new THREE.CylinderGeometry(r, r, len, 16), mat);
+  m.position.copy(a3.clone().add(b3).multiplyScalar(.5));
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), d.normalize());
+  m.castShadow = true; g_last.add(m); return m;
+}
+let g_last = null;
+function frameLying(g, tip, foot) {
+  const mat = woodMats[(mi++) % 4];
+  g.add(beamXZ(tip, foot, LIFT, SD, SW, mat));                 // bottom leg
+  g.add(beamXZ(tip, foot, LIFT + HF - SW, SD, SW, mat));       // top leg
+  const d = foot.clone().sub(tip), u = d.clone().normalize();
+  const c = foot.clone().sub(u.clone().multiplyScalar(14));     // bottom rung ~14 cm above the floor
+  const r = box(4.4, HF - 2 * SW + 0.4, 2.0, mat);
+  r.position.set(c.x, LIFT + HF / 2, c.y); r.rotation.y = -Math.atan2(u.y, u.x);
+  g.add(r);
+}
+function bockLying(g, tip, out, feet) {
+  g_last = g;
+  for (const f of feet) frameLying(g, tip, f);
+  // double top rail (one per frame), slightly overhanging
+  const n = perp(out);
+  for (const s of [-1, 1]) {
+    const c = tip.clone().add(out.clone().multiplyScalar(0.6)).add(n.clone().multiplyScalar(s * 1.45));
+    const rail = box(4.0, HF + 2 * LIFT, 2.8, topMat);
+    rail.position.set(c.x, (HF + 2 * LIFT) / 2, c.y); rail.rotation.y = -Math.atan2(out.y, out.x) + Math.PI / 2;
+    g.add(rail);
+  }
+  for (const yy of []) { // hinges (hidden)
+    const h = box(1.2, 4, 6.5, hingeMat);
+    const cc = tip.clone().add(out.clone().multiplyScalar(2.8));
+    h.position.set(cc.x, yy, cc.y); h.rotation.y = -Math.atan2(out.y, out.x); g.add(h);
+  }
+  // spreader rods between the frames at half leg length, on both sides
+  const pA = tip.clone().lerp(feet[0], 0.5), pB = tip.clone().lerp(feet[1], 0.5);
+  for (const yy of [LIFT + SW + 1.2, LIFT + HF - SW - 1.2]) {
+    const A3 = new THREE.Vector3(pA.x, yy, pA.y), B3 = new THREE.Vector3(pB.x, yy, pB.y);
+    const M3 = A3.clone().add(B3).multiplyScalar(.5).add(new THREE.Vector3(out.x, 0, out.y).multiplyScalar(2.5));
+    if (FLAT) { flatBar(g, A3, M3); flatBar(g, M3, B3);
+      const j = new THREE.Mesh(new THREE.CylinderGeometry(1.1, 1.1, 0.5, 20), flatSteel); j.position.copy(M3); g.add(j); }
+    else { cyl(A3, M3, 0.35, brass); cyl(M3, B3, 0.35, brass);
+      const j = new THREE.Mesh(new THREE.SphereGeometry(0.6, 12, 12), brass); j.position.copy(M3); g.add(j); }
+  }
+}
+const FLAT = P.get('spread') === 'flat';
+const flatSteel = new THREE.MeshStandardMaterial({ color: 0xd9dde2, metalness: 0.35, roughness: 0.4, envMapIntensity: 2 });
+function flatBar(g, A3, B3) {
+  const d = B3.clone().sub(A3), len = d.length();
+  const m = new THREE.Mesh(new THREE.BoxGeometry(len, 0.35, 2.0), flatSteel);
+  m.position.copy(A3.clone().add(B3).multiplyScalar(.5));
+  m.quaternion.setFromUnitVectors(new THREE.Vector3(1, 0, 0), d.normalize());
+  m.castShadow = true; g.add(m);
+}
+const R = 1.376 * LEG, r = 0.382 * R;
+function starPts() {
+  const tips = [], inner = [];
+  for (let k = 0; k < 5; k++) {
+    const a = (90 + 72 * k) * Math.PI / 180, b = (126 + 72 * k) * Math.PI / 180;
+    tips.push(v2(R * Math.cos(a), -R * Math.sin(a)));
+    inner.push(v2(r * Math.cos(b), -r * Math.sin(b)));
+  }
+  return { tips, inner };
+}
+// leg end at a joint: legs stop 0.9 cm past the joint point so their outer faces meet exactly in the corner
+function footAt(I, T) { const e = T.clone().sub(I).normalize(); return I.clone().add(e.multiplyScalar(0.9)); }
+function buildStar(g) {
+  const { tips, inner } = starPts();
+  for (let k = 0; k < 5; k++) {
+    const t = tips[k], out = t.clone().normalize();
+    bockLying(g, t, out, [footAt(inner[(k + 4) % 5], t), footAt(inner[k], t)]);
+  }
+  return { tips, inner };
+}
+// Winkelverbinder 40 x 40 x 20 mm, opened to the joint angle, sitting flush on the outer side faces of both legs
+const screwHeadGeo = new THREE.SphereGeometry(0.42, 20, 10, 0, Math.PI * 2, 0, Math.PI / 2);
+const darkMat = new THREE.MeshStandardMaterial({ color: 0x3a3424, metalness: .4, roughness: .6 });
+const yzinc = new THREE.MeshStandardMaterial({ color: 0xc9b25e, metalness: 0.75, roughness: 0.32, envMapIntensity: 3 });
+const torxGeo = (() => { const sh = new THREE.Shape();
+  for (let i = 0; i < 12; i++) { const a = i * Math.PI / 6, rr = i % 2 ? 0.1 : 0.19; i ? sh.lineTo(rr * Math.cos(a), rr * Math.sin(a)) : sh.moveTo(rr, 0); }
+  return new THREE.ShapeGeometry(sh); })();
+function bentBracket(g, I, eA, eB, yc) {
+  const mid = eA.clone().add(eB).normalize();
+  const half = Math.acos(eA.dot(mid));
+  const C = I.clone().add(mid.clone().multiplyScalar((SD / 2) / Math.sin(half)));
+  const pts = {};
+  for (const e of [eA, eB]) {
+    let n = mid.clone().sub(e.clone().multiplyScalar(mid.dot(e))).normalize(); // face normal pointing out of the wood
+    const len = 4.0, th = 0.2, hgt = 4.0;   // Winkelverbinder 40 x 40 x 40 mm, 2 mm
+    const c = C.clone().add(e.clone().multiplyScalar(len / 2)).add(n.clone().multiplyScalar(th / 2));
+    const fl = new THREE.Mesh(new THREE.BoxGeometry(len, hgt, th), steel);
+    fl.position.set(c.x, yc, c.y); fl.rotation.y = -Math.atan2(e.y, e.x); fl.castShadow = true; g.add(fl);
+    const n3 = new THREE.Vector3(n.x, 0, n.y);
+    for (const [f, dy] of [[1.15, 1.0], [1.15, -1.0], [2.9, 0]]) {   // 3 holes per flange
+      const p = C.clone().add(e.clone().multiplyScalar(f)).add(n.clone().multiplyScalar(th));
+      // countersunk head (Senkkopf), yellow-zinc, sits flush in the bracket hole
+      const head = new THREE.Mesh(new THREE.CylinderGeometry(0.39, 0.39, 0.06, 32), yzinc);
+      head.position.set(p.x + n.x * 0.01, yc + dy, p.y + n.y * 0.01);
+      head.quaternion.setFromUnitVectors(new THREE.Vector3(0, 1, 0), n3);
+      head.castShadow = true; g.add(head);
+      const tx = new THREE.Mesh(torxGeo, darkMat);
+      tx.position.set(p.x + n.x * 0.045, yc + dy, p.y + n.y * 0.045);
+      tx.quaternion.setFromUnitVectors(new THREE.Vector3(0, 0, 1), n3);
+      g.add(tx);
+    }
+  }
+  // rounded bend
+  const bend = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 4.0, 12), steel);
+  const bc = C.clone().add(mid.clone().multiplyScalar(0.08));
+  bend.position.set(bc.x, yc, bc.y); g.add(bend);
+  return C;
+}
+// loose part: Winkelverbinder 90° as bought
+function looseBracket(g) {
+  const len = 4.0, th = 0.22, w = 2.0;
+  const a = new THREE.Mesh(new THREE.BoxGeometry(len, th, w), steel); a.position.set(len / 2, th / 2, 0); a.castShadow = true; g.add(a);
+  const b = new THREE.Mesh(new THREE.BoxGeometry(th, len, w), steel); b.position.set(th / 2, len / 2, 0); b.castShadow = true; g.add(b);
+  for (const f of [1.2, 3.0]) {
+    const h1 = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, th + 0.02, 20), darkMat); h1.position.set(f, th / 2, 0); g.add(h1);
+    const h2 = new THREE.Mesh(new THREE.CylinderGeometry(0.25, 0.25, th + 0.02, 20), darkMat); h2.rotation.z = Math.PI / 2; h2.position.set(th / 2, f, 0); g.add(h2);
+  }
+}
+function looseScrew(g, x, z, rot) {
+  const s = new THREE.Group();
+  const head = new THREE.Mesh(screwHeadGeo, zinc); head.scale.set(1, .45, 1); head.rotation.z = Math.PI / 2; s.add(head);
+  const shank = new THREE.Mesh(new THREE.CylinderGeometry(0.2, 0.2, 1.4, 16), zinc); shank.rotation.z = Math.PI / 2; shank.position.x = 0.7; s.add(shank);
+  for (let i = 0; i < 9; i++) {
+    const t = new THREE.Mesh(new THREE.TorusGeometry(0.2, 0.045, 6, 18), zinc); t.rotation.y = Math.PI / 2 + 0.25; t.position.x = 0.35 + i * 0.13; s.add(t);
+  }
+  const tip = new THREE.Mesh(new THREE.ConeGeometry(0.2, 0.3, 16), zinc); tip.rotation.z = -Math.PI / 2; tip.position.x = 1.55; s.add(tip);
+  for (const rr of [0, Math.PI / 2]) {
+    const slot = new THREE.Mesh(new THREE.BoxGeometry(0.09, 0.5, 0.1), darkMat); slot.position.x = -0.19; slot.rotation.x = rr + .4; s.add(slot);
+  }
+  s.position.set(x, 0.42, z); s.rotation.y = rot; s.traverse(o => o.castShadow = true); g.add(s);
+}
+
+// ---------- lights
+function studioLights(target = new THREE.Vector3(), size = 200, shadowOpacity = 0.22) {
+  scene.environment = new THREE.PMREMGenerator(renderer).fromScene(new RoomEnvironment(), 0.04).texture;
+  scene.environmentIntensity = 0.3;
+  scene.add(new THREE.HemisphereLight(0xfff6ea, 0x8a7360, 0.7));
+  const d = new THREE.DirectionalLight(0xffffff, 2.0);
+  d.position.set(target.x - size * 0.8, target.y + size * 1.6, target.z + size * 1.1);
+  d.target.position.copy(target);
+  d.castShadow = true; d.shadow.mapSize.set(4096, 4096);
+  const s = d.shadow.camera; s.left = -size; s.right = size; s.top = size; s.bottom = -size; s.near = 1; s.far = size * 6;
+  d.shadow.radius = 6; d.shadow.bias = -0.0004; d.shadow.normalBias = 0.3;
+  scene.add(d, d.target);
+  const fill = new THREE.DirectionalLight(0xffe7cc, 0.6); fill.position.set(size, size * .5, -size); scene.add(fill);
+  const ground = new THREE.Mesh(new THREE.PlaneGeometry(size * 8, size * 8), new THREE.ShadowMaterial({ opacity: shadowOpacity }));
+  ground.rotation.x = -Math.PI / 2; ground.receiveShadow = true; scene.add(ground);
+}
+
+const meta = {};
+let camera;
+function project(v) {
+  camera.updateMatrixWorld(true); const p = v.clone().project(camera);
+  return [(p.x + 1) / 2, (1 - p.y) / 2];
+}
+const persp = (fov, pos, look) => { camera = new THREE.PerspectiveCamera(fov, Wpx / Hpx, 1, 5000); camera.position.copy(pos); camera.lookAt(look); };
+const V = (x, y, z) => new THREE.Vector3(x, y, z);
+
+let composer = null;
+
+if (SCENE === 'star_lying') {
+  const g = new THREE.Group(); scene.add(g);
+  const { tips, inner } = buildStar(g);
+  studioLights(V(0, 0, 0), 180);
+  persp(30, V(-120, 340, 340), V(0, 5, 10));
+  meta.tips = tips.map(t => { const o = t.clone().normalize().multiplyScalar(t.length() + 14); return project(V(o.x, HF + 2 * LIFT, o.y)); });
+  meta.joints = inner.map(I => project(V(I.x, HF + LIFT, I.y)));
+}
+if (SCENE === 'star_top') {
+  const g = new THREE.Group(); scene.add(g);
+  const { tips, inner } = buildStar(g);
+  studioLights(V(0, 0, 0), 180, 0.0);
+  const s = 122;
+  camera = new THREE.OrthographicCamera(-s * Wpx / Hpx, s * Wpx / Hpx, s, -s, 1, 2000);
+  camera.position.set(0, 600, -8); camera.up.set(0, 0, -1); camera.lookAt(0, 0, -8);
+  meta.center = project(V(0, HF, 0));
+  meta.tips = tips.map(t => project(V(t.x, HF, t.y)));
+  meta.inner = inner.map(I => project(V(I.x, HF, I.y)));
+}
+if (SCENE === 'bock_lying' || SCENE === 'bock_standing') {
+  const g = new THREE.Group();
+  const tip = v2(0, 0);
+  const feet = [-1, 1].map(s => v2(LEG * Math.sin(HALF) * s, LEG * Math.cos(HALF)));
+  bockLying(g, tip, v2(0, -1), feet);
+  if (SCENE === 'bock_standing') {
+    const holder = new THREE.Group(); holder.add(g);
+    g.rotation.x = Math.PI / 2;
+    g.position.z = -(HF + 2 * LIFT) / 2;
+    holder.position.y = LEG * Math.cos(HALF);
+    scene.add(holder);
+    studioLights(V(0, 30, 0), 110);
+    persp(30, V(150, 120, 250), V(0, 40, 0));
+  } else {
+    scene.add(g);
+    studioLights(V(0, 0, 40), 110);
+    persp(30, V(-200, 190, 150), V(0, 18, 38));
+  }
+}
+if (SCENE === 'joint') {
+  const g = new THREE.Group(); scene.add(g);
+  const { tips, inner } = starPts();
+  const I = inner[0], tA = tips[0], tB = tips[1];
+  const es = [];
+  g_last = g;
+  for (const t of [tA, tB]) {
+    const e = t.clone().sub(I).normalize(); es.push(e);
+    const foot = footAt(I, t);
+    const start = I.clone().add(e.clone().multiplyScalar(52));
+    frameLying(g, start, foot);
+  }
+  const Ct = bentBracket(g, I, es[0], es[1], LIFT + HF - SW / 2);
+  const Cb = bentBracket(g, I, es[0], es[1], LIFT + SW / 2);
+  studioLights(V(I.x, 0, I.y), 80);
+  const mid = es[0].clone().add(es[1]).normalize();
+  const side = perp(mid).multiplyScalar(22);
+  const cam = Ct.clone().add(mid.clone().multiplyScalar(200)).add(side.multiplyScalar(2.5));
+  persp(32, V(cam.x, HF + 110, cam.y), V(Ct.x - mid.x * 4, HF * 0.5, Ct.y - mid.y * 4));
+  meta.top = project(V(Ct.x + mid.x * .3, LIFT + HF - SW / 2, Ct.y + mid.y * .3));
+  meta.bottom = project(V(Cb.x + mid.x * .3, LIFT + SW / 2, Cb.y + mid.y * .3));
+}
+if (SCENE === 'joint_close') {
+  const g = new THREE.Group(); scene.add(g);
+  const { tips, inner } = starPts();
+  const I = inner[0], es = [];
+  g_last = g;
+  for (const t of [tips[0], tips[1]]) {
+    const e = t.clone().sub(I).normalize(); es.push(e);
+    g.add(beamXZ(I.clone().add(e.clone().multiplyScalar(16)), footAt(I, t), 0, SD, SW, woodMats[es.length]));
+  }
+  const C = bentBracket(g, I, es[0], es[1], SW / 2);
+  studioLights(V(I.x, 0, I.y), 25);
+  const mid = es[0].clone().add(es[1]).normalize();
+  const cam = C.clone().add(mid.clone().multiplyScalar(17)).add(perp(mid).multiplyScalar(4));
+  persp(34, V(cam.x, 13, cam.y), V(C.x + mid.x * 1, 1.6, C.y + mid.y * 1));
+}
+if (SCENE === 'parts') {
+  const g = new THREE.Group(); scene.add(g);
+  const b = new THREE.Group(); looseBracket(b); b.rotation.y = -0.6; g.add(b);
+  looseScrew(g, 4.2, 2.6, 0.5); looseScrew(g, 5.2, 0.9, -0.3);
+  studioLights(V(2, 0, 1), 12);
+  persp(30, V(9, 10, 14), V(2.4, 1.1, 0.8));
+}
+if (SCENE === 'drill') {
+  const g = new THREE.Group(); scene.add(g);
+  const red = new THREE.MeshStandardMaterial({ color: 0xc8102a, roughness: 0.35 });
+  const blk = new THREE.MeshStandardMaterial({ color: 0x1e1e20, roughness: 0.6 });
+  const gry = new THREE.MeshStandardMaterial({ color: 0x3a3b3e, roughness: 0.5 });
+  const met = new THREE.MeshStandardMaterial({ color: 0xc8ccd2, metalness: 0.9, roughness: 0.25, envMapIntensity: 3 });
+  const add = (m, x, y, z, rx = 0, ry = 0, rz = 0) => { m.position.set(x, y, z); m.rotation.set(rx, ry, rz); m.castShadow = m.receiveShadow = true; g.add(m); return m; };
+  // battery pack
+  add(new THREE.Mesh(new RoundedBoxGeometry(9, 3.4, 7.2, 4, 0.8), blk), 0.5, 1.7, 0);
+  add(new THREE.Mesh(new RoundedBoxGeometry(8.6, 0.5, 6.8, 2, 0.2), red), 0.5, 3.3, 0);
+  // grip
+  const grip = add(new THREE.Mesh(new RoundedBoxGeometry(3.6, 10.5, 4.2, 5, 1.4), blk), 0.2, 8.8, 0, 0, 0, -0.12);
+  // motor housing
+  add(new THREE.Mesh(new RoundedBoxGeometry(12, 6.2, 5.4, 6, 2.4), red), 2.4, 15.2, 0);
+  add(new THREE.Mesh(new RoundedBoxGeometry(5.5, 6.4, 5.6, 4, 2.4), blk), -1.8, 15.2, 0);
+  // gear ring + chuck
+  add(new THREE.Mesh(new THREE.CylinderGeometry(2.5, 2.6, 2.2, 32), gry), 9.4, 15.2, 0, 0, 0, Math.PI / 2);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(2.0, 2.3, 2.6, 32), blk), 11.7, 15.2, 0, 0, 0, Math.PI / 2);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(1.2, 1.7, 1.6, 32), blk), 13.6, 15.2, 0, 0, 0, Math.PI / 2);
+  add(new THREE.Mesh(new THREE.CylinderGeometry(0.32, 0.32, 3.4, 6), met), 15.9, 15.2, 0, 0, 0, Math.PI / 2);
+  // trigger + switch
+  add(new THREE.Mesh(new RoundedBoxGeometry(1.4, 2.6, 1.6, 2, 0.4), gry), 2.2, 11.4, 0);
+  add(new THREE.Mesh(new RoundedBoxGeometry(1.0, 0.9, 6.0, 2, 0.3), gry), 1.0, 13.0, 0);
+  // side label stripe
+  add(new THREE.Mesh(new RoundedBoxGeometry(5, 1.4, 0.2, 2, 0.08), new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: .4 })), 3.4, 15.4, 2.75);
+  studioLights(V(3, 8, 0), 30);
+  persp(30, V(14, 22, 52), V(5, 9, 0));
+}
+
+if (SCENE === 'gloves') {
+  const mat = new THREE.MeshStandardMaterial({ color: 0x2b63c9, roughness: 0.42, metalness: 0.0 });
+  function glove(mirror) {
+    const g = new THREE.Group();
+    const palm = new THREE.Mesh(new RoundedBoxGeometry(8.6, 1.8, 9.5, 6, 0.9), mat); palm.position.set(0, 0.9, 0); g.add(palm);
+    const fingers = [[-3.1, 6.6, 0.12], [-1.05, 7.6, 0.03], [1.05, 7.2, -0.03], [3.0, 5.8, -0.1]];
+    for (const [x, len, rot] of fingers) {
+      const f = new THREE.Mesh(new THREE.CapsuleGeometry(0.95, len, 8, 16), mat);
+      f.rotation.x = Math.PI / 2; f.rotation.z = 0;
+      const grp = new THREE.Group(); grp.add(f); f.position.z = -(len / 2 + 0.9);
+      grp.position.set(x, 0.95, -4.4); grp.rotation.y = rot; g.add(grp);
+    }
+    const th = new THREE.Mesh(new THREE.CapsuleGeometry(1.1, 5.0, 8, 16), mat);
+    const tg = new THREE.Group(); tg.add(th); th.rotation.x = Math.PI / 2; th.position.z = -3.2;
+    tg.position.set(-4.0, 0.95, 1.2); tg.rotation.y = 0.85; g.add(tg);
+    const cuff = new THREE.Mesh(new RoundedBoxGeometry(8.2, 1.6, 7, 4, 0.8), mat); cuff.position.set(0.2, 0.8, 7.6); g.add(cuff);
+    const rim = new THREE.Group();
+
+    g.traverse(o => { o.castShadow = o.receiveShadow = true; });
+    if (mirror) g.scale.x = -1;
+    return g;
+  }
+  const a = glove(false); a.position.set(-5.5, 0, 0); a.rotation.y = 0.18; scene.add(a);
+  const b = glove(true); b.position.set(6.5, 1.9, 1.5); b.rotation.y = -0.22; b.rotation.z = 0.06; scene.add(b);
+  studioLights(V(0, 0, 0), 25);
+  persp(30, V(0, 48, 40), V(0, 0, -1));
+}
+
+// ---------------- Weihnachtsbaum aus 6 Klappböcken (3 + 2 + 1)
+const TD = 2 * LEG * Math.sin(HALF);            // foot spread = spacing of the tops
+const ROW = LEG * Math.cos(HALF) + 2.0;           // height of one row incl. top rail
+function standingBock(parent, cx, baseY) {
+  const g = new THREE.Group();
+  const feet = [-1, 1].map(s => v2(LEG * Math.sin(HALF) * s, LEG * Math.cos(HALF)));
+  bockLying(g, v2(0, 0), v2(0, -1), feet);
+  g.rotation.x = Math.PI / 2; g.position.z = -(HF + 2 * LIFT) / 2;
+  const h = new THREE.Group(); h.add(g); h.position.set(cx, baseY + LEG * Math.cos(HALF), 0); parent.add(h);
+  return h;
+}
+const TREE = [[-TD, 0], [0, 0], [TD, 0], [-TD / 2, ROW], [TD / 2, ROW], [0, 2 * ROW]];
+function buildTree(parent, n) { for (let i = 0; i < n; i++) standingBock(parent, TREE[i][0], TREE[i][1]); }
+const FRONTZ = -(HF / 2 + LIFT);
+function treeMeta() {
+  meta.bocks = TREE.map(([x, y]) => project(V(x, y + ROW * 0.42, FRONTZ - 2)));
+  meta.A = [[-TD / 2, 5], [TD / 2, 5], [0, ROW + 22]].map(([x, y]) => project(V(x, y, FRONTZ)));
+  meta.B = [[-TD, ROW], [0, ROW], [TD, ROW], [-TD / 2, 2 * ROW], [TD / 2, 2 * ROW]].map(([x, y]) => project(V(x, y, FRONTZ)));
+  meta.top = project(V(0, 3 * ROW, FRONTZ)); meta.floor = project(V(0, 0, FRONTZ));
+  meta.left = project(V(-1.5 * TD - 2, 0, FRONTZ)); meta.right = project(V(1.5 * TD + 2, 0, FRONTZ));
+}
+if (SCENE === 'tree_stage') {
+  const n = +P.get('n') || 6;
+  const g = new THREE.Group(); scene.add(g); buildTree(g, n);
+  studioLights(V(0, 60, 0), 200);
+  persp(30, V(-170, 250, -560), V(0, 108, 0));
+  treeMeta();
+}
+if (SCENE === 'tree_front') {
+  const g = new THREE.Group(); scene.add(g); buildTree(g, 6);
+  studioLights(V(0, 60, 0), 200, 0.0);
+  const s = 128;
+  camera = new THREE.OrthographicCamera(-s * Wpx / Hpx, s * Wpx / Hpx, s, -s, 1, 3000);
+  camera.position.set(0, 3 * ROW / 2, -800); camera.lookAt(0, 3 * ROW / 2, 0);
+  treeMeta();
+}
+if (SCENE === 'plates') {
+  const g = new THREE.Group(); scene.add(g);
+  const yz = new THREE.MeshStandardMaterial({ color: 0xc7ad4f, metalness: 0.75, roughness: 0.35, envMapIntensity: 3 });
+  function plate(L, holes, x, z, rot) {
+    const shape = new THREE.Shape(); const w = 1.5, r0 = 0.15;
+    shape.moveTo(-L / 2, -w / 2); shape.lineTo(L / 2, -w / 2); shape.lineTo(L / 2, w / 2); shape.lineTo(-L / 2, w / 2); shape.lineTo(-L / 2, -w / 2);
+    for (const hx of holes) { const p = new THREE.Path(); p.absarc(hx, 0, 0.22, 0, Math.PI * 2, true); shape.holes.push(p); }
+    const geo = new THREE.ExtrudeGeometry(shape, { depth: 0.15, bevelEnabled: true, bevelSize: 0.02, bevelThickness: 0.02, bevelSegments: 1 });
+    const m = new THREE.Mesh(geo, yz); m.rotation.x = -Math.PI / 2; m.position.set(x, 0.02, z);
+    const grp = new THREE.Group(); grp.add(m); grp.rotation.y = rot; m.castShadow = true; g.add(grp);
+  }
+  plate(6.0, [-2.4, -0.8, 0.8, 2.4], 0, -1.6, 0.0);
+  plate(8.0, [-3.3, -1.1, 1.1, 3.3], 0, 1.6, 0.0);
+  studioLights(V(0, 0, 0), 12);
+  persp(26, V(0, 22, 6), V(0, 0, 0.2));
+}
+if (SCENE === 'tree_night') {
+  renderer.setClearColor(0x000000, 1);
+  const c = document.createElement('canvas'); c.width = 2; c.height = 512;
+  const gg = c.getContext('2d'), gr = gg.createLinearGradient(0, 0, 0, 512);
+  gr.addColorStop(0, '#16030a'); gr.addColorStop(0.55, '#3b0710'); gr.addColorStop(1, '#6a0d18');
+  gg.fillStyle = gr; gg.fillRect(0, 0, 2, 512);
+  const sky = new THREE.CanvasTexture(c); sky.colorSpace = THREE.SRGBColorSpace; scene.background = sky;
+  scene.fog = new THREE.Fog(0x3b0710, 600, 1800);
+  const g = new THREE.Group(); scene.add(g); buildTree(g, 6);
+  // cluster light chain in horizontal rounds from bottom to top
+  const bulbMat = new THREE.MeshStandardMaterial({ color: 0xffe2a0, emissive: 0xffb84a, emissiveIntensity: 3.2 });
+  const inst = new THREE.InstancedMesh(new THREE.SphereGeometry(0.55, 8, 8), bulbMat, 1400);
+  const mtx = new THREE.Matrix4(); let ni = 0, seed = 7;
+  const H3 = 3 * ROW, HW = 1.5 * TD, ZF = HF / 2 + LIFT + 2.5;
+  for (let k = 0; k < 9; k++) {
+    const y = 14 + k * (H3 - 30) / 8;
+    const hw = HW * (1 - y / H3) + 3;
+    const pts = [[-hw, -ZF], [hw, -ZF], [hw, ZF], [-hw, ZF]];
+    for (let e = 0; e < 4; e++) {
+      const [x0, z0] = pts[e], [x1, z1] = pts[(e + 1) % 4];
+      const L = Math.hypot(x1 - x0, z1 - z0), nb = Math.round(L * 0.55);
+      for (let j = 0; j < nb && ni < 1400; j++) {
+        const t = (j + rand(seed++)) / nb;
+        const x = x0 + (x1 - x0) * t + (rand(seed++) - .5) * 4, z = z0 + (z1 - z0) * t + (rand(seed++) - .5) * 4;
+        mtx.makeTranslation(x, y + (rand(seed++) - .5) * 6, z); inst.setMatrixAt(ni++, mtx);
+      }
+    }
+  }
+  inst.count = ni; scene.add(inst);
+  for (let k = 0; k < 6; k++) {
+    const pl = new THREE.PointLight(0xffb050, 1100, 300, 1.6);
+    pl.position.set((k % 2 ? 1 : -1) * 50, 30 + k * 38, -70); scene.add(pl);
+  }
+  scene.add(new THREE.HemisphereLight(0x6a4a70, 0x2a0a10, 0.6));
+  const moon = new THREE.DirectionalLight(0x9fb3ff, 0.5); moon.position.set(-300, 500, -200); moon.castShadow = true;
+  moon.shadow.mapSize.set(2048, 2048); Object.assign(moon.shadow.camera, { left: -400, right: 400, top: 400, bottom: -400, far: 2000 });
+  scene.add(moon);
+  const snowGeo = new THREE.PlaneGeometry(4000, 4000, 120, 120); const pos = snowGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i); pos.setZ(i, Math.sin(x / 90) * 3 + Math.cos(y / 70) * 3 + rand(i) * 1.2); }
+  snowGeo.computeVertexNormals();
+  const snow = new THREE.Mesh(snowGeo, new THREE.MeshStandardMaterial({ color: 0xf5eeee, roughness: 0.95 })); snow.rotation.x = -Math.PI / 2; snow.position.y = -3; snow.receiveShadow = true; scene.add(snow);
+  const fir = new THREE.MeshStandardMaterial({ color: 0x1d5236, roughness: 0.9 }), snowTop = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 }), trunk = new THREE.MeshStandardMaterial({ color: 0x5a3a20 });
+  for (const [x, z, s] of [[-260, 220, 1.3], [-350, 380, 1.5], [280, 250, 1.35], [380, 420, 1.6], [-520, 600, 1.8], [560, 650, 1.9], [-160, 480, 1.1], [180, 520, 1.15]]) {
+    const t = new THREE.Group();
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(5, 6, 30, 10), trunk); tr.position.y = 15; t.add(tr);
+    for (let k = 0; k < 4; k++) {
+      const rad = 62 - k * 13, hh = 70 - k * 8, y0 = 25 + k * 38;
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(rad, hh, 18), fir); cone.position.y = y0 + hh / 2; cone.castShadow = true; t.add(cone);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.62, hh * 0.38, 18), snowTop); cap.position.y = y0 + hh * 0.81; t.add(cap);
+    }
+    t.position.set(x, -3, z); t.scale.setScalar(s); scene.add(t);
+  }
+  const sg = new THREE.BufferGeometry(); const arr = [];
+  for (let i = 0; i < 700; i++) arr.push((rand(i) - .5) * 3000, 250 + rand(i + 9) * 900, 900 + rand(i + 3) * 300);
+  sg.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+  scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: .8, fog: false })));
+  const fg = new THREE.BufferGeometry(); const fa = [];
+  for (let i = 0; i < 900; i++) fa.push((rand(i * 3) - .5) * 900, rand(i * 5) * 450, (rand(i * 7) - .5) * 700);
+  fg.setAttribute('position', new THREE.Float32BufferAttribute(fa, 3));
+  scene.add(new THREE.Points(fg, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, transparent: true, opacity: .75 })));
+  persp(+P.get('fov') || 40, V(+P.get('cx') || -90, 95, -(+P.get('cz') || 470)), V(0, 112, 0));
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(Wpx, Hpx), 0.9, 0.55, 0.82));
+  composer.addPass(new OutputPass());
+}
+
+if (SCENE === 'night') {
+  renderer.setClearColor(0x000000, 1);
+  const c = document.createElement('canvas'); c.width = 2; c.height = 512;
+  const gg = c.getContext('2d'), gr = gg.createLinearGradient(0, 0, 0, 512);
+  gr.addColorStop(0, '#16030a'); gr.addColorStop(0.55, '#3b0710'); gr.addColorStop(1, '#6a0d18');
+  gg.fillStyle = gr; gg.fillRect(0, 0, 2, 512);
+  const sky = new THREE.CanvasTexture(c); sky.colorSpace = THREE.SRGBColorSpace; scene.background = sky;
+  scene.fog = new THREE.Fog(0x3b0710, 500, 1600);
+  const g = new THREE.Group(); const { tips, inner } = buildStar(g);
+  const bulbMat = new THREE.MeshStandardMaterial({ color: 0xffe2a0, emissive: 0xffb84a, emissiveIntensity: 3.2 });
+  const outline = []; for (let k = 0; k < 5; k++) { outline.push(tips[k], inner[k]); }
+  // cluster light chain: 1200 LEDs on 24 m -> ~50 per metre, wrapped round front and back legs
+  const bulbGeo = new THREE.SphereGeometry(0.55, 8, 8);
+  const inst = new THREE.InstancedMesh(bulbGeo, bulbMat, 1700);
+  const wireMat = new THREE.MeshStandardMaterial({ color: 0x14301e, roughness: .8 });
+  const mtx = new THREE.Matrix4(); let ni = 0; let seed = 1;
+  for (const y of [LIFT + SW / 2, LIFT + HF - SW / 2]) {
+    for (let i = 0; i < 10; i++) {
+      const a = outline[i], b = outline[(i + 1) % 10];
+      const dir = b.clone().sub(a), L = dir.length(); dir.normalize();
+      const nb = Math.round(L * 0.5);
+      for (let j = 0; j < nb; j++) {
+        const t = (j + rand(seed++) * .8) / nb;
+        const ang = j * 0.9 + rand(seed++) * 1.2;
+        const rr = 3.2 + rand(seed++) * 1.6;
+        const nrm = perp(dir);
+        const p = a.clone().lerp(b, t).add(nrm.clone().multiplyScalar(Math.cos(ang) * rr));
+        if (ni < 1700) { mtx.makeTranslation(p.x, y + Math.sin(ang) * rr, p.y); inst.setMatrixAt(ni++, mtx); }
+      }
+    }
+  }
+  inst.count = ni; g.add(inst);
+  const holder = new THREE.Group(); holder.add(g);
+  g.rotation.x = Math.PI / 2;
+  holder.position.y = R * 0.809 + 2;
+  holder.position.z = HF / 2;
+  scene.add(holder);
+  for (let k = 0; k < 6; k++) {
+    const pl = new THREE.PointLight(0xffb050, 900, 260, 1.6);
+    const a = (90 + 72 * k) * Math.PI / 180;
+    pl.position.set(Math.cos(a) * 60, holder.position.y + Math.sin(a) * 60, 50);
+    if (k === 5) pl.position.set(0, holder.position.y, 60);
+    scene.add(pl);
+  }
+  scene.add(new THREE.HemisphereLight(0x6a4a70, 0x2a0a10, 0.6));
+  const moon = new THREE.DirectionalLight(0x9fb3ff, 0.5); moon.position.set(-300, 400, 200); moon.castShadow = true;
+  moon.shadow.mapSize.set(2048, 2048); Object.assign(moon.shadow.camera, { left: -400, right: 400, top: 400, bottom: -400, far: 2000 });
+  scene.add(moon);
+  const snowMat = new THREE.MeshStandardMaterial({ color: 0xf5eeee, roughness: 0.95 });
+  const snowGeo = new THREE.PlaneGeometry(4000, 4000, 120, 120);
+  const pos = snowGeo.attributes.position;
+  for (let i = 0; i < pos.count; i++) { const x = pos.getX(i), y = pos.getY(i); pos.setZ(i, Math.sin(x / 90) * 3 + Math.cos(y / 70) * 3 + rand(i) * 1.2); }
+  snowGeo.computeVertexNormals();
+  const snow = new THREE.Mesh(snowGeo, snowMat); snow.rotation.x = -Math.PI / 2; snow.position.y = -2; snow.receiveShadow = true; scene.add(snow);
+  const fir = new THREE.MeshStandardMaterial({ color: 0x1d5236, roughness: 0.9 });
+  const snowTop = new THREE.MeshStandardMaterial({ color: 0xffffff, roughness: 0.9 });
+  const trunk = new THREE.MeshStandardMaterial({ color: 0x5a3a20 });
+  const trees = [[-260, -120, 1.25], [-330, -260, 1.4], [-190, -330, 1.1], [280, -150, 1.3], [360, -300, 1.5], [200, -380, 1.0], [-480, -500, 1.6], [520, -520, 1.7]];
+  for (const [x, z, s] of trees) {
+    const t = new THREE.Group();
+    const tr = new THREE.Mesh(new THREE.CylinderGeometry(5, 6, 30, 10), trunk); tr.position.y = 15; t.add(tr);
+    for (let k = 0; k < 4; k++) {
+      const rad = 62 - k * 13, hh = 70 - k * 8, y0 = 25 + k * 38;
+      const cone = new THREE.Mesh(new THREE.ConeGeometry(rad, hh, 18), fir); cone.position.y = y0 + hh / 2; cone.castShadow = true; t.add(cone);
+      const cap = new THREE.Mesh(new THREE.ConeGeometry(rad * 0.62, hh * 0.38, 18), snowTop); cap.position.y = y0 + hh * 0.81; t.add(cap);
+    }
+    t.position.set(x, -2, z); t.scale.setScalar(s); scene.add(t);
+  }
+  const sg = new THREE.BufferGeometry(); const arr = [];
+  for (let i = 0; i < 700; i++) { arr.push((rand(i) - .5) * 3000, 200 + rand(i + 9) * 900, -900 - rand(i + 3) * 300); }
+  sg.setAttribute('position', new THREE.Float32BufferAttribute(arr, 3));
+  scene.add(new THREE.Points(sg, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, sizeAttenuation: false, transparent: true, opacity: .8, fog: false })));
+  const fg = new THREE.BufferGeometry(); const fa = [];
+  for (let i = 0; i < 900; i++) { fa.push((rand(i * 3) - .5) * 900, rand(i * 5) * 420, (rand(i * 7) - .5) * 700); }
+  fg.setAttribute('position', new THREE.Float32BufferAttribute(fa, 3));
+  scene.add(new THREE.Points(fg, new THREE.PointsMaterial({ color: 0xffffff, size: 2.2, transparent: true, opacity: .75 })));
+  const cy = holder.position.y;
+  const cx = +P.get('cx') || 70;
+  persp(+P.get('fov') || 38, V(cx, 80, +P.get('cz') || 430), V(0, cy - 12, 0));
+  composer = new EffectComposer(renderer);
+  composer.addPass(new RenderPass(scene, camera));
+  composer.addPass(new UnrealBloomPass(new THREE.Vector2(Wpx, Hpx), 0.9, 0.55, 0.82));
+  composer.addPass(new OutputPass());
+}
+
+if (composer) composer.render(); else renderer.render(scene, camera);
+window.__meta = meta;
+window.__done = true;
+</script>
+</body></html>
