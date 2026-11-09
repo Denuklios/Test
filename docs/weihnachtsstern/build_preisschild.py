@@ -464,11 +464,11 @@ def sign():
     c.saveState(); c.setFillColor(black); c.setFillAlpha(.25); c.roundRect(M - 14 + 3, H - 148 - 3, 116, 116, 6, fill=1, stroke=0); c.restoreState()
     c.setFillColor(white); c.roundRect(M - 14, H - 148, 116, 116, 6, fill=1, stroke=0)
     logo(M - 6, H - 140, 100, hat=True)
-    c.saveState(); c.translate(W - M - 190, H - 82); c.rotate(4)
-    rrect(0, 0, 190, 32, 16, fill=GOLD)
-    c.setFillColor(DRED); c.setFont("B", 13); c.drawCentredString(95, 11, "WEIHNACHTS-ANGEBOT")
+    c.saveState(); c.translate(W - M - 270, H - 96); c.rotate(4)
+    rrect(0, 0, 270, 46, 23, fill=GOLD)
+    c.setFillColor(DRED); c.setFont("B", 20); c.drawCentredString(135, 16, "WEIHNACHTS-ANGEBOT")
     c.restoreState()
-    sparkle(W - M - 4, H - 40, 9, white, .9); sparkle(W - M - 196, H - 110, 6, GOLD)
+    sparkle(W - M - 4, H - 40, 9, white, .9); sparkle(W - M - 276, H - 120, 6, GOLD)
 
     # title tag
     c.saveState(); c.translate(W / 2 + 40, H - 190); c.rotate(-3)
@@ -516,7 +516,7 @@ def sign():
     rrect(M, y - oh, W - 2 * M, oh, 14, fill=HexColor("#FFF4D6"), stroke=GOLD, lw=1.2)
     place("p_spraygroup", M + 12, y - oh + 8, 110, oh - 16, bg=(255, 244, 214))
     tx = M + 136
-    c.setFillColor(DRED); c.setFont("B", 15); c.drawString(tx, y - 28, "Optional: Farbe nach Wunsch")
+    c.setFillColor(DRED); c.setFont("B", 15); c.drawString(tx, y - 28, "Optional:")
     para("<b>Color Spray Acryl, glänzend</b> – für den Stern werden <b>2 Dosen</b> benötigt.<br/>"
          "Preis je nach Farbe, nicht im Bausatzpreis enthalten.", tx, y - 38, W - M - tx - 14, size=11)
     # fir branch along the top of the picture, bauble hanging from it
@@ -529,16 +529,16 @@ def sign():
     c.setStrokeColor(HexColor("#C8961E")); c.setLineWidth(3); c.line(bx, cap_top - 4, bx, py + ph - 20)
     bow(bx, py + ph - 22, .7)
     # price inside the bauble
-    c.setFillColor(GOLD); c.setFont("B", 12.5); c.drawCentredString(bx, by + 50, "KOMPLETT-BAUSATZ")
+    c.setFillColor(white); c.setFont("B", 13); c.drawCentredString(bx, by + 50, "KOMPLETT-BAUSATZ")
     c.setFillColor(black); c.setFillAlpha(.25); c.setFont("B", 56); c.drawCentredString(bx - 8 + 2, by - 2 - 2, "58,"); c.setFillAlpha(1)
     c.setFillColor(white); c.setFont("B", 56); c.drawCentredString(bx - 8, by - 2, "58,")
     c.setFont("B", 26); c.drawString(bx + 30, by + 20, "00"); c.drawString(bx + 30, by - 2, "€")
     t = "statt 61,87 € einzeln"
-    c.setFillColor(HexColor("#FFE3E3")); c.setFont("R", 11.5); c.drawCentredString(bx, by - 28, t)
-    tw_ = c.stringWidth("61,87 €", "R", 11.5); tx0 = bx - c.stringWidth(t, "R", 11.5) / 2 + c.stringWidth("statt ", "R", 11.5)
-    c.setStrokeColor(GOLD); c.setLineWidth(1.4); c.line(tx0 - 1, by - 24, tx0 + tw_ + 1, by - 24)
-    rrect(bx - 58, by - 62, 116, 22, 11, fill=GOLD)
-    c.setFillColor(DRED); c.setFont("B", 12); c.drawCentredString(bx, by - 55, "Du sparst 3,87 €")
+    c.setFillColor(white); c.setFont("B", 11.5); c.drawCentredString(bx, by - 28, t)
+    tw_ = c.stringWidth("61,87 €", "B", 11.5); tx0 = bx - c.stringWidth(t, "B", 11.5) / 2 + c.stringWidth("statt ", "B", 11.5)
+    c.setStrokeColor(white); c.setLineWidth(1.6); c.line(tx0 - 1, by - 24, tx0 + tw_ + 1, by - 24)
+    rrect(bx - 58, by - 62, 116, 22, 11, fill=white)
+    c.setFillColor(RED); c.setFont("B", 12); c.drawCentredString(bx, by - 55, "Du sparst 3,87 €")
     # small branches on the paint box
     needle_branch(W - M + 14, y - oh - 4, 120, 172, .75, seed=31); berries(W - M - 46, y - oh - 2, .9)
     needle_branch(M - 14, y - oh - 4, 120, 8, .75, seed=32); berries(M + 46, y - oh - 2, .9)
