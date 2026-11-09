@@ -43,14 +43,14 @@ Alles liegt im Admin unter **Laden**. Die Kasse läuft im Browser auf dem Tablet
 
 | Bereich | Was er kann |
 |---|---|
-| **Kasse öffnen** (`/admin/kasse/`) | Artikel als Kacheln nach Kategorie, Suche, Scannen mit Kamera oder Hand-Scanner, Mengen/Preis/Rabatt je Position, Bonrabatt, „Diverse“ mit freiem Betrag. Bezahlen bar (Rückgeld, Rundung auf 50 Øre), Karte (SumUp), MobilePay, Sonstige. Bon drucken. Ohne Netz werden Verkäufe im Tablet gespeichert und später automatisch gebucht. |
-| **Artikel** | Anlegen per Scan (unbekannter Code → neuer Artikel), Preis inkl. Moms, Einkaufspreis mit Rohertrag, Kategorien mit Farben, freier Preis, eigene Strichcodes (20…), CSV-Import/-Export (Excel). |
+| **Kasse öffnen** (`/admin/kasse/`) | Artikel als Kacheln nach Kategorie, Suche, Scannen mit Kamera oder Hand-Scanner, Mengen/Preis/Rabatt je Position, Bonrabatt, „Diverse“ mit freiem Betrag. Kacheln mit Produktfoto. Bezahlen bar (Rückgeld, Rundung auf 50 Øre), Karte (beliebiges Kartenterminal, Belegnummer optional), MobilePay, Sonstige. Danach Bon oder A4-Rechnung drucken. Ohne Netz werden Verkäufe im Tablet gespeichert und später automatisch gebucht. |
+| **Artikel** | Anlegen per Scan (unbekannter Code → neuer Artikel), Foto direkt mit der Tablet-Kamera, Preis inkl. Moms, Einkaufspreis mit Rohertrag, Kategorien mit Farben, freier Preis, eigene EAN-13-Strichcodes (beginnen mit 20) – einzeln oder für alle Artikel ohne Code auf einmal, CSV-Import/-Export (Excel). |
 | **Lager** | Wareneingang, Inventur, Bruch/Schwund, Korrektur – per Scan, Menge, Enter. Nachbestell-Liste, Lagerwert, alle Bewegungen. |
-| **Belege** | Alle Bons je Tag, Bon nachdrucken, Rückgabe/Storno (ganz oder teilweise) als eigener Beleg. |
+| **Belege** | Alle Bons je Tag, nachdrucken als Bon oder A4-Rechnung (mit Logo und Kundenadresse), Rückgabe/Storno (ganz oder teilweise) als eigener Beleg. |
 | **Tagesabschluss** | Kasse öffnen mit Wechselgeld, Einlage/Entnahme, Zwischenstand (X), Abschluss (Z) mit Geldzählung und Differenz. |
 | **Berichte** | Umsatz, Moms, Rohertrag, Zahlungsarten, Bestseller, Kategorien, Tage, Uhrzeiten. **CSV für die Buchhaltung.** |
 | **Etiketten** | Preisetiketten mit Strichcode: A4 3×8, A4 4×10, Etikettendrucker 50×30, Regalschilder. |
-| **Kassen-Einstellungen** | Ladendaten und CVR für den Bon, Währung, Steuersätze, Zahlungsarten, MobilePay-Nummer, SumUp, Belegprüfung. |
+| **Kassen-Einstellungen** | Ladendaten und CVR für den Bon, Druck-Standard (Bon 80/58 mm oder A4), Text unter der Rechnung (z. B. Bankverbindung), Währung, Steuersätze, Zahlungsarten, MobilePay-Nummer, Belegprüfung. |
 | **Benutzer** | Mitarbeiter mit Rolle **Kasse** sehen nur Kasse, Belege und Tagesabschluss. |
 
 ### Tablet einrichten
@@ -59,16 +59,16 @@ Alles liegt im Admin unter **Laden**. Die Kasse läuft im Browser auf dem Tablet
 2. Im Browser-Menü **„Zum Startbildschirm hinzufügen“** – dann startet die Kasse wie eine App im Vollbild.
 3. Kamera-Scan: beim ersten Mal den Kamera-Zugriff erlauben (geht nur über https).
 4. **Hand-Scanner** (USB oder Bluetooth, z. B. Netum, Zebra, Honeywell): einfach koppeln. Er tippt den Code wie eine Tastatur, die Kasse erkennt das automatisch.
-5. **Bondrucker**: Bon über das Druckmenü des Tablets drucken (80-mm-Drucker mit AirPrint bzw. Android-Druckdienst, z. B. Epson TM-m30, Star mC-Print3). Geht auch auf jedem normalen Drucker.
+5. **Drucken**: Nach jedem Verkauf „Bon drucken“ (Bondrucker 80 oder 58 mm mit AirPrint bzw. Android-Druckdienst, z. B. Epson TM-m30, Star mC-Print3) oder „A4-Rechnung“ (jeder normale Drucker). Was standardmäßig hervorgehoben ist, stellst du in den Kassen-Einstellungen ein.
 
-### Kartenzahlung mit SumUp
+### Kartenzahlung
 
-- **Ohne Einrichtung:** Betrag am SumUp-Gerät eintippen, zahlen lassen, in der Kasse „Karte bezahlt“ tippen.
-- **Mit SumUp-App auf demselben Tablet:** In den Kassen-Einstellungen Affiliate-Key und App-ID eintragen (gibt es kostenlos im SumUp-Konto unter Entwickler). Dann öffnet die Kasse die SumUp-App mit dem fertigen Betrag und bucht automatisch, sobald SumUp „bezahlt“ meldet. Dieser Weg ist noch **nicht mit einem echten SumUp-Konto getestet** – bitte zuerst mit einem kleinen Betrag ausprobieren.
+Die Kasse arbeitet eigenständig und ist mit keinem Zahlungsanbieter verbunden. Du gibst den Betrag am Kartenterminal deiner Wahl ein (SumUp, Nets/Nexi, Zettle, Viva …), und wenn die Zahlung durch ist, tippst du in der Kasse auf „Karte bezahlt“. Die Belegnummer vom Terminal kann man dazuschreiben, dann lässt sich jede Zahlung später zuordnen.
 
 ### Daten und Sicherheit
 
-- Alles liegt in `data/private/shop.sqlite`. **Diese Datei regelmäßig sichern** (per FTP herunterladen). Der Ordner ist per `.htaccess` gesperrt – das funktioniert auf Apache-Hostern (One.com, Strato, IONOS …). Bei einem nginx-Server muss der Ordner dort extra gesperrt werden.
+- Alles liegt in `data/private/shop.sqlite`, die Produktfotos in `data/produkte/`. Beide beim Hochladen von Updates **nicht überschreiben**.
+- `data/private/shop.sqlite` **Diese Datei regelmäßig sichern** (per FTP herunterladen). Der Ordner ist per `.htaccess` gesperrt – das funktioniert auf Apache-Hostern (One.com, Strato, IONOS …). Bei einem nginx-Server muss der Ordner dort extra gesperrt werden.
 - Belege werden nie geändert oder gelöscht. Jeder Bon trägt eine Prüfsumme über den vorherigen; „Belege prüfen“ in den Einstellungen zeigt, ob jemand in der Datenbank etwas verändert hat.
 - **Rechtliches (Dänemark):** Für Kassensysteme gelten die Regeln der Bogføringsloven bzw. von Skattestyrelsen. Bitte mit Revisor/Buchhalter klären, ob dieses selbst gebaute System für euren Laden so ausreicht, bevor es im echten Betrieb läuft.
 

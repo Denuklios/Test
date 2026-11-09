@@ -1,6 +1,6 @@
 /* Julekontor Kasse
    - Artikel per Kachel, Suche, Hand-Scanner oder Kamera in den Warenkorb
-   - Zahlen: Bar (mit Rückgeld), Karte (SumUp-App oder Terminal), MobilePay, Sonstige
+   - Zahlen: Bar (mit Rückgeld), Karte (beliebiges Kartenterminal), MobilePay, Sonstige
    - Verkäufe ohne Netz werden im Tablet zwischengespeichert und automatisch nachgesendet. */
 (function () {
   "use strict";
@@ -60,7 +60,6 @@
       if (!D) { toast("Keine Verbindung zum Server.", true, 6000); }
     }
     renderAll();
-    handleSumupReturn();
     flushQueue();
   }
   const products = () => (D ? D.products : []);
@@ -83,7 +82,8 @@
     const colors = Object.fromEntries(D.categories.map(c => [c.id, c.color]));
     $("tiles").innerHTML = list.length ? list.slice(0, 400).map(p => {
       const low = p.track && p.stock <= 0;
-      return `<button type="button" class="tile" data-id="${p.id}" style="--c:${esc(colors[p.cat] || "var(--gold-soft)")}">
+      return `<button type="button" class="tile${p.img ? " has-img" : ""}" data-id="${p.id}" style="--c:${esc(colors[p.cat] || "var(--gold-soft)")}">
+        ${p.img ? `<img src="${esc(p.img)}" alt="" loading="lazy" draggable="false">` : ""}
         ${p.track ? `<span class="s ${low ? "" : "ok"}">${fmtQ(p.stock)}</span>` : ""}
         <span class="n">${esc(p.name)}</span><span class="p">${p.open ? "Preis eingeben" : fmt(p.price)}</span></button>`;
     }).join("") : `<div class="empty">${q ? "Nichts gefunden." : products().length ? "Keine Artikel in dieser Auswahl." : "Noch keine Artikel. Lege sie im Admin unter „Artikel“ an."}</div>`;
@@ -291,11 +291,8 @@
         ok.textContent = "Abschließen";
         cashInfo();
       } else if (method === "card") {
-        const su = D.settings.sumup;
-        b.innerHTML = su ? `<p class="muted" style="text-align:center;margin-top:16px">Öffnet die SumUp-App mit dem Betrag. Danach kommst du automatisch hierher zurück.</p>
-            <div class="row"><button type="button" class="btn" data-x="sumup">💳 In SumUp-App bezahlen</button></div>
-            <p class="muted" style="text-align:center">Oder den Betrag selbst am Kartenterminal eingeben und dann „Karte bezahlt“ tippen.</p>`
-          : `<p style="text-align:center;margin-top:16px">Gib <b>${fmt(due())}</b> am SumUp-Kartenterminal ein.<br><span class="muted">Wenn die Zahlung durch ist: „Karte bezahlt“.</span></p>`;
+        b.innerHTML = `<p style="text-align:center;margin-top:16px">Gib <b>${fmt(due())}</b> am Kartenterminal ein.<br><span class="muted">Wenn die Zahlung durch ist: „Karte bezahlt“.</span></p>
+          <input type="text" id="p-ref" placeholder="Belegnummer vom Kartenterminal (optional)" maxlength="80" inputmode="numeric">`;
         ok.textContent = "Karte bezahlt";
       } else if (method === "mobilepay") {
         b.innerHTML = `<div class="mp">MobilePay${D.settings.mobilepay_number ? `<b>${esc(D.settings.mobilepay_number)}</b>` : ""}<div>${fmt(due())}</div></div>
@@ -317,17 +314,17 @@
       if (b.dataset.g) { given = +b.dataset.g; typed = ""; cashInfo(); }
       if (b.dataset.k) key(b.dataset.k);
       if (b.dataset.x === "cancel") { document.removeEventListener("keydown", kd, true); closeModal(); }
-      if (b.dataset.x === "sumup") startSumup(due());
       if (b.dataset.x === "ok" && !b.disabled) {
         b.disabled = true;
         document.removeEventListener("keydown", kd, true);
         const note = (s.querySelector("#p-note") || {}).value || "";
-        finish({ payment: method, given: method === "cash" ? given : 0, note });
+        const ref = ((s.querySelector("#p-ref") || {}).value || "").trim();
+        finish({ payment: method, given: method === "cash" ? given : 0, note, card_ref: ref ? "Terminal " + ref : "" });
       }
     });
     const kd = e => {
       if ($("modal").hidden) { document.removeEventListener("keydown", kd, true); return; }
-      if (e.target && e.target.id === "p-note") return;
+      if (e.target && (e.target.id === "p-note" || e.target.id === "p-ref")) return;
       if (/^\d$/.test(e.key)) { e.preventDefault(); key(e.key); }
       else if (e.key === "Backspace") { e.preventDefault(); key("del"); }
       else if (e.key === "Enter") { e.preventDefault(); s.querySelector("#p-ok").click(); }
@@ -385,47 +382,20 @@
     LS.set("jk-data", D); renderTiles();
   }
   function done(r) {
+    const a4 = D.settings.print_default === "a4";
     const s = openModal(`<div class="done"><div class="ok">✅</div><h2>Bon ${r.number}</h2>
       <p class="muted">${esc(r.payment_label)} · ${fmt(r.total)}</p>
       ${r.payment === "cash" ? `<div class="change">Rückgeld<b class="num">${fmt(r.change)}</b></div>` : ""}
-      <div class="row"><button type="button" class="btn ghost" data-x="print">🖨 Bon drucken</button><button type="button" class="btn green" data-x="new">Neuer Verkauf</button></div></div>`);
+      <div class="row"><button type="button" class="btn ${a4 ? "gray" : "ghost"}" data-x="bon">🧾 Bon drucken</button><button type="button" class="btn ${a4 ? "ghost" : "gray"}" data-x="a4">📄 A4-Rechnung</button></div>
+      <div class="row"><button type="button" class="btn green" data-x="new">Neuer Verkauf</button></div></div>`);
     s.addEventListener("click", e => {
       const b = e.target.closest("button"); if (!b) return;
-      if (b.dataset.x === "print") printReceipt(r.id);
+      if (b.dataset.x === "bon" || b.dataset.x === "a4") printReceipt(r.id, b.dataset.x);
       if (b.dataset.x === "new") { closeModal(); $("search").focus(); }
     });
     if (window.matchMedia("(max-width: 860px)").matches) document.body.classList.remove("cart-open");
   }
-  function printReceipt(id) { window.open("../bon.php?auto=1&id=" + encodeURIComponent(id), "_blank"); }
-
-  /* ---------- SumUp ---------- */
-  function startSumup(amount) {
-    const su = D.settings.sumup;
-    const payload = salePayload({ payment: "card" });
-    LS.set("jk-sumup", { payload, at: Date.now() });
-    const back = location.origin + location.pathname;
-    const p = new URLSearchParams({
-      "affiliate-key": su.key, "app-id": su.app_id, total: (amount / 100).toFixed(2), currency: cur(),
-      title: (D.shop.name || "Kasse") + " Bon", "foreign-tx-id": payload.uuid, "skip-screen-success": "true",
-      callback: back, callbacksuccess: back, callbackfail: back,
-    });
-    location.href = "sumupmerchant://pay/1.0?" + p.toString();
-  }
-  function handleSumupReturn() {
-    const q = new URLSearchParams(location.search);
-    if (!q.has("smp-status")) return;
-    history.replaceState(null, "", location.pathname);
-    const pend = LS.get("jk-sumup", null);
-    LS.del("jk-sumup");
-    if (!pend || (q.get("foreign-tx-id") && q.get("foreign-tx-id") !== pend.payload.uuid)) { toast("SumUp-Antwort passt zu keinem offenen Verkauf.", true, 6000); return; }
-    if (q.get("smp-status") === "success") {
-      pend.payload.card_ref = "SumUp " + (q.get("smp-tx-code") || "");
-      finish(null, pend.payload);
-    } else {
-      errSound();
-      toast("Kartenzahlung nicht erfolgt" + (q.get("smp-message") ? ": " + esc(q.get("smp-message")) : "") + ". Der Warenkorb ist noch da.", true, 7000);
-    }
-  }
+  function printReceipt(id, fmt) { window.open("../bon.php?auto=1&id=" + encodeURIComponent(id) + (fmt ? "&fmt=" + fmt : ""), "_blank"); }
 
   /* ---------- Offline-Puffer nachsenden ---------- */
   async function flushQueue() {

@@ -28,7 +28,7 @@ function product_out(array $p): array {
     return ['id' => (int)$p['id'], 'name' => $p['name'], 'barcode' => (string)$p['barcode'], 'sku' => (string)$p['sku'],
             'cat' => $p['category_id'] ? (int)$p['category_id'] : null, 'price' => (int)$p['price'], 'vat' => (int)$p['vat'],
             'stock' => (float)$p['stock'], 'track' => (bool)$p['track_stock'], 'open' => (bool)$p['open_price'],
-            'fav' => (bool)$p['favorite'], 'unit' => $p['unit']];
+            'fav' => (bool)$p['favorite'], 'unit' => $p['unit'], 'img' => product_image_url((string)$p['image'])];
 }
 function closing_out(): ?array {
     $c = open_closing();
@@ -45,8 +45,8 @@ try {
                 'settings' => [
                     'currency' => setting('currency'), 'vat_rates' => vat_rates(), 'round_cash' => (int)setting('round_cash'),
                     'payments' => enabled_payments(),
-                    'sumup' => setting('sumup_affiliate_key') !== '' ? ['key' => setting('sumup_affiliate_key'), 'app_id' => setting('sumup_app_id')] : null,
                     'mobilepay_number' => setting('mobilepay_number'),
+                    'print_default' => setting('print_default'),
                 ],
                 'categories' => $db->query('SELECT id, name, color FROM categories ORDER BY sort, name')->fetchAll(),
                 'products' => array_map('product_out', $db->query('SELECT * FROM products WHERE active = 1 ORDER BY name COLLATE NOCASE')->fetchAll()),

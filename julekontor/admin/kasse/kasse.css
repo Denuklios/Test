@@ -59,6 +59,10 @@ button { font: inherit; color: inherit; cursor: pointer; touch-action: manipulat
 .tile .p { font: 700 1.1rem var(--f-display); color: var(--red); }
 .tile .s { position: absolute; top: 8px; right: 8px; font-size: .72rem; font-weight: 800; border-radius: 999px; padding: 2px 8px; background: var(--err-bg); color: var(--err); }
 .tile .s.ok { background: var(--paper); color: var(--muted); }
+.tile.has-img { padding-top: 0; }
+.tile img { display: block; width: calc(100% + 24px); margin: 0 -12px 2px; aspect-ratio: 4 / 3; object-fit: cover; background: var(--paper); pointer-events: none; }
+.tile.has-img::before { z-index: 1; }
+.tile.has-img .s { z-index: 2; }
 .tiles .empty { grid-column: 1 / -1; text-align: center; color: var(--muted); padding: 60px 20px; }
 
 /* Warenkorb */

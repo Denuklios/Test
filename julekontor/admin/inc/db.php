@@ -93,6 +93,13 @@ function migrate(PDO $db): void {
         PRAGMA user_version = 1;
         SQL);
     }
+    if ($v < 2) {
+        $db->exec(<<<SQL
+        ALTER TABLE products ADD COLUMN image TEXT NOT NULL DEFAULT '';      -- Dateiname in data/produkte/
+        ALTER TABLE sales ADD COLUMN customer TEXT NOT NULL DEFAULT '';      -- Käufer für A4-Rechnung (gehört nicht zur Prüfsumme)
+        PRAGMA user_version = 2;
+        SQL);
+    }
 }
 
 /* ---------- Einstellungen ---------- */
@@ -110,10 +117,11 @@ const SHOP_DEFAULTS = [
     'pay_mobilepay' => '1',
     'pay_other'    => '0',
     'mobilepay_number' => '',
-    'sumup_affiliate_key' => '',
-    'sumup_app_id' => '',
     'round_cash'   => '50',            // Barzahlung auf 50 Øre runden (Dänemark); 0 = aus
     'next_ean'     => '1',
+    'print_default' => 'bon',          // bon = Bondrucker, a4 = A4-Rechnung
+    'bon_width'    => '80',            // Bonrolle 80 oder 58 mm
+    'invoice_note' => '',              // z. B. Bankverbindung unter der A4-Rechnung
 ];
 
 function setting(string $key): string {
@@ -179,4 +187,40 @@ function next_internal_ean(): string {
         $st->execute([$code]);
         if (!$st->fetchColumn()) { set_setting('next_ean', (string)($n + 1)); return $code; }
     }
+}
+
+/* ---------- Produktbilder (data/produkte, öffentlich lesbar) ---------- */
+const JK_IMG_DIR = JK_DATA . '/produkte';
+
+function product_image_url(string $file, string $prefix = '../'): string {
+    return $file !== '' ? $prefix . '../data/produkte/' . rawurlencode($file) : '';
+}
+/* Hochgeladenes Foto quadratisch zuschneiden, auf 480 px verkleinern und als JPEG speichern. Gibt den Dateinamen zurück. */
+function save_product_image(int $productId, string $tmp): string {
+    $info = @getimagesize($tmp);
+    if (!$info || !in_array($info[2], [IMAGETYPE_JPEG, IMAGETYPE_PNG, IMAGETYPE_WEBP, IMAGETYPE_GIF], true)) throw new ShopError('Bitte ein Foto als JPG, PNG oder WebP hochladen.');
+    if ($info[0] * $info[1] > 50_000_000) throw new ShopError('Das Foto ist zu groß.');
+    $src = match ($info[2]) {
+        IMAGETYPE_JPEG => imagecreatefromjpeg($tmp), IMAGETYPE_PNG => imagecreatefrompng($tmp),
+        IMAGETYPE_WEBP => imagecreatefromwebp($tmp), default => imagecreatefromgif($tmp),
+    };
+    if (!$src) throw new ShopError('Das Foto konnte nicht gelesen werden.');
+    // Handyfotos: Drehung aus den Kameradaten übernehmen
+    if ($info[2] === IMAGETYPE_JPEG && function_exists('exif_read_data')) {
+        $o = (int)(@exif_read_data($tmp)['Orientation'] ?? 1);
+        $rot = [3 => 180, 6 => -90, 8 => 90][$o] ?? 0;
+        if ($rot) $src = imagerotate($src, $rot, 0);
+    }
+    $w = imagesx($src); $h = imagesy($src); $side = min($w, $h);
+    $size = min(480, $side);
+    $dst = imagecreatetruecolor($size, $size);
+    imagefill($dst, 0, 0, imagecolorallocate($dst, 255, 255, 255));   // transparente PNGs auf Weiß
+    imagecopyresampled($dst, $src, 0, 0, (int)(($w - $side) / 2), (int)(($h - $side) / 2), $size, $size, $side, $side);
+    if (!is_dir(JK_IMG_DIR)) mkdir(JK_IMG_DIR, 0755, true);
+    $name = $productId . '-' . bin2hex(random_bytes(4)) . '.jpg';
+    if (!imagejpeg($dst, JK_IMG_DIR . '/' . $name, 82)) throw new ShopError('Das Foto konnte nicht gespeichert werden.');
+    return $name;
+}
+function delete_product_image(string $file): void {
+    if ($file !== '' && preg_match('/^[0-9]+-[0-9a-f]{8}\.jpg$/', $file)) @unlink(JK_IMG_DIR . '/' . $file);
 }

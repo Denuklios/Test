@@ -47,7 +47,8 @@ if (isset($_GET['id'])) {
         <?php if ($s['card_ref']): ?><p class="muted">Zahlungs-Referenz: <?= h($s['card_ref']) ?></p><?php endif; ?>
         <?php if ($s['note']): ?><p class="muted">Notiz: <?= h($s['note']) ?></p><?php endif; ?>
         <?php if ($refunds): ?><p class="mt">Rückgaben: <?php foreach ($refunds as $r): ?><a class="pill red" href="./?p=verkaeufe&id=<?= (int)$r['id'] ?>">Beleg <?= (int)$r['number'] ?> (<?= money((int)$r['total']) ?>)</a> <?php endforeach; ?></p><?php endif; ?>
-        <p class="mt no-print"><a class="btn ghost small" href="bon.php?id=<?= (int)$s['id'] ?>" target="_blank">Bon drucken</a></p>
+        <p class="mt no-print"><a class="btn ghost small" href="bon.php?fmt=bon&id=<?= (int)$s['id'] ?>" target="_blank">🧾 Bon drucken</a>
+          <a class="btn ghost small" href="bon.php?fmt=a4&id=<?= (int)$s['id'] ?>" target="_blank">📄 A4-Rechnung</a></p>
       </div>
       <?php if ($s['type'] === 'sale'): ?>
       <form method="post" class="card form no-print" onsubmit="return confirm('Rückgabe jetzt buchen?')">

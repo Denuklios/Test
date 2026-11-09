@@ -50,11 +50,36 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($start != 0) stock_move($id, $start, 'receipt', $who, '', 'Anfangsbestand');
             flash('Artikel angelegt.');
         }
+        // Foto: neu hochgeladen oder entfernen
+        $st = $db->prepare('SELECT image FROM products WHERE id = ?');
+        $st->execute([$id]);
+        $oldImg = (string)$st->fetchColumn();
+        if (!empty($_FILES['image']['tmp_name']) && is_uploaded_file($_FILES['image']['tmp_name'])) {
+            try {
+                $img = save_product_image($id, $_FILES['image']['tmp_name']);
+                $db->prepare('UPDATE products SET image = ? WHERE id = ?')->execute([$img, $id]);
+                delete_product_image($oldImg);
+            } catch (ShopError $e) { flash('Gespeichert, aber: ' . $e->getMessage(), 'err'); }
+        } elseif (!empty($_POST['remove_image']) && $oldImg !== '') {
+            $db->prepare("UPDATE products SET image = '' WHERE id = ?")->execute([$id]);
+            delete_product_image($oldImg);
+        } elseif (!empty($_FILES['image']['name']) && ($_FILES['image']['error'] ?? 0) !== UPLOAD_ERR_OK) {
+            flash('Gespeichert, aber das Foto kam nicht an (zu groß? max. ' . ini_get('upload_max_filesize') . ').', 'err');
+        }
         redirect(!empty($_POST['and_new']) ? 'artikel&new=1' : 'artikel&id=' . $id);
+    }
+
+    if ($do === 'gen_all') {
+        $ids = $db->query("SELECT id FROM products WHERE barcode IS NULL OR barcode = ''")->fetchAll(PDO::FETCH_COLUMN);
+        $up = $db->prepare('UPDATE products SET barcode = ?, updated = ? WHERE id = ?');
+        foreach ($ids as $pid) $up->execute([next_internal_ean(), now(), $pid]);
+        flash(count($ids) ? count($ids) . ' Artikel haben jetzt einen eigenen Strichcode. Etiketten druckst du unter „Etiketten“.' : 'Alle Artikel haben schon einen Strichcode.');
+        redirect('artikel');
     }
 
     if ($do === 'delete') {
         $id = (int)$_POST['id'];
+        $st = $db->prepare('SELECT image FROM products WHERE id = ?'); $st->execute([$id]); $delImg = (string)$st->fetchColumn();
         $st = $db->prepare('SELECT COUNT(*) FROM sale_items WHERE product_id = ?');
         $st->execute([$id]);
         if ($st->fetchColumn()) {
@@ -62,6 +87,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             flash('Der Artikel wurde schon verkauft und bleibt für die Belege erhalten. Er ist jetzt ausgeblendet (inaktiv).');
         } else {
             $db->prepare('DELETE FROM products WHERE id = ?')->execute([$id]);
+            delete_product_image($delImg);
             flash('Artikel gelöscht.');
         }
         redirect('artikel');
@@ -170,7 +196,7 @@ if ($id || isset($_GET['new'])) {
     ?>
     <p class="no-print"><a href="./?p=artikel">← Alle Artikel</a></p>
     <div class="two-col">
-    <form method="post" class="card form" id="pform">
+    <form method="post" class="card form" id="pform" enctype="multipart/form-data">
       <?= csrf_field() ?><input type="hidden" name="do" value="save"><input type="hidden" name="id" value="<?= (int)$p['id'] ?>">
       <fieldset>
         <legend>Artikel</legend>
@@ -188,6 +214,18 @@ if ($id || isset($_GET['new'])) {
           <label>… oder neue Kategorie<input name="new_category" maxlength="40" placeholder="z. B. Weihnachtsbaumschmuck"></label>
         </div>
         <label>Artikelnummer (optional)<input name="sku" maxlength="40" value="<?= h($v('sku', (string)$p['sku'])) ?>"></label>
+      </fieldset>
+      <fieldset>
+        <legend>Foto (für die Kachel in der Kasse)</legend>
+        <div style="display:flex;gap:14px;align-items:center;flex-wrap:wrap">
+          <img id="img-prev" src="<?= h(product_image_url((string)($p['image'] ?? ''), '')) ?>" alt="" style="width:96px;height:96px;object-fit:cover;border-radius:12px;border:1px solid var(--line);background:var(--paper)<?= empty($p['image']) ? ';display:none' : '' ?>">
+          <div style="display:grid;gap:8px">
+            <label class="btn ghost small" style="display:inline-flex;cursor:pointer">📷 Foto aufnehmen / wählen
+              <input type="file" name="image" accept="image/*" capture="environment" style="display:none" onchange="if(this.files[0]){const i=document.getElementById('img-prev');i.src=window.URL.createObjectURL(this.files[0]);i.style.display='';}"></label>
+            <?php if (!empty($p['image'])): ?><label class="check"><input type="checkbox" name="remove_image" value="1"> Foto entfernen</label><?php endif; ?>
+          </div>
+        </div>
+        <span class="hint">Am Tablet öffnet sich direkt die Kamera. Das Bild wird quadratisch zugeschnitten und verkleinert.</span>
       </fieldset>
       <fieldset>
         <legend>Preis</legend>
@@ -335,7 +373,7 @@ page_start('artikel', 'Artikel');
   <?php if (!$rows): ?><tr class="empty-row"><td colspan="5"><?= $q !== '' ? 'Nichts gefunden.' : 'Noch keine Artikel. Lege den ersten an oder importiere eine Liste.' ?></td></tr><?php endif; ?>
   <?php foreach ($rows as $r): $low = $r['track_stock'] && $r['stock'] <= $r['min_stock']; ?>
     <tr class="click" onclick="location='./?p=artikel&id=<?= (int)$r['id'] ?>'">
-      <td><a href="./?p=artikel&id=<?= (int)$r['id'] ?>" style="text-decoration:none;font-weight:600"><?= h($r['name']) ?></a>
+      <td><?php if ($r['image']): ?><img src="<?= h(product_image_url($r['image'], '')) ?>" alt="" loading="lazy" style="width:36px;height:36px;object-fit:cover;border-radius:8px;vertical-align:middle;margin-right:8px"><?php endif; ?><a href="./?p=artikel&id=<?= (int)$r['id'] ?>" style="text-decoration:none;font-weight:600"><?= h($r['name']) ?></a>
         <?php if (!$r['active']): ?> <span class="pill">inaktiv</span><?php endif; ?>
         <?php if ($r['open_price']): ?> <span class="pill gold">freier Preis</span><?php endif; ?></td>
       <td class="muted"><?= h((string)$r['barcode']) ?></td>
@@ -354,6 +392,12 @@ page_start('artikel', 'Artikel');
     <h2>Kategorien</h2>
     <p class="muted"><?= count($cats) ?> Kategorien – erscheinen als Reiter in der Kasse.</p>
     <p class="mt"><a class="btn ghost small" href="./?p=artikel&cats=1">Kategorien bearbeiten</a></p>
+    <?php $noCode = (int)$db->query("SELECT COUNT(*) FROM products WHERE barcode IS NULL OR barcode = ''")->fetchColumn(); ?>
+    <h2 class="mt">Strichcodes</h2>
+    <p class="muted"><?= $noCode ? $noCode . ' Artikel ohne Strichcode.' : 'Alle Artikel haben einen Strichcode.' ?> Das Programm erzeugt eigene EAN-13-Codes (beginnen mit 20), die jeder Scanner liest.</p>
+    <form method="post" class="actions mt"><?= csrf_field() ?><input type="hidden" name="do" value="gen_all">
+      <button class="btn ghost small" type="submit" <?= $noCode ? '' : 'disabled' ?>>Für alle ohne Code erzeugen</button>
+      <a class="btn ghost small" href="./?p=etiketten">Etiketten drucken</a></form>
   </div>
   <form class="card" method="post" enctype="multipart/form-data">
     <?= csrf_field() ?><input type="hidden" name="do" value="import">

@@ -9,9 +9,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         redirect('einstellungen');
     }
     $txt = fn(string $k, int $max = 200) => mb_substr(trim((string)($_POST[$k] ?? '')), 0, $max);
-    foreach (['shop_name' => 60, 'shop_line' => 80, 'shop_cvr' => 20, 'shop_phone' => 30, 'mobilepay_number' => 30, 'sumup_affiliate_key' => 120, 'sumup_app_id' => 120] as $k => $max) set_setting($k, $txt($k, $max));
+    foreach (['shop_name' => 60, 'shop_line' => 80, 'shop_cvr' => 20, 'shop_phone' => 30, 'mobilepay_number' => 30] as $k => $max) set_setting($k, $txt($k, $max));
     set_setting('shop_address', $txt('shop_address', 300));
     set_setting('receipt_footer', $txt('receipt_footer', 300));
+    set_setting('invoice_note', $txt('invoice_note', 300));
+    set_setting('print_default', ($_POST['print_default'] ?? '') === 'a4' ? 'a4' : 'bon');
+    set_setting('bon_width', ($_POST['bon_width'] ?? '') === '58' ? '58' : '80');
     set_setting('currency', in_array($_POST['currency'] ?? '', ['DKK', 'EUR', 'SEK', 'NOK'], true) ? $_POST['currency'] : 'DKK');
     $rates = array_values(array_unique(array_filter(array_map(fn($x) => (int)round((float)str_replace(',', '.', trim($x)) * 100), explode(';', str_replace(' ', '', (string)($_POST['vat_rates'] ?? '25')))), fn($v) => $v >= 0 && $v <= 5000)));
     set_setting('vat_rates', implode(',', $rates ?: [2500]));
@@ -41,6 +44,19 @@ page_start('einstellungen', 'Kassen-Einstellungen');
     <label>Text unten auf dem Bon<textarea name="receipt_footer" rows="2"><?= $s('receipt_footer') ?></textarea></label>
   </fieldset>
   <fieldset>
+    <legend>Drucken</legend>
+    <div class="row2">
+      <label>Nach dem Verkauf drucken als<select name="print_default">
+        <option value="bon" <?= setting('print_default') !== 'a4' ? 'selected' : '' ?>>Bon (Bondrucker)</option>
+        <option value="a4" <?= setting('print_default') === 'a4' ? 'selected' : '' ?>>A4-Rechnung (normaler Drucker)</option></select>
+        <span class="hint">Das andere Format kann man beim Drucken trotzdem jederzeit wählen.</span></label>
+      <label>Breite der Bonrolle<select name="bon_width">
+        <option value="80" <?= setting('bon_width') !== '58' ? 'selected' : '' ?>>80 mm (Standard)</option>
+        <option value="58" <?= setting('bon_width') === '58' ? 'selected' : '' ?>>58 mm (kleine Drucker)</option></select></label>
+    </div>
+    <label>Text unten auf der A4-Rechnung<textarea name="invoice_note" rows="2" placeholder="z. B. Bank: Sydbank · Reg. 1234 · Konto 12345678"><?= $s('invoice_note') ?></textarea></label>
+  </fieldset>
+  <fieldset>
     <legend>Geld &amp; Steuer</legend>
     <div class="row3">
       <label>Währung<select name="currency"><?php foreach (['DKK', 'EUR', 'SEK', 'NOK'] as $c): ?><option <?= setting('currency') === $c ? 'selected' : '' ?>><?= $c ?></option><?php endforeach; ?></select></label>
@@ -53,16 +69,6 @@ page_start('einstellungen', 'Kassen-Einstellungen');
     <legend>Zahlungsarten</legend>
     <?php foreach (PAYMENTS as $k => $t): ?><label class="check"><input type="checkbox" name="pay_<?= $k ?>" value="1" <?= setting('pay_' . $k) === '1' ? 'checked' : '' ?>> <?= $t ?></label><?php endforeach; ?>
     <label>MobilePay-Nummer (wird in der Kasse groß angezeigt)<input name="mobilepay_number" value="<?= $s('mobilepay_number') ?>" placeholder="z. B. Box-Nummer 12345"></label>
-  </fieldset>
-  <fieldset>
-    <legend>SumUp (Kartenzahlung)</legend>
-    <p class="hint">Ohne Eintrag: Den Betrag selbst am SumUp-Gerät eingeben und in der Kasse auf „Bezahlt“ tippen.<br>
-      Mit Eintrag: Die Kasse öffnet die SumUp-App auf dem Tablet mit dem fertigen Betrag und bekommt das Ergebnis zurück.
-      Den Affiliate-Key gibt es kostenlos im SumUp-Konto unter <b>Entwickler → Affiliate Keys</b>; als App-ID die Adresse eurer Seite eintragen (z. B. <i>dk.julekontor.kasse</i> – genau so, wie beim Key hinterlegt).</p>
-    <div class="row2">
-      <label>Affiliate-Key<input name="sumup_affiliate_key" value="<?= $s('sumup_affiliate_key') ?>" autocomplete="off"></label>
-      <label>App-ID<input name="sumup_app_id" value="<?= $s('sumup_app_id') ?>" autocomplete="off"></label>
-    </div>
   </fieldset>
   <div class="actions"><button class="btn" type="submit">Speichern</button></div>
 </form>

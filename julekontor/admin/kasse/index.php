@@ -20,9 +20,9 @@ header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:;
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="kasse.css?v=3">
+<link rel="stylesheet" href="kasse.css?v=4">
 <script src="../assets/scanner.js?v=2" defer></script>
-<script src="kasse.js?v=2" defer></script>
+<script src="kasse.js?v=3" defer></script>
 </head>
 <body>
 <header class="bar">
