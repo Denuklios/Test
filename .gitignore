@@ -10,3 +10,6 @@ julekontor/data/*
 !julekontor/data/private/
 julekontor/data/private/*
 !julekontor/data/private/.htaccess
+
+# Upload-Pakete der Julekontor-Website (werden bei Bedarf neu gebaut)
+julekontor-*.zip
