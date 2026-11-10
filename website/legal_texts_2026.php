@@ -11,7 +11,7 @@ return [
     'impressum' => [
         'title_de' => 'Impressum',
         'content_de' => "Anbieter
-Wunsch-Fabrik.dk / Ønske-Fabrik.dk
+Wunsch-Fabrik.dk
 Inhaberin: Jeannine Fuhlbrügge (Einzelunternehmen)
 Teglgård 1, Vilsbæk
 6330 Padborg
@@ -37,7 +37,7 @@ Bilder und Inhalte
 Texte, Fotos und Logos auf dieser Seite gehören Wunsch-Fabrik.dk bzw. den jeweiligen Kunden und dürfen nicht ohne Erlaubnis verwendet werden.",
         'title_da' => 'Kontaktoplysninger',
         'content_da' => "Virksomhed
-Wunsch-Fabrik.dk / Ønske-Fabrik.dk
+Wunsch-Fabrik.dk
 Indehaver: Jeannine Fuhlbrügge (enkeltmandsvirksomhed)
 Teglgård 1, Vilsbæk
 6330 Padborg
@@ -63,7 +63,7 @@ Billeder og indhold
 Tekster, fotos og logoer på siden tilhører Wunsch-Fabrik.dk eller de respektive kunder og må ikke bruges uden tilladelse.",
         'title_en' => 'Legal Notice',
         'content_en' => "Provider
-Wunsch-Fabrik.dk / Ønske-Fabrik.dk
+Wunsch-Fabrik.dk
 Owner: Jeannine Fuhlbrügge (sole trader)
 Teglgård 1, Vilsbæk
 6330 Padborg
@@ -95,7 +95,7 @@ Texts, photos and logos on this site belong to Wunsch-Fabrik.dk or the respectiv
 Keine Cookies, kein Tracking, keine Werbung. Wir verarbeiten deine Daten nur, um deine Anfrage oder deinen Auftrag zu bearbeiten, und geben sie nicht zum Verkauf oder für Werbung weiter.
 
 Verantwortlich
-Jeannine Fuhlbrügge, Wunsch-Fabrik.dk / Ønske-Fabrik.dk
+Jeannine Fuhlbrügge, Wunsch-Fabrik.dk
 Teglgård 1, Vilsbæk, 6330 Padborg, Dänemark
 E-Mail: hej@wunsch-fabrik.dk · Telefon: [TELEFON]
 
@@ -142,7 +142,7 @@ Oktober 2026",
 Ingen cookies, ingen sporing, ingen reklamer. Vi behandler kun dine oplysninger for at besvare din forespørgsel eller udføre din ordre, og vi sælger eller deler dem ikke til markedsføring.
 
 Dataansvarlig
-Jeannine Fuhlbrügge, Wunsch-Fabrik.dk / Ønske-Fabrik.dk
+Jeannine Fuhlbrügge, Wunsch-Fabrik.dk
 Teglgård 1, Vilsbæk, 6330 Padborg, Danmark
 E-mail: hej@wunsch-fabrik.dk · Telefon: [TELEFON]
 
@@ -189,7 +189,7 @@ Oktober 2026",
 No cookies, no tracking, no ads. We only process your data to handle your request or order, and we never sell or share it for advertising.
 
 Controller
-Jeannine Fuhlbrügge, Wunsch-Fabrik.dk / Ønske-Fabrik.dk
+Jeannine Fuhlbrügge, Wunsch-Fabrik.dk
 Teglgård 1, Vilsbæk, 6330 Padborg, Denmark
 Email: hej@wunsch-fabrik.dk · Phone: [TELEFON]
 
@@ -235,7 +235,7 @@ October 2026",
     'agb' => [
         'title_de' => 'Allgemeine Geschäftsbedingungen',
         'content_de' => "1. Anbieter und Geltung
-Wunsch-Fabrik.dk / Ønske-Fabrik.dk, Inhaberin Jeannine Fuhlbrügge (Einzelunternehmen), Teglgård 1, Vilsbæk, 6330 Padborg, Dänemark, CVR-Nr. 46733428, hej@wunsch-fabrik.dk, Telefon: [TELEFON].
+Wunsch-Fabrik.dk, Inhaberin Jeannine Fuhlbrügge (Einzelunternehmen), Teglgård 1, Vilsbæk, 6330 Padborg, Dänemark, CVR-Nr. 46733428, hej@wunsch-fabrik.dk, Telefon: [TELEFON].
 Diese Bedingungen gelten für alle Angebote, Aufträge und Verkäufe – an Privatkunden (Verbraucher) und an Firmenkunden (Unternehmen, Vereine, Behörden). Wo etwas nur für eine Gruppe gilt, steht das dabei. Abweichende Bedingungen von Firmenkunden gelten nur, wenn wir ihnen schriftlich zustimmen.
 
 2. Unsere Leistungen
@@ -293,7 +293,7 @@ Es gilt dänisches Recht unter Ausschluss des UN-Kaufrechts. Für Privatkunden m
 Oktober 2026",
         'title_da' => 'Handelsbetingelser',
         'content_da' => "1. Virksomhed og gyldighed
-Wunsch-Fabrik.dk / Ønske-Fabrik.dk, indehaver Jeannine Fuhlbrügge (enkeltmandsvirksomhed), Teglgård 1, Vilsbæk, 6330 Padborg, Danmark, CVR-nr. 46733428, hej@wunsch-fabrik.dk, telefon: [TELEFON].
+Wunsch-Fabrik.dk, indehaver Jeannine Fuhlbrügge (enkeltmandsvirksomhed), Teglgård 1, Vilsbæk, 6330 Padborg, Danmark, CVR-nr. 46733428, hej@wunsch-fabrik.dk, telefon: [TELEFON].
 Betingelserne gælder for alle tilbud, ordrer og salg – til private (forbrugere) og til erhvervskunder (virksomheder, foreninger, myndigheder). Hvor noget kun gælder én gruppe, står det udtrykkeligt. Erhvervskunders egne betingelser gælder kun, hvis vi skriftligt har accepteret dem.
 
 2. Vores ydelser
@@ -351,7 +351,7 @@ Dansk ret finder anvendelse med undtagelse af CISG (FN's købelov). For forbruge
 Oktober 2026",
         'title_en' => 'Terms & Conditions',
         'content_en' => "1. Provider and scope
-Wunsch-Fabrik.dk / Ønske-Fabrik.dk, owner Jeannine Fuhlbrügge (sole trader), Teglgård 1, Vilsbæk, 6330 Padborg, Denmark, CVR no. 46733428, hej@wunsch-fabrik.dk, phone: [TELEFON].
+Wunsch-Fabrik.dk, owner Jeannine Fuhlbrügge (sole trader), Teglgård 1, Vilsbæk, 6330 Padborg, Denmark, CVR no. 46733428, hej@wunsch-fabrik.dk, phone: [TELEFON].
 These terms apply to all quotes, orders and sales – to private customers (consumers) and to business customers (companies, associations, authorities). Where something applies to only one group, this is stated. A business customer's own terms only apply if we agree to them in writing.
 
 2. Our services

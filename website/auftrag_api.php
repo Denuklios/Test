@@ -181,7 +181,7 @@ function build_auftrag_pdf($a) {
         $pdf->SetXY(12, 10);
         $pdf->SetFont('Arial', 'B', 16);
         $pdf->SetTextColor(139, 43, 226);
-        $pdf->Cell(0, 10, pdf_txt('Wunsch-Fabrik.dk / Ønske-Fabrik.dk'), 0, 1);
+        $pdf->Cell(0, 10, pdf_txt('Wunsch-Fabrik.dk'), 0, 1);
     }
 
     // Kontaktzeile rechtsbündig neben dem Logo
@@ -542,7 +542,7 @@ switch ($action) {
 
                     $bodyKunde = "Hallo " . $auftrag['kunde_name'] . ",\n\n"
                         . "vielen Dank für Ihre Bestätigung! Im Anhang finden Sie Ihre Auftragsbestätigung als PDF.\n\n"
-                        . "Wunsch-Fabrik.dk / Ønske-Fabrik.dk\n"
+                        . "Wunsch-Fabrik.dk\n"
                         . "Teglgård 1, 6330 Padborg\n"
                         . "hej@wunsch-fabrik.dk";
 

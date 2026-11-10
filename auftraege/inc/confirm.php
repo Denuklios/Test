@@ -49,7 +49,7 @@ function wf_terms_default(string $lang): string
             . "[Firma] Reklamationen bitte innerhalb von 8 Tagen nach Erhalt und vor Gebrauch oder Wäsche melden.\n"
             . "[Privat] Es gelten die gesetzlichen Reklamationsrechte. Mängel bitte möglichst bald nach Erhalt melden.",
         'da' => "Betaling: Faktura ved afhentning eller levering, betales inden {pay_days} dage. Ved større ordrer kan der aftales forudbetaling.\n"
-            . "Motiver og rettigheder: Kunden indestår for at have rettighederne til alle leverede logoer, billeder, tekster og navne og holder Ønske-Fabrik skadesløs over for krav fra tredjemand.\n"
+            . "Motiver og rettigheder: Kunden indestår for at have rettighederne til alle leverede logoer, billeder, tekster og navne og holder Wunsch-Fabrik skadesløs over for krav fra tredjemand.\n"
             . "Farver og udførelse: Mindre afvigelser i farve, størrelse og placering i forhold til skærm eller prøve er teknisk betingede og ikke en mangel. Broderifarver tilpasses trådsortimentet.\n"
             . "Kundens egne tekstiler: Der hæftes ikke for materialefejl eller manglende egnethed til metoden. Beregn venligst 1–2 ekstra stk.\n"
             . "Tidspunkt: under forudsætning af rettidig godkendelse og materialelevering. Afhentning efter aftale.\n"

@@ -87,8 +87,8 @@ function wf_nl_t($lang, $key) {
             'join_title' => 'Newsletter abonnieren', 'join_text' => 'Ein paar Mal im Jahr: Ideen, Aktionen und Neues aus der Werkstatt. Kein Spam, jederzeit abbestellbar.', 'join_btn' => 'Anmelden', 'join_need' => 'Bitte E-Mail eintragen und Haken setzen.', 'join_sent' => 'Fast geschafft! Bitte bestätige die Anmeldung über den Link in der Mail, die wir dir gerade geschickt haben.', 'join_already' => 'Du bist schon angemeldet – danke!',
         ],
         'da' => [
-            'confirm_subject' => 'Bekræft venligst din tilmelding til nyhedsbrevet – Ønske-Fabrik.dk',
-            'confirm_body' => "Hej{name},\n\ndu har tilmeldt dig nyhedsbrevet fra Ønske-Fabrik.dk. Bekræft venligst med et klik:\n\n{link}\n\nVi skriver kun et par gange om året – til sæsonstart, tilbud og jul. Du kan altid afmelde dig via linket i hver mail.\n\nHar du ikke tilmeldt dig, kan du bare ignorere denne mail – så sker der ingenting.\n\nMange hilsner\nDit Ønske-Fabrik team",
+            'confirm_subject' => 'Bekræft venligst din tilmelding til nyhedsbrevet – Wunsch-Fabrik.dk',
+            'confirm_body' => "Hej{name},\n\ndu har tilmeldt dig nyhedsbrevet fra Wunsch-Fabrik.dk. Bekræft venligst med et klik:\n\n{link}\n\nVi skriver kun et par gange om året – til sæsonstart, tilbud og jul. Du kan altid afmelde dig via linket i hver mail.\n\nHar du ikke tilmeldt dig, kan du bare ignorere denne mail – så sker der ingenting.\n\nMange hilsner\nDit Wunsch-Fabrik team",
             'confirm_btn' => 'Bekræft tilmelding',
             'ok_title' => 'Tak – du er tilmeldt!',
             'ok_text' => 'Fra nu af får du vores nyhedsbrev. Du kan altid afmelde dig via linket i hver mail.',
@@ -99,7 +99,7 @@ function wf_nl_t($lang, $key) {
             'unsub_btn' => 'Ja, afmeld',
             'unsub_done' => 'Du er afmeldt og modtager ikke flere nyhedsbreve.',
             'back' => 'Til hjemmesiden',
-            'foot' => 'Du modtager denne mail, fordi du har tilmeldt dig nyhedsbrevet fra Ønske-Fabrik.dk.',
+            'foot' => 'Du modtager denne mail, fordi du har tilmeldt dig nyhedsbrevet fra Wunsch-Fabrik.dk.',
             'unsub_link' => 'Afmeld nyhedsbrev',
             'browser' => 'Hej',
             'join_title' => 'Tilmeld nyhedsbrev', 'join_text' => 'Et par gange om året: idéer, kampagner og nyt fra værkstedet. Ingen spam, kan altid afmeldes.', 'join_btn' => 'Tilmeld', 'join_need' => 'Indtast din e-mail og sæt flueben.', 'join_sent' => 'Næsten færdig! Bekræft venligst tilmeldingen via linket i den mail, vi lige har sendt dig.', 'join_already' => 'Du er allerede tilmeldt – tak!',
@@ -156,7 +156,7 @@ function wf_nl_customer_langs(array $emails) {
 function wf_nl_consent_text($lang) {
     return [
         'de' => 'Ich möchte den Newsletter von Wunsch-Fabrik.dk per E-Mail erhalten (wenige Male im Jahr). Abmeldung jederzeit möglich.',
-        'da' => 'Jeg vil gerne modtage nyhedsbrevet fra Ønske-Fabrik.dk på e-mail (få gange om året). Afmelding er altid mulig.',
+        'da' => 'Jeg vil gerne modtage nyhedsbrevet fra Wunsch-Fabrik.dk på e-mail (få gange om året). Afmelding er altid mulig.',
         'en' => 'I would like to receive the Wunsch-Fabrik.dk newsletter by email (a few times a year). I can unsubscribe at any time.',
     ][wf_nl_lang($lang)];
 }
@@ -234,7 +234,7 @@ function wf_nl_render($nl, $lang, $sub = null) {
     [$subj, $body, $lang] = wf_nl_part($nl, $lang);
     $name = $sub && trim((string)$sub['name']) !== '' ? trim((string)$sub['name']) : '';
     $unsub = $sub ? WF_NL_BASE . 'newsletter.php?a=unsub&t=' . $sub['token'] . '&l=' . $lang : WF_NL_BASE . 'newsletter.php?a=unsub&l=' . $lang;
-    $brand = $lang === 'da' ? 'ØNSKE-FABRIK.DK' : 'WUNSCH-FABRIK.DK';
+    $brand = 'WUNSCH-FABRIK.DK';
     $html = '<!doctype html><html lang="' . $lang . '"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>' . wf_nl_esc($subj) . '</title></head>'
         . '<body style="margin:0;padding:0;background:#f3f0f8;">'
         . '<div style="display:none;max-height:0;overflow:hidden;">' . wf_nl_esc(mb_substr(wf_nl_plain($body, $name), 0, 140)) . '</div>'

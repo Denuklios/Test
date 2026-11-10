@@ -59,6 +59,11 @@ if ($isPost) {
 }
 $db = wf_db();
 wf_mail_filter_ready($db);
+// Einmalig: Name der Webseite ist immer Wunsch-Fabrik(.dk) – auch in gespeicherten Firmendaten/Bedingungen
+if (!$db->query("SELECT 1 FROM meta WHERE key = 'brand_wunsch'")->fetchColumn()) {
+    $db->exec("UPDATE meta SET value = REPLACE(REPLACE(REPLACE(value, 'Ønske-Fabrik.dk', 'Wunsch-Fabrik.dk'), 'Ønske-Fabrik', 'Wunsch-Fabrik'), 'ØNSKE-FABRIK', 'WUNSCH-FABRIK') WHERE key = 'company'");
+    $db->exec("INSERT OR IGNORE INTO meta (key, value) VALUES ('brand_wunsch', datetime('now'))");
+}
 wf_public_base($db, true);   // Adresse für Links in Kundenmails merken (nur angemeldete Aufrufe)
 // Archiv bei Dritten: nach der Antwort offene Einträge senden (höchstens alle 2 Minuten)
 register_shutdown_function(function () use ($db): void {
