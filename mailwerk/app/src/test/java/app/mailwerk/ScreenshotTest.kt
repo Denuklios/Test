@@ -93,4 +93,14 @@ class ScreenshotTest {
         rule.onAllNodesWithText("Schreiben", useUnmergedTree = true).onFirst().performClick()
         shot("6_neue_mail")
     }
+
+    @Test @Config(qualifiers = "w393dp-h852dp-night-xhdpi")
+    fun dark() {
+        seed()
+        ActivityScenario.launch(MainActivity::class.java)
+        rule.waitForIdle()
+        shot("8_dunkel_posteingang")
+        rule.onAllNodesWithText("Angebot für die Stickerei", substring = true, useUnmergedTree = true).onFirst().performClick()
+        shot("9_dunkel_unterhaltung")
+    }
 }

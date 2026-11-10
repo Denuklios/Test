@@ -9,6 +9,13 @@ Sie läuft **komplett auf dem Gerät**: keine Cloud, kein Konto beim App-Herstel
 |---|---|---|---|
 | ![](screenshots/1_posteingang_wichtig.png) | ![](screenshots/4_unterhaltung.png) | ![](screenshots/5_antworten.png) | ![](screenshots/7_einstellungen.png) |
 
+| Dunkelmodus | | Einrichtung | Newsletter-Tab |
+|---|---|---|---|
+| ![](screenshots/8_dunkel_posteingang.png) | ![](screenshots/9_dunkel_unterhaltung.png) | ![](screenshots/0_konto_einrichten.png) | ![](screenshots/2_newsletter.png) |
+
+Design: eigene Farbwelt (Indigo/Violett-Verlauf), Schrift *Plus Jakarta Sans* (SIL OFL, siehe `licenses/`),
+Karten-Layout mit Datumsgruppen, farbige Kategorie-Tabs, heller und dunkler Modus. Optional „Farben vom Hintergrundbild“ (Material You).
+
 ## Was aus welcher App übernommen wurde
 
 | Funktion | Vorbild | In Mailwerk |

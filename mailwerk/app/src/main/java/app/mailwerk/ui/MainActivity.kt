@@ -38,8 +38,9 @@ class MainActivity : ComponentActivity() {
         setContent {
             val settingsV by vm.settingsVersion.collectAsState()
             var theme by remember { mutableStateOf(vm.prefs.theme) }
-            LaunchedEffect(settingsV) { theme = vm.prefs.theme }
-            MailwerkTheme(theme) {
+            var dyn by remember { mutableStateOf(vm.prefs.dynamicColor) }
+            LaunchedEffect(settingsV) { theme = vm.prefs.theme; dyn = vm.prefs.dynamicColor }
+            MailwerkTheme(theme, dyn) {
                 val stack by vm.stack.collectAsState()
                 val snackHost = remember { SnackbarHostState() }
                 LaunchedEffect(Unit) {

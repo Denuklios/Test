@@ -37,6 +37,9 @@ class Prefs(ctx: Context) {
     var theme: ThemeMode
         get() = ThemeMode.valueOf(p.getString("theme", ThemeMode.SYSTEM.name)!!)
         set(v) = p.edit().putString("theme", v.name).apply()
+    var dynamicColor: Boolean
+        get() = p.getBoolean("dynamic_color", false)
+        set(v) = p.edit().putBoolean("dynamic_color", v).apply()
     var initialSyncDays: Int
         get() = p.getInt("sync_days", 60)
         set(v) = p.edit().putInt("sync_days", v).apply()

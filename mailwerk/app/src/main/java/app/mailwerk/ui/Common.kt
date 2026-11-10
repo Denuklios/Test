@@ -53,16 +53,21 @@ import java.util.Locale
 import java.util.TimeZone
 import kotlin.math.abs
 
-private val avatarColors = listOf(0xFF1E88E5, 0xFF43A047, 0xFFE53935, 0xFF8E24AA, 0xFFFB8C00, 0xFF00897B, 0xFF3949AB, 0xFFD81B60, 0xFF6D4C41, 0xFF546E7A)
+private val avatarPairs = listOf(
+    0xFF5B6CFF to 0xFF8B5CF6, 0xFFFF7A59 to 0xFFFF4D7E, 0xFF22C1A0 to 0xFF0E9F6E, 0xFFF59E0B to 0xFFEF6C00,
+    0xFF06B6D4 to 0xFF3B82F6, 0xFFEC4899 to 0xFFA855F7, 0xFF84CC16 to 0xFF16A34A, 0xFF64748B to 0xFF334155,
+    0xFFF43F5E to 0xFFE11D48, 0xFF8B5CF6 to 0xFF6366F1,
+)
+private val avatarColorsUnused = listOf(0xFF1E88E5, 0xFF43A047, 0xFFE53935, 0xFF8E24AA, 0xFFFB8C00, 0xFF00897B, 0xFF3949AB, 0xFFD81B60, 0xFF6D4C41, 0xFF546E7A)
 
 @Composable
 fun Avatar(name: String, address: String, size: Dp = 40.dp) {
     val label = name.ifBlank { address }.trim()
     val initials = label.split(' ', '.', '_', '-').filter { it.isNotBlank() && it[0].isLetterOrDigit() }.take(2)
         .joinToString("") { it.first().uppercase() }.ifBlank { "?" }
-    val c = Color(avatarColors[abs(address.lowercase().hashCode()) % avatarColors.size])
-    Box(Modifier.size(size).background(c, CircleShape), contentAlignment = Alignment.Center) {
-        Text(initials, color = Color.White, fontWeight = FontWeight.SemiBold, fontSize = (size.value * 0.38f).sp)
+    val (a, b) = avatarPairs[abs(address.lowercase().hashCode()) % avatarPairs.size]
+    Box(Modifier.size(size).background(androidx.compose.ui.graphics.Brush.linearGradient(listOf(Color(a), Color(b))), CircleShape), contentAlignment = Alignment.Center) {
+        Text(initials, color = Color.White, fontWeight = FontWeight.Bold, fontSize = (size.value * 0.36f).sp, fontFamily = Jakarta)
     }
 }
 
@@ -155,8 +160,8 @@ fun TimeChooser(title: String, onDismiss: () -> Unit, onPick: (Long) -> Unit) {
 
 @Composable
 fun SectionTitle(text: String) {
-    Text(text, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.primary,
-        modifier = Modifier.padding(start = 16.dp, top = 20.dp, bottom = 6.dp))
+    Text(text.uppercase(), style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.2.sp), color = MaterialTheme.colorScheme.primary,
+        modifier = Modifier.padding(start = 20.dp, top = 24.dp, bottom = 6.dp))
 }
 
 @Composable

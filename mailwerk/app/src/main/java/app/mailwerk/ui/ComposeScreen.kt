@@ -7,6 +7,10 @@ import androidx.activity.compose.BackHandler
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
+import androidx.compose.ui.draw.clip
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -108,14 +112,20 @@ fun ComposeScreen(vm: MainViewModel, init: ComposeInit, snackHost: SnackbarHostS
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(if (init.inReplyTo != null) "Antworten" else "Neue E-Mail") },
+            TopAppBar(title = { Text(if (init.inReplyTo != null) "Antworten" else "Neue E-Mail", style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
                 navigationIcon = { IconButton(onClick = { if (changed) confirmDiscard = true else vm.pop() }) { Icon(Icons.Outlined.Close, "Schließen") } },
                 actions = {
                     IconButton(onClick = { picker.launch("*/*") }) { Icon(Icons.Outlined.AttachFile, "Anhang") }
-                    IconButton(onClick = { if (valid()) laterOpen = true }) { Icon(Icons.Outlined.Schedule, "Später senden") }
-                    IconButton(onClick = { if (valid()) vm.send(item()) }) { Icon(Icons.AutoMirrored.Outlined.Send, "Senden", tint = MaterialTheme.colorScheme.primary) }
+                    Row(Modifier.padding(horizontal = 4.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)).background(Brand.gradient)
+                        .clickable { if (valid()) vm.send(item()) }.padding(horizontal = 16.dp, vertical = 10.dp),
+                        verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
+                        Icon(Icons.AutoMirrored.Outlined.Send, null, tint = Color.White, modifier = Modifier.size(18.dp))
+                        Spacer(Modifier.width(6.dp)); Text("Senden", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                    }
                     IconButton(onClick = { moreMenu = true }) { Icon(Icons.Outlined.MoreVert, "Mehr") }
                     DropdownMenu(moreMenu, { moreMenu = false }) {
+                        DropdownMenuItem(text = { Text("Später senden …") }, leadingIcon = { Icon(Icons.Outlined.Schedule, null) },
+                            onClick = { moreMenu = false; if (valid()) laterOpen = true })
                         DropdownMenuItem(text = { Text("Vorlage einfügen") }, leadingIcon = { Icon(Icons.Outlined.ShortText, null) },
                             onClick = { moreMenu = false; templatesOpen = true })
                         DropdownMenuItem(text = { Text(if (remindDays > 0) "Erinnerung: nach $remindDays Tag(en)" else "Erinnern, falls keine Antwort") },

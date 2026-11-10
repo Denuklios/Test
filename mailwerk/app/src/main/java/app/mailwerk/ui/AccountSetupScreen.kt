@@ -42,6 +42,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.graphics.Color
+import androidx.compose.foundation.background
+import androidx.compose.foundation.layout.Box
+import androidx.compose.material.icons.outlined.Email
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -117,7 +122,16 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
         Column(Modifier.padding(pad).imePadding().fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (step == 0) {
-                Text("Willkommen bei Mailwerk 👋", style = MaterialTheme.typography.headlineSmall)
+                Box(Modifier.fillMaxWidth().clip(androidx.compose.foundation.shape.RoundedCornerShape(28.dp)).background(Brand.gradientDeep).padding(24.dp)) {
+                    Column {
+                        Box(Modifier.size(56.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.18f)),
+                            contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Email, null, tint = Color.White, modifier = Modifier.size(30.dp)) }
+                        Spacer(Modifier.height(16.dp))
+                        Text("Willkommen bei Mailwerk", style = MaterialTheme.typography.headlineMedium, color = Color.White)
+                        Spacer(Modifier.height(6.dp))
+                        Text("Alle Postfächer an einem Ort. Privat, schnell, ohne Werbung.", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
+                    }
+                }
                 val accountsNow by vm.accounts.collectAsState()
                 val pending = PresetAccounts.pending(accountsNow)
                 if (existing == null && pending.isNotEmpty()) {
@@ -210,8 +224,8 @@ private fun PresetCard(vm: MainViewModel, p: PresetAccounts.Preset) {
     var show by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }
     var err by remember { mutableStateOf<String?>(null) }
-    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
-        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Card(shape = androidx.compose.foundation.shape.RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLowest)) {
+        Column(Modifier.padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Avatar(name, p.email, 36.dp); Spacer(Modifier.width(10.dp))
                 Column {

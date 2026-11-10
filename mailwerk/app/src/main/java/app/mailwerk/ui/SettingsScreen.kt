@@ -57,8 +57,9 @@ import app.mailwerk.sync.Scheduler
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun SubScaffold(vm: MainViewModel, title: String, fab: @Composable () -> Unit = {}, content: @Composable (Modifier) -> Unit) {
-    Scaffold(topBar = {
-        TopAppBar(title = { Text(title) }, navigationIcon = { IconButton(onClick = { vm.pop() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Zurück") } })
+    Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = {
+        TopAppBar(title = { Text(title, style = MaterialTheme.typography.headlineSmall) },
+            colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background), navigationIcon = { IconButton(onClick = { vm.pop() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Zurück") } })
     }, floatingActionButton = fab) { pad -> content(Modifier.padding(pad).fillMaxSize()) }
 }
 
@@ -108,6 +109,9 @@ fun SettingsScreen(vm: MainViewModel) {
 
                 SectionTitle("Darstellung")
                 Choice("Design", ThemeMode.entries, p.theme, { it.label }) { p.theme = it; changed() }
+                if (android.os.Build.VERSION.SDK_INT >= 31) Toggle("Farben vom Hintergrundbild", "Material You statt der Mailwerk-Farben", p.dynamicColor) {
+                    p.dynamicColor = it; changed()
+                }
 
                 if (p.blockedSenders.isNotEmpty()) {
                     SectionTitle("Blockierte Absender")

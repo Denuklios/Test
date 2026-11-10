@@ -67,6 +67,8 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.draw.clip
+import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
@@ -95,8 +97,9 @@ fun ThreadScreen(vm: MainViewModel, threadKey: String, snackHost: SnackbarHostSt
     LaunchedEffect(msgs.size) { if (msgs.size > 1) listState.scrollToItem(msgs.size - 1) }
 
     Scaffold(
+        containerColor = MaterialTheme.colorScheme.background,
         topBar = {
-            TopAppBar(title = {},
+            TopAppBar(title = {}, colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
                 navigationIcon = { IconButton(onClick = { vm.pop() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Zurück") } },
                 actions = {
                     last?.let { m ->
@@ -109,12 +112,15 @@ fun ThreadScreen(vm: MainViewModel, threadKey: String, snackHost: SnackbarHostSt
         },
         bottomBar = {
             last?.let { m ->
-                BottomAppBar {
-                    Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceEvenly) {
-                        TextButton(onClick = { vm.reply(m, false) }) { Icon(Icons.AutoMirrored.Outlined.Reply, null); Spacer(Modifier.width(6.dp)); Text("Antworten") }
-                        TextButton(onClick = { vm.reply(m, true) }) { Icon(Icons.AutoMirrored.Outlined.ReplyAll, null); Spacer(Modifier.width(6.dp)); Text("Allen") }
-                        TextButton(onClick = { vm.forward(m) }) { Icon(Icons.AutoMirrored.Outlined.Forward, null); Spacer(Modifier.width(6.dp)); Text("Weiterleiten") }
+                Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.background).navigationBarsPadding()
+                    .padding(horizontal = 16.dp, vertical = 10.dp), horizontalArrangement = Arrangement.spacedBy(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Row(Modifier.weight(1f).height(52.dp).clip(RoundedCornerShape(18.dp)).background(Brand.gradient).clickable { vm.reply(m, false) },
+                        horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.AutoMirrored.Outlined.Reply, null, tint = Color.White); Spacer(Modifier.width(8.dp))
+                        Text("Antworten", color = Color.White, style = MaterialTheme.typography.titleMedium)
                     }
+                    RoundAction(Icons.AutoMirrored.Outlined.ReplyAll, "Allen antworten") { vm.reply(m, true) }
+                    RoundAction(Icons.AutoMirrored.Outlined.Forward, "Weiterleiten") { vm.forward(m) }
                 }
             }
         },
@@ -122,10 +128,21 @@ fun ThreadScreen(vm: MainViewModel, threadKey: String, snackHost: SnackbarHostSt
     ) { pad ->
         LazyColumn(Modifier.padding(pad).fillMaxSize(), state = listState) {
             item {
-                Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                    Text(msgs.firstOrNull()?.subject?.ifBlank { "(kein Betreff)" } ?: "", style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+                Column(Modifier.padding(start = 20.dp, end = 20.dp, top = 4.dp, bottom = 10.dp)) {
+                    msgs.firstOrNull()?.let { f ->
+                        val c = categoryColor(f.category)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text(f.category.label, color = c, style = MaterialTheme.typography.labelMedium,
+                                modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(c.copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 3.dp))
+                            if (msgs.size > 1) Text("  ${msgs.size} Nachrichten", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Spacer(Modifier.height(8.dp))
+                    }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(msgs.firstOrNull()?.subject?.ifBlank { "(kein Betreff)" } ?: "", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
                     if (msgs.any { it.pinned }) Icon(Icons.Filled.PushPin, "Angeheftet", tint = MaterialTheme.colorScheme.tertiary)
                     if (msgs.any { it.flagged }) Icon(Icons.Filled.Flag, "Markiert", tint = Color(0xFFE53935))
+                }
                 }
             }
             items(msgs, key = { it.id }) { m -> MessageCard(vm, m, expandedInitially = m == msgs.last() || !m.seen || msgs.size <= 2) }
@@ -151,10 +168,10 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
     }
     val atts by produceState(emptyList<Attachment>(), m.id) { value = withContext(Dispatchers.IO) { vm.db.attachments(m.id) } }
 
-    Card(Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 4.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerLow)) {
-        Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(12.dp), verticalAlignment = Alignment.CenterVertically) {
-            Avatar(m.fromName, m.fromAddr, 36.dp)
+    Card(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 5.dp), shape = RoundedCornerShape(24.dp),
+        colors = CardDefaults.cardColors(containerColor = if (dark) MaterialTheme.colorScheme.surfaceContainer else MaterialTheme.colorScheme.surfaceContainerLowest)) {
+        Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+            Avatar(m.fromName, m.fromAddr, 42.dp)
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(m.fromName.ifBlank { m.fromAddr }, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
@@ -164,7 +181,7 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
                 else Text(m.snippet, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
-            Text(shortTime(m.date), style = MaterialTheme.typography.labelSmall)
+            Text(shortTime(m.date), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (showDetails && expanded) Column(Modifier.padding(horizontal = 12.dp)) {
             Text("Von: ${m.fromName} <${m.fromAddr}>", style = MaterialTheme.typography.bodySmall)
@@ -186,7 +203,7 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
             if (atts.isNotEmpty()) Column(Modifier.padding(12.dp)) {
                 atts.forEach { a ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)
-                        .background(MaterialTheme.colorScheme.surfaceContainerHighest, RoundedCornerShape(10.dp))
+                        .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(14.dp))
                         .clickable {
                             scope.launch {
                                 vm.snack("Lade ${a.name} …")
@@ -204,6 +221,12 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
             Spacer(Modifier.height(8.dp))
         }
     }
+}
+
+@Composable
+private fun RoundAction(icon: androidx.compose.ui.graphics.vector.ImageVector, desc: String, onClick: () -> Unit) {
+    Box(Modifier.size(52.dp).clip(RoundedCornerShape(18.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable(onClick = onClick),
+        contentAlignment = Alignment.Center) { Icon(icon, desc, tint = MaterialTheme.colorScheme.primary) }
 }
 
 @SuppressLint("SetJavaScriptEnabled")

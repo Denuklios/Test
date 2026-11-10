@@ -4,17 +4,6 @@ import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.horizontalScroll
-import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
-import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.size
-import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
@@ -50,39 +39,7 @@ import androidx.compose.material.icons.outlined.Search
 import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material.icons.outlined.Snooze
 import androidx.compose.material.icons.outlined.Star
-import androidx.compose.material3.Badge
-import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExtendedFloatingActionButton
-import androidx.compose.material3.FilterChip
-import androidx.compose.material3.HorizontalDivider
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
-import androidx.compose.material3.ListItem
-import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.ModalBottomSheet
-import androidx.compose.material3.ModalDrawerSheet
-import androidx.compose.material3.ModalNavigationDrawer
-import androidx.compose.material3.NavigationDrawerItem
-import androidx.compose.material3.Scaffold
-import androidx.compose.material3.SnackbarHost
-import androidx.compose.material3.SnackbarHostState
-import androidx.compose.material3.SwipeToDismissBox
-import androidx.compose.material3.SwipeToDismissBoxValue
-import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.DrawerValue
 import androidx.compose.material3.pulltorefresh.PullToRefreshBox
-import androidx.compose.material3.rememberDrawerState
-import androidx.compose.material3.rememberSwipeToDismissBoxState
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -97,6 +54,22 @@ import app.mailwerk.data.SwipeAction
 import app.mailwerk.data.ThreadSummary
 import kotlinx.coroutines.launch
 
+import androidx.compose.foundation.layout.*
+import androidx.compose.material3.*
+import androidx.compose.runtime.*
+import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.shadow
+import androidx.compose.animation.animateContentSize
+import androidx.compose.animation.animateColorAsState
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.graphics.luminance
+import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.Email
+import androidx.compose.foundation.clickable
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
@@ -108,52 +81,42 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
     val counts by vm.unreadCounts.collectAsState()
     val syncing by vm.syncing.collectAsState()
     val query by vm.query.collectAsState()
-    var searching by remember { mutableStateOf(false) }
+    val accounts by vm.accounts.collectAsState()
     var actionsFor by remember { mutableStateOf<Message?>(null) }
     var snoozeFor by remember { mutableStateOf<Message?>(null) }
+    val listState = rememberLazyListState()
+    val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 40 } }
 
     ModalNavigationDrawer(drawerState = drawer, drawerContent = {
         Drawer(vm) { scope.launch { drawer.close() } }
     }) {
         Scaffold(
-            topBar = {
-                if (searching) TopAppBar(
-                    title = {
-                        TextField(query, { vm.query.value = it }, placeholder = { Text("In allen Mails suchen") }, singleLine = true,
-                            colors = TextFieldDefaults.colors(focusedContainerColor = Color.Transparent, unfocusedContainerColor = Color.Transparent),
-                            modifier = Modifier.fillMaxWidth())
-                    },
-                    navigationIcon = { IconButton(onClick = { searching = false; vm.query.value = "" }) { Icon(Icons.Outlined.Close, "Suche schließen") } },
-                )
-                else TopAppBar(
-                    title = {
-                        Column {
-                            Text(mailbox.title, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                            (mailbox as? Mailbox.InFolder)?.let { Text(it.accountEmail, style = MaterialTheme.typography.labelSmall) }
-                        }
-                    },
-                    navigationIcon = { IconButton(onClick = { scope.launch { drawer.open() } }) { Icon(Icons.Outlined.Menu, "Menü") } },
-                    actions = { IconButton(onClick = { searching = true }) { Icon(Icons.Outlined.Search, "Suchen") } },
-                )
-            },
-            floatingActionButton = {
-                ExtendedFloatingActionButton(onClick = { vm.compose() }, icon = { Icon(Icons.Outlined.Edit, null) }, text = { Text("Schreiben") })
-            },
+            containerColor = MaterialTheme.colorScheme.background,
+            floatingActionButton = { GradientFab(expanded = !scrolled) { vm.compose() } },
             snackbarHost = { SnackbarHost(snackHost) },
         ) { pad ->
-            Column(Modifier.padding(pad).fillMaxSize()) {
+            Column(Modifier.padding(top = pad.calculateTopPadding()).fillMaxSize()) {
+                Header(vm, mailbox, accounts.firstOrNull()?.name, onMenu = { scope.launch { drawer.open() } })
+                SearchPill(query) { vm.query.value = it }
                 if (vm.showsCategories && query.isBlank()) CategoryTabs(category, counts) { vm.category.value = it }
                 PullToRefreshBox(isRefreshing = syncing, onRefresh = { vm.refresh() }, modifier = Modifier.fillMaxSize()) {
                     if (threads.isEmpty()) EmptyState(mailbox, category, query)
-                    else LazyColumn(Modifier.fillMaxSize()) {
-                        items(threads, key = { it.latest.threadKey + it.latest.id }) { t ->
-                            SwipeRow(vm, t, onSnooze = { snoozeFor = it }) {
-                                ThreadRow(t, showAccount = vm.accounts.value.size > 1 && mailbox !is Mailbox.InFolder, vm,
-                                    onClick = { vm.push(Screen.Thread(t.latest.threadKey)) },
-                                    onLong = { actionsFor = t.latest })
+                    else LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 110.dp)) {
+                        var lastSection = ""
+                        threads.forEach { t ->
+                            val section = if (t.pinned) "Angeheftet" else sectionOf(t.latest.date)
+                            if (section != lastSection) {
+                                lastSection = section
+                                item(key = "h_$section") { SectionHeader(section) }
+                            }
+                            item(key = t.latest.threadKey + t.latest.id) {
+                                SwipeRow(vm, t, onSnooze = { snoozeFor = it }) {
+                                    ThreadRow(t, showAccount = accounts.size > 1 && mailbox !is Mailbox.InFolder, vm,
+                                        onClick = { vm.push(Screen.Thread(t.latest.threadKey)) },
+                                        onLong = { actionsFor = t.latest })
+                                }
                             }
                         }
-                        item { Spacer(Modifier.height(96.dp)) }
                     }
                 }
             }
@@ -164,9 +127,78 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
     snoozeFor?.let { m -> TimeChooser("Zurückstellen bis …", { snoozeFor = null }) { t -> vm.snooze(m, t); snoozeFor = null } }
 }
 
+private fun sectionOf(t: Long): String {
+    val now = java.util.Calendar.getInstance(); val c = java.util.Calendar.getInstance().apply { timeInMillis = t }
+    val sameYear = now.get(java.util.Calendar.YEAR) == c.get(java.util.Calendar.YEAR)
+    val dd = now.get(java.util.Calendar.DAY_OF_YEAR) - c.get(java.util.Calendar.DAY_OF_YEAR)
+    return when {
+        sameYear && dd == 0 -> "Heute"
+        sameYear && dd == 1 -> "Gestern"
+        sameYear && dd < 7 -> "Diese Woche"
+        sameYear && now.get(java.util.Calendar.MONTH) == c.get(java.util.Calendar.MONTH) -> "Diesen Monat"
+        else -> "Früher"
+    }
+}
+
+@Composable
+private fun SectionHeader(text: String) {
+    Row(Modifier.padding(start = 8.dp, top = 14.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        if (text == "Angeheftet") { Icon(Icons.Filled.PushPin, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.tertiary); Spacer(Modifier.width(6.dp)) }
+        Text(text.uppercase(), style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.2.sp),
+            color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+@Composable
+private fun Header(vm: MainViewModel, mailbox: Mailbox, userName: String?, onMenu: () -> Unit) {
+    val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
+    val greet = when (hour) { in 5..10 -> "Guten Morgen"; in 11..17 -> "Hallo"; in 18..22 -> "Guten Abend"; else -> "Gute Nacht" }
+    val first = userName?.split(' ')?.firstOrNull()?.takeIf { it.isNotBlank() }
+    Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 16.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onMenu) { Icon(Icons.Outlined.Menu, "Menü") }
+        Column(Modifier.weight(1f).padding(start = 4.dp)) {
+            val sub = (mailbox as? Mailbox.InFolder)?.accountEmail ?: (if (first != null) "$greet, $first 👋" else greet)
+            Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(if (mailbox is Mailbox.Unified) "Posteingang" else mailbox.title, style = MaterialTheme.typography.headlineMedium,
+                maxLines = 1, overflow = TextOverflow.Ellipsis)
+        }
+        val acc = vm.accounts.value.firstOrNull()
+        if (acc != null) Box(Modifier.clip(CircleShape).clickable { vm.push(Screen.Settings) }) { Avatar(acc.name, acc.email, 40.dp) }
+    }
+}
+
+@Composable
+private fun SearchPill(query: String, onChange: (String) -> Unit) {
+    val focus = LocalFocusManager.current
+    TextField(query, onChange, singleLine = true,
+        placeholder = { Text("In allen Mails suchen", style = MaterialTheme.typography.bodyLarge) },
+        leadingIcon = { Icon(Icons.Outlined.Search, null) },
+        trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onChange(""); focus.clearFocus() }) { Icon(Icons.Outlined.Close, "Suche leeren") } },
+        shape = RoundedCornerShape(28.dp),
+        colors = TextFieldDefaults.colors(
+            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh, unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
+            focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent),
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).height(54.dp))
+}
+
+@Composable
+private fun GradientFab(expanded: Boolean, onClick: () -> Unit) {
+    Row(Modifier.shadow(10.dp, RoundedCornerShape(22.dp), spotColor = Brand.Indigo)
+        .clip(RoundedCornerShape(22.dp)).background(Brand.gradient).clickable(onClick = onClick)
+        .padding(horizontal = if (expanded) 22.dp else 18.dp, vertical = 18.dp).animateContentSize(),
+        verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Outlined.Edit, "Schreiben", tint = Color.White)
+        if (expanded) { Spacer(Modifier.width(10.dp)); Text("Schreiben", color = Color.White, style = MaterialTheme.typography.titleMedium) }
+    }
+}
+
+fun categoryColor(c: Category?): Color = when (c) {
+    Category.PEOPLE -> Brand.People; Category.NEWSLETTER -> Brand.News; Category.NOTIFICATION -> Brand.Notify; null -> Color(0xFF5B6080)
+}
+
 @Composable
 private fun CategoryTabs(selected: Category?, counts: Map<Category, Int>, onSelect: (Category?) -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp, vertical = 4.dp),
+    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         val tabs = listOf<Triple<Category?, String, ImageVector>>(
             Triple(Category.PEOPLE, "Wichtig", Icons.Outlined.Person),
@@ -176,9 +208,23 @@ private fun CategoryTabs(selected: Category?, counts: Map<Category, Int>, onSele
         )
         tabs.forEach { (cat, label, icon) ->
             val n = if (cat == null) counts.values.sum() else counts[cat] ?: 0
-            FilterChip(selected = selected == cat, onClick = { onSelect(cat) },
-                label = { Text(if (n > 0) "$label  $n" else label) },
-                leadingIcon = { Icon(icon, null, Modifier.size(18.dp)) })
+            val sel = selected == cat
+            val color = categoryColor(cat)
+            val bg by animateColorAsState(if (sel) color else MaterialTheme.colorScheme.surfaceContainerHigh, label = "tab")
+            val fg = if (sel) Color.White else MaterialTheme.colorScheme.onSurface
+            Row(Modifier.clip(RoundedCornerShape(16.dp)).background(bg).clickable { onSelect(cat) }.padding(horizontal = 14.dp, vertical = 9.dp),
+                verticalAlignment = Alignment.CenterVertically) {
+                Icon(icon, null, Modifier.size(18.dp), tint = if (sel) Color.White else color)
+                Spacer(Modifier.width(7.dp))
+                Text(label, color = fg, style = MaterialTheme.typography.labelLarge)
+                if (n > 0) {
+                    Spacer(Modifier.width(7.dp))
+                    Box(Modifier.clip(RoundedCornerShape(10.dp)).background(if (sel) Color.White.copy(alpha = 0.25f) else color.copy(alpha = 0.14f))
+                        .padding(horizontal = 7.dp, vertical = 1.dp)) {
+                        Text("$n", color = if (sel) Color.White else color, style = MaterialTheme.typography.labelMedium)
+                    }
+                }
+            }
         }
     }
 }
@@ -186,18 +232,25 @@ private fun CategoryTabs(selected: Category?, counts: Map<Category, Int>, onSele
 @Composable
 private fun EmptyState(mb: Mailbox, cat: Category?, q: String) {
     Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-        Spacer(Modifier.height(80.dp))
-        Text(if (q.isNotBlank()) "🔍" else "🎉", style = MaterialTheme.typography.displayMedium)
-        Spacer(Modifier.height(12.dp))
+        Spacer(Modifier.height(70.dp))
+        Box(Modifier.size(120.dp).clip(CircleShape).background(Brand.gradient), contentAlignment = Alignment.Center) {
+            Icon(if (q.isNotBlank()) Icons.Outlined.Search else if (mb is Mailbox.Snoozed) Icons.Outlined.Snooze else Icons.Outlined.DoneAll,
+                null, Modifier.size(56.dp), tint = Color.White)
+        }
+        Spacer(Modifier.height(24.dp))
         Text(when {
-            q.isNotBlank() -> "Nichts gefunden für „$q“"
+            q.isNotBlank() -> "Nichts gefunden"
             mb is Mailbox.Snoozed -> "Nichts zurückgestellt"
             mb is Mailbox.Pinned -> "Nichts angeheftet"
-            cat == Category.PEOPLE -> "Inbox Zero – alles erledigt!"
-            else -> "Hier ist nichts"
-        }, style = MaterialTheme.typography.titleMedium)
-        Spacer(Modifier.height(6.dp))
-        Text("Zum Aktualisieren nach unten ziehen", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            cat == Category.PEOPLE -> "Alles erledigt!"
+            else -> "Hier ist es ruhig"
+        }, style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(8.dp))
+        Text(when {
+            q.isNotBlank() -> "Keine Mail passt zu „$q“."
+            cat == Category.PEOPLE -> "Keine offenen Mails von Menschen.\nGenieß den Moment ☕"
+            else -> "Zum Aktualisieren nach unten ziehen."
+        }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     }
 }
 
@@ -211,28 +264,30 @@ private fun SwipeRow(vm: MainViewModel, t: ThreadSummary, onSnooze: (Message) ->
             SwipeToDismissBoxValue.EndToStart -> vm.performSwipe(left, t.latest, onSnooze)
             else -> {}
         }
-        false // Zeile springt zurück; die Liste aktualisiert sich über die Datenbank
+        false
     }, positionalThreshold = { it * 0.35f })
     SwipeToDismissBox(state, enableDismissFromStartToEnd = right != SwipeAction.NONE, enableDismissFromEndToStart = left != SwipeAction.NONE,
+        modifier = Modifier.padding(vertical = 3.dp),
         backgroundContent = {
             val dir = state.dismissDirection
             val action = if (dir == SwipeToDismissBoxValue.StartToEnd) right else left
             val (color, icon) = swipeLook(action)
-            Box(Modifier.fillMaxSize().background(color).padding(horizontal = 24.dp),
+            if (dir != SwipeToDismissBoxValue.Settled) Box(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp)).background(color).padding(horizontal = 26.dp),
                 contentAlignment = if (dir == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(icon, null, tint = Color.White); Spacer(Modifier.width(8.dp)); Text(action.label, color = Color.White)
+                    Icon(icon, null, tint = Color.White); Spacer(Modifier.width(8.dp))
+                    Text(action.label, color = Color.White, style = MaterialTheme.typography.titleSmall)
                 }
             }
         }) { content() }
 }
 
 private fun swipeLook(a: SwipeAction): Pair<Color, ImageVector> = when (a) {
-    SwipeAction.ARCHIVE -> Color(0xFF2E7D32) to Icons.Outlined.Archive
-    SwipeAction.DELETE -> Color(0xFFC62828) to Icons.Outlined.Delete
-    SwipeAction.SNOOZE -> Color(0xFFEF6C00) to Icons.Outlined.Snooze
-    SwipeAction.READ -> Color(0xFF1565C0) to Icons.Outlined.MarkEmailRead
-    SwipeAction.PIN -> Color(0xFF6A1B9A) to Icons.Outlined.PushPin
+    SwipeAction.ARCHIVE -> Color(0xFF16A06E) to Icons.Outlined.Archive
+    SwipeAction.DELETE -> Color(0xFFE5484D) to Icons.Outlined.Delete
+    SwipeAction.SNOOZE -> Color(0xFFF59E0B) to Icons.Outlined.Snooze
+    SwipeAction.READ -> Brand.Indigo to Icons.Outlined.MarkEmailRead
+    SwipeAction.PIN -> Brand.Violet to Icons.Outlined.PushPin
     SwipeAction.NONE -> Color.Gray to Icons.Outlined.Close
 }
 
@@ -240,40 +295,48 @@ private fun swipeLook(a: SwipeAction): Pair<Color, ImageVector> = when (a) {
 @Composable
 private fun ThreadRow(t: ThreadSummary, showAccount: Boolean, vm: MainViewModel, onClick: () -> Unit, onLong: () -> Unit) {
     val m = t.latest
-    val bold = if (t.unread) FontWeight.Bold else FontWeight.Normal
+    val unread = t.unread
     val sent = m.folderRole == FolderRole.SENT
     val name = if (sent) "An: " + (Regexes.firstName(m.toAddrs)) else m.fromName.ifBlank { m.fromAddr }
-    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surface)
-        .combinedClickable(onClick = onClick, onLongClick = onLong).padding(horizontal = 16.dp, vertical = 10.dp)) {
+    val cs = MaterialTheme.colorScheme
+    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
+        .background(
+            if (cs.background.luminance() < 0.5f) { if (unread) cs.surfaceContainerHigh else cs.surfaceContainerLow }
+            else { if (unread) cs.surfaceContainerLowest else cs.surfaceContainer })
+        .combinedClickable(onClick = onClick, onLongClick = onLong).padding(horizontal = 14.dp, vertical = 13.dp)) {
         Box {
-            Avatar(m.fromName, if (sent) m.toAddrs else m.fromAddr)
-            if (t.unread) Box(Modifier.size(11.dp).background(MaterialTheme.colorScheme.primary, CircleShape).align(Alignment.TopEnd))
+            Avatar(m.fromName, if (sent) m.toAddrs else m.fromAddr, 46.dp)
+            if (showAccount) vm.accounts.value.firstOrNull { it.id == m.accountId }?.let { a ->
+                Box(Modifier.size(14.dp).align(Alignment.BottomEnd).clip(CircleShape).background(cs.surfaceContainerLowest).padding(2.dp)
+                    .clip(CircleShape).background(Color(a.color)))
+            }
         }
-        Spacer(Modifier.width(12.dp))
+        Spacer(Modifier.width(13.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(name, fontWeight = bold, maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false))
-                if (t.count > 1) Text("  ${t.count}", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Spacer(Modifier.weight(1f))
-                if (t.pinned) Icon(Icons.Filled.PushPin, "Angeheftet", Modifier.size(15.dp), tint = MaterialTheme.colorScheme.tertiary)
-                if (m.snoozedUntil > 0) Icon(Icons.Outlined.AccessTime, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.tertiary)
-                Text("  " + shortTime(m.date), style = MaterialTheme.typography.labelMedium,
-                    color = if (t.unread) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-            }
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(m.subject.ifBlank { "(kein Betreff)" }, fontWeight = bold, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
-                if (t.hasAttachments) Icon(Icons.Outlined.AttachFile, "Anhang", Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (t.flagged) Icon(Icons.Filled.Flag, "Markiert", Modifier.size(16.dp), tint = Color(0xFFE53935))
-            }
-            Text(m.snippet, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant)
-            if (showAccount) vm.accounts.value.firstOrNull { it.id == m.accountId }?.let { a ->
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(top = 3.dp)) {
-                    Box(Modifier.size(7.dp).background(Color(a.color), CircleShape)); Spacer(Modifier.width(4.dp))
-                    Text(a.email, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = if (unread) FontWeight.Bold else FontWeight.Medium),
+                    maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
+                    color = if (unread) cs.onSurface else cs.onSurface.copy(alpha = 0.85f))
+                if (t.count > 1) {
+                    Spacer(Modifier.width(6.dp))
+                    Text("${t.count}", style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant,
+                        modifier = Modifier.clip(RoundedCornerShape(6.dp)).background(cs.surfaceContainerHighest).padding(horizontal = 5.dp, vertical = 1.dp))
                 }
+                Spacer(Modifier.weight(1f))
+                if (m.snoozedUntil > 0) Icon(Icons.Outlined.AccessTime, null, Modifier.size(15.dp), tint = cs.tertiary)
+                Text("  " + shortTime(m.date), style = MaterialTheme.typography.labelMedium, color = if (unread) cs.primary else cs.onSurfaceVariant)
             }
+            Spacer(Modifier.height(2.dp))
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(m.subject.ifBlank { "(kein Betreff)" }, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal),
+                    color = cs.onSurface, modifier = Modifier.weight(1f))
+                if (t.hasAttachments) Icon(Icons.Outlined.AttachFile, "Anhang", Modifier.size(16.dp), tint = cs.onSurfaceVariant)
+                if (t.flagged) Icon(Icons.Filled.Flag, "Markiert", Modifier.size(16.dp), tint = Color(0xFFE5484D))
+                if (unread) { Spacer(Modifier.width(6.dp)); Box(Modifier.size(9.dp).clip(CircleShape).background(Brand.gradient)) }
+            }
+            Spacer(Modifier.height(2.dp))
+            Text(m.snippet, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
         }
     }
 }
@@ -334,7 +397,16 @@ private fun Drawer(vm: MainViewModel, close: () -> Unit) {
     val current by vm.mailbox.collectAsState()
     ModalDrawerSheet {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 12.dp)) {
-            Text("Mailwerk", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.padding(16.dp))
+            Box(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 12.dp).clip(RoundedCornerShape(24.dp)).background(Brand.gradientDeep).padding(20.dp)) {
+                Column {
+                    Box(Modifier.size(44.dp).clip(RoundedCornerShape(14.dp)).background(Color.White.copy(alpha = 0.18f)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Outlined.Email, null, tint = Color.White)
+                    }
+                    Spacer(Modifier.height(12.dp))
+                    Text("Mailwerk", style = MaterialTheme.typography.headlineSmall, color = Color.White)
+                    Text(if (accounts.size == 1) "1 Konto" else "${accounts.size} Konten", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
+                }
+            }
             @Composable fun entry(label: String, icon: ImageVector, selected: Boolean, badge: Int = 0, onClick: () -> Unit) =
                 NavigationDrawerItem(label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }, selected = selected, onClick = { onClick(); close() },
                     icon = { Icon(icon, null) }, badge = { if (badge > 0) Badge { Text("$badge") } })

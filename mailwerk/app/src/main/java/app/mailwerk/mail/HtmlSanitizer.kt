@@ -83,7 +83,7 @@ object HtmlSanitizer {
 
     private fun wrap(body: String, dark: Boolean): String {
         val css = if (dark)
-            "body{background:#1b1b1f;color:#e4e2e6} a{color:#9ecaff} img{filter:brightness(.9)} " +
+            "body{background:transparent;color:#e4e5ee} a{color:#9ecaff} img{filter:brightness(.9)} " +
                 "body *{background-color:transparent!important;color:inherit!important;border-color:#444!important}"
         else "body{background:#fff;color:#1b1b1f} a{color:#0b57d0}"
         return """<!doctype html><html><head><meta charset="utf-8">
