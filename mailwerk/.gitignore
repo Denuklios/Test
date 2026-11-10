@@ -4,3 +4,4 @@ app/build/
 local.properties
 .idea/
 *.iml
+!mailwerk/app/src/main/java/app/mailwerk/data/
