@@ -257,6 +257,7 @@ class MailClient(private val acc: Account, private val password: String) {
         var text: String? = null
         var htmlRaw: String? = null
         val inline = mutableMapOf<String, String>() // cid -> data-URI
+        var inlineBytes = 0
         val attachments = mutableListOf<ParsedAttachment>()
 
         fun walk(p: Part, path: String) {
@@ -275,8 +276,9 @@ class MailClient(private val acc: Account, private val password: String) {
                     attachments += ParsedAttachment(path, fileName ?: "Anhang", type.substringBefore(';').trim(), p.size.toLong().coerceAtLeast(0))
                 type.startsWith("image/") -> {
                     val cid = (p as? MimeBodyPart)?.contentID?.trim('<', '>', ' ')
-                    if (cid != null && p.size in 0..1_500_000) {
+                    if (cid != null && p.size in 0..300_000 && inlineBytes + p.size < 600_000) {
                         val bytes = p.inputStream.use { it.readBytes() }
+                        inlineBytes += bytes.size
                         inline[cid] = "data:${type.substringBefore(';').trim()};base64," + Base64.getEncoder().encodeToString(bytes)
                     } else attachments += ParsedAttachment(path, fileName ?: "Bild", type.substringBefore(';').trim(), p.size.toLong().coerceAtLeast(0))
                 }

@@ -80,7 +80,7 @@ class IdleWatcher(
                 }
             } catch (e: InterruptedException) {
                 break
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
                 folder = null
                 if (!running) break
                 onState("getrennt: ${friendly(e)} – neuer Versuch in ${backoff / 1000}s")

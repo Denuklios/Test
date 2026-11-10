@@ -55,7 +55,7 @@ class PushService : Service() {
         if (Build.VERSION.SDK_INT >= 34) startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
         else startForeground(NOTIF_ID, n)
         val db = Db.get(this)
-        scope.launch { db.changes.collectLatest { updateWatchers() } }
+        scope.launch { db.changes.collectLatest { runCatching { updateWatchers() } } }
         registerNetwork()
     }
 
@@ -88,7 +88,7 @@ class PushService : Service() {
             delay(800)
             val wl = (getSystemService(POWER_SERVICE) as PowerManager).newWakeLock(PowerManager.PARTIAL_WAKE_LOCK, "mailwerk:push")
             wl.acquire(90_000)
-            try { Repository.get(this@PushService).sync(notify = true) } finally { if (wl.isHeld) wl.release() }
+            try { runCatching { Repository.get(this@PushService).sync(notify = true) } } finally { if (wl.isHeld) wl.release() }
         }
     }
 

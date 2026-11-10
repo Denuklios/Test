@@ -52,6 +52,20 @@ class MainActivity : ComponentActivity() {
                     }
                 }
                 BackHandler(enabled = stack.size > 1) { vm.pop() }
+                var crash by remember { mutableStateOf(app.mailwerk.CrashLog.read(this@MainActivity)) }
+                crash?.let { report ->
+                    androidx.compose.material3.AlertDialog(onDismissRequest = { app.mailwerk.CrashLog.clear(this@MainActivity); crash = null },
+                        title = { androidx.compose.material3.Text("Mailwerk wurde unerwartet beendet") },
+                        text = { androidx.compose.material3.Text("Das tut uns leid. Schick den Fehlerbericht an Claude (z. B. in den Chat kopieren), dann wird der Fehler behoben.\n\n" +
+                            report.lines().take(8).joinToString("\n")) },
+                        confirmButton = { androidx.compose.material3.TextButton(onClick = {
+                            startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
+                                .putExtra(Intent.EXTRA_SUBJECT, "Mailwerk Absturzbericht").putExtra(Intent.EXTRA_TEXT, report), "Fehlerbericht teilen"))
+                            app.mailwerk.CrashLog.clear(this@MainActivity); crash = null
+                        }) { androidx.compose.material3.Text("Bericht teilen") } },
+                        dismissButton = { androidx.compose.material3.TextButton(onClick = { app.mailwerk.CrashLog.clear(this@MainActivity); crash = null }) {
+                            androidx.compose.material3.Text("Schließen") } })
+                }
                 AnimatedContent(stack.last(), transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "screen") { screen ->
                     when (screen) {
                         Screen.Inbox -> InboxScreen(vm, snackHost)

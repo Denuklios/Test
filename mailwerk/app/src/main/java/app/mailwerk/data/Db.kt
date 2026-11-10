@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Lokale Datenbank (Offline-Speicher aller Mails). Bewusst ohne ORM gehalten.
  * Jede Schreiboperation erhöht [changes], damit die Oberfläche neu lädt.
  */
-class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 1) {
+class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 2) {
 
     private val _changes = MutableStateFlow(0L)
     val changes: StateFlow<Long> = _changes
@@ -65,7 +65,21 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         ).forEach { (n, b) -> db.insert("templates", null, ContentValues().apply { put("name", n); put("body", b) }) }
     }
 
-    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {}
+    override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
+        if (oldVersion < 2) shrinkHugeRows(db)
+    }
+
+    /** Zu große Zeilen (> ~2 MB) kann Android nicht lesen und die App stürzt ab -> eingebettete Bilder entfernen bzw. kürzen. */
+    private fun shrinkHugeRows(db: SQLiteDatabase) {
+        db.execSQL("UPDATE messages SET body_html=NULL WHERE length(body_html) > $MAX_HTML")
+        db.execSQL("UPDATE messages SET body_text=substr(body_text, 1, $MAX_TEXT) WHERE length(body_text) > $MAX_TEXT")
+        db.execSQL("UPDATE messages SET snippet=substr(snippet, 1, 300), to_addrs=substr(to_addrs, 1, 4000), cc_addrs=substr(cc_addrs, 1, 4000), refs=substr(refs, 1, 4000) WHERE length(to_addrs) > 4000 OR length(cc_addrs) > 4000 OR length(refs) > 4000 OR length(snippet) > 300")
+    }
+
+    override fun onOpen(db: SQLiteDatabase) {
+        super.onOpen(db)
+        if (!db.isReadOnly) runCatching { shrinkHugeRows(db) }
+    }
 
     // ---------------------------------------------------------------- Konten
     fun accounts(): List<Account> = readableDatabase.rawQuery("SELECT * FROM accounts ORDER BY id", null).use { c ->
@@ -135,12 +149,18 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
 
     // ---------------------------------------------------------------- Nachrichten
     private val msgSelect = "SELECT m.*, f.role AS folder_role FROM messages m JOIN folders f ON f.id=m.folder_id"
+    /** Für Listen: ohne Mail-Inhalt, damit nie riesige Zeilen geladen werden. */
+    private val msgSelectLight = "SELECT m.id, m.account_id, m.folder_id, m.uid, m.message_id, m.thread_key, m.from_name, m.from_addr, " +
+        "substr(m.to_addrs,1,2000) AS to_addrs, substr(m.cc_addrs,1,2000) AS cc_addrs, m.reply_to, substr(m.subject,1,1000) AS subject, m.date, " +
+        "substr(m.snippet,1,300) AS snippet, NULL AS body_html, NULL AS body_text, m.seen, m.flagged, m.pinned, m.snoozed_until, m.category, " +
+        "m.has_attachments, m.unsubscribe, m.unsubscribe_post, m.in_reply_to, substr(m.refs,1,2000) AS refs, m.remind_at, f.role AS folder_role " +
+        "FROM messages m JOIN folders f ON f.id=m.folder_id"
 
     fun insertMessage(m: Message, atts: List<Attachment>): Long {
         val db = writableDatabase
         db.beginTransaction()
         try {
-            val id = db.insertWithOnConflict("messages", null, m.toCv(), SQLiteDatabase.CONFLICT_IGNORE)
+            val id = db.insertWithOnConflict("messages", null, m.capped().toCv(), SQLiteDatabase.CONFLICT_IGNORE)
             if (id > 0) atts.forEach { a ->
                 db.insert("attachments", null, ContentValues().apply {
                     put("message_id", id); put("part_path", a.partPath); put("name", a.name); put("mime", a.mime); put("size", a.size)
@@ -216,7 +236,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
             where += "(m.subject LIKE ? OR m.from_name LIKE ? OR m.from_addr LIKE ? OR m.to_addrs LIKE ? OR m.body_text LIKE ?)"
             val q = "%${query.trim()}%"; repeat(5) { args += q }
         }
-        val sql = "$msgSelect WHERE ${where.joinToString(" AND ")} ORDER BY m.date DESC LIMIT $limit"
+        val sql = "$msgSelectLight WHERE ${where.joinToString(" AND ")} ORDER BY m.date DESC LIMIT $limit"
         return readableDatabase.rawQuery(sql, args.toTypedArray()).use { c -> c.map { it.toMessage(withBody = false) } }
     }
 
@@ -224,7 +244,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
     fun search(query: String): List<Message> {
         val q = "%${query.trim()}%"
         return readableDatabase.rawQuery(
-            "$msgSelect WHERE (m.subject LIKE ? OR m.from_name LIKE ? OR m.from_addr LIKE ? OR m.to_addrs LIKE ? OR m.body_text LIKE ?) ORDER BY m.date DESC LIMIT 300",
+            "$msgSelectLight WHERE (m.subject LIKE ? OR m.from_name LIKE ? OR m.from_addr LIKE ? OR m.to_addrs LIKE ? OR m.body_text LIKE ?) ORDER BY m.date DESC LIMIT 300",
             arrayOf(q, q, q, q, q)
         ).use { c -> c.map { it.toMessage(withBody = false) } }
     }
@@ -243,10 +263,10 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
     ).use { c -> c.map { it.toMessage() } }
 
     fun dueSnoozed(now: Long): List<Message> = readableDatabase.rawQuery(
-        "$msgSelect WHERE m.snoozed_until>0 AND m.snoozed_until<=?", arrayOf("$now")).use { c -> c.map { it.toMessage(false) } }
+        "$msgSelectLight WHERE m.snoozed_until>0 AND m.snoozed_until<=?", arrayOf("$now")).use { c -> c.map { it.toMessage(false) } }
 
     fun dueReminders(now: Long): List<Message> = readableDatabase.rawQuery(
-        "$msgSelect WHERE m.remind_at>0 AND m.remind_at<=?", arrayOf("$now")).use { c -> c.map { it.toMessage(false) } }
+        "$msgSelectLight WHERE m.remind_at>0 AND m.remind_at<=?", arrayOf("$now")).use { c -> c.map { it.toMessage(false) } }
 
     fun hasReplyInThread(threadKey: String, after: Long): Boolean = readableDatabase.rawQuery(
         "SELECT 1 FROM messages m JOIN folders f ON f.id=m.folder_id WHERE m.thread_key=? AND m.date>? AND f.role!='sent' LIMIT 1",
@@ -315,6 +335,17 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
     fun deleteOutbox(id: Long) { writableDatabase.delete("outbox", "id=?", arrayOf("$id")); notifyChanged() }
 
     // ---------------------------------------------------------------- Mapping
+    private fun Message.capped(): Message {
+        var html = bodyHtml
+        if (html != null && html.length > MAX_HTML) {
+            // erst eingebettete Bilder ersetzen, dann notfalls kürzen
+            html = html.replace(Regex("data:[a-zA-Z0-9.+/-]+;base64,[A-Za-z0-9+/=\\s]{2000,}"), "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
+            if (html.length > MAX_HTML) html = html.substring(0, MAX_HTML)
+        }
+        return copy(bodyHtml = html, bodyText = bodyText?.take(MAX_TEXT), snippet = snippet.take(300), subject = subject.take(2000),
+            toAddrs = toAddrs.take(4000), ccAddrs = ccAddrs.take(4000), references = references?.take(4000), replyTo = replyTo.take(2000))
+    }
+
     private fun Message.toCv() = ContentValues().apply {
         put("account_id", accountId); put("folder_id", folderId); put("uid", uid); put("message_id", messageId)
         put("thread_key", threadKey); put("from_name", fromName); put("from_addr", fromAddr.lowercase())
@@ -349,6 +380,8 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         str("body"), str("attachments"), strOrNull("in_reply_to"), strOrNull("refs"), long("send_at"), str("status"), strOrNull("error"), int("remind_days"))
 
     companion object {
+        const val MAX_HTML = 700_000
+        const val MAX_TEXT = 200_000
         @Volatile private var inst: Db? = null
         fun get(ctx: Context): Db = inst ?: synchronized(this) { inst ?: Db(ctx.applicationContext).also { inst = it } }
     }

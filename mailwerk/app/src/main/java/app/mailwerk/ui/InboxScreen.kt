@@ -107,11 +107,11 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
                     if (threads.isEmpty()) EmptyState(mailbox, category, query)
                     else LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 110.dp)) {
                         var lastSection = ""
-                        threads.forEach { t ->
+                        threads.forEachIndexed { idx, t ->
                             val section = if (t.pinned) "Angeheftet" else sectionOf(t.latest.date)
                             if (section != lastSection) {
                                 lastSection = section
-                                item(key = "h_$section") { SectionHeader(section) }
+                                item(key = "h_${idx}_$section") { SectionHeader(section) }
                             }
                             item(key = t.latest.threadKey + t.latest.id) {
                                 SwipeRow(vm, t, onSnooze = { snoozeFor = it }) {
@@ -176,7 +176,7 @@ private fun sectionOf(t: Long): String {
     val sameYear = now.get(java.util.Calendar.YEAR) == c.get(java.util.Calendar.YEAR)
     val dd = now.get(java.util.Calendar.DAY_OF_YEAR) - c.get(java.util.Calendar.DAY_OF_YEAR)
     return when {
-        sameYear && dd == 0 -> "Heute"
+        t > now.timeInMillis || (sameYear && dd == 0) -> "Heute"
         sameYear && dd == 1 -> "Gestern"
         sameYear && dd < 7 -> "Diese Woche"
         sameYear && now.get(java.util.Calendar.MONTH) == c.get(java.util.Calendar.MONTH) -> "Diesen Monat"

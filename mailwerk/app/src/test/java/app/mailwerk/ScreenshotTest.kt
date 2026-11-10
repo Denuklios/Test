@@ -39,7 +39,8 @@ class ScreenshotTest {
             app.mailwerk.data.Prefs(ctx).presetCache = "Max Muster|max@beispiel-domain.de"
             app.mailwerk.data.PresetAccounts.load(ctx)
             val db = Db.get(ctx)
-            if (db.accounts().isNotEmpty()) return
+            if (db.accounts().any { it.email == "robert@beispiel.de" }) return
+            db.accounts().forEach { db.deleteAccount(it.id) }
             val a = db.saveAccount(Account(0, "Robert", "robert@beispiel.de", "imap.beispiel.de", 993, Security.SSL, "smtp.beispiel.de", 465, Security.SSL, "x", "x", color = 0xFF1E88E5.toInt()))
             val inbox = db.upsertFolder(a, "INBOX", "Posteingang", FolderRole.INBOX)
             val sent = db.upsertFolder(a, "Gesendet", "Gesendet", FolderRole.SENT)
