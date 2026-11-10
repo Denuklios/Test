@@ -1683,6 +1683,21 @@
   }
   .wa-btn svg { width: 32px; height: 32px; fill: #fff; }
 
+  /* ─── NEWSLETTER (Fußbereich + Haken im Kontaktformular) ─── */
+  .footer-nl { max-width: 520px; margin: 0 auto 2rem; text-align: center; }
+  .footer-nl-title { font-family: 'Cormorant Garamond', serif; font-size: 1.35rem; color: var(--text-white, #F0EEF5); margin-bottom: 0.3rem; }
+  .footer-nl-text { color: var(--text-muted); font-size: 0.85rem; margin: 0 0 0.8rem; line-height: 1.5; }
+  .footer-nl-form { display: flex; gap: 0.5rem; }
+  .footer-nl-form input[type=email] { flex: 1; min-width: 0; padding: 0.7rem 0.9rem; border-radius: 999px; border: 1px solid rgba(168,85,247,0.35); background: rgba(255,255,255,0.04); color: inherit; font: inherit; font-size: 0.9rem; }
+  .footer-nl-form button { padding: 0.7rem 1.2rem; border-radius: 999px; border: 0; background: var(--purple, #8B2BE2); color: #fff; font: inherit; font-weight: 600; font-size: 0.9rem; cursor: pointer; }
+  .footer-nl-consent { display: flex; gap: 0.5rem; align-items: flex-start; text-align: left; font-size: 0.75rem; color: var(--text-muted); margin-top: 0.6rem; line-height: 1.45; cursor: pointer; }
+  .footer-nl-consent input { margin-top: 2px; flex: 0 0 auto; accent-color: var(--purple, #8B2BE2); }
+  .footer-nl-consent a, .form-nl a { color: var(--purple-bright); }
+  .footer-nl-msg { font-size: 0.82rem; margin: 0.6rem 0 0; min-height: 1em; }
+  .form-nl { display: flex; gap: 0.55rem; align-items: flex-start; font-size: 0.85rem; color: var(--text-muted); line-height: 1.45; cursor: pointer; }
+  .form-nl input { margin-top: 3px; flex: 0 0 auto; width: 17px; height: 17px; accent-color: var(--purple, #8B2BE2); }
+  @media (max-width: 480px) { .footer-nl-form { flex-direction: column; } }
+
   /* ─── INSTAGRAM BUTTON (unten rechts; ein eingeschalteter WhatsApp-Knopf rückt links daneben) ─── */
   .ig-btn {
     position: fixed; bottom: 1.8rem; right: 1.8rem; z-index: 200;
@@ -2210,6 +2225,7 @@
           <!-- Spam-Falle: für Menschen unsichtbar, Bots füllen sie aus -->
           <input type="text" id="field-website" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
         </div>
+        <label class="form-nl"><input type="checkbox" id="field-newsletter"> <span data-i18n="form_newsletter">Ja, ich möchte auch den Newsletter (wenige Male im Jahr, jederzeit abbestellbar).</span></label>
         <button class="btn-primary" id="send-btn" style="align-self: flex-start; animation: none;">
           <span data-i18n="form_send">Angebot anfragen</span> <span class="btn-arrow">→</span>
         </button>
@@ -2296,6 +2312,17 @@
     <a href="spiele/spiele.html" data-i18n="footer_games">Spiele &amp; Gutscheine</a>
     <a href="#kontakt" data-i18n="nav_contact">Kontakt</a>
   </div>
+  <div class="footer-nl" id="footerNl">
+    <div class="footer-nl-title" data-i18n="nl_title">Newsletter</div>
+    <p class="footer-nl-text" data-i18n="nl_text">Ein paar Mal im Jahr: Aktionen, Saison-Ideen und Neues aus der Werkstatt. Kein Spam, jederzeit abbestellbar.</p>
+    <form class="footer-nl-form" onsubmit="nlSubscribe(event)">
+      <input type="email" id="nlEmail" required autocomplete="email" data-i18n-placeholder="nl_ph" placeholder="Deine E-Mail-Adresse">
+      <input type="text" id="nlWebsite" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">
+      <button type="submit" data-i18n="nl_btn">Anmelden</button>
+    </form>
+    <label class="footer-nl-consent"><input type="checkbox" id="nlConsent"> <span data-i18n="nl_consent">Ich möchte den Newsletter per E-Mail erhalten. Abmeldung jederzeit möglich – mehr in der <a href="#" onclick="openLegal('datenschutz'); return false;">Datenschutzerklärung</a>.</span></label>
+    <p class="footer-nl-msg" id="nlMsg" role="status"></p>
+  </div>
   <div class="footer-social"><a href="https://www.instagram.com/wunsch_fabrik_dk/" target="_blank" rel="noopener" aria-label="Instagram @wunsch_fabrik_dk"><svg viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 1.17.054 1.805.249 2.227.415.562.217.96.477 1.382.896.419.42.679.819.896 1.381.164.422.36 1.057.413 2.227.058 1.266.07 1.646.07 4.85s-.012 3.584-.07 4.85c-.054 1.17-.249 1.805-.413 2.227-.217.562-.477.96-.896 1.382-.42.419-.819.679-1.381.896-.422.164-1.057.36-2.227.413-1.266.058-1.646.07-4.85.07s-3.585-.012-4.85-.07c-1.17-.054-1.805-.249-2.227-.413-.562-.217-.96-.477-1.382-.896-.419-.42-.679-.819-.896-1.381-.164-.422-.36-1.057-.413-2.227-.058-1.266-.07-1.646-.07-4.85s.012-3.584.07-4.85c.054-1.17.249-1.805.413-2.227.217-.562.477-.96.896-1.382.42-.419.819-.679 1.381-.896.422-.164 1.057-.36 2.227-.413C8.415 2.175 8.796 2.163 12 2.163zm0 1.802c-3.15 0-3.522.012-4.766.069-1.022.047-1.577.218-1.946.362-.49.19-.84.418-1.207.785-.367.367-.595.717-.785 1.207-.144.369-.315.924-.362 1.946-.057 1.244-.069 1.616-.069 4.766s.012 3.522.069 4.766c.047 1.022.218 1.577.362 1.946.19.49.418.84.785 1.207.367.367.717.595 1.207.785.369.144.924.315 1.946.362 1.244.057 1.616.069 4.766.069s3.522-.012 4.766-.069c1.022-.047 1.577-.218 1.946-.362.49-.19.84-.418 1.207-.785.367-.367.595-.717.785-1.207.144-.369.315-.924.362-1.946.057-1.244.069-1.616.069-4.766s-.012-3.522-.069-4.766c-.047-1.022-.218-1.577-.362-1.946-.19-.49-.418-.84-.785-1.207a3.252 3.252 0 00-1.207-.785c-.369-.144-.924-.315-1.946-.362-1.244-.057-1.616-.069-4.766-.069zm0 3.064A4.971 4.971 0 1112 16.97a4.971 4.971 0 010-9.942zm0 8.198a3.227 3.227 0 100-6.454 3.227 3.227 0 000 6.454zm6.328-8.394a1.162 1.162 0 11-2.324 0 1.162 1.162 0 012.324 0z"/></svg>@wunsch_fabrik_dk</a></div>
   <div class="footer-legal">
     <a href="#" onclick="openLegal('impressum'); return false;" data-i18n="legal_impressum">Impressum</a>
@@ -2368,7 +2395,7 @@ const translations = {
     hero_location: "Vilsbæk · Dänemark",
     jingle_tooltip: "🎵 Hör unseren Jingle!",
     contact_address: "Teglgård 1, Vilsbæk, 6330 Padborg, Dänemark",
-    steps_title: "So läuft's", step1_t: "Kurz schreiben", step1_d: "Erzähl uns deine Idee – gern mit Foto oder Logo. Mehr brauchen wir nicht.", step2_t: "Angebot & Entwurf", step2_d: "Du bekommst Preis, Termin und einen Entwurf – und bestätigst bequem am Handy.", step3_t: "Wir fertigen", step3_d: "Mit Verfolgungslink siehst du jederzeit, wie weit dein Auftrag ist – bis zur Abholung oder zum Versand.", footer_games: "Spiele & Gutscheine",
+    steps_title: "So läuft's", step1_t: "Kurz schreiben", step1_d: "Erzähl uns deine Idee – gern mit Foto oder Logo. Mehr brauchen wir nicht.", step2_t: "Angebot & Entwurf", step2_d: "Du bekommst Preis, Termin und einen Entwurf – und bestätigst bequem am Handy.", step3_t: "Wir fertigen", step3_d: "Mit Verfolgungslink siehst du jederzeit, wie weit dein Auftrag ist – bis zur Abholung oder zum Versand.", footer_games: "Spiele & Gutscheine", nl_title: "Newsletter", nl_text: "Ein paar Mal im Jahr: Aktionen, Saison-Ideen und Neues aus der Werkstatt. Kein Spam, jederzeit abbestellbar.", nl_ph: "Deine E-Mail-Adresse", nl_consent: "Ich möchte den Newsletter per E-Mail erhalten. Abmeldung jederzeit möglich – mehr in der <a href=\"#\" onclick=\"openLegal('datenschutz'); return false;\">Datenschutzerklärung</a>.", nl_btn: "Anmelden", nl_ok: "Fast geschafft! Bitte bestätige die Anmeldung über den Link in der Mail, die wir dir gerade geschickt haben.", nl_already: "Du bist schon angemeldet – danke!", nl_err: "Das hat nicht geklappt. Bitte prüfe die Adresse oder versuche es später noch einmal.", nl_need: "Bitte E-Mail eintragen und Haken setzen.", form_newsletter: "Ja, ich möchte auch den Newsletter (wenige Male im Jahr, jederzeit abbestellbar).",
     cookie_text: "🍪 Keine Cookies, kein Tracking: Wir zählen Besuche anonym und speichern nur deine Sprachwahl in deinem Browser. Mehr in der <a href=\"#\" onclick=\"openLegal('datenschutz'); return false;\">Datenschutzerklärung</a>.",
     cookie_accept: "OK ✓",
     reviews_empty: "Noch keine Bewertungen – sei die oder der Erste und erzähl, wie dein Wunschstück geworden ist! 💜",
@@ -2437,7 +2464,7 @@ const translations = {
     hero_location: "Vilsbæk · Danmark",
     jingle_tooltip: "🎵 Hør vores jingle!",
     contact_address: "Teglgård 1, Vilsbæk, 6330 Padborg, Danmark",
-    steps_title: "Sådan foregår det", step1_t: "Skriv kort til os", step1_d: "Fortæl os din idé – gerne med foto eller logo. Mere skal vi ikke bruge.", step2_t: "Tilbud & udkast", step2_d: "Du får pris, tidspunkt og et udkast – og bekræfter nemt på mobilen.", step3_t: "Vi producerer", step3_d: "Med et sporingslink kan du altid se, hvor langt din ordre er – indtil afhentning eller forsendelse.", footer_games: "Spil & gavekort",
+    steps_title: "Sådan foregår det", step1_t: "Skriv kort til os", step1_d: "Fortæl os din idé – gerne med foto eller logo. Mere skal vi ikke bruge.", step2_t: "Tilbud & udkast", step2_d: "Du får pris, tidspunkt og et udkast – og bekræfter nemt på mobilen.", step3_t: "Vi producerer", step3_d: "Med et sporingslink kan du altid se, hvor langt din ordre er – indtil afhentning eller forsendelse.", footer_games: "Spil & gavekort", nl_title: "Nyhedsbrev", nl_text: "Et par gange om året: kampagner, sæsonidéer og nyt fra værkstedet. Ingen spam, kan altid afmeldes.", nl_ph: "Din e-mailadresse", nl_consent: "Jeg vil gerne modtage nyhedsbrevet på e-mail. Afmelding er altid mulig – læs mere i <a href=\"#\" onclick=\"openLegal('datenschutz'); return false;\">privatlivspolitikken</a>.", nl_btn: "Tilmeld", nl_ok: "Næsten færdig! Bekræft venligst tilmeldingen via linket i den mail, vi lige har sendt dig.", nl_already: "Du er allerede tilmeldt – tak!", nl_err: "Det lykkedes ikke. Tjek adressen eller prøv igen senere.", nl_need: "Indtast din e-mail og sæt flueben.", form_newsletter: "Ja, jeg vil også gerne have nyhedsbrevet (få gange om året, kan altid afmeldes).",
     cookie_text: "🍪 Ingen cookies, ingen sporing: Vi tæller besøg anonymt og gemmer kun dit sprogvalg i din browser. Læs mere i vores <a href=\"#\" onclick=\"openLegal('datenschutz'); return false;\">privatlivspolitik</a>.",
     cookie_accept: "OK ✓",
     reviews_empty: "Endnu ingen anmeldelser – vær den første og fortæl, hvordan dit ønskeprodukt blev! 💜",
@@ -2506,7 +2533,7 @@ const translations = {
     hero_location: "Vilsbæk · Denmark",
     jingle_tooltip: "🎵 Listen to our jingle!",
     contact_address: "Teglgård 1, Vilsbæk, 6330 Padborg, Denmark",
-    steps_title: "How it works", step1_t: "Drop us a line", step1_d: "Tell us your idea – a photo or logo helps. That's all we need.", step2_t: "Quote & design", step2_d: "You get a price, a date and a design – and confirm it easily on your phone.", step3_t: "We make it", step3_d: "A tracking link shows you how far your order is at any time – until pickup or shipping.", footer_games: "Games & vouchers",
+    steps_title: "How it works", step1_t: "Drop us a line", step1_d: "Tell us your idea – a photo or logo helps. That's all we need.", step2_t: "Quote & design", step2_d: "You get a price, a date and a design – and confirm it easily on your phone.", step3_t: "We make it", step3_d: "A tracking link shows you how far your order is at any time – until pickup or shipping.", footer_games: "Games & vouchers", nl_title: "Newsletter", nl_text: "A few times a year: offers, seasonal ideas and news from the workshop. No spam, unsubscribe any time.", nl_ph: "Your email address", nl_consent: "I would like to receive the newsletter by email. Unsubscribe any time – see our <a href=\"#\" onclick=\"openLegal('datenschutz'); return false;\">privacy policy</a>.", nl_btn: "Subscribe", nl_ok: "Almost done! Please confirm via the link in the email we just sent you.", nl_already: "You are already subscribed – thank you!", nl_err: "That did not work. Please check the address or try again later.", nl_need: "Please enter your email and tick the box.", form_newsletter: "Yes, I would also like the newsletter (a few times a year, unsubscribe any time).",
     cookie_text: "🍪 No cookies, no tracking: we count visits anonymously and only store your language choice in your browser. More in our <a href=\"#\" onclick=\"openLegal('datenschutz'); return false;\">privacy policy</a>.",
     cookie_accept: "OK ✓",
     reviews_empty: "No reviews yet – be the first to tell us how your custom piece turned out! 💜",
@@ -3820,6 +3847,23 @@ function formatLegalText(text) {
   }).join('');
 }
 
+// Newsletter-Anmeldung im Fußbereich (Double-Opt-in: Bestätigungsmail kommt von newsletter.php)
+async function nlSubscribe(e) {
+  e.preventDefault();
+  const T = translations[currentLang] || translations.de, msg = document.getElementById('nlMsg');
+  const email = document.getElementById('nlEmail').value.trim();
+  if (!email || !document.getElementById('nlConsent').checked) { msg.textContent = T.nl_need; msg.style.color = '#f87171'; return; }
+  const fd = new FormData();
+  fd.append('a', 'subscribe'); fd.append('email', email); fd.append('lang', currentLang); fd.append('consent', '1');
+  fd.append('website', document.getElementById('nlWebsite').value);
+  try {
+    const r = await (await fetch('newsletter.php', { method: 'POST', body: fd })).json();
+    if (!r.ok) throw new Error(r.error || 'x');
+    msg.textContent = r.already ? T.nl_already : T.nl_ok; msg.style.color = '#34d399';
+    document.getElementById('nlEmail').value = ''; document.getElementById('nlConsent').checked = false;
+  } catch (err) { msg.textContent = T.nl_err; msg.style.color = '#f87171'; }
+}
+
 function openLegal(type) {
   document.getElementById('legalTitle').textContent = '...';
   document.getElementById('legalContent').innerHTML = '<p style="color:var(--text-dim)">Lädt...</p>';
@@ -3977,6 +4021,7 @@ document.getElementById('send-btn').addEventListener('click', async () => {
     formData.append('date', date);
     formData.append('message', message);
     formData.append('lang', currentLang);
+    if (document.getElementById('field-newsletter') && document.getElementById('field-newsletter').checked) formData.append('newsletter', '1');
     formData.append('website', document.getElementById('field-website') ? document.getElementById('field-website').value : '');
     formData.append('t', String(Math.round((Date.now() - (window.__wfFormStart || Date.now())) / 1000)));
     if (!powPromise) generateCaptcha(true);
@@ -4007,6 +4052,7 @@ document.getElementById('send-btn').addEventListener('click', async () => {
       });
       document.getElementById('fileUploadText').textContent = document.getElementById('fileUploadText').getAttribute('data-i18n') || 'Datei auswählen';
       document.getElementById('fileUploadText').style.color = '';
+      if (document.getElementById('field-newsletter')) document.getElementById('field-newsletter').checked = false;
       generateCaptcha(true);
       setTimeout(() => {
         btn.innerHTML = `<span data-i18n="form_send">${translations[currentLang].form_send}</span> <span class="btn-arrow">→</span>`;

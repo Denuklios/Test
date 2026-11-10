@@ -115,6 +115,8 @@ $areaOf = [
     'debug_push' => 'owner', 'debug_mail' => 'owner', 'debug_geo' => 'owner',
     'get_notify_settings' => 'owner', 'set_notify_settings' => 'owner', 'send_test_push' => 'owner',
     'team_list' => 'owner', 'team_save' => 'owner', 'team_password' => 'owner', 'team_delete' => 'owner', 'activity' => 'owner',
+    'nl_overview' => 'newsletter', 'nl_get' => 'newsletter', 'nl_save' => 'newsletter', 'nl_delete' => 'newsletter', 'nl_preview' => 'newsletter',
+    'nl_test' => 'newsletter', 'nl_sub_add' => 'newsletter', 'nl_sub_delete' => 'newsletter', 'nl_tick' => 'newsletter',
 ];
 if (isset($areaOf[$action])) {
     wf_need($areaOf[$action]);
@@ -800,6 +802,143 @@ if ($action === 'template_delete') {
     }
     $stmt->close();
     exit;
+}
+
+// ─── NEWSLETTER ─────────────────────────────────────────────────────
+if (strncmp($action, 'nl_', 3) === 0) {
+    require_once __DIR__ . '/newsletter_lib.php';
+    wf_nl_tables($mysqli);
+    $nlRow = function ($id) use ($mysqli) {
+        $st = $mysqli->prepare("SELECT * FROM newsletters WHERE id = ?");
+        $st->bind_param('i', $id);
+        $st->execute();
+        $r = $st->get_result()->fetch_assoc();
+        $st->close();
+        return $r;
+    };
+    $nlFromPost = function () {
+        $n = ['title' => mb_substr(trim((string)($_POST['title'] ?? '')), 0, 190)];
+        foreach (WF_NL_LANGS as $l) {
+            $n['subject_' . $l] = mb_substr(trim((string)($_POST['subject_' . $l] ?? '')), 0, 255);
+            $n['body_' . $l] = (string)($_POST['body_' . $l] ?? '');
+        }
+        return $n;
+    };
+
+    if ($action === 'nl_overview') {
+        wf_nl_tick($mysqli);   // fällige Mails gleich mit verschicken
+        $cnt = ['active' => 0, 'pending' => 0, 'unsubscribed' => 0];
+        foreach ($mysqli->query("SELECT status, COUNT(*) c FROM newsletter_subscribers GROUP BY status")->fetch_all(MYSQLI_ASSOC) as $r) $cnt[$r['status']] = (int)$r['c'];
+        $langs = $mysqli->query("SELECT lang, COUNT(*) c FROM newsletter_subscribers WHERE status = 'active' GROUP BY lang")->fetch_all(MYSQLI_ASSOC);
+        $subs = $mysqli->query("SELECT id, email, name, lang, status, source, created_at, confirmed_at FROM newsletter_subscribers ORDER BY created_at DESC LIMIT 500")->fetch_all(MYSQLI_ASSOC);
+        $nls = $mysqli->query("SELECT id, title, subject_de, status, send_at, created_by, created_at, updated_at, sent_at, sent_count, fail_count,
+            (body_da IS NOT NULL AND body_da <> '') AS has_da, (body_en IS NOT NULL AND body_en <> '') AS has_en FROM newsletters ORDER BY COALESCE(send_at, created_at) DESC LIMIT 100")->fetch_all(MYSQLI_ASSOC);
+        echo json_encode(['ok' => true, 'counts' => $cnt, 'langs' => $langs, 'subscribers' => $subs, 'newsletters' => $nls, 'now' => date('Y-m-d H:i:s')]);
+        exit;
+    }
+
+    if ($action === 'nl_get') {
+        $r = $nlRow((int)($_REQUEST['id'] ?? 0));
+        echo json_encode($r ? ['ok' => true, 'newsletter' => $r] : ['ok' => false, 'error' => 'Nicht gefunden']);
+        exit;
+    }
+
+    // Speichern: mode = draft | schedule | now | cancel
+    if ($action === 'nl_save') {
+        $id = (int)($_POST['id'] ?? 0);
+        $mode = (string)($_POST['mode'] ?? 'draft');
+        $old = $id ? $nlRow($id) : null;
+        if ($id && !$old) { echo json_encode(['ok' => false, 'error' => 'Nicht gefunden']); exit; }
+        if ($old && in_array($old['status'], ['sending', 'sent'], true)) { echo json_encode(['ok' => false, 'error' => 'Dieser Newsletter wurde schon verschickt und kann nicht mehr geändert werden.']); exit; }
+        $n = $nlFromPost();
+        if ($mode !== 'cancel' && ($n['subject_de'] === '' || trim($n['body_de']) === '')) { echo json_encode(['ok' => false, 'error' => 'Bitte mindestens Betreff und Text auf Deutsch eintragen.']); exit; }
+        if ($n['title'] === '') $n['title'] = $n['subject_de'];
+        $status = ['draft' => 'draft', 'schedule' => 'scheduled', 'now' => 'scheduled', 'cancel' => 'cancelled'][$mode] ?? 'draft';
+        $sendAt = null;
+        if ($mode === 'now') $sendAt = date('Y-m-d H:i:s');
+        if ($mode === 'schedule') {
+            $t = strtotime((string)($_POST['send_at'] ?? ''));
+            if (!$t) { echo json_encode(['ok' => false, 'error' => 'Bitte Datum und Uhrzeit für den Versand wählen.']); exit; }
+            $sendAt = date('Y-m-d H:i:s', $t);
+        }
+        if (in_array($mode, ['draft', 'cancel'], true) && $old) $sendAt = $old['send_at'];
+        $now = date('Y-m-d H:i:s');
+        if ($mode === 'cancel' && $old) {
+            $st = $mysqli->prepare("UPDATE newsletters SET status = 'cancelled', updated_at = ? WHERE id = ?");
+            $st->bind_param('si', $now, $id);
+        } elseif ($old) {
+            $st = $mysqli->prepare("UPDATE newsletters SET title=?, subject_de=?, subject_da=?, subject_en=?, body_de=?, body_da=?, body_en=?, status=?, send_at=?, updated_at=? WHERE id=?");
+            $st->bind_param('ssssssssssi', $n['title'], $n['subject_de'], $n['subject_da'], $n['subject_en'], $n['body_de'], $n['body_da'], $n['body_en'], $status, $sendAt, $now, $id);
+        } else {
+            $by = $me['name'];
+            $st = $mysqli->prepare("INSERT INTO newsletters (title, subject_de, subject_da, subject_en, body_de, body_da, body_en, status, send_at, created_by, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)");
+            $st->bind_param('ssssssssssss', $n['title'], $n['subject_de'], $n['subject_da'], $n['subject_en'], $n['body_de'], $n['body_da'], $n['body_en'], $status, $sendAt, $by, $now, $now);
+        }
+        $st->execute();
+        if (!$id) $id = (int)$st->insert_id;
+        $st->close();
+        wf_admin_log($mysqli, 'newsletter', 'Newsletter „' . $n['title'] . '“ → ' . $status . ($sendAt ? ' (' . $sendAt . ')' : ''));
+        if ($mode === 'now') wf_nl_tick($mysqli);
+        echo json_encode(['ok' => true, 'id' => $id]);
+        exit;
+    }
+
+    if ($action === 'nl_delete') {
+        $id = (int)($_POST['id'] ?? 0);
+        $r = $nlRow($id);
+        if (!$r) { echo json_encode(['ok' => false, 'error' => 'Nicht gefunden']); exit; }
+        if ($r['status'] === 'sending') { echo json_encode(['ok' => false, 'error' => 'Wird gerade verschickt – bitte erst danach löschen.']); exit; }
+        $mysqli->query("DELETE FROM newsletter_log WHERE newsletter_id = $id");
+        $mysqli->query("DELETE FROM newsletters WHERE id = $id");
+        wf_admin_log($mysqli, 'newsletter', 'Newsletter „' . $r['title'] . '“ gelöscht');
+        echo json_encode(['ok' => true]);
+        exit;
+    }
+
+    // Vorschau: aus den Feldern im Editor (noch ungespeichert)
+    if ($action === 'nl_preview') {
+        $lang = wf_nl_lang($_POST['lang'] ?? 'de');
+        $m = wf_nl_render($nlFromPost(), $lang, ['name' => 'Max', 'token' => str_repeat('0', 32)]);
+        echo json_encode(['ok' => true, 'subject' => $m['subject'], 'html' => $m['html'], 'lang' => $m['lang']]);
+        exit;
+    }
+
+    // Testmail an eine Adresse (Standard: hej@wunsch-fabrik.dk), alle ausgefüllten Sprachen
+    if ($action === 'nl_test') {
+        $to = trim((string)($_POST['to'] ?? '')) ?: WF_NL_FROM;
+        if (!filter_var($to, FILTER_VALIDATE_EMAIL)) { echo json_encode(['ok' => false, 'error' => 'Ungültige Mailadresse']); exit; }
+        $n = $nlFromPost();
+        $sent = [];
+        foreach (WF_NL_LANGS as $l) {
+            if ($l !== 'de' && (trim($n['subject_' . $l]) === '' || trim($n['body_' . $l]) === '')) continue;
+            $m = wf_nl_render($n, $l, ['name' => 'Robert', 'token' => str_repeat('0', 32)]);
+            if (wf_nl_send_mail($to, '[TEST ' . strtoupper($l) . '] ' . $m['subject'], $m['html'], $m['text'])) $sent[] = strtoupper($l);
+        }
+        echo json_encode(['ok' => (bool)$sent, 'sent' => $sent, 'to' => $to, 'error' => $sent ? null : 'Versand fehlgeschlagen']);
+        exit;
+    }
+
+    // Abonnent eintragen: bekommt eine Bestätigungsmail (ohne Bestätigung keine Newsletter)
+    if ($action === 'nl_sub_add') {
+        $r = wf_nl_subscribe($mysqli, $_POST['email'] ?? '', $_POST['name'] ?? '', $_POST['lang'] ?? 'de', 'admin');
+        if ($r['ok']) wf_admin_log($mysqli, 'newsletter', 'Abonnent eingeladen: ' . mb_substr((string)($_POST['email'] ?? ''), 0, 120));
+        echo json_encode($r['ok'] ? $r : ['ok' => false, 'error' => 'Ungültige Mailadresse']);
+        exit;
+    }
+
+    if ($action === 'nl_sub_delete') {
+        $id = (int)($_POST['id'] ?? 0);
+        $mysqli->query("DELETE FROM newsletter_log WHERE subscriber_id = $id");
+        $mysqli->query("DELETE FROM newsletter_subscribers WHERE id = $id");
+        wf_admin_log($mysqli, 'newsletter', 'Abonnent #' . $id . ' gelöscht');
+        echo json_encode(['ok' => true]);
+        exit;
+    }
+
+    if ($action === 'nl_tick') {
+        echo json_encode(['ok' => true] + wf_nl_tick($mysqli));
+        exit;
+    }
 }
 
 echo json_encode(['ok' => false, 'error' => 'Unbekannte Aktion']);

@@ -199,6 +199,12 @@ if ($mysqli) {
     $mysqli->close();
 }
 
+// ─── Newsletter gewünscht? Dann Bestätigungsmail (Double-Opt-in) ─────
+if (!empty($_POST['newsletter']) && ($mysqli = wf_db_connect())) {
+    require_once __DIR__ . '/newsletter_lib.php';
+    wf_nl_subscribe($mysqli, $email, $name, $lang, 'kontakt');
+}
+
 // ─── Eingangsbestätigung an den Kunden senden ───────────────────────
 wf_send_customer_mail($email, $name, $lang, 'received');
 

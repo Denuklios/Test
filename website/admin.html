@@ -421,6 +421,40 @@ header {
 .btn-mini:hover { border-color: var(--purple); }
 .btn-mini.danger:hover { border-color: var(--red); color: var(--red); }
 
+
+/* ─── NEWSLETTER ─── */
+.nl-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 0.8rem; margin-bottom: 1rem; }
+.nl-stat { background: var(--bg-card2); border: 1px solid var(--border); border-radius: 12px; padding: 0.8rem 1rem; }
+.nl-stat b { display: block; font-family: 'Cormorant Garamond', serif; font-size: 2rem; line-height: 1.1; }
+.nl-stat span { font-size: 0.78rem; color: var(--text-muted); }
+.nl-list { display: grid; gap: 0.6rem; }
+.nl-item { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 0.4rem 1rem; align-items: center; background: var(--bg-card2); border: 1px solid var(--border); border-radius: 12px; padding: 0.8rem 1rem; }
+.nl-item .t { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.nl-item .m { font-size: 0.8rem; color: var(--text-muted); }
+.nl-item .a { display: flex; gap: 0.4rem; flex-wrap: wrap; justify-content: flex-end; }
+@media (max-width: 640px) { .nl-item { grid-template-columns: minmax(0, 1fr); } .nl-item .a { justify-content: flex-start; } }
+.nl-st { font-size: 0.68rem; font-weight: 700; letter-spacing: 0.06em; text-transform: uppercase; padding: 0.15rem 0.55rem; border-radius: 50px; margin-left: 0.4rem; vertical-align: 1px; }
+.nl-st.draft { background: rgba(0,0,0,0.06); color: var(--text-muted); }
+.nl-st.scheduled { background: rgba(2,132,199,0.14); color: #0369a1; }
+.nl-st.sending { background: rgba(245,158,11,0.18); color: var(--orange); }
+.nl-st.sent { background: rgba(5,150,105,0.15); color: var(--green); }
+.nl-st.cancelled { background: rgba(220,38,38,0.12); color: var(--red); }
+.nl-langs { display: flex; gap: 0.4rem; margin-bottom: 0.8rem; flex-wrap: wrap; }
+.nl-langs button { border: 1px solid var(--border); background: var(--bg-card); border-radius: 999px; padding: 0.35rem 0.9rem; cursor: pointer; font-family: inherit; font-size: 0.85rem; }
+.nl-langs button.on { background: var(--purple); border-color: var(--purple); color: #fff; }
+.nl-editor textarea { width: 100%; min-height: 320px; font-family: inherit; font-size: 0.92rem; line-height: 1.55; padding: 0.8rem; background: #fff; border: 1px solid var(--border); border-radius: 10px; color: var(--text-white); resize: vertical; }
+.nl-help { font-size: 0.8rem; color: var(--text-muted); background: var(--bg-card2); border: 1px dashed var(--border); border-radius: 10px; padding: 0.7rem 0.9rem; margin: 0.6rem 0 1rem; line-height: 1.6; }
+.nl-help code { background: #fff; border-radius: 4px; padding: 0 4px; font-size: 0.78rem; }
+.nl-actions { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: center; margin-top: 1rem; }
+.nl-btn { border: 1px solid var(--border); background: var(--bg-card); color: var(--text-white); border-radius: 10px; padding: 0.6rem 1rem; cursor: pointer; font-family: inherit; font-size: 0.88rem; font-weight: 600; }
+.nl-btn.primary { background: var(--purple); border-color: var(--purple); color: #fff; }
+.nl-btn.danger { color: var(--red); }
+.nl-preview { width: 100%; height: 640px; border: 1px solid var(--border); border-radius: 12px; background: #f3f0f8; }
+.nl-subs { width: 100%; border-collapse: collapse; font-size: 0.85rem; }
+.nl-subs th, .nl-subs td { text-align: left; padding: 0.45rem 0.5rem; border-bottom: 1px solid var(--border); }
+.nl-subs th { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); }
+.nl-subs-wrap { max-height: 420px; overflow: auto; }
+
 /* ─── PRODUCT FORM MODAL ─── */
 .modal-overlay {
   display: none; position: fixed; inset: 0; z-index: 500;
@@ -789,6 +823,7 @@ input::placeholder, textarea::placeholder { color: var(--text-dim); }
         <button class="main-tab" data-tab="sitetexts" onclick="switchTab('sitetexts')"><span class="ic">📝</span>Website-Texte</button>
         <button class="main-tab" data-tab="legal" onclick="switchTab('legal')"><span class="ic">📄</span>Rechtstexte</button>
         <button class="main-tab" data-tab="popup" onclick="switchTab('popup')"><span class="ic">📢</span>Popup</button>
+        <button class="main-tab" data-tab="newsletter" onclick="switchTab('newsletter')"><span class="ic">📰</span>Newsletter</button>
       </div>
       <div class="sb-group">
         <div class="sb-group-title">Team &amp; System</div>
@@ -1293,6 +1328,76 @@ input::placeholder, textarea::placeholder { color: var(--text-dim); }
 
         <button class="login-btn" style="max-width:280px;" onclick="savePopupSettings()">Speichern</button>
         <p class="settings-msg" id="popupMsg"></p>
+      </div>
+    </div>
+
+    <!-- TAB: NEWSLETTER -->
+    <div class="tab-content" id="tab-newsletter">
+      <div id="nlListView">
+        <div class="panel">
+          <div class="panel-title">📰 Newsletter <button class="nl-btn primary" onclick="nlEdit(0)">＋ Neuer Newsletter</button></div>
+          <div class="nl-stats" id="nlStats"></div>
+          <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:1rem;">
+            Geplante Newsletter gehen zur eingestellten Zeit automatisch an alle bestätigten Abonnenten – jeder in seiner Sprache
+            (Deutsch, Dänisch oder Englisch; fehlt eine Übersetzung, bekommt er die deutsche Fassung).
+            Newsletter, die Claude für dich vorbereitet, erscheinen hier mit „von Claude“ und gehen frühestens 48 Stunden später raus –
+            du bekommst vorher eine Mail und kannst sie bis dahin ändern oder stoppen.
+          </p>
+          <div class="nl-list" id="nlList"></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">👥 Abonnenten</div>
+          <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:0.8rem;">
+            Anmeldung über die Webseite (Fußbereich) oder den Haken im Kontaktformular. Jeder bekommt erst eine Bestätigungsmail –
+            Newsletter gehen nur an bestätigte Adressen (rechtlich vorgeschrieben). Unbestätigte und Abgemeldete werden nach 30 Tagen gelöscht.
+          </p>
+          <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
+            <input type="email" id="nlAddEmail" placeholder="E-Mail-Adresse" style="flex:1 1 220px; padding:0.6rem; border:1px solid var(--border); border-radius:10px; font-family:inherit;">
+            <input type="text" id="nlAddName" placeholder="Name (optional)" style="flex:1 1 160px; padding:0.6rem; border:1px solid var(--border); border-radius:10px; font-family:inherit;">
+            <select id="nlAddLang" style="padding:0.6rem; border:1px solid var(--border); border-radius:10px; font-family:inherit;"><option value="de">Deutsch</option><option value="da">Dansk</option><option value="en">English</option></select>
+            <button class="nl-btn" onclick="nlAddSub()">Einladen</button>
+          </div>
+          <p style="color:var(--text-dim); font-size:0.78rem; margin:-0.4rem 0 1rem;">„Einladen“ schickt eine Bestätigungsmail – nur für Kunden, die dir ihr Einverständnis gegeben haben.</p>
+          <div class="nl-subs-wrap"><table class="nl-subs"><thead><tr><th>E-Mail</th><th>Name</th><th>Sprache</th><th>Status</th><th>Seit</th><th></th></tr></thead><tbody id="nlSubs"></tbody></table></div>
+        </div>
+      </div>
+
+      <div id="nlEditView" style="display:none">
+        <div class="panel nl-editor">
+          <div class="panel-title"><span id="nlEditTitle">Newsletter</span> <button class="nl-btn" onclick="nlBack()">← Zurück</button></div>
+          <div id="nlEditInfo" style="font-size:0.85rem; color:var(--text-muted); margin-bottom:0.8rem;"></div>
+          <div class="login-field"><label>Interner Name (sehen nur Admins)</label><input type="text" id="nlTitle" placeholder="z. B. Weihnachten 2026"></div>
+          <div class="nl-langs" id="nlLangs">
+            <button class="on" data-l="de" onclick="nlLang('de')">🇩🇪 Deutsch</button>
+            <button data-l="da" onclick="nlLang('da')">🇩🇰 Dansk</button>
+            <button data-l="en" onclick="nlLang('en')">🇬🇧 English</button>
+          </div>
+          <div class="login-field"><label>Betreff</label><input type="text" id="nlSubject" oninput="nlStash()" placeholder="z. B. Weihnachtsgeschenke mit eurem Logo – jetzt bestellen"></div>
+          <div class="login-field"><label>Text</label><textarea id="nlBody" oninput="nlStash()" placeholder="Hallo {name},&#10;&#10;…"></textarea></div>
+          <div class="nl-help">
+            <b>Gestalten:</b> Leerzeile = neuer Absatz · <code>## Überschrift</code> · <code>**fett**</code> · <code>- Aufzählung</code> ·
+            <code>[Linktext](https://…)</code> · Knopf: <code>[[Jetzt anfragen | https://www.wunsch-fabrik.dk/#kontakt]]</code> ·
+            Bild: <code>![](https://…/bild.jpg)</code> · <code>{name}</code> = Name des Abonnenten (falls bekannt).
+            Logo, Adresse und Abmeldelink werden automatisch ergänzt.
+          </div>
+          <div class="nl-actions">
+            <button class="nl-btn" onclick="nlPreview()">👁 Vorschau</button>
+            <button class="nl-btn" onclick="nlTest()">✉️ Testmail an mich</button>
+            <button class="nl-btn" onclick="nlSave('draft')">💾 Als Entwurf speichern</button>
+          </div>
+          <div class="nl-actions" style="padding-top:0.8rem; border-top:1px solid var(--border);">
+            <label style="font-size:0.85rem;">Versand am</label>
+            <input type="datetime-local" id="nlSendAt" style="padding:0.55rem; border:1px solid var(--border); border-radius:10px; font-family:inherit;">
+            <button class="nl-btn primary" onclick="nlSave('schedule')">🗓 Planen</button>
+            <button class="nl-btn" onclick="nlSave('now')">🚀 Jetzt senden</button>
+            <button class="nl-btn danger" id="nlCancelBtn" onclick="nlSave('cancel')">⏹ Stoppen</button>
+          </div>
+          <p class="settings-msg" id="nlMsg"></p>
+        </div>
+        <div class="panel" id="nlPreviewPanel" style="display:none">
+          <div class="panel-title">👁 Vorschau <span id="nlPreviewSubj" style="font-family:'Outfit',sans-serif; font-size:0.85rem; font-weight:600; color:var(--text-muted);"></span></div>
+          <iframe class="nl-preview" id="nlPreviewFrame" sandbox=""></iframe>
+        </div>
       </div>
     </div>
 
@@ -3089,6 +3194,118 @@ function saveSiteTextGroup() {
 // ─── POPUP ──────────────────────────────────────────────────────────
 const POPUP_API = 'popup_api.php';
 
+
+// ─── NEWSLETTER ───────────────────────────────────────────────────
+const NL = { id: 0, lang: 'de', data: {}, status: 'draft' };
+const NL_ST = { draft: 'Entwurf', scheduled: 'Geplant', sending: 'Wird gesendet', sent: 'Gesendet', cancelled: 'Gestoppt' };
+const NL_LN = { de: 'Deutsch', da: 'Dansk', en: 'English' };
+function nlPost(action, data) {
+  const fd = new FormData(); fd.append('action', action);
+  Object.entries(data || {}).forEach(([k, v]) => fd.append(k, v == null ? '' : v));
+  return fetch(API, { method: 'POST', body: fd, credentials: 'same-origin' }).then(r => r.json());
+}
+function nlDate(s) { if (!s) return '–'; const d = new Date(s.replace(' ', 'T')); return d.toLocaleDateString('de-DE', { day: '2-digit', month: '2-digit', year: 'numeric' }) + ' ' + d.toLocaleTimeString('de-DE', { hour: '2-digit', minute: '2-digit' }); }
+function nlLoad() {
+  nlPost('nl_overview').then(d => {
+    if (!d.ok) { toast(d.error || 'Fehler'); return; }
+    const c = d.counts, langs = Object.fromEntries((d.langs || []).map(x => [x.lang, +x.c]));
+    document.getElementById('nlStats').innerHTML =
+      `<div class="nl-stat"><b>${c.active}</b><span>bestätigte Abonnenten</span></div>` +
+      `<div class="nl-stat"><b>${c.pending}</b><span>warten auf Bestätigung</span></div>` +
+      `<div class="nl-stat"><b>${langs.de || 0} · ${langs.da || 0} · ${langs.en || 0}</b><span>DE · DA · EN</span></div>`;
+    const list = document.getElementById('nlList');
+    list.innerHTML = d.newsletters.length ? '' : '<div class="empty-state">Noch kein Newsletter. Leg los mit „＋ Neuer Newsletter“.</div>';
+    d.newsletters.forEach(n => {
+      const el = document.createElement('div'); el.className = 'nl-item';
+      const when = n.status === 'sent' ? 'gesendet ' + nlDate(n.sent_at) + ' · ' + n.sent_count + ' Empfänger' + (+n.fail_count ? ' · ' + n.fail_count + ' Fehler' : '')
+        : n.status === 'sending' ? 'wird gesendet · ' + n.sent_count + ' bisher'
+        : n.send_at && n.status === 'scheduled' ? 'geht raus am ' + nlDate(n.send_at) : 'zuletzt bearbeitet ' + nlDate(n.updated_at);
+      el.innerHTML = `<div style="min-width:0"><div class="t">${escapeHtml(n.title || n.subject_de)}<span class="nl-st ${n.status}">${NL_ST[n.status] || n.status}</span></div>
+        <div class="m">${when} · ${n.created_by === 'Claude' ? '✨ von Claude' : 'von ' + escapeHtml(n.created_by || '–')} · DE${+n.has_da ? ' · DA' : ''}${+n.has_en ? ' · EN' : ''}</div></div>
+        <div class="a"></div>`;
+      const a = el.querySelector('.a');
+      const b = (t, f, cls) => { const x = document.createElement('button'); x.className = 'btn-mini' + (cls ? ' ' + cls : ''); x.textContent = t; x.onclick = f; a.appendChild(x); };
+      b(['sent', 'sending'].includes(n.status) ? '👁 Ansehen' : '✏️ Bearbeiten', () => nlEdit(n.id));
+      b('⧉ Kopie', () => nlEdit(n.id, true));
+      if (n.status !== 'sending') b('🗑', () => { if (confirm('Newsletter „' + (n.title || n.subject_de) + '“ löschen?')) nlPost('nl_delete', { id: n.id }).then(r => { toast(r.ok ? 'Gelöscht' : r.error); nlLoad(); }); }, 'danger');
+      list.appendChild(el);
+    });
+    document.getElementById('nlSubs').innerHTML = d.subscribers.map(s => `<tr><td>${escapeHtml(s.email)}</td><td>${escapeHtml(s.name || '')}</td><td>${s.lang.toUpperCase()}</td>
+      <td>${s.status === 'active' ? '✅ bestätigt' : s.status === 'pending' ? '⏳ unbestätigt' : '🚫 abgemeldet'}</td><td>${nlDate(s.confirmed_at || s.created_at).slice(0, 10)}</td>
+      <td><button class="btn-mini danger" onclick="nlDelSub(${s.id}, '${escapeHtml(s.email).replace(/'/g, '')}')">🗑</button></td></tr>`).join('')
+      || '<tr><td colspan="6" style="color:var(--text-dim)">Noch keine Abonnenten.</td></tr>';
+  });
+}
+function nlAddSub() {
+  const email = document.getElementById('nlAddEmail').value.trim();
+  nlPost('nl_sub_add', { email, name: document.getElementById('nlAddName').value.trim(), lang: document.getElementById('nlAddLang').value }).then(r => {
+    if (!r.ok) { toast(r.error || 'Fehler'); return; }
+    toast(r.already ? 'Ist schon angemeldet' : 'Bestätigungsmail an ' + email + ' verschickt');
+    document.getElementById('nlAddEmail').value = ''; document.getElementById('nlAddName').value = ''; nlLoad();
+  });
+}
+function nlDelSub(id, email) { if (confirm('Abonnent ' + email + ' löschen?')) nlPost('nl_sub_delete', { id }).then(() => nlLoad()); }
+function nlStash() { NL.data['subject_' + NL.lang] = document.getElementById('nlSubject').value; NL.data['body_' + NL.lang] = document.getElementById('nlBody').value; }
+function nlLang(l, fresh) {
+  if (!fresh) nlStash();
+  NL.lang = l;
+  document.querySelectorAll('#nlLangs button').forEach(b => b.classList.toggle('on', b.dataset.l === l));
+  document.getElementById('nlSubject').value = NL.data['subject_' + l] || '';
+  document.getElementById('nlBody').value = NL.data['body_' + l] || '';
+  document.getElementById('nlBody').placeholder = l === 'de' ? 'Hallo {name},\n\n…' : (l === 'da' ? 'Hej {name},\n\n… (leer = Abonnent bekommt die deutsche Fassung)' : 'Hi {name},\n\n… (leer = Abonnent bekommt die deutsche Fassung)');
+  if (document.getElementById('nlPreviewPanel').style.display !== 'none') nlPreview();
+}
+function nlFields() { nlStash(); const f = { id: NL.id, title: document.getElementById('nlTitle').value.trim() }; ['de', 'da', 'en'].forEach(l => { f['subject_' + l] = NL.data['subject_' + l] || ''; f['body_' + l] = NL.data['body_' + l] || ''; }); return f; }
+function nlEdit(id, copy) {
+  const open = (n) => {
+    NL.id = copy ? 0 : (n ? +n.id : 0); NL.data = {}; NL.status = copy || !n ? 'draft' : n.status;
+    ['de', 'da', 'en'].forEach(l => { NL.data['subject_' + l] = n ? n['subject_' + l] || '' : ''; NL.data['body_' + l] = n ? n['body_' + l] || '' : ''; });
+    document.getElementById('nlTitle').value = n ? (copy ? 'Kopie von ' : '') + (n.title || '') : '';
+    const sa = n && n.send_at && !copy ? n.send_at.replace(' ', 'T').slice(0, 16) : '';
+    document.getElementById('nlSendAt').value = sa;
+    document.getElementById('nlEditTitle').textContent = NL.id ? 'Newsletter bearbeiten' : 'Neuer Newsletter';
+    const locked = ['sent', 'sending'].includes(NL.status);
+    document.getElementById('nlEditInfo').innerHTML = !n || copy ? '' : `<span class="nl-st ${n.status}" style="margin:0 0.4rem 0 0">${NL_ST[n.status]}</span>` +
+      (n.status === 'scheduled' ? 'geht automatisch raus am <b>' + nlDate(n.send_at) + '</b>' : n.status === 'sent' ? 'gesendet am ' + nlDate(n.sent_at) + ' an ' + n.sent_count + ' Abonnenten' : '') +
+      (n.created_by === 'Claude' ? ' · ✨ von Claude vorbereitet' : '');
+    document.querySelectorAll('#nlEditView .nl-actions button, #nlEditView input, #nlEditView textarea').forEach(x => { x.disabled = locked && !/Vorschau|Testmail/.test(x.textContent); });
+    document.getElementById('nlCancelBtn').style.display = NL.status === 'scheduled' ? '' : 'none';
+    document.getElementById('nlMsg').className = 'settings-msg';
+    NL.lang = 'de'; nlLang('de', true);
+    document.getElementById('nlPreviewPanel').style.display = 'none';
+    document.getElementById('nlListView').style.display = 'none'; document.getElementById('nlEditView').style.display = '';
+    window.scrollTo({ top: 0 });
+  };
+  if (!id) { open(null); return; }
+  nlPost('nl_get', { id }).then(r => r.ok ? open(r.newsletter) : toast(r.error));
+}
+function nlBack() { document.getElementById('nlEditView').style.display = 'none'; document.getElementById('nlListView').style.display = ''; nlLoad(); }
+function nlMsg(t, ok) { const m = document.getElementById('nlMsg'); m.textContent = t; m.className = 'settings-msg show ' + (ok ? 'ok' : 'error'); }
+function nlPreview() {
+  nlPost('nl_preview', { ...nlFields(), lang: NL.lang }).then(r => {
+    if (!r.ok) { toast(r.error || 'Fehler'); return; }
+    document.getElementById('nlPreviewPanel').style.display = '';
+    document.getElementById('nlPreviewSubj').textContent = 'Betreff: ' + r.subject + (r.lang !== NL.lang ? ' (deutsche Fassung – ' + NL_LN[NL.lang] + ' fehlt)' : '');
+    document.getElementById('nlPreviewFrame').srcdoc = r.html;
+  });
+}
+function nlTest() {
+  const to = prompt('Testmail an:', 'hej@wunsch-fabrik.dk'); if (!to) return;
+  nlPost('nl_test', { ...nlFields(), to }).then(r => r.ok ? nlMsg('Testmail (' + r.sent.join(', ') + ') an ' + r.to + ' verschickt.', true) : nlMsg(r.error || 'Fehler', false));
+}
+function nlSave(mode) {
+  const f = nlFields(); f.mode = mode;
+  if (mode === 'schedule') { const v = document.getElementById('nlSendAt').value; if (!v) { nlMsg('Bitte Datum und Uhrzeit wählen.', false); return; } f.send_at = v.replace('T', ' ') + ':00'; }
+  if (mode === 'now' && !confirm('Newsletter jetzt an alle bestätigten Abonnenten senden?')) return;
+  if (mode === 'cancel' && !confirm('Geplanten Versand stoppen? Der Newsletter bleibt erhalten.')) return;
+  nlPost('nl_save', f).then(r => {
+    if (!r.ok) { nlMsg(r.error || 'Fehler', false); return; }
+    NL.id = r.id;
+    toast({ draft: 'Entwurf gespeichert', schedule: 'Geplant', now: 'Versand gestartet', cancel: 'Versand gestoppt' }[mode]);
+    if (mode !== 'draft') nlBack(); else nlMsg('Gespeichert.', true);
+  });
+}
+
 function loadPopupSettings() {
   fetch(POPUP_API + '?action=get_admin', { credentials: 'same-origin' })
     .then(r => r.json())
@@ -3197,7 +3414,7 @@ let AREAS = {};            // Bereich → Bezeichnung
 const TAB_TITLES = {
   overview: '📊 Übersicht', inquiries: '✉️ Anfragen', auftraege: '🧾 Aufträge & Rechnungen',
   reviews: '⭐ Bewertungen', impressionen: '📸 Impressionen', logos: '🏢 Kunden-Logos', workshop: '🔧 Werkstatt-Fotos',
-  shop: '🛒 Shop', sitetexts: '📝 Website-Texte', legal: '📄 Rechtstexte', popup: '📢 Popup',
+  shop: '🛒 Shop', sitetexts: '📝 Website-Texte', legal: '📄 Rechtstexte', popup: '📢 Popup', newsletter: '📰 Newsletter',
   team: '👥 Mitarbeiter', settings: '⚙️ Einstellungen'
 };
 const TEAM_COLORS = ['#A855F7', '#EC4899', '#38BDF8', '#34D399', '#F59E0B', '#F87171', '#FB923C', '#818CF8', '#2DD4BF', '#E879F9'];
@@ -3289,6 +3506,7 @@ function switchTab(tabName) {
   if (tabName === 'legal') loadLegalTexts();
   if (tabName === 'sitetexts') loadSiteTexts();
   if (tabName === 'popup') loadPopupSettings();
+  if (tabName === 'newsletter') nlLoad();
   if (tabName === 'team') loadTeam();
   if (tabName === 'auftraege') ensureOrdersFrame();
 }

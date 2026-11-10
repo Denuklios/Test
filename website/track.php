@@ -75,4 +75,13 @@ wf_check_push_notification($mysqli, max(1, $online));
 // Zahlen nicht mehr öffentlich ausgeben – sie stehen nur noch im Admin-Bereich
 echo json_encode(['ok' => true]);
 
+// ─── Newsletter: fällige Mails in kleinen Paketen verschicken (nach der Antwort an den Browser) ──
+if (function_exists('fastcgi_finish_request')) fastcgi_finish_request();
+try {
+    require_once __DIR__ . '/newsletter_lib.php';
+    wf_nl_tick($mysqli);
+} catch (Throwable $e) {
+    error_log('newsletter tick: ' . $e->getMessage());
+}
+
 $mysqli->close();

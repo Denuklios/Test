@@ -246,6 +246,8 @@ function wf_ensure_tables($mysqli) {
     ");
     // Rechtstexte: neues Impressum und neue Datenschutzerklärung (Stand Oktober 2026) einmalig übernehmen
     wf_legal_update_2026($mysqli);
+    require_once __DIR__ . '/newsletter_lib.php';
+    wf_nl_legal($mysqli);
 
     // Rechtstexte: Ortsteil Vilsbæk in der Adresse ergänzen (einmalig, danach findet die Abfrage nichts mehr)
     if ($mysqli->query("SHOW TABLES LIKE 'legal_texts'")->num_rows) {
@@ -333,6 +335,7 @@ function wf_admin_areas() {
         'legal'        => 'Rechtstexte',
         'popup'        => 'Popup',
         'spiele'       => 'Spiele & Gutscheine',
+        'newsletter'   => 'Newsletter',
     ];
 }
 
@@ -557,6 +560,8 @@ function wf_privacy_cleanup($mysqli) {
         }
     }
     $mysqli->query("DELETE FROM inquiries WHERE created_at < (NOW() - INTERVAL 12 MONTH)");
+    require_once __DIR__ . '/newsletter_lib.php';
+    wf_nl_cleanup($mysqli);
     foreach (['game_draws', 'game_vouchers'] as $t) {
         if ($mysqli->query("SHOW TABLES LIKE '$t'")->num_rows) {
             $mysqli->query("UPDATE $t SET ip = NULL WHERE ip IS NOT NULL AND created_at < (NOW() - INTERVAL 30 DAY)");
