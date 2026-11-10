@@ -17,3 +17,9 @@ Jede `*.json`-Datei hier wird automatisch als Newsletter in den Admin-Bereich ü
 Gestaltung im Text: Leerzeile = Absatz, `## Überschrift`, `**fett**`, `- Liste`,
 `[Text](https://…)`, Knopf `[[Text | https://…]]`, Bild `![](https://…)`, `{name}`.
 Der Ordner ist von außen gesperrt (.htaccess).
+
+Testmail auslösen (einmalig je `test_key`, immer an hej@wunsch-fabrik.dk, aktueller Stand aus dem Admin):
+
+```json
+{ "test_key": "weihnachten-1", "newsletter": "2026-11-weihnachten-entwurf" }
+```

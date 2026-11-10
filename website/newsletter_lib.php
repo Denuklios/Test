@@ -327,6 +327,28 @@ function wf_nl_drop_customer_rows($mysqli) {
     $mysqli->query("DELETE FROM newsletter_subscribers WHERE status = 'customer'");
 }
 
+/** Testmail eines Newsletters (aktueller Stand aus dem Admin) einmalig an die eigene Adresse – ausgelöst über eine Plan-Datei. */
+function wf_nl_plan_test($mysqli, $testKey, $planKey) {
+    $mysqli->query("CREATE TABLE IF NOT EXISTS wf_meta (k VARCHAR(64) PRIMARY KEY, v VARCHAR(255) NOT NULL) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $k = 'nltest_' . mb_substr(preg_replace('/[^a-z0-9._-]/i', '', $testKey), 0, 50);
+    $r = $mysqli->query("SELECT v FROM wf_meta WHERE k = '" . $mysqli->real_escape_string($k) . "'");
+    if (!$r || $r->num_rows) return;
+    $st = $mysqli->prepare("SELECT * FROM newsletters WHERE plan_key = ?");
+    $st->bind_param('s', $planKey);
+    $st->execute();
+    $nl = $st->get_result()->fetch_assoc();
+    $st->close();
+    if (!$nl) return;   // Entwurf noch nicht übernommen – nächster Durchgang
+    $sent = [];
+    foreach (WF_NL_LANGS as $l) {
+        if ($l !== 'de' && (trim((string)$nl['subject_' . $l]) === '' || trim((string)$nl['body_' . $l]) === '')) continue;
+        $m = wf_nl_render($nl, $l, ['name' => 'Robert', 'token' => str_repeat('0', 32)]);
+        if (wf_nl_send_mail(WF_NL_FROM, '[TEST ' . strtoupper($l) . '] ' . $m['subject'], $m['html'], $m['text'])) $sent[] = strtoupper($l);
+    }
+    $v = $mysqli->real_escape_string(date('Y-m-d H:i:s') . ' ' . implode(',', $sent));
+    $mysqli->query("INSERT IGNORE INTO wf_meta (k, v) VALUES ('" . $mysqli->real_escape_string($k) . "', '$v')");
+}
+
 /** Entwürfe aus newsletter-plan/*.json übernehmen (von Claude vorbereitet). Liefert Anzahl neuer. */
 function wf_nl_import_plans($mysqli) {
     $dir = __DIR__ . '/newsletter-plan';
@@ -334,6 +356,11 @@ function wf_nl_import_plans($mysqli) {
     $n = 0;
     foreach (glob($dir . '/*.json') ?: [] as $f) {
         $j = json_decode((string)file_get_contents($f), true);
+        // Test-Anweisung: {"test_key": "<eindeutig>", "newsletter": "<plan_key>"} → einmalig Testmail (alle Sprachen) an hej@
+        if (is_array($j) && !empty($j['test_key']) && !empty($j['newsletter'])) {
+            wf_nl_plan_test($mysqli, (string)$j['test_key'], (string)$j['newsletter']);
+            continue;
+        }
         $key = mb_substr(preg_replace('/[^a-z0-9._-]/i', '', (string)($j['key'] ?? basename($f, '.json'))), 0, 100);
         if (!is_array($j) || $key === '' || empty($j['subject']['de']) || empty($j['body']['de'])) continue;
         $st = $mysqli->prepare("SELECT 1 FROM newsletters WHERE plan_key = ?");
