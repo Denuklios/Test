@@ -123,6 +123,32 @@ function wf_nl_t($lang, $key) {
     return $T[wf_nl_lang($lang)][$key] ?? $T['de'][$key] ?? '';
 }
 
+/** Newsletter-Sprache eines Kunden der Auftrags-App: eingestellte Belegsprache, sonst nach Land. */
+function wf_nl_cust_lang($country, $docLang = '') {
+    if (in_array($docLang, WF_NL_LANGS, true)) return $docLang;
+    $cc = strtoupper((string)$country);
+    return $cc === 'DK' ? 'da' : (in_array($cc, ['DE', 'AT', 'CH', 'LI', 'LU'], true) ? 'de' : 'en');
+}
+
+/** Sprache laut Kundendaten der Auftrags-App für diese Mailadressen (E-Mail → Sprache). */
+function wf_nl_customer_langs(array $emails) {
+    $emails = array_values(array_unique(array_filter(array_map(fn($e) => mb_strtolower(trim((string)$e)), $emails))));
+    if (!$emails || !function_exists('wf_orders_app_pdo')) return [];
+    $pdo = wf_orders_app_pdo();
+    if (!$pdo) return [];
+    $out = [];
+    try {
+        foreach (array_chunk($emails, 200) as $chunk) {
+            $st = $pdo->prepare('SELECT lower(trim(email)) AS e, country, doc_lang FROM customers WHERE anonymized_at IS NULL AND lower(trim(email)) IN (' . implode(',', array_fill(0, count($chunk), '?')) . ') ORDER BY id');
+            $st->execute($chunk);
+            foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) $out[$r['e']] = wf_nl_cust_lang($r['country'] ?? '', $r['doc_lang'] ?? '');
+        }
+    } catch (Throwable $e) {
+        return [];
+    }
+    return $out;
+}
+
 /** Einwilligungstext, der beim Abonnenten gespeichert wird (Nachweis). */
 function wf_nl_consent_text($lang) {
     return [
@@ -344,7 +370,10 @@ function wf_nl_tick($mysqli, $max = WF_NL_BATCH) {
             $subs = $mysqli->query("SELECT s.* FROM newsletter_subscribers s LEFT JOIN newsletter_log l ON l.subscriber_id = s.id AND l.newsletter_id = $id
                 WHERE s.status = 'active' AND l.subscriber_id IS NULL ORDER BY s.id LIMIT " . (int)$max)->fetch_all(MYSQLI_ASSOC);
             $log = $mysqli->prepare("INSERT IGNORE INTO newsletter_log (newsletter_id, subscriber_id, sent_at, ok) VALUES (?, ?, ?, ?)");
+            // Ist der Abonnent auch Kunde in der Auftrags-App, gilt dessen Sprache (Belegsprache bzw. Land)
+            $custLang = wf_nl_customer_langs(array_column($subs, 'email'));
             foreach ($subs as $s) {
+                $s['lang'] = $custLang[mb_strtolower(trim($s['email']))] ?? $s['lang'];
                 $m = wf_nl_render($nl, $s['lang'], $s);
                 $ok = wf_nl_send_mail($s['email'], $m['subject'], $m['html'], $m['text'], $m['unsub']) ? 1 : 0;
                 $now = date('Y-m-d H:i:s');

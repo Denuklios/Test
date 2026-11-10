@@ -3230,7 +3230,7 @@ function nlLoad() {
       if (n.status !== 'sending') b('🗑', () => { if (confirm('Newsletter „' + (n.title || n.subject_de) + '“ löschen?')) nlPost('nl_delete', { id: n.id }).then(r => { toast(r.ok ? 'Gelöscht' : r.error); nlLoad(); }); }, 'danger');
       list.appendChild(el);
     });
-    document.getElementById('nlSubs').innerHTML = d.subscribers.map(s => `<tr><td>${escapeHtml(s.email)}</td><td>${escapeHtml(s.name || '')}</td><td>${s.lang.toUpperCase()}</td>
+    document.getElementById('nlSubs').innerHTML = d.subscribers.map(s => `<tr><td>${escapeHtml(s.email)}</td><td>${escapeHtml(s.name || '')}</td><td>${(s.cust_lang || s.lang).toUpperCase()}${s.cust_lang ? ' <span title="Sprache laut Kunde in der Auftrags-App (Land bzw. Belegsprache)">🧾</span>' : ''}</td>
       <td>${s.status === 'active' ? '✅ bestätigt' : s.status === 'pending' ? '⏳ unbestätigt' : '🚫 abgemeldet'}</td><td>${nlDate(s.confirmed_at || s.created_at).slice(0, 10)}</td>
       <td><button class="btn-mini danger" onclick="nlDelSub(${s.id}, '${escapeHtml(s.email).replace(/'/g, '')}')">🗑</button></td></tr>`).join('')
       || '<tr><td colspan="6" style="color:var(--text-dim)">Noch keine Abonnenten.</td></tr>';

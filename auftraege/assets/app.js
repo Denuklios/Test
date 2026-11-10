@@ -344,6 +344,25 @@ route(/^\/$/, async () => {
 });
 
 // Hinweisfenster: neue Website-Anfragen wurden als Aufträge übernommen (schließt nur per Knopf)
+// Newsletter beim Kunden: Status und Einladung (Bestätigungsmail in der Sprache laut Land/Belegsprache)
+function newsletterCard(c) {
+  const box = h('div', { class: 'row', style: 'gap:10px;flex-wrap:wrap;align-items:center' }, h('span', { class: 'muted' }, '…'));
+  const card = h('div', { class: 'card' }, h('h3', { style: 'margin:0 0 8px' }, '📰 ' + t('nl_h')), box);
+  const draw = (r) => {
+    if (!r.available) { card.remove(); return; }
+    const st = { active: t('nl_st_active'), pending: t('nl_st_pending'), unsubscribed: t('nl_st_unsub') }[r.status] || t('nl_st_none');
+    const lang = t('lang_' + r.lang);
+    box.replaceChildren(h('span', {}, st), h('span', { class: 'muted' }, ' · ' + t('nl_lang', lang)),
+      r.status !== 'active' && r.has_email ? h('button', { class: 'btn small', onclick: async () => {
+        if (!confirm(t('nl_invite_q', c.email, lang))) return;
+        try { draw(await api('customer_newsletter', { body: { id: c.id } })); toast(t('nl_invited')); } catch (e) { toast(e.message); }
+      } }, r.status === 'pending' ? t('nl_resend') : t('nl_invite')) : '',
+      !r.has_email ? h('span', { class: 'muted' }, t('nl_no_email')) : '');
+  };
+  api('customer_newsletter', { params: { id: c.id } }).then(draw).catch(() => card.remove());
+  return card;
+}
+
 function inqImportedPopup(list) {
   if (document.getElementById('inqPop')) return;
   const close = () => m.remove();
@@ -1747,6 +1766,7 @@ route(/^\/customer\/(new|\d+)$/, async (id) => {
       } }, t('save')))),
     !isNew && c.invoices && c.invoices.length ? h('div', { class: 'card' }, h('h3', {}, t('nav_invoices')), h('div', { class: 'tscroll' }, h('table', { class: 't' }, c.invoices.map((i) => h('tr', {},
       h('td', {}, h('a', { href: `#/invoice/${i.id}` }, invLabel(i))), h('td', {}, dfmt(i.issue_date)), h('td', { class: 'n' }, (i.type === 'credit' ? '− ' : '') + cents(i.total, i.currency))))))) : null,
+    !isNew && newsletterCard(c),
     !isNew && typeof mailCard === 'function' && mailCard({ customer_id: c.id }),
     !isNew && h('div', { class: 'card' }, h('h3', {}, t('history')), c.orders.length ? h('div', { class: 'tscroll' }, h('table', { class: 't' }, c.orders.map((o) => h('tr', {}, h('td', {}, h('a', { href: `#/order/${o.id}` }, o.nr)), h('td', {}, o.title), h('td', {}, dfmt(o.due_date)), h('td', {}, statusPill(o.status)), h('td', {}, payPill(o.pay_status)), h('td', {}, money(o.price, o.currency)))))) : h('p', { class: 'muted' }, t('no_orders'))),
     !isNew && h('div', { class: 'card' }, h('h3', {}, t('privacy')), h('p', { class: 'muted' }, t('privacy_text')),

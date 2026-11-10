@@ -831,6 +831,9 @@ if (strncmp($action, 'nl_', 3) === 0) {
         foreach ($mysqli->query("SELECT status, COUNT(*) c FROM newsletter_subscribers GROUP BY status")->fetch_all(MYSQLI_ASSOC) as $r) $cnt[$r['status']] = (int)$r['c'];
         $langs = $mysqli->query("SELECT lang, COUNT(*) c FROM newsletter_subscribers WHERE status = 'active' GROUP BY lang")->fetch_all(MYSQLI_ASSOC);
         $subs = $mysqli->query("SELECT id, email, name, lang, status, source, created_at, confirmed_at FROM newsletter_subscribers ORDER BY created_at DESC LIMIT 500")->fetch_all(MYSQLI_ASSOC);
+        $cl = wf_nl_customer_langs(array_column($subs, 'email'));
+        foreach ($subs as &$su) { $su['cust_lang'] = $cl[mb_strtolower(trim($su['email']))] ?? null; }
+        unset($su);
         $nls = $mysqli->query("SELECT id, title, subject_de, status, send_at, created_by, created_at, updated_at, sent_at, sent_count, fail_count,
             (body_da IS NOT NULL AND body_da <> '') AS has_da, (body_en IS NOT NULL AND body_en <> '') AS has_en FROM newsletters ORDER BY COALESCE(send_at, created_at) DESC LIMIT 100")->fetch_all(MYSQLI_ASSOC);
         echo json_encode(['ok' => true, 'counts' => $cnt, 'langs' => $langs, 'subscribers' => $subs, 'newsletters' => $nls, 'now' => date('Y-m-d H:i:s')]);

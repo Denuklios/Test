@@ -1574,6 +1574,43 @@ try {
         }
 
         // eine Anfrage von der Webseite (zum Öffnen aus der Benachrichtigung)
+        // Newsletter beim Kunden: Status (GET) bzw. Einladung mit Bestätigungsmail in seiner Sprache (POST)
+        case 'customer_newsletter': {
+            $st = $db->prepare('SELECT id, name, email, country, doc_lang FROM customers WHERE id = ? AND anonymized_at IS NULL');
+            $st->execute([(int)($_GET['id'] ?? $in['id'] ?? 0)]);
+            $c = $st->fetch();
+            if (!$c) {
+                wf_fail('not_found', 404);
+            }
+            $site = wf_events_site_db();
+            $lib = dirname((string)(getenv('WF_SITE_DB_CONFIG') ?: dirname(__DIR__) . '/db_config.php')) . '/newsletter_lib.php';
+            if (!$site || !is_file($lib)) {
+                wf_json(['ok' => true, 'available' => false]);
+            }
+            require_once $lib;
+            $lang = wf_nl_cust_lang($c['country'], $c['doc_lang']);
+            $email = mb_strtolower(trim((string)$c['email']));
+            if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+                $m = new mysqli(DB_HOST, DB_USER, DB_PASS, DB_NAME);
+                $m->set_charset('utf8mb4');
+                $r = wf_nl_subscribe($m, $email, (string)$c['name'], $lang, 'auftraege');
+                if (!$r['ok']) {
+                    wf_fail('bad_email');
+                }
+            }
+            $status = null;
+            if ($email !== '') {
+                try {
+                    $q = $site->prepare('SELECT status FROM newsletter_subscribers WHERE email = ?');
+                    $q->execute([$email]);
+                    $status = $q->fetchColumn() ?: null;
+                } catch (Throwable $e) {
+                    $status = null;   // Tabelle gibt es erst nach dem ersten Aufruf der Webseite
+                }
+            }
+            wf_json(['ok' => true, 'available' => true, 'status' => $status, 'lang' => $lang, 'has_email' => $email !== '']);
+        }
+
         case 'app_inquiry': {
             $site = wf_events_site_db();
             if (!$site) {
