@@ -13,6 +13,10 @@ import app.mailwerk.data.OutboxStatus
 import app.mailwerk.data.Repository
 import app.mailwerk.data.ThreadSummary
 import app.mailwerk.sync.Scheduler
+import app.mailwerk.sync.Updater
+import app.mailwerk.sync.PushService
+import app.mailwerk.data.PresetAccounts
+import app.mailwerk.BuildConfig
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.FlowPreview
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -124,6 +128,36 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         return grouped.sortedWith(compareByDescending<ThreadSummary> { it.pinned }.thenByDescending { it.latest.date })
     }
 
+    // ------------------------------------------------------------ Vorbereitete Konten & Updates
+    val pendingPresets: StateFlow<List<PresetAccounts.Preset>> =
+        accounts.map { PresetAccounts.pending(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+    val hiddenBanners = MutableStateFlow(setOf<String>())
+    val update = MutableStateFlow<Updater.Info?>(null)
+    /** null = kein Download; 0..1 = Fortschritt */
+    val updateProgress = MutableStateFlow<Float?>(null)
+
+    fun checkUpdate(manual: Boolean) = viewModelScope.launch {
+        if (!manual && (!prefs.autoUpdateCheck || System.currentTimeMillis() - prefs.lastUpdateCheck < 3 * 3_600_000L)) return@launch
+        runCatching { Updater.check(getApplication()) }
+            .onSuccess { info -> update.value = info; if (manual && info == null) snack("Du hast die neueste Version (${BuildConfig.VERSION_NAME}) ✓") }
+            .onFailure { if (manual) snack("Update-Prüfung fehlgeschlagen: ${it.message}") }
+    }
+
+    fun installUpdate() {
+        val info = update.value ?: return
+        if (updateProgress.value != null) return
+        viewModelScope.launch {
+            updateProgress.value = 0f
+            runCatching { Updater.download(getApplication(), info) { updateProgress.value = it } }
+                .onSuccess { f ->
+                    if (!Updater.install(getApplication(), f))
+                        snack("Bitte „Apps aus dieser Quelle zulassen“ einschalten und danach erneut auf Aktualisieren tippen")
+                }
+                .onFailure { snack("Update fehlgeschlagen: ${it.message}") }
+            updateProgress.value = null
+        }
+    }
+
     init {
         if (db.accounts().isEmpty()) _stack.value = listOf(Screen.Inbox, Screen.AccountSetup())
         else refresh()
@@ -140,6 +174,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             syncing.value = true
             val errors = repo.sync(extraFolder)
             syncing.value = false
+            PushService.ensure(getApplication())
             errors.firstOrNull()?.let { snack(it) }
         }
     }

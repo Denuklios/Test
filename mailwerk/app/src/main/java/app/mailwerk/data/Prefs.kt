@@ -40,6 +40,26 @@ class Prefs(ctx: Context) {
     var dynamicColor: Boolean
         get() = p.getBoolean("dynamic_color", false)
         set(v) = p.edit().putBoolean("dynamic_color", v).apply()
+    /** Sofort-Benachrichtigung per IMAP IDLE (Hintergrunddienst). */
+    var pushEnabled: Boolean
+        get() = p.getBoolean("push", true)
+        set(v) = p.edit().putBoolean("push", v).apply()
+    var askedBattery: Boolean
+        get() = p.getBoolean("asked_battery", false)
+        set(v) = p.edit().putBoolean("asked_battery", v).apply()
+    var autoUpdateCheck: Boolean
+        get() = p.getBoolean("auto_update", true)
+        set(v) = p.edit().putBoolean("auto_update", v).apply()
+    var lastUpdateCheck: Long
+        get() = p.getLong("last_update_check", 0)
+        set(v) = p.edit().putLong("last_update_check", v).apply()
+    var notifiedUpdate: Int
+        get() = p.getInt("notified_update", 0)
+        set(v) = p.edit().putInt("notified_update", v).apply()
+    /** Zwischenspeicher der vorbereiteten Konten, damit sie auch nach Updates ohne Vorbelegung erhalten bleiben. */
+    var presetCache: String
+        get() = p.getString("preset_cache", "")!!
+        set(v) = p.edit().putString("preset_cache", v).apply()
     var initialSyncDays: Int
         get() = p.getInt("sync_days", 60)
         set(v) = p.edit().putInt("sync_days", v).apply()

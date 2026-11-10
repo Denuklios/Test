@@ -137,6 +137,11 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
                 if (existing == null && pending.isNotEmpty()) {
                     Text("Deine Konten sind vorbereitet – nur noch das Passwort eingeben:", style = MaterialTheme.typography.titleSmall)
                     pending.forEach { p -> PresetCard(vm, p) }
+                    TextButton(onClick = { vm.pop() }, modifier = Modifier.fillMaxWidth()) {
+                        Text(if (accountsNow.isEmpty()) "Später einrichten" else "Rest später einrichten – zum Posteingang")
+                    }
+                    Text("Du kannst das Passwort jederzeit nachtragen: im Posteingang über den Hinweis oder unter Einstellungen → Konten.",
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
                     Text("Weiteres Konto hinzufügen", style = MaterialTheme.typography.titleSmall)
                 }

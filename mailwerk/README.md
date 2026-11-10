@@ -9,9 +9,9 @@ Sie läuft **komplett auf dem Gerät**: keine Cloud, kein Konto beim App-Herstel
 |---|---|---|---|
 | ![](screenshots/1_posteingang_wichtig.png) | ![](screenshots/4_unterhaltung.png) | ![](screenshots/5_antworten.png) | ![](screenshots/7_einstellungen.png) |
 
-| Dunkelmodus | | Einrichtung | Newsletter-Tab |
+| Dunkelmodus | | Hinweise (Update, Konto) | Newsletter-Tab |
 |---|---|---|---|
-| ![](screenshots/8_dunkel_posteingang.png) | ![](screenshots/9_dunkel_unterhaltung.png) | ![](screenshots/0_konto_einrichten.png) | ![](screenshots/2_newsletter.png) |
+| ![](screenshots/8_dunkel_posteingang.png) | ![](screenshots/9_dunkel_unterhaltung.png) | ![](screenshots/10_hinweise.png) | ![](screenshots/2_newsletter.png) |
 
 Design: eigene Farbwelt (Indigo/Violett-Verlauf), Schrift *Plus Jakarta Sans* (SIL OFL, siehe `licenses/`),
 Karten-Layout mit Datumsgruppen, farbige Kategorie-Tabs, heller und dunkler Modus. Optional „Farben vom Hintergrundbild“ (Material You).
@@ -41,6 +41,21 @@ Karten-Layout mit Datumsgruppen, farbige Kategorie-Tabs, heller und dunkler Modu
 | Als Standard-Mail-App, Teilen aus anderen Apps | – | ✅ `mailto:`-Links und „Teilen“ mit Anhängen |
 | Passwörter im Hardware-Schlüsselspeicher | FairEmail | ✅ Android-Keystore (AES-GCM) |
 | JavaScript in Mails | – | ❌ grundsätzlich aus (Sicherheit) |
+
+## Push, Updates, Konten später einrichten
+
+- **Sofort-Benachrichtigung (Push):** Mailwerk hält per IMAP IDLE eine Verbindung zum Posteingang jedes Kontos offen –
+  der Server meldet neue Mails sofort (im Test nach wenigen Millisekunden). Ohne Google-Server, ohne Cloud.
+  Android verlangt dafür eine dauerhafte, unauffällige Benachrichtigung („Sofort-Benachrichtigung aktiv“), die man in den
+  Android-Einstellungen ausblenden kann. Für zuverlässiges Push im Standby die Akku-Optimierung für Mailwerk ausschalten
+  (die App fragt einmal danach). Unterstützt ein Server kein IDLE, wird jede Minute nachgesehen.
+  Abschaltbar unter Einstellungen → Abgleich & Benachrichtigungen.
+- **Updates:** Die App prüft `update.json` in diesem Ordner und bietet neue Versionen im Posteingang an
+  („Aktualisieren“ → laden → installieren). Android installiert nur APKs mit demselben Signaturschlüssel.
+  Neue Version veröffentlichen: `versionCode`/`versionName` in `app/build.gradle.kts` erhöhen, bauen,
+  `Mailwerk.apk` ersetzen und `update.json` anpassen.
+- **Konten später einrichten:** Vorbereitete Konten lassen sich überspringen. Ein Hinweis im Posteingang und ein Eintrag
+  unter Einstellungen → Konten erinnern daran, bis das Passwort eingegeben ist.
 
 ## Installation
 
@@ -89,5 +104,4 @@ installieren lassen). Für eine Veröffentlichung im Play Store einen eigenen, g
 
 ## Noch nicht enthalten (mögliche nächste Schritte)
 - OAuth-Anmeldung für Gmail/Microsoft (braucht registrierte Client-IDs bei Google/Microsoft)
-- Push über IMAP IDLE (derzeit Abruf alle 15 Minuten + beim Öffnen + Ziehen zum Aktualisieren)
 - Kalender, Exchange/ActiveSync, PGP/S-MIME-Verschlüsselung, Rich-Text-Editor, App-Sperre per Fingerabdruck

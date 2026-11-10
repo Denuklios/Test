@@ -79,6 +79,10 @@ fun SettingsScreen(vm: MainViewModel) {
                     ListItem(headlineContent = { Text(a.email) }, supportingContent = { Text("${a.imapHost} · Signatur & Server bearbeiten") },
                         leadingContent = { Avatar(a.name, a.email) }, modifier = Modifier.clickable { vm.push(Screen.AccountSetup(a.id)) })
                 }
+                vm.pendingPresets.collectAsState().value.forEach { pr ->
+                    ListItem(headlineContent = { Text(pr.email) }, supportingContent = { Text("Passwort fehlt noch – tippen zum Verbinden", color = MaterialTheme.colorScheme.tertiary) },
+                        leadingContent = { Avatar(pr.name, pr.email) }, modifier = Modifier.clickable { vm.push(Screen.AccountSetup()) })
+                }
                 ListItem(headlineContent = { Text("Konto hinzufügen") }, leadingContent = { Icon(Icons.Outlined.Add, null) },
                     modifier = Modifier.clickable { vm.push(Screen.AccountSetup()) })
 
@@ -99,6 +103,14 @@ fun SettingsScreen(vm: MainViewModel) {
                 ListItem(headlineContent = { Text("Vorlagen (Schnellantworten)") }, modifier = Modifier.clickable { vm.push(Screen.Templates) })
 
                 SectionTitle("Abgleich & Benachrichtigungen")
+                Toggle("Sofort-Benachrichtigung (Push)", "Neue Mails erscheinen in Sekunden (IMAP IDLE). Braucht etwas mehr Akku als der Abruf alle 15 Minuten.", p.pushEnabled) {
+                    p.pushEnabled = it; if (it) app.mailwerk.sync.PushService.ensure(ctx) else app.mailwerk.sync.PushService.stop(ctx); changed()
+                }
+                val pm = ctx.getSystemService(android.os.PowerManager::class.java)
+                if (p.pushEnabled && !pm.isIgnoringBatteryOptimizations(ctx.packageName)) ListItem(
+                    headlineContent = { Text("Akku-Optimierung ausschalten") },
+                    supportingContent = { Text("Empfohlen, damit Android die Push-Verbindung nicht im Standby trennt.", color = MaterialTheme.colorScheme.tertiary) },
+                    modifier = Modifier.clickable { requestBatteryExemption(ctx) })
                 Choice("Neue Mails abrufen", listOf(15, 30, 60, 180, 0), p.syncMinutes, { if (it == 0) "Nur manuell" else if (it < 60) "alle $it Min." else "alle ${it / 60} Std." }) {
                     p.syncMinutes = it; Scheduler.schedulePeriodic(ctx, it); changed()
                 }
@@ -121,12 +133,33 @@ fun SettingsScreen(vm: MainViewModel) {
                         })
                     }
                 }
+                SectionTitle("App")
+                val upd by vm.update.collectAsState()
+                val prog by vm.updateProgress.collectAsState()
+                ListItem(headlineContent = { Text("Version ${app.mailwerk.BuildConfig.VERSION_NAME}") },
+                    supportingContent = { Text(when {
+                        prog != null -> "Update wird geladen … ${((prog ?: 0f) * 100).toInt()} %"
+                        upd != null -> "Version ${upd!!.versionName} verfügbar – tippen zum Installieren"
+                        else -> "Tippen, um nach Updates zu suchen"
+                    }) },
+                    modifier = Modifier.clickable { if (upd != null) vm.installUpdate() else vm.checkUpdate(manual = true) })
+                Toggle("Automatisch nach Updates suchen", null, p.autoUpdateCheck) { p.autoUpdateCheck = it; changed() }
                 HorizontalDivider(Modifier.padding(top = 16.dp))
                 Text("Mailwerk 1.0 · Alle Daten bleiben auf deinem Gerät und bei deinem Mail-Anbieter. Keine Cloud, keine Werbung, kein Tracking.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
                 Spacer(Modifier.height(40.dp))
             }
         }
+    }
+}
+
+@android.annotation.SuppressLint("BatteryLife")
+fun requestBatteryExemption(ctx: android.content.Context) {
+    runCatching {
+        ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
+            android.net.Uri.parse("package:${ctx.packageName}")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))
+    }.onFailure {
+        runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
     }
 }
 

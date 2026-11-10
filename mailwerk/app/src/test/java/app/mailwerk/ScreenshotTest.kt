@@ -35,7 +35,10 @@ class ScreenshotTest {
 
     companion object {
         fun seed() {
-            val db = Db.get(ApplicationProvider.getApplicationContext())
+            val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
+            app.mailwerk.data.Prefs(ctx).presetCache = "Max Muster|max@beispiel-domain.de"
+            app.mailwerk.data.PresetAccounts.load(ctx)
+            val db = Db.get(ctx)
             if (db.accounts().isNotEmpty()) return
             val a = db.saveAccount(Account(0, "Robert", "robert@beispiel.de", "imap.beispiel.de", 993, Security.SSL, "smtp.beispiel.de", 465, Security.SSL, "x", "x", color = 0xFF1E88E5.toInt()))
             val inbox = db.upsertFolder(a, "INBOX", "Posteingang", FolderRole.INBOX)
@@ -90,6 +93,12 @@ class ScreenshotTest {
         rule.waitForIdle()
         sc.onActivity { it.onBackPressedDispatcher.onBackPressed() }
         rule.waitForIdle()
+        sc.onActivity { a ->
+            androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java].update.value =
+                app.mailwerk.sync.Updater.Info(99, "1.4", "Neue Funktionen und Verbesserungen", "")
+        }
+        shot("10_hinweise")
+        sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java].update.value = null }
         rule.onAllNodesWithText("Schreiben", useUnmergedTree = true).onFirst().performClick()
         shot("6_neue_mail")
     }

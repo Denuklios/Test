@@ -69,7 +69,19 @@ class MainActivity : ComponentActivity() {
 
     override fun onNewIntent(intent: Intent) { super.onNewIntent(intent); handleIntent(intent) }
 
-    override fun onResume() { super.onResume(); if (vm.accounts.value.isNotEmpty()) vm.refresh() }
+    override fun onResume() {
+        super.onResume()
+        if (vm.db.accounts().isNotEmpty()) {
+            vm.refresh()
+            app.mailwerk.sync.PushService.ensure(this)
+            val pm = getSystemService(android.os.PowerManager::class.java)
+            if (vm.prefs.pushEnabled && !vm.prefs.askedBattery && !pm.isIgnoringBatteryOptimizations(packageName)) {
+                vm.prefs.askedBattery = true
+                requestBatteryExemption(this)
+            }
+        }
+        vm.checkUpdate(manual = false)
+    }
 
     private fun handleIntent(i: Intent?) {
         i ?: return

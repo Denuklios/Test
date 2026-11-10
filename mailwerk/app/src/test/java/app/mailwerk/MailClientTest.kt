@@ -112,6 +112,26 @@ class MailClientTest {
         assertEquals(1, sent.newMessages.size); assertEquals("notiz.txt", sent.newMessages[0].attachments[0].name)
     }
 
+    @Test fun idlePushReportsNewMailImmediately() {
+        val latch = java.util.concurrent.CountDownLatch(2) // 1x nach Verbindung, 1x für die neue Mail
+        val states = java.util.Collections.synchronizedList(mutableListOf<String>())
+        val w = app.mailwerk.mail.IdleWatcher(acc, "geheim", onNewMail = { latch.countDown() }, onState = { states += it })
+        w.start()
+        try {
+            val deadline = System.currentTimeMillis() + 10_000
+            while (states.none { it.startsWith("verbunden") } && System.currentTimeMillis() < deadline) Thread.sleep(50)
+            assertTrue("Status: $states", states.any { it == "verbunden (Push)" })
+            Thread.sleep(500) // IDLE ist aktiv
+            val t0 = System.currentTimeMillis()
+            deliver("anna@test.de", "Push-Test", null, "sofort da?")
+            assertTrue("Neue Mail wurde nicht gemeldet", latch.await(10, java.util.concurrent.TimeUnit.SECONDS))
+            println("Push-Latenz: ${System.currentTimeMillis() - t0} ms")
+            // Keepalive bricht IDLE ab und startet neu – Verbindung bleibt bestehen
+            w.poke(); Thread.sleep(300)
+            assertTrue(states.none { it.startsWith("getrennt") })
+        } finally { w.stop() }
+    }
+
     @Test fun wrongPasswordGivesFriendlyError() {
         val e = runCatching { MailClient(acc, "falsch").test() }.exceptionOrNull()
         assertTrue(e!!.message!!.contains("Anmeldung fehlgeschlagen"))

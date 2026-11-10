@@ -68,6 +68,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.material.icons.outlined.DoneAll
+import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.foundation.clickable
 @OptIn(ExperimentalMaterial3Api::class)
@@ -85,6 +87,7 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
     var actionsFor by remember { mutableStateOf<Message?>(null) }
     var snoozeFor by remember { mutableStateOf<Message?>(null) }
     val listState = rememberLazyListState()
+    LaunchedEffect(category, mailbox) { listState.scrollToItem(0) }
     val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 40 } }
 
     ModalNavigationDrawer(drawerState = drawer, drawerContent = {
@@ -99,6 +102,7 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
                 Header(vm, mailbox, accounts.firstOrNull()?.name, onMenu = { scope.launch { drawer.open() } })
                 SearchPill(query) { vm.query.value = it }
                 if (vm.showsCategories && query.isBlank()) CategoryTabs(category, counts) { vm.category.value = it }
+                Banners(vm)
                 PullToRefreshBox(isRefreshing = syncing, onRefresh = { vm.refresh() }, modifier = Modifier.fillMaxSize()) {
                     if (threads.isEmpty()) EmptyState(mailbox, category, query)
                     else LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 110.dp)) {
@@ -125,6 +129,46 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
 
     actionsFor?.let { m -> QuickActionsSheet(vm, m, onDismiss = { actionsFor = null }, onSnooze = { actionsFor = null; snoozeFor = m }) }
     snoozeFor?.let { m -> TimeChooser("Zurückstellen bis …", { snoozeFor = null }) { t -> vm.snooze(m, t); snoozeFor = null } }
+}
+
+@Composable
+private fun Banners(vm: MainViewModel) {
+    val pending by vm.pendingPresets.collectAsState()
+    val hidden by vm.hiddenBanners.collectAsState()
+    val upd by vm.update.collectAsState()
+    val progress by vm.updateProgress.collectAsState()
+    upd?.let { u ->
+        Banner(Icons.Outlined.SystemUpdate, "Mailwerk ${u.versionName} ist da",
+            if (progress != null) "Wird geladen … ${((progress ?: 0f) * 100).toInt()} %" else u.notes.ifBlank { "Neue Funktionen und Verbesserungen" },
+            if (progress != null) null else "Aktualisieren", gradient = true, onAction = { vm.installUpdate() }, onClose = null)
+    }
+    pending.filter { it.email !in hidden }.forEach { p ->
+        Banner(Icons.Outlined.Key, p.email, "Vorbereitet – es fehlt nur noch das Passwort.", "Verbinden",
+            onAction = { vm.push(Screen.AccountSetup()) }, onClose = { vm.hiddenBanners.value = hidden + p.email })
+    }
+}
+
+@Composable
+private fun Banner(icon: ImageVector, title: String, text: String, action: String?, gradient: Boolean = false,
+                   onAction: () -> Unit, onClose: (() -> Unit)?) {
+    val cs = MaterialTheme.colorScheme
+    val fg = if (gradient) Color.White else cs.onSurface
+    Row(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clip(RoundedCornerShape(22.dp))
+        .then(if (gradient) Modifier.background(Brand.gradient) else Modifier.background(cs.tertiaryContainer))
+        .clickable(enabled = action != null, onClick = onAction).padding(start = 16.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.size(38.dp).clip(RoundedCornerShape(12.dp)).background(if (gradient) Color.White.copy(alpha = 0.2f) else cs.tertiary.copy(alpha = 0.15f)),
+            contentAlignment = Alignment.Center) { Icon(icon, null, tint = if (gradient) Color.White else cs.tertiary) }
+        Spacer(Modifier.width(12.dp))
+        Column(Modifier.weight(1f)) {
+            Text(title, style = MaterialTheme.typography.titleSmall, color = fg, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            Text(text, style = MaterialTheme.typography.bodySmall, color = fg.copy(alpha = 0.8f))
+        }
+        if (action != null) Text(action, style = MaterialTheme.typography.labelLarge, color = if (gradient) Color.White else cs.tertiary,
+            modifier = Modifier.padding(horizontal = 8.dp))
+        if (onClose != null) IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, "Später", tint = fg.copy(alpha = 0.6f), modifier = Modifier.size(18.dp)) }
+        else Spacer(Modifier.width(8.dp))
+    }
 }
 
 private fun sectionOf(t: Long): String {

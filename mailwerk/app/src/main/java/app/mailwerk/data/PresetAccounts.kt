@@ -16,7 +16,11 @@ object PresetAccounts {
         private set
 
     fun load(ctx: Context) {
-        list = runCatching { ctx.assets.open("preset_accounts.txt").bufferedReader().readText() }.getOrDefault("").let(::parse)
+        val prefs = Prefs(ctx)
+        val asset = runCatching { ctx.assets.open("preset_accounts.txt").bufferedReader().readText() }.getOrDefault("")
+        // Merken, damit vorbereitete Konten auch nach einem Update (ohne Vorbelegung) noch angeboten werden
+        if (asset.isNotBlank()) prefs.presetCache = asset
+        list = parse(asset.ifBlank { prefs.presetCache })
     }
 
     fun parse(text: String): List<Preset> = text.lines().map { it.trim() }.filter { it.isNotEmpty() && !it.startsWith("#") }

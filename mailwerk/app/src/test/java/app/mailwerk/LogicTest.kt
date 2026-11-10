@@ -68,6 +68,15 @@ class LogicTest {
         assertTrue(h.contains("a &lt;b&gt; &amp;")); assertTrue(h.contains("<a href=\"https://x.de\">"))
     }
 
+    @Test fun updateInfoParsing() {
+        val i = app.mailwerk.sync.Updater.parse("""{"versionCode":7,"versionName":"2.0","notes":"Neu","apk":"Mailwerk.apk"}""")
+        assertEquals(7, i.versionCode); assertEquals("2.0", i.versionName)
+        assertEquals(app.mailwerk.sync.Updater.BASE + "Mailwerk.apk", i.apkUrl)
+        val repo = app.mailwerk.sync.Updater.parse(java.io.File("../update.json").readText())
+        assertEquals(app.mailwerk.BuildConfig.VERSION_CODE, repo.versionCode) // update.json passt zur gebauten Version
+        assertEquals(app.mailwerk.BuildConfig.VERSION_NAME, repo.versionName)
+    }
+
     @Test fun customDomainsViaMx() {
         assertEquals("imap.one.com", AutoConfig.fromMxHost("mx1.mailpod16-cph3.g1i.one.com.")!!.imapHost)
         assertEquals("send.one.com", AutoConfig.fromMxHost("mx2.mailpod15-cph3.g1i.one.com")!!.smtpHost)

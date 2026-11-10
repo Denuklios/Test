@@ -17,6 +17,7 @@ import java.util.concurrent.TimeUnit
 class SyncWorker(ctx: Context, params: WorkerParameters) : CoroutineWorker(ctx, params) {
     override suspend fun doWork(): Result {
         val errors = Repository.get(applicationContext).sync(notify = true)
+        runCatching { Updater.backgroundCheck(applicationContext) }
         return if (errors.isEmpty()) Result.success() else Result.success() // Fehler werden beim nächsten Lauf erneut versucht
     }
 }
