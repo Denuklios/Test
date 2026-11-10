@@ -19,6 +19,8 @@ data class ServerConfig(
 object AutoConfig {
     private const val APP_PW = "Dieser Anbieter verlangt ein App-Passwort (nicht das normale Passwort), wenn die 2-Faktor-Anmeldung aktiv ist."
 
+    val ONE_COM = ServerConfig("imap.one.com", 993, Security.SSL, "send.one.com", 465, Security.SSL)
+
     val presets: Map<String, ServerConfig> = buildMap {
         val gmail = ServerConfig("imap.gmail.com", 993, Security.SSL, "smtp.gmail.com", 465, Security.SSL,
             hint = "Gmail: unter myaccount.google.com → Sicherheit → App-Passwörter ein App-Passwort erstellen und hier eingeben.")
@@ -50,7 +52,37 @@ object AutoConfig {
         put("mail.de", ServerConfig("imap.mail.de", 993, Security.SSL, "smtp.mail.de", 465, Security.SSL))
         put("arcor.de", ServerConfig("imap.arcor.de", 993, Security.SSL, "mail.arcor.de", 465, Security.SSL))
         put("vodafone.de", ServerConfig("imap.vodafonemail.de", 993, Security.SSL, "smtp.vodafonemail.de", 587, Security.STARTTLS))
+        put("one.com", ONE_COM)
     }
+
+
+    /** Anbieter anhand des MX-Eintrags (für eigene Domains). */
+    private val byMx: List<Pair<String, ServerConfig>> = listOf(
+        "one.com" to ONE_COM,
+        "kundenserver.de" to ServerConfig("imap.ionos.de", 993, Security.SSL, "smtp.ionos.de", 465, Security.SSL),
+        "ionos.de" to ServerConfig("imap.ionos.de", 993, Security.SSL, "smtp.ionos.de", 465, Security.SSL),
+        "strato.de" to ServerConfig("imap.strato.de", 993, Security.SSL, "smtp.strato.de", 465, Security.SSL),
+        "rzone.de" to ServerConfig("imap.strato.de", 993, Security.SSL, "smtp.strato.de", 465, Security.SSL),
+        "google.com" to ServerConfig("imap.gmail.com", 993, Security.SSL, "smtp.gmail.com", 465, Security.SSL,
+            hint = "Google Workspace: ein App-Passwort verwenden (2-Faktor-Anmeldung)."),
+        "googlemail.com" to ServerConfig("imap.gmail.com", 993, Security.SSL, "smtp.gmail.com", 465, Security.SSL),
+        "outlook.com" to ServerConfig("outlook.office365.com", 993, Security.SSL, "smtp.office365.com", 587, Security.STARTTLS,
+            hint = "Microsoft 365: Der Administrator muss IMAP/SMTP-Anmeldung erlauben."),
+        "mailbox.org" to ServerConfig("imap.mailbox.org", 993, Security.SSL, "smtp.mailbox.org", 465, Security.SSL),
+        "posteo.de" to ServerConfig("posteo.de", 993, Security.SSL, "posteo.de", 465, Security.SSL),
+        "zoho.eu" to ServerConfig("imap.zoho.eu", 993, Security.SSL, "smtp.zoho.eu", 465, Security.SSL),
+        "simply.com" to ServerConfig("mail.simply.com", 993, Security.SSL, "smtp.simply.com", 587, Security.STARTTLS),
+    )
+
+    fun fromMxHost(mx: String): ServerConfig? {
+        val h = mx.trimEnd('.').lowercase()
+        return byMx.firstOrNull { (suffix, _) -> h == suffix || h.endsWith(".$suffix") }?.second
+    }
+
+    private fun mxHosts(domain: String): List<String> = runCatching {
+        val json = fetch("https://dns.google/resolve?name=$domain&type=MX") ?: return emptyList()
+        Regex("\"data\"\\s*:\\s*\"\\d+\\s+([^\"]+)\"").findAll(json).map { it.groupValues[1] }.toList()
+    }.getOrDefault(emptyList())
 
     /** Netzwerkzugriff – nicht im Hauptthread aufrufen. */
     fun discover(email: String): ServerConfig {
@@ -63,6 +95,12 @@ object AutoConfig {
         )
         for (u in urls) {
             runCatching { fetch(u)?.let { parseIspdb(it, email) } }.getOrNull()?.let { return it }
+        }
+        // Eigene Domain: Anbieter über den MX-Eintrag erkennen (wie Thunderbird)
+        val mx = mxHosts(domain)
+        mx.firstNotNullOfOrNull { fromMxHost(it) }?.let { return it }
+        mx.firstOrNull()?.trimEnd('.')?.split('.')?.takeLast(2)?.joinToString(".")?.let { base ->
+            runCatching { fetch("https://autoconfig.thunderbird.net/v1.1/$base")?.let { parseIspdb(it, email) } }.getOrNull()?.let { return it }
         }
         return ServerConfig("imap.$domain", 993, Security.SSL, "smtp.$domain", 587, Security.STARTTLS,
             hint = "Server wurden geschätzt. Bitte prüfen (Angaben findest du beim Anbieter unter „IMAP/SMTP“).")

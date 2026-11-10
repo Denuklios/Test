@@ -48,6 +48,8 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import app.mailwerk.data.Account
+import app.mailwerk.data.PresetAccounts
+import androidx.compose.runtime.collectAsState
 import app.mailwerk.data.Security
 import app.mailwerk.mail.AutoConfig
 import app.mailwerk.mail.friendly
@@ -116,6 +118,14 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
             if (step == 0) {
                 Text("Willkommen bei Mailwerk 👋", style = MaterialTheme.typography.headlineSmall)
+                val accountsNow by vm.accounts.collectAsState()
+                val pending = PresetAccounts.pending(accountsNow)
+                if (existing == null && pending.isNotEmpty()) {
+                    Text("Deine Konten sind vorbereitet – nur noch das Passwort eingeben:", style = MaterialTheme.typography.titleSmall)
+                    pending.forEach { p -> PresetCard(vm, p) }
+                    Spacer(Modifier.height(8.dp))
+                    Text("Weiteres Konto hinzufügen", style = MaterialTheme.typography.titleSmall)
+                }
                 Text("Funktioniert mit jedem Anbieter, der IMAP anbietet: GMX, WEB.DE, Telekom, Gmail, iCloud, Yahoo, Posteo, mailbox.org, IONOS, eigene Domains …",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(name, { name = it }, label = { Text("Dein Name (für Empfänger sichtbar)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
@@ -187,6 +197,48 @@ private fun ServerFields(host: String, onHost: (String) -> Unit, port: String, o
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Security.entries.forEach { s ->
             FilterChip(selected = sec == s, onClick = { onSec(s) }, label = { Text(when (s) { Security.SSL -> "SSL/TLS"; Security.STARTTLS -> "STARTTLS"; Security.NONE -> "Keine ⚠️" }) })
+        }
+    }
+}
+
+/** Karte für ein vorbereitetes Konto: nur Passwort eingeben, Verbindung wird geprüft und gespeichert. */
+@Composable
+private fun PresetCard(vm: MainViewModel, p: PresetAccounts.Preset) {
+    val scope = rememberCoroutineScope()
+    var name by remember { mutableStateOf(p.name) }
+    var pw by remember { mutableStateOf("") }
+    var show by remember { mutableStateOf(false) }
+    var busy by remember { mutableStateOf(false) }
+    var err by remember { mutableStateOf<String?>(null) }
+    Card(colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceContainerHigh)) {
+        Column(Modifier.padding(14.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Avatar(name, p.email, 36.dp); Spacer(Modifier.width(10.dp))
+                Column {
+                    Text(p.email, style = MaterialTheme.typography.titleMedium)
+                    Text("${PresetAccounts.toAccount(p).imapHost} · IMAP/SMTP mit SSL", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                }
+            }
+            OutlinedTextField(name, { name = it }, label = { Text("Absendername") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            PasswordField(pw, { pw = it }, show, "Passwort") { show = !show }
+            err?.let { Text("⚠️ $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
+            Button(enabled = pw.isNotEmpty() && !busy, modifier = Modifier.fillMaxWidth(), onClick = {
+                busy = true; err = null
+                scope.launch {
+                    try {
+                        val acc = PresetAccounts.toAccount(p, name.ifBlank { p.name })
+                        vm.repo.testAccount(acc, pw)
+                        vm.repo.addAccount(acc, pw)
+                        vm.snack("${p.email} verbunden – Mails werden geladen …")
+                        vm.refresh()
+                        if (PresetAccounts.pending(vm.db.accounts()).isEmpty() && vm.stack.value.size > 1) vm.pop()
+                    } catch (e: Exception) { err = e.message ?: friendly(e) }
+                    busy = false
+                }
+            }) {
+                if (busy) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)); Text("Verbindung wird geprüft …") }
+                else Text("Verbinden")
+            }
         }
     }
 }

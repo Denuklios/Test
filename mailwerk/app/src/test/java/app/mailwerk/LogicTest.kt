@@ -68,6 +68,23 @@ class LogicTest {
         assertTrue(h.contains("a &lt;b&gt; &amp;")); assertTrue(h.contains("<a href=\"https://x.de\">"))
     }
 
+    @Test fun customDomainsViaMx() {
+        assertEquals("imap.one.com", AutoConfig.fromMxHost("mx1.mailpod16-cph3.g1i.one.com.")!!.imapHost)
+        assertEquals("send.one.com", AutoConfig.fromMxHost("mx2.mailpod15-cph3.g1i.one.com")!!.smtpHost)
+        assertEquals("imap.ionos.de", AutoConfig.fromMxHost("mx00.kundenserver.de")!!.imapHost)
+        assertEquals("outlook.office365.com", AutoConfig.fromMxHost("firma-de.mail.protection.outlook.com")!!.imapHost)
+        assertNull(AutoConfig.fromMxHost("mail.unbekannt.example"))
+        val presets = app.mailwerk.data.PresetAccounts.parse("# Kommentar\nMax|max@beispiel-onecom.dk\nkaputt\nFirma | info@firma.example\n")
+        assertEquals(listOf("max@beispiel-onecom.dk", "info@firma.example"), presets.map { it.email })
+        assertEquals("Firma", presets[1].name)
+        val acc = presets.map { app.mailwerk.data.PresetAccounts.toAccount(it) }
+        acc.forEach { a ->
+            assertEquals("imap.one.com", a.imapHost); assertEquals(993, a.imapPort); assertEquals(Security.SSL, a.imapSecurity)
+            assertEquals("send.one.com", a.smtpHost); assertEquals(465, a.smtpPort); assertEquals(Security.SSL, a.smtpSecurity)
+            assertEquals(a.email, a.username)
+        }
+    }
+
     @Test fun autoconfigPresetsAndIspdb() {
         assertEquals("imap.gmx.net", AutoConfig.presets["gmx.de"]!!.imapHost)
         assertEquals("secureimap.t-online.de", AutoConfig.presets["t-online.de"]!!.imapHost)

@@ -41,12 +41,16 @@ Sie läuft **komplett auf dem Gerät**: keine Cloud, kein Konto beim App-Herstel
 2. Öffnen → Android fragt einmalig, ob Installationen aus dieser Quelle erlaubt sind → erlauben.
 3. App starten, Name, E-Mail-Adresse und Passwort eingeben → fertig.
 
+**Vorbereitete Konten (optional):** Eine Datei `app/src/main/assets/preset_accounts.txt` mit Zeilen wie
+`Max Mustermann|max@beispiel.de` anlegen und neu bauen. Die Konten erscheinen dann beim ersten Start fertig
+eingerichtet – nur das Passwort fehlt noch. Die Datei ist per `.gitignore` vom Repo ausgeschlossen.
+
 ### Hinweise zu Anbietern
 - **GMX / WEB.DE:** Im Web-Postfach unter *Einstellungen → POP3/IMAP Abruf* IMAP einschalten.
 - **Gmail, iCloud, Yahoo, AOL:** Ein **App-Passwort** erstellen und statt des normalen Passworts verwenden.
 - **Telekom (t-online.de):** Im E-Mail-Center ein eigenes E-Mail-Passwort für Mail-Programme anlegen.
 - **Outlook.com / Hotmail:** Microsoft erlaubt bei privaten Konten oft nur noch die OAuth-Anmeldung. Dafür muss die App bei Microsoft registriert werden – das ist noch nicht eingebaut (siehe unten).
-- Firmen-/eigene Domains funktionieren, sofern IMAP/SMTP angeboten wird.
+- **Eigene Domains** werden über den MX-Eintrag erkannt (one.com, IONOS, Strato, Google Workspace, Microsoft 365 …).
 
 ## Technik
 

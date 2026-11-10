@@ -5,3 +5,4 @@ local.properties
 .idea/
 *.iml
 !mailwerk/app/src/main/java/app/mailwerk/data/
+app/src/main/assets/preset_accounts.txt

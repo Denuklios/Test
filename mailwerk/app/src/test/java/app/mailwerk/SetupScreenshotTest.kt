@@ -27,7 +27,13 @@ class SetupScreenshotTest {
     }
 
     @Test fun setupAndSettings() {
+        rule.activity.runOnUiThread {
+            androidx.lifecycle.ViewModelProvider(rule.activity)[app.mailwerk.ui.MainViewModel::class.java].push(Screen.AccountSetup())
+        }
         shot("0_konto_einrichten")
+        rule.activity.runOnUiThread {
+            androidx.lifecycle.ViewModelProvider(rule.activity)[app.mailwerk.ui.MainViewModel::class.java].pop()
+        }
         rule.activity.runOnUiThread {
             val vm = androidx.lifecycle.ViewModelProvider(rule.activity)[app.mailwerk.ui.MainViewModel::class.java]
             vm.push(Screen.Settings)
