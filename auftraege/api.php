@@ -1576,7 +1576,7 @@ try {
         // eine Anfrage von der Webseite (zum Öffnen aus der Benachrichtigung)
         // Newsletter beim Kunden: Status (GET) bzw. Einladung mit Bestätigungsmail in seiner Sprache (POST)
         case 'customer_newsletter': {
-            $st = $db->prepare('SELECT id, name, email, country, doc_lang FROM customers WHERE id = ? AND anonymized_at IS NULL');
+            $st = $db->prepare('SELECT id, name, email, country, doc_lang, nl_optout FROM customers WHERE id = ? AND anonymized_at IS NULL');
             $st->execute([(int)($_GET['id'] ?? $in['id'] ?? 0)]);
             $c = $st->fetch();
             if (!$c) {
@@ -1608,7 +1608,7 @@ try {
                     $status = null;   // Tabelle gibt es erst nach dem ersten Aufruf der Webseite
                 }
             }
-            wf_json(['ok' => true, 'available' => true, 'status' => $status, 'lang' => $lang, 'has_email' => $email !== '']);
+            wf_json(['ok' => true, 'available' => true, 'status' => $status, 'optout' => (bool)(int)$c['nl_optout'], 'lang' => $lang, 'has_email' => $email !== '']);
         }
 
         case 'app_inquiry': {
@@ -1910,16 +1910,17 @@ try {
             }
             $vals = [$name, s($in, 'company', 200), $email, s($in, 'phone', 60), s($in, 'address', 500), $cur, s($in, 'notes', 3000), $country, $vat, $isBiz, $docLang];
             $vals[] = array_key_exists('no_followup', $in) ? (empty($in['no_followup']) ? 0 : 1) : null;   // fehlt = unverändert
+            $vals[] = array_key_exists('nl_optout', $in) ? (empty($in['nl_optout']) ? 0 : 1) : null;     // Widerspruch Werbe-Mails
             if ($id) {
                 $old = $db->prepare('SELECT vat_id, country FROM customers WHERE id = ?');
                 $old->execute([$id]);
                 $o = $old->fetch();
-                $db->prepare('UPDATE customers SET name=?, company=?, email=?, phone=?, address=?, currency=?, notes=?, country=?, vat_id=?, is_business=?, doc_lang=?, no_followup=COALESCE(?, no_followup) WHERE id=? AND anonymized_at IS NULL')->execute([...$vals, $id]);
+                $db->prepare('UPDATE customers SET name=?, company=?, email=?, phone=?, address=?, currency=?, notes=?, country=?, vat_id=?, is_business=?, doc_lang=?, no_followup=COALESCE(?, no_followup), nl_optout=COALESCE(?, nl_optout) WHERE id=? AND anonymized_at IS NULL')->execute([...$vals, $id]);
                 if ($o && ($o['vat_id'] !== $vat || $o['country'] !== $country)) {
                     $db->prepare("UPDATE customers SET vat_valid = NULL, vat_checked_at = NULL, vat_checked_name = '' WHERE id = ?")->execute([$id]);
                 }
             } else {
-                $db->prepare('INSERT INTO customers (name, company, email, phone, address, currency, notes, country, vat_id, is_business, doc_lang, no_followup) VALUES (?,?,?,?,?,?,?,?,?,?,?,COALESCE(?, 0))')->execute($vals);
+                $db->prepare('INSERT INTO customers (name, company, email, phone, address, currency, notes, country, vat_id, is_business, doc_lang, no_followup, nl_optout) VALUES (?,?,?,?,?,?,?,?,?,?,?,COALESCE(?, 0),COALESCE(?, 0))')->execute($vals);
                 $id = (int)$db->lastInsertId();
             }
             // EU-Firmenkunde: USt-ID gleich bei VIES pruefen (ohne Netz bleibt sie ungeprueft)

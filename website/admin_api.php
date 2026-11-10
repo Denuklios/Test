@@ -826,10 +826,11 @@ if (strncmp($action, 'nl_', 3) === 0) {
     };
 
     if ($action === 'nl_overview') {
-        wf_nl_tick($mysqli);   // fällige Mails gleich mit verschicken
-        $cnt = ['active' => 0, 'pending' => 0, 'unsubscribed' => 0];
+        wf_nl_sync_customers($mysqli);   // Bestandskunden aus der Auftrags-App
+        wf_nl_tick($mysqli);             // fällige Mails gleich mit verschicken
+        $cnt = ['active' => 0, 'customer' => 0, 'pending' => 0, 'unsubscribed' => 0];
         foreach ($mysqli->query("SELECT status, COUNT(*) c FROM newsletter_subscribers GROUP BY status")->fetch_all(MYSQLI_ASSOC) as $r) $cnt[$r['status']] = (int)$r['c'];
-        $langs = $mysqli->query("SELECT lang, COUNT(*) c FROM newsletter_subscribers WHERE status = 'active' GROUP BY lang")->fetch_all(MYSQLI_ASSOC);
+        $langs = $mysqli->query("SELECT lang, COUNT(*) c FROM newsletter_subscribers WHERE status IN ('active', 'customer') GROUP BY lang")->fetch_all(MYSQLI_ASSOC);
         $subs = $mysqli->query("SELECT id, email, name, lang, status, source, created_at, confirmed_at FROM newsletter_subscribers ORDER BY created_at DESC LIMIT 500")->fetch_all(MYSQLI_ASSOC);
         $cl = wf_nl_customer_langs(array_column($subs, 'email'));
         foreach ($subs as &$su) { $su['cust_lang'] = $cl[mb_strtolower(trim($su['email']))] ?? null; }
@@ -931,6 +932,15 @@ if (strncmp($action, 'nl_', 3) === 0) {
 
     if ($action === 'nl_sub_delete') {
         $id = (int)($_POST['id'] ?? 0);
+        // Bestandskunde: „Löschen“ = Widerspruch (sonst käme er beim nächsten Abgleich wieder)
+        $r = $mysqli->query("SELECT email, status FROM newsletter_subscribers WHERE id = $id")->fetch_assoc();
+        if ($r && $r['status'] === 'customer') {
+            wf_nl_app_optout($r['email']);
+            $mysqli->query("UPDATE newsletter_subscribers SET status = 'unsubscribed', unsubscribed_at = NOW() WHERE id = $id");
+            wf_admin_log($mysqli, 'newsletter', 'Bestandskunde ' . $r['email'] . ' ausgetragen (Widerspruch)');
+            echo json_encode(['ok' => true]);
+            exit;
+        }
         $mysqli->query("DELETE FROM newsletter_log WHERE subscriber_id = $id");
         $mysqli->query("DELETE FROM newsletter_subscribers WHERE id = $id");
         wf_admin_log($mysqli, 'newsletter', 'Abonnent #' . $id . ' gelöscht');

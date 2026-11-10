@@ -5,7 +5,7 @@ function wf_migrate(PDO $db): void
 {
     $db->exec('CREATE TABLE IF NOT EXISTS meta (key TEXT PRIMARY KEY, value TEXT NOT NULL)');
     $v = (int)($db->query("SELECT value FROM meta WHERE key='schema_version'")->fetchColumn() ?: 0);
-    if ($v >= 22) {
+    if ($v >= 23) {
         return;
     }
     if ($v < 1) {
@@ -71,7 +71,27 @@ function wf_migrate(PDO $db): void
     if ($v < 21) {
         wf_migrate_v21($db);
     }
-    wf_migrate_v22($db);
+    if ($v < 22) {
+        wf_migrate_v22($db);
+    }
+    wf_migrate_v23($db);
+}
+
+/**
+ * Version 23: Newsletter für Bestandskunden. nl_optout = Kunde widerspricht Werbe-Mails.
+ * nl_notice_since: ab hier steht der Hinweis auf Werbe-Mails und das Widerspruchsrecht in Bestätigung und Rechnung –
+ * nur Käufe ab diesem Tag zählen als Bestandskunde (§ 7 Abs. 3 UWG / markedsføringsloven § 10 stk. 2).
+ */
+function wf_migrate_v23(PDO $db): void
+{
+    $db->beginTransaction();
+    $cols = array_column($db->query('PRAGMA table_info(customers)')->fetchAll(PDO::FETCH_ASSOC), 'name');
+    if (!in_array('nl_optout', $cols, true)) {
+        $db->exec('ALTER TABLE customers ADD COLUMN nl_optout INTEGER NOT NULL DEFAULT 0');
+    }
+    $db->exec("INSERT OR IGNORE INTO meta (key, value) VALUES ('nl_notice_since', datetime('now'))");
+    $db->exec("INSERT OR REPLACE INTO meta (key, value) VALUES ('schema_version', '23')");
+    $db->commit();
 }
 
 /**

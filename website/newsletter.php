@@ -89,6 +89,7 @@ if ($a === 'unsub') {
             $st->bind_param('si', $now, $id);
             $st->execute();
             $st->close();
+            wf_nl_app_optout($sub['email']);   // als Widerspruch beim Kunden der Auftrags-App vermerken
         }
         if (isset($_POST['List-Unsubscribe'])) { http_response_code(200); exit; }
         wf_nl_page($lang, wf_nl_t($lang, 'unsub_title'), wf_nl_t($lang, 'unsub_done'));
