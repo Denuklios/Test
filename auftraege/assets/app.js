@@ -350,10 +350,10 @@ function newsletterCard(c) {
   const card = h('div', { class: 'card' }, h('h3', { style: 'margin:0 0 8px' }, '📰 ' + t('nl_h')), box);
   const draw = (r) => {
     if (!r.available) { card.remove(); return; }
-    const st = r.optout ? t('nl_st_optout') : ({ active: t('nl_st_active'), customer: t('nl_st_customer'), pending: t('nl_st_pending'), unsubscribed: t('nl_st_unsub') }[r.status] || t('nl_st_none'));
+    const st = { active: t('nl_st_active'), pending: t('nl_st_pending'), unsubscribed: t('nl_st_unsub') }[r.status] || t('nl_st_none');
     const lang = t('lang_' + r.lang);
     box.replaceChildren(h('span', {}, st), h('span', { class: 'muted' }, ' · ' + t('nl_lang', lang)),
-      !['active', 'customer'].includes(r.status) && !r.optout && r.has_email ? h('button', { class: 'btn small', onclick: async () => {
+      r.status !== 'active' && r.has_email ? h('button', { class: 'btn small', onclick: async () => {
         if (!confirm(t('nl_invite_q', c.email, lang))) return;
         try { draw(await api('customer_newsletter', { body: { id: c.id } })); toast(t('nl_invited')); } catch (e) { toast(e.message); }
       } }, r.status === 'pending' ? t('nl_resend') : t('nl_invite')) : '',
@@ -1738,7 +1738,6 @@ route(/^\/customer\/(new|\d+)$/, async (id) => {
   let biz = +c.is_business;
   const bizRow = h('div', { class: 'row' });
   const nfu = h('input', { type: 'checkbox', checked: !!+c.no_followup, style: 'width:22px;height:22px;min-height:0' });
-  const nlo = h('input', { type: 'checkbox', checked: !!+c.nl_optout, style: 'width:22px;height:22px;min-height:0' });
   const vatWrap = h('div');
   const drawBiz = () => {
     bizRow.replaceChildren(...[[0, t('private')], [1, t('business')]].map(([v, l]) => h('button', { type: 'button', class: 'chip' + (biz === v ? ' on' : ''), onclick: () => { biz = v; drawBiz(); } }, l)));
@@ -1760,11 +1759,10 @@ route(/^\/customer\/(new|\d+)$/, async (id) => {
         f('doc_lang', t('doc_lang'), h('select', {}, h('option', { value: '' }, t('lang_auto')), ['da', 'de', 'en'].map((l) => h('option', { value: l, selected: c.doc_lang === l }, t('lang_' + l)))))),
       h('div', {}, vatWrap),
       f('notes', t('notes'), h('textarea', {}, c.notes)),
-      h('label', { class: 'row', style: 'gap:8px;text-transform:none;letter-spacing:0;font-size:.92rem;color:var(--text)' }, nfu, t('cust_no_followup')),
-      h('label', { class: 'row', style: 'gap:8px;text-transform:none;letter-spacing:0;font-size:.92rem;color:var(--text)' }, nlo, t('cust_nl_optout')), err,
+      h('label', { class: 'row', style: 'gap:8px;text-transform:none;letter-spacing:0;font-size:.92rem;color:var(--text)' }, nfu, t('cust_no_followup')), err,
       h('div', { class: 'row end' }, h('button', { class: 'btn primary', onclick: async () => {
         err.textContent = '';
-        try { const r = await api('customer_save', { body: { id: c.id, is_business: biz, no_followup: nfu.checked ? 1 : 0, nl_optout: nlo.checked ? 1 : 0, ...Object.fromEntries(Object.entries(F).map(([k, el]) => [k, el.value])) } }); toast(t('saved')); location.hash = `#/customer/${r.id}`; render(); } catch (e) { err.textContent = e.message; }
+        try { const r = await api('customer_save', { body: { id: c.id, is_business: biz, no_followup: nfu.checked ? 1 : 0, ...Object.fromEntries(Object.entries(F).map(([k, el]) => [k, el.value])) } }); toast(t('saved')); location.hash = `#/customer/${r.id}`; render(); } catch (e) { err.textContent = e.message; }
       } }, t('save')))),
     !isNew && c.invoices && c.invoices.length ? h('div', { class: 'card' }, h('h3', {}, t('nav_invoices')), h('div', { class: 'tscroll' }, h('table', { class: 't' }, c.invoices.map((i) => h('tr', {},
       h('td', {}, h('a', { href: `#/invoice/${i.id}` }, invLabel(i))), h('td', {}, dfmt(i.issue_date)), h('td', { class: 'n' }, (i.type === 'credit' ? '− ' : '') + cents(i.total, i.currency))))))) : null,

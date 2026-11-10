@@ -134,7 +134,6 @@ table.items{width:100%;border-collapse:separate;border-spacing:0;margin-top:6mm}
 .pay .lbl{grid-column:1/-1;margin:0}
 .pay p{margin:0;grid-column:1/-1}
 .pay table td{padding:.5mm 5mm .5mm 0}.pay table td:first-child{color:var(--muted)}
-.nlnote{margin:-3mm 0 4mm;text-align:center;font-size:7.5pt;color:#777;line-height:1.35}
 .thanks{margin:9mm 0 6mm;text-align:center;font-family:"Cormorant Garamond",Georgia,serif;font-style:italic;font-weight:600;font-size:20pt;color:var(--p1)}
 .thanks::before,.thanks::after{content:"✦";font-style:normal;font-size:10pt;color:var(--p2);margin:0 4mm;vertical-align:middle}
 .foot{margin-top:auto;background:var(--ink);color:#bfb6cf;font-size:7.4pt;text-align:center;padding:4mm 16mm;letter-spacing:.04em}
@@ -230,7 +229,6 @@ table.items{width:100%;border-collapse:separate;border-spacing:0;margin-top:6mm}
     </table>
   </div>
   <div class="thanks"><?= $e($T['thanks']) ?></div>
-  <?php if (!empty($T['nl_notice'])): ?><p class="nlnote"><?= $e($T['nl_notice']) ?></p><?php endif; ?>
   <?php endif; ?>
   </div>
   <footer class="foot"><b><?= $e(mb_strtoupper((string)($S['name'] ?? ''))) ?></b> &nbsp;·&nbsp; <?= $e(implode(' · ', array_filter([trim(($S['street'] ?? '') . ', ' . ($S['zip'] ?? '') . ' ' . ($S['city'] ?? ''), ', '), 'CVR ' . ($S['cvr'] ?? ''), $S['email'] ?? '', $S['web'] ?? '']))) ?></footer>

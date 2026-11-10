@@ -100,7 +100,7 @@ function wf_confirm_text(string $lang): array
             'vat_incl' => 'inkl. 25 % moms', 'vat_excl' => 'ekskl. moms', 'vat_rc' => 'uden moms (omvendt betalingspligt)', 'vat_export' => 'uden moms (eksport)', 'vat_none' => '',
             'name' => 'Dit navn', 'sign' => 'Underskrift (med finger eller mus)', 'clear' => 'Slet', 'accept' => 'Jeg accepterer tilbuddet bindende, herunder motiv, antal, pris, tidspunkt og betingelserne ovenfor.',
             'submit' => 'Accepter tilbuddet bindende', 'done' => 'Tak! Ordren er bekræftet {d} af {n}.', 'invalid' => 'Linket er ugyldigt eller udløbet. Kontakt os venligst.',
-            'need_name' => 'Skriv venligst dit navn.', 'need_sig' => 'Skriv venligst under.', 'need_accept' => 'Sæt venligst flueben.', 'error' => 'Der skete en fejl. Prøv igen.', 'pcs' => 'stk.', 'nl_notice' => 'Vi sender dig af og til nyheder og tilbud om lignende produkter fra os på e-mail. Ønsker du det ikke, kan du til enhver tid frabede dig det – et kort svar til hej@wunsch-fabrik.dk eller et klik på afmeldingslinket i hver mail er nok.'],
+            'need_name' => 'Skriv venligst dit navn.', 'need_sig' => 'Skriv venligst under.', 'need_accept' => 'Sæt venligst flueben.', 'error' => 'Der skete en fejl. Prøv igen.', 'pcs' => 'stk.'],
         'de' => ['offer' => 'Angebot', 'offer_nr' => 'Angebot', 'valid' => 'Das Angebot gilt bis {d}.', 'intro_offer' => 'Bitte prüfen Sie das Angebot. Mit Ihrer Unterschrift nehmen Sie es verbindlich an – damit wird es zum Auftrag.',
             'intro_done' => 'Vielen Dank für Ihren Auftrag! Diese Bestätigung können Sie jederzeit über diesen Link wieder öffnen.', 'print' => 'Drucken / als PDF speichern', 'customer' => 'Kunde', 'terms' => 'Bedingungen',
             'withdrawal' => 'Widerrufsrecht: Da die Ware nach Ihren Vorgaben angefertigt bzw. eindeutig personalisiert wird, besteht kein Widerrufsrecht (dän. Verbrauchervertragsgesetz, forbrugeraftaleloven § 18 Abs. 2 Nr. 3).',
@@ -109,7 +109,7 @@ function wf_confirm_text(string $lang): array
             'vat_incl' => 'inkl. 25 % dänischer Moms', 'vat_excl' => 'zzgl. Moms', 'vat_rc' => 'ohne Moms (Reverse Charge)', 'vat_export' => 'ohne Moms (Export)', 'vat_none' => '',
             'name' => 'Ihr Name', 'sign' => 'Unterschrift (mit Finger oder Maus)', 'clear' => 'Löschen', 'accept' => 'Ich nehme das Angebot verbindlich an, einschließlich Motiv, Menge, Preis, Termin und der Bedingungen oben.',
             'submit' => 'Angebot verbindlich annehmen', 'done' => 'Vielen Dank! Der Auftrag wurde am {d} von {n} bestätigt.', 'invalid' => 'Der Link ist ungültig oder abgelaufen. Bitte kontaktieren Sie uns.',
-            'need_name' => 'Bitte Namen eintragen.', 'need_sig' => 'Bitte unterschreiben.', 'need_accept' => 'Bitte Haken setzen.', 'error' => 'Es ist ein Fehler aufgetreten. Bitte erneut versuchen.', 'pcs' => 'Stk.', 'nl_notice' => 'Wir informieren Sie gelegentlich per E-Mail über Neuigkeiten und Angebote zu ähnlichen Produkten von uns. Wenn Sie das nicht möchten, können Sie jederzeit widersprechen – eine kurze Nachricht an hej@wunsch-fabrik.dk oder ein Klick auf den Abmeldelink in jeder Mail genügt.'],
+            'need_name' => 'Bitte Namen eintragen.', 'need_sig' => 'Bitte unterschreiben.', 'need_accept' => 'Bitte Haken setzen.', 'error' => 'Es ist ein Fehler aufgetreten. Bitte erneut versuchen.', 'pcs' => 'Stk.'],
         'en' => ['offer' => 'Quotation', 'offer_nr' => 'Quotation', 'valid' => 'This offer is valid until {d}.', 'intro_offer' => 'Please check the offer. By signing, you accept it bindingly – it then becomes an order.',
             'intro_done' => 'Thank you for your order! You can open this confirmation again at any time via this link.', 'print' => 'Print / save as PDF', 'customer' => 'Customer', 'terms' => 'Terms',
             'withdrawal' => 'Right of withdrawal: As the goods are made to your specifications or clearly personalised, there is no right of withdrawal (Danish Consumer Contracts Act, § 18(2)(3)).',
@@ -118,7 +118,7 @@ function wf_confirm_text(string $lang): array
             'vat_incl' => 'incl. 25 % Danish VAT', 'vat_excl' => 'excl. VAT', 'vat_rc' => 'excl. VAT (reverse charge)', 'vat_export' => 'excl. VAT (export)', 'vat_none' => '',
             'name' => 'Your name', 'sign' => 'Signature (finger or mouse)', 'clear' => 'Clear', 'accept' => 'I bindingly accept the offer, including design, quantity, price, date and the terms above.',
             'submit' => 'Accept offer', 'done' => 'Thank you! The order was confirmed on {d} by {n}.', 'invalid' => 'This link is invalid or has expired. Please contact us.',
-            'need_name' => 'Please enter your name.', 'need_sig' => 'Please sign.', 'need_accept' => 'Please tick the box.', 'error' => 'Something went wrong. Please try again.', 'pcs' => 'pcs', 'nl_notice' => 'We occasionally send you news and offers about similar products of ours by email. If you do not want this, you can object at any time – a short note to hej@wunsch-fabrik.dk or a click on the unsubscribe link in every email is enough.'],
+            'need_name' => 'Please enter your name.', 'need_sig' => 'Please sign.', 'need_accept' => 'Please tick the box.', 'error' => 'Something went wrong. Please try again.', 'pcs' => 'pcs'],
     ];
     return $T[$lang] ?? $T['da'];
 }

@@ -84,6 +84,7 @@ function wf_nl_t($lang, $key) {
             'foot' => 'Du bekommst diese Mail, weil du dich für den Newsletter von Wunsch-Fabrik.dk angemeldet hast.',
             'unsub_link' => 'Newsletter abbestellen',
             'browser' => 'Hallo',
+            'join_title' => 'Newsletter abonnieren', 'join_text' => 'Ein paar Mal im Jahr: Ideen, Aktionen und Neues aus der Werkstatt. Kein Spam, jederzeit abbestellbar.', 'join_btn' => 'Anmelden', 'join_need' => 'Bitte E-Mail eintragen und Haken setzen.', 'join_sent' => 'Fast geschafft! Bitte bestätige die Anmeldung über den Link in der Mail, die wir dir gerade geschickt haben.', 'join_already' => 'Du bist schon angemeldet – danke!',
         ],
         'da' => [
             'confirm_subject' => 'Bekræft venligst din tilmelding til nyhedsbrevet – Ønske-Fabrik.dk',
@@ -101,6 +102,7 @@ function wf_nl_t($lang, $key) {
             'foot' => 'Du modtager denne mail, fordi du har tilmeldt dig nyhedsbrevet fra Ønske-Fabrik.dk.',
             'unsub_link' => 'Afmeld nyhedsbrev',
             'browser' => 'Hej',
+            'join_title' => 'Tilmeld nyhedsbrev', 'join_text' => 'Et par gange om året: idéer, kampagner og nyt fra værkstedet. Ingen spam, kan altid afmeldes.', 'join_btn' => 'Tilmeld', 'join_need' => 'Indtast din e-mail og sæt flueben.', 'join_sent' => 'Næsten færdig! Bekræft venligst tilmeldingen via linket i den mail, vi lige har sendt dig.', 'join_already' => 'Du er allerede tilmeldt – tak!',
         ],
         'en' => [
             'confirm_subject' => 'Please confirm your newsletter subscription – Wunsch-Fabrik.dk',
@@ -118,6 +120,7 @@ function wf_nl_t($lang, $key) {
             'foot' => 'You receive this email because you subscribed to the Wunsch-Fabrik.dk newsletter.',
             'unsub_link' => 'Unsubscribe',
             'browser' => 'Hi',
+            'join_title' => 'Subscribe to our newsletter', 'join_text' => 'A few times a year: ideas, offers and news from the workshop. No spam, unsubscribe any time.', 'join_btn' => 'Subscribe', 'join_need' => 'Please enter your email and tick the box.', 'join_sent' => 'Almost done! Please confirm via the link in the email we just sent you.', 'join_already' => 'You are already subscribed – thank you!',
         ],
     ];
     return $T[wf_nl_lang($lang)][$key] ?? $T['de'][$key] ?? '';
@@ -285,7 +288,7 @@ function wf_nl_subscribe($mysqli, $email, $name, $lang, $source) {
     $st->execute();
     $row = $st->get_result()->fetch_assoc();
     $st->close();
-    if ($row && in_array($row['status'], ['active', 'customer'], true)) return ['ok' => true, 'already' => true];
+    if ($row && $row['status'] === 'active') return ['ok' => true, 'already' => true];
     $token = bin2hex(random_bytes(16));
     $consent = wf_nl_consent_text($lang);
     if ($row) {
@@ -318,67 +321,10 @@ function wf_nl_app_optout($email) {
     } catch (Throwable $e) { /* Auftrags-App noch ohne Spalte */ }
 }
 
-/**
- * Bestandskunden (§ 7 Abs. 3 UWG / markedsføringsloven § 10 stk. 2) aus der Auftrags-App übernehmen:
- * Kunden mit bezahltem Auftrag bzw. bezahlter Rechnung ab dem Tag, an dem der Hinweis in Bestätigung und Rechnung steht,
- * ohne Widerspruch. Sie stehen mit Status „customer“ in der Liste und bekommen den Newsletter mit Abmeldelink.
- */
-function wf_nl_sync_customers($mysqli) {
-    if (!function_exists('wf_orders_app_pdo') || !($pdo = wf_orders_app_pdo())) return;
-    try {
-        $since = (string)$pdo->query("SELECT value FROM meta WHERE key = 'nl_notice_since'")->fetchColumn();
-        if ($since === '') return;   // Auftrags-App noch nicht auf dem Stand
-        $st = $pdo->prepare("SELECT lower(trim(c.email)) AS e, c.name, c.country, c.doc_lang, c.nl_optout FROM customers c
-            WHERE c.anonymized_at IS NULL AND trim(c.email) <> '' AND (
-              EXISTS (SELECT 1 FROM orders o WHERE o.customer_id = c.id AND o.deleted_at IS NULL AND o.pay_status = 'paid' AND o.created_at >= ?)
-              OR EXISTS (SELECT 1 FROM invoices i JOIN invoice_payments p ON p.invoice_id = i.id
-                         WHERE i.customer_id = c.id AND i.status = 'final' AND i.type = 'invoice' AND i.issue_date >= date(?)))");
-        $st->execute([$since, $since]);
-        $elig = [];
-        foreach ($st->fetchAll(PDO::FETCH_ASSOC) as $r) {
-            if (filter_var($r['e'], FILTER_VALIDATE_EMAIL)) $elig[$r['e']] = $r;
-        }
-        $optout = array_flip(array_map('strval', $pdo->query("SELECT lower(trim(email)) FROM customers WHERE nl_optout = 1 AND trim(email) <> ''")->fetchAll(PDO::FETCH_COLUMN)));
-    } catch (Throwable $e) {
-        return;
-    }
-    $rows = [];
-    foreach ($mysqli->query("SELECT id, email, status FROM newsletter_subscribers")->fetch_all(MYSQLI_ASSOC) as $r) $rows[$r['email']] = $r;
-    $now = date('Y-m-d H:i:s');
-    $consent = 'Bestandskunde: Kauf mit Hinweis auf Werbe-Mails und Widerspruchsrecht (§ 7 Abs. 3 UWG / markedsføringsloven § 10, stk. 2)';
-    foreach ($elig as $e => $c) {
-        $row = $rows[$e] ?? null;
-        $out = isset($optout[$e]);
-        if ($out) {
-            if ($row && $row['status'] !== 'unsubscribed') {
-                $mysqli->query("UPDATE newsletter_subscribers SET status = 'unsubscribed', unsubscribed_at = '$now' WHERE id = " . (int)$row['id']);
-            }
-            continue;
-        }
-        if (!$row) {
-            $token = bin2hex(random_bytes(16));
-            $lang = wf_nl_cust_lang($c['country'], $c['doc_lang']);
-            $name = mb_substr((string)$c['name'], 0, 120);
-            $ins = $mysqli->prepare("INSERT INTO newsletter_subscribers (email, name, lang, status, token, source, consent_text, created_at, confirmed_at) VALUES (?, ?, ?, 'customer', ?, 'bestandskunde', ?, ?, ?)");
-            $ins->bind_param('sssssss', $e, $name, $lang, $token, $consent, $now, $now);
-            $ins->execute();
-            $ins->close();
-        } elseif ($row['status'] === 'pending') {
-            $mysqli->query("UPDATE newsletter_subscribers SET status = 'customer', confirmed_at = '$now' WHERE id = " . (int)$row['id']);
-        } elseif ($row['status'] === 'unsubscribed') {
-            wf_nl_app_optout($e);   // hat sich abgemeldet: als Widerspruch beim Kunden festhalten
-        }
-    }
-    // Nicht mehr berechtigt (z. B. Kunde gelöscht/anonymisiert) oder inzwischen widersprochen
-    foreach ($rows as $e => $r) {
-        if ($r['status'] !== 'customer' || isset($elig[$e]) && !isset($optout[$e])) continue;
-        if (isset($optout[$e])) $mysqli->query("UPDATE newsletter_subscribers SET status = 'unsubscribed', unsubscribed_at = '$now' WHERE id = " . (int)$r['id']);
-        else $mysqli->query("DELETE FROM newsletter_subscribers WHERE id = " . (int)$r['id']);
-    }
-    // Wer sich über den Link abgemeldet hat, bekommt den Widerspruch auch beim Kunden vermerkt
-    foreach ($rows as $e => $r) {
-        if ($r['status'] === 'unsubscribed' && !isset($optout[$e])) wf_nl_app_optout($e);
-    }
+/** Einträge ohne eigene Anmeldung (frühere Bestandskunden-Regel) entfernen: Newsletter nur mit Anmeldung. */
+function wf_nl_drop_customer_rows($mysqli) {
+    $mysqli->query("DELETE l FROM newsletter_log l JOIN newsletter_subscribers s ON s.id = l.subscriber_id WHERE s.status = 'customer'");
+    $mysqli->query("DELETE FROM newsletter_subscribers WHERE status = 'customer'");
 }
 
 /** Entwürfe aus newsletter-plan/*.json übernehmen (von Claude vorbereitet). Liefert Anzahl neuer. */
@@ -433,7 +379,7 @@ function wf_nl_tick($mysqli, $max = WF_NL_BATCH) {
         if (!is_file($flag) || filemtime($flag) < time() - 600) {
             @touch($flag);
             wf_nl_import_plans($mysqli);
-            wf_nl_sync_customers($mysqli);
+            wf_nl_drop_customer_rows($mysqli);
         }
         $mysqli->query("UPDATE newsletters SET status = 'sending' WHERE status = 'scheduled' AND send_at IS NOT NULL AND send_at <= NOW()");
         $res = $mysqli->query("SELECT * FROM newsletters WHERE status = 'sending' ORDER BY send_at, id LIMIT 1");
@@ -441,7 +387,7 @@ function wf_nl_tick($mysqli, $max = WF_NL_BATCH) {
         if ($nl) {
             $id = (int)$nl['id'];
             $subs = $mysqli->query("SELECT s.* FROM newsletter_subscribers s LEFT JOIN newsletter_log l ON l.subscriber_id = s.id AND l.newsletter_id = $id
-                WHERE s.status IN ('active', 'customer') AND l.subscriber_id IS NULL ORDER BY s.id LIMIT " . (int)$max)->fetch_all(MYSQLI_ASSOC);
+                WHERE s.status = 'active' AND l.subscriber_id IS NULL ORDER BY s.id LIMIT " . (int)$max)->fetch_all(MYSQLI_ASSOC);
             $log = $mysqli->prepare("INSERT IGNORE INTO newsletter_log (newsletter_id, subscriber_id, sent_at, ok) VALUES (?, ?, ?, ?)");
             // Ist der Abonnent auch Kunde in der Auftrags-App, gilt dessen Sprache (Belegsprache bzw. Land)
             $custLang = wf_nl_customer_langs(array_column($subs, 'email'));
@@ -505,29 +451,25 @@ function wf_nl_legal($mysqli) {
 }
 
 
-/** Datenschutzerklärung einmalig um „Werbe-Mails an Kunden“ (Bestandskunden) ergänzen. */
+/** Abschnitt „Werbe-Mails an Kunden“ wieder aus der Datenschutzerklärung entfernen (Newsletter nur mit Anmeldung). */
 function wf_nl_legal_customers($mysqli) {
-    $r = $mysqli->query("SELECT v FROM wf_meta WHERE k = 'legal_newsletter_bk'");
+    $r = $mysqli->query("SELECT v FROM wf_meta WHERE k = 'legal_newsletter_bk_off'");
     if (!$r || $r->num_rows) return;
-    $add = [
-        'de' => ["WhatsApp", "Werbe-Mails an Kunden\nWenn du bei uns bestellt und bezahlt hast, schicken wir dir an die dabei angegebene E-Mail-Adresse gelegentlich unseren Newsletter mit Neuigkeiten und Angeboten zu ähnlichen Produkten – auch ohne gesonderte Anmeldung (§ 7 Abs. 3 UWG bzw. § 10 Abs. 2 dän. Markedsføringslov, Art. 6 Abs. 1 lit. f DSGVO). Darauf weisen wir in Auftragsbestätigung und Rechnung hin. Du kannst jederzeit widersprechen – über den Abmeldelink in jeder Mail oder per Mail an hej@wunsch-fabrik.dk –, ohne dass dafür andere als die Übermittlungskosten nach den Basistarifen entstehen. Deinen Widerspruch vermerken wir dauerhaft bei deinen Kundendaten."],
-        'da' => ["WhatsApp", "Markedsføringsmails til kunder\nHar du bestilt og betalt hos os, sender vi af og til vores nyhedsbrev med nyheder og tilbud om lignende produkter til den e-mailadresse, du opgav – også uden særskilt tilmelding (markedsføringslovens § 10, stk. 2, tysk UWG § 7, stk. 3, GDPR art. 6, stk. 1, litra f). Det oplyser vi om i ordrebekræftelse og faktura. Du kan til enhver tid frabede dig det – via afmeldingslinket i hver mail eller ved at skrive til hej@wunsch-fabrik.dk – uden andre omkostninger end almindelige forsendelsesomkostninger. Din indsigelse noteres varigt ved dine kundeoplysninger."],
-        'en' => ["WhatsApp", "Marketing emails to customers\nIf you have ordered and paid with us, we occasionally send our newsletter with news and offers about similar products to the email address you provided – even without a separate sign-up (Section 10(2) Danish Marketing Practices Act, Section 7(3) German UWG, Art. 6(1)(f) GDPR). We point this out in the order confirmation and invoice. You can object at any time – via the unsubscribe link in every email or by writing to hej@wunsch-fabrik.dk – at no cost other than the basic transmission costs. We record your objection permanently with your customer data."],
-    ];
     $row = $mysqli->query("SELECT content_de, content_da, content_en FROM legal_texts WHERE type = 'datenschutz'");
     $row = $row ? $row->fetch_assoc() : null;
     if (!$row) return;
-    foreach ($add as $l => [$before, $sec]) {
+    $heads = ['de' => 'Werbe-Mails an Kunden', 'da' => 'Markedsføringsmails til kunder', 'en' => 'Marketing emails to customers'];
+    foreach ($heads as $l => $h) {
         $c = (string)$row['content_' . $l];
-        if (strpos($c, strtok($sec, "\n")) !== false) continue;
-        $pos = strpos($c, "\n\n" . $before . "\n");
-        $c = $pos !== false ? substr($c, 0, $pos) . "\n\n" . $sec . substr($c, $pos) : rtrim($c) . "\n\n" . $sec;
-        $st = $mysqli->prepare("UPDATE legal_texts SET content_$l = ? WHERE type = 'datenschutz'");
-        $st->bind_param('s', $c);
-        $st->execute();
-        $st->close();
+        $n = preg_replace('/\n\n' . preg_quote($h, '/') . '\n[^\n]*/u', '', $c);
+        if ($n !== null && $n !== $c) {
+            $st = $mysqli->prepare("UPDATE legal_texts SET content_$l = ? WHERE type = 'datenschutz'");
+            $st->bind_param('s', $n);
+            $st->execute();
+            $st->close();
+        }
     }
-    $mysqli->query("INSERT IGNORE INTO wf_meta (k, v) VALUES ('legal_newsletter_bk', NOW())");
+    $mysqli->query("INSERT IGNORE INTO wf_meta (k, v) VALUES ('legal_newsletter_bk_off', NOW())");
 }
 
 }

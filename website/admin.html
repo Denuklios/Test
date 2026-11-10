@@ -1349,9 +1349,9 @@ input::placeholder, textarea::placeholder { color: var(--text-dim); }
           <div class="panel-title">👥 Abonnenten</div>
           <p style="color:var(--text-muted); font-size:0.85rem; margin-bottom:0.8rem;">
             Anmeldung über die Webseite (Fußbereich) oder den Haken im Kontaktformular. Jeder bekommt erst eine Bestätigungsmail –
-            Newsletter gehen nur an bestätigte Adressen. Dazu kommen automatisch <b>Bestandskunden</b>: Kunden mit bezahltem Auftrag bzw.
-            bezahlter Rechnung (seit der Hinweis in Bestätigung und Rechnung steht), solange sie nicht widersprochen haben.
-            Unbestätigte und Abgemeldete werden nach 30 Tagen gelöscht, der Widerspruch bleibt beim Kunden vermerkt.
+            Newsletter gehen nur an bestätigte Adressen (rechtlich vorgeschrieben). Kunden bekommen in Angebots- und Status-Mails,
+            in der Auftragsbestätigung und auf der Verfolgungsseite einen Hinweis mit „Newsletter anmelden“.
+            Unbestätigte und Abgemeldete werden nach 30 Tagen gelöscht.
           </p>
           <div style="display:flex; gap:0.5rem; flex-wrap:wrap; margin-bottom:1rem;">
             <input type="email" id="nlAddEmail" placeholder="E-Mail-Adresse" style="flex:1 1 220px; padding:0.6rem; border:1px solid var(--border); border-radius:10px; font-family:inherit;">
@@ -3213,7 +3213,6 @@ function nlLoad() {
     const c = d.counts, langs = Object.fromEntries((d.langs || []).map(x => [x.lang, +x.c]));
     document.getElementById('nlStats').innerHTML =
       `<div class="nl-stat"><b>${c.active}</b><span>bestätigte Abonnenten</span></div>` +
-      `<div class="nl-stat"><b>${c.customer || 0}</b><span>Bestandskunden (ohne Widerspruch)</span></div>` +
       `<div class="nl-stat"><b>${c.pending}</b><span>warten auf Bestätigung</span></div>` +
       `<div class="nl-stat"><b>${langs.de || 0} · ${langs.da || 0} · ${langs.en || 0}</b><span>DE · DA · EN</span></div>`;
     const list = document.getElementById('nlList');
@@ -3234,8 +3233,8 @@ function nlLoad() {
       list.appendChild(el);
     });
     document.getElementById('nlSubs').innerHTML = d.subscribers.map(s => `<tr><td>${escapeHtml(s.email)}</td><td>${escapeHtml(s.name || '')}</td><td>${(s.cust_lang || s.lang).toUpperCase()}${s.cust_lang ? ' <span title="Sprache laut Kunde in der Auftrags-App (Land bzw. Belegsprache)">🧾</span>' : ''}</td>
-      <td>${s.status === 'active' ? '✅ bestätigt' : s.status === 'customer' ? '📦 Bestandskunde' : s.status === 'pending' ? '⏳ unbestätigt' : '🚫 abgemeldet'}</td><td>${nlDate(s.confirmed_at || s.created_at).slice(0, 10)}</td>
-      <td><button class="btn-mini danger" title="${s.status === 'customer' ? 'Austragen (gilt als Widerspruch)' : 'Löschen'}" onclick="nlDelSub(${s.id}, '${escapeHtml(s.email).replace(/'/g, '')}', ${s.status === 'customer'})">🗑</button></td></tr>`).join('')
+      <td>${s.status === 'active' ? '✅ bestätigt' : s.status === 'pending' ? '⏳ unbestätigt' : '🚫 abgemeldet'}</td><td>${nlDate(s.confirmed_at || s.created_at).slice(0, 10)}</td>
+      <td><button class="btn-mini danger" title="Löschen" onclick="nlDelSub(${s.id}, '${escapeHtml(s.email).replace(/'/g, '')}')">🗑</button></td></tr>`).join('')
       || '<tr><td colspan="6" style="color:var(--text-dim)">Noch keine Abonnenten.</td></tr>';
   });
 }
@@ -3247,7 +3246,7 @@ function nlAddSub() {
     document.getElementById('nlAddEmail').value = ''; document.getElementById('nlAddName').value = ''; nlLoad();
   });
 }
-function nlDelSub(id, email, cust) { if (confirm(cust ? 'Bestandskunde ' + email + ' austragen? Das gilt als Widerspruch – er bekommt keine Newsletter mehr.' : 'Abonnent ' + email + ' löschen?')) nlPost('nl_sub_delete', { id }).then(() => nlLoad()); }
+function nlDelSub(id, email) { if (confirm('Abonnent ' + email + ' löschen?')) nlPost('nl_sub_delete', { id }).then(() => nlLoad()); }
 function nlStash() { NL.data['subject_' + NL.lang] = document.getElementById('nlSubject').value; NL.data['body_' + NL.lang] = document.getElementById('nlBody').value; }
 function nlLang(l, fresh) {
   if (!fresh) nlStash();

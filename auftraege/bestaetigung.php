@@ -133,7 +133,9 @@ body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
 .sigimg{background:#fff;border-radius:10px;max-width:100%;height:90px;margin-top:8px}
 .small{font-size:.8rem;color:var(--muted);margin-top:18px;text-align:center}
 .terms ol{margin:0;padding-left:20px}.terms li{margin:0 0 6px;font-size:.9rem}
-.nlnote{font-size:.78rem;opacity:.7;margin:4px 6px 14px;line-height:1.45}
+.nlcard{display:flex;gap:10px 14px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:.92rem}
+.nlbtn{display:inline-block;padding:9px 16px;border-radius:999px;background:#8B2BE2;color:#fff;font-weight:600;text-decoration:none;white-space:nowrap}
+@media print{.noprint{display:none!important}}
 .wdr{margin-top:10px;padding:10px 12px;border-radius:12px;border:1px solid rgba(245,158,11,.5);background:rgba(245,158,11,.08);font-size:.9rem}
 .valid{font-size:.9rem;color:var(--p3);margin:-4px 0 12px}
 .cust{white-space:pre-line}
@@ -193,7 +195,8 @@ body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
     <?php if (!empty($snap['consumer']) && isset($T['withdrawal'])): ?><div class="wdr"><?= $e($T['withdrawal']) ?></div><?php endif; ?>
   </div>
   <?php endif; ?>
-  <?php if (!empty($T['nl_notice'])): ?><p class="nlnote"><?= $e($T['nl_notice']) ?></p><?php endif; ?>
+  <?php $nlUrl = wf_nl_join_url($db, (string)($snap['customer']['email'] ?? ''), $lang, (string)($snap['customer']['name'] ?? '')); $CM = wf_cm_text($lang); ?>
+  <?php if ($nlUrl): ?><div class="card nlcard noprint"><span><?= $e($CM['nl_line']) ?></span> <a class="nlbtn" href="<?= $e($nlUrl) ?>" target="_blank" rel="noopener"><?= $e($CM['buttons']['nl']) ?></a></div><?php endif; ?>
   <?php if ($signed): ?>
   <div class="card done"><b><?= $e(strtr($T['done'], ['{d}' => wf_doc_date(substr($c['signed_at'], 0, 10), $lang), '{n}' => $c['signer_name']])) ?></b><br><img class="sigimg" src="data:image/png;base64,<?= $e($c['signature']) ?>" alt="">
     <div class="muted" style="font-size:.8rem;margin-top:6px"><?= $e(($T['signed_by'] ?? '') . ': ' . $c['signed_at'] . ' UTC') ?><?= $admin ? $e(' · IP ' . $c['sign_ip']) : '' ?></div></div>

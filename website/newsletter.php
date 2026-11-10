@@ -54,6 +54,45 @@ if ($a === 'subscribe') {
     exit;
 }
 
+// ─── Anmeldeseite (Link aus Kunden-Mails, Auftragsbestätigung und Verfolgungsseite) ─────
+if ($a === 'join') {
+    $lang = wf_nl_lang($_REQUEST['l'] ?? 'de');
+    $email = mb_substr(trim((string)($_REQUEST['e'] ?? '')), 0, 190);
+    $msg = '';
+    if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+        if (!empty($_POST['website'])) wf_nl_page($lang, wf_nl_t($lang, 'join_title'), wf_nl_t($lang, 'join_sent'));
+        if (empty($_POST['consent']) || !filter_var($email, FILTER_VALIDATE_EMAIL)) {
+            $msg = wf_nl_t($lang, 'join_need');
+        } else {
+            $ip = hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '') . '|wfnl');
+            $st = $mysqli->prepare("SELECT COUNT(*) FROM newsletter_rate WHERE ip_hash = ? AND at > (NOW() - INTERVAL 1 HOUR)");
+            $st->bind_param('s', $ip);
+            $st->execute();
+            $cnt = (int)$st->get_result()->fetch_row()[0];
+            $st->close();
+            if ($cnt < 5) {
+                $now = date('Y-m-d H:i:s');
+                $st = $mysqli->prepare("INSERT INTO newsletter_rate (ip_hash, at) VALUES (?, ?)");
+                $st->bind_param('ss', $ip, $now);
+                $st->execute();
+                $st->close();
+                $r = wf_nl_subscribe($mysqli, $email, $_POST['name'] ?? '', $lang, 'kundenlink');
+                if ($r['ok']) wf_nl_page($lang, wf_nl_t($lang, 'join_title'), wf_nl_t($lang, !empty($r['already']) ? 'join_already' : 'join_sent'));
+            }
+            $msg = wf_nl_t($lang, 'join_need');
+        }
+    }
+    $consent = wf_nl_esc(wf_nl_consent_text($lang));
+    $form = '<form method="post" action="newsletter.php?a=join&amp;l=' . $lang . '" style="text-align:left">'
+        . ($msg !== '' ? '<p style="color:#f87171;margin:0 0 10px;">' . wf_nl_esc($msg) . '</p>' : '')
+        . '<input type="email" name="e" required value="' . wf_nl_esc($email) . '" style="width:100%;box-sizing:border-box;padding:12px 14px;border-radius:999px;border:1px solid rgba(168,85,247,.45);background:rgba(255,255,255,.05);color:#F0EEF5;font-size:1rem;margin-bottom:10px;">'
+        . '<input type="hidden" name="name" value="' . wf_nl_esc(mb_substr((string)($_REQUEST['n'] ?? ''), 0, 120)) . '">'
+        . '<input type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true" style="position:absolute;left:-9999px;width:1px;height:1px;opacity:0;">'
+        . '<label style="display:flex;gap:8px;align-items:flex-start;font-size:.85rem;color:#b9b3c7;line-height:1.45;margin-bottom:14px;cursor:pointer;"><input type="checkbox" name="consent" value="1" style="margin-top:3px;accent-color:#8B2BE2;"> ' . $consent . '</label>'
+        . '<button type="submit" style="width:100%;background:#8B2BE2;color:#fff;border:0;border-radius:999px;padding:12px 24px;font-size:1rem;font-weight:600;cursor:pointer;">' . wf_nl_esc(wf_nl_t($lang, 'join_btn')) . '</button></form>';
+    wf_nl_page($lang, wf_nl_t($lang, 'join_title'), wf_nl_t($lang, 'join_text'), $form);
+}
+
 $token = preg_match('/^[0-9a-f]{32}$/', (string)($_REQUEST['t'] ?? '')) ? (string)$_REQUEST['t'] : '';
 $sub = null;
 if ($token !== '') {

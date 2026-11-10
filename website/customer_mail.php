@@ -61,6 +61,19 @@ function wf_send_customer_mail($toEmail, $toName, $lang, $type) {
     $subject = $texts[$type][$lang]['subject'];
     $body = str_replace('{name}', $toName, $texts[$type][$lang]['body']);
 
+    // Hinweis auf den Newsletter (freiwillige Anmeldung mit Bestätigungsmail), außer wer schon angemeldet ist
+    $already = false;
+    if (function_exists('wf_db_connect') && ($m = wf_db_connect())) {
+        $r = @$m->query("SELECT status FROM newsletter_subscribers WHERE email = '" . $m->real_escape_string(mb_strtolower(trim((string)$toEmail))) . "'");
+        $already = $r && ($row = $r->fetch_assoc()) && $row['status'] === 'active';
+    }
+    if (!$already) {
+        $line = ['de' => '📰 Ideen, Aktionen und Neues aus der Werkstatt – ein paar Mal im Jahr per Mail. Lust darauf? Newsletter abonnieren:',
+                 'da' => '📰 Idéer, kampagner og nyt fra værkstedet – et par gange om året på mail. Lyst? Tilmeld nyhedsbrevet:',
+                 'en' => '📰 Ideas, offers and news from the workshop – a few times a year by email. Interested? Subscribe:'][$lang];
+        $body .= "\n\n— " . $line . "\nhttps://www.wunsch-fabrik.dk/newsletter.php?" . http_build_query(['a' => 'join', 'l' => $lang, 'e' => $toEmail, 'n' => $toName]);
+    }
+
     $headers  = "From: Wunsch-Fabrik.dk <hej@wunsch-fabrik.dk>\r\n";
     $headers .= "Reply-To: hej@wunsch-fabrik.dk\r\n";
     $headers .= "Content-Type: text/plain; charset=UTF-8\r\n";

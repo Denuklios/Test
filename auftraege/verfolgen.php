@@ -21,7 +21,7 @@ $limited = (int)$cnt->fetchColumn() >= 30;
 $token = (string)($_GET['t'] ?? $_POST['t'] ?? '');
 $o = false;
 if (!$limited && preg_match('/^[0-9a-f]{48}$/', $token)) {
-    $st = $db->prepare('SELECT o.*, c.country, c.doc_lang, c.no_followup, c.anonymized_at FROM orders o JOIN customers c ON c.id = o.customer_id
+    $st = $db->prepare('SELECT o.*, c.country, c.doc_lang, c.no_followup, c.anonymized_at, c.email AS c_email, c.name AS c_name FROM orders o JOIN customers c ON c.id = o.customer_id
         WHERE o.track_token = ? AND o.deleted_at IS NULL');
     $st->execute([$token]);
     $o = $st->fetch();
@@ -83,6 +83,7 @@ $carrierUrl = $o ? wf_carrier_url((string)$o['carrier'], (string)$o['tracking_no
 <link rel="stylesheet" href="assets/app.css">
 <style>
 body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
+.nlcard{display:flex;gap:10px 14px;align-items:center;justify-content:space-between;flex-wrap:wrap;font-size:.92rem}.nlcard .btn{white-space:nowrap;text-decoration:none}
 .head{display:flex;align-items:center;gap:14px;margin-bottom:18px}.head img{height:44px;border-radius:8px}
 .head .b{font-family:var(--head);letter-spacing:.24em;font-weight:600}.head .b b{color:var(--p2);font-weight:600}
 .tl{list-style:none;margin:0;padding:0;display:grid;gap:0}
@@ -147,6 +148,8 @@ body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
   <?php elseif (isset($_GET['abmelden'])): ?>
   <div class="card"><?= $e($T['unsub_ok']) ?></div>
   <?php endif; ?>
+  <?php $nlUrl = $o ? wf_nl_join_url($db, (string)$o['c_email'], $lang, (string)$o['c_name']) : null; $CM = wf_cm_text($lang); ?>
+  <?php if ($nlUrl): ?><div class="card nlcard"><span><?= $e($CM['nl_line']) ?></span> <a class="btn" href="<?= $e($nlUrl) ?>" target="_blank" rel="noopener"><?= $e($CM['buttons']['nl']) ?></a></div><?php endif; ?>
   <p class="small"><?= $e($T['questions']) ?> <?= $e($co['email']) ?><?= $co['phone'] ? ' · ' . $e($co['phone']) : '' ?></p>
 <?php endif; ?>
 </main>

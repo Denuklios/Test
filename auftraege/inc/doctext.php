@@ -19,7 +19,7 @@ function wf_doc_text(string $lang): array
             'novat' => 'Virksomheden er ikke momsregistreret. Der er ikke beregnet moms.',
             'pay_title' => 'Betaling', 'pay_text' => 'Beløbet bedes indbetalt senest {d} med angivelse af fakturanr. {n}.',
             'bank' => 'Bank', 'reg' => 'Reg.nr.', 'acc' => 'Kontonr.', 'iban' => 'IBAN', 'bic' => 'BIC/SWIFT',
-            'to' => 'Kunde', 'thanks' => 'Tak for din ordre!', 'nl_notice' => 'Vi sender dig af og til nyheder og tilbud om lignende produkter fra os på e-mail. Ønsker du det ikke, kan du til enhver tid frabede dig det – et kort svar til hej@wunsch-fabrik.dk eller et klik på afmeldingslinket i hver mail er nok.', 'credit_text' => 'Beløbet modregnes eller tilbagebetales.',
+            'to' => 'Kunde', 'thanks' => 'Tak for din ordre!', 'credit_text' => 'Beløbet modregnes eller tilbagebetales.',
             'units' => ['stk' => 'stk.', 'timer' => 'timer', 'dage' => 'dage', 'm' => 'm', 'm2' => 'm²', 'kg' => 'kg', 'pakke' => 'pakke', 'md' => 'md.'],
         ],
         'de' => [
@@ -36,7 +36,7 @@ function wf_doc_text(string $lang): array
             'novat' => 'Das Unternehmen ist nicht für die Moms (MwSt.) registriert. Es wird keine Moms berechnet.',
             'pay_title' => 'Zahlung', 'pay_text' => 'Bitte überweisen Sie den Betrag bis {d} unter Angabe der Rechnungsnr. {n}.',
             'bank' => 'Bank', 'reg' => 'Reg.-Nr.', 'acc' => 'Konto-Nr.', 'iban' => 'IBAN', 'bic' => 'BIC/SWIFT',
-            'to' => 'Kunde', 'thanks' => 'Vielen Dank für Ihren Auftrag!', 'nl_notice' => 'Wir informieren Sie gelegentlich per E-Mail über Neuigkeiten und Angebote zu ähnlichen Produkten von uns. Wenn Sie das nicht möchten, können Sie jederzeit widersprechen – eine kurze Nachricht an hej@wunsch-fabrik.dk oder ein Klick auf den Abmeldelink in jeder Mail genügt.', 'credit_text' => 'Der Betrag wird verrechnet oder erstattet.',
+            'to' => 'Kunde', 'thanks' => 'Vielen Dank für Ihren Auftrag!', 'credit_text' => 'Der Betrag wird verrechnet oder erstattet.',
             'units' => ['stk' => 'Stk.', 'timer' => 'Std.', 'dage' => 'Tage', 'm' => 'm', 'm2' => 'm²', 'kg' => 'kg', 'pakke' => 'Paket', 'md' => 'Mon.'],
         ],
         'en' => [
@@ -53,7 +53,7 @@ function wf_doc_text(string $lang): array
             'novat' => 'The business is not VAT registered. No VAT has been charged.',
             'pay_title' => 'Payment', 'pay_text' => 'Please pay by {d} quoting invoice no. {n}.',
             'bank' => 'Bank', 'reg' => 'Reg. no.', 'acc' => 'Account no.', 'iban' => 'IBAN', 'bic' => 'BIC/SWIFT',
-            'to' => 'Customer', 'thanks' => 'Thank you for your order!', 'nl_notice' => 'We occasionally send you news and offers about similar products of ours by email. If you do not want this, you can object at any time – a short note to hej@wunsch-fabrik.dk or a click on the unsubscribe link in every email is enough.', 'credit_text' => 'The amount will be offset or refunded.',
+            'to' => 'Customer', 'thanks' => 'Thank you for your order!', 'credit_text' => 'The amount will be offset or refunded.',
             'units' => ['stk' => 'pcs', 'timer' => 'hours', 'dage' => 'days', 'm' => 'm', 'm2' => 'm²', 'kg' => 'kg', 'pakke' => 'pack', 'md' => 'months'],
         ],
     ];

@@ -1,6 +1,7 @@
 <?php
 declare(strict_types=1);
 require_once __DIR__ . '/archive.php';
+require_once __DIR__ . '/events.php';
 
 /*
  * E-Mails an Kunden und Verfolgungslink: Angebot zum Unterschreiben, optional Versandmeldung,
@@ -64,12 +65,37 @@ function wf_mail_settings(): array
         'review_url' => (string)($co['review_url'] ?? ''), 'from' => trim((string)$co['email']), 'name' => trim((string)$co['name']) ?: 'Wunsch-Fabrik'];
 }
 
+/**
+ * Link zur Newsletter-Anmeldung der Webseite (E-Mail vorausgefüllt, Anmeldung mit Haken und Bestätigungsmail),
+ * oder null, wenn der Kunde schon angemeldet ist bzw. die Webseite nicht erreichbar ist.
+ */
+function wf_nl_join_url(PDO $db, string $email, string $lang, string $name = ''): ?string
+{
+    $email = mb_strtolower(trim($email));
+    $base = wf_public_base($db);
+    if ($email === '' || $base === '' || !function_exists('wf_events_site_db') || !($site = wf_events_site_db())) {
+        return null;
+    }
+    try {
+        $q = $site->prepare("SELECT status FROM newsletter_subscribers WHERE email = ?");
+        $q->execute([$email]);
+        if ($q->fetchColumn() === 'active') {
+            return null;
+        }
+    } catch (Throwable $e) {
+        return null;   // Newsletter auf der Webseite noch nicht eingerichtet
+    }
+    $site = preg_replace('~auftraege/?$~', '', $base);
+    return $site . 'newsletter.php?' . http_build_query(['a' => 'join', 'l' => $lang, 'e' => $email, 'n' => $name]);
+}
+
 /** Texte der Kundenmails je Sprache. Platzhalter in {geschweiften Klammern}. */
 function wf_cm_text(string $lang): array
 {
     $T = [
         'de' => [
-            'buttons' => ['sign' => 'Angebot ansehen & unterschreiben', 'track' => 'Auftrag verfolgen', 'ship' => 'Sendung verfolgen', 'review_site' => 'Auf unserer Webseite bewerten', 'review' => 'Bewertung schreiben', 'unsub' => 'hier abmelden', 'conf' => 'Auftragsbestätigung ansehen'],
+            'buttons' => ['sign' => 'Angebot ansehen & unterschreiben', 'track' => 'Auftrag verfolgen', 'ship' => 'Sendung verfolgen', 'review_site' => 'Auf unserer Webseite bewerten', 'review' => 'Bewertung schreiben', 'unsub' => 'hier abmelden', 'conf' => 'Auftragsbestätigung ansehen', 'nl' => 'Newsletter abonnieren'],
+            'nl_line' => '📰 Ideen, Aktionen und Neues aus der Werkstatt – ein paar Mal im Jahr per Mail. Lust darauf?',
             'hello' => 'Hallo {name},', 'regards' => "Viele Grüße\n{owner}\n{company}",
             'offer_subj' => 'Dein Angebot {nr} – bitte prüfen und unterschreiben',
             'offer_body' => "vielen Dank für deine Anfrage! Dein Angebot „{title}“ ist fertig. Bitte prüfe Motiv, Menge, Preis und Termin und bestätige es mit deiner Unterschrift:\n\n{sign}\n\nDer Link ist 30 Tage gültig. Erst mit deiner Unterschrift wird das Angebot zum verbindlichen Auftrag.",
@@ -89,7 +115,8 @@ function wf_cm_text(string $lang): array
             'unsub' => 'Du bekommst diese Nachricht, weil du bei uns bestellt hast. Keine solchen E-Mails mehr: {unsub}',
         ],
         'da' => [
-            'buttons' => ['sign' => 'Se tilbud & underskriv', 'track' => 'Følg ordren', 'ship' => 'Følg forsendelsen', 'review_site' => 'Bedøm os på hjemmesiden', 'review' => 'Skriv en anmeldelse', 'unsub' => 'afmeld her', 'conf' => 'Se ordrebekræftelsen'],
+            'buttons' => ['sign' => 'Se tilbud & underskriv', 'track' => 'Følg ordren', 'ship' => 'Følg forsendelsen', 'review_site' => 'Bedøm os på hjemmesiden', 'review' => 'Skriv en anmeldelse', 'unsub' => 'afmeld her', 'conf' => 'Se ordrebekræftelsen', 'nl' => 'Tilmeld nyhedsbrev'],
+            'nl_line' => '📰 Idéer, kampagner og nyt fra værkstedet – et par gange om året på mail. Lyst?',
             'hello' => 'Hej {name},', 'regards' => "Venlig hilsen\n{owner}\n{company}",
             'offer_subj' => 'Dit tilbud {nr} – gennemse og underskriv',
             'offer_body' => "tak for din forespørgsel! Dit tilbud „{title}“ er klar. Tjek motiv, antal, pris og termin, og bekræft med din underskrift:\n\n{sign}\n\nLinket er gyldigt i 30 dage. Først med din underskrift bliver tilbuddet til en bindende ordre.",
@@ -109,7 +136,8 @@ function wf_cm_text(string $lang): array
             'unsub' => 'Du modtager denne besked, fordi du har handlet hos os. Ingen flere af denne slags e-mails: {unsub}',
         ],
         'en' => [
-            'buttons' => ['sign' => 'View quote & sign', 'track' => 'Track order', 'ship' => 'Track shipment', 'review_site' => 'Review us on our website', 'review' => 'Write a review', 'unsub' => 'unsubscribe here', 'conf' => 'View order confirmation'],
+            'buttons' => ['sign' => 'View quote & sign', 'track' => 'Track order', 'ship' => 'Track shipment', 'review_site' => 'Review us on our website', 'review' => 'Write a review', 'unsub' => 'unsubscribe here', 'conf' => 'View order confirmation', 'nl' => 'Subscribe to our newsletter'],
+            'nl_line' => '📰 Ideas, offers and news from the workshop – a few times a year by email. Interested?',
             'hello' => 'Hello {name},', 'regards' => "Kind regards\n{owner}\n{company}",
             'offer_subj' => 'Your quote {nr} – please review and sign',
             'offer_body' => "thank you for your enquiry! Your quote \"{title}\" is ready. Please check design, quantity, price and date and confirm with your signature:\n\n{sign}\n\nThe link is valid for 30 days. Only your signature turns the quote into a binding order.",
@@ -182,7 +210,7 @@ function wf_cm_html(string $text, array $B, string $track): string
             } else {
                 // Abmeldelink als kurzer Text statt langer Adresse
                 $lines[] = preg_replace_callback('~https?://[^\s<]+~', fn($m) => '<a href="' . $m[0] . '" style="color:#7E22CE;word-break:break-all">'
-                    . (str_contains($m[0], '&amp;abmelden=1') ? $e($B['unsub']) : $m[0]) . '</a>', $e($ln));
+                    . (str_contains($m[0], '&amp;abmelden=1') ? $e($B['unsub']) : (str_contains($m[0], 'newsletter.php') ? $e($B['nl'] ?? 'Newsletter') : $m[0])) . '</a>', $e($ln));
             }
         }
         $small = str_starts_with($para, '— ') || str_contains($para, '&abmelden=1');
@@ -205,6 +233,10 @@ function wf_cm_send(PDO $db, array $x, string $subject, string $body, string $wh
         return false;
     }
     $text = strtr($x['T']['hello'], $x['vars']) . "\n\n" . $body . "\n\n" . strtr($x['T']['regards'], $x['vars']);
+    // Hinweis auf den Newsletter (nur wenn noch nicht angemeldet): Anmeldung bleibt freiwillig mit Bestätigungsmail
+    if (($nl = wf_nl_join_url($db, (string)$x['o']['c_email'], $x['lang'], (string)$x['o']['c_name'])) !== null) {
+        $text .= "\n\n— " . $x['T']['nl_line'] . ' ' . $nl;
+    }
     $ok = wf_mail($x['o']['c_email'], $s['from'], strtr($subject, $x['vars']), $text, [], $s['name'], wf_cm_html($text, $x['T']['buttons'], $x['track']));
     // Verlauf: gesendet (an wen) oder fehlgeschlagen (mit Grund)
     $db->prepare('INSERT INTO status_log (order_id, user_name, what) VALUES (?,?,?)')->execute([(int)$x['o']['id'], 'System',
