@@ -26,7 +26,9 @@ import java.net.URL
  * eine fremde/manipulierte APK kann die App also nicht ersetzen.
  */
 object Updater {
-    const val BASE = "https://raw.githubusercontent.com/Denuklios/Test/ccr-71728653-8d4ka4/mailwerk/"
+    /** Ordner mit update.json und APK; leer in der Play-Store-Version (dort aktualisiert der Store). */
+    val BASE: String = BuildConfig.UPDATE_URL.let { if (it.isEmpty() || it.endsWith("/")) it else "$it/" }
+    val enabled: Boolean get() = BuildConfig.SELF_UPDATE && BASE.isNotEmpty()
 
     data class Info(val versionCode: Int, val versionName: String, val notes: String, val apkUrl: String)
 
@@ -39,6 +41,7 @@ object Updater {
 
     /** null = keine neuere Version. Wirft bei Netzwerkfehlern. */
     suspend fun check(ctx: Context): Info? = withContext(Dispatchers.IO) {
+        if (!enabled) return@withContext null
         val c = URL(BASE + "update.json?t=${System.currentTimeMillis() / 60000}").openConnection() as HttpURLConnection
         c.connectTimeout = 10000; c.readTimeout = 10000; c.useCaches = false
         try {
@@ -90,6 +93,7 @@ object Updater {
     /** Für den Hintergrund-Abgleich: höchstens alle 12 Stunden prüfen und einmal pro Version benachrichtigen. */
     suspend fun backgroundCheck(ctx: Context) {
         val p = Prefs(ctx)
+        if (!enabled) return
         if (!p.autoUpdateCheck || System.currentTimeMillis() - p.lastUpdateCheck < 12 * 3_600_000L) return
         val info = runCatching { check(ctx) }.getOrNull() ?: return
         if (p.notifiedUpdate >= info.versionCode) return

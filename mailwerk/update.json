@@ -1,6 +1,6 @@
 {
-  "versionCode": 7,
-  "versionName": "1.4",
+  "versionCode": 8,
+  "versionName": "1.5",
   "apk": "Mailwerk.apk",
-  "notes": "Regeln & Filter, Spam-Sperre, Abwesenheitsnotiz, Signatur mit Logo"
+  "notes": "Anmeldung mit Google/Microsoft vorbereitet, Play-Store-fähig"
 }

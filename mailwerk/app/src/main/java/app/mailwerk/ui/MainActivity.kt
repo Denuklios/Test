@@ -56,13 +56,16 @@ class MainActivity : ComponentActivity() {
                 crash?.let { report ->
                     androidx.compose.material3.AlertDialog(onDismissRequest = { app.mailwerk.CrashLog.clear(this@MainActivity); crash = null },
                         title = { androidx.compose.material3.Text("Mailwerk wurde unerwartet beendet") },
-                        text = { androidx.compose.material3.Text("Das tut uns leid. Schick den Fehlerbericht an Claude (z. B. in den Chat kopieren), dann wird der Fehler behoben.\n\n" +
+                        text = { androidx.compose.material3.Text("Das tut uns leid. Mit dem Fehlerbericht kann der Fehler behoben werden – er enthält keine Mails, Adressen oder Passwörter.\n\n" +
                             report.lines().take(8).joinToString("\n")) },
                         confirmButton = { androidx.compose.material3.TextButton(onClick = {
-                            startActivity(Intent.createChooser(Intent(Intent.ACTION_SEND).setType("text/plain")
-                                .putExtra(Intent.EXTRA_SUBJECT, "Mailwerk Absturzbericht").putExtra(Intent.EXTRA_TEXT, report), "Fehlerbericht teilen"))
+                            val support = app.mailwerk.BuildConfig.SUPPORT_EMAIL
+                            val share = Intent(Intent.ACTION_SEND).setType("text/plain")
+                                .putExtra(Intent.EXTRA_SUBJECT, "Mailwerk Absturzbericht").putExtra(Intent.EXTRA_TEXT, report)
+                            if (support.isNotEmpty()) share.putExtra(Intent.EXTRA_EMAIL, arrayOf(support))
+                            runCatching { startActivity(Intent.createChooser(share, "Fehlerbericht senden")) }
                             app.mailwerk.CrashLog.clear(this@MainActivity); crash = null
-                        }) { androidx.compose.material3.Text("Bericht teilen") } },
+                        }) { androidx.compose.material3.Text("Bericht senden") } },
                         dismissButton = { androidx.compose.material3.TextButton(onClick = { app.mailwerk.CrashLog.clear(this@MainActivity); crash = null }) {
                             androidx.compose.material3.Text("Schließen") } })
                 }

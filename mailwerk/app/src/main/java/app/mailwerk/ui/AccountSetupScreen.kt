@@ -93,6 +93,27 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
     var confirmDelete by remember { mutableStateOf(false) }
     val canGoBack = vm.stack.value.size > 1 && vm.db.accounts().isNotEmpty()
 
+    val oauthCtx = androidx.compose.ui.platform.LocalContext.current
+    var oauthProvider by remember { mutableStateOf<app.mailwerk.mail.OAuthProvider?>(null) }
+    val oauthLauncher = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.StartActivityForResult()) { res ->
+        val p = oauthProvider ?: return@rememberLauncherForActivityResult
+        scope.launch {
+            busy = true; error = null
+            try {
+                val r = app.mailwerk.data.OAuth.finish(oauthCtx, res.data)
+                vm.repo.addOAuthAccount(p, r)
+                vm.snack("${r.email} verbunden – Mails werden geladen …")
+                if (vm.stack.value.size > 1) vm.pop()
+                vm.refresh()
+            } catch (e: Exception) { error = e.message ?: friendly(e); if (existing == null) step = 0 }
+            busy = false
+        }
+    }
+    fun startOAuth(p: app.mailwerk.mail.OAuthProvider, hintMail: String?) {
+        oauthProvider = p
+        runCatching { oauthLauncher.launch(app.mailwerk.data.OAuth.loginIntent(oauthCtx, p, hintMail)) }
+            .onFailure { error = "Kein Browser gefunden, um die Anmeldung zu öffnen." }
+    }
     fun build() = Account(
         id = existing?.id ?: 0, name = name.ifBlank { email.substringBefore('@') }, email = email.trim(),
         imapHost = imapHost.trim(), imapPort = imapPort.toIntOrNull() ?: 993, imapSecurity = imapSec,
@@ -159,13 +180,29 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
                     Spacer(Modifier.height(8.dp))
                     Text("Weiteres Konto hinzufügen", style = MaterialTheme.typography.titleSmall)
                 }
-                Text("Funktioniert mit jedem Anbieter, der IMAP anbietet: GMX, WEB.DE, Telekom, Gmail, iCloud, Yahoo, Posteo, mailbox.org, IONOS, eigene Domains …",
+                error?.let { InfoCard("⚠️ $it", isError = true) }
+                val oauthList = app.mailwerk.mail.OAuthProvider.entries.filter { app.mailwerk.data.OAuth.available(it) }
+                oauthList.forEach { p ->
+                    androidx.compose.material3.OutlinedButton(onClick = { startOAuth(p, email.takeIf { it.contains('@') }) }, enabled = !busy,
+                        modifier = Modifier.fillMaxWidth().height(54.dp)) {
+                        Text(if (p == app.mailwerk.mail.OAuthProvider.GOOGLE) "G" else "⊞", style = MaterialTheme.typography.titleLarge,
+                            color = if (p == app.mailwerk.mail.OAuthProvider.GOOGLE) androidx.compose.ui.graphics.Color(0xFF4285F4) else androidx.compose.ui.graphics.Color(0xFF0078D4))
+                        Spacer(Modifier.width(12.dp)); Text("Mit ${p.label} anmelden", style = MaterialTheme.typography.titleMedium)
+                    }
+                }
+                if (oauthList.isNotEmpty()) Text(oauthList.joinToString(" / ") { if (it == app.mailwerk.mail.OAuthProvider.GOOGLE) "Gmail & Google Workspace" else "Outlook, Hotmail & Microsoft 365" } +
+                    ": sicher über das Anmeldefenster des Anbieters – dein Passwort sieht die App nie.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(if (oauthList.isEmpty()) "Funktioniert mit jedem Anbieter, der IMAP anbietet: GMX, WEB.DE, Telekom, Gmail, iCloud, Yahoo, Posteo, mailbox.org, IONOS, eigene Domains …"
+                    else "Oder mit E-Mail-Adresse und Passwort (GMX, WEB.DE, Telekom, iCloud, Yahoo, IONOS, one.com, eigene Domains …):",
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 OutlinedTextField(name, { name = it }, label = { Text("Dein Name (für Empfänger sichtbar)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 OutlinedTextField(email, { email = it }, label = { Text("E-Mail-Adresse") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
                 PasswordField(password, { password = it }, showPw) { showPw = !showPw }
-                AutoConfig.presets[email.substringAfter('@', "").lowercase()]?.hint?.let { InfoCard(it) }
+                val viaOAuth = app.mailwerk.mail.OAuthProvider.forEmail(email)?.takeIf { app.mailwerk.data.OAuth.available(it) }
+                if (viaOAuth != null) InfoCard("Für diese Adresse am besten oben „Mit ${viaOAuth.label} anmelden“ verwenden.")
+                else AutoConfig.presets[email.substringAfter('@', "").lowercase()]?.hint?.let { InfoCard(it) }
                 Button(enabled = email.contains('@') && password.isNotEmpty() && !busy, modifier = Modifier.fillMaxWidth(), onClick = {
                     busy = true
                     scope.launch {
@@ -180,6 +217,16 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
                 Text("🔒 Dein Passwort wird verschlüsselt im Android-Keystore gesichert und nur an deinen Mailserver gesendet.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 TextButton(onClick = { step = 1 }) { Text("Server manuell einrichten") }
+            } else if (existing?.isOAuth == true) {
+                val p = app.mailwerk.mail.OAuthProvider.ofAuthType(existing.authType)
+                error?.let { InfoCard("⚠️ $it", isError = true) }
+                InfoCard("Angemeldet über ${p?.label ?: "OAuth"} – kein Passwort gespeichert.")
+                OutlinedTextField(name, { name = it }, label = { Text("Name (für Empfänger sichtbar)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                if (p != null && app.mailwerk.data.OAuth.available(p)) androidx.compose.material3.OutlinedButton(onClick = { startOAuth(p, existing.email) },
+                    modifier = Modifier.fillMaxWidth()) { Text("Erneut mit ${p.label} anmelden") }
+                SectionTitle("Signatur")
+                OAuthSignatureFields(signature, { signature = it }, replySignature, { replySignature = it })
+                Button(onClick = { saveAndTest() }, modifier = Modifier.fillMaxWidth()) { Text("Speichern") }
             } else {
                 hint?.let { InfoCard(it) }
                 error?.let { InfoCard("⚠️ $it", isError = true) }
@@ -284,6 +331,12 @@ private fun PresetCard(vm: MainViewModel, p: PresetAccounts.Preset) {
             }
         }
     }
+}
+
+@Composable
+private fun OAuthSignatureFields(sig: String, onSig: (String) -> Unit, reply: String, onReply: (String) -> Unit) {
+    OutlinedTextField(sig, onSig, label = { Text("Signatur für neue Mails") }, minLines = 3, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(reply, onReply, label = { Text("Signatur für Antworten (leer = wie oben)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
 }
 
 @Composable

@@ -141,14 +141,18 @@ fun SettingsScreen(vm: MainViewModel) {
                 SectionTitle("App")
                 val upd by vm.update.collectAsState()
                 val prog by vm.updateProgress.collectAsState()
-                ListItem(headlineContent = { Text("Version ${app.mailwerk.BuildConfig.VERSION_NAME}") },
+                if (!app.mailwerk.sync.Updater.enabled) ListItem(headlineContent = { Text("Version ${app.mailwerk.BuildConfig.VERSION_NAME}") },
+                    supportingContent = { Text("Updates kommen über den Play Store") })
+                if (app.mailwerk.BuildConfig.PRIVACY_URL.isNotEmpty()) ListItem(headlineContent = { Text("Datenschutzerklärung") },
+                    modifier = Modifier.clickable { openUrl(ctx, app.mailwerk.BuildConfig.PRIVACY_URL) })
+                if (app.mailwerk.sync.Updater.enabled) ListItem(headlineContent = { Text("Version ${app.mailwerk.BuildConfig.VERSION_NAME}") },
                     supportingContent = { Text(when {
                         prog != null -> "Update wird geladen … ${((prog ?: 0f) * 100).toInt()} %"
                         upd != null -> "Version ${upd!!.versionName} verfügbar – tippen zum Installieren"
                         else -> "Tippen, um nach Updates zu suchen"
                     }) },
                     modifier = Modifier.clickable { if (upd != null) vm.installUpdate() else vm.checkUpdate(manual = true) })
-                Toggle("Automatisch nach Updates suchen", null, p.autoUpdateCheck) { p.autoUpdateCheck = it; changed() }
+                if (app.mailwerk.sync.Updater.enabled) Toggle("Automatisch nach Updates suchen", null, p.autoUpdateCheck) { p.autoUpdateCheck = it; changed() }
                 HorizontalDivider(Modifier.padding(top = 16.dp))
                 Text("Mailwerk 1.0 · Alle Daten bleiben auf deinem Gerät und bei deinem Mail-Anbieter. Keine Cloud, keine Werbung, kein Tracking.",
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
@@ -160,6 +164,11 @@ fun SettingsScreen(vm: MainViewModel) {
 
 @android.annotation.SuppressLint("BatteryLife")
 fun requestBatteryExemption(ctx: android.content.Context) {
+    if (!app.mailwerk.BuildConfig.SELF_UPDATE) {
+        // Play-Store-Version: nur die Einstellungsseite öffnen (direkte Anfrage ist dort eingeschränkt)
+        runCatching { ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK)) }
+        return
+    }
     runCatching {
         ctx.startActivity(android.content.Intent(android.provider.Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS,
             android.net.Uri.parse("package:${ctx.packageName}")).addFlags(android.content.Intent.FLAG_ACTIVITY_NEW_TASK))

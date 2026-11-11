@@ -3,7 +3,12 @@
 Eine eigene Mail-App (wie Outlook), die die besten Ideen aus den bekannten Mail-Apps zusammenführt.
 Sie läuft **komplett auf dem Gerät**: keine Cloud, kein Konto beim App-Hersteller, keine Werbung.
 
-**Download:** [`Mailwerk.apk`](Mailwerk.apk) (Android 8.0 oder neuer)
+**Download:** [`Mailwerk.apk`](Mailwerk.apk) (Android 8.0 oder neuer) · **Veröffentlichen im Play Store:** [VEROEFFENTLICHEN.md](VEROEFFENTLICHEN.md) ·
+**Datenschutz:** [DATENSCHUTZ.md](DATENSCHUTZ.md)
+
+Mailwerk ist ein neutrales Produkt: keine Daten des Entwicklers in der App, jeder meldet sich mit seinem eigenen Konto an –
+per Passwort (jeder IMAP-Anbieter) oder über das Anmeldefenster von **Google** bzw. **Microsoft** (OAuth, sobald die
+Client-IDs in `mailwerk.properties` eingetragen sind).
 
 | Posteingang | Unterhaltung | Antworten | Einstellungen |
 |---|---|---|---|
@@ -90,8 +95,9 @@ app/src/main/java/app/mailwerk/
 
 ### Bauen
 ```bash
-./gradlew assembleRelease      # -> app/build/outputs/apk/release/app-release.apk
-./gradlew testDebugUnitTest    # Tests
+./gradlew assembleDirectRelease   # APK zum Weitergeben (aktualisiert sich selbst)
+./gradlew bundlePlayRelease       # App-Bundle für den Play Store (braucht keystore.properties)
+./gradlew testDirectDebugUnitTest # Tests
 ```
 Signiert wird mit `app/mailwerk.keystore` (liegt bewusst im Repo, damit neue Versionen sich als Update über die alte
 installieren lassen). Für eine Veröffentlichung im Play Store einen eigenen, geheimen Schlüssel verwenden.
@@ -103,5 +109,5 @@ installieren lassen). Für eine Veröffentlichung im Play Store einen eigenen, g
 - `ScreenshotTest` – rendert die Oberfläche (Robolectric) und erzeugt die Bilder oben
 
 ## Noch nicht enthalten (mögliche nächste Schritte)
-- OAuth-Anmeldung für Gmail/Microsoft (braucht registrierte Client-IDs bei Google/Microsoft)
+- Englische Übersetzung der Oberfläche (für Nutzer außerhalb des deutschsprachigen Raums)
 - Kalender, Exchange/ActiveSync, PGP/S-MIME-Verschlüsselung, Rich-Text-Editor, App-Sperre per Fingerabdruck

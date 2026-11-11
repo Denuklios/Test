@@ -1,0 +1,19 @@
+# Kopie als "mailwerk.properties" anlegen und ausfüllen (Datei wird nicht ins Repo hochgeladen).
+
+# Eigene App-ID für den Play Store (muss weltweit eindeutig sein, z. B. de.deinefirma.mail)
+# applicationId=app.mailwerk
+
+# „Mit Google anmelden“ – OAuth-Client vom Typ „Android“ aus der Google Cloud Console
+# google.clientId=1234567890-abcdefg.apps.googleusercontent.com
+
+# „Mit Microsoft anmelden“ – Anwendungs-ID (Client-ID) aus Microsoft Entra / Azure „App-Registrierungen“
+# microsoft.clientId=00000000-0000-0000-0000-000000000000
+
+# Kontaktadresse für Fehlerberichte und im Store
+# support.email=support@example.com
+
+# Link zur Datenschutzerklärung (Pflicht im Play Store)
+# privacy.url=https://example.com/datenschutz
+
+# Nur Direkt-Version: Ordner, in dem update.json und Mailwerk.apk liegen
+# update.url=https://example.com/mailwerk/

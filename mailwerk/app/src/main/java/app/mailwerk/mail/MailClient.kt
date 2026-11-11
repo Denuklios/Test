@@ -110,6 +110,15 @@ class MailClient(private val acc: Account, private val password: String) {
         if (acc.smtpSecurity == Security.STARTTLS) {
             put("mail.smtp.starttls.enable", "true"); put("mail.smtp.starttls.required", "true")
         }
+        if (acc.isOAuth) {
+            // Anmeldung mit Zugangs-Token statt Passwort (SASL XOAUTH2, von Google und Microsoft unterstützt)
+            put("mail.$imapProto.auth.mechanisms", "XOAUTH2")
+            put("mail.$imapProto.auth.login.disable", "true")
+            put("mail.$imapProto.auth.plain.disable", "true")
+            put("mail.$smtpProto.auth.mechanisms", "XOAUTH2")
+            put("mail.$smtpProto.auth.login.disable", "true")
+            put("mail.$smtpProto.auth.plain.disable", "true")
+        }
     }
 
     private val session: Session by lazy { Session.getInstance(props()) }

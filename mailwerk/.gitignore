@@ -6,3 +6,7 @@ local.properties
 *.iml
 !mailwerk/app/src/main/java/app/mailwerk/data/
 app/src/main/assets/preset_accounts.txt
+mailwerk.properties
+keystore.properties
+*.jks
+upload-key*

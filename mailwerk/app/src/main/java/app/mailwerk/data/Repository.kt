@@ -27,7 +27,10 @@ class Repository private constructor(private val ctx: Context) {
     val prefs = Prefs(ctx)
     private val syncLock = Mutex()
     /** Für Tests austauschbar (Robolectric hat keinen Android-Keystore). */
-    internal var passwordOf: (Account) -> String = { Crypto.decrypt(it.passwordEnc) }
+    internal var passwordOf: (Account) -> String = { a -> if (a.isOAuth) OAuth.freshToken(ctx, a) else Crypto.decrypt(a.passwordEnc) }
+
+    /** Passwort bzw. aktuelles Zugangs-Token (für den Push-Dienst). */
+    fun secretFor(a: Account): String = passwordOf(a)
 
     init {
         // frühere Sperrliste (Einstellungen) in die Datenbank übernehmen
@@ -36,6 +39,7 @@ class Repository private constructor(private val ctx: Context) {
 
     private fun client(a: Account): MailClient {
         val pw = try { passwordOf(a) } catch (e: Exception) {
+            if (a.isOAuth) throw IllegalStateException(e.message ?: "Anmeldung abgelaufen – bitte Konto erneut anmelden.")
             throw IllegalStateException("Gespeichertes Passwort nicht lesbar – bitte unter Einstellungen → Konto das Passwort neu eingeben.")
         }
         return MailClient(a, pw)
@@ -49,6 +53,21 @@ class Repository private constructor(private val ctx: Context) {
     suspend fun addAccount(a: Account, plainPassword: String): Long = withContext(Dispatchers.IO) {
         val color = palette[db.accounts().size % palette.size]
         db.saveAccount(a.copy(passwordEnc = Crypto.encrypt(plainPassword), color = if (a.color == 0) color else a.color))
+    }
+
+    /** Konto nach Anmeldung über Google/Microsoft anlegen bzw. die Anmeldung erneuern. */
+    suspend fun addOAuthAccount(p: app.mailwerk.mail.OAuthProvider, r: OAuth.Result): Long = withContext(Dispatchers.IO) {
+        val existing = db.accounts().firstOrNull { it.email.equals(r.email, true) }
+        val enc = Crypto.encrypt(r.stateJson)
+        val acc = (existing ?: Account(name = r.name.ifBlank { r.email.substringBefore('@') }, email = r.email,
+            imapHost = p.imapHost, imapPort = p.imapPort, imapSecurity = p.imapSecurity,
+            smtpHost = p.smtpHost, smtpPort = p.smtpPort, smtpSecurity = p.smtpSecurity,
+            username = r.email, passwordEnc = "", color = palette[db.accounts().size % palette.size]))
+            .copy(passwordEnc = enc, authType = p.authType, username = r.email)
+        // Verbindung prüfen, bevor gespeichert wird
+        val token = OAuth.freshToken(ctx, acc.copy(id = -1))
+        MailClient(acc, token).test()
+        db.saveAccount(acc)
     }
 
     suspend fun updateAccount(a: Account, newPassword: String?) = withContext(Dispatchers.IO) {

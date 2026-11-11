@@ -31,7 +31,11 @@ data class Account(
     val replySignature: String = "",
     /** Logo-Bild für die Signatur (Datei im App-Speicher) */
     val logoPath: String? = null,
-)
+    /** "password" oder "oauth_google" / "oauth_microsoft" */
+    val authType: String = "password",
+) {
+    val isOAuth get() = authType.startsWith("oauth_")
+}
 
 object FolderRole {
     const val INBOX = "inbox"

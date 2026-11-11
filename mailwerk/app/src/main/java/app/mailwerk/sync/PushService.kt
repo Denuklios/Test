@@ -71,11 +71,14 @@ class PushService : Service() {
         watchers.keys.filter { it !in ids }.forEach { id -> watchers.remove(id)?.second?.stop() }
         for (a in accounts) {
             val existing = watchers[a.id]
-            if (existing != null && existing.first == a.passwordEnc + a.imapHost + a.imapPort) continue
+            // Bei OAuth-Konten ändert sich der gespeicherte Status bei jeder Token-Erneuerung -> nicht neu verbinden
+            val key = a.authType + a.imapHost + a.imapPort + a.username + (if (a.isOAuth) "" else a.passwordEnc)
+            if (existing != null && existing.first == key) continue
             existing?.second?.stop()
-            val pw = runCatching { Crypto.decrypt(a.passwordEnc) }.getOrNull() ?: continue
-            val w = IdleWatcher(a, pw, onNewMail = { scheduleSync() }, onState = { st -> states[a.email] = st; refreshStatus() })
-            watchers[a.id] = (a.passwordEnc + a.imapHost + a.imapPort) to w
+            val repo = Repository.get(this)
+            val w = IdleWatcher(a, secret = { Db.get(this).account(a.id)?.let { repo.secretFor(it) } ?: error("Konto entfernt") },
+                onNewMail = { scheduleSync() }, onState = { st -> states[a.email] = st; refreshStatus() })
+            watchers[a.id] = key to w
             w.start()
         }
         refreshStatus()

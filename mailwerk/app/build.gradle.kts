@@ -1,35 +1,80 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
 }
 
+// Einstellungen für die Veröffentlichung (OAuth-Client-IDs, Support-Adresse, Update-Adresse).
+// Datei mailwerk.properties im Projektordner, Vorlage: mailwerk.properties.example
+val cfg = Properties().apply {
+    rootProject.file("mailwerk.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+fun cfg(key: String, default: String = "") = (cfg.getProperty(key) ?: default).trim()
+fun str(v: String) = "\"" + v.replace("\\", "\\\\").replace("\"", "\\\"") + "\""
+
+// Geheimer Release-Schlüssel (nicht im Repo!): keystore.properties mit storeFile, storePassword, keyAlias, keyPassword
+val ks = Properties().apply {
+    rootProject.file("keystore.properties").takeIf { it.exists() }?.inputStream()?.use { load(it) }
+}
+
 android {
     namespace = "app.mailwerk"
-    compileSdk = 35
+    compileSdk = 36
 
     defaultConfig {
-        applicationId = "app.mailwerk"
+        applicationId = cfg("applicationId", "app.mailwerk")
         minSdk = 26
-        targetSdk = 35
-        versionCode = 7
-        versionName = "1.4"
+        targetSdk = 36
+        versionCode = 8
+        versionName = "1.5"
+        buildConfigField("String", "GOOGLE_CLIENT_ID", str(cfg("google.clientId")))
+        buildConfigField("String", "MICROSOFT_CLIENT_ID", str(cfg("microsoft.clientId")))
+        buildConfigField("String", "SUPPORT_EMAIL", str(cfg("support.email")))
+        buildConfigField("String", "PRIVACY_URL", str(cfg("privacy.url",
+            "https://github.com/Denuklios/Test/blob/ccr-71728653-8d4ka4/mailwerk/DATENSCHUTZ.md")))
+        manifestPlaceholders["appAuthRedirectScheme"] = cfg("applicationId", "app.mailwerk")
     }
 
     signingConfigs {
-        // Fester Schlüssel im Repo, damit Updates sich ohne Deinstallation installieren lassen.
+        // Öffentlicher Schlüssel nur für die Direkt-Version im Familien-/Freundeskreis (Updates ohne Neuinstallation).
         create("shared") {
             storeFile = file("mailwerk.keystore")
             storePassword = "mailwerk"
             keyAlias = "mailwerk"
             keyPassword = "mailwerk"
         }
+        // Geheimer Schlüssel für den Play Store (Upload-Schlüssel) – liegt NICHT im Repo.
+        if (ks.getProperty("storeFile") != null) create("private") {
+            storeFile = rootProject.file(ks.getProperty("storeFile"))
+            storePassword = ks.getProperty("storePassword")
+            keyAlias = ks.getProperty("keyAlias")
+            keyPassword = ks.getProperty("keyPassword")
+        }
+    }
+
+    flavorDimensions += "store"
+    productFlavors {
+        // Direkt-Version: APK zum Weitergeben, aktualisiert sich selbst über update.json
+        create("direct") {
+            dimension = "store"
+            buildConfigField("boolean", "SELF_UPDATE", "true")
+            buildConfigField("String", "UPDATE_URL", str(cfg("update.url", "https://raw.githubusercontent.com/Denuklios/Test/ccr-71728653-8d4ka4/mailwerk/")))
+            signingConfig = signingConfigs.getByName("shared")
+        }
+        // Play-Store-Version: keine Selbst-Aktualisierung (Play-Richtlinie), Updates kommen über den Store
+        create("play") {
+            dimension = "store"
+            buildConfigField("boolean", "SELF_UPDATE", "false")
+            buildConfigField("String", "UPDATE_URL", "\"\"")
+            signingConfig = signingConfigs.findByName("private")
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
-            signingConfig = signingConfigs.getByName("shared")
         }
         debug {
             signingConfig = signingConfigs.getByName("shared")
@@ -84,6 +129,8 @@ dependencies {
     implementation("org.eclipse.angus:angus-activation:2.0.2")
     // HTML-Bereinigung, Tracker-Erkennung
     implementation("org.jsoup:jsoup:1.18.3")
+    // Anmeldung über Google/Microsoft (OAuth 2.0 + PKCE)
+    implementation("net.openid:appauth:0.11.1")
 
     testImplementation("junit:junit:4.13.2")
     testImplementation("org.json:json:20240303")

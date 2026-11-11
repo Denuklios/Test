@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Lokale Datenbank (Offline-Speicher aller Mails). Bewusst ohne ORM gehalten.
  * Jede Schreiboperation erhöht [changes], damit die Oberfläche neu lädt.
  */
-class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 4) {
+class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 5) {
 
     private val _changes = MutableStateFlow(0L)
     val changes: StateFlow<Long> = _changes
@@ -25,7 +25,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
             id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT,
             imap_host TEXT, imap_port INTEGER, imap_sec TEXT,
             smtp_host TEXT, smtp_port INTEGER, smtp_sec TEXT,
-            username TEXT, password TEXT, signature TEXT, color INTEGER, reply_signature TEXT, logo_path TEXT)""")
+            username TEXT, password TEXT, signature TEXT, color INTEGER, reply_signature TEXT, logo_path TEXT, auth_type TEXT)""")
         db.execSQL("""CREATE TABLE folders(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -76,6 +76,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) shrinkHugeRows(db)
+        if (oldVersion < 5 && newVersion >= 5) runCatching { db.execSQL("ALTER TABLE accounts ADD COLUMN auth_type TEXT") }
         if (oldVersion < 4 && newVersion >= 4) {
             runCatching { db.execSQL("ALTER TABLE accounts ADD COLUMN reply_signature TEXT") }
             runCatching { db.execSQL("ALTER TABLE accounts ADD COLUMN logo_path TEXT") }
@@ -118,11 +119,16 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
             put("imap_host", a.imapHost); put("imap_port", a.imapPort); put("imap_sec", a.imapSecurity.name)
             put("smtp_host", a.smtpHost); put("smtp_port", a.smtpPort); put("smtp_sec", a.smtpSecurity.name)
             put("username", a.username); put("password", a.passwordEnc); put("signature", a.signature); put("color", a.color)
-            put("reply_signature", a.replySignature); put("logo_path", a.logoPath)
+            put("reply_signature", a.replySignature); put("logo_path", a.logoPath); put("auth_type", a.authType)
         }
         val id = if (a.id == 0L) writableDatabase.insert("accounts", null, cv)
         else { writableDatabase.update("accounts", cv, "id=?", arrayOf("${a.id}")); a.id }
         notifyChanged(); return id
+    }
+
+    /** Speichern ohne Benachrichtigung der Oberfläche (z. B. erneuertes Anmelde-Token). */
+    fun saveAccountSilently(a: Account) {
+        writableDatabase.update("accounts", ContentValues().apply { put("password", a.passwordEnc) }, "id=?", arrayOf("${a.id}"))
     }
 
     fun deleteAccount(id: Long) { writableDatabase.delete("accounts", "id=?", arrayOf("$id")); notifyChanged() }
@@ -437,7 +443,8 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
     private fun Cursor.toAccount() = Account(
         long("id"), str("name"), str("email"), str("imap_host"), int("imap_port"), Security.valueOf(str("imap_sec")),
         str("smtp_host"), int("smtp_port"), Security.valueOf(str("smtp_sec")), str("username"), str("password"), str("signature"), int("color"),
-        replySignature = strOrNull("reply_signature") ?: "", logoPath = strOrNull("logo_path"))
+        replySignature = strOrNull("reply_signature") ?: "", logoPath = strOrNull("logo_path"),
+        authType = strOrNull("auth_type") ?: "password")
 
     private fun Cursor.toFolder() = Folder(long("id"), long("account_id"), str("full_name"), str("display_name"), strOrNull("role"),
         int("cnt"), long("last_uid"), long("uid_validity"))

@@ -71,7 +71,7 @@ class LogicTest {
     @Test fun updateInfoParsing() {
         val i = app.mailwerk.sync.Updater.parse("""{"versionCode":7,"versionName":"2.0","notes":"Neu","apk":"Mailwerk.apk"}""")
         assertEquals(7, i.versionCode); assertEquals("2.0", i.versionName)
-        assertEquals(app.mailwerk.sync.Updater.BASE + "Mailwerk.apk", i.apkUrl)
+        assertEquals(app.mailwerk.sync.Updater.BASE + "Mailwerk.apk", i.apkUrl); assertTrue(app.mailwerk.sync.Updater.enabled)
         val repo = app.mailwerk.sync.Updater.parse(java.io.File("../update.json").readText())
         assertEquals(app.mailwerk.BuildConfig.VERSION_CODE, repo.versionCode) // update.json passt zur gebauten Version
         assertEquals(app.mailwerk.BuildConfig.VERSION_NAME, repo.versionName)

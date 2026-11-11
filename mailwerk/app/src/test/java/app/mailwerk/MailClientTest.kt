@@ -115,7 +115,7 @@ class MailClientTest {
     @Test fun idlePushReportsNewMailImmediately() {
         val latch = java.util.concurrent.CountDownLatch(2) // 1x nach Verbindung, 1x für die neue Mail
         val states = java.util.Collections.synchronizedList(mutableListOf<String>())
-        val w = app.mailwerk.mail.IdleWatcher(acc, "geheim", onNewMail = { latch.countDown() }, onState = { states += it })
+        val w = app.mailwerk.mail.IdleWatcher(acc, { "geheim" }, onNewMail = { latch.countDown() }, onState = { states += it })
         w.start()
         try {
             val deadline = System.currentTimeMillis() + 10_000

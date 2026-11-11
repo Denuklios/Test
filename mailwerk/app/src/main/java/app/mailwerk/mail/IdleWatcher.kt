@@ -17,7 +17,8 @@ import java.util.concurrent.TimeUnit
  */
 class IdleWatcher(
     private val acc: Account,
-    private val password: String,
+    /** liefert Passwort bzw. frisches Zugangs-Token bei jeder (Neu-)Verbindung */
+    private val secret: () -> String,
     private val onNewMail: () -> Unit,
     private val onState: (String) -> Unit = {},
     private val keepAliveMinutes: Long = 9,
@@ -58,7 +59,7 @@ class IdleWatcher(
         while (running) {
             try {
                 Thread.currentThread().contextClassLoader = IdleWatcher::class.java.classLoader
-                MailClient(acc, password).withStore { s ->
+                MailClient(acc, secret()).withStore { s ->
                     val st = s as IMAPStore
                     store = st
                     val f = st.getFolder("INBOX") as IMAPFolder
