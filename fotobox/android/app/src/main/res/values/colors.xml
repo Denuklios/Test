@@ -1,2 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<resources><color name="ic_bg">#2F6FED</color></resources>
+<resources>
+    <!-- Farben wie im Admin-Bereich von Wunsch-Fabrik.dk -->
+    <color name="purple">#8B2BE2</color>
+    <color name="purple_bright">#7E22CE</color>
+    <color name="bg_deep">#EBE9F0</color>
+    <color name="bg_card">#F8F7FB</color>
+    <color name="bg_card2">#F1EEF7</color>
+    <color name="text">#1F1A2B</color>
+    <color name="text_muted">#5F5872</color>
+    <color name="text_dim">#8A83A0</color>
+    <color name="border">#297C22C9</color>
+    <color name="red">#DC2626</color>
+    <color name="ic_bg">#FFFFFF</color>
+</resources>

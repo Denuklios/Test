@@ -35,7 +35,7 @@ Dateien liegen unter `/srv/fotobox/data/<benutzer>/`:
 /srv/fotobox/data/anna/Dateien/Rechnung.pdf                  ← selbst hochgeladen
 ```
 
-Im Browser: `http://SERVER-IP:8090` – anmelden, Fotos ansehen, herunterladen,
+Im Browser: `http://SERVER-IP:8090` (im Stil des Wunsch-Fabrik-Admin-Bereichs) – anmelden, Fotos ansehen, herunterladen,
 Dateien hochladen, Ordner anlegen, löschen.
 
 Anderer Port oder Datenordner: `sudo FOTOBOX_PORT=9000 FOTOBOX_HOME=/mnt/platte/fotobox bash install.sh`

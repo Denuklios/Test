@@ -1,8 +1,79 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <style name="AppTheme" parent="@android:style/Theme.Material.Light.DarkActionBar">
-        <item name="android:colorPrimary">#2F6FED</item>
-        <item name="android:colorPrimaryDark">#1E4FB8</item>
-        <item name="android:colorAccent">#2F6FED</item>
+    <style name="AppTheme" parent="@android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">@color/purple</item>
+        <item name="android:colorPrimaryDark">@color/bg_card</item>
+        <item name="android:colorAccent">@color/purple</item>
+        <item name="android:statusBarColor">@color/bg_card</item>
+        <item name="android:windowLightStatusBar">true</item>
+        <item name="android:navigationBarColor">@color/bg_deep</item>
+        <item name="android:windowBackground">@color/bg_deep</item>
+        <item name="android:textColor">@color/text</item>
+        <item name="android:textColorPrimary">@color/text</item>
+        <item name="android:textColorSecondary">@color/text_muted</item>
+        <item name="android:fontFamily">@font/outfit_regular</item>
+    </style>
+
+    <style name="Card">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/bg_card</item>
+        <item name="android:padding">20dp</item>
+        <item name="android:layout_marginBottom">14dp</item>
+        <item name="android:orientation">vertical</item>
+        <item name="android:elevation">2dp</item>
+    </style>
+    <style name="Title">
+        <item name="android:fontFamily">@font/cormorant_bold</item>
+        <item name="android:textSize">22sp</item>
+        <item name="android:textColor">@color/text</item>
+    </style>
+    <style name="Label">
+        <item name="android:textSize">11sp</item>
+        <item name="android:letterSpacing">0.1</item>
+        <item name="android:textAllCaps">true</item>
+        <item name="android:textColor">@color/text_muted</item>
+        <item name="android:layout_marginTop">12dp</item>
+        <item name="android:layout_marginBottom">6dp</item>
+    </style>
+    <style name="Input">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:background">@drawable/bg_input</item>
+        <item name="android:paddingStart">14dp</item>
+        <item name="android:paddingEnd">14dp</item>
+        <item name="android:paddingTop">12dp</item>
+        <item name="android:paddingBottom">12dp</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textColorHint">@color/text_dim</item>
+    </style>
+    <style name="BtnPrimary">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">50dp</item>
+        <item name="android:background">@drawable/btn_primary</item>
+        <item name="android:textColor">#FFFFFF</item>
+        <item name="android:fontFamily">@font/outfit_semibold</item>
+        <item name="android:textSize">15sp</item>
+        <item name="android:textAllCaps">false</item>
+        <item name="android:stateListAnimator">@null</item>
+        <item name="android:layout_marginTop">10dp</item>
+    </style>
+    <style name="BtnSecondary" parent="BtnPrimary">
+        <item name="android:background">@drawable/btn_secondary</item>
+        <item name="android:textColor">@color/text</item>
+    </style>
+    <style name="Check">
+        <item name="android:layout_width">match_parent</item>
+        <item name="android:layout_height">wrap_content</item>
+        <item name="android:buttonTint">@color/purple</item>
+        <item name="android:textSize">14sp</item>
+        <item name="android:paddingStart">6dp</item>
+        <item name="android:minHeight">44dp</item>
+    </style>
+    <style name="StatValue">
+        <item name="android:fontFamily">@font/cormorant_bold</item>
+        <item name="android:textSize">34sp</item>
+        <item name="android:textColor">@color/text</item>
+        <item name="android:includeFontPadding">false</item>
     </style>
 </resources>

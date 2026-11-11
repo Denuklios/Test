@@ -193,6 +193,8 @@ class Handler(BaseHTTPRequestHandler):
         try:
             if r in ("/", "/index.html"):
                 return self.send_page()
+            if r.startswith("/assets/"):
+                return self.send_asset(r[8:])
             if r == "/api/ping":
                 return self.send_json({"ok": True, "app": "fotobox", "version": VERSION})
             user = self.auth()
@@ -377,6 +379,20 @@ class Handler(BaseHTTPRequestHandler):
                     break
                 self.wfile.write(chunk)
                 remaining -= len(chunk)
+
+    def send_asset(self, name):
+        if not re.match(r"^[a-z0-9-]+\.(png|woff2)$", name):
+            return self.error(404, "nicht gefunden")
+        p = Path(__file__).with_name("assets") / name
+        if not p.is_file():
+            return self.error(404, "nicht gefunden")
+        body = p.read_bytes()
+        self.send_response(200)
+        self.send_header("Content-Type", "font/woff2" if name.endswith(".woff2") else "image/png")
+        self.send_header("Content-Length", str(len(body)))
+        self.send_header("Cache-Control", "public, max-age=604800")
+        self.end_headers()
+        self.wfile.write(body)
 
     def send_page(self):
         page = Path(__file__).with_name("web.html")

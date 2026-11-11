@@ -75,8 +75,12 @@ class MainActivity : Activity() {
         v<View>(R.id.setupBox).visibility = if (inn) View.GONE else View.VISIBLE
         v<View>(R.id.mainBox).visibility = if (inn) View.VISIBLE else View.GONE
         if (inn) {
-            v<TextView>(R.id.account).text = "${prefs.user} @ ${Uri.parse(prefs.server).host}"
+            v<TextView>(R.id.account).text = "${prefs.user} · ${Uri.parse(prefs.server).host}"
             askPermissions()
+        }
+        v<TextView>(R.id.avatar).apply {
+            visibility = if (inn) View.VISIBLE else View.GONE
+            text = prefs.user.take(2).uppercase()
         }
         refresh()
     }
@@ -86,12 +90,15 @@ class MainActivity : Activity() {
         val last = if (prefs.lastRun == 0L) "noch nie"
         else DateUtils.getRelativeTimeSpanString(prefs.lastRun, System.currentTimeMillis(), DateUtils.MINUTE_IN_MILLIS)
         val waiting = FileQueue.pending(this).size
+        v<TextView>(R.id.statCount).text = "%,d".format(java.util.Locale.GERMANY, UploadedDb(this).count())
+        v<TextView>(R.id.statLast).text = last
         v<TextView>(R.id.status).text = buildString {
-            append("Gesichert: ${UploadedDb(this@MainActivity).count()} Fotos/Videos\n")
-            append("Letzter Abgleich: $last\n")
-            if (prefs.lastResult.isNotEmpty()) append("Ergebnis: ${prefs.lastResult}\n")
-            if (waiting > 0) append("Wartende Dateien: $waiting\n")
-            if (prefs.progress.isNotEmpty()) append("\n${prefs.progress}")
+            append(if (prefs.lastResult.isNotEmpty()) prefs.lastResult else "Wartet auf das Heim-WLAN")
+            if (waiting > 0) append("\nWartende Dateien: $waiting")
+        }
+        v<TextView>(R.id.progress).apply {
+            text = prefs.progress
+            visibility = if (prefs.progress.isEmpty()) View.GONE else View.VISIBLE
         }
         v<View>(R.id.permWarn).visibility = if (hasFullMediaAccess()) View.GONE else View.VISIBLE
     }
@@ -105,9 +112,10 @@ class MainActivity : Activity() {
         val all = v<CheckBox>(R.id.includeExisting).isChecked
         val msg = v<TextView>(R.id.loginMsg)
         val btn = v<Button>(R.id.loginBtn)
-        if (url.isEmpty() || user.isEmpty() || pw.isEmpty()) { msg.text = "Bitte alles ausfüllen."; return }
+        if (url.isEmpty() || user.isEmpty() || pw.isEmpty()) { showMsg("Bitte alles ausfüllen."); return }
         btn.isEnabled = false
-        msg.text = "Verbinde …"
+        msg.visibility = View.GONE
+        btn.text = "Verbinde …"
         Thread {
             val result = try {
                 val api = Api(url)
@@ -116,16 +124,16 @@ class MainActivity : Activity() {
             } catch (e: Exception) { Result.failure(e) }
             runOnUiThread {
                 btn.isEnabled = true
+                btn.text = "Anmelden"
                 result.onSuccess { token ->
                     prefs.server = url; prefs.user = user; prefs.token = token
                     prefs.sinceSeconds = if (all) 0 else System.currentTimeMillis() / 1000
                     v<EditText>(R.id.password).setText("")
-                    msg.text = ""
                     UploadedDb(this).clear()
                     Scheduler.schedule(this, replace = true)
                     showState()
                     Scheduler.syncNow(this)
-                }.onFailure { msg.text = it.message ?: "Fehler" }
+                }.onFailure { showMsg(it.message ?: "Fehler") }
             }
         }.start()
     }
@@ -173,6 +181,10 @@ class MainActivity : Activity() {
             Scheduler.uploadFiles(applicationContext)
             runOnUiThread { toast("$n Datei(en) in der Warteschlange – Upload startet"); refresh() }
         }.start()
+    }
+
+    private fun showMsg(t: String) {
+        v<TextView>(R.id.loginMsg).apply { text = t; visibility = View.VISIBLE }
     }
 
     private fun toast(s: String) = Toast.makeText(this, s, Toast.LENGTH_SHORT).show()

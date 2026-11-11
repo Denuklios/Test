@@ -14,6 +14,8 @@ install -d -o fotobox -g fotobox -m 750 "$HOME_DIR" "$HOME_DIR/data"
 install -d /opt/fotobox
 install -m 755 fotobox.py /opt/fotobox/fotobox.py
 install -m 644 web.html /opt/fotobox/web.html
+install -d /opt/fotobox/assets
+install -m 644 assets/* /opt/fotobox/assets/
 
 cat > /etc/systemd/system/fotobox.service <<UNIT
 [Unit]

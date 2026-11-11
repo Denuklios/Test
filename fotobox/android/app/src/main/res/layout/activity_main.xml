@@ -1,178 +1,286 @@
 <?xml version="1.0" encoding="utf-8"?>
-<ScrollView xmlns:android="http://schemas.android.com/apk/res/android"
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:orientation="vertical">
 
+    <!-- Kopfzeile wie im Admin-Bereich -->
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:padding="20dp">
+        android:background="@color/bg_card"
+        android:elevation="2dp"
+        android:gravity="center_vertical"
+        android:orientation="horizontal"
+        android:paddingStart="20dp"
+        android:paddingTop="12dp"
+        android:paddingEnd="20dp"
+        android:paddingBottom="12dp">
 
-        <!-- Anmeldung -->
+        <ImageView
+            android:layout_width="wrap_content"
+            android:layout_height="30dp"
+            android:adjustViewBounds="true"
+            android:contentDescription="WF"
+            android:src="@drawable/wf_logo" />
+
         <LinearLayout
-            android:id="@+id/setupBox"
-            android:layout_width="match_parent"
+            android:layout_width="0dp"
             android:layout_height="wrap_content"
+            android:layout_marginStart="12dp"
+            android:layout_weight="1"
             android:orientation="vertical">
 
             <TextView
+                style="@style/Title"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:text="Mit deinem Server verbinden"
-                android:textSize="20sp"
-                android:textStyle="bold" />
+                android:includeFontPadding="false"
+                android:text="Wunsch-Fabrik"
+                android:textSize="19sp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Server-Adresse (zu Hause im WLAN)" />
-
-            <EditText
-                android:id="@+id/serverUrl"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:hint="http://192.168.1.10:8090"
-                android:inputType="textUri" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Benutzer" />
-
-            <EditText
-                android:id="@+id/userName"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="text" />
-
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Passwort" />
-
-            <EditText
-                android:id="@+id/password"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:inputType="textPassword" />
-
-            <CheckBox
-                android:id="@+id/includeExisting"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Auch alle vorhandenen Fotos sichern"
-                android:checked="true" />
-
-            <Button
-                android:id="@+id/loginBtn"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="Verbinden" />
-
-            <TextView
-                android:id="@+id/loginMsg"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:textColor="#D33" />
+                android:letterSpacing="0.18"
+                android:text="FOTOBOX"
+                android:textColor="@color/text_muted"
+                android:textSize="10sp" />
         </LinearLayout>
 
-        <!-- Hauptansicht -->
+        <TextView
+            android:id="@+id/avatar"
+            android:layout_width="36dp"
+            android:layout_height="36dp"
+            android:background="@drawable/bg_avatar"
+            android:fontFamily="@font/outfit_semibold"
+            android:gravity="center"
+            android:textColor="#FFFFFF"
+            android:textSize="13sp"
+            android:visibility="gone" />
+    </LinearLayout>
+
+    <ScrollView
+        android:layout_width="match_parent"
+        android:layout_height="0dp"
+        android:layout_weight="1">
+
         <LinearLayout
-            android:id="@+id/mainBox"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:visibility="gone">
+            android:padding="18dp">
 
-            <TextView
-                android:id="@+id/account"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:textSize="20sp"
-                android:textStyle="bold" />
-
-            <TextView
-                android:id="@+id/status"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
+            <!-- Anmeldung -->
+            <LinearLayout
+                android:id="@+id/setupBox"
+                style="@style/Card"
                 android:layout_marginTop="12dp"
-                android:lineSpacingExtra="4dp"
-                android:textSize="15sp" />
+                android:padding="26dp">
 
-            <TextView
-                android:id="@+id/permWarn"
+                <ImageView
+                    android:layout_width="wrap_content"
+                    android:layout_height="52dp"
+                    android:layout_gravity="center_horizontal"
+                    android:adjustViewBounds="true"
+                    android:contentDescription="WF"
+                    android:src="@drawable/wf_logo" />
+
+                <TextView
+                    style="@style/Title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="10dp"
+                    android:text="FotoBox"
+                    android:textSize="26sp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginBottom="10dp"
+                    android:text="Mit deinem Server verbinden"
+                    android:textColor="@color/text_muted"
+                    android:textSize="13sp" />
+
+                <TextView style="@style/Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Server-Adresse (zu Hause)" />
+                <EditText
+                    android:id="@+id/serverUrl"
+                    style="@style/Input"
+                    android:hint="192.168.1.10"
+                    android:inputType="textUri" />
+
+                <TextView style="@style/Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Benutzername" />
+                <EditText
+                    android:id="@+id/userName"
+                    style="@style/Input"
+                    android:inputType="text" />
+
+                <TextView style="@style/Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="Passwort" />
+                <EditText
+                    android:id="@+id/password"
+                    style="@style/Input"
+                    android:inputType="textPassword" />
+
+                <CheckBox
+                    android:id="@+id/includeExisting"
+                    style="@style/Check"
+                    android:layout_marginTop="10dp"
+                    android:checked="true"
+                    android:text="Auch alle vorhandenen Fotos sichern" />
+
+                <Button
+                    android:id="@+id/loginBtn"
+                    style="@style/BtnPrimary"
+                    android:text="Anmelden" />
+
+                <TextView
+                    android:id="@+id/loginMsg"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="12dp"
+                    android:background="@drawable/bg_warn"
+                    android:fontFamily="@font/outfit_semibold"
+                    android:padding="12dp"
+                    android:textColor="#B91C1C"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_gravity="center_horizontal"
+                    android:layout_marginTop="16dp"
+                    android:text="Jede Person meldet sich mit dem eigenen Konto an."
+                    android:textColor="@color/text_dim"
+                    android:textSize="12sp" />
+            </LinearLayout>
+
+            <!-- Hauptansicht -->
+            <LinearLayout
+                android:id="@+id/mainBox"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:layout_marginTop="8dp"
-                android:text="Kein voller Zugriff auf Fotos. Hier tippen, um ihn zu erlauben."
-                android:textColor="#D33"
-                android:visibility="gone" />
+                android:orientation="vertical"
+                android:visibility="gone">
 
-            <Button
-                android:id="@+id/syncBtn"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Jetzt Fotos sichern" />
+                <TextView
+                    style="@style/Title"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="Übersicht"
+                    android:textSize="26sp" />
 
-            <Button
-                android:id="@+id/uploadBtn"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Dateien auswählen und hochladen" />
+                <TextView
+                    android:id="@+id/account"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="14dp"
+                    android:textColor="@color/text_muted"
+                    android:textSize="13sp" />
 
-            <Button
-                android:id="@+id/browserBtn"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Meine Dateien im Browser öffnen" />
+                <TextView
+                    android:id="@+id/permWarn"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:layout_marginBottom="14dp"
+                    android:background="@drawable/bg_warn"
+                    android:fontFamily="@font/outfit_semibold"
+                    android:padding="12dp"
+                    android:text="Kein voller Zugriff auf Fotos. Hier tippen und „Alle erlauben“ wählen."
+                    android:textColor="#B91C1C"
+                    android:textSize="14sp"
+                    android:visibility="gone" />
 
-            <TextView
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="20dp"
-                android:text="Einstellungen"
-                android:textStyle="bold" />
+                <!-- Kennzahlen -->
+                <LinearLayout
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:orientation="horizontal">
 
-            <CheckBox
-                android:id="@+id/optVideos"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Videos auch sichern" />
+                    <LinearLayout
+                        style="@style/Card"
+                        android:layout_width="0dp"
+                        android:layout_marginEnd="7dp"
+                        android:layout_weight="1"
+                        android:padding="16dp">
+                        <TextView style="@style/Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="0dp" android:text="Gesichert" />
+                        <TextView android:id="@+id/statCount" style="@style/StatValue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="0" />
+                    </LinearLayout>
 
-            <CheckBox
-                android:id="@+id/optCameraOnly"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Nur Kamera-Fotos (keine WhatsApp, Screenshots …)" />
+                    <LinearLayout
+                        style="@style/Card"
+                        android:layout_width="0dp"
+                        android:layout_marginStart="7dp"
+                        android:layout_weight="1"
+                        android:padding="16dp">
+                        <TextView style="@style/Label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="0dp" android:text="Letzter Abgleich" />
+                        <TextView android:id="@+id/statLast" style="@style/StatValue" android:layout_width="wrap_content" android:layout_height="wrap_content" android:textSize="22sp" android:text="–" />
+                    </LinearLayout>
+                </LinearLayout>
 
-            <CheckBox
-                android:id="@+id/optCharging"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="Nur sichern, wenn das Handy lädt" />
+                <!-- Status + Aktionen -->
+                <LinearLayout style="@style/Card">
+                    <TextView
+                        style="@style/Title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Sicherung" />
 
-            <TextView
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="12dp"
-                android:text="Gesichert wird automatisch, sobald du im WLAN bist und der Server erreichbar ist – also zu Hause. Fotos landen im Ordner „Fotos/Jahr/Monat“, ausgewählte oder geteilte Dateien im Ordner „Dateien“."
-                android:textSize="13sp" />
+                    <TextView
+                        android:id="@+id/status"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:lineSpacingExtra="3dp"
+                        android:textColor="@color/text_muted"
+                        android:textSize="14sp" />
 
-            <Button
-                android:id="@+id/logoutBtn"
-                style="?android:attr/borderlessButtonStyle"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="16dp"
-                android:text="Abmelden / anderer Server" />
+                    <TextView
+                        android:id="@+id/progress"
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="6dp"
+                        android:fontFamily="@font/outfit_semibold"
+                        android:textColor="@color/purple"
+                        android:textSize="14sp"
+                        android:visibility="gone" />
+
+                    <Button android:id="@+id/syncBtn" style="@style/BtnPrimary" android:layout_marginTop="14dp" android:text="Jetzt Fotos sichern" />
+                    <Button android:id="@+id/uploadBtn" style="@style/BtnSecondary" android:text="Dateien auswählen und hochladen" />
+                    <Button android:id="@+id/browserBtn" style="@style/BtnSecondary" android:text="Meine Dateien im Browser öffnen" />
+                </LinearLayout>
+
+                <!-- Einstellungen -->
+                <LinearLayout style="@style/Card">
+                    <TextView
+                        style="@style/Title"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:layout_marginBottom="4dp"
+                        android:text="Einstellungen" />
+
+                    <CheckBox android:id="@+id/optVideos" style="@style/Check" android:text="Videos auch sichern" />
+                    <CheckBox android:id="@+id/optCameraOnly" style="@style/Check" android:text="Nur Kamera-Fotos (keine WhatsApp, Screenshots …)" />
+                    <CheckBox android:id="@+id/optCharging" style="@style/Check" android:text="Nur sichern, wenn das Handy lädt" />
+
+                    <TextView
+                        android:layout_width="match_parent"
+                        android:layout_height="wrap_content"
+                        android:layout_marginTop="10dp"
+                        android:text="Gesichert wird automatisch, sobald du im WLAN bist und der Server erreichbar ist – also zu Hause. Fotos landen in „Fotos/Jahr/Monat“, ausgewählte oder geteilte Dateien in „Dateien“."
+                        android:textColor="@color/text_dim"
+                        android:textSize="12sp" />
+                </LinearLayout>
+
+                <Button
+                    android:id="@+id/logoutBtn"
+                    style="@style/BtnSecondary"
+                    android:layout_marginTop="0dp"
+                    android:text="⏻  Abmelden / anderer Server"
+                    android:textColor="@color/red" />
+            </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
-</ScrollView>
+    </ScrollView>
+</LinearLayout>

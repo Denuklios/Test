@@ -1,129 +1,457 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="de">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>FotoBox</title>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>FotoBox – Wunsch-Fabrik</title>
+<link rel="icon" type="image/png" href="/assets/wf-logo.png">
+<meta name="robots" content="noindex, nofollow">
 <style>
-  :root { --bg:#f4f5f7; --card:#fff; --text:#1d2330; --muted:#6b7280; --acc:#2f6fed; --line:#e3e6eb; }
-  @media (prefers-color-scheme: dark) { :root { --bg:#14171c; --card:#1d2129; --text:#e8eaee; --muted:#9aa3b2; --acc:#6b9bff; --line:#2c323d; } }
-  * { box-sizing:border-box; }
-  body { margin:0; font:15px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--text); }
-  header { display:flex; gap:12px; align-items:center; padding:12px 16px; background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:2; flex-wrap:wrap; }
-  header h1 { font-size:18px; margin:0; flex:1; }
-  button, .btn { background:var(--acc); color:#fff; border:0; border-radius:8px; padding:8px 14px; font:inherit; cursor:pointer; }
-  button.ghost { background:transparent; color:var(--acc); border:1px solid var(--line); }
-  main { padding:16px; max-width:1200px; margin:0 auto; }
-  .login { max-width:340px; margin:12vh auto; background:var(--card); padding:24px; border-radius:12px; border:1px solid var(--line); }
-  .login input { width:100%; padding:10px; margin:6px 0 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
-  .crumbs { margin-bottom:12px; color:var(--muted); }
-  .crumbs a { color:var(--acc); cursor:pointer; text-decoration:none; }
-  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; }
-  .item { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; cursor:pointer; position:relative; }
-  .thumb { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:42px; background:var(--bg); }
-  .thumb img { width:100%; height:100%; object-fit:cover; }
-  .name { padding:6px 8px; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
-  .del { position:absolute; top:4px; right:4px; background:rgba(0,0,0,.55); color:#fff; border-radius:6px; padding:2px 7px; font-size:13px; display:none; }
-  .item:hover .del { display:block; }
-  #viewer { position:fixed; inset:0; background:rgba(0,0,0,.92); display:none; align-items:center; justify-content:center; z-index:5; }
-  #viewer img, #viewer video { max-width:96vw; max-height:90vh; }
-  #viewer .bar { position:absolute; top:10px; right:10px; display:flex; gap:8px; }
-  #status { color:var(--muted); font-size:13px; }
-  .err { color:#d33; }
+@font-face{font-family:'Outfit';font-weight:400;font-display:swap;src:url('/assets/outfit-latin-400-normal.woff2') format('woff2');}
+@font-face{font-family:'Outfit';font-weight:500;font-display:swap;src:url('/assets/outfit-latin-500-normal.woff2') format('woff2');}
+@font-face{font-family:'Outfit';font-weight:600;font-display:swap;src:url('/assets/outfit-latin-600-normal.woff2') format('woff2');}
+@font-face{font-family:'Outfit';font-weight:700;font-display:swap;src:url('/assets/outfit-latin-700-normal.woff2') format('woff2');}
+@font-face{font-family:'Cormorant Garamond';font-weight:700;font-display:swap;src:url('/assets/cormorant-garamond-latin-700-normal.woff2') format('woff2');}
+
+/* Farben wie im Admin-Bereich von Wunsch-Fabrik.dk */
+:root {
+  --purple: #8B2BE2;
+  --purple-bright: #7E22CE;
+  --purple-soft: rgba(139,43,226,0.10);
+  --bg-deep: #ebe9f0;
+  --bg-card: #f8f7fb;
+  --bg-card2: #f1eef7;
+  --text: #1f1a2b;
+  --text-muted: #5f5872;
+  --text-dim: #8a83a0;
+  --border: rgba(124,34,201,0.16);
+  --green: #059669;
+  --red: #dc2626;
+  --sidebar-w: 248px;
+  --shadow: 0 1px 2px rgba(60,30,90,0.05), 0 8px 24px rgba(60,30,90,0.08);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  background: radial-gradient(1200px 500px at 85% -10%, rgba(139,43,226,0.10), transparent 60%), var(--bg-deep);
+  background-attachment: fixed;
+  color: var(--text); font-family: 'Outfit', sans-serif; line-height: 1.6; min-height: 100vh;
+}
+:focus-visible { outline: 2px solid var(--purple-bright); outline-offset: 2px; }
+.serif { font-family: 'Cormorant Garamond', serif; font-weight: 700; }
+
+/* ─── LOGIN ─── */
+.login-screen { min-height: 100vh; display: flex; align-items: center; justify-content: center; padding: 1rem; position: relative; overflow: hidden; }
+#loginCanvas { position: absolute; inset: 0; width: 100%; height: 100%; z-index: 0; }
+.login-box {
+  position: relative; z-index: 1; width: 100%; max-width: 380px; text-align: center;
+  background: rgba(248,247,251,0.88); backdrop-filter: blur(14px); -webkit-backdrop-filter: blur(14px);
+  border: 1px solid var(--border); border-radius: 16px; padding: 2.5rem;
+  box-shadow: 0 20px 50px rgba(60,30,90,0.14);
+}
+.login-box img { height: 56px; margin-bottom: 1rem; filter: drop-shadow(0 6px 18px rgba(168,85,247,0.45)); }
+.login-box h1 { font-family: 'Cormorant Garamond', serif; font-size: 1.6rem; font-weight: 700; margin-bottom: 0.3rem; }
+.login-box > p { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1.8rem; }
+.field { margin-bottom: 1rem; text-align: left; }
+.field label { display: block; font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.4rem; }
+.field input {
+  width: 100%; background: #fff; border: 1px solid var(--border); border-radius: 8px;
+  padding: 0.75rem 1rem; color: var(--text); font: inherit; font-size: 0.92rem; outline: none; transition: border-color 0.2s;
+}
+.field input:focus { border-color: var(--purple); }
+.btn {
+  display: inline-flex; align-items: center; gap: 0.4rem; justify-content: center;
+  background: var(--purple); color: #fff; border: none; cursor: pointer;
+  padding: 0.6rem 1.1rem; border-radius: 8px; font-family: 'Outfit', sans-serif;
+  font-size: 0.88rem; font-weight: 600; transition: background 0.2s, transform 0.2s;
+}
+.btn:hover { background: var(--purple-bright); }
+.btn.block { width: 100%; padding: 0.85rem; font-size: 0.95rem; margin-top: 0.5rem; }
+.btn-secondary {
+  background: #fff; border: 1px solid var(--border); color: var(--text); cursor: pointer;
+  padding: 0.55rem 1rem; border-radius: 8px; font-family: 'Outfit', sans-serif; font-size: 0.85rem; font-weight: 600; transition: border-color 0.2s;
+}
+.btn-secondary:hover { border-color: var(--purple); }
+.login-error { color: #b91c1c; background: #fee2e2; border: 1px solid #fca5a5; border-radius: 10px; padding: 0.7rem 0.9rem; font-size: 0.9rem; font-weight: 600; margin-top: 1rem; display: none; }
+.login-error.show { display: block; }
+.login-foot { margin-top: 1.4rem; font-size: 0.72rem; color: var(--text-dim); }
+
+/* ─── LAYOUT ─── */
+.dashboard { display: none; min-height: 100vh; }
+.dashboard.show { display: flex; }
+.sidebar {
+  width: var(--sidebar-w); flex-shrink: 0; position: sticky; top: 0; height: 100vh; overflow-y: auto;
+  background: rgba(248,247,251,0.97); border-right: 1px solid var(--border);
+  display: flex; flex-direction: column; padding: 1.1rem 0.8rem; z-index: 60;
+}
+.sb-brand { display: flex; align-items: center; gap: 0.7rem; padding: 0.3rem 0.6rem 1.1rem; }
+.sb-brand img { height: 30px; }
+.sb-brand b { font-family: 'Cormorant Garamond', serif; font-size: 1.15rem; letter-spacing: 0.02em; line-height: 1.1; }
+.sb-brand small { display: block; font-size: 0.62rem; letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-muted); }
+.sb-group { margin-top: 0.9rem; }
+.sb-group-title { font-size: 0.62rem; letter-spacing: 0.16em; text-transform: uppercase; color: var(--text-dim); padding: 0 0.8rem 0.35rem; }
+.main-tab {
+  display: flex; align-items: center; gap: 0.7rem; width: 100%; text-align: left;
+  border: 1px solid transparent; border-radius: 10px; padding: 0.55rem 0.8rem; margin: 1px 0;
+  font: inherit; font-size: 0.86rem; font-weight: 500; color: var(--text-muted); background: none; cursor: pointer;
+}
+.main-tab .ic { width: 1.3rem; text-align: center; font-size: 1rem; flex-shrink: 0; }
+.main-tab:hover { background: rgba(139,43,226,0.07); color: var(--text); }
+.main-tab.active { background: linear-gradient(90deg, #8B2BE2, #9333EA); color: #fff; box-shadow: 0 6px 16px rgba(139,43,226,0.22); }
+.sb-user { margin-top: auto; display: flex; align-items: center; gap: 0.7rem; padding: 0.8rem 0.6rem 0.2rem; border-top: 1px solid var(--border); }
+.sb-user-info { min-width: 0; flex: 1; }
+.sb-user-name { font-weight: 600; font-size: 0.86rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sb-user-role { font-size: 0.7rem; color: var(--text-muted); }
+.sb-logout { background: none; border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; cursor: pointer; padding: 0.35rem 0.5rem; font-size: 0.85rem; }
+.sb-logout:hover { color: var(--red); border-color: var(--red); }
+.avatar {
+  width: 36px; height: 36px; border-radius: 50%; flex-shrink: 0; display: inline-flex; align-items: center; justify-content: center;
+  font-weight: 700; font-size: 0.85rem; color: #fff; background: linear-gradient(135deg, #8B2BE2, #c084fc);
+  box-shadow: 0 0 0 2px #fff, 0 3px 10px rgba(60,30,90,0.2);
+}
+
+.main { flex: 1; min-width: 0; display: flex; flex-direction: column; }
+header {
+  display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap;
+  padding: 0.9rem 1.6rem; position: sticky; top: 0; z-index: 50;
+  background: rgba(248,247,251,0.9); backdrop-filter: blur(10px); -webkit-backdrop-filter: blur(10px);
+  border-bottom: 1px solid var(--border);
+}
+.top-left { display: flex; align-items: center; gap: 0.8rem; min-width: 0; }
+.top-title { font-family: 'Cormorant Garamond', serif; font-size: 1.45rem; font-weight: 700; line-height: 1.2; }
+.top-sub { font-size: 0.75rem; color: var(--text-muted); }
+.top-actions { display: flex; gap: 0.6rem; flex-wrap: wrap; }
+.burger { display: none; background: none; border: 1px solid var(--border); color: var(--text); border-radius: 8px; padding: 0.4rem 0.6rem; cursor: pointer; font-size: 1.1rem; }
+.sb-backdrop { display: none; }
+.container { max-width: 1240px; width: 100%; padding: 1.6rem 1.6rem 3rem; }
+
+/* ─── KARTEN ─── */
+.stat-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 1rem; margin-bottom: 1.5rem; }
+.stat-card, .panel { background: var(--bg-card); border: 1px solid var(--border); box-shadow: var(--shadow); }
+.stat-card { border-radius: 12px; padding: 1.2rem 1.4rem; position: relative; overflow: hidden; transition: transform 0.2s, border-color 0.2s; }
+.stat-card:hover { transform: translateY(-2px); border-color: rgba(168,85,247,0.45); }
+.stat-card::after { content: ''; position: absolute; right: -30px; top: -30px; width: 110px; height: 110px; border-radius: 50%; background: radial-gradient(circle, rgba(168,85,247,0.22), transparent 70%); }
+.stat-label { font-size: 0.72rem; letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 0.4rem; }
+.stat-value { font-family: 'Cormorant Garamond', serif; font-size: 2.2rem; font-weight: 700; line-height: 1; }
+.stat-ic { position: absolute; right: 1rem; bottom: 0.8rem; font-size: 1.5rem; opacity: 0.35; }
+.bar { height: 6px; border-radius: 6px; background: var(--bg-card2); margin-top: 0.7rem; overflow: hidden; }
+.bar > i { display: block; height: 100%; background: linear-gradient(90deg, #8B2BE2, #c084fc); }
+.panel { border-radius: 14px; padding: 1.5rem; }
+.panel-title { font-family: 'Cormorant Garamond', serif; font-size: 1.3rem; font-weight: 700; margin-bottom: 1rem; display: flex; align-items: center; justify-content: space-between; gap: 1rem; flex-wrap: wrap; }
+
+.crumbs { font-size: 0.85rem; color: var(--text-muted); font-family: 'Outfit', sans-serif; font-weight: 500; }
+.crumbs a { color: var(--purple); cursor: pointer; text-decoration: none; }
+.crumbs a:hover { text-decoration: underline; }
+.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 0.8rem; }
+.item { background: #fff; border: 1px solid var(--border); border-radius: 12px; overflow: hidden; cursor: pointer; position: relative; transition: transform 0.2s, border-color 0.2s, box-shadow 0.2s; }
+.item:hover { transform: translateY(-2px); border-color: rgba(168,85,247,0.45); box-shadow: 0 8px 20px rgba(60,30,90,0.10); }
+.thumb { aspect-ratio: 1; display: flex; align-items: center; justify-content: center; font-size: 2.6rem; background: var(--bg-card2); }
+.thumb img { width: 100%; height: 100%; object-fit: cover; }
+.name { padding: 0.45rem 0.65rem; font-size: 0.8rem; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.name small { display: block; color: var(--text-dim); font-size: 0.7rem; font-weight: 400; }
+.del { position: absolute; top: 6px; right: 6px; background: #fff; border: 1px solid var(--border); color: var(--text-muted); border-radius: 8px; padding: 0.1rem 0.45rem; font-size: 0.8rem; display: none; cursor: pointer; }
+.del:hover { color: var(--red); border-color: var(--red); }
+.item:hover .del { display: block; }
+.empty { color: var(--text-dim); padding: 2rem 0; text-align: center; }
+
+.drop { border: 2px dashed var(--border); border-radius: 12px; padding: 1.2rem; text-align: center; color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; transition: background 0.2s, border-color 0.2s; }
+.drop.over { background: var(--purple-soft); border-color: var(--purple); }
+
+#viewer { position: fixed; inset: 0; background: rgba(31,26,43,0.88); display: none; align-items: center; justify-content: center; z-index: 100; }
+#viewer img, #viewer video { max-width: 94vw; max-height: 86vh; border-radius: 10px; box-shadow: 0 20px 60px rgba(0,0,0,0.4); }
+#viewer .vbar { position: absolute; top: 14px; right: 14px; display: flex; gap: 0.5rem; }
+#viewer .vbar a { text-decoration: none; }
+
+.toast { position: fixed; bottom: 1.2rem; left: 50%; transform: translateX(-50%); background: #fff; border: 1px solid var(--border); border-radius: 10px; padding: 0.7rem 1.1rem; box-shadow: 0 8px 24px rgba(60,30,90,0.15); font-size: 0.88rem; font-weight: 500; z-index: 120; display: none; }
+.toast.show { display: block; }
+
+@media (max-width: 980px) {
+  .sidebar { position: fixed; left: 0; top: 0; transform: translateX(-100%); transition: transform 0.25s; box-shadow: 0 20px 50px rgba(60,30,90,0.14); }
+  .sidebar.open { transform: none; }
+  .sb-backdrop.open { display: block; position: fixed; inset: 0; background: rgba(31,26,43,0.35); z-index: 55; }
+  .burger { display: inline-block; }
+  header { padding: 0.75rem 1rem; }
+  .container { padding: 1.2rem 1rem 3rem; }
+}
+@media (max-width: 600px) {
+  .grid { grid-template-columns: repeat(auto-fill, minmax(105px, 1fr)); }
+  .top-actions .btn-secondary { display: none; }
+  .login-box { padding: 2rem 1.4rem; }
+}
 </style>
 </head>
 <body>
-<div id="app"></div>
-<div id="viewer"><div class="bar"><a class="btn" id="vdl">Herunterladen</a><button onclick="closeViewer()">Schließen</button></div><div id="vbody"></div></div>
+
+<!-- LOGIN -->
+<div class="login-screen" id="loginScreen">
+  <canvas id="loginCanvas" aria-hidden="true"></canvas>
+  <form class="login-box" onsubmit="doLogin(event)">
+    <img src="/assets/wf-logo.png" alt="WF">
+    <h1>FotoBox</h1>
+    <p>Wunsch-Fabrik · Fotos &amp; Dateien</p>
+    <div class="field"><label>Benutzername</label><input id="loginUser" autocomplete="username" required></div>
+    <div class="field"><label>Passwort</label><input type="password" id="loginPass" autocomplete="current-password" required></div>
+    <button class="btn block">Anmelden</button>
+    <p class="login-error" id="loginError"></p>
+    <p class="login-foot">Jede Person meldet sich mit dem eigenen Konto an.</p>
+  </form>
+</div>
+
+<!-- DASHBOARD -->
+<div class="dashboard" id="dashboard">
+  <aside class="sidebar" id="sidebar" aria-label="Navigation">
+    <div class="sb-brand">
+      <img src="/assets/wf-logo.png" alt="WF">
+      <div><b>Wunsch-Fabrik</b><small>FotoBox</small></div>
+    </div>
+    <nav>
+      <div class="sb-group">
+        <div class="sb-group-title">Start</div>
+        <button class="main-tab" data-root="" onclick="go('')"><span class="ic">📊</span>Übersicht</button>
+      </div>
+      <div class="sb-group">
+        <div class="sb-group-title">Meine Ablage</div>
+        <button class="main-tab" data-root="Fotos" onclick="go('Fotos')"><span class="ic">📸</span>Fotos</button>
+        <button class="main-tab" data-root="Dateien" onclick="go('Dateien')"><span class="ic">📁</span>Dateien</button>
+        <button class="main-tab" data-root="*" onclick="go('*')"><span class="ic">🗂️</span>Alle Ordner</button>
+      </div>
+    </nav>
+    <div class="sb-user">
+      <span class="avatar" id="avatar"></span>
+      <div class="sb-user-info"><div class="sb-user-name" id="userName"></div><div class="sb-user-role">Eigener Bereich</div></div>
+      <button class="sb-logout" onclick="logout()" title="Abmelden">⏻</button>
+    </div>
+  </aside>
+  <div class="sb-backdrop" id="backdrop" onclick="toggleSidebar(false)"></div>
+
+  <div class="main">
+    <header>
+      <div class="top-left">
+        <button class="burger" onclick="toggleSidebar(true)" aria-label="Menü">☰</button>
+        <div><div class="top-title" id="topTitle">Übersicht</div><div class="top-sub" id="topSub"></div></div>
+      </div>
+      <div class="top-actions" id="topActions">
+        <button class="btn-secondary" onclick="newFolder()">＋ Ordner</button>
+        <label class="btn">⬆ Hochladen<input type="file" multiple hidden onchange="upload(this.files); this.value=''"></label>
+      </div>
+    </header>
+
+    <div class="container">
+      <div id="overview">
+        <div class="stat-grid">
+          <div class="stat-card"><div class="stat-label">Dateien</div><div class="stat-value" id="sFiles">–</div><span class="stat-ic">🗂️</span></div>
+          <div class="stat-card"><div class="stat-label">Belegt</div><div class="stat-value" id="sBytes">–</div><span class="stat-ic">💾</span></div>
+          <div class="stat-card"><div class="stat-label">Frei auf dem Server</div><div class="stat-value" id="sFree">–</div><div class="bar"><i id="sBar" style="width:0"></i></div></div>
+        </div>
+        <div class="panel">
+          <div class="panel-title">Neueste Fotos <button class="btn-secondary" onclick="go('Fotos')">Alle Fotos →</button></div>
+          <div class="grid" id="recent"></div>
+        </div>
+      </div>
+
+      <div id="browser" style="display:none">
+        <div class="panel">
+          <div class="panel-title"><span class="crumbs" id="crumbs"></span></div>
+          <div class="drop" id="drop">Dateien hierher ziehen oder oben auf „Hochladen“ tippen</div>
+          <div class="grid" id="grid"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="viewer"><div class="vbar"><a class="btn" id="vdl">⬇ Herunterladen</a><button class="btn-secondary" onclick="closeViewer()">Schließen</button></div><div id="vbody"></div></div>
+<div class="toast" id="toast"></div>
+
 <script>
 const $ = s => document.querySelector(s);
 let token = localStorage.getItem('fb_token');
-let cwd = '';
-const IMG = /\.(jpe?g|png|gif|webp|heic|bmp)$/i, VID = /\.(mp4|mov|3gp|webm|mkv)$/i;
+let cwd = '', section = '';
+const IMG = /\.(jpe?g|png|gif|webp|bmp)$/i, VID = /\.(mp4|mov|3gp|webm|mkv)$/i;
 
 async function api(path, opts = {}) {
-  opts.headers = Object.assign({ 'Authorization': 'Bearer ' + token }, opts.headers || {});
+  opts.headers = Object.assign({ Authorization: 'Bearer ' + token }, opts.headers || {});
   const r = await fetch(path, opts);
   if (r.status === 401) { logout(); throw new Error('nicht angemeldet'); }
   const j = await r.json();
   if (!r.ok) throw new Error(j.error || r.status);
   return j;
 }
-function fileUrl(p, dl) { return '/api/file?path=' + encodeURIComponent(p) + '&t=' + encodeURIComponent(token) + (dl ? '&dl=1' : ''); }
-function esc(s) { return s.replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
-function size(b) { const u = ['B','KB','MB','GB','TB']; let i = 0; while (b >= 1024 && i < 4) { b /= 1024; i++; } return b.toFixed(i ? 1 : 0) + ' ' + u[i]; }
+const fileUrl = (p, dl) => '/api/file?path=' + encodeURIComponent(p) + '&t=' + encodeURIComponent(token) + (dl ? '&dl=1' : '');
+const esc = s => String(s).replace(/[&<>"']/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;', "'":'&#39;' }[c]));
+function size(b) { const u = ['B','KB','MB','GB','TB']; let i = 0; while (b >= 1024 && i < 4) { b /= 1024; i++; } return b.toFixed(i ? 1 : 0).replace('.', ',') + ' ' + u[i]; }
+function toast(t) { const el = $('#toast'); el.textContent = t; el.classList.add('show'); clearTimeout(el._t); el._t = setTimeout(() => el.classList.remove('show'), 2800); }
+function toggleSidebar(o) { $('#sidebar').classList.toggle('open', o); $('#backdrop').classList.toggle('open', o); }
 
-function showLogin(msg) {
-  $('#app').innerHTML = `<form class="login" onsubmit="login(event)">
-    <h2>FotoBox</h2>
-    <label>Benutzer</label><input id="u" autocomplete="username" required>
-    <label>Passwort</label><input id="p" type="password" autocomplete="current-password" required>
-    <button style="width:100%">Anmelden</button><p class="err">${msg || ''}</p></form>`;
-}
-async function login(e) {
+// ─── Login ───
+async function doLogin(e) {
   e.preventDefault();
-  const r = await fetch('/api/login', { method:'POST', body: JSON.stringify({ user: $('#u').value, password: $('#p').value, device: 'Browser' }) });
+  const r = await fetch('/api/login', { method: 'POST', body: JSON.stringify({ user: $('#loginUser').value.trim(), password: $('#loginPass').value, device: 'Browser' }) });
   const j = await r.json();
-  if (!r.ok) return showLogin(j.error);
+  if (!r.ok) { $('#loginError').textContent = j.error || 'Anmeldung fehlgeschlagen'; $('#loginError').classList.add('show'); return; }
   token = j.token; localStorage.setItem('fb_token', token); start();
 }
-function logout() { if (token) fetch('/api/logout', { method:'POST', headers:{ Authorization:'Bearer ' + token } }); token = null; localStorage.removeItem('fb_token'); showLogin(); }
+function logout() {
+  if (token) fetch('/api/logout', { method: 'POST', headers: { Authorization: 'Bearer ' + token } });
+  token = null; localStorage.removeItem('fb_token');
+  $('#dashboard').classList.remove('show'); $('#loginScreen').style.display = 'flex'; $('#loginPass').value = '';
+}
 
 async function start() {
   const me = await api('/api/me');
-  $('#app').innerHTML = `<header><h1>FotoBox · ${esc(me.user)}</h1>
-    <span id="status"></span>
-    <label class="btn">Hochladen<input type="file" multiple hidden onchange="upload(this.files)"></label>
-    <button class="ghost" onclick="newFolder()">Neuer Ordner</button>
-    <button class="ghost" onclick="logout()">Abmelden</button></header>
-    <main><div class="crumbs" id="crumbs"></div><div class="grid" id="grid"></div></main>`;
-  load('');
-  api('/api/usage').then(u => $('#status').textContent = `${u.files} Dateien · ${size(u.bytes)} · frei ${size(u.disk_free)}`).catch(() => {});
+  $('#loginScreen').style.display = 'none';
+  $('#dashboard').classList.add('show');
+  $('#userName').textContent = me.user;
+  $('#avatar').textContent = me.user.slice(0, 2).toUpperCase();
+  go('');
+}
+
+// ─── Navigation ───
+function go(root) {
+  section = root;
+  toggleSidebar(false);
+  document.querySelectorAll('.main-tab').forEach(t => t.classList.toggle('active', t.dataset.root === root));
+  if (root === '') return showOverview();
+  load(root === '*' ? '' : root);
+}
+
+async function showOverview() {
+  $('#overview').style.display = ''; $('#browser').style.display = 'none';
+  $('#topTitle').textContent = 'Übersicht'; $('#topSub').textContent = 'Dein Speicher auf einen Blick';
+  try {
+    const u = await api('/api/usage');
+    $('#sFiles').textContent = u.files.toLocaleString('de-DE');
+    $('#sBytes').textContent = size(u.bytes);
+    $('#sFree').textContent = size(u.disk_free);
+    $('#sBar').style.width = Math.round(100 * (1 - u.disk_free / u.disk_total)) + '%';
+  } catch (e) {}
+  // neueste Fotos: letzter Monatsordner
+  const box = $('#recent'); box.innerHTML = '';
+  try {
+    let p = 'Fotos';
+    for (let i = 0; i < 2; i++) {
+      const j = await api('/api/list?path=' + encodeURIComponent(p));
+      const dirs = j.items.filter(x => x.dir).map(x => x.name).sort();
+      if (!dirs.length) break;
+      p += '/' + dirs[dirs.length - 1];
+    }
+    const j = await api('/api/list?path=' + encodeURIComponent(p));
+    const files = j.items.filter(x => !x.dir).sort((a, b) => b.mtime - a.mtime).slice(0, 12);
+    files.forEach(it => box.appendChild(tile(it, p)));
+    if (!files.length) box.innerHTML = '<p class="empty">Noch keine Fotos – die App lädt sie hoch, sobald das Handy zu Hause im WLAN ist.</p>';
+  } catch (e) {
+    box.innerHTML = '<p class="empty">Noch keine Fotos – die App lädt sie hoch, sobald das Handy zu Hause im WLAN ist.</p>';
+  }
 }
 
 async function load(path) {
   cwd = path;
-  const j = await api('/api/list?path=' + encodeURIComponent(path));
+  $('#overview').style.display = 'none'; $('#browser').style.display = '';
+  let j;
+  try { j = await api('/api/list?path=' + encodeURIComponent(path)); }
+  catch (e) { j = { items: [] }; }
   const parts = path ? path.split('/') : [];
+  $('#topTitle').textContent = parts.length ? parts[parts.length - 1] : 'Alle Ordner';
+  $('#topSub').textContent = j.items.length + ' Einträge';
   $('#crumbs').innerHTML = '<a onclick="load(\'\')">Start</a>' + parts.map((p, i) =>
-    ` / <a onclick='load(${JSON.stringify(parts.slice(0, i + 1).join('/'))})'>${esc(p)}</a>`).join('');
-  $('#grid').innerHTML = j.items.length ? '' : '<p style="color:var(--muted)">Leer</p>';
-  for (const it of j.items) {
-    const full = (path ? path + '/' : '') + it.name;
-    const el = document.createElement('div');
-    el.className = 'item';
-    const thumb = it.dir ? '📁' : IMG.test(it.name) && !/\.heic$/i.test(it.name) ? `<img loading="lazy" src="${fileUrl(full)}">` : VID.test(it.name) ? '🎬' : '📄';
-    el.innerHTML = `<div class="thumb">${thumb}</div><div class="name" title="${esc(it.name)}">${esc(it.name)}${it.dir ? '' : '<br><small style="color:var(--muted)">' + size(it.size) + '</small>'}</div><span class="del">🗑</span>`;
-    el.onclick = () => it.dir ? load(full) : open(full);
-    el.querySelector('.del').onclick = async ev => { ev.stopPropagation(); if (confirm(`„${it.name}“ löschen?`)) { await api('/api/delete', { method:'POST', body: JSON.stringify({ path: full }) }); load(cwd); } };
-    $('#grid').appendChild(el);
-  }
+    ` / <a onclick='load(${JSON.stringify(parts.slice(0, i + 1).join('/')).replace(/'/g, '&#39;')})'>${esc(p)}</a>`).join('');
+  const g = $('#grid'); g.innerHTML = '';
+  if (!j.items.length) g.innerHTML = '<p class="empty">Dieser Ordner ist leer.</p>';
+  j.items.forEach(it => g.appendChild(tile(it, path, true)));
 }
 
-function open(p) {
+function tile(it, dir, deletable) {
+  const full = (dir ? dir + '/' : '') + it.name;
+  const el = document.createElement('div');
+  el.className = 'item';
+  const thumb = it.dir ? '📁' : IMG.test(it.name) ? `<img loading="lazy" src="${fileUrl(full)}" alt="">` : VID.test(it.name) ? '🎬' : '📄';
+  const meta = it.dir ? 'Ordner' : size(it.size) + ' · ' + new Date(it.mtime).toLocaleDateString('de-DE');
+  el.innerHTML = `<div class="thumb">${thumb}</div><div class="name" title="${esc(it.name)}">${esc(it.name)}<small>${meta}</small></div>` + (deletable ? '<span class="del" title="Löschen">🗑</span>' : '');
+  el.onclick = () => it.dir ? load(full) : openViewer(full);
+  if (deletable) el.querySelector('.del').onclick = async ev => {
+    ev.stopPropagation();
+    if (!confirm(`„${it.name}“ wirklich löschen?`)) return;
+    await api('/api/delete', { method: 'POST', body: JSON.stringify({ path: full }) });
+    toast('Gelöscht'); load(cwd);
+  };
+  return el;
+}
+
+function openViewer(p) {
   $('#vdl').href = fileUrl(p, true);
-  $('#vbody').innerHTML = IMG.test(p) ? `<img src="${fileUrl(p)}">` : VID.test(p) ? `<video controls autoplay src="${fileUrl(p)}"></video>` : '<p style="color:#fff">Keine Vorschau – bitte herunterladen.</p>';
+  $('#vbody').innerHTML = IMG.test(p) ? `<img src="${fileUrl(p)}" alt="">` : VID.test(p) ? `<video controls autoplay src="${fileUrl(p)}"></video>` : '<p style="color:#fff">Keine Vorschau – bitte herunterladen.</p>';
   $('#viewer').style.display = 'flex';
 }
 function closeViewer() { $('#viewer').style.display = 'none'; $('#vbody').innerHTML = ''; }
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeViewer(); });
 
 async function newFolder() {
-  const n = prompt('Name des Ordners:'); if (!n) return;
-  await api('/api/mkdir', { method:'POST', body: JSON.stringify({ path: (cwd ? cwd + '/' : '') + n }) }); load(cwd);
+  const n = prompt('Name des neuen Ordners:'); if (!n) return;
+  const base = section === '' ? 'Dateien' : cwd;
+  await api('/api/mkdir', { method: 'POST', body: JSON.stringify({ path: (base ? base + '/' : '') + n }) });
+  toast('Ordner angelegt'); load(base);
 }
 
 async function upload(files) {
+  if (!files.length) return;
+  const base = section === '' ? 'Dateien' : cwd;
   let i = 0;
   for (const f of files) {
-    i++; $('#status').textContent = `Lade hoch ${i}/${files.length}: ${f.name}`;
-    const p = (cwd ? cwd + '/' : '') + f.name;
-    await api('/api/upload?path=' + encodeURIComponent(p) + '&mtime=' + f.lastModified, { method:'PUT', body: f });
+    i++; $('#topSub').textContent = `Lade hoch ${i}/${files.length}: ${f.name}`;
+    await api('/api/upload?path=' + encodeURIComponent((base ? base + '/' : '') + f.name) + '&mtime=' + f.lastModified, { method: 'PUT', body: f });
   }
-  $('#status').textContent = `${files.length} Datei(en) hochgeladen`;
-  load(cwd);
+  toast(`${files.length} Datei(en) hochgeladen`);
+  load(base);
 }
+const drop = $('#drop');
+['dragenter', 'dragover'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.add('over'); }));
+['dragleave', 'drop'].forEach(t => drop.addEventListener(t, e => { e.preventDefault(); drop.classList.remove('over'); }));
+drop.addEventListener('drop', e => upload(e.dataTransfer.files));
 
-token ? start().catch(() => showLogin()) : showLogin();
+// ─── Login-Hintergrund: Fäden, die sich wie Stiche über die Fläche ziehen ───
+(function () {
+  const cv = $('#loginCanvas'), ctx = cv.getContext('2d');
+  const reduce = matchMedia('(prefers-reduced-motion: reduce)').matches;
+  let W, H, threads = [];
+  function resize() {
+    const dpr = Math.min(devicePixelRatio || 1, 2);
+    W = cv.clientWidth; H = cv.clientHeight; cv.width = W * dpr; cv.height = H * dpr;
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    threads = Array.from({ length: Math.max(6, Math.round(W / 160)) }, () => ({
+      y: Math.random() * H, amp: 20 + Math.random() * 60, freq: 0.002 + Math.random() * 0.004,
+      phase: Math.random() * Math.PI * 2, speed: 0.15 + Math.random() * 0.35, prog: Math.random() * W,
+      color: `hsla(${268 + Math.random() * 40}, 85%, ${55 + Math.random() * 15}%, ${0.25 + Math.random() * 0.35})`,
+      width: 1 + Math.random() * 1.6, stitch: 8 + Math.random() * 8
+    }));
+  }
+  const py = (t, x, time) => t.y + Math.sin(x * t.freq + t.phase + time * 0.0003) * t.amp;
+  function frame(time) {
+    if ($('#loginScreen').style.display === 'none') return requestAnimationFrame(frame);
+    ctx.clearRect(0, 0, W, H);
+    ctx.strokeStyle = 'rgba(139,43,226,0.06)'; ctx.lineWidth = 1;
+    for (let k = -H; k < W; k += 38) {
+      ctx.beginPath(); ctx.moveTo(k, 0); ctx.lineTo(k + H, H); ctx.stroke();
+      ctx.beginPath(); ctx.moveTo(k + H, 0); ctx.lineTo(k, H); ctx.stroke();
+    }
+    threads.forEach(t => {
+      t.prog += t.speed * (reduce ? 0 : 1.6);
+      if (t.prog > W + 260) { t.prog = -20; t.y = Math.random() * H; }
+      const end = Math.min(W + 40, t.prog);
+      ctx.strokeStyle = t.color; ctx.lineWidth = t.width; ctx.lineCap = 'round';
+      ctx.setLineDash([t.stitch, t.stitch * 0.55]); ctx.beginPath();
+      for (let x = -20; x <= end; x += 6) { const y = py(t, x, time); x === -20 ? ctx.moveTo(x, y) : ctx.lineTo(x, y); }
+      ctx.stroke(); ctx.setLineDash([]);
+      if (end < W + 30) {
+        const ny = py(t, end, time), g = ctx.createRadialGradient(end, ny, 0, end, ny, 14);
+        g.addColorStop(0, 'rgba(232,200,255,0.9)'); g.addColorStop(1, 'rgba(168,85,247,0)');
+        ctx.fillStyle = g; ctx.beginPath(); ctx.arc(end, ny, 14, 0, Math.PI * 2); ctx.fill();
+      }
+    });
+    requestAnimationFrame(frame);
+  }
+  addEventListener('resize', resize); resize(); requestAnimationFrame(frame);
+})();
+
+token ? start().catch(() => logout()) : null;
 </script>
 </body>
 </html>
