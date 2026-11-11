@@ -22,7 +22,7 @@ export function openViewer(list, index) {
   const stage = el('div', { class: 'stage' }, slide);
   const favBtn = el('button', { class: 'icon-btn', title: 'Favorit (F)', onclick: () => toggleFav() }, icon('heart'));
   const infoBtn = el('button', { class: 'icon-btn', title: 'Infos (I)', onclick: () => { showInfo = !showInfo; drawInfo(); } }, icon('info'));
-  const tool = (ic, label, fn, extra = {}) => el('button', { class: 'tool', onclick: fn, ...extra }, icon(ic), el('span', {}, label));
+  const tool = (ic, label, fn, extra = {}) => el('button', { class: 'tool', onclick: fn, ...extra }, el('span', { class: 'ic-wrap' }, icon(ic)), el('span', {}, label));
   const facesBtn = tool('face', 'Gesichter', () => { showFaces = !showFaces; drawFaces(); });
   const toolbar = el('div', { class: 'toolbar' },
     tool('share', 'Teilen', () => share()),
