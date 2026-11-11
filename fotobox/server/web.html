@@ -1,0 +1,129 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>FotoBox</title>
+<style>
+  :root { --bg:#f4f5f7; --card:#fff; --text:#1d2330; --muted:#6b7280; --acc:#2f6fed; --line:#e3e6eb; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#14171c; --card:#1d2129; --text:#e8eaee; --muted:#9aa3b2; --acc:#6b9bff; --line:#2c323d; } }
+  * { box-sizing:border-box; }
+  body { margin:0; font:15px/1.4 system-ui, sans-serif; background:var(--bg); color:var(--text); }
+  header { display:flex; gap:12px; align-items:center; padding:12px 16px; background:var(--card); border-bottom:1px solid var(--line); position:sticky; top:0; z-index:2; flex-wrap:wrap; }
+  header h1 { font-size:18px; margin:0; flex:1; }
+  button, .btn { background:var(--acc); color:#fff; border:0; border-radius:8px; padding:8px 14px; font:inherit; cursor:pointer; }
+  button.ghost { background:transparent; color:var(--acc); border:1px solid var(--line); }
+  main { padding:16px; max-width:1200px; margin:0 auto; }
+  .login { max-width:340px; margin:12vh auto; background:var(--card); padding:24px; border-radius:12px; border:1px solid var(--line); }
+  .login input { width:100%; padding:10px; margin:6px 0 12px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--text); font:inherit; }
+  .crumbs { margin-bottom:12px; color:var(--muted); }
+  .crumbs a { color:var(--acc); cursor:pointer; text-decoration:none; }
+  .grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(140px, 1fr)); gap:10px; }
+  .item { background:var(--card); border:1px solid var(--line); border-radius:10px; overflow:hidden; cursor:pointer; position:relative; }
+  .thumb { aspect-ratio:1; display:flex; align-items:center; justify-content:center; font-size:42px; background:var(--bg); }
+  .thumb img { width:100%; height:100%; object-fit:cover; }
+  .name { padding:6px 8px; font-size:13px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .del { position:absolute; top:4px; right:4px; background:rgba(0,0,0,.55); color:#fff; border-radius:6px; padding:2px 7px; font-size:13px; display:none; }
+  .item:hover .del { display:block; }
+  #viewer { position:fixed; inset:0; background:rgba(0,0,0,.92); display:none; align-items:center; justify-content:center; z-index:5; }
+  #viewer img, #viewer video { max-width:96vw; max-height:90vh; }
+  #viewer .bar { position:absolute; top:10px; right:10px; display:flex; gap:8px; }
+  #status { color:var(--muted); font-size:13px; }
+  .err { color:#d33; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<div id="viewer"><div class="bar"><a class="btn" id="vdl">Herunterladen</a><button onclick="closeViewer()">Schließen</button></div><div id="vbody"></div></div>
+<script>
+const $ = s => document.querySelector(s);
+let token = localStorage.getItem('fb_token');
+let cwd = '';
+const IMG = /\.(jpe?g|png|gif|webp|heic|bmp)$/i, VID = /\.(mp4|mov|3gp|webm|mkv)$/i;
+
+async function api(path, opts = {}) {
+  opts.headers = Object.assign({ 'Authorization': 'Bearer ' + token }, opts.headers || {});
+  const r = await fetch(path, opts);
+  if (r.status === 401) { logout(); throw new Error('nicht angemeldet'); }
+  const j = await r.json();
+  if (!r.ok) throw new Error(j.error || r.status);
+  return j;
+}
+function fileUrl(p, dl) { return '/api/file?path=' + encodeURIComponent(p) + '&t=' + encodeURIComponent(token) + (dl ? '&dl=1' : ''); }
+function esc(s) { return s.replace(/[&<>"]/g, c => ({ '&':'&amp;', '<':'&lt;', '>':'&gt;', '"':'&quot;' }[c])); }
+function size(b) { const u = ['B','KB','MB','GB','TB']; let i = 0; while (b >= 1024 && i < 4) { b /= 1024; i++; } return b.toFixed(i ? 1 : 0) + ' ' + u[i]; }
+
+function showLogin(msg) {
+  $('#app').innerHTML = `<form class="login" onsubmit="login(event)">
+    <h2>FotoBox</h2>
+    <label>Benutzer</label><input id="u" autocomplete="username" required>
+    <label>Passwort</label><input id="p" type="password" autocomplete="current-password" required>
+    <button style="width:100%">Anmelden</button><p class="err">${msg || ''}</p></form>`;
+}
+async function login(e) {
+  e.preventDefault();
+  const r = await fetch('/api/login', { method:'POST', body: JSON.stringify({ user: $('#u').value, password: $('#p').value, device: 'Browser' }) });
+  const j = await r.json();
+  if (!r.ok) return showLogin(j.error);
+  token = j.token; localStorage.setItem('fb_token', token); start();
+}
+function logout() { if (token) fetch('/api/logout', { method:'POST', headers:{ Authorization:'Bearer ' + token } }); token = null; localStorage.removeItem('fb_token'); showLogin(); }
+
+async function start() {
+  const me = await api('/api/me');
+  $('#app').innerHTML = `<header><h1>FotoBox · ${esc(me.user)}</h1>
+    <span id="status"></span>
+    <label class="btn">Hochladen<input type="file" multiple hidden onchange="upload(this.files)"></label>
+    <button class="ghost" onclick="newFolder()">Neuer Ordner</button>
+    <button class="ghost" onclick="logout()">Abmelden</button></header>
+    <main><div class="crumbs" id="crumbs"></div><div class="grid" id="grid"></div></main>`;
+  load('');
+  api('/api/usage').then(u => $('#status').textContent = `${u.files} Dateien · ${size(u.bytes)} · frei ${size(u.disk_free)}`).catch(() => {});
+}
+
+async function load(path) {
+  cwd = path;
+  const j = await api('/api/list?path=' + encodeURIComponent(path));
+  const parts = path ? path.split('/') : [];
+  $('#crumbs').innerHTML = '<a onclick="load(\'\')">Start</a>' + parts.map((p, i) =>
+    ` / <a onclick='load(${JSON.stringify(parts.slice(0, i + 1).join('/'))})'>${esc(p)}</a>`).join('');
+  $('#grid').innerHTML = j.items.length ? '' : '<p style="color:var(--muted)">Leer</p>';
+  for (const it of j.items) {
+    const full = (path ? path + '/' : '') + it.name;
+    const el = document.createElement('div');
+    el.className = 'item';
+    const thumb = it.dir ? '📁' : IMG.test(it.name) && !/\.heic$/i.test(it.name) ? `<img loading="lazy" src="${fileUrl(full)}">` : VID.test(it.name) ? '🎬' : '📄';
+    el.innerHTML = `<div class="thumb">${thumb}</div><div class="name" title="${esc(it.name)}">${esc(it.name)}${it.dir ? '' : '<br><small style="color:var(--muted)">' + size(it.size) + '</small>'}</div><span class="del">🗑</span>`;
+    el.onclick = () => it.dir ? load(full) : open(full);
+    el.querySelector('.del').onclick = async ev => { ev.stopPropagation(); if (confirm(`„${it.name}“ löschen?`)) { await api('/api/delete', { method:'POST', body: JSON.stringify({ path: full }) }); load(cwd); } };
+    $('#grid').appendChild(el);
+  }
+}
+
+function open(p) {
+  $('#vdl').href = fileUrl(p, true);
+  $('#vbody').innerHTML = IMG.test(p) ? `<img src="${fileUrl(p)}">` : VID.test(p) ? `<video controls autoplay src="${fileUrl(p)}"></video>` : '<p style="color:#fff">Keine Vorschau – bitte herunterladen.</p>';
+  $('#viewer').style.display = 'flex';
+}
+function closeViewer() { $('#viewer').style.display = 'none'; $('#vbody').innerHTML = ''; }
+
+async function newFolder() {
+  const n = prompt('Name des Ordners:'); if (!n) return;
+  await api('/api/mkdir', { method:'POST', body: JSON.stringify({ path: (cwd ? cwd + '/' : '') + n }) }); load(cwd);
+}
+
+async function upload(files) {
+  let i = 0;
+  for (const f of files) {
+    i++; $('#status').textContent = `Lade hoch ${i}/${files.length}: ${f.name}`;
+    const p = (cwd ? cwd + '/' : '') + f.name;
+    await api('/api/upload?path=' + encodeURIComponent(p) + '&mtime=' + f.lastModified, { method:'PUT', body: f });
+  }
+  $('#status').textContent = `${files.length} Datei(en) hochgeladen`;
+  load(cwd);
+}
+
+token ? start().catch(() => showLogin()) : showLogin();
+</script>
+</body>
+</html>
