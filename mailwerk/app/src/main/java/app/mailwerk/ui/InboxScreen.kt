@@ -248,7 +248,7 @@ private fun sectionOf(t: Long): String {
 
 @Composable
 private fun SectionHeader(text: String) {
-    Row(Modifier.padding(start = 8.dp, top = 14.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+    Row(Modifier.padding(start = 8.dp, top = 10.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
         if (text == tr("Angeheftet")) { Icon(Icons.Filled.PushPin, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.tertiary); Spacer(Modifier.width(6.dp)) }
         Text(text.uppercase(), style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.2.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -386,12 +386,12 @@ private fun SwipeRow(vm: MainViewModel, t: ThreadSummary, onSnooze: (Message) ->
         false
     }, positionalThreshold = { it * 0.35f })
     SwipeToDismissBox(state, enableDismissFromStartToEnd = right != SwipeAction.NONE, enableDismissFromEndToStart = left != SwipeAction.NONE,
-        modifier = Modifier.padding(vertical = 3.dp),
+        modifier = Modifier.padding(vertical = 2.dp),
         backgroundContent = {
             val dir = state.dismissDirection
             val action = if (dir == SwipeToDismissBoxValue.StartToEnd) right else left
             val (color, icon) = swipeLook(action)
-            if (dir != SwipeToDismissBoxValue.Settled) Box(Modifier.fillMaxSize().clip(RoundedCornerShape(22.dp)).background(color).padding(horizontal = 26.dp),
+            if (dir != SwipeToDismissBoxValue.Settled) Box(Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(color).padding(horizontal = 26.dp),
                 contentAlignment = if (dir == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd) {
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Icon(icon, null, tint = Color.White); Spacer(Modifier.width(8.dp))
@@ -419,7 +419,7 @@ private fun ThreadRow(t: ThreadSummary, showAccount: Boolean, vm: MainViewModel,
     val name = if (sent) tr("An: ") + (Regexes.firstName(m.toAddrs)) else m.fromName.ifBlank { m.fromAddr }
     val cs = MaterialTheme.colorScheme
     val dark = cs.background.luminance() < 0.5f
-    val shape = RoundedCornerShape(22.dp)
+    val shape = RoundedCornerShape(16.dp)
     // Ungelesen: helle Karte, farbiger Rand und Streifen links. Gelesen: zurückhaltend, ohne Akzent.
     val cardColor = if (dark) { if (unread) cs.surfaceContainerHigh else cs.surfaceContainerLow }
                     else { if (unread) cs.surfaceContainerLowest else cs.surfaceContainer }
@@ -427,19 +427,20 @@ private fun ThreadRow(t: ThreadSummary, showAccount: Boolean, vm: MainViewModel,
         .background(cardColor)
         .then(if (unread) Modifier.border(1.dp, cs.primary.copy(alpha = if (dark) 0.55f else 0.30f), shape)
               else if (dark) Modifier.border(1.dp, cs.outlineVariant, shape) else Modifier)
-        .drawBehind { if (unread) drawRect(Brand.gradient, size = androidx.compose.ui.geometry.Size(5.dp.toPx(), size.height)) }
-        .combinedClickable(onClick = onClick, onLongClick = onLong).padding(horizontal = 14.dp, vertical = 13.dp)) {
+        .drawBehind { if (unread) drawRect(Brand.gradient, size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height)) }
+        .combinedClickable(onClick = onClick, onLongClick = onLong).padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
+        verticalAlignment = Alignment.CenterVertically) {
         Box {
-            Avatar(m.fromName, if (sent) m.toAddrs else m.fromAddr, 46.dp)
+            Avatar(m.fromName, if (sent) m.toAddrs else m.fromAddr, 38.dp)
             if (showAccount) vm.accounts.value.firstOrNull { it.id == m.accountId }?.let { a ->
-                Box(Modifier.size(14.dp).align(Alignment.BottomEnd).clip(CircleShape).background(cs.surfaceContainerLowest).padding(2.dp)
+                Box(Modifier.size(12.dp).align(Alignment.BottomEnd).clip(CircleShape).background(cs.surfaceContainerLowest).padding(2.dp)
                     .clip(CircleShape).background(Color(a.color)))
             }
         }
-        Spacer(Modifier.width(13.dp))
+        Spacer(Modifier.width(11.dp))
         Column(Modifier.weight(1f)) {
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = if (unread) FontWeight.Bold else FontWeight.Medium),
+                Text(name, style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp, lineHeight = 19.sp, fontWeight = if (unread) FontWeight.Bold else FontWeight.Medium),
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
                     color = if (unread) cs.onSurface else cs.onSurfaceVariant)
                 if (t.count > 1) {
@@ -449,19 +450,19 @@ private fun ThreadRow(t: ThreadSummary, showAccount: Boolean, vm: MainViewModel,
                 }
                 Spacer(Modifier.weight(1f))
                 if (m.snoozedUntil > 0) Icon(Icons.Outlined.AccessTime, null, Modifier.size(15.dp), tint = cs.tertiary)
-                Text("  " + shortTime(m.date), style = MaterialTheme.typography.labelMedium, color = if (unread) cs.primary else cs.onSurfaceVariant)
+                Text("  " + shortTime(m.date), style = MaterialTheme.typography.labelSmall, color = if (unread) cs.primary else cs.onSurfaceVariant)
             }
-            Spacer(Modifier.height(2.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(m.subject.ifBlank { tr("(kein Betreff)") }, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    style = MaterialTheme.typography.bodyMedium.copy(fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal),
+                    style = MaterialTheme.typography.bodyMedium.copy(lineHeight = 18.sp, fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal),
                     color = if (unread) cs.onSurface else cs.onSurfaceVariant, modifier = Modifier.weight(1f))
-                if (t.hasAttachments) Icon(Icons.Outlined.AttachFile, tr("Anhang"), Modifier.size(16.dp), tint = cs.onSurfaceVariant)
-                if (t.flagged) Icon(Icons.Filled.Flag, tr("Markiert"), Modifier.size(16.dp), tint = Color(0xFFE5484D))
-                if (unread) { Spacer(Modifier.width(6.dp)); Box(Modifier.size(9.dp).clip(CircleShape).background(Brand.gradient)) }
+                if (t.hasAttachments) Icon(Icons.Outlined.AttachFile, tr("Anhang"), Modifier.size(14.dp), tint = cs.onSurfaceVariant)
+                if (t.flagged) Icon(Icons.Filled.Flag, tr("Markiert"), Modifier.size(14.dp), tint = Color(0xFFE5484D))
+                if (unread) { Spacer(Modifier.width(6.dp)); Box(Modifier.size(8.dp).clip(CircleShape).background(Brand.gradient)) }
             }
-            Spacer(Modifier.height(2.dp))
-            Text(m.snippet, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
+            // Vorschau: 1 Zeile, kleinere Schrift
+            if (m.snippet.isNotBlank()) Text(m.snippet, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.bodySmall.copy(fontSize = 12.sp, lineHeight = 16.sp),
                 color = if (unread) cs.onSurfaceVariant else cs.onSurfaceVariant.copy(alpha = 0.75f))
         }
     }
