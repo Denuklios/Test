@@ -462,6 +462,7 @@ object I18n {
         "Ordner „{0}“ angelegt" to "Folder “{0}” created",
         "Umbenannt in „{0}“" to "Renamed to “{0}”",
         "Ordner „{0}“ gelöscht" to "Folder “{0}” deleted",
+        "Kategorie wählen" to "Choose category",
     )
 }
 

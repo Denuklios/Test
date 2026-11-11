@@ -73,6 +73,13 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.ArrowDropDown
+import androidx.compose.material.icons.outlined.Check
+import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
 import androidx.compose.material.icons.outlined.CreateNewFolder
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.CloudOff
@@ -97,7 +104,15 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
     var snoozeFor by remember { mutableStateOf<Message?>(null) }
     val listState = rememberLazyListState()
     LaunchedEffect(category, mailbox) { listState.scrollToItem(0) }
-    val scrolled by remember { derivedStateOf { listState.firstVisibleItemIndex > 0 || listState.firstVisibleItemScrollOffset > 40 } }
+    // Mit Sperre gegen Flackern: einklappen nach etwas Scrollweg, wieder aufklappen erst ganz oben
+    var scrolled by remember { mutableStateOf(false) }
+    LaunchedEffect(listState) {
+        snapshotFlow { listState.firstVisibleItemIndex to listState.firstVisibleItemScrollOffset }.collect { (i, o) ->
+            if (i > 0 || o > 60) scrolled = true else if (i == 0 && o == 0) scrolled = false
+        }
+    }
+    var searchOpen by remember { mutableStateOf(false) }
+    LaunchedEffect(scrolled) { if (!scrolled) searchOpen = false }
 
     ModalNavigationDrawer(drawerState = drawer, drawerContent = {
         Drawer(vm) { scope.launch { drawer.close() } }
@@ -108,10 +123,18 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
             snackbarHost = { SnackbarHost(snackHost) },
         ) { pad ->
             Column(Modifier.padding(top = pad.calculateTopPadding()).fillMaxSize()) {
-                Header(vm, mailbox, accounts.firstOrNull()?.name, onMenu = { scope.launch { drawer.open() } })
-                SearchPill(query) { vm.query.value = it }
-                if (vm.showsCategories && query.isBlank()) CategoryTabs(category, counts) { vm.category.value = it }
-                Banners(vm)
+                val collapsed = scrolled && query.isBlank() && !searchOpen
+                Header(vm, mailbox, accounts.firstOrNull()?.name, collapsed,
+                    showCats = vm.showsCategories && query.isBlank(), category = category, counts = counts,
+                    onCategory = { vm.category.value = it },
+                    onSearch = { searchOpen = true; scope.launch { listState.scrollToItem(0) } },
+                    onMenu = { scope.launch { drawer.open() } })
+                AnimatedVisibility(!collapsed, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                    SearchPill(query) { vm.query.value = it }
+                }
+                AnimatedVisibility(!collapsed, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                    Column { Banners(vm) }
+                }
                 PullToRefreshBox(isRefreshing = syncing, onRefresh = { vm.refresh() }, modifier = Modifier.fillMaxSize()) {
                     if (threads.isEmpty() && syncing && query.isBlank()) LoadingState()
                     else if (threads.isEmpty()) EmptyState(mailbox, category, query)
@@ -256,20 +279,74 @@ private fun SectionHeader(text: String) {
 }
 
 @Composable
-private fun Header(vm: MainViewModel, mailbox: Mailbox, userName: String?, onMenu: () -> Unit) {
+private fun Header(vm: MainViewModel, mailbox: Mailbox, userName: String?, collapsed: Boolean, showCats: Boolean,
+                   category: Category?, counts: Map<Category, Int>, onCategory: (Category?) -> Unit, onSearch: () -> Unit, onMenu: () -> Unit) {
     val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
     val greet = when (hour) { in 5..10 -> tr("Guten Morgen"); in 11..17 -> tr("Hallo"); in 18..22 -> tr("Guten Abend"); else -> tr("Gute Nacht") }
     val first = userName?.split(' ')?.firstOrNull()?.takeIf { it.isNotBlank() }
-    Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 16.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+    val boxTitle = if (mailbox is Mailbox.Unified) tr("Posteingang") else mailbox.title
+    var menuOpen by remember { mutableStateOf(false) }
+    val titleSize by androidx.compose.animation.core.animateFloatAsState(if (collapsed) 20f else 28f, label = "title")
+    Row(Modifier.fillMaxWidth().animateContentSize().padding(start = 8.dp, end = 12.dp, top = if (collapsed) 2.dp else 6.dp, bottom = if (collapsed) 2.dp else 4.dp),
+        verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onMenu) { Icon(Icons.Outlined.Menu, tr("Menü")) }
-        Column(Modifier.weight(1f).padding(start = 4.dp)) {
-            val sub = (mailbox as? Mailbox.InFolder)?.accountEmail ?: (if (first != null) "$greet, $first 👋" else greet)
-            Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(if (mailbox is Mailbox.Unified) tr("Posteingang") else mailbox.title, style = MaterialTheme.typography.headlineMedium,
+        Column(Modifier.weight(1f).padding(start = 2.dp)) {
+            AnimatedVisibility(!collapsed, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                val sub = (mailbox as? Mailbox.InFolder)?.accountEmail
+                    ?: ((if (first != null) "$greet, $first 👋" else greet) + if (showCats) " · " + boxTitle else "")
+                Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
+            }
+            if (showCats) Box {
+                // Kategorie als Dropdown direkt im Titel
+                val n = if (category == null) counts.values.sum() else counts[category] ?: 0
+                Row(Modifier.clip(RoundedCornerShape(12.dp)).clickable { menuOpen = true }.padding(end = 4.dp),
+                    verticalAlignment = Alignment.CenterVertically) {
+                    Text(category?.label ?: tr("Alle"), style = MaterialTheme.typography.headlineMedium.copy(fontSize = titleSize.sp, lineHeight = (titleSize + 6).sp),
+                        maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (n > 0) {
+                        Spacer(Modifier.width(8.dp))
+                        Text("$n", color = Color.White, style = MaterialTheme.typography.labelMedium,
+                            modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(categoryColor(category)).padding(horizontal = 7.dp, vertical = 1.dp))
+                    }
+                    Icon(Icons.Outlined.ArrowDropDown, tr("Kategorie wählen"), Modifier.size(30.dp))
+                    // Hinweis auf ungelesene Mails in anderen Kategorien
+                    val others = counts.filterKeys { it != category }.values.sum()
+                    if (category != null && others > 0) Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
+                }
+                CategoryMenu(menuOpen, category, counts, onDismiss = { menuOpen = false }) { menuOpen = false; onCategory(it) }
+            } else Text(boxTitle, style = MaterialTheme.typography.headlineMedium.copy(fontSize = titleSize.sp, lineHeight = (titleSize + 6).sp),
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
+        if (collapsed) IconButton(onClick = onSearch) { Icon(Icons.Outlined.Search, tr("In allen Mails suchen")) }
         val acc = vm.accounts.value.firstOrNull()
-        if (acc != null) Box(Modifier.clip(CircleShape).clickable { vm.push(Screen.Settings) }) { Avatar(acc.name, acc.email, 40.dp) }
+        if (acc != null) Box(Modifier.clip(CircleShape).clickable { vm.push(Screen.Settings) }) { Avatar(acc.name, acc.email, if (collapsed) 32.dp else 40.dp) }
+    }
+}
+
+@Composable
+private fun CategoryMenu(open: Boolean, selected: Category?, counts: Map<Category, Int>, onDismiss: () -> Unit, onSelect: (Category?) -> Unit) {
+    DropdownMenu(open, onDismiss, shape = RoundedCornerShape(18.dp)) {
+        listOf<Triple<Category?, String, ImageVector>>(
+            Triple(Category.PEOPLE, tr("Wichtig"), Icons.Outlined.Person),
+            Triple(Category.NEWSLETTER, tr("Newsletter"), Icons.Outlined.Newspaper),
+            Triple(Category.NOTIFICATION, tr("Benachrichtigungen"), Icons.Outlined.Notifications),
+            Triple(null, tr("Alle"), Icons.Outlined.AllInbox),
+        ).forEach { (cat, label, icon) ->
+            val n = if (cat == null) counts.values.sum() else counts[cat] ?: 0
+            val color = categoryColor(cat)
+            DropdownMenuItem(
+                text = { Text(label, style = MaterialTheme.typography.titleMedium.copy(fontWeight = if (cat == selected) FontWeight.Bold else FontWeight.Medium)) },
+                leadingIcon = { Icon(icon, null, tint = color) },
+                trailingIcon = {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        if (n > 0) Text("$n", color = color, style = MaterialTheme.typography.labelLarge,
+                            modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(color.copy(alpha = 0.14f)).padding(horizontal = 8.dp, vertical = 2.dp))
+                        if (cat == selected) { Spacer(Modifier.width(8.dp)); Icon(Icons.Outlined.Check, null, tint = MaterialTheme.colorScheme.primary) }
+                    }
+                },
+                onClick = { onSelect(cat) },
+                modifier = Modifier.widthIn(min = 260.dp))
+        }
     }
 }
 
@@ -302,38 +379,6 @@ fun categoryColor(c: Category?): Color = when (c) {
     Category.PEOPLE -> Brand.People; Category.NEWSLETTER -> Brand.News; Category.NOTIFICATION -> Brand.Notify; null -> Color(0xFF5B6080)
 }
 
-@Composable
-private fun CategoryTabs(selected: Category?, counts: Map<Category, Int>, onSelect: (Category?) -> Unit) {
-    Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
-        horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-        val tabs = listOf<Triple<Category?, String, ImageVector>>(
-            Triple(Category.PEOPLE, tr("Wichtig"), Icons.Outlined.Person),
-            Triple(Category.NEWSLETTER, tr("Newsletter"), Icons.Outlined.Newspaper),
-            Triple(Category.NOTIFICATION, tr("Benachrichtigungen"), Icons.Outlined.Notifications),
-            Triple(null, tr("Alle"), Icons.Outlined.AllInbox),
-        )
-        tabs.forEach { (cat, label, icon) ->
-            val n = if (cat == null) counts.values.sum() else counts[cat] ?: 0
-            val sel = selected == cat
-            val color = categoryColor(cat)
-            val bg by animateColorAsState(if (sel) color else MaterialTheme.colorScheme.surfaceContainerHigh, label = "tab")
-            val fg = if (sel) Color.White else MaterialTheme.colorScheme.onSurface
-            Row(Modifier.clip(RoundedCornerShape(16.dp)).background(bg).clickable { onSelect(cat) }.padding(horizontal = 14.dp, vertical = 9.dp),
-                verticalAlignment = Alignment.CenterVertically) {
-                Icon(icon, null, Modifier.size(18.dp), tint = if (sel) Color.White else color)
-                Spacer(Modifier.width(7.dp))
-                Text(label, color = fg, style = MaterialTheme.typography.labelLarge)
-                if (n > 0) {
-                    Spacer(Modifier.width(7.dp))
-                    Box(Modifier.clip(RoundedCornerShape(10.dp)).background(if (sel) Color.White.copy(alpha = 0.25f) else color.copy(alpha = 0.14f))
-                        .padding(horizontal = 7.dp, vertical = 1.dp)) {
-                        Text("$n", color = if (sel) Color.White else color, style = MaterialTheme.typography.labelMedium)
-                    }
-                }
-            }
-        }
-    }
-}
 
 @Composable
 private fun LoadingState() {

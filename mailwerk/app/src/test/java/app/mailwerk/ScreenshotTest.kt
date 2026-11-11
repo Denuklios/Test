@@ -7,8 +7,12 @@ import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.test.core.app.ActivityScenario
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
+import androidx.compose.ui.test.performTouchInput
+import androidx.compose.ui.test.swipeUp
+import androidx.compose.ui.test.performScrollToIndex
 import androidx.test.core.app.ApplicationProvider
 import app.mailwerk.data.Account
 import app.mailwerk.data.Attachment
@@ -81,11 +85,24 @@ class ScreenshotTest {
         val sc = ActivityScenario.launch(MainActivity::class.java)
         rule.waitForIdle()
         shot("1_posteingang_wichtig")
-        rule.onAllNodesWithText("Newsletter", substring = true, useUnmergedTree = true).onFirst().performClick()
+        rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("Kategorie wählen"), useUnmergedTree = true).onFirst().performClick()
+        shot("16_kategorie_dropdown")
+        rule.onAllNodesWithText("Alle", substring = false, useUnmergedTree = true).onLast().performClick()
+        rule.waitForIdle()
+        rule.onAllNodes(androidx.compose.ui.test.hasScrollAction()).onFirst().performScrollToIndex(10)
+        rule.waitForIdle()
+        shot("17_eingeklappt")
+        rule.onAllNodes(androidx.compose.ui.test.hasScrollAction()).onFirst().performScrollToIndex(0)
+        sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java].category.value = app.mailwerk.data.Category.PEOPLE }
+        rule.waitForIdle()
+        sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java].category.value = app.mailwerk.data.Category.NEWSLETTER }
+        rule.waitForIdle()
         shot("2_newsletter")
-        rule.onAllNodesWithText("Benachrichtigungen", substring = true, useUnmergedTree = true).onFirst().performClick()
+        sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java].category.value = app.mailwerk.data.Category.NOTIFICATION }
+        rule.waitForIdle()
         shot("3_benachrichtigungen")
-        rule.onAllNodesWithText("Wichtig", substring = true, useUnmergedTree = true).onFirst().performClick()
+        sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java].category.value = app.mailwerk.data.Category.PEOPLE }
+        rule.waitForIdle()
         rule.onAllNodesWithText("Angebot für die Stickerei", substring = true, useUnmergedTree = true).onFirst().performClick()
         shot("4_unterhaltung")
         rule.onAllNodesWithText("Antworten", useUnmergedTree = true).onFirst().performClick()

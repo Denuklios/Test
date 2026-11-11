@@ -3,6 +3,7 @@ package app.mailwerk
 import androidx.compose.ui.test.junit4.createEmptyComposeRule
 import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onFirst
+import androidx.compose.ui.test.onLast
 import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.performClick
 import androidx.test.core.app.ActivityScenario
@@ -70,9 +71,11 @@ class EnglishScreenshotTest {
         app.mailwerk.data.Db.get(ctx).notifyChanged()
         shot("en_1_inbox")
         assert(tr("Wichtig") == "Important" && tr("Mails von {0}", "x@y.de") == "Mail from x@y.de")
-        rule.onAllNodesWithText("Newsletters", substring = true, useUnmergedTree = true).onFirst().performClick()
+        sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java].category.value = app.mailwerk.data.Category.NEWSLETTER }
+        rule.waitForIdle()
         shot("en_2_newsletters")
-        rule.onAllNodesWithText("Important", substring = true, useUnmergedTree = true).onFirst().performClick()
+        sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java].category.value = app.mailwerk.data.Category.PEOPLE }
+        rule.waitForIdle()
         rule.onAllNodesWithText("Quote for the team shirts", substring = true, useUnmergedTree = true).onFirst().performClick()
         shot("en_3_thread")
         sc.onActivity { it.onBackPressedDispatcher.onBackPressed() }
