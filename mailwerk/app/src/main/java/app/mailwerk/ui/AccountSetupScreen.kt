@@ -260,6 +260,18 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
                     else Text("Prüfen & speichern")
                 }
             }
+            if (existing != null) {
+                SectionTitle("Fehlerbehebung")
+                vm.prefs.syncError(existing.id)?.let { InfoCard("Letzter Abruf fehlgeschlagen: $it", isError = true) }
+                val last = vm.prefs.lastSync(existing.id)
+                if (last > 0) Text("Letzter Abruf: ${MainViewModel.fmt(last)}", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+                androidx.compose.material3.OutlinedButton(onClick = { vm.reloadAccount(existing.id); vm.pop() }, modifier = Modifier.fillMaxWidth()) {
+                    Text("Mails neu laden")
+                }
+                Text("Löscht nur die Kopien auf diesem Gerät und lädt die Mails neu vom Server. Auf dem Server bleibt alles erhalten.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
             Spacer(Modifier.height(40.dp))
         }
     }

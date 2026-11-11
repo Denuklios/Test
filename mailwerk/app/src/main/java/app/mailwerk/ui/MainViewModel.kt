@@ -203,6 +203,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
     fun notSpam(m: Message) = act { repo.notSpam(m) ?: run { snack("Kein Spam – zurück im Posteingang"); null } }
+    fun reloadAccount(id: Long) {
+        if (syncing.value) { snack("Abruf läuft bereits – bitte kurz warten"); return }
+        viewModelScope.launch {
+            syncing.value = true
+            snack("Mails werden neu geladen …")
+            val errors = repo.reloadAccount(id)
+            syncing.value = false
+            snack(errors.firstOrNull() ?: "Fertig – Mails neu geladen")
+        }
+    }
+
     fun applyRules() = viewModelScope.launch {
         snack("Regeln werden angewendet …")
         val n = repo.applyRulesToExisting()

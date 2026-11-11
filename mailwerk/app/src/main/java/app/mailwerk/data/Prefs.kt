@@ -88,6 +88,14 @@ class Prefs(ctx: Context) {
     fun vacationActive(now: Long = System.currentTimeMillis()) =
         vacationOn && (vacationFrom == 0L || now >= vacationFrom) && (vacationUntil == 0L || now < vacationUntil)
 
+    // ---- Abruf-Status pro Konto (für Fehleranzeige im Posteingang)
+    fun setSyncStatus(accountId: Long, ok: Boolean, error: String?) {
+        p.edit().putLong("sync_time_$accountId", System.currentTimeMillis()).putBoolean("sync_ok_$accountId", ok)
+            .putString("sync_err_$accountId", error).apply()
+    }
+    fun syncError(accountId: Long): String? = if (p.getBoolean("sync_ok_$accountId", true)) null else p.getString("sync_err_$accountId", null)
+    fun lastSync(accountId: Long): Long = p.getLong("sync_time_$accountId", 0)
+
     var initialSyncDays: Int
         get() = p.getInt("sync_days", 60)
         set(v) = p.edit().putInt("sync_days", v).apply()

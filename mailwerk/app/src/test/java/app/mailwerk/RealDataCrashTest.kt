@@ -54,6 +54,12 @@ class RealDataCrashTest {
         ActivityScenario.launch(MainActivity::class.java)
         rule.waitForIdle()
         Thread.sleep(500); rule.waitForIdle()
+        // Update auf DB 6: leere Ordner werden zum Neuladen zurückgesetzt, Ordner mit Mails nicht
+        val empty = db.upsertFolder(a, "Leer", "Leer", null)
+        db.setFolderSyncState(empty, 999, 1); db.setFolderSyncState(inbox, 999, 1)
+        db.onUpgrade(db.writableDatabase, 5, 6)
+        org.junit.Assert.assertEquals(0L, db.folder(empty)!!.lastUid)
+        org.junit.Assert.assertEquals(999L, db.folder(inbox)!!.lastUid)
         db.deleteAccount(a)
     }
 }

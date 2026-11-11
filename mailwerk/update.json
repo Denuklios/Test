@@ -1,6 +1,6 @@
 {
-  "versionCode": 8,
-  "versionName": "1.5",
+  "versionCode": 9,
+  "versionName": "1.5.1",
   "apk": "Mailwerk.apk",
-  "notes": "Anmeldung mit Google/Microsoft vorbereitet, Play-Store-fähig"
+  "notes": "Mails werden wieder geladen, Abruffehler werden angezeigt"
 }

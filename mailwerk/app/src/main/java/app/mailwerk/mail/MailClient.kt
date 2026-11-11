@@ -71,7 +71,6 @@ class MailClient(private val acc: Account, private val password: String) {
             System.setProperty("mail.mime.decodetext.strict", "false")
             System.setProperty("mail.mime.address.strict", "false")
             System.setProperty("mail.mime.parameters.strict", "false")
-            System.setProperty("mail.mime.allowutf8", "true")
         }
 
         val headerNames = arrayOf(
@@ -84,7 +83,6 @@ class MailClient(private val acc: Account, private val password: String) {
     private fun props(): Properties = Properties().apply {
         val imapProto = if (acc.imapSecurity == Security.SSL) "imaps" else "imap"
         put("mail.store.protocol", imapProto)
-        put("mail.mime.allowutf8", "true")
         put("mail.$imapProto.host", acc.imapHost)
         put("mail.$imapProto.port", acc.imapPort.toString())
         put("mail.$imapProto.connectiontimeout", "20000")
@@ -181,6 +179,8 @@ class MailClient(private val acc: Account, private val password: String) {
         val newMessages: List<ParsedMessage>,
         val flags: Map<Long, Pair<Boolean, Boolean>>, // uid -> seen, flagged (für bekannte Bereich)
         val checkedFromUid: Long,
+        /** höchste UID unter den abgerufenen Nachrichten (auch wenn eine nicht lesbar war) */
+        val maxFetchedUid: Long = 0,
     )
 
     /**
@@ -207,7 +207,7 @@ class MailClient(private val acc: Account, private val password: String) {
                     .let { if (it.size > initialMax) it.copyOfRange(it.size - initialMax, it.size) else it }
             }
             prefetch(folder, newMsgs, envelopeOnly = false)
-            val parsed = newMsgs.mapNotNull { m -> runCatching { parse(folder, m) }.getOrNull() }
+            val parsed = newMsgs.mapNotNull { m -> runCatching { parse(folder, m) }.getOrElse { e -> fallbackParse(folder, m, e) } }
 
             // Flags der letzten Nachrichten abgleichen (gelesen auf anderem Gerät, gelöscht …)
             val startNum = maxOf(1, total - flagWindow + 1)
@@ -216,7 +216,8 @@ class MailClient(private val acc: Account, private val password: String) {
             folder.fetch(window, fp)
             val flags = window.associate { folder.getUID(it) to (it.isSet(Flags.Flag.SEEN) to it.isSet(Flags.Flag.FLAGGED)) }
             val checkedFrom = window.firstOrNull()?.let { folder.getUID(it) } ?: 0
-            return FolderSync(validity, parsed, flags, checkedFrom)
+            val maxFetched = newMsgs.maxOfOrNull { runCatching { folder.getUID(it) }.getOrDefault(0) } ?: 0
+            return FolderSync(validity, parsed, flags, checkedFrom, maxFetched)
         } finally { runCatching { folder.close(false) } }
     }
 
@@ -256,6 +257,22 @@ class MailClient(private val acc: Account, private val password: String) {
             references = headers["references"],
         )
     }
+
+    /** Mail konnte nicht vollständig gelesen werden -> trotzdem mit Kopfdaten anzeigen statt verschwinden lassen. */
+    private fun fallbackParse(folder: IMAPFolder, m: Message, e: Throwable): ParsedMessage? = runCatching {
+        android.util.Log.w("Mailwerk", "Mail nicht vollständig lesbar: ${e.message}")
+        val from = runCatching { m.from?.firstOrNull() as? InternetAddress }.getOrNull()
+        ParsedMessage(
+            uid = folder.getUID(m), messageId = runCatching { (m as MimeMessage).messageID }.getOrNull(),
+            fromName = runCatching { from?.personal }.getOrNull() ?: "", fromAddr = from?.address ?: "",
+            to = runCatching { addrList(m.getRecipients(Message.RecipientType.TO)) }.getOrDefault(""), cc = "", replyTo = "",
+            subject = runCatching { m.subject }.getOrNull() ?: "(Betreff nicht lesbar)",
+            date = runCatching { (m.receivedDate ?: m.sentDate)?.time }.getOrNull() ?: System.currentTimeMillis(),
+            html = null, text = "Diese Nachricht konnte nicht vollständig geladen werden (${e.message}). Bitte im Webmail öffnen.",
+            seen = runCatching { m.isSet(Flags.Flag.SEEN) }.getOrDefault(false), flagged = false,
+            headers = emptyMap(), attachments = emptyList(), inReplyTo = null, references = null,
+        )
+    }.getOrNull()
 
     private fun decode(s: String) = runCatching { EncodedWords.decode(s) }.getOrDefault(s)
 

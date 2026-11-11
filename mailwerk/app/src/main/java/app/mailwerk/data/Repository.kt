@@ -55,6 +55,14 @@ class Repository private constructor(private val ctx: Context) {
         db.saveAccount(a.copy(passwordEnc = Crypto.encrypt(plainPassword), color = if (a.color == 0) color else a.color))
     }
 
+    /** Alle lokal gespeicherten Mails eines Kontos verwerfen und neu vom Server laden. */
+    suspend fun reloadAccount(accountId: Long): List<String> = withContext(Dispatchers.IO) {
+        db.writableDatabase.execSQL("DELETE FROM messages WHERE account_id=?", arrayOf(accountId))
+        db.writableDatabase.execSQL("UPDATE folders SET last_uid=0, uid_validity=0 WHERE account_id=?", arrayOf(accountId))
+        db.notifyChanged()
+        sync()
+    }
+
     /** Konto nach Anmeldung über Google/Microsoft anlegen bzw. die Anmeldung erneuern. */
     suspend fun addOAuthAccount(p: app.mailwerk.mail.OAuthProvider, r: OAuth.Result): Long = withContext(Dispatchers.IO) {
         val existing = db.accounts().firstOrNull { it.email.equals(r.email, true) }
@@ -83,8 +91,14 @@ class Repository private constructor(private val ctx: Context) {
         syncLock.withLock {
             val errors = mutableListOf<String>()
             for (acc in db.accounts()) {
-                try { syncAccount(acc, extraFolderId, notify) }
-                catch (e: Exception) { errors += "${acc.email}: ${friendly(e)}" }
+                try {
+                    syncAccount(acc, extraFolderId, notify)
+                    prefs.setSyncStatus(acc.id, ok = true, error = null)
+                } catch (e: Exception) {
+                    errors += "${acc.email}: ${friendly(e)}"
+                    prefs.setSyncStatus(acc.id, ok = false, error = friendly(e))
+                }
+                db.notifyChanged()
             }
             processTimers()
             db.notifyChanged()
@@ -116,12 +130,14 @@ class Repository private constructor(private val ctx: Context) {
                         else if (r.first != seen || r.second != flagged) db.updateFlags(id, seen = r.first, flagged = r.second)
                     }
                 }
-                var maxUid = f.lastUid
+                var maxUid = maxOf(f.lastUid, res.maxFetchedUid)
                 val fresh = mutableListOf<Message>()
                 val initial = f.lastUid == 0L // erster Abgleich: nichts automatisch weiterleiten/beantworten
                 val rules = db.rules().filter { it.enabled && (it.accountId == null || it.accountId == acc.id) }
                 val blocklist = db.blocklist()
+                var done = 0
                 for (p in res.newMessages) {
+                    if (++done % 15 == 0) db.notifyChanged() // beim ersten Laden schrittweise anzeigen
                     maxUid = maxOf(maxUid, p.uid)
                     if (p.uid in local) continue
                     val isSent = f.role == FolderRole.SENT || p.fromAddr.equals(acc.email, true)

@@ -69,6 +69,7 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Rule
 import androidx.compose.material.icons.outlined.BeachAccess
 import androidx.compose.material.icons.outlined.SystemUpdate
@@ -106,7 +107,8 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
                 if (vm.showsCategories && query.isBlank()) CategoryTabs(category, counts) { vm.category.value = it }
                 Banners(vm)
                 PullToRefreshBox(isRefreshing = syncing, onRefresh = { vm.refresh() }, modifier = Modifier.fillMaxSize()) {
-                    if (threads.isEmpty()) EmptyState(mailbox, category, query)
+                    if (threads.isEmpty() && syncing && query.isBlank()) LoadingState()
+                    else if (threads.isEmpty()) EmptyState(mailbox, category, query)
                     else LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 110.dp)) {
                         var lastSection = ""
                         threads.forEachIndexed { idx, t ->
@@ -136,6 +138,13 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
 @Composable
 private fun Banners(vm: MainViewModel) {
     val pending by vm.pendingPresets.collectAsState()
+    val syncingNow by vm.syncing.collectAsState()
+    val accs by vm.accounts.collectAsState()
+    accs.forEach { a ->
+        val err = remember(syncingNow, a.id) { vm.prefs.syncError(a.id) }
+        if (err != null) Banner(Icons.Outlined.CloudOff, "Abruf fehlgeschlagen: ${a.email}", err,
+            if (syncingNow) null else "Erneut", onAction = { vm.refresh() }, onClose = null)
+    }
     val hidden by vm.hiddenBanners.collectAsState()
     val upd by vm.update.collectAsState()
     val progress by vm.updateProgress.collectAsState()
@@ -278,6 +287,19 @@ private fun CategoryTabs(selected: Category?, counts: Map<Category, Int>, onSele
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun LoadingState() {
+    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        Spacer(Modifier.height(90.dp))
+        CircularProgressIndicator(Modifier.size(56.dp), strokeWidth = 5.dp)
+        Spacer(Modifier.height(24.dp))
+        Text("Mails werden geladen …", style = MaterialTheme.typography.headlineSmall)
+        Spacer(Modifier.height(8.dp))
+        Text("Beim ersten Mal kann das einen Moment dauern.", style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     }
 }
 

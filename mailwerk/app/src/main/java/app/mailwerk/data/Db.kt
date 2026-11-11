@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Lokale Datenbank (Offline-Speicher aller Mails). Bewusst ohne ORM gehalten.
  * Jede Schreiboperation erhöht [changes], damit die Oberfläche neu lädt.
  */
-class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 5) {
+class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 6) {
 
     private val _changes = MutableStateFlow(0L)
     val changes: StateFlow<Long> = _changes
@@ -76,6 +76,10 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) shrinkHugeRows(db)
+        if (oldVersion < 6 && newVersion >= 6) {
+            // Ordner ohne eine einzige gespeicherte Mail komplett neu laden (Folge des Abruffehlers in 1.3.2–1.5)
+            db.execSQL("UPDATE folders SET last_uid=0, uid_validity=0 WHERE id NOT IN (SELECT DISTINCT folder_id FROM messages)")
+        }
         if (oldVersion < 5 && newVersion >= 5) runCatching { db.execSQL("ALTER TABLE accounts ADD COLUMN auth_type TEXT") }
         if (oldVersion < 4 && newVersion >= 4) {
             runCatching { db.execSQL("ALTER TABLE accounts ADD COLUMN reply_signature TEXT") }
