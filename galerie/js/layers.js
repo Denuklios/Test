@@ -1,4 +1,5 @@
 // Vollbild-Ebenen (Betrachter, Spiele, Diashow …) mit Zurück-Taste und Esc.
+import { icon } from './icons.js';
 import { el } from './util.js';
 
 const stack = [];
@@ -21,7 +22,7 @@ window.addEventListener('keydown', (e) => {
 export function openLayer({ className = '', title = '', buttons = [], onClose, onKey } = {}) {
   const titleEl = el('div', { class: 'title' }, title);
   const top = el('div', { class: 'layer-top' },
-    el('button', { class: 'icon-btn', title: 'Schließen (Esc)', onclick: () => api.close() }, '✕'),
+    el('button', { class: 'icon-btn', title: 'Schließen (Esc)', onclick: () => api.close() }, icon('close')),
     titleEl, ...buttons);
   const layer = el('div', { class: 'layer ' + className }, top);
   document.body.append(layer);

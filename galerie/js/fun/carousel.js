@@ -1,4 +1,5 @@
 // 3D-Foto-Karussell: Ring, Helix oder Kugel – mit Finger/Maus drehen
+import { icon } from '../icons.js';
 import { el, blobUrl } from '../util.js';
 import { openLayer } from '../layers.js';
 import { pickSource } from './common.js';
@@ -26,8 +27,8 @@ function openCarousel(all) {
   const L = openLayer({ title: `${all.length} Fotos`, onClose: () => cancelAnimationFrame(raf) });
   const bottom = el('div', { class: 'layer-bottom' },
     ...['ring', 'helix', 'kugel'].map((m) => (modeBtns[m] = el('button', { class: 'btn', onclick: () => setMode(m) },
-      { ring: '⭕ Ring', helix: '🌀 Spirale', kugel: '🌐 Kugel' }[m]))),
-    el('button', { class: 'btn', onclick: (e) => { auto = !auto; e.target.classList.toggle('on', !auto); } }, '⏸ Anhalten'));
+      icon({ ring: 'ring', helix: 'spiral', kugel: 'globe' }[m]), { ring: 'Ring', helix: 'Spirale', kugel: 'Kugel' }[m]))),
+    el('button', { class: 'btn', onclick: (e) => { auto = !auto; e.currentTarget.classList.toggle('on', !auto); } }, icon('pause'), 'Anhalten'));
   L.layer.append(stage, bottom);
 
   let cards = [];

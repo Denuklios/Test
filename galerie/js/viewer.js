@@ -6,6 +6,7 @@ import { moveFace, renamePerson } from './faces.js';
 import { categoryById, similarPhotos } from './smart.js';
 import { FUN } from './fun/index.js';
 import { openLayer } from './layers.js';
+import { icon } from './icons.js';
 
 export function openViewer(list, index) {
   if (!list.length || index < 0) return;
@@ -19,18 +20,20 @@ export function openViewer(list, index) {
   const wrap = el('div', { class: 'wrap' }, img);
   const slide = el('div', { class: 'slide' }, wrap);
   const stage = el('div', { class: 'stage' }, slide);
-  const favBtn = el('button', { class: 'icon-btn', title: 'Favorit (F)', onclick: () => toggleFav() });
-  const facesBtn = el('button', { class: 'icon-btn', title: 'Gesichter zeigen', onclick: () => { showFaces = !showFaces; drawFaces(); } }, '🙂');
-  const infoBtn = el('button', { class: 'icon-btn', title: 'Infos (I)', onclick: () => { showInfo = !showInfo; drawInfo(); } }, 'ⓘ');
+  const favBtn = el('button', { class: 'icon-btn', title: 'Favorit (F)', onclick: () => toggleFav() }, icon('heart'));
+  const infoBtn = el('button', { class: 'icon-btn', title: 'Infos (I)', onclick: () => { showInfo = !showInfo; drawInfo(); } }, icon('info'));
+  const tool = (ic, label, fn, extra = {}) => el('button', { class: 'tool', onclick: fn, ...extra }, icon(ic), el('span', {}, label));
+  const facesBtn = tool('face', 'Gesichter', () => { showFaces = !showFaces; drawFaces(); });
+  const toolbar = el('div', { class: 'toolbar' },
+    tool('share', 'Teilen', () => share()),
+    tool('scissors', 'Ausschneiden', () => FUN.cutout.run(cur()), { title: 'Oder einfach lange aufs Bild drücken' }),
+    tool('sticker', 'Sticker', () => FUN.studio.run(cur())),
+    tool('mosaic', 'Mosaik', () => FUN.mosaic.run(cur())),
+    facesBtn,
+    tool('trash', 'Entfernen', () => remove()));
   const L = openLayer({
     className: 'viewer',
-    buttons: [favBtn, facesBtn,
-      el('button', { class: 'icon-btn', title: 'Sticker & Filter', onclick: () => FUN.studio.run(cur()) }, '🥸'),
-      el('button', { class: 'icon-btn', title: 'Ausschneiden (oder lange aufs Bild drücken)', onclick: () => FUN.cutout.run(cur()) }, '✂️'),
-      el('button', { class: 'icon-btn', title: 'Mosaik daraus machen', onclick: () => FUN.mosaic.run(cur()) }, '🧩'),
-      el('button', { class: 'icon-btn', title: 'Teilen / Herunterladen', onclick: () => share() }, '⤴'),
-      el('button', { class: 'icon-btn', title: 'Löschen', onclick: () => remove() }, '🗑'),
-      infoBtn],
+    buttons: [favBtn, infoBtn],
     onKey: (e) => {
       if (e.key === 'ArrowRight') nav(1);
       else if (e.key === 'ArrowLeft') nav(-1);
@@ -40,7 +43,7 @@ export function openViewer(list, index) {
     onClose: () => { if (origUrl) URL.revokeObjectURL(origUrl); },
   });
   const { layer, top, titleEl } = L;
-  layer.append(stage);
+  layer.append(stage, toolbar);
   const close = () => L.close();
   const closeAndGo = (hash) => L.close(false, hash);
 
@@ -51,8 +54,7 @@ export function openViewer(list, index) {
     if (!p) return close();
     zoom = 1; panX = panY = 0; applyZoom();
     titleEl.textContent = fmtDate(p.date, true);
-    favBtn.textContent = p.fav ? '♥' : '♡';
-    favBtn.style.color = p.fav ? '#ff4d6d' : '';
+    favBtn.classList.toggle('faved', !!p.fav);
     img.src = blobUrl(p.thumb);
     if (origUrl) URL.revokeObjectURL(origUrl);
     origUrl = null;
@@ -64,7 +66,7 @@ export function openViewer(list, index) {
     hi.decode().then(() => { if (cur() === p) img.src = origUrl; }).catch(() => {});
     drawFaces();
     if (showInfo) drawInfo();
-    facesBtn.style.display = store.facesOf(p.id).length ? '' : 'none';
+    facesBtn.disabled = !store.facesOf(p.id).length;
   }
 
   function drawFaces() {
@@ -130,8 +132,7 @@ export function openViewer(list, index) {
     const p = cur();
     p.fav = !p.fav;
     await store.updatePhoto(p);
-    favBtn.textContent = p.fav ? '♥' : '♡';
-    favBtn.style.color = p.fav ? '#ff4d6d' : '';
+    favBtn.classList.toggle('faved', !!p.fav);
     if (p.fav) { favBtn.animate([{ transform: 'scale(1)' }, { transform: 'scale(1.8)' }, { transform: 'scale(1)' }], 400); }
   }
 
@@ -220,7 +221,7 @@ export function openViewer(list, index) {
     else if (Math.abs(dx) < 8 && Math.abs(dy) < 8 && Date.now() - start.t < 300) {
       if (Date.now() - lastTap < 300) { zoom = zoom > 1 ? 1 : 2.5; panX = panY = 0; applyZoom(); lastTap = 0; } else {
         lastTap = Date.now();
-        setTimeout(() => { if (lastTap && Date.now() - lastTap >= 290) { top.style.opacity = top.style.opacity === '0' ? '' : '0'; lastTap = 0; } }, 300);
+        setTimeout(() => { if (lastTap && Date.now() - lastTap >= 290) { const h = top.style.opacity === '0'; top.style.opacity = h ? '' : '0'; toolbar.style.opacity = h ? '' : '0'; lastTap = 0; } }, 300);
       }
     }
     start = null;

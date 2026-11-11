@@ -1,4 +1,5 @@
 // Ausschneiden: lange auf etwas im Foto drücken → die KI markiert das Objekt → als Sticker speichern
+import { icon } from '../icons.js';
 import { db } from '../db.js';
 import { el, toast, shareBlob, canvasToBlob, scaledCanvas, uid, blobUrl, modal, confirmDialog } from '../util.js';
 import { openLayer } from '../layers.js';
@@ -35,13 +36,13 @@ async function openCutout(photo, firstPoint) {
   const msg = el('div', { style: 'width:100%;text-align:center;font-size:14px;color:#eee' });
   let points = []; // [x, y, label]
   let masks = null, choice = 0, mode = 1, busy = false, raf;
-  const minus = el('button', { class: 'btn small', onclick: () => { mode = mode === 1 ? 0 : 1; minus.classList.toggle('on', mode === 0); plus.classList.toggle('on', mode === 1); } }, '➖ Wegnehmen');
-  const plus = el('button', { class: 'btn small on', onclick: () => { mode = 1; plus.classList.add('on'); minus.classList.remove('on'); } }, '➕ Dazunehmen');
+  const minus = el('button', { class: 'btn small', onclick: () => { mode = mode === 1 ? 0 : 1; minus.classList.toggle('on', mode === 0); plus.classList.toggle('on', mode === 1); } }, icon('minus'), 'Wegnehmen');
+  const plus = el('button', { class: 'btn small on', onclick: () => { mode = 1; plus.classList.add('on'); minus.classList.remove('on'); } }, icon('add'), 'Dazunehmen');
   const sizeBtns = el('div', { class: 'row', style: 'justify-content:center' },
-    el('button', { class: 'btn small', onclick: () => pick(-1) }, '◀ Kleiner'),
-    el('button', { class: 'btn small', onclick: () => pick(1) }, 'Größer ▶'),
-    el('button', { class: 'btn small', onclick: () => { points.pop(); points.length ? update() : (masks = null, draw()); } }, '↶ Zurück'));
-  const saveBtn = el('button', { class: 'btn primary', disabled: true, onclick: () => save() }, '✂️ Als Sticker speichern');
+    el('button', { class: 'btn small', onclick: () => pick(-1) }, icon('smaller'), 'Kleiner'),
+    el('button', { class: 'btn small', onclick: () => pick(1) }, 'Größer', icon('bigger')),
+    el('button', { class: 'btn small', onclick: () => { points.pop(); points.length ? update() : (masks = null, draw()); } }, icon('undo'), 'Zurück'));
+  const saveBtn = el('button', { class: 'btn primary', disabled: true, onclick: () => save() }, icon('scissors'), 'Als Sticker speichern');
   const L = openLayer({ title: '✂️ Ausschneiden', onClose: () => cancelAnimationFrame(raf) });
   L.layer.append(stage, el('div', { class: 'layer-bottom', style: 'flex-direction:column;align-items:stretch;gap:8px' },
     msg, el('div', { class: 'row', style: 'justify-content:center' }, plus, minus), sizeBtns, el('div', { class: 'row', style: 'justify-content:center' }, saveBtn)));
@@ -138,7 +139,7 @@ async function openCutout(photo, firstPoint) {
       body: el('div', { style: 'display:grid;place-items:center;padding:10px;background:repeating-conic-gradient(#8883 0 25%,transparent 0 50%) 50%/20px 20px;border-radius:12px' },
         el('img', { src: blobUrl(blob), style: 'max-width:100%;max-height:40vh' })),
       actions: [
-        { label: 'Teilen', value: 'share' },
+        { label: 'Teilen', icon: 'share', value: 'share' },
         { label: 'Weiter ausschneiden', value: 'again' },
         { label: 'Fertig', primary: true, value: 'done' },
       ],
@@ -236,7 +237,7 @@ async function openStickerBook() {
     onclick: async () => {
       const a = await modal({
         body: el('img', { src: blobUrl(s.blob), style: 'max-width:100%;max-height:50vh;display:block;margin:auto' }),
-        actions: [{ label: '🗑 Löschen', danger: true, value: 'del' }, { label: 'Teilen', primary: true, value: 'share' }, { label: 'Schließen', value: null }],
+        actions: [{ label: 'Löschen', icon: 'trash', danger: true, value: 'del' }, { label: 'Teilen', icon: 'share', primary: true, value: 'share' }, { label: 'Schließen', value: null }],
       });
       if (a === 'share') shareSticker(s);
       if (a === 'del' && await confirmDialog('Sticker löschen?', 'Löschen', true)) { await db.del('stickers', s.id); render(await listStickers()); }

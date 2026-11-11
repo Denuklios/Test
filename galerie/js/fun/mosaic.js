@@ -1,4 +1,5 @@
 // Foto-Mosaik: ein Bild wird aus vielen kleinen eigenen Fotos zusammengesetzt.
+import { icon } from '../icons.js';
 import { store } from '../store.js';
 import { el, toast, download, canvasToBlob, shuffle, nextFrame } from '../util.js';
 import { openLayer } from '../layers.js';
@@ -48,15 +49,15 @@ function openMosaic(photo) {
   const L = openLayer({
     title: 'Foto-Mosaik',
     buttons: [
-      el('button', { class: 'icon-btn', title: 'Zoom', onclick: () => wrapEl.classList.toggle('zoom') }, '🔍'),
-      el('button', { class: 'icon-btn', title: 'Anderes Foto', onclick: async () => { const p = await pickPhoto(); if (p) { photo = p; build(); } } }, '🖼️'),
+      el('button', { class: 'icon-btn', title: 'Zoom', onclick: () => wrapEl.classList.toggle('zoom') }, icon('zoom')),
+      el('button', { class: 'icon-btn', title: 'Anderes Foto', onclick: async () => { const p = await pickPhoto(); if (p) { photo = p; build(); } } }, icon('image')),
     ],
   });
   L.layer.append(wrapEl, el('div', { class: 'layer-bottom' },
     info,
     el('label', { class: 'range', style: 'color:#ddd' }, 'Kacheln', cols),
     el('label', { class: 'range', style: 'color:#ddd' }, 'Original durchscheinen', blend),
-    el('button', { class: 'btn primary', onclick: save }, '💾 Speichern')));
+    el('button', { class: 'btn primary', onclick: save }, icon('save'), 'Speichern')));
 
   let running = 0;
   async function build() {

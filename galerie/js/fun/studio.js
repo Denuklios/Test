@@ -1,4 +1,5 @@
 // Spaß-Studio: Sticker auf Gesichter (Wackelaugen, Partyhut, Schnurrbart …) und verrückte Filter
+import { icon } from '../icons.js';
 import { store } from '../store.js';
 import { db } from '../db.js';
 import { el, toast, download, canvasToBlob, scaledCanvas } from '../util.js';
@@ -63,8 +64,8 @@ async function openStudio(photo) {
   L.layer.append(stage, el('div', { class: 'layer-bottom', style: 'flex-direction:column;align-items:stretch' },
     msg, stickerRow, myRow, filterRow,
     el('div', { class: 'row', style: 'justify-content:center' },
-      el('button', { class: 'btn', onclick: async () => download(await canvasToBlob(render(false), 'image/jpeg', 0.92), `Spass-${photo.name.replace(/\.\w+$/, '')}.jpg`) }, '💾 Herunterladen'),
-      el('button', { class: 'btn primary', onclick: saveToGallery }, '➕ In Galerie speichern'))));
+      el('button', { class: 'btn', onclick: async () => download(await canvasToBlob(render(false), 'image/jpeg', 0.92), `Spass-${photo.name.replace(/\.\w+$/, '')}.jpg`) }, icon('save'), 'Speichern'),
+      el('button', { class: 'btn primary', onclick: saveToGallery }, icon('add'), 'In Galerie übernehmen'))));
 
   const src = scaledCanvas(await loadOriginal(photo), 1600);
   canvas.width = src.width; canvas.height = src.height;
@@ -99,9 +100,9 @@ async function openStudio(photo) {
           placed.push(selected);
         },
       }, el('img', { src: URL.createObjectURL(st.blob), style: 'object-fit:contain;background:#fff2' }))),
-      el('button', { class: 'btn small', onclick: () => { if (selected) selected.s *= 1.2; } }, '＋'),
-      el('button', { class: 'btn small', onclick: () => { if (selected) selected.s /= 1.2; } }, '－'),
-      el('button', { class: 'btn small', onclick: () => { const i = placed.indexOf(selected); if (i >= 0) placed.splice(i, 1); selected = placed[placed.length - 1] || null; } }, '🗑'));
+      el('button', { class: 'btn small', onclick: () => { if (selected) selected.s *= 1.2; } }, icon('add')),
+      el('button', { class: 'btn small', onclick: () => { if (selected) selected.s /= 1.2; } }, icon('minus')),
+      el('button', { class: 'btn small', onclick: () => { const i = placed.indexOf(selected); if (i >= 0) placed.splice(i, 1); selected = placed[placed.length - 1] || null; } }, icon('trash')));
   } else myRow.style.display = 'none';
   let dragSt = null;
   canvas.style.touchAction = 'none';

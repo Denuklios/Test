@@ -1,4 +1,5 @@
 // Kleine Spiele und Spielereien mit den eigenen Fotos
+import { icon } from '../icons.js';
 import { store } from '../store.js';
 import { el, blobUrl, toast, shuffle, fmtDate, relTime, sleep } from '../util.js';
 import { openLayer } from '../layers.js';
@@ -170,7 +171,7 @@ export const polaroid = {
 
 function openWall(photos) {
   const wall = el('div', { class: 'wall' });
-  const L = openLayer({ title: 'Polaroid-Wand', buttons: [el('button', { class: 'icon-btn', title: 'Neu mischen', onclick: () => scatter(true) }, '🔀')] });
+  const L = openLayer({ title: 'Polaroid-Wand', buttons: [el('button', { class: 'icon-btn', title: 'Neu mischen', onclick: () => scatter(true) }, icon('shuffle'))] });
   L.layer.append(wall);
   let z = 1;
   const cards = photos.map((p, i) => {
@@ -293,8 +294,8 @@ export const timemachine = {
     const L = openLayer({ title: '🎰 Zeitmaschine', onClose: () => window.removeEventListener('devicemotion', onShake) });
     const img = el('img', { style: 'width:min(420px,86vw);aspect-ratio:1;object-fit:cover;border-radius:24px;box-shadow:0 20px 60px #000' });
     const label = el('div', { class: 'score', style: 'text-align:center' }, 'Bereit für eine Zeitreise?');
-    const btn = el('button', { class: 'btn primary', style: 'font-size:18px;padding:14px 28px' }, '🎲 Drehen!');
-    const open = el('button', { class: 'btn hidden' }, 'Foto öffnen');
+    const btn = el('button', { class: 'btn primary', style: 'font-size:18px;padding:14px 28px' }, icon('dice'), 'Drehen!');
+    const open = el('button', { class: 'btn hidden' }, icon('image'), 'Foto öffnen');
     L.layer.append(el('div', { class: 'game' }, img, label, el('div', { class: 'row' }, btn, open)));
     img.src = blobUrl(shuffle(all)[0].thumb);
     let spinning = false, chosen;

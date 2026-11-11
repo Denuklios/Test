@@ -1,4 +1,5 @@
 // Diashow mit Ken-Burns-Effekt (langsames Zoomen und Schwenken) und sanften Überblendungen
+import { icon } from '../icons.js';
 import { el, blobUrl, fmtDate } from '../util.js';
 import { openLayer } from '../layers.js';
 import { pickSource } from './common.js';
@@ -22,13 +23,13 @@ function openShow(photos, title) {
   const imgs = [el('img'), el('img')];
   const caption = el('div', { class: 'caption' });
   const stage = el('div', { class: 'stage show' }, ...imgs, caption);
-  const pauseBtn = el('button', { class: 'icon-btn', title: 'Pause (Leertaste)', onclick: () => togglePause() }, '⏸');
+  const pauseBtn = el('button', { class: 'icon-btn', title: 'Pause (Leertaste)', onclick: () => togglePause() }, icon('pause'));
   const speedBtn = el('button', { class: 'icon-btn', title: 'Tempo', onclick: () => { secs = secs === 5 ? 3 : secs === 3 ? 8 : 5; speedBtn.textContent = secs + 's'; } }, '5s');
-  const fillBtn = el('button', { class: 'icon-btn', title: 'Bildschirm füllen', onclick: () => { fill = !fill; imgs.forEach((im) => im.classList.toggle('cover', fill)); } }, '⛶');
+  const fillBtn = el('button', { class: 'icon-btn', title: 'Bildschirm füllen', onclick: () => { fill = !fill; imgs.forEach((im) => im.classList.toggle('cover', fill)); } }, icon('fit'));
   const urls = [];
   const L = openLayer({
     title: title || 'Diashow',
-    buttons: [speedBtn, fillBtn, pauseBtn, el('button', { class: 'icon-btn', title: 'Vollbild', onclick: () => document.fullscreenElement ? document.exitFullscreen() : L.layer.requestFullscreen?.() }, '⤢')],
+    buttons: [speedBtn, fillBtn, pauseBtn, el('button', { class: 'icon-btn', title: 'Vollbild', onclick: () => document.fullscreenElement ? document.exitFullscreen() : L.layer.requestFullscreen?.() }, icon('fullscreen'))],
     onClose: () => { clearTimeout(timer); urls.forEach((u) => URL.revokeObjectURL(u)); if (document.fullscreenElement) document.exitFullscreen(); },
     onKey: (e) => { if (e.key === ' ') { e.preventDefault(); togglePause(); } else if (e.key === 'ArrowRight') next(1); else if (e.key === 'ArrowLeft') next(-1); },
   });
@@ -44,7 +45,7 @@ function openShow(photos, title) {
 
   function togglePause() {
     paused = !paused;
-    pauseBtn.textContent = paused ? '▶' : '⏸';
+    pauseBtn.replaceChildren(icon(paused ? 'play' : 'pause'));
     if (!paused) next(1);
     else clearTimeout(timer);
   }

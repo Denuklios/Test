@@ -1,4 +1,5 @@
 // Hauptprogramm: Navigation, Ansichten, Import, Auswahl, Einstellungen
+import { icon } from './icons.js';
 import { store } from './store.js';
 import { db } from './db.js';
 import { importFiles } from './importer.js';
@@ -130,11 +131,11 @@ function emptyState() {
     el('p', { class: 'muted' }, 'Füge Fotos hinzu. Gesichter und Motive (Autos, Häuser, Pflanzen …) werden automatisch erkannt – alles bleibt privat auf diesem Gerät.'),
     isNative
       ? el('div', { class: 'row', style: 'justify-content:center;margin-top:16px' },
-        el('button', { class: 'btn primary', onclick: () => connectDevice() }, '📱 Fotos vom Handy anzeigen'),
-        el('button', { class: 'btn', onclick: () => $('#fileInput').click() }, '＋ Einzelne auswählen'))
+        el('button', { class: 'btn primary', onclick: () => connectDevice() }, icon('phone'), 'Fotos vom Handy anzeigen'),
+        el('button', { class: 'btn', onclick: () => $('#fileInput').click() }, icon('add'), 'Einzelne auswählen'))
       : el('div', { class: 'row', style: 'justify-content:center;margin-top:16px' },
-        el('button', { class: 'btn primary', onclick: () => $('#fileInput').click() }, '＋ Fotos auswählen'),
-        el('button', { class: 'btn', onclick: () => $('#dirInput').click() }, '📁 Ganzen Ordner')),
+        el('button', { class: 'btn primary', onclick: () => $('#fileInput').click() }, icon('add'), 'Fotos auswählen'),
+        el('button', { class: 'btn', onclick: () => $('#dirInput').click() }, icon('folder'), 'Ganzen Ordner')),
     !isNative && el('p', { class: 'muted', style: 'font-size:13px;margin-top:14px' }, 'Am Computer kannst du Fotos auch einfach hierher ziehen.'));
 }
 
@@ -175,8 +176,8 @@ function viewPhotos() {
     el('div', { class: 'section row', style: 'padding-bottom:0' },
       el('span', { class: 'muted' }, `${list.length} Fotos`),
       el('span', { class: 'spacer' }),
-      el('button', { class: 'chip', onclick: () => zoomGrid(1) }, '−'),
-      el('button', { class: 'chip', onclick: () => zoomGrid(-1) }, '＋')),
+      el('button', { class: 'chip round', title: 'Kleinere Vorschau', onclick: () => zoomGrid(1) }, icon('minus')),
+      el('button', { class: 'chip round', title: 'Größere Vorschau', onclick: () => zoomGrid(-1) }, icon('add'))),
     grid(list, { byMonth: true }));
 }
 
@@ -204,7 +205,7 @@ function viewPeople() {
       el('h2', {}, st.running ? 'Gesichter werden gesucht …' : 'Noch keine Gesichter'),
       el('p', { class: 'muted' }, 'Sobald Fotos mit Menschen da sind, werden die Gesichter automatisch zu Personen gruppiert. Gib ihnen Namen – dann kannst du z. B. nach „Anna am Strand“ suchen.')),
     named.length > 0 && el('h2', {}, 'Personen', el('span', { class: 'spacer' }),
-      el('button', { class: 'btn small', onclick: async () => { await regroupFaces(); toast('Neu gruppiert'); } }, '↻ Neu gruppieren')),
+      el('button', { class: 'btn small', onclick: async () => { await regroupFaces(); toast('Neu gruppiert'); } }, icon('refresh'), 'Neu gruppieren')),
     el('div', { class: 'people' }, named.map(card)),
     single.length > 0 && el('details', { style: 'margin-top:20px' },
       el('summary', { class: 'muted', style: 'cursor:pointer;padding:8px 0' }, `Weitere Gesichter (${single.length})`),
@@ -247,10 +248,10 @@ function viewPerson(id) {
           el('h2', { style: 'margin:0' }, person.name || 'Unbekannt'),
           el('div', { class: 'muted' }, `${photos.length} Fotos`),
           el('div', { class: 'row', style: 'margin-top:8px' },
-            el('button', { class: 'btn small primary', onclick: rename }, person.name ? '✏️ Umbenennen' : '✏️ Name geben'),
-            el('button', { class: 'btn small', onclick: merge }, '🔗 Zusammenführen'),
-            el('button', { class: 'btn small', onclick: () => FUN.slideshow.run(photos, { title: person.name }) }, '▶ Diashow'),
-            el('button', { class: 'btn small', onclick: async () => { person.hidden = true; await db.put('people', person); go('#/personen'); } }, '🙈 Ausblenden')))),
+            el('button', { class: 'btn small primary', onclick: rename }, icon('edit'), person.name ? 'Umbenennen' : 'Name geben'),
+            el('button', { class: 'btn small', onclick: merge }, icon('link'), 'Zusammenführen'),
+            el('button', { class: 'btn small', onclick: () => FUN.slideshow.run(photos, { title: person.name }) }, icon('play'), 'Diashow'),
+            el('button', { class: 'btn small', onclick: async () => { person.hidden = true; await db.put('people', person); go('#/personen'); } }, icon('hide'), 'Ausblenden')))),
       faces.length > 1 && el('details', {},
         el('summary', { class: 'muted', style: 'cursor:pointer;padding:12px 0 6px' }, 'Gesichter prüfen – falsche mit ✕ entfernen'),
         el('div', { class: 'faces' }, faces.map((f) => el('div', { class: 'face-cell' },
@@ -264,7 +265,7 @@ function viewExplore(query = '') {
   setTitle('Entdecken');
   const input = el('input', { class: 'input', type: 'search', placeholder: 'Suche: Auto, Haus, Pflanzen, Anna am Strand, 2023 …', value: query, enterkeyhint: 'search' });
   const results = el('div', {});
-  const box = el('div', { class: 'searchbox' }, el('div', { style: 'position:relative' }, el('span', { class: 'ico' }, '🔍'), input));
+  const box = el('div', { class: 'searchbox' }, el('div', { style: 'position:relative' }, el('span', { class: 'ico' }, icon('search')), input));
   let t;
   const doSearch = async (q) => {
     lastQuery = q;
@@ -276,8 +277,8 @@ function viewExplore(query = '') {
       if (q !== lastQuery) return;
       results.replaceChildren(
         el('div', { class: 'result-info row' }, `${r.photos.length} Treffer · ${r.info.join(' · ')}`, el('span', { class: 'spacer' }),
-          r.photos.length > 1 && el('button', { class: 'chip', onclick: () => FUN.slideshow.run(r.photos, { title: q }) }, '▶ Diashow'),
-          r.photos.length > 2 && el('button', { class: 'chip', onclick: () => FUN.carousel.run(r.photos) }, '🎠 Karussell')),
+          r.photos.length > 1 && el('button', { class: 'chip', onclick: () => FUN.slideshow.run(r.photos, { title: q }) }, icon('play'), 'Diashow'),
+          r.photos.length > 2 && el('button', { class: 'chip', onclick: () => FUN.carousel.run(r.photos) }, icon('carousel'), 'Karussell')),
         r.photos.length ? grid(r.photos) : el('div', { class: 'empty' }, el('div', { class: 'big' }, '🤷'), el('p', {}, 'Nichts gefunden.'),
           !clipState.ready && el('p', { class: 'muted' }, 'Die smarte Suche ist noch nicht fertig geladen.')));
     } catch (e) {
@@ -329,7 +330,7 @@ async function viewCategory(id) {
   view.replaceChildren(el('div', { class: 'result-info' }, 'Lade …'));
   const list = clipState.ready ? (await searchCategory(id)).map((x) => x.p) : store.sorted().filter((p) => p.tags.includes(id));
   view.replaceChildren(el('div', { class: 'result-info row' }, `${list.length} Fotos`, el('span', { class: 'spacer' }),
-    list.length > 1 && el('button', { class: 'chip', onclick: () => FUN.slideshow.run(list, { title: c[1] }) }, '▶ Diashow')), grid(list));
+    list.length > 1 && el('button', { class: 'chip', onclick: () => FUN.slideshow.run(list, { title: c[1] }) }, icon('play'), 'Diashow')), grid(list));
 }
 
 function viewColor(id) {
@@ -345,7 +346,7 @@ function viewFun() {
   view.replaceChildren(el('div', { class: 'section' },
     n < 2 && el('p', { class: 'muted' }, 'Füge zuerst ein paar Fotos hinzu – je mehr, desto lustiger!'),
     el('div', { class: 'fun' }, Object.values(FUN).map((f) =>
-      el('button', { class: 'fun-card', style: { background: f.bg }, onclick: () => (n ? f.run() : toast('Erst Fotos hinzufügen')) },
+      el('button', { class: 'fun-card', style: `--g:${f.bg}`, onclick: () => (n ? f.run() : toast('Erst Fotos hinzufügen')) },
         el('span', { class: 'e' }, f.emoji), el('b', {}, f.name), el('small', {}, f.desc))))));
 }
 
@@ -441,8 +442,8 @@ $('#addBtn').onclick = () => modal({
   body: el('p', { class: 'muted' }, isNative ? 'Die Galerie zeigt automatisch alle Fotos deines Handys. Hier kannst du zusätzlich einzelne Bilder (z. B. aus Downloads) hinzufügen.' : 'Die Fotos werden in den Speicher dieses Browsers kopiert. Nichts wird hochgeladen.'),
   actions: [
     { label: 'Abbrechen', value: () => null },
-    isNative ? { label: '📱 Handy-Fotos', value: () => connectDevice() } : { label: '📁 Ordner', value: () => $('#dirInput').click() },
-    { label: '🖼️ Fotos', primary: true, value: () => $('#fileInput').click() },
+    isNative ? { label: 'Handy-Fotos', icon: 'phone', value: () => connectDevice() } : { label: 'Ordner', icon: 'folder', value: () => $('#dirInput').click() },
+    { label: 'Fotos', icon: 'image', primary: true, value: () => $('#fileInput').click() },
   ],
 });
 $('#fileInput').onchange = (e) => { handleFiles([...e.target.files]); e.target.value = ''; };

@@ -1,4 +1,5 @@
 // Kleine Hilfsfunktionen für DOM, Datum, Bilder und Dialoge
+import { icon } from './icons.js';
 
 export const $ = (sel, root = document) => root.querySelector(sel);
 export const $$ = (sel, root = document) => [...root.querySelectorAll(sel)];
@@ -135,7 +136,7 @@ export function modal({ title, body, actions = [], wide = false, onClose }) {
       title && el('h2', {}, title),
       el('div', { class: 'modal-body' }, body),
       el('div', { class: 'modal-actions' }, actions.map((a) =>
-        el('button', { class: 'btn ' + (a.primary ? 'primary' : a.danger ? 'danger' : ''), onclick: () => close(typeof a.value === 'function' ? a.value() : a.value !== undefined ? a.value : a.label) }, a.label))),
+        el('button', { class: 'btn ' + (a.primary ? 'primary' : a.danger ? 'danger' : ''), onclick: () => close(typeof a.value === 'function' ? a.value() : a.value !== undefined ? a.value : a.label) }, a.icon && icon(a.icon), a.label))),
     );
     dlg.addEventListener('cancel', (e) => { e.preventDefault(); close(null); });
     dlg.addEventListener('click', (e) => { if (e.target === dlg) close(null); });
