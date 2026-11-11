@@ -7,7 +7,7 @@ Mailwerk – E-Mail ohne Tracking
 Alle Postfächer in einer App: Smart Inbox, Push, Regeln & Spam-Schutz – privat.
 
 **Ausführliche Beschreibung:**
-Mailwerk bringt alle deine E-Mail-Konten in eine schnelle, aufgeräumte App – ohne Werbung, ohne Tracking, ohne Cloud.
+Mailwerk bringt alle deine E-Mail-Konten in eine schnelle, aufgeräumte App – ohne Werbenetzwerke, ohne Tracking, ohne Cloud.
 
 ★ ALLE KONTEN, EIN POSTEINGANG
 Gmail, Outlook, GMX, WEB.DE, T-Online, iCloud, Yahoo, IONOS, one.com, Posteo, mailbox.org und jede eigene Domain mit IMAP.
@@ -36,7 +36,7 @@ Newsletter mit einem Tipp abbestellen. Deine Daten bleiben auf deinem Gerät und
 
 **Kategorie:** Kommunikation
 **Inhaltsfreigabe:** USK ab 0 / PEGI 3 (keine bedenklichen Inhalte)
-**Werbung:** Nein  ·  **In-App-Käufe:** Nein
+**Werbung:** Ja – kleiner „Powered by“-Hinweis auf dem Startbildschirm (keine Werbenetzwerke, kein Tracking, keine Datenerhebung)  ·  **In-App-Käufe:** Nein
 
 ## Formular „Datensicherheit“ (Play Console)
 - Erhebt die App Nutzerdaten? → **Nein** (alle Daten bleiben auf dem Gerät bzw. gehen nur an den vom Nutzer gewählten E-Mail-Anbieter;

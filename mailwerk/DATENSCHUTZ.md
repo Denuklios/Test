@@ -3,7 +3,7 @@
 *Stand: November 2026*
 
 Mailwerk ist ein E-Mail-Programm für Android. Es ist so gebaut, dass **keine Daten beim App-Anbieter landen**.
-Es gibt keinen Mailwerk-Server, kein Benutzerkonto bei uns, keine Werbung und keine Analyse- oder Tracking-Dienste.
+Es gibt keinen Mailwerk-Server, kein Benutzerkonto bei uns, keine Werbenetzwerke und keine Analyse- oder Tracking-Dienste.
 
 ## Welche Daten verarbeitet die App – und wo?
 
@@ -25,6 +25,7 @@ Mailwerk verbindet sich nur in diesen Fällen mit anderen Servern als deinem E-M
 - **Anmeldung mit Google oder Microsoft**: Die Anmeldung läuft im Browser direkt bei Google bzw. Microsoft.
   Es gelten deren Datenschutzbestimmungen. Mailwerk erhält nur ein Zugangs-Token für dein Postfach.
 - **Newsletter abbestellen**: Nur wenn du „Abmelden“ antippst, wird die vom Absender angegebene Abmelde-Adresse aufgerufen.
+- **Startbildschirm „Powered by“**: Nur wenn du den Hinweis antippst, öffnet sich die Website des Partners im Browser.
 - **Externe Bilder** in Mails werden standardmäßig blockiert und nur geladen, wenn du es erlaubst.
 - **Direkt-Version (nicht Play Store)**: Die App prüft auf GitHub, ob eine neue Version vorliegt. Dabei werden keine persönlichen Daten gesendet.
 
@@ -50,12 +51,12 @@ Fragen zum Datenschutz: siehe Kontaktadresse im Store-Eintrag.
 # Privacy Policy – Mailwerk (English)
 
 Mailwerk is an email client for Android. **No data is sent to the app developer.** There is no Mailwerk server, no account with us,
-no ads, no analytics or tracking.
+no ad networks, no analytics or tracking.
 
 - Account settings, passwords/sign-in tokens (encrypted with the Android Keystore), emails, rules and settings are stored **only on your device**
   and are exchanged only with **your own email provider** over encrypted connections (TLS).
 - Server auto-detection looks up the *domain* of your address at autoconfig.thunderbird.net and via DNS (dns.google).
 - "Sign in with Google/Microsoft" happens in the browser directly with Google/Microsoft; Mailwerk only receives an access token for your mailbox.
-- Unsubscribe links are only opened when you tap "Unsubscribe". Remote images are blocked by default.
+- Unsubscribe links and the “Powered by” sponsor website are only opened when you tap them. Remote images are blocked by default.
 - Crash reports are stored locally and only sent if you tap "Send report"; they contain no emails, addresses or passwords.
 - Removing an account deletes its data from the device; uninstalling deletes everything.

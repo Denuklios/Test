@@ -66,7 +66,7 @@ Schlüssel + Passwort sicher aufbewahren (Passwort-Manager). Bei Verlust kann Go
    Symbol 512×512 und Vorstellungsgrafik 1024×500.
    Die App selbst zeigt sich automatisch in der Sprache des Handys: Deutsch auf deutschsprachigen Geräten, sonst Englisch.
 4. **App-Inhalte**: Datenschutzerklärung (Link), Datensicherheit, Vordergrunddienst-Erklärung (Texte in `store/eintrag-de.md`),
-   Inhaltseinstufung, Zielgruppe (ab 18 bzw. „nicht für Kinder“), keine Werbung
+   Inhaltseinstufung, Zielgruppe (ab 18 bzw. „nicht für Kinder“), **Werbung: Ja** (Partner-Hinweis auf dem Startbildschirm)
 5. `./gradlew bundlePlayRelease` → `.aab` unter *Testen → Geschlossener Test* hochladen
 6. **Neue private Entwicklerkonten** müssen zuerst einen **geschlossenen Test mit mindestens 12 Testern über 14 Tage**
    durchführen, bevor die App für alle veröffentlicht werden darf (Regel von Google).
@@ -75,6 +75,11 @@ Schlüssel + Passwort sicher aufbewahren (Passwort-Manager). Bei Verlust kann Go
 ## 6. Neue Version
 `versionCode` (+1) und `versionName` in `app/build.gradle.kts` erhöhen, bauen, hochladen.
 Direkt-Version zusätzlich: `Mailwerk.apk` ersetzen und `update.json` anpassen.
+
+## Später: „Mailwerk Pro“
+Eine kostenlose App kann im Play Store **nie** zur Bezahl-App werden – Pro kommt später als In-App-Kauf
+(Google Play Billing, Händlerkonto in der Play Console nötig). Empfehlung: Wer vor dem Pro-Start installiert hat,
+behält alle Funktionen („Gründer“, erkennbar am Installationsdatum `firstInstallTime`).
 
 ## Apple App Store (iPhone)
 Mailwerk ist eine Android-App. Für iPhones wäre eine eigene iOS-App nötig (Swift), plus Apple-Entwicklerkonto (99 $/Jahr).

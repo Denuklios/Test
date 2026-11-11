@@ -7,7 +7,7 @@ Mailwerk – Private Email
 All your inboxes in one app: smart inbox, push, rules & spam blocking – private.
 
 **Full description:**
-Mailwerk brings all your email accounts together in one fast, clean app – no ads, no tracking, no cloud.
+Mailwerk brings all your email accounts together in one fast, clean app – no ad networks, no tracking, no cloud.
 
 ★ ALL ACCOUNTS, ONE INBOX
 Gmail, Outlook, iCloud, Yahoo, GMX, Fastmail, IONOS, one.com, Posteo, mailbox.org and any custom domain with IMAP.
@@ -35,7 +35,7 @@ Tracking pixels are blocked, remote images only load when you allow it, password
 one-tap unsubscribe from newsletters. Your data stays on your device and with your email provider.
 
 **Category:** Communication
-**Contains ads:** No  ·  **In-app purchases:** No
+**Contains ads:** Yes – a small “Powered by” sponsor note on the start screen (no ad networks, no tracking, no data collected)  ·  **In-app purchases:** No
 
 ## Data safety form (Play Console)
 - Does the app collect user data? → **No** (all data stays on the device or goes only to the email provider chosen by the user;
