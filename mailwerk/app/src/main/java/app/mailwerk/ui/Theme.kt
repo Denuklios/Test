@@ -63,12 +63,13 @@ private val Dark = darkColorScheme(
     primaryContainer = Color(0xFF2D3AA8), onPrimaryContainer = Color(0xFFE2E5FF),
     secondary = Color(0xFFC3C6DE), secondaryContainer = Color(0xFF33374F), onSecondaryContainer = Color(0xFFE2E4F5),
     tertiary = Color(0xFFFFC266), tertiaryContainer = Color(0xFF5A3A00), onTertiaryContainer = Color(0xFFFFE6BF),
-    background = Color(0xFF0F1118), onBackground = Color(0xFFE4E5EE),
-    surface = Color(0xFF0F1118), onSurface = Color(0xFFE4E5EE),
-    surfaceVariant = Color(0xFF2A2D3B), onSurfaceVariant = Color(0xFFA9ACC0),
-    surfaceContainerLowest = Color(0xFF0B0C12), surfaceContainerLow = Color(0xFF171A24),
-    surfaceContainer = Color(0xFF1B1E29), surfaceContainerHigh = Color(0xFF232634), surfaceContainerHighest = Color(0xFF2C2F3E),
-    outline = Color(0xFF4A4E63), outlineVariant = Color(0xFF2A2D3B),
+    // Dunkelmodus mit deutlichen Stufen: Hintergrund fast schwarz, Karten klar abgesetzt
+    background = Color(0xFF08090E), onBackground = Color(0xFFECEDF5),
+    surface = Color(0xFF08090E), onSurface = Color(0xFFECEDF5),
+    surfaceVariant = Color(0xFF2C3146), onSurfaceVariant = Color(0xFFA3A8BF),
+    surfaceContainerLowest = Color(0xFF0E1018), surfaceContainerLow = Color(0xFF161925),
+    surfaceContainer = Color(0xFF1C2030), surfaceContainerHigh = Color(0xFF282E45), surfaceContainerHighest = Color(0xFF343B56),
+    outline = Color(0xFF555C7A), outlineVariant = Color(0xFF2E3448),
 )
 
 private fun t(size: Int, weight: FontWeight, line: Int, ls: Double = 0.0) =

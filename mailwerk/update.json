@@ -1,6 +1,6 @@
 {
-  "versionCode": 12,
-  "versionName": "1.8",
+  "versionCode": 13,
+  "versionName": "1.8.1",
   "apk": "Mailwerk.apk",
-  "notes": "Eigene Ordner, Lesebestätigungen"
+  "notes": "Besserer Kontrast im Dunkelmodus, ungelesene Mails deutlicher"
 }

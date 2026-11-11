@@ -62,6 +62,8 @@ import androidx.compose.runtime.*
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.draw.drawBehind
+import androidx.compose.foundation.border
 import androidx.compose.ui.draw.shadow
 import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.animateColorAsState
@@ -416,10 +418,16 @@ private fun ThreadRow(t: ThreadSummary, showAccount: Boolean, vm: MainViewModel,
     val sent = m.folderRole == FolderRole.SENT
     val name = if (sent) tr("An: ") + (Regexes.firstName(m.toAddrs)) else m.fromName.ifBlank { m.fromAddr }
     val cs = MaterialTheme.colorScheme
-    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
-        .background(
-            if (cs.background.luminance() < 0.5f) { if (unread) cs.surfaceContainerHigh else cs.surfaceContainerLow }
-            else { if (unread) cs.surfaceContainerLowest else cs.surfaceContainer })
+    val dark = cs.background.luminance() < 0.5f
+    val shape = RoundedCornerShape(22.dp)
+    // Ungelesen: helle Karte, farbiger Rand und Streifen links. Gelesen: zurückhaltend, ohne Akzent.
+    val cardColor = if (dark) { if (unread) cs.surfaceContainerHigh else cs.surfaceContainerLow }
+                    else { if (unread) cs.surfaceContainerLowest else cs.surfaceContainer }
+    Row(Modifier.fillMaxWidth().clip(shape)
+        .background(cardColor)
+        .then(if (unread) Modifier.border(1.dp, cs.primary.copy(alpha = if (dark) 0.55f else 0.30f), shape)
+              else if (dark) Modifier.border(1.dp, cs.outlineVariant, shape) else Modifier)
+        .drawBehind { if (unread) drawRect(Brand.gradient, size = androidx.compose.ui.geometry.Size(5.dp.toPx(), size.height)) }
         .combinedClickable(onClick = onClick, onLongClick = onLong).padding(horizontal = 14.dp, vertical = 13.dp)) {
         Box {
             Avatar(m.fromName, if (sent) m.toAddrs else m.fromAddr, 46.dp)
@@ -433,7 +441,7 @@ private fun ThreadRow(t: ThreadSummary, showAccount: Boolean, vm: MainViewModel,
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(name, style = MaterialTheme.typography.titleMedium.copy(fontWeight = if (unread) FontWeight.Bold else FontWeight.Medium),
                     maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f, fill = false),
-                    color = if (unread) cs.onSurface else cs.onSurface.copy(alpha = 0.85f))
+                    color = if (unread) cs.onSurface else cs.onSurfaceVariant)
                 if (t.count > 1) {
                     Spacer(Modifier.width(6.dp))
                     Text("${t.count}", style = MaterialTheme.typography.labelSmall, color = cs.onSurfaceVariant,
@@ -447,13 +455,14 @@ private fun ThreadRow(t: ThreadSummary, showAccount: Boolean, vm: MainViewModel,
             Row(verticalAlignment = Alignment.CenterVertically) {
                 Text(m.subject.ifBlank { tr("(kein Betreff)") }, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal),
-                    color = cs.onSurface, modifier = Modifier.weight(1f))
+                    color = if (unread) cs.onSurface else cs.onSurfaceVariant, modifier = Modifier.weight(1f))
                 if (t.hasAttachments) Icon(Icons.Outlined.AttachFile, tr("Anhang"), Modifier.size(16.dp), tint = cs.onSurfaceVariant)
                 if (t.flagged) Icon(Icons.Filled.Flag, tr("Markiert"), Modifier.size(16.dp), tint = Color(0xFFE5484D))
                 if (unread) { Spacer(Modifier.width(6.dp)); Box(Modifier.size(9.dp).clip(CircleShape).background(Brand.gradient)) }
             }
             Spacer(Modifier.height(2.dp))
-            Text(m.snippet, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall, color = cs.onSurfaceVariant)
+            Text(m.snippet, maxLines = 2, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
+                color = if (unread) cs.onSurfaceVariant else cs.onSurfaceVariant.copy(alpha = 0.75f))
         }
     }
 }
