@@ -67,7 +67,7 @@ class RulesIntegrationTest {
         db.saveRule(Rule(name = "Chef anheften", field = RuleField.FROM, value = "chef@", action = RuleAction.PIN))
         db.saveRule(Rule(name = "Shop als Newsletter", field = RuleField.FROM, value = "@shop.de", action = RuleAction.CATEGORY, arg = Category.NEWSLETTER.name))
         db.block("werbung.de", domain = true)
-        val prefs = Prefs(ctx); prefs.vacationOn = true; prefs.vacationFrom = 0; prefs.vacationUntil = 0
+        val prefs = repo.prefs; prefs.vacationOn = true; prefs.vacationFrom = 0; prefs.vacationUntil = 0
         prefs.vacationSubject = "Bin im Urlaub"; prefs.vacationText = "Zurück am Montag."; db.resetVacationReplied()
 
         deliver("buchhaltung@lieferant.de", "Ihre Rechnung 4711", "Betrag 99 €")

@@ -78,7 +78,8 @@ class MailClient(private val acc: Account, private val password: String) {
         val headerNames = arrayOf(
             "List-Unsubscribe", "List-Unsubscribe-Post", "List-Id", "Precedence", "Auto-Submitted", "X-Campaign", "X-CampaignID",
             "X-Mailchimp", "X-MC-User", "X-SG-EID", "X-Mailgun-Tag", "X-Newsletter", "X-CMail-CampaignID", "X-Emarsys",
-            "X-Sib-Id", "X-Mailjet-Campaign", "Feedback-ID", "X-rpcampaign", "X-MktMail", "In-Reply-To", "References", "X-Mailwerk-Auto"
+            "X-Sib-Id", "X-Mailjet-Campaign", "Feedback-ID", "X-rpcampaign", "X-MktMail", "In-Reply-To", "References", "X-Mailwerk-Auto",
+            "Content-Type", "Disposition-Notification-To", "Return-Receipt-To"
         )
     }
 
@@ -346,6 +347,64 @@ class MailClient(private val acc: Account, private val password: String) {
     }
 
     // ---- Varianten mit bereits offenem Store (für Regeln während des Abgleichs)
+    // ---- Ordner verwalten (direkt auf dem Server)
+    /** Legt einen Ordner an; mit [parent] als Unterordner (z. B. „INBOX“). Liefert den vollen Namen. */
+    fun createFolder(name: String, parent: String?): String = withStore { s ->
+        val clean = name.trim().replace(Regex("[\\r\\n]"), "")
+        require(clean.isNotEmpty()) { "Name fehlt" }
+        val full = if (parent == null) clean else {
+            val p = s.getFolder(parent)
+            p.fullName + p.separator + clean
+        }
+        val f = s.getFolder(full)
+        if (f.exists()) throw IllegalStateException(tr("Ordner „{0}“ gibt es schon", clean))
+        if (!f.create(Folder.HOLDS_MESSAGES)) throw IllegalStateException(tr("Der Server hat das Anlegen abgelehnt"))
+        runCatching { f.isSubscribed = true }
+        f.fullName
+    }
+
+    fun renameFolder(fullName: String, newName: String): String = withStore { s ->
+        val f = s.getFolder(fullName)
+        val sep = f.separator
+        val parentPath = fullName.substringBeforeLast(sep, "")
+        val target = s.getFolder(if (parentPath.isEmpty()) newName.trim() else parentPath + sep + newName.trim())
+        if (target.exists()) throw IllegalStateException(tr("Ordner „{0}“ gibt es schon", newName.trim()))
+        if (!f.renameTo(target)) throw IllegalStateException(tr("Der Server hat das Umbenennen abgelehnt"))
+        runCatching { target.isSubscribed = true }
+        target.fullName
+    }
+
+    /** Löscht einen Ordner samt Inhalt auf dem Server. */
+    fun deleteFolder(fullName: String) = withStore { s ->
+        val f = s.getFolder(fullName)
+        if (f.isOpen) f.close(false)
+        runCatching { f.isSubscribed = false }
+        if (!f.delete(true)) throw IllegalStateException(tr("Der Server hat das Löschen abgelehnt"))
+    }
+
+    /** Lesebestätigung (RFC 8098) an den Absender senden. */
+    fun sendReadReceipt(to: String, originalSubject: String, originalMessageId: String?, sentFolder: String?) {
+        val msg = MimeMessage(session)
+        msg.setFrom(InternetAddress(acc.email, acc.name, "UTF-8"))
+        msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to, false))
+        msg.setSubject(tr("Gelesen: {0}", originalSubject), "UTF-8")
+        msg.setHeader("Auto-Submitted", "auto-replied")
+        msg.setHeader("X-Mailwerk-Auto", "mdn")
+        originalMessageId?.let { msg.setHeader("In-Reply-To", it); msg.setHeader("References", it) }
+        val report = MimeMultipart("report; report-type=disposition-notification")
+        report.addBodyPart(MimeBodyPart().apply {
+            setText(tr("Ihre Nachricht „{0}“ an {1} wurde am {2} gelesen.", originalSubject, acc.email,
+                java.text.DateFormat.getDateTimeInstance().format(Date())), "UTF-8")
+        })
+        report.addBodyPart(MimeBodyPart().apply {
+            setContent("Reporting-UA: Mailwerk\r\nFinal-Recipient: rfc822;${acc.email}\r\n" +
+                (originalMessageId?.let { "Original-Message-ID: $it\r\n" } ?: "") +
+                "Disposition: manual-action/MDN-sent-manually; displayed\r\n", "message/disposition-notification")
+        })
+        msg.setContent(report); msg.sentDate = Date(); msg.saveChanges()
+        send(msg, sentFolder)
+    }
+
     fun ensureFolder(store: Store, name: String): String {
         val f = store.getFolder(name)
         if (!f.exists()) f.create(Folder.HOLDS_MESSAGES)
@@ -436,6 +495,7 @@ class MailClient(private val acc: Account, private val password: String) {
         to: String, cc: String, bcc: String, subject: String, body: String,
         attachments: List<OutgoingAttachment>, inReplyTo: String?, references: String?,
         logo: OutgoingAttachment? = null,
+        readReceipt: Boolean = false,
     ): MimeMessage {
         val msg = MimeMessage(session)
         msg.setFrom(InternetAddress(acc.email, acc.name, "UTF-8"))
@@ -447,6 +507,7 @@ class MailClient(private val acc: Account, private val password: String) {
         inReplyTo?.let { msg.setHeader("In-Reply-To", it) }
         listOfNotNull(references, inReplyTo).joinToString(" ").trim().takeIf { it.isNotEmpty() }?.let { msg.setHeader("References", it) }
         msg.setHeader("X-Mailer", "Mailwerk")
+        if (readReceipt) msg.setHeader("Disposition-Notification-To", InternetAddress(acc.email, acc.name, "UTF-8").toString())
 
         val useLogo = logo != null && body.lines().any { it.trim() == TextFormat.LOGO_MARKER }
         val htmlBody = TextFormat.toHtml(body, useLogo)

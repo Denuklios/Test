@@ -40,6 +40,7 @@ import androidx.compose.material.icons.filled.PushPin
 import androidx.compose.material.icons.outlined.Archive
 import androidx.compose.material.icons.outlined.AttachFile
 import androidx.compose.material.icons.outlined.Delete
+import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.Shield
@@ -189,6 +190,20 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
             Text(tr("Von: {0} <{1}>", m.fromName, m.fromAddr), style = MaterialTheme.typography.bodySmall)
             Text(tr("Datum: {0}", MainViewModel.fmt(m.date)), style = MaterialTheme.typography.bodySmall)
             if (m.replyTo.isNotBlank()) Text(tr("Antwort an: {0}", m.replyTo), style = MaterialTheme.typography.bodySmall)
+        }
+        if (m.readAt > 0) Row(Modifier.padding(start = 16.dp, end = 16.dp, bottom = 8.dp).clip(RoundedCornerShape(10.dp))
+            .background(Brand.Notify.copy(alpha = 0.12f)).padding(horizontal = 10.dp, vertical = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(androidx.compose.material.icons.Icons.Outlined.DoneAll, null, Modifier.size(16.dp), tint = Brand.Notify)
+            Spacer(Modifier.width(6.dp))
+            Text(tr("Gelesen am {0}", MainViewModel.fmt(m.readAt)), style = MaterialTheme.typography.labelMedium, color = Brand.Notify)
+        }
+        if (m.receiptTo.isNotBlank()) Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clip(RoundedCornerShape(16.dp))
+            .background(MaterialTheme.colorScheme.tertiaryContainer).padding(12.dp)) {
+            Text(tr("{0} bittet um eine Lesebestätigung.", m.fromName.ifBlank { m.fromAddr }), style = MaterialTheme.typography.bodyMedium)
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = { vm.sendReadReceipt(m) }) { Text(tr("Bestätigung senden")) }
+                TextButton(onClick = { vm.db.clearReceiptRequest(m.id) }) { Text(tr("Ignorieren")) }
+            }
         }
         if (expanded && sanitized != null) {
             // Datenschutz-Leiste: blockierte Tracker, Bilder, Abmelden

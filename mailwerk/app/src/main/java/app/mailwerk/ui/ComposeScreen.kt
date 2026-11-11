@@ -26,6 +26,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Send
 import androidx.compose.material.icons.outlined.AttachFile
+import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Close
 import androidx.compose.material.icons.outlined.ExpandLess
 import androidx.compose.material.icons.outlined.ExpandMore
@@ -91,6 +92,7 @@ fun ComposeScreen(vm: MainViewModel, init: ComposeInit, snackHost: SnackbarHostS
     var templatesOpen by remember { mutableStateOf(false) }
     var laterOpen by remember { mutableStateOf(false) }
     var remindDays by remember { mutableStateOf(0) }
+    var readReceipt by remember { mutableStateOf(false) }
     var remindOpen by remember { mutableStateOf(false) }
     var confirmDiscard by remember { mutableStateOf(false) }
 
@@ -100,7 +102,7 @@ fun ComposeScreen(vm: MainViewModel, init: ComposeInit, snackHost: SnackbarHostS
 
     fun item() = OutboxItem(id = init.outboxId, accountId = accountId, to = to.text.trim().trimEnd(','), cc = cc.trim(), bcc = bcc.trim(),
         subject = subject, body = body.text, attachments = atts.joinToString("\n"), inReplyTo = init.inReplyTo,
-        references = init.references, sendAt = 0, status = OutboxStatus.DRAFT, remindIfNoReplyDays = remindDays)
+        references = init.references, sendAt = 0, status = OutboxStatus.DRAFT, remindIfNoReplyDays = remindDays, readReceipt = readReceipt)
 
     fun valid(): Boolean {
         if (to.text.isBlank()) { vm.snack(tr("Bitte einen Empfänger angeben")); return false }
@@ -132,6 +134,8 @@ fun ComposeScreen(vm: MainViewModel, init: ComposeInit, snackHost: SnackbarHostS
                             onClick = { moreMenu = false; templatesOpen = true })
                         DropdownMenuItem(text = { Text(if (remindDays > 0) tr("Erinnerung: nach {0} Tag(en)", remindDays) else tr("Erinnern, falls keine Antwort")) },
                             leadingIcon = { Icon(Icons.Outlined.NotificationsActive, null) }, onClick = { moreMenu = false; remindOpen = true })
+                        DropdownMenuItem(text = { Text(if (readReceipt) tr("✓ Lesebestätigung angefordert") else tr("Lesebestätigung anfordern")) },
+                            leadingIcon = { Icon(Icons.Outlined.DoneAll, null) }, onClick = { moreMenu = false; readReceipt = !readReceipt })
                         DropdownMenuItem(text = { Text(tr("Als Entwurf speichern")) }, leadingIcon = { Icon(Icons.Outlined.Save, null) },
                             onClick = { moreMenu = false; vm.saveDraft(item()); vm.pop() })
                     }
@@ -187,6 +191,8 @@ fun ComposeScreen(vm: MainViewModel, init: ComposeInit, snackHost: SnackbarHostS
                         trailingIcon = { Icon(Icons.Outlined.Close, tr("Entfernen"), Modifier.size(16.dp)) }, modifier = Modifier.padding(4.dp))
                 }
             }
+            if (readReceipt) Text(tr("✓✓ Lesebestätigung wird angefordert – funktioniert, wenn das Programm des Empfängers sie unterstützt und er zustimmt."),
+                style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             if (remindDays > 0) Text(tr("🔔 Erinnerung, falls nach {0} Tag(en) keine Antwort kommt", remindDays),
                 style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             HorizontalDivider()

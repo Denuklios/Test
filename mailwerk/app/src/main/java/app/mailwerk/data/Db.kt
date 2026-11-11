@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Lokale Datenbank (Offline-Speicher aller Mails). Bewusst ohne ORM gehalten.
  * Jede Schreiboperation erhöht [changes], damit die Oberfläche neu lädt.
  */
-class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 6) {
+class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 7) {
 
     private val _changes = MutableStateFlow(0L)
     val changes: StateFlow<Long> = _changes
@@ -43,7 +43,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
             subject TEXT, date INTEGER, snippet TEXT, body_html TEXT, body_text TEXT,
             seen INTEGER, flagged INTEGER, pinned INTEGER DEFAULT 0, snoozed_until INTEGER DEFAULT 0,
             category TEXT, has_attachments INTEGER, unsubscribe TEXT, unsubscribe_post INTEGER DEFAULT 0,
-            in_reply_to TEXT, refs TEXT, remind_at INTEGER DEFAULT 0,
+            in_reply_to TEXT, refs TEXT, remind_at INTEGER DEFAULT 0, read_at INTEGER DEFAULT 0, receipt_to TEXT,
             UNIQUE(folder_id, uid))""")
         db.execSQL("CREATE INDEX idx_msg_thread ON messages(thread_key)")
         db.execSQL("CREATE INDEX idx_msg_date ON messages(date)")
@@ -60,7 +60,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         db.execSQL("""CREATE TABLE outbox(
             id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, to_addrs TEXT, cc TEXT, bcc TEXT,
             subject TEXT, body TEXT, attachments TEXT, in_reply_to TEXT, refs TEXT,
-            send_at INTEGER, status TEXT, error TEXT, remind_days INTEGER DEFAULT 0)""")
+            send_at INTEGER, status TEXT, error TEXT, remind_days INTEGER DEFAULT 0, read_receipt INTEGER DEFAULT 0)""")
         // Ein paar nützliche Vorlagen zum Start
         listOf(
             tr("Danke!") to tr("Vielen Dank für Ihre Nachricht! Ich melde mich in Kürze ausführlich."),
@@ -78,6 +78,11 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) shrinkHugeRows(db)
+        if (oldVersion < 7 && newVersion >= 7) {
+            runCatching { db.execSQL("ALTER TABLE messages ADD COLUMN read_at INTEGER DEFAULT 0") }
+            runCatching { db.execSQL("ALTER TABLE messages ADD COLUMN receipt_to TEXT") }
+            runCatching { db.execSQL("ALTER TABLE outbox ADD COLUMN read_receipt INTEGER DEFAULT 0") }
+        }
         if (oldVersion < 6 && newVersion >= 6) {
             // Ordner ohne eine einzige gespeicherte Mail komplett neu laden (Folge des Abruffehlers in 1.3.2–1.5)
             db.execSQL("UPDATE folders SET last_uid=0, uid_validity=0 WHERE id NOT IN (SELECT DISTINCT folder_id FROM messages)")
@@ -188,7 +193,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
     private val msgSelectLight = "SELECT m.id, m.account_id, m.folder_id, m.uid, m.message_id, m.thread_key, m.from_name, m.from_addr, " +
         "substr(m.to_addrs,1,2000) AS to_addrs, substr(m.cc_addrs,1,2000) AS cc_addrs, m.reply_to, substr(m.subject,1,1000) AS subject, m.date, " +
         "substr(m.snippet,1,300) AS snippet, NULL AS body_html, NULL AS body_text, m.seen, m.flagged, m.pinned, m.snoozed_until, m.category, " +
-        "m.has_attachments, m.unsubscribe, m.unsubscribe_post, m.in_reply_to, substr(m.refs,1,2000) AS refs, m.remind_at, f.role AS folder_role " +
+        "m.has_attachments, m.unsubscribe, m.unsubscribe_post, m.in_reply_to, substr(m.refs,1,2000) AS refs, m.remind_at, m.read_at, m.receipt_to, f.role AS folder_role " +
         "FROM messages m JOIN folders f ON f.id=m.folder_id"
 
     fun insertMessage(m: Message, atts: List<Attachment>): Long {
@@ -221,6 +226,26 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         readableDatabase.rawQuery("SELECT uid, id, seen, flagged FROM messages WHERE folder_id=? AND uid>=?", arrayOf("$folderId", "$minUid")).use { c ->
             buildMap { while (c.moveToNext()) put(c.getLong(0), Triple(c.getLong(1), c.getInt(2) == 1, c.getInt(3) == 1)) }
         }
+
+    /** Lesebestätigung eingetroffen: gesendete Mail(s) mit dieser Message-ID als gelesen kennzeichnen. */
+    fun markReadByRecipient(messageIds: Collection<String>, at: Long): Int {
+        var n = 0
+        messageIds.filter { it.isNotBlank() }.forEach { id ->
+            n += writableDatabase.update("messages", ContentValues().apply { put("read_at", at) }, "message_id=? AND read_at=0", arrayOf(id))
+        }
+        return n
+    }
+
+    fun clearReceiptRequest(id: Long) {
+        writableDatabase.update("messages", ContentValues().apply { put("receipt_to", "") }, "id=?", arrayOf("$id")); notifyChanged()
+    }
+
+    fun renameFolderLocal(id: Long, fullName: String, display: String) {
+        writableDatabase.update("folders", ContentValues().apply { put("full_name", fullName); put("display_name", display) }, "id=?", arrayOf("$id"))
+        notifyChanged()
+    }
+
+    fun deleteFolderLocal(id: Long) { writableDatabase.delete("folders", "id=?", arrayOf("$id")); notifyChanged() }
 
     fun deleteMessage(id: Long) { writableDatabase.delete("messages", "id=?", arrayOf("$id")) }
 
@@ -412,6 +437,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
             put("subject", o.subject); put("body", o.body); put("attachments", o.attachments)
             put("in_reply_to", o.inReplyTo); put("refs", o.references); put("send_at", o.sendAt)
             put("status", o.status); put("error", o.error); put("remind_days", o.remindIfNoReplyDays)
+            put("read_receipt", if (o.readReceipt) 1 else 0)
         }
         val id = if (o.id == 0L) writableDatabase.insert("outbox", null, cv)
         else { writableDatabase.update("outbox", cv, "id=?", arrayOf("${o.id}")); o.id }
@@ -444,6 +470,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         put("snoozed_until", snoozedUntil); put("category", category.name); put("has_attachments", if (hasAttachments) 1 else 0)
         put("unsubscribe", unsubscribe); put("unsubscribe_post", if (unsubscribePost) 1 else 0)
         put("in_reply_to", inReplyTo); put("refs", references); put("remind_at", remindIfNoReplyAt)
+        put("read_at", readAt); put("receipt_to", receiptTo)
     }
 
     private fun Cursor.toAccount() = Account(
@@ -465,10 +492,12 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         hasAttachments = int("has_attachments") == 1, unsubscribe = strOrNull("unsubscribe"), unsubscribePost = int("unsubscribe_post") == 1,
         inReplyTo = strOrNull("in_reply_to"), references = strOrNull("refs"), folderRole = strOrNull("folder_role"),
         remindIfNoReplyAt = long("remind_at"),
+        readAt = long("read_at"), receiptTo = strOrNull("receipt_to") ?: "",
     )
 
     private fun Cursor.toOutbox() = OutboxItem(long("id"), long("account_id"), str("to_addrs"), str("cc"), str("bcc"), str("subject"),
-        str("body"), str("attachments"), strOrNull("in_reply_to"), strOrNull("refs"), long("send_at"), str("status"), strOrNull("error"), int("remind_days"))
+        str("body"), str("attachments"), strOrNull("in_reply_to"), strOrNull("refs"), long("send_at"), str("status"), strOrNull("error"), int("remind_days"),
+        int("read_receipt") == 1)
 
     companion object {
         const val MAX_HTML = 700_000

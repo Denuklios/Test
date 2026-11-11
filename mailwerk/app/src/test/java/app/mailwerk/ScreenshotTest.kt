@@ -115,6 +115,15 @@ class ScreenshotTest {
         sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java].update.value = null }
         rule.onAllNodesWithText("Schreiben", useUnmergedTree = true).onFirst().performClick()
         shot("6_neue_mail")
+        sc.onActivity { it.onBackPressedDispatcher.onBackPressed() }
+        rule.waitForIdle()
+        sc.onActivity { a ->
+            val vm = androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java]
+            val acc = vm.db.accounts().first()
+            vm.db.upsertFolder(acc.id, "INBOX/Kunden", "Kunden", null); vm.db.notifyChanged()
+        }
+        rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("Menü")).onFirst().performClick()
+        shot("15_menue_ordner")
     }
 
     @Test @Config(qualifiers = "w393dp-h852dp-night-xhdpi")

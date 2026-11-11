@@ -88,6 +88,10 @@ data class Message(
     val references: String?,
     val folderRole: String? = null,
     val remindIfNoReplyAt: Long = 0,
+    /** gesendete Mail: Zeitpunkt der Lesebestätigung des Empfängers (0 = keine) */
+    val readAt: Long = 0,
+    /** empfangene Mail: Absender bittet um Lesebestätigung an diese Adresse (leer = nein / schon erledigt) */
+    val receiptTo: String = "",
 )
 
 data class Attachment(
@@ -126,6 +130,8 @@ data class OutboxItem(
     val status: String,
     val error: String? = null,
     val remindIfNoReplyDays: Int = 0,
+    /** Lesebestätigung beim Empfänger anfordern */
+    val readReceipt: Boolean = false,
 )
 
 /** Eine Unterhaltung in der Liste: neueste Nachricht + Anzahl. */

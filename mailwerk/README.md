@@ -47,6 +47,8 @@ Karten-Layout mit Datumsgruppen, farbige Kategorie-Tabs, heller und dunkler Modu
 | Material You, Dunkelmodus | Gmail | ✅ |
 | Als Standard-Mail-App, Teilen aus anderen Apps | – | ✅ `mailto:`-Links und „Teilen“ mit Anhängen |
 | Passwörter im Hardware-Schlüsselspeicher | FairEmail | ✅ Android-Keystore (AES-GCM) |
+| Eigene Ordner anlegen, umbenennen, löschen (auch im Posteingang) | Outlook | ✅ direkt auf dem Server |
+| Lesebestätigung anfordern / senden | Outlook | ✅ „✓✓ Gelesen am …“ an der gesendeten Mail |
 | JavaScript in Mails | – | ❌ grundsätzlich aus (Sicherheit) |
 
 ## Push, Updates, Konten später einrichten

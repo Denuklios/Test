@@ -71,6 +71,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.CreateNewFolder
+import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.CloudOff
 import androidx.compose.material.icons.outlined.Rule
 import androidx.compose.material.icons.outlined.BeachAccess
@@ -189,6 +191,44 @@ private fun Banner(icon: ImageVector, title: String, text: String, action: Strin
         if (onClose != null) IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, tr("Später"), tint = fg.copy(alpha = 0.6f), modifier = Modifier.size(18.dp)) }
         else Spacer(Modifier.width(8.dp))
     }
+}
+
+@Composable
+private fun NewFolderDialog(onDismiss: () -> Unit, onCreate: (String, Boolean) -> Unit) {
+    var name by remember { mutableStateOf("") }
+    var inInbox by remember { mutableStateOf(true) }
+    AlertDialog(onDismissRequest = onDismiss, title = { Text(tr("Neuer Ordner")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedTextField(name, { name = it }, label = { Text(tr("Name des Ordners")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("Im Posteingang anlegen (Unterordner)"), Modifier.weight(1f), style = MaterialTheme.typography.bodyMedium)
+                    Switch(inInbox, { inInbox = it })
+                }
+                Text(tr("Der Ordner wird auf dem Server angelegt und erscheint auch im Webmail und auf anderen Geräten."),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { TextButton(enabled = name.isNotBlank() && !name.contains('/'), onClick = { onCreate(name.trim(), inInbox) }) { Text(tr("Anlegen")) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen")) } })
+}
+
+@Composable
+private fun EditFolderDialog(vm: MainViewModel, f: app.mailwerk.data.Folder, onDismiss: () -> Unit) {
+    var name by remember { mutableStateOf(f.displayName) }
+    var confirmDelete by remember { mutableStateOf(false) }
+    if (confirmDelete) AlertDialog(onDismissRequest = onDismiss, title = { Text(tr("Ordner „{0}“ löschen?", f.displayName)) },
+        text = { Text(tr("Der Ordner und alle Mails darin werden auf dem Server gelöscht. Das kann nicht rückgängig gemacht werden.")) },
+        confirmButton = { TextButton(onClick = { vm.deleteFolder(f); onDismiss() }) { Text(tr("Löschen"), color = MaterialTheme.colorScheme.error) } },
+        dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen")) } })
+    else AlertDialog(onDismissRequest = onDismiss, title = { Text(tr("Ordner bearbeiten")) },
+        text = { OutlinedTextField(name, { name = it }, label = { Text(tr("Name")) }, singleLine = true, modifier = Modifier.fillMaxWidth()) },
+        confirmButton = {
+            TextButton(enabled = name.isNotBlank() && name.trim() != f.displayName && !name.contains('/'), onClick = { vm.renameFolder(f, name.trim()); onDismiss() }) {
+                Text(tr("Umbenennen"))
+            }
+        },
+        dismissButton = { TextButton(onClick = { confirmDelete = true }) { Text(tr("Ordner löschen"), color = MaterialTheme.colorScheme.error) } })
 }
 
 private fun sectionOf(t: Long): String {
@@ -481,6 +521,8 @@ private fun Drawer(vm: MainViewModel, close: () -> Unit) {
     val accounts by vm.accounts.collectAsState()
     val folders by vm.folders.collectAsState()
     val current by vm.mailbox.collectAsState()
+    var newFolderFor by remember { mutableStateOf<Long?>(null) }
+    var editFolder by remember { mutableStateOf<app.mailwerk.data.Folder?>(null) }
     ModalDrawerSheet {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(horizontal = 12.dp)) {
             Box(Modifier.fillMaxWidth().padding(top = 12.dp, bottom = 12.dp).clip(RoundedCornerShape(24.dp)).background(Brand.gradientDeep).padding(20.dp)) {
@@ -493,9 +535,16 @@ private fun Drawer(vm: MainViewModel, close: () -> Unit) {
                     Text(if (accounts.size == 1) tr("1 Konto") else tr("{0} Konten", accounts.size), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
                 }
             }
-            @Composable fun entry(label: String, icon: ImageVector, selected: Boolean, badge: Int = 0, onClick: () -> Unit) =
+            @Composable fun entry(label: String, icon: ImageVector, selected: Boolean, badge: Int = 0, menu: (() -> Unit)? = null, onClick: () -> Unit) =
                 NavigationDrawerItem(label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }, selected = selected, onClick = { onClick(); close() },
-                    icon = { Icon(icon, null) }, badge = { if (badge > 0) Badge { Text("$badge") } })
+                    icon = { Icon(icon, null) }, badge = {
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            if (badge > 0) Badge { Text("$badge") }
+                            if (menu != null) IconButton(onClick = menu, modifier = Modifier.size(32.dp)) {
+                                Icon(Icons.Outlined.MoreVert, tr("Ordner bearbeiten"), Modifier.size(18.dp))
+                            }
+                        }
+                    })
             entry(tr("Alle Posteingänge"), Icons.Outlined.AllInbox, current is Mailbox.Unified,
                 folders.values.flatten().filter { it.role == FolderRole.INBOX }.sumOf { it.unread }) { vm.selectMailbox(Mailbox.Unified) }
             entry(tr("Angeheftet"), Icons.Outlined.PushPin, current is Mailbox.Pinned) { vm.selectMailbox(Mailbox.Pinned) }
@@ -516,11 +565,16 @@ private fun Drawer(vm: MainViewModel, close: () -> Unit) {
                         else -> Icons.Outlined.Folder
                     }
                     val sel = (current as? Mailbox.InFolder)?.folder?.id == f.id
-                    entry(f.displayName, icon, sel, if (f.role == FolderRole.INBOX) f.unread else 0) { vm.selectMailbox(Mailbox.InFolder(f, a.email)) }
+                    entry(f.displayName, icon, sel, if (f.role == FolderRole.INBOX) f.unread else 0,
+                        menu = if (f.role == null) ({ editFolder = f }) else null) { vm.selectMailbox(Mailbox.InFolder(f, a.email)) }
                 }
+                NavigationDrawerItem(label = { Text(tr("Neuer Ordner"), color = MaterialTheme.colorScheme.primary) }, selected = false,
+                    icon = { Icon(Icons.Outlined.CreateNewFolder, null, tint = MaterialTheme.colorScheme.primary) }, onClick = { newFolderFor = a.id })
             }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             entry(tr("Konto hinzufügen"), Icons.Outlined.Add, false) { vm.push(Screen.AccountSetup()) }
+            newFolderFor?.let { accId -> NewFolderDialog(onDismiss = { newFolderFor = null }) { name, inInbox -> vm.createFolder(accId, name, inInbox); newFolderFor = null } }
+            editFolder?.let { f -> EditFolderDialog(vm, f) { editFolder = null } }
             entry(tr("Einstellungen"), Icons.Outlined.Settings, false) { vm.push(Screen.Settings) }
             Spacer(Modifier.height(24.dp))
         }

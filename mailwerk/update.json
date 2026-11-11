@@ -1,6 +1,6 @@
 {
-  "versionCode": 11,
-  "versionName": "1.7",
+  "versionCode": 12,
+  "versionName": "1.8",
   "apk": "Mailwerk.apk",
-  "notes": "Neuer Startbildschirm"
+  "notes": "Eigene Ordner, Lesebestätigungen"
 }

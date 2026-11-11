@@ -157,6 +157,17 @@ class Repository private constructor(private val ctx: Context) {
                         p.fromAddr, p.headers, db.isKnownContact(p.fromAddr), db.senderRule(p.fromAddr))
                     val unsub = Unsubscribe.parse(p.headers["list-unsubscribe"], p.headers["list-unsubscribe-post"])
                     val text = p.text ?: p.html?.let(HtmlSanitizer::htmlToText) ?: ""
+                    // Lesebestätigung (MDN) eines Empfängers -> gesendete Mail als „gelesen“ kennzeichnen
+                    val isMdn = !isSent && p.headers["content-type"]?.contains("disposition-notification", true) == true
+                    if (isMdn) {
+                        val ids = listOfNotNull(p.inReplyTo) + (p.references?.split(Regex("\\s+")) ?: emptyList()) +
+                            Regex("Original-Message-ID:\\s*(<[^>]+>)", RegexOption.IGNORE_CASE).findAll(text).map { it.groupValues[1] }.toList()
+                        db.markReadByRecipient(ids.map { it.trim() }.toSet(), p.date)
+                    }
+                    // Absender bittet um Lesebestätigung (nur bei neuen Mails von Menschen, nicht beim ersten Laden)
+                    val receiptTo = if (!isSent && !initial && !p.seen && !isMdn &&
+                        !app.mailwerk.mail.RuleEngine.isAutomated(p.fromAddr, p.headers))
+                        (p.headers["disposition-notification-to"] ?: p.headers["return-receipt-to"] ?: "").trim() else ""
                     val m = Message(
                         accountId = acc.id, folderId = f.id, uid = p.uid, messageId = p.messageId,
                         threadKey = Threads.key(acc.id, p.subject, p.messageId),
@@ -165,8 +176,8 @@ class Repository private constructor(private val ctx: Context) {
                         seen = p.seen || isSent || blocked || decision.read, flagged = p.flagged || decision.flag, category = decision.category ?: cat,
                         pinned = decision.pin,
                         hasAttachments = p.attachments.isNotEmpty(), unsubscribe = unsub?.encode(), unsubscribePost = unsub?.oneClick == true,
-                        inReplyTo = p.inReplyTo, references = p.references,
-                    )
+                        inReplyTo = p.inReplyTo, references = p.references, receiptTo = receiptTo,
+                    ).let { if (isMdn) it.copy(category = Category.NOTIFICATION) else it }
                     val id = db.insertMessage(m, p.attachments.map { Attachment(messageId = 0, partPath = it.path, name = it.name, mime = it.mime, size = it.size) })
                     if (id > 0 && !m.seen && f.role == FolderRole.INBOX && f.lastUid > 0) fresh += m.copy(id = id)
                     if (id > 0 && f.role == FolderRole.INBOX && !isSent && !initial) runCatching { maybeVacationReply(c, acc, p, m.category) }
@@ -364,6 +375,39 @@ class Repository private constructor(private val ctx: Context) {
     }
 
     /** Absender blockieren: künftige Mails landen gelesen in „Benachrichtigungen“, vorhandene werden gelöscht. */
+    // ================================================================= Lesebestätigung
+    suspend fun sendReadReceipt(m: Message): String? = withContext(Dispatchers.IO) {
+        val acc = db.account(m.accountId) ?: return@withContext tr("Konto nicht gefunden")
+        try {
+            client(acc).sendReadReceipt(m.receiptTo.ifBlank { m.fromAddr }, m.subject, m.messageId, db.folderByRole(acc.id, FolderRole.SENT)?.fullName)
+            db.clearReceiptRequest(m.id); null
+        } catch (e: Exception) { friendly(e) }
+    }
+
+    // ================================================================= Ordner
+    suspend fun createFolder(accountId: Long, name: String, insideInbox: Boolean): String? = withContext(Dispatchers.IO) {
+        val acc = db.account(accountId) ?: return@withContext tr("Konto nicht gefunden")
+        try {
+            val parent = if (insideInbox) db.folderByRole(accountId, FolderRole.INBOX)?.fullName else null
+            val full = client(acc).createFolder(name, parent)
+            db.upsertFolder(acc.id, full, name.trim(), null); db.notifyChanged(); null
+        } catch (e: Exception) { e.message?.takeIf { it.isNotBlank() && e is IllegalStateException } ?: friendly(e) }
+    }
+
+    suspend fun renameFolder(f: Folder, newName: String): String? = withContext(Dispatchers.IO) {
+        val acc = db.account(f.accountId) ?: return@withContext tr("Konto nicht gefunden")
+        try {
+            val full = client(acc).renameFolder(f.fullName, newName)
+            db.renameFolderLocal(f.id, full, newName.trim()); null
+        } catch (e: Exception) { e.message?.takeIf { it.isNotBlank() && e is IllegalStateException } ?: friendly(e) }
+    }
+
+    suspend fun deleteFolder(f: Folder): String? = withContext(Dispatchers.IO) {
+        val acc = db.account(f.accountId) ?: return@withContext tr("Konto nicht gefunden")
+        try { client(acc).deleteFolder(f.fullName); db.deleteFolderLocal(f.id); null }
+        catch (e: Exception) { e.message?.takeIf { it.isNotBlank() && e is IllegalStateException } ?: friendly(e) }
+    }
+
     suspend fun blockSender(m: Message, domain: Boolean = false) {
         db.block(if (domain) m.fromAddr.substringAfter('@') else m.fromAddr, domain)
         markSpam(m, blockSender = false)
@@ -420,7 +464,7 @@ class Repository private constructor(private val ctx: Context) {
             val logo = acc.logoPath?.let { File(it) }?.takeIf { it.exists() }?.let {
                 OutgoingAttachment("logo." + it.extension.ifBlank { "png" }, if (it.extension.equals("jpg", true) || it.extension.equals("jpeg", true)) "image/jpeg" else "image/png", it.readBytes())
             }
-            val msg = c.buildMessage(o.to, o.cc, o.bcc, o.subject, o.body, atts, o.inReplyTo, o.references, logo)
+            val msg = c.buildMessage(o.to, o.cc, o.bcc, o.subject, o.body, atts, o.inReplyTo, o.references, logo, o.readReceipt)
             c.send(msg, db.folderByRole(acc.id, FolderRole.SENT)?.fullName)
             (parseAddrs(o.to) + parseAddrs(o.cc) + parseAddrs(o.bcc)).forEach { (a, n) -> db.touchContact(a, n, sent = true) }
             db.deleteOutbox(o.id)

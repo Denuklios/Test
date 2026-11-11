@@ -216,6 +216,25 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
     }
 
+    fun sendReadReceipt(m: Message) = act { repo.sendReadReceipt(m) ?: run { snack(tr("Lesebestätigung gesendet ✓")); null } }
+
+    fun createFolder(accountId: Long, name: String, insideInbox: Boolean) = act {
+        repo.createFolder(accountId, name, insideInbox) ?: run { snack(tr("Ordner „{0}“ angelegt", name)); null }
+    }
+    fun renameFolder(f: Folder, newName: String) = act {
+        repo.renameFolder(f, newName) ?: run {
+            (mailbox.value as? Mailbox.InFolder)?.takeIf { it.folder.id == f.id }?.let { mb ->
+                db.folder(f.id)?.let { mailbox.value = mb.copy(folder = it) } }
+            snack(tr("Umbenannt in „{0}“", newName)); null
+        }
+    }
+    fun deleteFolder(f: Folder) = act {
+        repo.deleteFolder(f) ?: run {
+            if ((mailbox.value as? Mailbox.InFolder)?.folder?.id == f.id) mailbox.value = Mailbox.Unified
+            snack(tr("Ordner „{0}“ gelöscht", f.displayName)); null
+        }
+    }
+
     fun applyRules() = viewModelScope.launch {
         snack(tr("Regeln werden angewendet …"))
         val n = repo.applyRulesToExisting()
