@@ -18,11 +18,10 @@
         android:paddingBottom="12dp">
 
         <ImageView
-            android:layout_width="wrap_content"
-            android:layout_height="30dp"
-            android:adjustViewBounds="true"
-            android:contentDescription="WF"
-            android:src="@drawable/wf_logo" />
+            android:layout_width="34dp"
+            android:layout_height="34dp"
+            android:contentDescription="FotoBox"
+            android:src="@drawable/logo" />
 
         <LinearLayout
             android:layout_width="0dp"
@@ -36,14 +35,14 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:includeFontPadding="false"
-                android:text="Wunsch-Fabrik"
+                android:text="FotoBox"
                 android:textSize="19sp" />
 
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:letterSpacing="0.18"
-                android:text="FOTOBOX"
+                android:text="FOTOS &amp; DATEIEN"
                 android:textColor="@color/text_muted"
                 android:textSize="10sp" />
         </LinearLayout>
@@ -79,12 +78,11 @@
                 android:padding="26dp">
 
                 <ImageView
-                    android:layout_width="wrap_content"
-                    android:layout_height="52dp"
+                    android:layout_width="56dp"
+                    android:layout_height="56dp"
                     android:layout_gravity="center_horizontal"
-                    android:adjustViewBounds="true"
-                    android:contentDescription="WF"
-                    android:src="@drawable/wf_logo" />
+                    android:contentDescription="FotoBox"
+                    android:src="@drawable/logo" />
 
                 <TextView
                     style="@style/Title"
