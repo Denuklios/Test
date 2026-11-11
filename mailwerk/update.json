@@ -1,6 +1,6 @@
 {
-  "versionCode": 15,
-  "versionName": "1.9",
+  "versionCode": 16,
+  "versionName": "1.9.1",
   "apk": "Mailwerk.apk",
-  "notes": "Kategorien als Dropdown, Kopfbereich klappt beim Scrollen ein"
+  "notes": "Neuer Kopfbereich: Posteingang-Titel, Auswahl-Knopf und ausfahrende Suche"
 }

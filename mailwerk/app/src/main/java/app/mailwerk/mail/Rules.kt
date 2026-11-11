@@ -5,25 +5,31 @@ import app.mailwerk.tr
 import app.mailwerk.data.Category
 
 /** Wo eine Regel sucht. */
-enum class RuleField(val label: String) {
-    FROM(tr("Absender")), TO(tr("Empfänger (An/Cc)")), SUBJECT(tr("Betreff")), BODY(tr("Text")), ANY(tr("Absender, Empfänger oder Betreff")), ALL(tr("Jede Mail"));
+enum class RuleField(private val de: String) {
+    FROM("Absender"), TO("Empfänger (An/Cc)"), SUBJECT("Betreff"), BODY("Text"), ANY("Absender, Empfänger oder Betreff"), ALL("Jede Mail");
+    /** wird bei jeder Anzeige in der aktuellen Gerätesprache geliefert */
+    val label: String get() = tr(de)
     companion object { fun of(s: String?) = entries.firstOrNull { it.name == s } ?: FROM }
 }
 
-enum class RuleOp(val label: String) {
-    CONTAINS(tr("enthält")), NOT_CONTAINS(tr("enthält nicht")), EQUALS(tr("ist genau")), STARTS(tr("beginnt mit")), ENDS(tr("endet mit"));
+enum class RuleOp(private val de: String) {
+    CONTAINS("enthält"), NOT_CONTAINS("enthält nicht"), EQUALS("ist genau"), STARTS("beginnt mit"), ENDS("endet mit");
+    /** wird bei jeder Anzeige in der aktuellen Gerätesprache geliefert */
+    val label: String get() = tr(de)
     companion object { fun of(s: String?) = entries.firstOrNull { it.name == s } ?: CONTAINS }
 }
 
-enum class RuleAction(val label: String, val needsArg: Boolean) {
-    MOVE(tr("In Ordner verschieben"), true),
-    CATEGORY(tr("Einsortieren als"), true),
-    READ(tr("Als gelesen markieren"), false),
-    FLAG(tr("Markieren (Fähnchen)"), false),
-    PIN(tr("Anheften"), false),
-    FORWARD(tr("Weiterleiten an"), true),
-    SPAM(tr("In den Spam-Ordner"), false),
-    DELETE(tr("Löschen (Papierkorb)"), false);
+enum class RuleAction(private val de: String, val needsArg: Boolean) {
+    MOVE("In Ordner verschieben", true),
+    CATEGORY("Einsortieren als", true),
+    READ("Als gelesen markieren", false),
+    FLAG("Markieren (Fähnchen)", false),
+    PIN("Anheften", false),
+    FORWARD("Weiterleiten an", true),
+    SPAM("In den Spam-Ordner", false),
+    DELETE("Löschen (Papierkorb)", false);
+    /** wird bei jeder Anzeige in der aktuellen Gerätesprache geliefert */
+    val label: String get() = tr(de)
     companion object { fun of(s: String?) = entries.firstOrNull { it.name == s } ?: MOVE }
 }
 

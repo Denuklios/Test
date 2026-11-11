@@ -92,6 +92,11 @@ class ScreenshotTest {
         rule.onAllNodes(androidx.compose.ui.test.hasScrollAction()).onFirst().performScrollToIndex(10)
         rule.waitForIdle()
         shot("17_eingeklappt")
+        rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("In allen Mails suchen"), useUnmergedTree = true).onFirst().performClick()
+        rule.waitForIdle()
+        shot("18_suche_offen")
+        rule.onAllNodes(androidx.compose.ui.test.hasContentDescription("Suche leeren"), useUnmergedTree = true).onFirst().performClick()
+        rule.waitForIdle()
         rule.onAllNodes(androidx.compose.ui.test.hasScrollAction()).onFirst().performScrollToIndex(0)
         sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java].category.value = app.mailwerk.data.Category.PEOPLE }
         rule.waitForIdle()

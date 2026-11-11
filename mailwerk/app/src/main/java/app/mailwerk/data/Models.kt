@@ -5,10 +5,12 @@ import app.mailwerk.tr
 enum class Security { SSL, STARTTLS, NONE }
 
 /** Intelligente Posteingangs-Kategorien (wie Spark „Smart Inbox“ / Gmail-Tabs). */
-enum class Category(val label: String) {
-    PEOPLE(tr("Wichtig")),
-    NEWSLETTER(tr("Newsletter")),
-    NOTIFICATION(tr("Benachrichtigungen"));
+enum class Category(private val de: String) {
+    PEOPLE("Wichtig"),
+    NEWSLETTER("Newsletter"),
+    NOTIFICATION("Benachrichtigungen");
+    /** wird bei jeder Anzeige in der aktuellen Gerätesprache geliefert */
+    val label: String get() = tr(de)
 
     companion object {
         fun of(name: String?) = entries.firstOrNull { it.name == name } ?: PEOPLE

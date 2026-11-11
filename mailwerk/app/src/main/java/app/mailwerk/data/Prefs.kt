@@ -4,8 +4,12 @@ import app.mailwerk.tr
 
 import android.content.Context
 
-enum class SwipeAction(val label: String) { ARCHIVE(tr("Archivieren")), DELETE(tr("Löschen")), SNOOZE(tr("Später")), READ(tr("Gelesen/Ungelesen")), PIN(tr("Anheften")), NONE(tr("Nichts")) }
-enum class ThemeMode(val label: String) { SYSTEM("System"), LIGHT(tr("Hell")), DARK(tr("Dunkel")) }
+enum class SwipeAction(private val de: String) { ARCHIVE("Archivieren"), DELETE("Löschen"), SNOOZE("Später"), READ("Gelesen/Ungelesen"), PIN("Anheften"), NONE("Nichts");
+    val label: String get() = tr(de)
+}
+enum class ThemeMode(private val de: String) { SYSTEM("System"), LIGHT("Hell"), DARK("Dunkel");
+    val label: String get() = tr(de)
+}
 
 class Prefs(ctx: Context) {
     private val p = ctx.getSharedPreferences("mailwerk", Context.MODE_PRIVATE)

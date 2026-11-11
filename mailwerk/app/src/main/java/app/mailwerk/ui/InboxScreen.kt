@@ -77,6 +77,9 @@ import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.Check
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
+import androidx.compose.animation.expandHorizontally
+import androidx.compose.animation.shrinkHorizontally
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
@@ -112,7 +115,6 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
         }
     }
     var searchOpen by remember { mutableStateOf(false) }
-    LaunchedEffect(scrolled) { if (!scrolled) searchOpen = false }
 
     ModalNavigationDrawer(drawerState = drawer, drawerContent = {
         Drawer(vm) { scope.launch { drawer.close() } }
@@ -123,15 +125,14 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
             snackbarHost = { SnackbarHost(snackHost) },
         ) { pad ->
             Column(Modifier.padding(top = pad.calculateTopPadding()).fillMaxSize()) {
-                val collapsed = scrolled && query.isBlank() && !searchOpen
+                val collapsed = scrolled && query.isBlank()
                 Header(vm, mailbox, accounts.firstOrNull()?.name, collapsed,
-                    showCats = vm.showsCategories && query.isBlank(), category = category, counts = counts,
+                    showCats = vm.showsCategories, category = category, counts = counts,
                     onCategory = { vm.category.value = it },
-                    onSearch = { searchOpen = true; scope.launch { listState.scrollToItem(0) } },
+                    searchOpen = searchOpen || query.isNotBlank(), query = query,
+                    onQuery = { vm.query.value = it },
+                    onSearchOpen = { open -> searchOpen = open; if (!open) vm.query.value = "" else scope.launch { listState.scrollToItem(0) } },
                     onMenu = { scope.launch { drawer.open() } })
-                AnimatedVisibility(!collapsed, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                    SearchPill(query) { vm.query.value = it }
-                }
                 AnimatedVisibility(!collapsed, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
                     Column { Banners(vm) }
                 }
@@ -280,46 +281,106 @@ private fun SectionHeader(text: String) {
 
 @Composable
 private fun Header(vm: MainViewModel, mailbox: Mailbox, userName: String?, collapsed: Boolean, showCats: Boolean,
-                   category: Category?, counts: Map<Category, Int>, onCategory: (Category?) -> Unit, onSearch: () -> Unit, onMenu: () -> Unit) {
+                   category: Category?, counts: Map<Category, Int>, onCategory: (Category?) -> Unit,
+                   searchOpen: Boolean, query: String, onQuery: (String) -> Unit, onSearchOpen: (Boolean) -> Unit, onMenu: () -> Unit) {
     val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
     val greet = when (hour) { in 5..10 -> tr("Guten Morgen"); in 11..17 -> tr("Hallo"); in 18..22 -> tr("Guten Abend"); else -> tr("Gute Nacht") }
     val first = userName?.split(' ')?.firstOrNull()?.takeIf { it.isNotBlank() }
     val boxTitle = if (mailbox is Mailbox.Unified) tr("Posteingang") else mailbox.title
-    var menuOpen by remember { mutableStateOf(false) }
-    val titleSize by androidx.compose.animation.core.animateFloatAsState(if (collapsed) 20f else 28f, label = "title")
-    Row(Modifier.fillMaxWidth().animateContentSize().padding(start = 8.dp, end = 12.dp, top = if (collapsed) 2.dp else 6.dp, bottom = if (collapsed) 2.dp else 4.dp),
-        verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onMenu) { Icon(Icons.Outlined.Menu, tr("Menü")) }
-        Column(Modifier.weight(1f).padding(start = 2.dp)) {
-            AnimatedVisibility(!collapsed, enter = expandVertically() + fadeIn(), exit = shrinkVertically() + fadeOut()) {
-                val sub = (mailbox as? Mailbox.InFolder)?.accountEmail
-                    ?: ((if (first != null) "$greet, $first 👋" else greet) + if (showCats) " · " + boxTitle else "")
-                Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            }
-            if (showCats) Box {
-                // Kategorie als Dropdown direkt im Titel
-                val n = if (category == null) counts.values.sum() else counts[category] ?: 0
-                Row(Modifier.clip(RoundedCornerShape(12.dp)).clickable { menuOpen = true }.padding(end = 4.dp),
-                    verticalAlignment = Alignment.CenterVertically) {
-                    Text(category?.label ?: tr("Alle"), style = MaterialTheme.typography.headlineMedium.copy(fontSize = titleSize.sp, lineHeight = (titleSize + 6).sp),
-                        maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (n > 0) {
-                        Spacer(Modifier.width(8.dp))
-                        Text("$n", color = Color.White, style = MaterialTheme.typography.labelMedium,
-                            modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(categoryColor(category)).padding(horizontal = 7.dp, vertical = 1.dp))
-                    }
-                    Icon(Icons.Outlined.ArrowDropDown, tr("Kategorie wählen"), Modifier.size(30.dp))
-                    // Hinweis auf ungelesene Mails in anderen Kategorien
-                    val others = counts.filterKeys { it != category }.values.sum()
-                    if (category != null && others > 0) Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
-                }
-                CategoryMenu(menuOpen, category, counts, onDismiss = { menuOpen = false }) { menuOpen = false; onCategory(it) }
-            } else Text(boxTitle, style = MaterialTheme.typography.headlineMedium.copy(fontSize = titleSize.sp, lineHeight = (titleSize + 6).sp),
-                maxLines = 1, overflow = TextOverflow.Ellipsis)
+    val sub = (mailbox as? Mailbox.InFolder)?.accountEmail ?: (if (first != null) "$greet, $first 👋" else greet)
+    val acc = vm.accounts.value.firstOrNull()
+    val titleSize by androidx.compose.animation.core.animateFloatAsState(if (collapsed) 20f else 30f, label = "title")
+
+    Column(Modifier.fillMaxWidth().animateContentSize().padding(start = 4.dp, end = 12.dp, top = if (collapsed) 2.dp else 8.dp, bottom = if (collapsed) 4.dp else 6.dp)) {
+        // Zeile 1: Menü · Begrüßung · Avatar  (eingeklappt: Menü · Posteingang)
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            IconButton(onClick = onMenu) { Icon(Icons.Outlined.Menu, tr("Menü")) }
+            if (collapsed) Text(boxTitle, style = MaterialTheme.typography.headlineMedium.copy(fontSize = titleSize.sp, lineHeight = (titleSize + 6).sp),
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 4.dp))
+            else Text(sub, style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.weight(1f).padding(start = 4.dp))
+            if (collapsed && showCats) { CategoryPill(category, counts, onCategory, compact = true); Spacer(Modifier.width(8.dp)) }
+            if (collapsed) SearchToggle(searchOpen = false, query = "", onQuery = onQuery, onOpen = onSearchOpen, compact = true)
+            else if (acc != null) Box(Modifier.clip(CircleShape).clickable { vm.push(Screen.Settings) }) { Avatar(acc.name, acc.email, 40.dp) }
         }
-        if (collapsed) IconButton(onClick = onSearch) { Icon(Icons.Outlined.Search, tr("In allen Mails suchen")) }
-        val acc = vm.accounts.value.firstOrNull()
-        if (acc != null) Box(Modifier.clip(CircleShape).clickable { vm.push(Screen.Settings) }) { Avatar(acc.name, acc.email, if (collapsed) 32.dp else 40.dp) }
+        if (!collapsed) {
+            // Zeile 2: Posteingang (groß)
+            Text(boxTitle, style = MaterialTheme.typography.headlineMedium.copy(fontSize = titleSize.sp, lineHeight = (titleSize + 6).sp),
+                maxLines = 1, overflow = TextOverflow.Ellipsis, modifier = Modifier.padding(start = 16.dp, end = 8.dp))
+            Spacer(Modifier.height(8.dp))
+            // Zeile 3: Auswahl-Knopf · Lupe (fährt zum Suchfeld aus)
+            Row(Modifier.fillMaxWidth().padding(start = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                AnimatedVisibility(showCats && !searchOpen, enter = fadeIn() + expandHorizontally(), exit = fadeOut() + shrinkHorizontally()) {
+                    CategoryPill(category, counts, onCategory)
+                }
+                Spacer(Modifier.weight(1f))
+                SearchToggle(searchOpen, query, onQuery, onSearchOpen, compact = false, modifier = if (searchOpen) Modifier.weight(50f) else Modifier)
+            }
+        }
+    }
+}
+
+/** Auswahl-Knopf für Wichtig / Newsletter / Benachrichtigungen / Alle. */
+@Composable
+private fun CategoryPill(category: Category?, counts: Map<Category, Int>, onCategory: (Category?) -> Unit, compact: Boolean = false) {
+    var open by remember { mutableStateOf(false) }
+    val color = categoryColor(category)
+    val n = if (category == null) counts.values.sum() else counts[category] ?: 0
+    val others = counts.filterKeys { it != category }.values.sum()
+    val icon = when (category) { Category.PEOPLE -> Icons.Outlined.Person; Category.NEWSLETTER -> Icons.Outlined.Newspaper
+        Category.NOTIFICATION -> Icons.Outlined.Notifications; null -> Icons.Outlined.AllInbox }
+    Box {
+        val dark = MaterialTheme.colorScheme.background.luminance() < 0.5f
+        Row(Modifier.clip(RoundedCornerShape(20.dp))
+            .background(if (dark) MaterialTheme.colorScheme.surfaceContainerHigh else color.copy(alpha = 0.14f))
+            .then(if (dark) Modifier.border(1.dp, color.copy(alpha = 0.7f), RoundedCornerShape(20.dp)) else Modifier)
+            .clickable { open = true }
+            .padding(start = 12.dp, end = 6.dp, top = 7.dp, bottom = 7.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(icon, if (compact) category?.label ?: tr("Alle") else null, Modifier.size(19.dp), tint = color)
+            if (!compact) {
+                Spacer(Modifier.width(7.dp))
+                Text(category?.label ?: tr("Alle"), style = MaterialTheme.typography.titleSmall.copy(fontSize = 15.sp), color = MaterialTheme.colorScheme.onSurface)
+            }
+            if (n > 0) {
+                Spacer(Modifier.width(7.dp))
+                Text("$n", color = Color.White, style = MaterialTheme.typography.labelMedium,
+                    modifier = Modifier.clip(RoundedCornerShape(10.dp)).background(color).padding(horizontal = 7.dp, vertical = 1.dp))
+            }
+            Icon(Icons.Outlined.ArrowDropDown, tr("Kategorie wählen"), Modifier.size(24.dp), tint = MaterialTheme.colorScheme.onSurface)
+            if (category != null && others > 0) Box(Modifier.size(7.dp).clip(CircleShape).background(MaterialTheme.colorScheme.tertiary))
+        }
+        CategoryMenu(open, category, counts, onDismiss = { open = false }) { open = false; onCategory(it) }
+    }
+}
+
+/** Lupe, die sich – wie der Schreiben-Knopf – zu einem Suchfeld aus- und wieder einfährt. */
+@Composable
+private fun SearchToggle(searchOpen: Boolean, query: String, onQuery: (String) -> Unit, onOpen: (Boolean) -> Unit,
+                         compact: Boolean, modifier: Modifier = Modifier) {
+    val cs = MaterialTheme.colorScheme
+    val focus = remember { androidx.compose.ui.focus.FocusRequester() }
+    val focusManager = LocalFocusManager.current
+    Row(modifier.animateContentSize().height(if (compact) 40.dp else 46.dp).clip(RoundedCornerShape(23.dp))
+        .background(if (searchOpen || cs.background.luminance() < 0.5f) cs.surfaceContainerHigh else cs.primary.copy(alpha = 0.12f))
+        .then(if (cs.background.luminance() < 0.5f) Modifier.border(1.dp, cs.primary.copy(alpha = 0.5f), RoundedCornerShape(23.dp)) else Modifier)
+        .clickable(enabled = !searchOpen) { onOpen(true) }
+        .padding(horizontal = if (searchOpen) 12.dp else if (compact) 8.dp else 11.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Outlined.Search, tr("In allen Mails suchen"), tint = cs.primary, modifier = Modifier.size(24.dp))
+        if (searchOpen) {
+            Spacer(Modifier.width(8.dp))
+            Box(Modifier.weight(1f), contentAlignment = Alignment.CenterStart) {
+                if (query.isEmpty()) Text(tr("In allen Mails suchen"), style = MaterialTheme.typography.bodyLarge, color = cs.onSurfaceVariant, maxLines = 1)
+                androidx.compose.foundation.text.BasicTextField(query, onQuery, singleLine = true,
+                    textStyle = MaterialTheme.typography.bodyLarge.copy(color = cs.onSurface),
+                    cursorBrush = androidx.compose.ui.graphics.SolidColor(cs.primary),
+                    modifier = Modifier.fillMaxWidth().focusRequester(focus))
+            }
+            IconButton(onClick = { focusManager.clearFocus(); onOpen(false) }, modifier = Modifier.size(32.dp)) {
+                Icon(Icons.Outlined.Close, tr("Suche leeren"), Modifier.size(20.dp))
+            }
+            LaunchedEffect(Unit) { runCatching { focus.requestFocus() } }
+        }
     }
 }
 
@@ -350,19 +411,6 @@ private fun CategoryMenu(open: Boolean, selected: Category?, counts: Map<Categor
     }
 }
 
-@Composable
-private fun SearchPill(query: String, onChange: (String) -> Unit) {
-    val focus = LocalFocusManager.current
-    TextField(query, onChange, singleLine = true,
-        placeholder = { Text(tr("In allen Mails suchen"), style = MaterialTheme.typography.bodyLarge) },
-        leadingIcon = { Icon(Icons.Outlined.Search, null) },
-        trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onChange(""); focus.clearFocus() }) { Icon(Icons.Outlined.Close, tr("Suche leeren")) } },
-        shape = RoundedCornerShape(28.dp),
-        colors = TextFieldDefaults.colors(
-            focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh, unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
-            focusedIndicatorColor = Color.Transparent, unfocusedIndicatorColor = Color.Transparent),
-        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 6.dp).height(54.dp))
-}
 
 @Composable
 private fun GradientFab(expanded: Boolean, onClick: () -> Unit) {
