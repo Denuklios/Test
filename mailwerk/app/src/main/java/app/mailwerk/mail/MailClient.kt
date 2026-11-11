@@ -71,6 +71,7 @@ class MailClient(private val acc: Account, private val password: String) {
             System.setProperty("mail.mime.decodetext.strict", "false")
             System.setProperty("mail.mime.address.strict", "false")
             System.setProperty("mail.mime.parameters.strict", "false")
+            System.setProperty("mail.mime.allowutf8", "true")
         }
 
         val headerNames = arrayOf(
@@ -83,6 +84,7 @@ class MailClient(private val acc: Account, private val password: String) {
     private fun props(): Properties = Properties().apply {
         val imapProto = if (acc.imapSecurity == Security.SSL) "imaps" else "imap"
         put("mail.store.protocol", imapProto)
+        put("mail.mime.allowutf8", "true")
         put("mail.$imapProto.host", acc.imapHost)
         put("mail.$imapProto.port", acc.imapPort.toString())
         put("mail.$imapProto.connectiontimeout", "20000")
@@ -228,12 +230,12 @@ class MailClient(private val acc: Account, private val password: String) {
         return ParsedMessage(
             uid = folder.getUID(m),
             messageId = mm.messageID,
-            fromName = from?.personal?.let(::decode) ?: "",
+            fromName = rawName(mm, "From", from?.personal),
             fromAddr = from?.address ?: "",
             to = addrList(mm.getRecipients(Message.RecipientType.TO)),
             cc = addrList(mm.getRecipients(Message.RecipientType.CC)),
             replyTo = addrList(mm.replyTo?.takeIf { r -> r.any { (it as? InternetAddress)?.address != from?.address } }),
-            subject = mm.subject?.let(::decode) ?: "",
+            subject = (mm.getHeader("Subject", null) ?: mm.subject)?.let(::decode) ?: "",
             date = (mm.receivedDate ?: mm.sentDate ?: Date()).time,
             html = body.html(),
             text = body.text,
@@ -246,7 +248,15 @@ class MailClient(private val acc: Account, private val password: String) {
         )
     }
 
-    private fun decode(s: String) = runCatching { MimeUtility.decodeText(MimeUtility.unfold(s)) }.getOrDefault(s)
+    private fun decode(s: String) = runCatching { EncodedWords.decode(s) }.getOrDefault(s)
+
+    /** Anzeigename direkt aus der rohen Kopfzeile dekodieren (Angus zerlegt geteilte Emojis sonst falsch). */
+    private fun rawName(mm: MimeMessage, header: String, fallback: String?): String {
+        val raw = mm.getHeader(header, null) ?: return fallback ?: ""
+        val namePart = raw.substringBefore('<', "").trim().trim('"').trim()
+        if (namePart.isEmpty() || !raw.contains('<')) return fallback ?: ""
+        return decode(namePart.replace("\\\"", "\""))
+    }
 
     private fun addrList(a: Array<Address>?): String = a?.joinToString(", ") { ad ->
         (ad as? InternetAddress)?.let { if (it.personal.isNullOrBlank()) it.address else "${decode(it.personal)} <${it.address}>" } ?: ad.toString()

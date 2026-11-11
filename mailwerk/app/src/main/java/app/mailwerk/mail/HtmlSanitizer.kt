@@ -50,6 +50,13 @@ object HtmlSanitizer {
             if (isTracker(img)) { img.remove(); trackers++; return@forEach }
             val src = img.attr("src")
             if (blockRemote && (src.startsWith("http://", true) || src.startsWith("https://", true) || src.startsWith("//"))) {
+                // Emojis als Bild (z. B. 🎄 in Newslettern): statt Platzhalter das Emoji aus dem alt-Text zeigen
+                val alt = img.attr("alt").trim()
+                val small = (img.attr("width").filter { it.isDigit() }.toIntOrNull() ?: 999) <= 48 ||
+                    (img.attr("height").filter { it.isDigit() }.toIntOrNull() ?: 999) <= 48 || src.contains("emoji", true)
+                if (alt.isNotEmpty() && alt.length <= 12 && (small || alt.any { Character.isSurrogate(it) })) {
+                    img.replaceWith(org.jsoup.nodes.TextNode(alt)); return@forEach
+                }
                 img.attr("data-blocked-src", src)
                 img.attr("src", "data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7")
                 img.attr("style", img.attr("style") + ";min-width:24px;min-height:24px;background:#8884;border-radius:4px")
@@ -68,7 +75,35 @@ object HtmlSanitizer {
             }
         }
         doc.select("a[href]").forEach { it.attr("rel", "noopener noreferrer") }
+        fitToWidth(doc)
         return Result(wrap(doc.body().html(), darkMode), trackers, remote)
+    }
+
+    private val fixedWidth = Regex("(?i)(?<![-\\w])(min-width|width)\\s*:\\s*(\\d{3,4})(\\.\\d+)?px")
+
+    /** Newsletter sind oft fest 600–800 px breit -> auf Displaybreite umrechnen, nichts abschneiden. */
+    fun fitToWidth(doc: Document) {
+        doc.select("[width]").forEach { el ->
+            val v = el.attr("width").trim()
+            val n = v.filter { it.isDigit() }.toIntOrNull()
+            if (n != null && n > 300 && !v.contains('%')) {
+                el.attr("width", "100%")
+                if (el.tagName() == "img") el.removeAttr("height")
+            }
+        }
+        doc.select("[style]").forEach { el ->
+            val st = el.attr("style")
+            if (st.contains("width", true)) el.attr("style", st.replace(fixedWidth) { m ->
+                if (m.groupValues[2].toInt() > 300) (if (m.groupValues[1].equals("min-width", true)) "min-width:0" else "width:100%") else m.value
+            })
+        }
+        doc.select("style").forEach { st ->
+            val css = st.html()
+            if (css.contains("width", true)) st.html(css.replace(fixedWidth) { m ->
+                if (m.groupValues[2].toInt() > 300) (if (m.groupValues[1].equals("min-width", true)) "min-width:0" else "width:100%") else m.value
+            })
+        }
+        doc.select("[nowrap]").removeAttr("nowrap")
     }
 
     fun textToHtml(text: String, darkMode: Boolean): String {
@@ -89,7 +124,12 @@ object HtmlSanitizer {
         return """<!doctype html><html><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>html,body{margin:0;padding:0}body{padding:4px 2px;font-family:sans-serif;font-size:15px;line-height:1.45;word-wrap:break-word;overflow-wrap:anywhere}
-img{max-width:100%!important;height:auto!important} table{max-width:100%!important} pre{white-space:pre-wrap}
+*{max-width:100%!important;box-sizing:border-box}
+html,body{width:100%!important;overflow-x:hidden}
+img{max-width:100%!important;height:auto!important}
+table{max-width:100%!important;table-layout:auto!important}
+td,th{word-break:break-word;overflow-wrap:anywhere}
+pre,code{white-space:pre-wrap!important;word-break:break-word}
 blockquote{margin:0 0 0 6px;padding-left:10px;border-left:3px solid #8886} $css</style></head><body>$body</body></html>"""
     }
 

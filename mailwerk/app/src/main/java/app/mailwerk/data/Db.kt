@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Lokale Datenbank (Offline-Speicher aller Mails). Bewusst ohne ORM gehalten.
  * Jede Schreiboperation erhöht [changes], damit die Oberfläche neu lädt.
  */
-class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 2) {
+class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 3) {
 
     private val _changes = MutableStateFlow(0L)
     val changes: StateFlow<Long> = _changes
@@ -52,6 +52,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
             part_path TEXT, name TEXT, mime TEXT, size INTEGER, local_path TEXT)""")
         db.execSQL("CREATE TABLE contacts(address TEXT PRIMARY KEY, name TEXT, sent_count INTEGER DEFAULT 0, last_used INTEGER DEFAULT 0)")
         db.execSQL("CREATE TABLE sender_rules(address TEXT PRIMARY KEY, category TEXT, blocked INTEGER DEFAULT 0)")
+        db.execSQL("CREATE TABLE local_state(message_id TEXT PRIMARY KEY, pinned INTEGER, snoozed_until INTEGER, remind_at INTEGER)")
         db.execSQL("CREATE TABLE templates(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, body TEXT)")
         db.execSQL("""CREATE TABLE outbox(
             id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, to_addrs TEXT, cc TEXT, bcc TEXT,
@@ -67,6 +68,14 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) shrinkHugeRows(db)
+        if (oldVersion < 3 && newVersion >= 3) {
+            // Neue Dekodierung (Emojis, Breite): Mails einmal neu laden, eigene Markierungen merken
+            db.execSQL("CREATE TABLE IF NOT EXISTS local_state(message_id TEXT PRIMARY KEY, pinned INTEGER, snoozed_until INTEGER, remind_at INTEGER)")
+            db.execSQL("INSERT OR REPLACE INTO local_state SELECT message_id, pinned, snoozed_until, remind_at FROM messages " +
+                "WHERE message_id IS NOT NULL AND (pinned=1 OR snoozed_until>0 OR remind_at>0)")
+            db.execSQL("DELETE FROM messages")
+            db.execSQL("UPDATE folders SET last_uid=0, uid_validity=0")
+        }
     }
 
     /** Zu große Zeilen (> ~2 MB) kann Android nicht lesen und die App stürzt ab -> eingebettete Bilder entfernen bzw. kürzen. */
@@ -161,6 +170,13 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         db.beginTransaction()
         try {
             val id = db.insertWithOnConflict("messages", null, m.capped().toCv(), SQLiteDatabase.CONFLICT_IGNORE)
+            if (id > 0 && m.messageId != null) db.rawQuery("SELECT pinned, snoozed_until, remind_at FROM local_state WHERE message_id=?", arrayOf(m.messageId)).use { c ->
+                if (c.moveToFirst()) {
+                    db.update("messages", ContentValues().apply { put("pinned", c.getInt(0)); put("snoozed_until", c.getLong(1)); put("remind_at", c.getLong(2)) },
+                        "id=?", arrayOf("$id"))
+                    db.delete("local_state", "message_id=?", arrayOf(m.messageId))
+                }
+            }
             if (id > 0) atts.forEach { a ->
                 db.insert("attachments", null, ContentValues().apply {
                     put("message_id", id); put("part_path", a.partPath); put("name", a.name); put("mime", a.mime); put("size", a.size)
