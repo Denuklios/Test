@@ -1,0 +1,38 @@
+# Baut die Android-App (APK) der Fotogalerie. Die fertige APK liegt danach unter
+# Actions → dieser Lauf → Artifacts → "Fotogalerie-APK".
+name: Fotogalerie APK
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - 'galerie/**'
+      - '.github/workflows/galerie-apk.yml'
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: galerie/android-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: actions/cache@v4
+        with:
+          path: galerie/android-app/.cache
+          key: galerie-models-${{ hashFiles('galerie/android-app/scripts/prepare-www.mjs') }}
+      - run: npm ci --no-audit --no-fund
+      - run: npm run sync
+      - run: ./gradlew assembleRelease --no-daemon
+        working-directory: galerie/android-app/android
+      - uses: actions/upload-artifact@v4
+        with:
+          name: Fotogalerie-APK
+          path: galerie/android-app/android/app/build/outputs/apk/release/app-release.apk

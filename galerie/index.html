@@ -1,0 +1,53 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>Fotogalerie</title>
+  <meta name="description" content="Fotogalerie mit Gesichtserkennung, smarter Suche und lustigen Extras – alles läuft privat auf deinem Gerät.">
+  <meta name="theme-color" content="#111318">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="icon.svg">
+  <link rel="stylesheet" href="css/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <button class="icon-btn back hidden" id="backBtn" aria-label="Zurück">←</button>
+    <h1 id="title">Fotos</h1>
+    <div class="top-actions">
+      <button class="icon-btn" id="searchBtn" aria-label="Suchen" title="Suchen">🔍</button>
+      <button class="icon-btn" id="selectBtn" aria-label="Auswählen" title="Auswählen">☑️</button>
+      <button class="icon-btn" id="addBtn" aria-label="Fotos hinzufügen" title="Fotos hinzufügen">＋</button>
+      <button class="icon-btn" id="settingsBtn" aria-label="Einstellungen" title="Einstellungen">⚙️</button>
+    </div>
+  </header>
+
+  <div id="statusbar" class="statusbar hidden" role="status"></div>
+
+  <div id="selectbar" class="selectbar hidden">
+    <button class="icon-btn" id="selCancel" aria-label="Auswahl beenden">✕</button>
+    <span id="selCount">0 ausgewählt</span>
+    <div class="spacer"></div>
+    <button class="btn small" id="selFav">♥ Favorit</button>
+    <button class="btn small" id="selShow">▶ Diashow</button>
+    <button class="btn small" id="selCarousel">🎠 Karussell</button>
+    <button class="btn small danger" id="selDelete">🗑 Löschen</button>
+  </div>
+
+  <main id="view"></main>
+
+  <nav class="tabbar" aria-label="Bereiche">
+    <a href="#/fotos" data-tab="fotos"><span>🖼️</span>Fotos</a>
+    <a href="#/personen" data-tab="personen"><span>🙂</span>Personen</a>
+    <a href="#/entdecken" data-tab="entdecken"><span>🧭</span>Entdecken</a>
+    <a href="#/spass" data-tab="spass"><span>🎪</span>Spaß</a>
+  </nav>
+
+  <input type="file" id="fileInput" accept="image/*" multiple hidden>
+  <input type="file" id="dirInput" webkitdirectory multiple hidden>
+  <div id="dropzone" class="dropzone hidden">Fotos hier loslassen</div>
+
+  <script type="module" src="js/app.js"></script>
+</body>
+</html>

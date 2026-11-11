@@ -1,0 +1,9 @@
+{
+  "appId": "app.fotogalerie.android",
+  "appName": "Fotogalerie",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#111318"
+  }
+}
