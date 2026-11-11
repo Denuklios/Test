@@ -1,5 +1,7 @@
 package app.mailwerk.data
 
+import app.mailwerk.tr
+
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -39,8 +41,8 @@ class Repository private constructor(private val ctx: Context) {
 
     private fun client(a: Account): MailClient {
         val pw = try { passwordOf(a) } catch (e: Exception) {
-            if (a.isOAuth) throw IllegalStateException(e.message ?: "Anmeldung abgelaufen – bitte Konto erneut anmelden.")
-            throw IllegalStateException("Gespeichertes Passwort nicht lesbar – bitte unter Einstellungen → Konto das Passwort neu eingeben.")
+            if (a.isOAuth) throw IllegalStateException(e.message ?: tr("Anmeldung abgelaufen – bitte Konto erneut anmelden."))
+            throw IllegalStateException(tr("Gespeichertes Passwort nicht lesbar – bitte unter Einstellungen → Konto das Passwort neu eingeben."))
         }
         return MailClient(a, pw)
     }
@@ -193,7 +195,7 @@ class Repository private constructor(private val ctx: Context) {
             }
             val target: String? = when {
                 d.spam -> db.folderByRole(acc.id, FolderRole.JUNK)?.fullName ?: c.ensureFolder(store, "Spam")
-                d.delete -> db.folderByRole(acc.id, FolderRole.TRASH)?.fullName ?: c.ensureFolder(store, "Papierkorb")
+                d.delete -> db.folderByRole(acc.id, FolderRole.TRASH)?.fullName ?: c.ensureFolder(store, tr("Papierkorb"))
                 d.moveTo != null -> resolveFolder(c, store, acc, d.moveTo)
                 else -> null
             }
@@ -203,7 +205,7 @@ class Repository private constructor(private val ctx: Context) {
                 return true
             }
         } catch (e: Exception) {
-            android.util.Log.w("Mailwerk", "Regel konnte nicht ausgeführt werden: ${friendly(e)}")
+            android.util.Log.w("Mailwerk", tr("Regel konnte nicht ausgeführt werden: {0}", friendly(e)))
         }
         return false
     }
@@ -228,7 +230,7 @@ class Repository private constructor(private val ctx: Context) {
         if (p.fromAddr.isBlank() || p.fromAddr.equals(acc.email, true)) return
         if (prefs.vacationContactsOnly && !db.isKnownContact(p.fromAddr)) return
         if (db.vacationReplied(p.fromAddr, acc.id)) return
-        val subj = prefs.vacationSubject.ifBlank { "Abwesenheitsnotiz" } + if (p.subject.isNotBlank()) ": ${p.subject}" else ""
+        val subj = prefs.vacationSubject.ifBlank { tr("Abwesenheitsnotiz") } + if (p.subject.isNotBlank()) ": ${p.subject}" else ""
         c.sendAutoReply(p.fromAddr, subj, prefs.vacationText, p.messageId, db.folderByRole(acc.id, FolderRole.SENT)?.fullName)
         db.markVacationReplied(p.fromAddr, acc.id)
     }
@@ -270,21 +272,21 @@ class Repository private constructor(private val ctx: Context) {
         val now = System.currentTimeMillis()
         db.dueSnoozed(now).forEach { m ->
             db.updateFlags(m.id, snoozedUntil = 0, seen = false, pinned = true)
-            Notifier.reminder(ctx, m, "Wieder da: ${m.subject.ifBlank { "(kein Betreff)" }}")
+            Notifier.reminder(ctx, m, tr("Wieder da: {0}", m.subject.ifBlank { tr("(kein Betreff)") }))
         }
         db.dueReminders(now).forEach { m ->
             db.updateFlags(m.id, remindAt = 0)
             if (!db.hasReplyInThread(m.threadKey, m.date)) {
                 db.updateFlags(m.id, pinned = true)
-                Notifier.reminder(ctx, m, "Keine Antwort erhalten: ${m.subject.ifBlank { "(kein Betreff)" }}")
+                Notifier.reminder(ctx, m, tr("Keine Antwort erhalten: {0}", m.subject.ifBlank { tr("(kein Betreff)") }))
             }
         }
     }
 
     // ================================================================= Aktionen
     private suspend fun remote(m: Message, block: (MailClient, Folder) -> Unit): String? = withContext(Dispatchers.IO) {
-        val acc = db.account(m.accountId) ?: return@withContext "Konto nicht gefunden"
-        val f = db.folder(m.folderId) ?: return@withContext "Ordner nicht gefunden"
+        val acc = db.account(m.accountId) ?: return@withContext tr("Konto nicht gefunden")
+        val f = db.folder(m.folderId) ?: return@withContext tr("Ordner nicht gefunden")
         if (m.uid <= 0) return@withContext null
         try { block(client(acc), f); null } catch (e: Exception) { friendly(e) }
     }
@@ -315,14 +317,14 @@ class Repository private constructor(private val ctx: Context) {
 
     fun remindIfNoReply(m: Message, at: Long) { db.updateFlags(m.id, remindAt = at); db.notifyChanged() }
 
-    suspend fun archive(m: Message): String? = moveToRole(m, FolderRole.ARCHIVE, "Kein Archiv-Ordner gefunden")
+    suspend fun archive(m: Message): String? = moveToRole(m, FolderRole.ARCHIVE, tr("Kein Archiv-Ordner gefunden"))
 
     suspend fun delete(m: Message): String? {
         if (m.folderRole == FolderRole.TRASH) {
             db.deleteMessage(m.id); db.notifyChanged()
             return remote(m) { c, f -> c.deleteForever(f.fullName, m.uid) }
         }
-        return moveToRole(m, FolderRole.TRASH, "Kein Papierkorb gefunden")
+        return moveToRole(m, FolderRole.TRASH, tr("Kein Papierkorb gefunden"))
     }
 
     /** Spam: in den Spam-Ordner und den Absender sperren – künftige Mails gehen direkt in Spam. */
@@ -330,7 +332,7 @@ class Repository private constructor(private val ctx: Context) {
         if (blockSender && m.fromAddr.isNotBlank()) db.block(m.fromAddr, domain = false)
         db.folderByRole(m.accountId, FolderRole.JUNK)?.let { return moveTo(m, it) }
         // Kein Spam-Ordner vorhanden -> anlegen
-        val acc = db.account(m.accountId) ?: return "Konto nicht gefunden"
+        val acc = db.account(m.accountId) ?: return tr("Konto nicht gefunden")
         return withContext(Dispatchers.IO) {
             try {
                 val c = client(acc)
@@ -369,7 +371,7 @@ class Repository private constructor(private val ctx: Context) {
 
     /** Abmelden von Newslettern mit einem Tipp (RFC 8058 One-Click, sonst Mail an mailto-Adresse). */
     suspend fun unsubscribe(m: Message): Pair<Boolean, String> = withContext(Dispatchers.IO) {
-        val lines = m.unsubscribe?.lines()?.filter { it.isNotBlank() } ?: return@withContext false to "Keine Abmeldung möglich"
+        val lines = m.unsubscribe?.lines()?.filter { it.isNotBlank() } ?: return@withContext false to tr("Keine Abmeldung möglich")
         val http = lines.firstOrNull { it.startsWith("http", true) }
         val mailto = lines.firstOrNull { it.startsWith("mailto:", true) }
         try {
@@ -379,7 +381,7 @@ class Repository private constructor(private val ctx: Context) {
                 conn.setRequestProperty("Content-Type", "application/x-www-form-urlencoded")
                 conn.outputStream.use { it.write("List-Unsubscribe=One-Click".toByteArray()) }
                 val code = conn.responseCode; conn.disconnect()
-                if (code in 200..299) { db.setCategoryForSender(m.fromAddr, Category.NEWSLETTER); return@withContext true to "Abgemeldet ✓" }
+                if (code in 200..299) { db.setCategoryForSender(m.fromAddr, Category.NEWSLETTER); return@withContext true to tr("Abgemeldet ✓") }
             }
             if (mailto != null) {
                 val acc = db.account(m.accountId)!!
@@ -388,10 +390,10 @@ class Repository private constructor(private val ctx: Context) {
                     ?.let { java.net.URLDecoder.decode(it, "UTF-8") } ?: "unsubscribe"
                 val c = client(acc)
                 c.send(c.buildMessage(addr, "", "", subj, "unsubscribe", emptyList(), null, null), null)
-                return@withContext true to "Abmelde-Mail gesendet ✓"
+                return@withContext true to tr("Abmelde-Mail gesendet ✓")
             }
             if (http != null) return@withContext false to http // UI öffnet die Seite im Browser
-            false to "Abmeldung fehlgeschlagen"
+            false to tr("Abmeldung fehlgeschlagen")
         } catch (e: Exception) { false to friendly(e) }
     }
 
@@ -410,7 +412,7 @@ class Repository private constructor(private val ctx: Context) {
     /** Versendet sofort (vom SendWorker aufgerufen). */
     suspend fun sendNow(outboxId: Long): String? = withContext(Dispatchers.IO) {
         val o = db.outboxItem(outboxId) ?: return@withContext null
-        val acc = db.account(o.accountId) ?: return@withContext "Konto nicht gefunden"
+        val acc = db.account(o.accountId) ?: return@withContext tr("Konto nicht gefunden")
         db.saveOutbox(o.copy(status = OutboxStatus.SENDING))
         try {
             val atts = o.attachments.lines().filter { it.isNotBlank() }.map { readUri(Uri.parse(it)) }
@@ -448,7 +450,7 @@ class Repository private constructor(private val ctx: Context) {
         }
         val mime = cr.getType(uri) ?: MimeTypeMap.getSingleton().getMimeTypeFromExtension(name.substringAfterLast('.', "").lowercase())
             ?: "application/octet-stream"
-        val bytes = cr.openInputStream(uri)?.use { it.readBytes() } ?: error("Anhang $name kann nicht gelesen werden")
+        val bytes = cr.openInputStream(uri)?.use { it.readBytes() } ?: error(tr("Anhang {0} kann nicht gelesen werden", name))
         return OutgoingAttachment(name, mime, bytes)
     }
 

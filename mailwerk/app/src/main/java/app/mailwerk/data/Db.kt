@@ -1,5 +1,7 @@
 package app.mailwerk.data
 
+import app.mailwerk.tr
+
 import android.content.ContentValues
 import android.content.Context
 import android.database.Cursor
@@ -61,9 +63,9 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
             send_at INTEGER, status TEXT, error TEXT, remind_days INTEGER DEFAULT 0)""")
         // Ein paar nützliche Vorlagen zum Start
         listOf(
-            "Danke!" to "Vielen Dank für Ihre Nachricht! Ich melde mich in Kürze ausführlich.",
-            "Erhalten" to "Hallo,\n\nich habe Ihre Nachricht erhalten und kümmere mich darum.\n\nViele Grüße",
-            "Terminvorschlag" to "Hallo,\n\ngerne können wir einen Termin vereinbaren. Wie wäre es mit …?\n\nViele Grüße",
+            tr("Danke!") to tr("Vielen Dank für Ihre Nachricht! Ich melde mich in Kürze ausführlich."),
+            tr("Erhalten") to tr("Hallo,\n\nich habe Ihre Nachricht erhalten und kümmere mich darum.\n\nViele Grüße"),
+            tr("Terminvorschlag") to tr("Hallo,\n\ngerne können wir einen Termin vereinbaren. Wie wäre es mit …?\n\nViele Grüße"),
         ).forEach { (n, b) -> db.insert("templates", null, ContentValues().apply { put("name", n); put("body", b) }) }
     }
 

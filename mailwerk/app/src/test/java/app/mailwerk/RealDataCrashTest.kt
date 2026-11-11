@@ -23,6 +23,7 @@ import org.robolectric.annotation.GraphicsMode
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w393dp-h852dp-xhdpi")
 class RealDataCrashTest {
+    @org.junit.Before fun deLocale() { java.util.Locale.setDefault(java.util.Locale.GERMAN) }
     @get:Rule val rule = createEmptyComposeRule()
 
     @Test fun hugeMailsAndFutureDatesDoNotCrash() {

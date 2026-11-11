@@ -1,5 +1,7 @@
 package app.mailwerk.ui
 
+import app.mailwerk.tr
+
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -62,7 +64,7 @@ import app.mailwerk.sync.Scheduler
 internal fun SubScaffold(vm: MainViewModel, title: String, fab: @Composable () -> Unit = {}, content: @Composable (Modifier) -> Unit) {
     Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = {
         TopAppBar(title = { Text(title, style = MaterialTheme.typography.headlineSmall) },
-            colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background), navigationIcon = { IconButton(onClick = { vm.pop() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Zurück") } })
+            colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background), navigationIcon = { IconButton(onClick = { vm.pop() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, tr("Zurück")) } })
     }, floatingActionButton = fab) { pad -> content(Modifier.padding(pad).fillMaxSize()) }
 }
 
@@ -74,87 +76,87 @@ fun SettingsScreen(vm: MainViewModel) {
     fun changed() { v++; vm.settingsVersion.value++ }
     val accounts by vm.accounts.collectAsState()
 
-    SubScaffold(vm, "Einstellungen") { mod ->
+    SubScaffold(vm, tr("Einstellungen")) { mod ->
         key(v) {
             Column(mod.verticalScroll(rememberScrollState())) {
-                SectionTitle("Konten")
+                SectionTitle(tr("Konten"))
                 accounts.forEach { a ->
-                    ListItem(headlineContent = { Text(a.email) }, supportingContent = { Text("${a.imapHost} · Signatur & Server bearbeiten") },
+                    ListItem(headlineContent = { Text(a.email) }, supportingContent = { Text(tr("{0} · Signatur & Server bearbeiten", a.imapHost)) },
                         leadingContent = { Avatar(a.name, a.email) }, modifier = Modifier.clickable { vm.push(Screen.AccountSetup(a.id)) })
                 }
                 vm.pendingPresets.collectAsState().value.forEach { pr ->
-                    ListItem(headlineContent = { Text(pr.email) }, supportingContent = { Text("Passwort fehlt noch – tippen zum Verbinden", color = MaterialTheme.colorScheme.tertiary) },
+                    ListItem(headlineContent = { Text(pr.email) }, supportingContent = { Text(tr("Passwort fehlt noch – tippen zum Verbinden"), color = MaterialTheme.colorScheme.tertiary) },
                         leadingContent = { Avatar(pr.name, pr.email) }, modifier = Modifier.clickable { vm.push(Screen.AccountSetup()) })
                 }
-                ListItem(headlineContent = { Text("Konto hinzufügen") }, leadingContent = { Icon(Icons.Outlined.Add, null) },
+                ListItem(headlineContent = { Text(tr("Konto hinzufügen")) }, leadingContent = { Icon(Icons.Outlined.Add, null) },
                     modifier = Modifier.clickable { vm.push(Screen.AccountSetup()) })
 
-                SectionTitle("Posteingang")
-                Toggle("Smart Inbox", "Mails automatisch in Wichtig / Newsletter / Benachrichtigungen sortieren", p.smartInbox) {
+                SectionTitle(tr("Posteingang"))
+                Toggle(tr("Smart Inbox"), tr("Mails automatisch in Wichtig / Newsletter / Benachrichtigungen sortieren"), p.smartInbox) {
                     p.smartInbox = it; vm.category.value = if (it) app.mailwerk.data.Category.PEOPLE else null; changed()
                 }
-                Toggle("Als Unterhaltungen gruppieren", "Antworten zum selben Thema zusammenfassen", p.groupThreads) { p.groupThreads = it; changed() }
-                Choice("Nach rechts wischen", SwipeAction.entries, p.swipeRight, { it.label }) { p.swipeRight = it; changed() }
-                Choice("Nach links wischen", SwipeAction.entries, p.swipeLeft, { it.label }) { p.swipeLeft = it; changed() }
+                Toggle(tr("Als Unterhaltungen gruppieren"), tr("Antworten zum selben Thema zusammenfassen"), p.groupThreads) { p.groupThreads = it; changed() }
+                Choice(tr("Nach rechts wischen"), SwipeAction.entries, p.swipeRight, { it.label }) { p.swipeRight = it; changed() }
+                Choice(tr("Nach links wischen"), SwipeAction.entries, p.swipeLeft, { it.label }) { p.swipeLeft = it; changed() }
 
-                SectionTitle("Datenschutz")
-                Toggle("Externe Bilder blockieren", "Verhindert, dass Absender sehen, wann und wo du Mails öffnest. Tracking-Pixel werden immer entfernt.",
+                SectionTitle(tr("Datenschutz"))
+                Toggle(tr("Externe Bilder blockieren"), tr("Verhindert, dass Absender sehen, wann und wo du Mails öffnest. Tracking-Pixel werden immer entfernt."),
                     p.blockRemoteImages) { p.blockRemoteImages = it; changed() }
 
-                SectionTitle("Regeln & Schutz")
+                SectionTitle(tr("Regeln & Schutz"))
                 val rulesCount = remember(v) { vm.db.rules().size }
                 val blockCount = remember(v) { vm.db.blocklist().size }
-                ListItem(headlineContent = { Text("Regeln & Filter") }, supportingContent = { Text(if (rulesCount == 0) "Mails automatisch verschieben, markieren, weiterleiten …" else "$rulesCount Regel(n)") },
+                ListItem(headlineContent = { Text(tr("Regeln & Filter")) }, supportingContent = { Text(if (rulesCount == 0) tr("Mails automatisch verschieben, markieren, weiterleiten …") else tr("{0} Regel(n)", rulesCount)) },
                     leadingContent = { Icon(Icons.Outlined.Rule, null) }, modifier = Modifier.clickable { vm.push(Screen.Rules()) })
-                ListItem(headlineContent = { Text("Spam & gesperrte Absender") }, supportingContent = { Text(if (blockCount == 0) "Noch niemand gesperrt" else "$blockCount gesperrt – landen direkt im Spam") },
+                ListItem(headlineContent = { Text(tr("Spam & gesperrte Absender")) }, supportingContent = { Text(if (blockCount == 0) tr("Noch niemand gesperrt") else tr("{0} gesperrt – landen direkt im Spam", blockCount)) },
                     leadingContent = { Icon(Icons.Outlined.Block, null) }, modifier = Modifier.clickable { vm.push(Screen.Blocklist) })
-                ListItem(headlineContent = { Text("Abwesenheitsnotiz") }, supportingContent = { Text(if (p.vacationActive()) "Aktiv" else if (p.vacationOn) "Geplant" else "Aus") },
+                ListItem(headlineContent = { Text(tr("Abwesenheitsnotiz")) }, supportingContent = { Text(if (p.vacationActive()) tr("Aktiv") else if (p.vacationOn) tr("Geplant") else tr("Aus")) },
                     leadingContent = { Icon(Icons.Outlined.BeachAccess, null) }, modifier = Modifier.clickable { vm.push(Screen.Vacation) })
 
-                SectionTitle("Senden")
-                Choice("„Senden rückgängig“-Zeit", listOf(0, 5, 10, 20, 30), p.undoSeconds, { if (it == 0) "Aus" else "$it s" }) { p.undoSeconds = it; changed() }
-                ListItem(headlineContent = { Text("Vorlagen (Schnellantworten)") }, modifier = Modifier.clickable { vm.push(Screen.Templates) })
+                SectionTitle(tr("Senden"))
+                Choice(tr("„Senden rückgängig“-Zeit"), listOf(0, 5, 10, 20, 30), p.undoSeconds, { if (it == 0) tr("Aus") else "$it s" }) { p.undoSeconds = it; changed() }
+                ListItem(headlineContent = { Text(tr("Vorlagen (Schnellantworten)")) }, modifier = Modifier.clickable { vm.push(Screen.Templates) })
 
-                SectionTitle("Abgleich & Benachrichtigungen")
-                Toggle("Sofort-Benachrichtigung (Push)", "Neue Mails erscheinen in Sekunden (IMAP IDLE). Braucht etwas mehr Akku als der Abruf alle 15 Minuten.", p.pushEnabled) {
+                SectionTitle(tr("Abgleich & Benachrichtigungen"))
+                Toggle(tr("Sofort-Benachrichtigung (Push)"), tr("Neue Mails erscheinen in Sekunden (IMAP IDLE). Braucht etwas mehr Akku als der Abruf alle 15 Minuten."), p.pushEnabled) {
                     p.pushEnabled = it; if (it) app.mailwerk.sync.PushService.ensure(ctx) else app.mailwerk.sync.PushService.stop(ctx); changed()
                 }
                 val pm = ctx.getSystemService(android.os.PowerManager::class.java)
                 if (p.pushEnabled && !pm.isIgnoringBatteryOptimizations(ctx.packageName)) ListItem(
-                    headlineContent = { Text("Akku-Optimierung ausschalten") },
-                    supportingContent = { Text("Empfohlen, damit Android die Push-Verbindung nicht im Standby trennt.", color = MaterialTheme.colorScheme.tertiary) },
+                    headlineContent = { Text(tr("Akku-Optimierung ausschalten")) },
+                    supportingContent = { Text(tr("Empfohlen, damit Android die Push-Verbindung nicht im Standby trennt."), color = MaterialTheme.colorScheme.tertiary) },
                     modifier = Modifier.clickable { requestBatteryExemption(ctx) })
-                Choice("Neue Mails abrufen", listOf(15, 30, 60, 180, 0), p.syncMinutes, { if (it == 0) "Nur manuell" else if (it < 60) "alle $it Min." else "alle ${it / 60} Std." }) {
+                Choice(tr("Neue Mails abrufen"), listOf(15, 30, 60, 180, 0), p.syncMinutes, { if (it == 0) tr("Nur manuell") else if (it < 60) tr("alle {0} Min.", it) else tr("alle {0} Std.", it / 60) }) {
                     p.syncMinutes = it; Scheduler.schedulePeriodic(ctx, it); changed()
                 }
-                Choice("Zeitraum beim ersten Laden", listOf(14, 30, 60, 180, 365), p.initialSyncDays, { "$it Tage" }) { p.initialSyncDays = it; changed() }
-                Toggle("Nur bei wichtigen Mails benachrichtigen", "Keine Störung durch Newsletter und automatische Benachrichtigungen", p.notifyOnlyImportant) {
+                Choice(tr("Zeitraum beim ersten Laden"), listOf(14, 30, 60, 180, 365), p.initialSyncDays, { tr("{0} Tage", it) }) { p.initialSyncDays = it; changed() }
+                Toggle(tr("Nur bei wichtigen Mails benachrichtigen"), tr("Keine Störung durch Newsletter und automatische Benachrichtigungen"), p.notifyOnlyImportant) {
                     p.notifyOnlyImportant = it; changed()
                 }
 
-                SectionTitle("Darstellung")
-                Choice("Design", ThemeMode.entries, p.theme, { it.label }) { p.theme = it; changed() }
-                if (android.os.Build.VERSION.SDK_INT >= 31) Toggle("Farben vom Hintergrundbild", "Material You statt der Mailwerk-Farben", p.dynamicColor) {
+                SectionTitle(tr("Darstellung"))
+                Choice(tr("Design"), ThemeMode.entries, p.theme, { it.label }) { p.theme = it; changed() }
+                if (android.os.Build.VERSION.SDK_INT >= 31) Toggle(tr("Farben vom Hintergrundbild"), tr("Material You statt der Mailwerk-Farben"), p.dynamicColor) {
                     p.dynamicColor = it; changed()
                 }
 
-                SectionTitle("App")
+                SectionTitle(tr("App"))
                 val upd by vm.update.collectAsState()
                 val prog by vm.updateProgress.collectAsState()
-                if (!app.mailwerk.sync.Updater.enabled) ListItem(headlineContent = { Text("Version ${app.mailwerk.BuildConfig.VERSION_NAME}") },
-                    supportingContent = { Text("Updates kommen über den Play Store") })
-                if (app.mailwerk.BuildConfig.PRIVACY_URL.isNotEmpty()) ListItem(headlineContent = { Text("Datenschutzerklärung") },
+                if (!app.mailwerk.sync.Updater.enabled) ListItem(headlineContent = { Text(tr("Version {0}", app.mailwerk.BuildConfig.VERSION_NAME)) },
+                    supportingContent = { Text(tr("Updates kommen über den Play Store")) })
+                if (app.mailwerk.BuildConfig.PRIVACY_URL.isNotEmpty()) ListItem(headlineContent = { Text(tr("Datenschutzerklärung")) },
                     modifier = Modifier.clickable { openUrl(ctx, app.mailwerk.BuildConfig.PRIVACY_URL) })
-                if (app.mailwerk.sync.Updater.enabled) ListItem(headlineContent = { Text("Version ${app.mailwerk.BuildConfig.VERSION_NAME}") },
+                if (app.mailwerk.sync.Updater.enabled) ListItem(headlineContent = { Text(tr("Version {0}", app.mailwerk.BuildConfig.VERSION_NAME)) },
                     supportingContent = { Text(when {
-                        prog != null -> "Update wird geladen … ${((prog ?: 0f) * 100).toInt()} %"
-                        upd != null -> "Version ${upd!!.versionName} verfügbar – tippen zum Installieren"
-                        else -> "Tippen, um nach Updates zu suchen"
+                        prog != null -> tr("Update wird geladen … {0} %", ((prog ?: 0f) * 100).toInt())
+                        upd != null -> tr("Version {0} verfügbar – tippen zum Installieren", upd!!.versionName)
+                        else -> tr("Tippen, um nach Updates zu suchen")
                     }) },
                     modifier = Modifier.clickable { if (upd != null) vm.installUpdate() else vm.checkUpdate(manual = true) })
-                if (app.mailwerk.sync.Updater.enabled) Toggle("Automatisch nach Updates suchen", null, p.autoUpdateCheck) { p.autoUpdateCheck = it; changed() }
+                if (app.mailwerk.sync.Updater.enabled) Toggle(tr("Automatisch nach Updates suchen"), null, p.autoUpdateCheck) { p.autoUpdateCheck = it; changed() }
                 HorizontalDivider(Modifier.padding(top = 16.dp))
-                Text("Mailwerk 1.0 · Alle Daten bleiben auf deinem Gerät und bei deinem Mail-Anbieter. Keine Cloud, keine Werbung, kein Tracking.",
+                Text(tr("Mailwerk {0} · Alle Daten bleiben auf deinem Gerät und bei deinem Mail-Anbieter. Keine Cloud, keine Werbung, kein Tracking.", app.mailwerk.BuildConfig.VERSION_NAME),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))
                 Spacer(Modifier.height(40.dp))
             }
@@ -200,24 +202,24 @@ private fun <T> Choice(title: String, options: List<T>, value: T, label: (T) -> 
 fun OutboxScreen(vm: MainViewModel) {
     val changes by vm.db.changes.collectAsState()
     val items = remember(changes) { vm.db.outbox() }
-    SubScaffold(vm, "Postausgang & Entwürfe") { mod ->
-        if (items.isEmpty()) Column(mod.padding(32.dp)) { Text("Keine geplanten Mails oder Entwürfe.") }
+    SubScaffold(vm, tr("Postausgang & Entwürfe")) { mod ->
+        if (items.isEmpty()) Column(mod.padding(32.dp)) { Text(tr("Keine geplanten Mails oder Entwürfe.")) }
         else LazyColumn(mod) {
             items(items, key = { it.id }) { o ->
                 val (icon, info, color) = when (o.status) {
-                    OutboxStatus.SCHEDULED -> Triple(Icons.Outlined.Schedule, "Geplant: ${MainViewModel.fmt(o.sendAt)}", MaterialTheme.colorScheme.primary)
-                    OutboxStatus.FAILED -> Triple(Icons.Outlined.ErrorOutline, "Fehler: ${o.error}", Color(0xFFC62828))
-                    OutboxStatus.SENDING -> Triple(Icons.Outlined.Schedule, "Wird gesendet …", MaterialTheme.colorScheme.primary)
-                    else -> Triple(Icons.Outlined.Drafts, "Entwurf", MaterialTheme.colorScheme.onSurfaceVariant)
+                    OutboxStatus.SCHEDULED -> Triple(Icons.Outlined.Schedule, tr("Geplant: {0}", MainViewModel.fmt(o.sendAt)), MaterialTheme.colorScheme.primary)
+                    OutboxStatus.FAILED -> Triple(Icons.Outlined.ErrorOutline, tr("Fehler: {0}", o.error), Color(0xFFC62828))
+                    OutboxStatus.SENDING -> Triple(Icons.Outlined.Schedule, tr("Wird gesendet …"), MaterialTheme.colorScheme.primary)
+                    else -> Triple(Icons.Outlined.Drafts, tr("Entwurf"), MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                ListItem(headlineContent = { Text(o.subject.ifBlank { "(kein Betreff)" }) },
-                    supportingContent = { Column { Text("An: ${o.to}"); Text(info, color = color) } },
+                ListItem(headlineContent = { Text(o.subject.ifBlank { tr("(kein Betreff)") }) },
+                    supportingContent = { Column { Text(tr("An: {0}", o.to)); Text(info, color = color) } },
                     leadingContent = { Icon(icon, null, tint = color) },
                     trailingContent = {
                         Row {
-                            if (o.status == OutboxStatus.FAILED) IconButton(onClick = { vm.retry(o) }) { Icon(Icons.Outlined.Refresh, "Erneut senden") }
+                            if (o.status == OutboxStatus.FAILED) IconButton(onClick = { vm.retry(o) }) { Icon(Icons.Outlined.Refresh, tr("Erneut senden")) }
                             IconButton(onClick = { app.mailwerk.sync.Scheduler.cancelSend(vm.getApplication(), o.id); vm.db.deleteOutbox(o.id) }) {
-                                Icon(Icons.Outlined.Delete, "Löschen")
+                                Icon(Icons.Outlined.Delete, tr("Löschen"))
                             }
                         }
                     },
@@ -233,13 +235,13 @@ fun TemplatesScreen(vm: MainViewModel) {
     val changes by vm.db.changes.collectAsState()
     val list = remember(changes) { vm.db.templates() }
     var edit by remember { mutableStateOf<Template?>(null) }
-    SubScaffold(vm, "Vorlagen", fab = {
-        FloatingActionButton(onClick = { edit = Template(name = "", body = "") }) { Icon(Icons.Outlined.Add, "Neue Vorlage") }
+    SubScaffold(vm, tr("Vorlagen"), fab = {
+        FloatingActionButton(onClick = { edit = Template(name = "", body = "") }) { Icon(Icons.Outlined.Add, tr("Neue Vorlage")) }
     }) { mod ->
         LazyColumn(mod) {
             items(list, key = { it.id }) { t ->
                 ListItem(headlineContent = { Text(t.name) }, supportingContent = { Text(t.body, maxLines = 2) },
-                    trailingContent = { IconButton(onClick = { vm.db.deleteTemplate(t.id) }) { Icon(Icons.Outlined.Delete, "Löschen") } },
+                    trailingContent = { IconButton(onClick = { vm.db.deleteTemplate(t.id) }) { Icon(Icons.Outlined.Delete, tr("Löschen")) } },
                     modifier = Modifier.clickable { edit = t })
             }
         }
@@ -247,14 +249,14 @@ fun TemplatesScreen(vm: MainViewModel) {
     edit?.let { t ->
         var name by remember(t) { mutableStateOf(t.name) }
         var body by remember(t) { mutableStateOf(t.body) }
-        AlertDialog(onDismissRequest = { edit = null }, title = { Text(if (t.id == 0L) "Neue Vorlage" else "Vorlage bearbeiten") },
+        AlertDialog(onDismissRequest = { edit = null }, title = { Text(if (t.id == 0L) tr("Neue Vorlage") else tr("Vorlage bearbeiten")) },
             text = {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(body, { body = it }, label = { Text("Text") }, minLines = 4, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(name, { name = it }, label = { Text(tr("Name")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    OutlinedTextField(body, { body = it }, label = { Text(tr("Text")) }, minLines = 4, modifier = Modifier.fillMaxWidth())
                 }
             },
-            confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { vm.db.saveTemplate(t.copy(name = name, body = body)); edit = null }) { Text("Speichern") } },
-            dismissButton = { TextButton(onClick = { edit = null }) { Text("Abbrechen") } })
+            confirmButton = { TextButton(enabled = name.isNotBlank(), onClick = { vm.db.saveTemplate(t.copy(name = name, body = body)); edit = null }) { Text(tr("Speichern")) } },
+            dismissButton = { TextButton(onClick = { edit = null }) { Text(tr("Abbrechen")) } })
     }
 }

@@ -1,5 +1,7 @@
 package app.mailwerk.sync
 
+import app.mailwerk.tr
+
 import android.app.Notification
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -51,7 +53,7 @@ class PushService : Service() {
 
     override fun onCreate() {
         super.onCreate()
-        val n = statusNotification("Verbinde …")
+        val n = statusNotification(tr("Verbinde …"))
         if (Build.VERSION.SDK_INT >= 34) startForeground(NOTIF_ID, n, ServiceInfo.FOREGROUND_SERVICE_TYPE_REMOTE_MESSAGING)
         else startForeground(NOTIF_ID, n)
         val db = Db.get(this)
@@ -76,7 +78,7 @@ class PushService : Service() {
             if (existing != null && existing.first == key) continue
             existing?.second?.stop()
             val repo = Repository.get(this)
-            val w = IdleWatcher(a, secret = { Db.get(this).account(a.id)?.let { repo.secretFor(it) } ?: error("Konto entfernt") },
+            val w = IdleWatcher(a, secret = { Db.get(this).account(a.id)?.let { repo.secretFor(it) } ?: error(tr("Konto entfernt")) },
                 onNewMail = { scheduleSync() }, onState = { st -> states[a.email] = st; refreshStatus() })
             watchers[a.id] = key to w
             w.start()
@@ -119,17 +121,25 @@ class PushService : Service() {
     private fun refreshStatus() {
         val ok = states.values.count { it.startsWith("verbunden") }
         val text = when {
-            states.isEmpty() -> "Verbinde …"
-            ok == states.size -> if (ok == 1) "Sofort-Benachrichtigung aktiv" else "Sofort-Benachrichtigung aktiv · $ok Konten"
-            else -> states.entries.joinToString(" · ") { "${it.key}: ${it.value}" }
+            states.isEmpty() -> tr("Verbinde …")
+            ok == states.size -> if (ok == 1) tr("Sofort-Benachrichtigung aktiv") else tr("Sofort-Benachrichtigung aktiv · {0} Konten", ok)
+            else -> states.entries.joinToString(" · ") { "${it.key}: ${stateText(it.value)}" }
         }
         getSystemService(NotificationManager::class.java).notify(NOTIF_ID, statusNotification(text))
+    }
+
+    /** Statustexte des IdleWatchers (intern deutsch) für die Anzeige übersetzen. */
+    private fun stateText(s: String): String {
+        Regex("^getrennt: (.*) – neuer Versuch in (\\d+)s$").find(s)?.let { m ->
+            return tr("getrennt: {0} – neuer Versuch in {1}s", m.groupValues[1], m.groupValues[2])
+        }
+        return tr(s)
     }
 
     private fun statusNotification(text: String): Notification {
         val nm = getSystemService(NotificationManager::class.java)
         if (nm.getNotificationChannel(CHANNEL) == null) nm.createNotificationChannel(
-            NotificationChannel(CHANNEL, "Push-Verbindung (kann ausgeblendet werden)", NotificationManager.IMPORTANCE_MIN).apply { setShowBadge(false) })
+            NotificationChannel(CHANNEL, tr("Push-Verbindung (kann ausgeblendet werden)"), NotificationManager.IMPORTANCE_MIN).apply { setShowBadge(false) })
         val open = PendingIntent.getActivity(this, 1, Intent(this, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         return NotificationCompat.Builder(this, CHANNEL)
             .setSmallIcon(R.drawable.ic_notification).setContentTitle("Mailwerk").setContentText(text)

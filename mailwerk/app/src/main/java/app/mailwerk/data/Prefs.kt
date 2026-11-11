@@ -1,9 +1,11 @@
 package app.mailwerk.data
 
+import app.mailwerk.tr
+
 import android.content.Context
 
-enum class SwipeAction(val label: String) { ARCHIVE("Archivieren"), DELETE("Löschen"), SNOOZE("Später"), READ("Gelesen/Ungelesen"), PIN("Anheften"), NONE("Nichts") }
-enum class ThemeMode(val label: String) { SYSTEM("System"), LIGHT("Hell"), DARK("Dunkel") }
+enum class SwipeAction(val label: String) { ARCHIVE(tr("Archivieren")), DELETE(tr("Löschen")), SNOOZE(tr("Später")), READ(tr("Gelesen/Ungelesen")), PIN(tr("Anheften")), NONE(tr("Nichts")) }
+enum class ThemeMode(val label: String) { SYSTEM("System"), LIGHT(tr("Hell")), DARK(tr("Dunkel")) }
 
 class Prefs(ctx: Context) {
     private val p = ctx.getSharedPreferences("mailwerk", Context.MODE_PRIVATE)
@@ -73,10 +75,10 @@ class Prefs(ctx: Context) {
         get() = p.getLong("vac_until", 0)
         set(v) = p.edit().putLong("vac_until", v).apply()
     var vacationSubject: String
-        get() = p.getString("vac_subject", "Abwesenheitsnotiz")!!
+        get() = p.getString("vac_subject", tr("Abwesenheitsnotiz"))!!
         set(v) = p.edit().putString("vac_subject", v).apply()
     var vacationText: String
-        get() = p.getString("vac_text", "Hallo,\n\nvielen Dank für Ihre Nachricht. Ich bin derzeit nicht erreichbar und melde mich nach meiner Rückkehr.\n\nViele Grüße")!!
+        get() = p.getString("vac_text", tr("Hallo,\n\nvielen Dank für Ihre Nachricht. Ich bin derzeit nicht erreichbar und melde mich nach meiner Rückkehr.\n\nViele Grüße"))!!
         set(v) = p.edit().putString("vac_text", v).apply()
     var vacationContactsOnly: Boolean
         get() = p.getBoolean("vac_contacts", false)

@@ -31,6 +31,7 @@ import java.util.Properties
 /** Ende-zu-Ende: Regeln, Sperrliste, Weiterleitung und Abwesenheitsnotiz gegen einen echten IMAP/SMTP-Server. */
 @RunWith(RobolectricTestRunner::class)
 class RulesIntegrationTest {
+    @org.junit.Before fun deLocale() { java.util.Locale.setDefault(java.util.Locale.GERMAN) }
     private val gm = GreenMail(arrayOf(ServerSetup(3144, null, "imap"), ServerSetup(3026, null, "smtp"))).also { it.start() }
     @After fun stop() { gm.stop() }
 

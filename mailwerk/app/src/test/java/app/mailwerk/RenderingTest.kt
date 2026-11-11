@@ -10,6 +10,7 @@ import java.io.File
 import java.util.Base64
 
 class RenderingTest {
+    @org.junit.Before fun deLocale() { java.util.Locale.setDefault(java.util.Locale.GERMAN) }
     private fun b64(b: ByteArray) = Base64.getEncoder().encodeToString(b)
 
     @Test fun emojiSplitAcrossEncodedWords() {

@@ -19,6 +19,7 @@ import java.io.File
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w393dp-h852dp-xhdpi")
 class SetupScreenshotTest {
+    @org.junit.Before fun deLocale() { java.util.Locale.setDefault(java.util.Locale.GERMAN) }
     @get:Rule val rule = createAndroidComposeRule<MainActivity>()
 
     private fun shot(name: String) {

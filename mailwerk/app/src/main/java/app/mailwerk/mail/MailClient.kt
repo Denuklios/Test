@@ -1,5 +1,7 @@
 package app.mailwerk.mail
 
+import app.mailwerk.tr
+
 import app.mailwerk.data.Account
 import app.mailwerk.data.FolderRole
 import app.mailwerk.data.Security
@@ -131,11 +133,11 @@ class MailClient(private val acc: Account, private val password: String) {
     /** Prüft IMAP- und SMTP-Anmeldung. Wirft eine verständliche Exception bei Fehlern. */
     fun test() {
         try { withStore { it.getFolder("INBOX").exists() } }
-        catch (e: Exception) { throw IllegalStateException("Posteingangsserver (IMAP): ${friendly(e)}", e) }
+        catch (e: Exception) { throw IllegalStateException(tr("Posteingangsserver (IMAP): {0}", friendly(e)), e) }
         try {
             val t = session.transport
             t.connect(acc.smtpHost, acc.smtpPort, acc.username, password); t.close()
-        } catch (e: Exception) { throw IllegalStateException("Postausgangsserver (SMTP): ${friendly(e)}", e) }
+        } catch (e: Exception) { throw IllegalStateException(tr("Postausgangsserver (SMTP): {0}", friendly(e)), e) }
     }
 
     fun listFolders(store: Store): List<RemoteFolder> {
@@ -152,7 +154,7 @@ class MailClient(private val acc: Account, private val password: String) {
                 "\\junk" in attrs -> FolderRole.JUNK
                 else -> guessRole(f.name)
             }
-            val display = if (role == FolderRole.INBOX) "Posteingang" else f.name
+            val display = if (role == FolderRole.INBOX) tr("Posteingang") else f.name
             result += RemoteFolder(f.fullName, display, role, selectable)
         }
         // pro Rolle nur einen Ordner behalten (der mit Spezial-Attribut gewinnt, sonst der erste)
@@ -266,9 +268,9 @@ class MailClient(private val acc: Account, private val password: String) {
             uid = folder.getUID(m), messageId = runCatching { (m as MimeMessage).messageID }.getOrNull(),
             fromName = runCatching { from?.personal }.getOrNull() ?: "", fromAddr = from?.address ?: "",
             to = runCatching { addrList(m.getRecipients(Message.RecipientType.TO)) }.getOrDefault(""), cc = "", replyTo = "",
-            subject = runCatching { m.subject }.getOrNull() ?: "(Betreff nicht lesbar)",
+            subject = runCatching { m.subject }.getOrNull() ?: tr("(Betreff nicht lesbar)"),
             date = runCatching { (m.receivedDate ?: m.sentDate)?.time }.getOrNull() ?: System.currentTimeMillis(),
-            html = null, text = "Diese Nachricht konnte nicht vollständig geladen werden (${e.message}). Bitte im Webmail öffnen.",
+            html = null, text = tr("Diese Nachricht konnte nicht vollständig geladen werden ({0}). Bitte im Webmail öffnen.", e.message),
             seen = runCatching { m.isSet(Flags.Flag.SEEN) }.getOrDefault(false), flagged = false,
             headers = emptyMap(), attachments = emptyList(), inReplyTo = null, references = null,
         )
@@ -306,17 +308,17 @@ class MailClient(private val acc: Account, private val password: String) {
                     for (i in 0 until mp.count) walk(mp.getBodyPart(i), if (path.isEmpty()) "$i" else "$path.$i")
                 }
                 type.startsWith("message/rfc822") && disp != Part.ATTACHMENT -> {
-                    attachments += ParsedAttachment(path, fileName ?: "Weitergeleitete Nachricht.eml", "message/rfc822", p.size.toLong().coerceAtLeast(0))
+                    attachments += ParsedAttachment(path, fileName ?: tr("Weitergeleitete Nachricht.eml"), "message/rfc822", p.size.toLong().coerceAtLeast(0))
                 }
                 disp == Part.ATTACHMENT || (fileName != null && !type.startsWith("image/") && !type.startsWith("text/")) ->
-                    attachments += ParsedAttachment(path, fileName ?: "Anhang", type.substringBefore(';').trim(), p.size.toLong().coerceAtLeast(0))
+                    attachments += ParsedAttachment(path, fileName ?: tr("Anhang"), type.substringBefore(';').trim(), p.size.toLong().coerceAtLeast(0))
                 type.startsWith("image/") -> {
                     val cid = (p as? MimeBodyPart)?.contentID?.trim('<', '>', ' ')
                     if (cid != null && p.size in 0..300_000 && inlineBytes + p.size < 600_000) {
                         val bytes = p.inputStream.use { it.readBytes() }
                         inlineBytes += bytes.size
                         inline[cid] = "data:${type.substringBefore(';').trim()};base64," + Base64.getEncoder().encodeToString(bytes)
-                    } else attachments += ParsedAttachment(path, fileName ?: "Bild", type.substringBefore(';').trim(), p.size.toLong().coerceAtLeast(0))
+                    } else attachments += ParsedAttachment(path, fileName ?: tr("Bild"), type.substringBefore(';').trim(), p.size.toLong().coerceAtLeast(0))
                 }
                 type.startsWith("text/html") && disp != Part.ATTACHMENT -> if (htmlRaw == null) htmlRaw = readText(p)
                 type.startsWith("text/plain") && disp != Part.ATTACHMENT -> if (text == null) text = readText(p)
@@ -373,14 +375,14 @@ class MailClient(private val acc: Account, private val password: String) {
         val msg = MimeMessage(session)
         msg.setFrom(InternetAddress(acc.email, acc.name, "UTF-8"))
         msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to.joinToString(","), false))
-        msg.setSubject(if (subject.startsWith("WG:", true) || subject.startsWith("Fwd:", true)) subject else "WG: $subject", "UTF-8")
+        msg.setSubject(if (subject.startsWith("WG:", true) || subject.startsWith("Fwd:", true)) subject else tr("WG: {0}", subject), "UTF-8")
         msg.setHeader("X-Mailwerk-Auto", "forward")
         msg.setHeader("Auto-Submitted", "auto-forwarded")
         val mp = MimeMultipart("mixed")
-        mp.addBodyPart(MimeBodyPart().apply { setText("Automatisch weitergeleitet von ${acc.email} (Mailwerk-Regel).\nDie Originalnachricht ist angehängt.", "UTF-8") })
+        mp.addBodyPart(MimeBodyPart().apply { setText(tr("Automatisch weitergeleitet von {0} (Mailwerk-Regel).\nDie Originalnachricht ist angehängt.", acc.email), "UTF-8") })
         mp.addBodyPart(MimeBodyPart().apply {
             dataHandler = DataHandler(ByteArrayDataSource(raw, "message/rfc822"))
-            fileName = "Weitergeleitete Nachricht.eml"; disposition = Part.ATTACHMENT
+            fileName = tr("Weitergeleitete Nachricht.eml"); disposition = Part.ATTACHMENT
         })
         msg.setContent(mp); msg.sentDate = Date(); msg.saveChanges()
         send(msg, sentFolder)
@@ -422,7 +424,7 @@ class MailClient(private val acc: Account, private val password: String) {
         val f = s.getFolder(folder) as IMAPFolder
         f.open(Folder.READ_ONLY)
         try {
-            var part: Part = f.getMessageByUID(uid) ?: error("Nachricht nicht mehr auf dem Server")
+            var part: Part = f.getMessageByUID(uid) ?: error(tr("Nachricht nicht mehr auf dem Server"))
             if (path.isNotEmpty()) path.split('.').forEach { idx -> part = (part.content as Multipart).getBodyPart(idx.toInt()) }
             part.inputStream.use(sink)
         } finally { runCatching { f.close(false) } }
@@ -511,14 +513,14 @@ fun friendly(e: Throwable): String {
     val m = all.lowercase()
     return when {
         "authenticationfailed" in m || "authentication failed" in m || "invalid credentials" in m || "535" in m ||
-            "login failed" in m || "authenticate failed" in m || "[auth]" in m -> "Anmeldung fehlgeschlagen – Benutzername oder Passwort falsch (evtl. App-Passwort nötig)."
-        "unknownhost" in m -> "Server nicht gefunden – Servername prüfen oder Internetverbindung."
-        "timeout" in m || "timed out" in m -> "Zeitüberschreitung – der Server antwortet nicht (Port/Verschlüsselung prüfen)."
-        "connection refused" in m || "connectexception" in m -> "Verbindung abgelehnt – Port oder Verschlüsselung passt nicht."
-        "certificate" in m || "sslhandshake" in m || "certpath" in m -> "Zertifikatsfehler – die Verbindung ist nicht vertrauenswürdig."
-        "starttls" in m -> "Der Server unterstützt STARTTLS nicht – andere Verschlüsselung wählen."
-        "invalid addresses" in m || "addressexception" in m -> "Ungültige Empfängeradresse."
-        "message size" in m || "552" in m -> "Die Nachricht ist zu groß für den Server."
+            "login failed" in m || "authenticate failed" in m || "[auth]" in m -> tr("Anmeldung fehlgeschlagen – Benutzername oder Passwort falsch (evtl. App-Passwort nötig).")
+        "unknownhost" in m -> tr("Server nicht gefunden – Servername prüfen oder Internetverbindung.")
+        "timeout" in m || "timed out" in m -> tr("Zeitüberschreitung – der Server antwortet nicht (Port/Verschlüsselung prüfen).")
+        "connection refused" in m || "connectexception" in m -> tr("Verbindung abgelehnt – Port oder Verschlüsselung passt nicht.")
+        "certificate" in m || "sslhandshake" in m || "certpath" in m -> tr("Zertifikatsfehler – die Verbindung ist nicht vertrauenswürdig.")
+        "starttls" in m -> tr("Der Server unterstützt STARTTLS nicht – andere Verschlüsselung wählen.")
+        "invalid addresses" in m || "addressexception" in m -> tr("Ungültige Empfängeradresse.")
+        "message size" in m || "552" in m -> tr("Die Nachricht ist zu groß für den Server.")
         else -> e.message ?: e.javaClass.simpleName
     }
 }

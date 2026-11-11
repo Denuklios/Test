@@ -22,6 +22,7 @@ import java.util.Properties
 
 /** Echter IMAP/SMTP-Durchlauf gegen einen lokalen GreenMail-Server. */
 class MailClientTest {
+    @org.junit.Before fun deLocale() { java.util.Locale.setDefault(java.util.Locale.GERMAN) }
     private lateinit var gm: GreenMail
     private lateinit var acc: Account
 

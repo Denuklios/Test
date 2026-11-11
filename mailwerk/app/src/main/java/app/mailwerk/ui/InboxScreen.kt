@@ -1,5 +1,7 @@
 package app.mailwerk.ui
 
+import app.mailwerk.tr
+
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.background
 import androidx.compose.foundation.combinedClickable
@@ -112,7 +114,7 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
                     else LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 110.dp)) {
                         var lastSection = ""
                         threads.forEachIndexed { idx, t ->
-                            val section = if (t.pinned) "Angeheftet" else sectionOf(t.latest.date)
+                            val section = if (t.pinned) tr("Angeheftet") else sectionOf(t.latest.date)
                             if (section != lastSection) {
                                 lastSection = section
                                 item(key = "h_${idx}_$section") { SectionHeader(section) }
@@ -132,7 +134,7 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
     }
 
     actionsFor?.let { m -> QuickActionsSheet(vm, m, onDismiss = { actionsFor = null }, onSnooze = { actionsFor = null; snoozeFor = m }) }
-    snoozeFor?.let { m -> TimeChooser("Zurückstellen bis …", { snoozeFor = null }) { t -> vm.snooze(m, t); snoozeFor = null } }
+    snoozeFor?.let { m -> TimeChooser(tr("Zurückstellen bis …"), { snoozeFor = null }) { t -> vm.snooze(m, t); snoozeFor = null } }
 }
 
 @Composable
@@ -141,26 +143,27 @@ private fun Banners(vm: MainViewModel) {
     val syncingNow by vm.syncing.collectAsState()
     val accs by vm.accounts.collectAsState()
     accs.forEach { a ->
-        val err = remember(syncingNow, a.id) { vm.prefs.syncError(a.id) }
-        if (err != null) Banner(Icons.Outlined.CloudOff, "Abruf fehlgeschlagen: ${a.email}", err,
-            if (syncingNow) null else "Erneut", onAction = { vm.refresh() }, onClose = null)
+        val dbChanges by vm.db.changes.collectAsState()
+        val err = remember(syncingNow, dbChanges, a.id) { vm.prefs.syncError(a.id) }
+        if (err != null) Banner(Icons.Outlined.CloudOff, tr("Abruf fehlgeschlagen: {0}", a.email), err,
+            if (syncingNow) null else tr("Erneut"), onAction = { vm.refresh() }, onClose = null)
     }
     val hidden by vm.hiddenBanners.collectAsState()
     val upd by vm.update.collectAsState()
     val progress by vm.updateProgress.collectAsState()
     if (vm.prefs.vacationActive()) {
         val until = vm.prefs.vacationUntil
-        Banner(Icons.Outlined.BeachAccess, "Abwesenheitsnotiz ist aktiv",
-            if (until > 0) "Automatische Antwort bis ${MainViewModel.fmt(until)}" else "Absender erhalten eine automatische Antwort",
-            "Einstellen", onAction = { vm.push(Screen.Vacation) }, onClose = null)
+        Banner(Icons.Outlined.BeachAccess, tr("Abwesenheitsnotiz ist aktiv"),
+            if (until > 0) tr("Automatische Antwort bis {0}", MainViewModel.fmt(until)) else tr("Absender erhalten eine automatische Antwort"),
+            tr("Einstellen"), onAction = { vm.push(Screen.Vacation) }, onClose = null)
     }
     upd?.let { u ->
-        Banner(Icons.Outlined.SystemUpdate, "Mailwerk ${u.versionName} ist da",
-            if (progress != null) "Wird geladen … ${((progress ?: 0f) * 100).toInt()} %" else u.notes.ifBlank { "Neue Funktionen und Verbesserungen" },
-            if (progress != null) null else "Aktualisieren", gradient = true, onAction = { vm.installUpdate() }, onClose = null)
+        Banner(Icons.Outlined.SystemUpdate, tr("Mailwerk {0} ist da", u.versionName),
+            if (progress != null) tr("Wird geladen … {0} %", ((progress ?: 0f) * 100).toInt()) else u.notes.ifBlank { tr("Neue Funktionen und Verbesserungen") },
+            if (progress != null) null else tr("Aktualisieren"), gradient = true, onAction = { vm.installUpdate() }, onClose = null)
     }
     pending.filter { it.email !in hidden }.forEach { p ->
-        Banner(Icons.Outlined.Key, p.email, "Vorbereitet – es fehlt nur noch das Passwort.", "Verbinden",
+        Banner(Icons.Outlined.Key, p.email, tr("Vorbereitet – es fehlt nur noch das Passwort."), tr("Verbinden"),
             onAction = { vm.push(Screen.AccountSetup()) }, onClose = { vm.hiddenBanners.value = hidden + p.email })
     }
 }
@@ -183,7 +186,7 @@ private fun Banner(icon: ImageVector, title: String, text: String, action: Strin
         }
         if (action != null) Text(action, style = MaterialTheme.typography.labelLarge, color = if (gradient) Color.White else cs.tertiary,
             modifier = Modifier.padding(horizontal = 8.dp))
-        if (onClose != null) IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, "Später", tint = fg.copy(alpha = 0.6f), modifier = Modifier.size(18.dp)) }
+        if (onClose != null) IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, tr("Später"), tint = fg.copy(alpha = 0.6f), modifier = Modifier.size(18.dp)) }
         else Spacer(Modifier.width(8.dp))
     }
 }
@@ -193,18 +196,18 @@ private fun sectionOf(t: Long): String {
     val sameYear = now.get(java.util.Calendar.YEAR) == c.get(java.util.Calendar.YEAR)
     val dd = now.get(java.util.Calendar.DAY_OF_YEAR) - c.get(java.util.Calendar.DAY_OF_YEAR)
     return when {
-        t > now.timeInMillis || (sameYear && dd == 0) -> "Heute"
-        sameYear && dd == 1 -> "Gestern"
-        sameYear && dd < 7 -> "Diese Woche"
-        sameYear && now.get(java.util.Calendar.MONTH) == c.get(java.util.Calendar.MONTH) -> "Diesen Monat"
-        else -> "Früher"
+        t > now.timeInMillis || (sameYear && dd == 0) -> tr("Heute")
+        sameYear && dd == 1 -> tr("Gestern")
+        sameYear && dd < 7 -> tr("Diese Woche")
+        sameYear && now.get(java.util.Calendar.MONTH) == c.get(java.util.Calendar.MONTH) -> tr("Diesen Monat")
+        else -> tr("Früher")
     }
 }
 
 @Composable
 private fun SectionHeader(text: String) {
     Row(Modifier.padding(start = 8.dp, top = 14.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-        if (text == "Angeheftet") { Icon(Icons.Filled.PushPin, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.tertiary); Spacer(Modifier.width(6.dp)) }
+        if (text == tr("Angeheftet")) { Icon(Icons.Filled.PushPin, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.tertiary); Spacer(Modifier.width(6.dp)) }
         Text(text.uppercase(), style = MaterialTheme.typography.labelMedium.copy(letterSpacing = 1.2.sp),
             color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
@@ -213,14 +216,14 @@ private fun SectionHeader(text: String) {
 @Composable
 private fun Header(vm: MainViewModel, mailbox: Mailbox, userName: String?, onMenu: () -> Unit) {
     val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
-    val greet = when (hour) { in 5..10 -> "Guten Morgen"; in 11..17 -> "Hallo"; in 18..22 -> "Guten Abend"; else -> "Gute Nacht" }
+    val greet = when (hour) { in 5..10 -> tr("Guten Morgen"); in 11..17 -> tr("Hallo"); in 18..22 -> tr("Guten Abend"); else -> tr("Gute Nacht") }
     val first = userName?.split(' ')?.firstOrNull()?.takeIf { it.isNotBlank() }
     Row(Modifier.fillMaxWidth().padding(start = 8.dp, end = 16.dp, top = 6.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-        IconButton(onClick = onMenu) { Icon(Icons.Outlined.Menu, "Menü") }
+        IconButton(onClick = onMenu) { Icon(Icons.Outlined.Menu, tr("Menü")) }
         Column(Modifier.weight(1f).padding(start = 4.dp)) {
             val sub = (mailbox as? Mailbox.InFolder)?.accountEmail ?: (if (first != null) "$greet, $first 👋" else greet)
             Text(sub, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            Text(if (mailbox is Mailbox.Unified) "Posteingang" else mailbox.title, style = MaterialTheme.typography.headlineMedium,
+            Text(if (mailbox is Mailbox.Unified) tr("Posteingang") else mailbox.title, style = MaterialTheme.typography.headlineMedium,
                 maxLines = 1, overflow = TextOverflow.Ellipsis)
         }
         val acc = vm.accounts.value.firstOrNull()
@@ -232,9 +235,9 @@ private fun Header(vm: MainViewModel, mailbox: Mailbox, userName: String?, onMen
 private fun SearchPill(query: String, onChange: (String) -> Unit) {
     val focus = LocalFocusManager.current
     TextField(query, onChange, singleLine = true,
-        placeholder = { Text("In allen Mails suchen", style = MaterialTheme.typography.bodyLarge) },
+        placeholder = { Text(tr("In allen Mails suchen"), style = MaterialTheme.typography.bodyLarge) },
         leadingIcon = { Icon(Icons.Outlined.Search, null) },
-        trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onChange(""); focus.clearFocus() }) { Icon(Icons.Outlined.Close, "Suche leeren") } },
+        trailingIcon = { if (query.isNotEmpty()) IconButton(onClick = { onChange(""); focus.clearFocus() }) { Icon(Icons.Outlined.Close, tr("Suche leeren")) } },
         shape = RoundedCornerShape(28.dp),
         colors = TextFieldDefaults.colors(
             focusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh, unfocusedContainerColor = MaterialTheme.colorScheme.surfaceContainerHigh,
@@ -248,8 +251,8 @@ private fun GradientFab(expanded: Boolean, onClick: () -> Unit) {
         .clip(RoundedCornerShape(22.dp)).background(Brand.gradient).clickable(onClick = onClick)
         .padding(horizontal = if (expanded) 22.dp else 18.dp, vertical = 18.dp).animateContentSize(),
         verticalAlignment = Alignment.CenterVertically) {
-        Icon(Icons.Outlined.Edit, "Schreiben", tint = Color.White)
-        if (expanded) { Spacer(Modifier.width(10.dp)); Text("Schreiben", color = Color.White, style = MaterialTheme.typography.titleMedium) }
+        Icon(Icons.Outlined.Edit, tr("Schreiben"), tint = Color.White)
+        if (expanded) { Spacer(Modifier.width(10.dp)); Text(tr("Schreiben"), color = Color.White, style = MaterialTheme.typography.titleMedium) }
     }
 }
 
@@ -262,10 +265,10 @@ private fun CategoryTabs(selected: Category?, counts: Map<Category, Int>, onSele
     Row(Modifier.fillMaxWidth().horizontalScroll(rememberScrollState()).padding(horizontal = 16.dp, vertical = 8.dp),
         horizontalArrangement = Arrangement.spacedBy(8.dp)) {
         val tabs = listOf<Triple<Category?, String, ImageVector>>(
-            Triple(Category.PEOPLE, "Wichtig", Icons.Outlined.Person),
-            Triple(Category.NEWSLETTER, "Newsletter", Icons.Outlined.Newspaper),
-            Triple(Category.NOTIFICATION, "Benachrichtigungen", Icons.Outlined.Notifications),
-            Triple(null, "Alle", Icons.Outlined.AllInbox),
+            Triple(Category.PEOPLE, tr("Wichtig"), Icons.Outlined.Person),
+            Triple(Category.NEWSLETTER, tr("Newsletter"), Icons.Outlined.Newspaper),
+            Triple(Category.NOTIFICATION, tr("Benachrichtigungen"), Icons.Outlined.Notifications),
+            Triple(null, tr("Alle"), Icons.Outlined.AllInbox),
         )
         tabs.forEach { (cat, label, icon) ->
             val n = if (cat == null) counts.values.sum() else counts[cat] ?: 0
@@ -296,9 +299,9 @@ private fun LoadingState() {
         Spacer(Modifier.height(90.dp))
         CircularProgressIndicator(Modifier.size(56.dp), strokeWidth = 5.dp)
         Spacer(Modifier.height(24.dp))
-        Text("Mails werden geladen …", style = MaterialTheme.typography.headlineSmall)
+        Text(tr("Mails werden geladen …"), style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
-        Text("Beim ersten Mal kann das einen Moment dauern.", style = MaterialTheme.typography.bodyMedium,
+        Text(tr("Beim ersten Mal kann das einen Moment dauern."), style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     }
 }
@@ -313,17 +316,17 @@ private fun EmptyState(mb: Mailbox, cat: Category?, q: String) {
         }
         Spacer(Modifier.height(24.dp))
         Text(when {
-            q.isNotBlank() -> "Nichts gefunden"
-            mb is Mailbox.Snoozed -> "Nichts zurückgestellt"
-            mb is Mailbox.Pinned -> "Nichts angeheftet"
-            cat == Category.PEOPLE -> "Alles erledigt!"
-            else -> "Hier ist es ruhig"
+            q.isNotBlank() -> tr("Nichts gefunden")
+            mb is Mailbox.Snoozed -> tr("Nichts zurückgestellt")
+            mb is Mailbox.Pinned -> tr("Nichts angeheftet")
+            cat == Category.PEOPLE -> tr("Alles erledigt!")
+            else -> tr("Hier ist es ruhig")
         }, style = MaterialTheme.typography.headlineSmall)
         Spacer(Modifier.height(8.dp))
         Text(when {
-            q.isNotBlank() -> "Keine Mail passt zu „$q“."
-            cat == Category.PEOPLE -> "Keine offenen Mails von Menschen.\nGenieß den Moment ☕"
-            else -> "Zum Aktualisieren nach unten ziehen."
+            q.isNotBlank() -> tr("Keine Mail passt zu „{0}“.", q)
+            cat == Category.PEOPLE -> tr("Keine offenen Mails von Menschen.\nGenieß den Moment ☕")
+            else -> tr("Zum Aktualisieren nach unten ziehen.")
         }, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant, textAlign = TextAlign.Center)
     }
 }
@@ -371,7 +374,7 @@ private fun ThreadRow(t: ThreadSummary, showAccount: Boolean, vm: MainViewModel,
     val m = t.latest
     val unread = t.unread
     val sent = m.folderRole == FolderRole.SENT
-    val name = if (sent) "An: " + (Regexes.firstName(m.toAddrs)) else m.fromName.ifBlank { m.fromAddr }
+    val name = if (sent) tr("An: ") + (Regexes.firstName(m.toAddrs)) else m.fromName.ifBlank { m.fromAddr }
     val cs = MaterialTheme.colorScheme
     Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(22.dp))
         .background(
@@ -402,11 +405,11 @@ private fun ThreadRow(t: ThreadSummary, showAccount: Boolean, vm: MainViewModel,
             }
             Spacer(Modifier.height(2.dp))
             Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(m.subject.ifBlank { "(kein Betreff)" }, maxLines = 1, overflow = TextOverflow.Ellipsis,
+                Text(m.subject.ifBlank { tr("(kein Betreff)") }, maxLines = 1, overflow = TextOverflow.Ellipsis,
                     style = MaterialTheme.typography.bodyMedium.copy(fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal),
                     color = cs.onSurface, modifier = Modifier.weight(1f))
-                if (t.hasAttachments) Icon(Icons.Outlined.AttachFile, "Anhang", Modifier.size(16.dp), tint = cs.onSurfaceVariant)
-                if (t.flagged) Icon(Icons.Filled.Flag, "Markiert", Modifier.size(16.dp), tint = Color(0xFFE5484D))
+                if (t.hasAttachments) Icon(Icons.Outlined.AttachFile, tr("Anhang"), Modifier.size(16.dp), tint = cs.onSurfaceVariant)
+                if (t.flagged) Icon(Icons.Filled.Flag, tr("Markiert"), Modifier.size(16.dp), tint = Color(0xFFE5484D))
                 if (unread) { Spacer(Modifier.width(6.dp)); Box(Modifier.size(9.dp).clip(CircleShape).background(Brand.gradient)) }
             }
             Spacer(Modifier.height(2.dp))
@@ -429,26 +432,26 @@ fun QuickActionsSheet(vm: MainViewModel, m: Message, onDismiss: () -> Unit, onSn
     var remindOpen by remember { mutableStateOf(false) }
     ModalBottomSheet(onDismissRequest = onDismiss) {
         Column(Modifier.verticalScroll(rememberScrollState()).padding(bottom = 24.dp)) {
-            Text(m.subject.ifBlank { "(kein Betreff)" }, style = MaterialTheme.typography.titleMedium, maxLines = 2,
+            Text(m.subject.ifBlank { tr("(kein Betreff)") }, style = MaterialTheme.typography.titleMedium, maxLines = 2,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
             fun item(label: String, icon: ImageVector, action: () -> Unit): @Composable () -> Unit = {
                 ListItem(headlineContent = { Text(label) }, leadingContent = { Icon(icon, null) },
                     modifier = Modifier.combinedClickable(onClick = { action() }))
             }
-            item(if (m.pinned) "Nicht mehr anheften" else "Anheften (oben halten)", Icons.Outlined.PushPin) { vm.togglePin(m); onDismiss() }()
-            item("Zurückstellen …", Icons.Outlined.Snooze) { onSnooze() }()
-            item("Erinnern, falls keine Antwort …", Icons.Outlined.AccessTime) { remindOpen = true }()
-            item(if (m.seen) "Als ungelesen markieren" else "Als gelesen markieren", if (m.seen) Icons.Outlined.MarkEmailUnread else Icons.Outlined.MarkEmailRead) { vm.toggleSeen(m); onDismiss() }()
-            item(if (m.flagged) "Markierung entfernen" else "Markieren", Icons.Outlined.Flag) { vm.toggleFlag(m); onDismiss() }()
-            item("Archivieren", Icons.Outlined.Archive) { vm.archive(m); onDismiss() }()
-            item("Verschieben …", Icons.Outlined.Folder) { moveOpen = !moveOpen }()
+            item(if (m.pinned) tr("Nicht mehr anheften") else tr("Anheften (oben halten)"), Icons.Outlined.PushPin) { vm.togglePin(m); onDismiss() }()
+            item(tr("Zurückstellen …"), Icons.Outlined.Snooze) { onSnooze() }()
+            item(tr("Erinnern, falls keine Antwort …"), Icons.Outlined.AccessTime) { remindOpen = true }()
+            item(if (m.seen) tr("Als ungelesen markieren") else tr("Als gelesen markieren"), if (m.seen) Icons.Outlined.MarkEmailUnread else Icons.Outlined.MarkEmailRead) { vm.toggleSeen(m); onDismiss() }()
+            item(if (m.flagged) tr("Markierung entfernen") else tr("Markieren"), Icons.Outlined.Flag) { vm.toggleFlag(m); onDismiss() }()
+            item(tr("Archivieren"), Icons.Outlined.Archive) { vm.archive(m); onDismiss() }()
+            item(tr("Verschieben …"), Icons.Outlined.Folder) { moveOpen = !moveOpen }()
             if (moveOpen) vm.folders.value[m.accountId].orEmpty().filter { it.id != m.folderId }.forEach { f ->
                 ListItem(headlineContent = { Text(f.displayName) }, leadingContent = { Spacer(Modifier.width(24.dp)) },
                     modifier = Modifier.combinedClickable(onClick = { vm.moveTo(m, f); onDismiss() }))
             }
-            item("Löschen", Icons.Outlined.Delete) { vm.delete(m); onDismiss() }()
+            item(tr("Löschen"), Icons.Outlined.Delete) { vm.delete(m); onDismiss() }()
             HorizontalDivider()
-            Text("Mails von ${m.fromAddr} künftig einsortieren als:", style = MaterialTheme.typography.labelMedium,
+            Text(tr("Mails von {0} künftig einsortieren als:", m.fromAddr), style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
             Row(Modifier.padding(horizontal = 16.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 Category.entries.forEach { c ->
@@ -456,19 +459,19 @@ fun QuickActionsSheet(vm: MainViewModel, m: Message, onDismiss: () -> Unit, onSn
                 }
             }
             HorizontalDivider()
-            if (m.folderRole == FolderRole.JUNK) item("Kein Spam – zurück in den Posteingang", Icons.Outlined.Inbox) { vm.notSpam(m); onDismiss() }()
+            if (m.folderRole == FolderRole.JUNK) item(tr("Kein Spam – zurück in den Posteingang"), Icons.Outlined.Inbox) { vm.notSpam(m); onDismiss() }()
             else {
-                item("Spam – Absender künftig sperren", Icons.Outlined.Report) { vm.spam(m); onDismiss() }()
-                item("Ganze Domain sperren (@${m.fromAddr.substringAfter('@')})", Icons.Outlined.Block) { vm.block(m, domain = true); onDismiss() }()
+                item(tr("Spam – Absender künftig sperren"), Icons.Outlined.Report) { vm.spam(m); onDismiss() }()
+                item(tr("Ganze Domain sperren (@{0})", m.fromAddr.substringAfter('@')), Icons.Outlined.Block) { vm.block(m, domain = true); onDismiss() }()
             }
-            item("Regel aus dieser Mail erstellen …", Icons.Outlined.Rule) {
+            item(tr("Regel aus dieser Mail erstellen …"), Icons.Outlined.Rule) {
                 onDismiss()
-                vm.push(Screen.Rules(app.mailwerk.mail.Rule(name = "Mails von ${m.fromName.ifBlank { m.fromAddr }}",
+                vm.push(Screen.Rules(app.mailwerk.mail.Rule(name = tr("Mails von {0}", m.fromName.ifBlank { m.fromAddr }),
                     field = app.mailwerk.mail.RuleField.FROM, value = m.fromAddr, action = app.mailwerk.mail.RuleAction.MOVE)))
             }()
         }
     }
-    if (remindOpen) TimeChooser("Erinnern, falls bis dahin keine Antwort kommt", { remindOpen = false }) { t ->
+    if (remindOpen) TimeChooser(tr("Erinnern, falls bis dahin keine Antwort kommt"), { remindOpen = false }) { t ->
         vm.remindIfNoReply(m, t); remindOpen = false; onDismiss()
     }
 }
@@ -487,18 +490,18 @@ private fun Drawer(vm: MainViewModel, close: () -> Unit) {
                     }
                     Spacer(Modifier.height(12.dp))
                     Text("Mailwerk", style = MaterialTheme.typography.headlineSmall, color = Color.White)
-                    Text(if (accounts.size == 1) "1 Konto" else "${accounts.size} Konten", style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
+                    Text(if (accounts.size == 1) tr("1 Konto") else tr("{0} Konten", accounts.size), style = MaterialTheme.typography.bodySmall, color = Color.White.copy(alpha = 0.8f))
                 }
             }
             @Composable fun entry(label: String, icon: ImageVector, selected: Boolean, badge: Int = 0, onClick: () -> Unit) =
                 NavigationDrawerItem(label = { Text(label, maxLines = 1, overflow = TextOverflow.Ellipsis) }, selected = selected, onClick = { onClick(); close() },
                     icon = { Icon(icon, null) }, badge = { if (badge > 0) Badge { Text("$badge") } })
-            entry("Alle Posteingänge", Icons.Outlined.AllInbox, current is Mailbox.Unified,
+            entry(tr("Alle Posteingänge"), Icons.Outlined.AllInbox, current is Mailbox.Unified,
                 folders.values.flatten().filter { it.role == FolderRole.INBOX }.sumOf { it.unread }) { vm.selectMailbox(Mailbox.Unified) }
-            entry("Angeheftet", Icons.Outlined.PushPin, current is Mailbox.Pinned) { vm.selectMailbox(Mailbox.Pinned) }
-            entry("Markiert", Icons.Outlined.Star, current is Mailbox.Flagged) { vm.selectMailbox(Mailbox.Flagged) }
-            entry("Zurückgestellt", Icons.Outlined.Snooze, current is Mailbox.Snoozed) { vm.selectMailbox(Mailbox.Snoozed) }
-            entry("Postausgang & Entwürfe", Icons.Outlined.Outbox, false, vm.db.outbox().size) { vm.push(Screen.Outbox) }
+            entry(tr("Angeheftet"), Icons.Outlined.PushPin, current is Mailbox.Pinned) { vm.selectMailbox(Mailbox.Pinned) }
+            entry(tr("Markiert"), Icons.Outlined.Star, current is Mailbox.Flagged) { vm.selectMailbox(Mailbox.Flagged) }
+            entry(tr("Zurückgestellt"), Icons.Outlined.Snooze, current is Mailbox.Snoozed) { vm.selectMailbox(Mailbox.Snoozed) }
+            entry(tr("Postausgang & Entwürfe"), Icons.Outlined.Outbox, false, vm.db.outbox().size) { vm.push(Screen.Outbox) }
             accounts.forEach { a ->
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp, bottom = 4.dp)) {
@@ -517,8 +520,8 @@ private fun Drawer(vm: MainViewModel, close: () -> Unit) {
                 }
             }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
-            entry("Konto hinzufügen", Icons.Outlined.Add, false) { vm.push(Screen.AccountSetup()) }
-            entry("Einstellungen", Icons.Outlined.Settings, false) { vm.push(Screen.Settings) }
+            entry(tr("Konto hinzufügen"), Icons.Outlined.Add, false) { vm.push(Screen.AccountSetup()) }
+            entry(tr("Einstellungen"), Icons.Outlined.Settings, false) { vm.push(Screen.Settings) }
             Spacer(Modifier.height(24.dp))
         }
     }

@@ -1,5 +1,7 @@
 package app.mailwerk.ui
 
+import app.mailwerk.tr
+
 import android.app.Application
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
@@ -37,10 +39,10 @@ import java.util.Locale
 
 sealed interface Mailbox {
     val title: String
-    data object Unified : Mailbox { override val title = "Alle Posteingänge" }
-    data object Pinned : Mailbox { override val title = "Angeheftet" }
-    data object Flagged : Mailbox { override val title = "Markiert" }
-    data object Snoozed : Mailbox { override val title = "Zurückgestellt" }
+    data object Unified : Mailbox { override val title = tr("Alle Posteingänge") }
+    data object Pinned : Mailbox { override val title = tr("Angeheftet") }
+    data object Flagged : Mailbox { override val title = tr("Markiert") }
+    data object Snoozed : Mailbox { override val title = tr("Zurückgestellt") }
     data class InFolder(val folder: Folder, val accountEmail: String) : Mailbox { override val title = folder.displayName }
 }
 
@@ -142,8 +144,8 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun checkUpdate(manual: Boolean) = viewModelScope.launch {
         if (!manual && (!prefs.autoUpdateCheck || System.currentTimeMillis() - prefs.lastUpdateCheck < 3 * 3_600_000L)) return@launch
         runCatching { Updater.check(getApplication()) }
-            .onSuccess { info -> update.value = info; if (manual && info == null) snack("Du hast die neueste Version (${BuildConfig.VERSION_NAME}) ✓") }
-            .onFailure { if (manual) snack("Update-Prüfung fehlgeschlagen: ${it.message}") }
+            .onSuccess { info -> update.value = info; if (manual && info == null) snack(tr("Du hast die neueste Version ({0}) ✓", BuildConfig.VERSION_NAME)) }
+            .onFailure { if (manual) snack(tr("Update-Prüfung fehlgeschlagen: {0}", it.message)) }
     }
 
     fun installUpdate() {
@@ -154,9 +156,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             runCatching { Updater.download(getApplication(), info) { updateProgress.value = it } }
                 .onSuccess { f ->
                     if (!Updater.install(getApplication(), f))
-                        snack("Bitte „Apps aus dieser Quelle zulassen“ einschalten und danach erneut auf Aktualisieren tippen")
+                        snack(tr("Bitte „Apps aus dieser Quelle zulassen“ einschalten und danach erneut auf Aktualisieren tippen"))
                 }
-                .onFailure { snack("Update fehlgeschlagen: ${it.message}") }
+                .onFailure { snack(tr("Update fehlgeschlagen: {0}", it.message)) }
             updateProgress.value = null
         }
     }
@@ -187,56 +189,56 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun archive(m: Message) = act {
         val r = repo.archive(m)
-        if (r == null) snack("Archiviert", "Rückgängig") { act { repo.db.folderByRole(m.accountId, m.folderRole ?: FolderRole.INBOX)?.let { f -> repo.moveTo(db.message(m.id) ?: m, f) } } }
+        if (r == null) snack(tr("Archiviert"), tr("Rückgängig")) { act { repo.db.folderByRole(m.accountId, m.folderRole ?: FolderRole.INBOX)?.let { f -> repo.moveTo(db.message(m.id) ?: m, f) } } }
         r
     }
     fun delete(m: Message) = act {
         val r = repo.delete(m)
-        if (r == null && m.folderRole != FolderRole.TRASH) snack("In den Papierkorb verschoben", "Rückgängig") {
+        if (r == null && m.folderRole != FolderRole.TRASH) snack(tr("In den Papierkorb verschoben"), tr("Rückgängig")) {
             act { db.folder(m.folderId)?.let { f -> repo.moveTo(db.message(m.id) ?: m, f) } }
         }
         r
     }
     fun spam(m: Message) = act {
         repo.markSpam(m) ?: run {
-            snack("Spam – künftige Mails von ${m.fromAddr} landen direkt im Spam-Ordner", "Rückgängig") { notSpam(m) }; null
+            snack(tr("Spam – künftige Mails von {0} landen direkt im Spam-Ordner", m.fromAddr), tr("Rückgängig")) { notSpam(m) }; null
         }
     }
-    fun notSpam(m: Message) = act { repo.notSpam(m) ?: run { snack("Kein Spam – zurück im Posteingang"); null } }
+    fun notSpam(m: Message) = act { repo.notSpam(m) ?: run { snack(tr("Kein Spam – zurück im Posteingang")); null } }
     fun reloadAccount(id: Long) {
-        if (syncing.value) { snack("Abruf läuft bereits – bitte kurz warten"); return }
+        if (syncing.value) { snack(tr("Abruf läuft bereits – bitte kurz warten")); return }
         viewModelScope.launch {
             syncing.value = true
-            snack("Mails werden neu geladen …")
+            snack(tr("Mails werden neu geladen …"))
             val errors = repo.reloadAccount(id)
             syncing.value = false
-            snack(errors.firstOrNull() ?: "Fertig – Mails neu geladen")
+            snack(errors.firstOrNull() ?: tr("Fertig – Mails neu geladen"))
         }
     }
 
     fun applyRules() = viewModelScope.launch {
-        snack("Regeln werden angewendet …")
+        snack(tr("Regeln werden angewendet …"))
         val n = repo.applyRulesToExisting()
-        snack(if (n == 0) "Fertig – keine Mail musste verschoben werden" else "Fertig – $n Mail(s) verschoben")
+        snack(if (n == 0) tr("Fertig – keine Mail musste verschoben werden") else tr("Fertig – {0} Mail(s) verschoben", n))
     }
     fun toggleSeen(m: Message) = act { repo.markSeen(m, !m.seen) }
     fun toggleFlag(m: Message) = act { repo.toggleFlag(m) }
-    fun togglePin(m: Message) { repo.togglePin(m); snack(if (m.pinned) "Nicht mehr angeheftet" else "Angeheftet 📌") }
+    fun togglePin(m: Message) { repo.togglePin(m); snack(if (m.pinned) tr("Nicht mehr angeheftet") else tr("Angeheftet 📌")) }
     fun snooze(m: Message, until: Long) {
         repo.snooze(m, until); Scheduler.scheduleTimer(getApplication(), until)
-        snack("Zurückgestellt bis ${fmt(until)}", "Rückgängig") { repo.unsnooze(m) }
+        snack(tr("Zurückgestellt bis {0}", fmt(until)), tr("Rückgängig")) { repo.unsnooze(m) }
     }
     fun remindIfNoReply(m: Message, at: Long) {
         repo.remindIfNoReply(m, at); Scheduler.scheduleTimer(getApplication(), at)
-        snack("Erinnerung am ${fmt(at)}, falls keine Antwort kommt")
+        snack(tr("Erinnerung am {0}, falls keine Antwort kommt", fmt(at)))
     }
-    fun setCategory(m: Message, c: Category) { db.setCategoryForSender(m.fromAddr, c); snack("Mails von ${m.fromAddr} landen jetzt in „${c.label}“") }
+    fun setCategory(m: Message, c: Category) { db.setCategoryForSender(m.fromAddr, c); snack(tr("Mails von {0} landen jetzt in „{1}“", m.fromAddr, c.label)) }
     fun block(m: Message, domain: Boolean = false) = act {
         repo.blockSender(m, domain)
-        val what = if (domain) "Alle Mails von @${m.fromAddr.substringAfter('@')}" else "Mails von ${m.fromAddr}"
-        snack("$what landen künftig direkt im Spam", "Rückgängig") { notSpam(m) }; null
+        val what = if (domain) tr("Alle Mails von @{0}", m.fromAddr.substringAfter('@')) else tr("Mails von {0}", m.fromAddr)
+        snack(tr("{0} landen künftig direkt im Spam", what), tr("Rückgängig")) { notSpam(m) }; null
     }
-    fun moveTo(m: Message, f: Folder) = act { repo.moveTo(m, f) ?: run { snack("Verschoben nach ${f.displayName}"); null } }
+    fun moveTo(m: Message, f: Folder) = act { repo.moveTo(m, f) ?: run { snack(tr("Verschoben nach {0}", f.displayName)); null } }
     fun unsubscribe(m: Message, openUrl: (String) -> Unit) = viewModelScope.launch {
         val (ok, msg) = repo.unsubscribe(m)
         if (!ok && msg.startsWith("http")) openUrl(msg) else snack(msg)
@@ -266,10 +268,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     fun forward(m: Message) {
-        val subj = if (m.subject.startsWith("Fwd:", true) || m.subject.startsWith("WG:", true)) m.subject else "WG: ${m.subject}"
+        val subj = if (m.subject.startsWith("Fwd:", true) || m.subject.startsWith("WG:", true)) m.subject else tr("WG: {0}", m.subject)
         val acc = db.account(m.accountId)
-        val header = "\n\n${acc?.let { signature(it, true) } ?: ""}---------- Weitergeleitete Nachricht ----------\n" +
-            "Von: ${m.fromName} <${m.fromAddr}>\nDatum: ${fmt(m.date)}\nBetreff: ${m.subject}\nAn: ${m.toAddrs}\n\n" + (db.message(m.id)?.bodyText ?: "")
+        val header = tr("\n\n{0}---------- Weitergeleitete Nachricht ----------\n", acc?.let { signature(it, true) } ?: "") +
+            tr("Von: {0} <{1}>\nDatum: {2}\nBetreff: {3}\nAn: {4}\n\n", m.fromName, m.fromAddr, fmt(m.date), m.subject, m.toAddrs) + (db.message(m.id)?.bodyText ?: "")
         push(Screen.Compose(ComposeInit(m.accountId, subject = subj, body = header)))
     }
 
@@ -286,7 +288,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private fun quote(m: Message): String {
         val full = db.message(m.id)?.bodyText ?: m.snippet
-        return "\nAm ${fmt(m.date)} schrieb ${m.fromName.ifBlank { m.fromAddr }}:\n" + full.lines().joinToString("\n") { "> $it" }
+        return tr("\nAm {0} schrieb {1}:\n", fmt(m.date), m.fromName.ifBlank { m.fromAddr }) + full.lines().joinToString("\n") { "> $it" }
     }
 
     /**
@@ -298,15 +300,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             val id = withContext(Dispatchers.IO) { db.saveOutbox(o.copy(sendAt = at, status = OutboxStatus.SCHEDULED, error = null)) }
             Scheduler.scheduleSend(getApplication(), id, at)
             pop()
-            if (later != null) snack("Wird gesendet am ${fmt(later)}")
-            else if (prefs.undoSeconds > 0) snack("Wird gesendet …", "Rückgängig") { undoSend(id) }
+            if (later != null) snack(tr("Wird gesendet am {0}", fmt(later)))
+            else if (prefs.undoSeconds > 0) snack(tr("Wird gesendet …"), tr("Rückgängig")) { undoSend(id) }
         }
     }
 
     fun undoSend(id: Long) {
         Scheduler.cancelSend(getApplication(), id)
         val o = db.outboxItem(id) ?: return
-        if (o.status == OutboxStatus.SENDING) { snack("Zu spät – die Nachricht ist schon unterwegs"); return }
+        if (o.status == OutboxStatus.SENDING) { snack(tr("Zu spät – die Nachricht ist schon unterwegs")); return }
         db.saveOutbox(o.copy(status = OutboxStatus.DRAFT))
         openOutbox(o.copy(status = OutboxStatus.DRAFT))
     }
@@ -319,12 +321,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun saveDraft(o: OutboxItem) {
         db.saveOutbox(o.copy(status = OutboxStatus.DRAFT, sendAt = System.currentTimeMillis()))
-        snack("Als Entwurf gespeichert")
+        snack(tr("Als Entwurf gespeichert"))
     }
 
     fun retry(o: OutboxItem) { db.saveOutbox(o.copy(status = OutboxStatus.SCHEDULED, error = null)); Scheduler.scheduleSend(getApplication(), o.id, 0) }
 
     companion object {
-        fun fmt(t: Long): String = SimpleDateFormat("EEE, d. MMM, HH:mm", Locale.GERMAN).format(Date(t))
+        fun fmt(t: Long): String = SimpleDateFormat(if (app.mailwerk.I18n.german()) "EEE, d. MMM, HH:mm" else "EEE, MMM d, h:mm a",
+            Locale.getDefault()).format(Date(t))
     }
 }

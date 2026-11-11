@@ -1,5 +1,7 @@
 package app.mailwerk.sync
 
+import app.mailwerk.tr
+
 import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
@@ -45,7 +47,7 @@ object Updater {
         val c = URL(BASE + "update.json?t=${System.currentTimeMillis() / 60000}").openConnection() as HttpURLConnection
         c.connectTimeout = 10000; c.readTimeout = 10000; c.useCaches = false
         try {
-            if (c.responseCode != 200) error("Update-Server antwortet nicht (${c.responseCode})")
+            if (c.responseCode != 200) error(tr("Update-Server antwortet nicht ({0})", c.responseCode))
             val info = parse(c.inputStream.bufferedReader().readText())
             Prefs(ctx).lastUpdateCheck = System.currentTimeMillis()
             info.takeIf { it.versionCode > BuildConfig.VERSION_CODE }
@@ -60,7 +62,7 @@ object Updater {
         c.instanceFollowRedirects = true; c.connectTimeout = 15000; c.readTimeout = 30000
         if (c.responseCode in 300..399) { url = URL(c.getHeaderField("Location")); c.disconnect(); c = url.openConnection() as HttpURLConnection }
         try {
-            if (c.responseCode != 200) error("Download fehlgeschlagen (${c.responseCode})")
+            if (c.responseCode != 200) error(tr("Download fehlgeschlagen ({0})", c.responseCode))
             val total = c.contentLengthLong
             c.inputStream.use { input ->
                 out.outputStream().use { o ->
@@ -73,7 +75,7 @@ object Updater {
                 }
             }
         } finally { c.disconnect() }
-        if (out.length() < 100_000) error("Heruntergeladene Datei ist unvollständig")
+        if (out.length() < 100_000) error(tr("Heruntergeladene Datei ist unvollständig"))
         out
     }
 
@@ -102,7 +104,7 @@ object Updater {
         val open = PendingIntent.getActivity(ctx, 77, Intent(ctx, MainActivity::class.java), PendingIntent.FLAG_IMMUTABLE)
         runCatching {
             nm.notify(7700, NotificationCompat.Builder(ctx, "reminder").setSmallIcon(R.drawable.ic_notification)
-                .setContentTitle("Mailwerk ${info.versionName} ist verfügbar").setContentText(info.notes.ifBlank { "Zum Aktualisieren tippen" })
+                .setContentTitle(tr("Mailwerk {0} ist verfügbar", info.versionName)).setContentText(info.notes.ifBlank { tr("Zum Aktualisieren tippen") })
                 .setAutoCancel(true).setContentIntent(open).build())
         }
     }

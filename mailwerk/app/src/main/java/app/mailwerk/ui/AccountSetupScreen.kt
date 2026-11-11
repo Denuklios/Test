@@ -1,5 +1,7 @@
 package app.mailwerk.ui
 
+import app.mailwerk.tr
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -85,7 +87,7 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
     var logoPath by remember { mutableStateOf(existing?.logoPath) }
     val ctxLocal = androidx.compose.ui.platform.LocalContext.current
     val logoPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) logoPath = saveLogo(ctxLocal, uri) ?: logoPath.also { vm.snack("Bild konnte nicht gelesen werden") }
+        if (uri != null) logoPath = saveLogo(ctxLocal, uri) ?: logoPath.also { vm.snack(tr("Bild konnte nicht gelesen werden")) }
     }
     var hint by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
@@ -102,7 +104,7 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
             try {
                 val r = app.mailwerk.data.OAuth.finish(oauthCtx, res.data)
                 vm.repo.addOAuthAccount(p, r)
-                vm.snack("${r.email} verbunden – Mails werden geladen …")
+                vm.snack(tr("{0} verbunden – Mails werden geladen …", r.email))
                 if (vm.stack.value.size > 1) vm.pop()
                 vm.refresh()
             } catch (e: Exception) { error = e.message ?: friendly(e); if (existing == null) step = 0 }
@@ -112,7 +114,7 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
     fun startOAuth(p: app.mailwerk.mail.OAuthProvider, hintMail: String?) {
         oauthProvider = p
         runCatching { oauthLauncher.launch(app.mailwerk.data.OAuth.loginIntent(oauthCtx, p, hintMail)) }
-            .onFailure { error = "Kein Browser gefunden, um die Anmeldung zu öffnen." }
+            .onFailure { error = tr("Kein Browser gefunden, um die Anmeldung zu öffnen.") }
     }
     fun build() = Account(
         id = existing?.id ?: 0, name = name.ifBlank { email.substringBefore('@') }, email = email.trim(),
@@ -132,13 +134,13 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
                 if (existing != null && password.isEmpty() && acc0.imapHost == existing.imapHost && acc0.imapPort == existing.imapPort &&
                     acc0.imapSecurity == existing.imapSecurity && acc0.smtpHost == existing.smtpHost && acc0.smtpPort == existing.smtpPort &&
                     acc0.smtpSecurity == existing.smtpSecurity && acc0.username == existing.username) {
-                    vm.repo.updateAccount(acc0, null); busy = false; vm.snack("Gespeichert"); vm.pop(); return@launch
+                    vm.repo.updateAccount(acc0, null); busy = false; vm.snack(tr("Gespeichert")); vm.pop(); return@launch
                 }
                 val pw = password.ifEmpty { existing?.let { app.mailwerk.data.Crypto.decrypt(it.passwordEnc) } ?: "" }
                 vm.repo.testAccount(acc, pw)
                 if (existing == null) vm.repo.addAccount(acc, pw) else vm.repo.updateAccount(acc, password.ifEmpty { null })
                 busy = false
-                vm.snack(if (existing == null) "Konto hinzugefügt – Mails werden geladen …" else "Gespeichert")
+                vm.snack(if (existing == null) tr("Konto hinzugefügt – Mails werden geladen …") else tr("Gespeichert"))
                 if (vm.stack.value.size > 1) vm.pop()
                 vm.refresh()
             } catch (e: Exception) { busy = false; error = e.message ?: friendly(e) }
@@ -146,13 +148,13 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
     }
 
     Scaffold(topBar = {
-        TopAppBar(title = { Text(if (existing != null) "Konto bearbeiten" else "E-Mail-Konto hinzufügen") },
+        TopAppBar(title = { Text(if (existing != null) tr("Konto bearbeiten") else tr("E-Mail-Konto hinzufügen")) },
             navigationIcon = {
                 if (canGoBack || step == 1 && existing == null) IconButton(onClick = { if (step == 1 && existing == null) step = 0 else vm.pop() }) {
-                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Zurück")
+                    Icon(Icons.AutoMirrored.Outlined.ArrowBack, tr("Zurück"))
                 }
             },
-            actions = { if (existing != null) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Outlined.Delete, "Konto entfernen") } })
+            actions = { if (existing != null) IconButton(onClick = { confirmDelete = true }) { Icon(Icons.Outlined.Delete, tr("Konto entfernen")) } })
     }) { pad ->
         Column(Modifier.padding(pad).imePadding().fillMaxSize().verticalScroll(rememberScrollState()).padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -162,23 +164,23 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
                         Box(Modifier.size(56.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(18.dp)).background(Color.White.copy(alpha = 0.18f)),
                             contentAlignment = Alignment.Center) { Icon(Icons.Outlined.Email, null, tint = Color.White, modifier = Modifier.size(30.dp)) }
                         Spacer(Modifier.height(16.dp))
-                        Text("Willkommen bei Mailwerk", style = MaterialTheme.typography.headlineMedium, color = Color.White)
+                        Text(tr("Willkommen bei Mailwerk"), style = MaterialTheme.typography.headlineMedium, color = Color.White)
                         Spacer(Modifier.height(6.dp))
-                        Text("Alle Postfächer an einem Ort. Privat, schnell, ohne Werbung.", style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
+                        Text(tr("Alle Postfächer an einem Ort. Privat, schnell, ohne Werbung."), style = MaterialTheme.typography.bodyMedium, color = Color.White.copy(alpha = 0.85f))
                     }
                 }
                 val accountsNow by vm.accounts.collectAsState()
                 val pending = PresetAccounts.pending(accountsNow)
                 if (existing == null && pending.isNotEmpty()) {
-                    Text("Deine Konten sind vorbereitet – nur noch das Passwort eingeben:", style = MaterialTheme.typography.titleSmall)
+                    Text(tr("Deine Konten sind vorbereitet – nur noch das Passwort eingeben:"), style = MaterialTheme.typography.titleSmall)
                     pending.forEach { p -> PresetCard(vm, p) }
                     TextButton(onClick = { vm.pop() }, modifier = Modifier.fillMaxWidth()) {
-                        Text(if (accountsNow.isEmpty()) "Später einrichten" else "Rest später einrichten – zum Posteingang")
+                        Text(if (accountsNow.isEmpty()) tr("Später einrichten") else tr("Rest später einrichten – zum Posteingang"))
                     }
-                    Text("Du kannst das Passwort jederzeit nachtragen: im Posteingang über den Hinweis oder unter Einstellungen → Konten.",
+                    Text(tr("Du kannst das Passwort jederzeit nachtragen: im Posteingang über den Hinweis oder unter Einstellungen → Konten."),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Spacer(Modifier.height(8.dp))
-                    Text("Weiteres Konto hinzufügen", style = MaterialTheme.typography.titleSmall)
+                    Text(tr("Weiteres Konto hinzufügen"), style = MaterialTheme.typography.titleSmall)
                 }
                 error?.let { InfoCard("⚠️ $it", isError = true) }
                 val oauthList = app.mailwerk.mail.OAuthProvider.entries.filter { app.mailwerk.data.OAuth.available(it) }
@@ -187,21 +189,21 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
                         modifier = Modifier.fillMaxWidth().height(54.dp)) {
                         Text(if (p == app.mailwerk.mail.OAuthProvider.GOOGLE) "G" else "⊞", style = MaterialTheme.typography.titleLarge,
                             color = if (p == app.mailwerk.mail.OAuthProvider.GOOGLE) androidx.compose.ui.graphics.Color(0xFF4285F4) else androidx.compose.ui.graphics.Color(0xFF0078D4))
-                        Spacer(Modifier.width(12.dp)); Text("Mit ${p.label} anmelden", style = MaterialTheme.typography.titleMedium)
+                        Spacer(Modifier.width(12.dp)); Text(tr("Mit {0} anmelden", p.label), style = MaterialTheme.typography.titleMedium)
                     }
                 }
-                if (oauthList.isNotEmpty()) Text(oauthList.joinToString(" / ") { if (it == app.mailwerk.mail.OAuthProvider.GOOGLE) "Gmail & Google Workspace" else "Outlook, Hotmail & Microsoft 365" } +
-                    ": sicher über das Anmeldefenster des Anbieters – dein Passwort sieht die App nie.",
+                if (oauthList.isNotEmpty()) Text(oauthList.joinToString(" / ") { if (it == app.mailwerk.mail.OAuthProvider.GOOGLE) tr("Gmail & Google Workspace") else tr("Outlook, Hotmail & Microsoft 365") } +
+                    tr(": sicher über das Anmeldefenster des Anbieters – dein Passwort sieht die App nie."),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(if (oauthList.isEmpty()) "Funktioniert mit jedem Anbieter, der IMAP anbietet: GMX, WEB.DE, Telekom, Gmail, iCloud, Yahoo, Posteo, mailbox.org, IONOS, eigene Domains …"
-                    else "Oder mit E-Mail-Adresse und Passwort (GMX, WEB.DE, Telekom, iCloud, Yahoo, IONOS, one.com, eigene Domains …):",
+                Text(if (oauthList.isEmpty()) tr("Funktioniert mit jedem Anbieter, der IMAP anbietet: GMX, WEB.DE, Telekom, Gmail, iCloud, Yahoo, Posteo, mailbox.org, IONOS, eigene Domains …")
+                    else tr("Oder mit E-Mail-Adresse und Passwort (GMX, WEB.DE, Telekom, iCloud, Yahoo, IONOS, one.com, eigene Domains …):"),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                OutlinedTextField(name, { name = it }, label = { Text("Dein Name (für Empfänger sichtbar)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(email, { email = it }, label = { Text("E-Mail-Adresse") }, singleLine = true, modifier = Modifier.fillMaxWidth(),
+                OutlinedTextField(name, { name = it }, label = { Text(tr("Dein Name (für Empfänger sichtbar)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(email, { email = it }, label = { Text(tr("E-Mail-Adresse")) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
                 PasswordField(password, { password = it }, showPw) { showPw = !showPw }
                 val viaOAuth = app.mailwerk.mail.OAuthProvider.forEmail(email)?.takeIf { app.mailwerk.data.OAuth.available(it) }
-                if (viaOAuth != null) InfoCard("Für diese Adresse am besten oben „Mit ${viaOAuth.label} anmelden“ verwenden.")
+                if (viaOAuth != null) InfoCard(tr("Für diese Adresse am besten oben „Mit {0} anmelden“ verwenden.", viaOAuth.label))
                 else AutoConfig.presets[email.substringAfter('@', "").lowercase()]?.hint?.let { InfoCard(it) }
                 Button(enabled = email.contains('@') && password.isNotEmpty() && !busy, modifier = Modifier.fillMaxWidth(), onClick = {
                     busy = true
@@ -213,80 +215,80 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
                         step = 1
                         saveAndTest()
                     }
-                }) { if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else Text("Weiter") }
-                Text("🔒 Dein Passwort wird verschlüsselt im Android-Keystore gesichert und nur an deinen Mailserver gesendet.",
+                }) { if (busy) CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp) else Text(tr("Weiter")) }
+                Text(tr("🔒 Dein Passwort wird verschlüsselt im Android-Keystore gesichert und nur an deinen Mailserver gesendet."),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                TextButton(onClick = { step = 1 }) { Text("Server manuell einrichten") }
+                TextButton(onClick = { step = 1 }) { Text(tr("Server manuell einrichten")) }
             } else if (existing?.isOAuth == true) {
                 val p = app.mailwerk.mail.OAuthProvider.ofAuthType(existing.authType)
                 error?.let { InfoCard("⚠️ $it", isError = true) }
-                InfoCard("Angemeldet über ${p?.label ?: "OAuth"} – kein Passwort gespeichert.")
-                OutlinedTextField(name, { name = it }, label = { Text("Name (für Empfänger sichtbar)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                InfoCard(tr("Angemeldet über {0} – kein Passwort gespeichert.", p?.label ?: "OAuth"))
+                OutlinedTextField(name, { name = it }, label = { Text(tr("Name (für Empfänger sichtbar)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 if (p != null && app.mailwerk.data.OAuth.available(p)) androidx.compose.material3.OutlinedButton(onClick = { startOAuth(p, existing.email) },
-                    modifier = Modifier.fillMaxWidth()) { Text("Erneut mit ${p.label} anmelden") }
-                SectionTitle("Signatur")
+                    modifier = Modifier.fillMaxWidth()) { Text(tr("Erneut mit {0} anmelden", p.label)) }
+                SectionTitle(tr("Signatur"))
                 OAuthSignatureFields(signature, { signature = it }, replySignature, { replySignature = it })
-                Button(onClick = { saveAndTest() }, modifier = Modifier.fillMaxWidth()) { Text("Speichern") }
+                Button(onClick = { saveAndTest() }, modifier = Modifier.fillMaxWidth()) { Text(tr("Speichern")) }
             } else {
                 hint?.let { InfoCard(it) }
                 error?.let { InfoCard("⚠️ $it", isError = true) }
-                OutlinedTextField(name, { name = it }, label = { Text("Name") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(email, { email = it }, label = { Text("E-Mail-Adresse") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(user, { user = it }, label = { Text("Benutzername (meist die E-Mail-Adresse)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                PasswordField(password, { password = it }, showPw, if (existing != null) "Passwort (leer = unverändert)" else "Passwort") { showPw = !showPw }
-                SectionTitle("Posteingang (IMAP)")
+                OutlinedTextField(name, { name = it }, label = { Text(tr("Name")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(email, { email = it }, label = { Text(tr("E-Mail-Adresse")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(user, { user = it }, label = { Text(tr("Benutzername (meist die E-Mail-Adresse)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                PasswordField(password, { password = it }, showPw, if (existing != null) tr("Passwort (leer = unverändert)") else tr("Passwort")) { showPw = !showPw }
+                SectionTitle(tr("Posteingang (IMAP)"))
                 ServerFields(imapHost, { imapHost = it }, imapPort, { imapPort = it }, imapSec) { s ->
                     imapSec = s; imapPort = if (s == Security.SSL) "993" else "143"
                 }
-                SectionTitle("Postausgang (SMTP)")
+                SectionTitle(tr("Postausgang (SMTP)"))
                 ServerFields(smtpHost, { smtpHost = it }, smtpPort, { smtpPort = it }, smtpSec) { s ->
                     smtpSec = s; smtpPort = if (s == Security.SSL) "465" else "587"
                 }
-                SectionTitle("Signatur")
-                OutlinedTextField(signature, { signature = it }, label = { Text("Signatur für neue Mails") }, minLines = 3, modifier = Modifier.fillMaxWidth())
-                OutlinedTextField(replySignature, { replySignature = it }, label = { Text("Signatur für Antworten (leer = wie oben)") }, minLines = 2,
+                SectionTitle(tr("Signatur"))
+                OutlinedTextField(signature, { signature = it }, label = { Text(tr("Signatur für neue Mails")) }, minLines = 3, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(replySignature, { replySignature = it }, label = { Text(tr("Signatur für Antworten (leer = wie oben)")) }, minLines = 2,
                     modifier = Modifier.fillMaxWidth())
-                Text("Formatierung: **fett**, *kursiv*. Web- und E-Mail-Adressen werden beim Empfänger klickbar. Das Logo erscheint unter der Signatur.",
+                Text(tr("Formatierung: **fett**, *kursiv*. Web- und E-Mail-Adressen werden beim Empfänger klickbar. Das Logo erscheint unter der Signatur."),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                     val bmp = remember(logoPath) { logoPath?.let { android.graphics.BitmapFactory.decodeFile(it) }?.asImageBitmap() }
-                    if (bmp != null) androidx.compose.foundation.Image(bmp, "Logo", Modifier.size(width = 120.dp, height = 56.dp))
-                    OutlinedButtonCompat(if (bmp == null) "Logo hinzufügen" else "Logo ändern") { logoPicker.launch("image/*") }
-                    if (bmp != null) TextButton(onClick = { logoPath = null }) { Text("Entfernen") }
+                    if (bmp != null) androidx.compose.foundation.Image(bmp, tr("Logo"), Modifier.size(width = 120.dp, height = 56.dp))
+                    OutlinedButtonCompat(if (bmp == null) tr("Logo hinzufügen") else tr("Logo ändern")) { logoPicker.launch("image/*") }
+                    if (bmp != null) TextButton(onClick = { logoPath = null }) { Text(tr("Entfernen")) }
                 }
                 Button(enabled = !busy && imapHost.isNotBlank() && smtpHost.isNotBlank() && email.contains('@'), modifier = Modifier.fillMaxWidth(),
                     onClick = { saveAndTest() }) {
-                    if (busy) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)); Text("Verbindung wird geprüft …") }
-                    else Text("Prüfen & speichern")
+                    if (busy) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)); Text(tr("Verbindung wird geprüft …")) }
+                    else Text(tr("Prüfen & speichern"))
                 }
             }
             if (existing != null) {
-                SectionTitle("Fehlerbehebung")
-                vm.prefs.syncError(existing.id)?.let { InfoCard("Letzter Abruf fehlgeschlagen: $it", isError = true) }
+                SectionTitle(tr("Fehlerbehebung"))
+                vm.prefs.syncError(existing.id)?.let { InfoCard(tr("Letzter Abruf fehlgeschlagen: {0}", it), isError = true) }
                 val last = vm.prefs.lastSync(existing.id)
-                if (last > 0) Text("Letzter Abruf: ${MainViewModel.fmt(last)}", style = MaterialTheme.typography.bodySmall,
+                if (last > 0) Text(tr("Letzter Abruf: {0}", MainViewModel.fmt(last)), style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
                 androidx.compose.material3.OutlinedButton(onClick = { vm.reloadAccount(existing.id); vm.pop() }, modifier = Modifier.fillMaxWidth()) {
-                    Text("Mails neu laden")
+                    Text(tr("Mails neu laden"))
                 }
-                Text("Löscht nur die Kopien auf diesem Gerät und lädt die Mails neu vom Server. Auf dem Server bleibt alles erhalten.",
+                Text(tr("Löscht nur die Kopien auf diesem Gerät und lädt die Mails neu vom Server. Auf dem Server bleibt alles erhalten."),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
             Spacer(Modifier.height(40.dp))
         }
     }
     if (confirmDelete && existing != null) AlertDialog(onDismissRequest = { confirmDelete = false },
-        title = { Text("Konto entfernen?") }, text = { Text("${existing.email} und alle lokal gespeicherten Mails werden von diesem Gerät entfernt. Auf dem Server bleibt alles erhalten.") },
-        confirmButton = { TextButton(onClick = { vm.db.deleteAccount(existing.id); vm.mailbox.value = Mailbox.Unified; confirmDelete = false; vm.pop() }) { Text("Entfernen") } },
-        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text("Abbrechen") } })
+        title = { Text(tr("Konto entfernen?")) }, text = { Text(tr("{0} und alle lokal gespeicherten Mails werden von diesem Gerät entfernt. Auf dem Server bleibt alles erhalten.", existing.email)) },
+        confirmButton = { TextButton(onClick = { vm.db.deleteAccount(existing.id); vm.mailbox.value = Mailbox.Unified; confirmDelete = false; vm.pop() }) { Text(tr("Entfernen")) } },
+        dismissButton = { TextButton(onClick = { confirmDelete = false }) { Text(tr("Abbrechen")) } })
 }
 
 @Composable
-private fun PasswordField(v: String, on: (String) -> Unit, show: Boolean, label: String = "Passwort / App-Passwort", toggle: () -> Unit) {
+private fun PasswordField(v: String, on: (String) -> Unit, show: Boolean, label: String = tr("Passwort / App-Passwort"), toggle: () -> Unit) {
     OutlinedTextField(v, on, label = { Text(label) }, singleLine = true, modifier = Modifier.fillMaxWidth(),
         visualTransformation = if (show) VisualTransformation.None else PasswordVisualTransformation(),
         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-        trailingIcon = { IconButton(onClick = toggle) { Icon(if (show) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, "Anzeigen") } })
+        trailingIcon = { IconButton(onClick = toggle) { Icon(if (show) Icons.Outlined.VisibilityOff else Icons.Outlined.Visibility, tr("Anzeigen")) } })
 }
 
 @Composable
@@ -298,7 +300,7 @@ private fun ServerFields(host: String, onHost: (String) -> Unit, port: String, o
     }
     Row(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalAlignment = Alignment.CenterVertically) {
         Security.entries.forEach { s ->
-            FilterChip(selected = sec == s, onClick = { onSec(s) }, label = { Text(when (s) { Security.SSL -> "SSL/TLS"; Security.STARTTLS -> "STARTTLS"; Security.NONE -> "Keine ⚠️" }) })
+            FilterChip(selected = sec == s, onClick = { onSec(s) }, label = { Text(when (s) { Security.SSL -> "SSL/TLS"; Security.STARTTLS -> "STARTTLS"; Security.NONE -> tr("Keine ⚠️") }) })
         }
     }
 }
@@ -318,11 +320,11 @@ private fun PresetCard(vm: MainViewModel, p: PresetAccounts.Preset) {
                 Avatar(name, p.email, 36.dp); Spacer(Modifier.width(10.dp))
                 Column {
                     Text(p.email, style = MaterialTheme.typography.titleMedium)
-                    Text("${PresetAccounts.toAccount(p).imapHost} · IMAP/SMTP mit SSL", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(tr("{0} · IMAP/SMTP mit SSL", PresetAccounts.toAccount(p).imapHost), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
-            OutlinedTextField(name, { name = it }, label = { Text("Absendername") }, singleLine = true, modifier = Modifier.fillMaxWidth())
-            PasswordField(pw, { pw = it }, show, "Passwort") { show = !show }
+            OutlinedTextField(name, { name = it }, label = { Text(tr("Absendername")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+            PasswordField(pw, { pw = it }, show, tr("Passwort")) { show = !show }
             err?.let { Text("⚠️ $it", color = MaterialTheme.colorScheme.error, style = MaterialTheme.typography.bodySmall) }
             Button(enabled = pw.isNotEmpty() && !busy, modifier = Modifier.fillMaxWidth(), onClick = {
                 busy = true; err = null
@@ -331,15 +333,15 @@ private fun PresetCard(vm: MainViewModel, p: PresetAccounts.Preset) {
                         val acc = PresetAccounts.toAccount(p, name.ifBlank { p.name })
                         vm.repo.testAccount(acc, pw)
                         vm.repo.addAccount(acc, pw)
-                        vm.snack("${p.email} verbunden – Mails werden geladen …")
+                        vm.snack(tr("{0} verbunden – Mails werden geladen …", p.email))
                         vm.refresh()
                         if (PresetAccounts.pending(vm.db.accounts()).isEmpty() && vm.stack.value.size > 1) vm.pop()
                     } catch (e: Exception) { err = e.message ?: friendly(e) }
                     busy = false
                 }
             }) {
-                if (busy) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)); Text("Verbindung wird geprüft …") }
-                else Text("Verbinden")
+                if (busy) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)); Text(tr("Verbindung wird geprüft …")) }
+                else Text(tr("Verbinden"))
             }
         }
     }
@@ -347,8 +349,8 @@ private fun PresetCard(vm: MainViewModel, p: PresetAccounts.Preset) {
 
 @Composable
 private fun OAuthSignatureFields(sig: String, onSig: (String) -> Unit, reply: String, onReply: (String) -> Unit) {
-    OutlinedTextField(sig, onSig, label = { Text("Signatur für neue Mails") }, minLines = 3, modifier = Modifier.fillMaxWidth())
-    OutlinedTextField(reply, onReply, label = { Text("Signatur für Antworten (leer = wie oben)") }, minLines = 2, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(sig, onSig, label = { Text(tr("Signatur für neue Mails")) }, minLines = 3, modifier = Modifier.fillMaxWidth())
+    OutlinedTextField(reply, onReply, label = { Text(tr("Signatur für Antworten (leer = wie oben)")) }, minLines = 2, modifier = Modifier.fillMaxWidth())
 }
 
 @Composable

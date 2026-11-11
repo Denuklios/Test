@@ -1,5 +1,7 @@
 package app.mailwerk.ui
 
+import app.mailwerk.tr
+
 import android.content.Context
 import android.net.Uri
 import android.provider.OpenableColumns
@@ -101,9 +103,9 @@ fun ComposeScreen(vm: MainViewModel, init: ComposeInit, snackHost: SnackbarHostS
         references = init.references, sendAt = 0, status = OutboxStatus.DRAFT, remindIfNoReplyDays = remindDays)
 
     fun valid(): Boolean {
-        if (to.text.isBlank()) { vm.snack("Bitte einen Empfänger angeben"); return false }
-        if (app.mailwerk.data.Repository.parseAddrs(to.text).isEmpty()) { vm.snack("Empfängeradresse ungültig"); return false }
-        if (subject.isBlank() && body.text.isBlank()) { vm.snack("Die Nachricht ist leer"); return false }
+        if (to.text.isBlank()) { vm.snack(tr("Bitte einen Empfänger angeben")); return false }
+        if (app.mailwerk.data.Repository.parseAddrs(to.text).isEmpty()) { vm.snack(tr("Empfängeradresse ungültig")); return false }
+        if (subject.isBlank() && body.text.isBlank()) { vm.snack(tr("Die Nachricht ist leer")); return false }
         return true
     }
     val changed = to.text != init.to || subject != init.subject || body.text != init.body || atts.size != init.attachments.size
@@ -112,25 +114,25 @@ fun ComposeScreen(vm: MainViewModel, init: ComposeInit, snackHost: SnackbarHostS
 
     Scaffold(
         topBar = {
-            TopAppBar(title = { Text(if (init.inReplyTo != null) "Antworten" else "Neue E-Mail", style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
-                navigationIcon = { IconButton(onClick = { if (changed) confirmDiscard = true else vm.pop() }) { Icon(Icons.Outlined.Close, "Schließen") } },
+            TopAppBar(title = { Text(if (init.inReplyTo != null) tr("Antworten") else tr("Neue E-Mail"), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = androidx.compose.ui.text.style.TextOverflow.Ellipsis) },
+                navigationIcon = { IconButton(onClick = { if (changed) confirmDiscard = true else vm.pop() }) { Icon(Icons.Outlined.Close, tr("Schließen")) } },
                 actions = {
-                    IconButton(onClick = { picker.launch("*/*") }) { Icon(Icons.Outlined.AttachFile, "Anhang") }
+                    IconButton(onClick = { picker.launch("*/*") }) { Icon(Icons.Outlined.AttachFile, tr("Anhang")) }
                     Row(Modifier.padding(horizontal = 4.dp).clip(androidx.compose.foundation.shape.RoundedCornerShape(16.dp)).background(Brand.gradient)
                         .clickable { if (valid()) vm.send(item()) }.padding(horizontal = 16.dp, vertical = 10.dp),
                         verticalAlignment = androidx.compose.ui.Alignment.CenterVertically) {
                         Icon(Icons.AutoMirrored.Outlined.Send, null, tint = Color.White, modifier = Modifier.size(18.dp))
-                        Spacer(Modifier.width(6.dp)); Text("Senden", color = Color.White, style = MaterialTheme.typography.labelLarge)
+                        Spacer(Modifier.width(6.dp)); Text(tr("Senden"), color = Color.White, style = MaterialTheme.typography.labelLarge)
                     }
-                    IconButton(onClick = { moreMenu = true }) { Icon(Icons.Outlined.MoreVert, "Mehr") }
+                    IconButton(onClick = { moreMenu = true }) { Icon(Icons.Outlined.MoreVert, tr("Mehr")) }
                     DropdownMenu(moreMenu, { moreMenu = false }) {
-                        DropdownMenuItem(text = { Text("Später senden …") }, leadingIcon = { Icon(Icons.Outlined.Schedule, null) },
+                        DropdownMenuItem(text = { Text(tr("Später senden …")) }, leadingIcon = { Icon(Icons.Outlined.Schedule, null) },
                             onClick = { moreMenu = false; if (valid()) laterOpen = true })
-                        DropdownMenuItem(text = { Text("Vorlage einfügen") }, leadingIcon = { Icon(Icons.Outlined.ShortText, null) },
+                        DropdownMenuItem(text = { Text(tr("Vorlage einfügen")) }, leadingIcon = { Icon(Icons.Outlined.ShortText, null) },
                             onClick = { moreMenu = false; templatesOpen = true })
-                        DropdownMenuItem(text = { Text(if (remindDays > 0) "Erinnerung: nach $remindDays Tag(en)" else "Erinnern, falls keine Antwort") },
+                        DropdownMenuItem(text = { Text(if (remindDays > 0) tr("Erinnerung: nach {0} Tag(en)", remindDays) else tr("Erinnern, falls keine Antwort")) },
                             leadingIcon = { Icon(Icons.Outlined.NotificationsActive, null) }, onClick = { moreMenu = false; remindOpen = true })
-                        DropdownMenuItem(text = { Text("Als Entwurf speichern") }, leadingIcon = { Icon(Icons.Outlined.Save, null) },
+                        DropdownMenuItem(text = { Text(tr("Als Entwurf speichern")) }, leadingIcon = { Icon(Icons.Outlined.Save, null) },
                             onClick = { moreMenu = false; vm.saveDraft(item()); vm.pop() })
                     }
                 })
@@ -144,15 +146,15 @@ fun ComposeScreen(vm: MainViewModel, init: ComposeInit, snackHost: SnackbarHostS
             // Absender
             val acc = accounts.firstOrNull { it.id == accountId }
             Row(Modifier.fillMaxWidth().clickable(enabled = accounts.size > 1) { accountMenu = true }.padding(horizontal = 16.dp, vertical = 12.dp)) {
-                Text("Von  ", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(acc?.let { "${it.name} <${it.email}>" } ?: "Kein Konto", Modifier.weight(1f))
+                Text(tr("Von  "), color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(acc?.let { "${it.name} <${it.email}>" } ?: tr("Kein Konto"), Modifier.weight(1f))
                 DropdownMenu(accountMenu, { accountMenu = false }) {
                     accounts.forEach { a -> DropdownMenuItem(text = { Text(a.email) }, onClick = { accountId = a.id; accountMenu = false }) }
                 }
             }
             HorizontalDivider()
             Row {
-                TextField(to, { to = it }, label = { Text("An") }, modifier = Modifier.weight(1f), colors = fieldColors,
+                TextField(to, { to = it }, label = { Text(tr("An")) }, modifier = Modifier.weight(1f), colors = fieldColors,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
                 IconButton(onClick = { showCc = !showCc }, modifier = Modifier.padding(top = 8.dp)) {
                     Icon(if (showCc) Icons.Outlined.ExpandLess else Icons.Outlined.ExpandMore, "Cc/Bcc")
@@ -177,25 +179,25 @@ fun ComposeScreen(vm: MainViewModel, init: ComposeInit, snackHost: SnackbarHostS
                 TextField(bcc, { bcc = it }, label = { Text("Bcc") }, modifier = Modifier.fillMaxWidth(), colors = fieldColors,
                     keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email))
             }
-            TextField(subject, { subject = it }, label = { Text("Betreff") }, modifier = Modifier.fillMaxWidth(), colors = fieldColors,
+            TextField(subject, { subject = it }, label = { Text(tr("Betreff")) }, modifier = Modifier.fillMaxWidth(), colors = fieldColors,
                 keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences))
             if (atts.isNotEmpty()) FlowRow(Modifier.padding(horizontal = 12.dp)) {
                 atts.forEach { u ->
                     InputChip(selected = false, onClick = { atts.remove(u) }, label = { Text(File(Uri.parse(u).path ?: u).name) },
-                        trailingIcon = { Icon(Icons.Outlined.Close, "Entfernen", Modifier.size(16.dp)) }, modifier = Modifier.padding(4.dp))
+                        trailingIcon = { Icon(Icons.Outlined.Close, tr("Entfernen"), Modifier.size(16.dp)) }, modifier = Modifier.padding(4.dp))
                 }
             }
-            if (remindDays > 0) Text("🔔 Erinnerung, falls nach $remindDays Tag(en) keine Antwort kommt",
+            if (remindDays > 0) Text(tr("🔔 Erinnerung, falls nach {0} Tag(en) keine Antwort kommt", remindDays),
                 style = MaterialTheme.typography.labelMedium, modifier = Modifier.padding(horizontal = 16.dp, vertical = 4.dp))
             HorizontalDivider()
-            TextField(body, { body = it }, placeholder = { Text("Nachricht verfassen") }, modifier = Modifier.fillMaxWidth().heightIn(min = 320.dp),
+            TextField(body, { body = it }, placeholder = { Text(tr("Nachricht verfassen")) }, modifier = Modifier.fillMaxWidth().heightIn(min = 320.dp),
                 colors = bodyColors, keyboardOptions = KeyboardOptions(capitalization = KeyboardCapitalization.Sentences))
         }
     }
 
     if (templatesOpen) AlertDialog(onDismissRequest = { templatesOpen = false }, confirmButton = {},
-        dismissButton = { TextButton(onClick = { templatesOpen = false; vm.push(Screen.Templates) }) { Text("Vorlagen bearbeiten") } },
-        title = { Text("Vorlage einfügen") },
+        dismissButton = { TextButton(onClick = { templatesOpen = false; vm.push(Screen.Templates) }) { Text(tr("Vorlagen bearbeiten")) } },
+        title = { Text(tr("Vorlage einfügen")) },
         text = {
             Column {
                 vm.db.templates().forEach { t ->
@@ -208,24 +210,24 @@ fun ComposeScreen(vm: MainViewModel, init: ComposeInit, snackHost: SnackbarHostS
                 }
             }
         })
-    if (laterOpen) TimeChooser("Später senden", { laterOpen = false }) { t -> laterOpen = false; vm.send(item(), later = t) }
+    if (laterOpen) TimeChooser(tr("Später senden"), { laterOpen = false }) { t -> laterOpen = false; vm.send(item(), later = t) }
     if (remindOpen) AlertDialog(onDismissRequest = { remindOpen = false }, confirmButton = {},
-        dismissButton = { TextButton(onClick = { remindDays = 0; remindOpen = false }) { Text("Keine Erinnerung") } },
-        title = { Text("Erinnern, falls keine Antwort kommt nach …") },
+        dismissButton = { TextButton(onClick = { remindDays = 0; remindOpen = false }) { Text(tr("Keine Erinnerung")) } },
+        title = { Text(tr("Erinnern, falls keine Antwort kommt nach …")) },
         text = {
             Column { listOf(1, 2, 3, 7, 14).forEach { d ->
-                ListItem(headlineContent = { Text(if (d == 1) "1 Tag" else "$d Tagen") }, modifier = Modifier.clickable { remindDays = d; remindOpen = false })
+                ListItem(headlineContent = { Text(if (d == 1) tr("1 Tag") else tr("{0} Tagen", d)) }, modifier = Modifier.clickable { remindDays = d; remindOpen = false })
             } }
         })
     if (confirmDiscard) AlertDialog(onDismissRequest = { confirmDiscard = false },
-        title = { Text("Nachricht verwerfen?") },
-        confirmButton = { TextButton(onClick = { confirmDiscard = false; vm.saveDraft(item()); vm.pop() }) { Text("Als Entwurf speichern") } },
+        title = { Text(tr("Nachricht verwerfen?")) },
+        confirmButton = { TextButton(onClick = { confirmDiscard = false; vm.saveDraft(item()); vm.pop() }) { Text(tr("Als Entwurf speichern")) } },
         dismissButton = {
             TextButton(onClick = {
                 confirmDiscard = false
                 if (init.outboxId != 0L) vm.db.deleteOutbox(init.outboxId)
                 vm.pop()
-            }) { Text("Verwerfen") }
+            }) { Text(tr("Verwerfen")) }
         })
 }
 

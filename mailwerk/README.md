@@ -6,6 +6,8 @@ Sie läuft **komplett auf dem Gerät**: keine Cloud, kein Konto beim App-Herstel
 **Download:** [`Mailwerk.apk`](Mailwerk.apk) (Android 8.0 oder neuer) · **Veröffentlichen im Play Store:** [VEROEFFENTLICHEN.md](VEROEFFENTLICHEN.md) ·
 **Datenschutz:** [DATENSCHUTZ.md](DATENSCHUTZ.md)
 
+Sprachen: **Englisch** (Standard) und **Deutsch** – die App folgt automatisch der Sprache des Handys.
+
 Mailwerk ist ein neutrales Produkt: keine Daten des Entwicklers in der App, jeder meldet sich mit seinem eigenen Konto an –
 per Passwort (jeder IMAP-Anbieter) oder über das Anmeldefenster von **Google** bzw. **Microsoft** (OAuth, sobald die
 Client-IDs in `mailwerk.properties` eingetragen sind).

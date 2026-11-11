@@ -1,5 +1,7 @@
 package app.mailwerk.ui
 
+import app.mailwerk.tr
+
 import android.Manifest
 import android.content.Intent
 import android.os.Build
@@ -55,19 +57,19 @@ class MainActivity : ComponentActivity() {
                 var crash by remember { mutableStateOf(app.mailwerk.CrashLog.read(this@MainActivity)) }
                 crash?.let { report ->
                     androidx.compose.material3.AlertDialog(onDismissRequest = { app.mailwerk.CrashLog.clear(this@MainActivity); crash = null },
-                        title = { androidx.compose.material3.Text("Mailwerk wurde unerwartet beendet") },
-                        text = { androidx.compose.material3.Text("Das tut uns leid. Mit dem Fehlerbericht kann der Fehler behoben werden – er enthält keine Mails, Adressen oder Passwörter.\n\n" +
+                        title = { androidx.compose.material3.Text(tr("Mailwerk wurde unerwartet beendet")) },
+                        text = { androidx.compose.material3.Text(tr("Das tut uns leid. Mit dem Fehlerbericht kann der Fehler behoben werden – er enthält keine Mails, Adressen oder Passwörter.\n\n") +
                             report.lines().take(8).joinToString("\n")) },
                         confirmButton = { androidx.compose.material3.TextButton(onClick = {
                             val support = app.mailwerk.BuildConfig.SUPPORT_EMAIL
                             val share = Intent(Intent.ACTION_SEND).setType("text/plain")
-                                .putExtra(Intent.EXTRA_SUBJECT, "Mailwerk Absturzbericht").putExtra(Intent.EXTRA_TEXT, report)
+                                .putExtra(Intent.EXTRA_SUBJECT, tr("Mailwerk Absturzbericht")).putExtra(Intent.EXTRA_TEXT, report)
                             if (support.isNotEmpty()) share.putExtra(Intent.EXTRA_EMAIL, arrayOf(support))
-                            runCatching { startActivity(Intent.createChooser(share, "Fehlerbericht senden")) }
+                            runCatching { startActivity(Intent.createChooser(share, tr("Fehlerbericht senden"))) }
                             app.mailwerk.CrashLog.clear(this@MainActivity); crash = null
-                        }) { androidx.compose.material3.Text("Bericht senden") } },
+                        }) { androidx.compose.material3.Text(tr("Bericht senden")) } },
                         dismissButton = { androidx.compose.material3.TextButton(onClick = { app.mailwerk.CrashLog.clear(this@MainActivity); crash = null }) {
-                            androidx.compose.material3.Text("Schließen") } })
+                            androidx.compose.material3.Text(tr("Schließen")) } })
                 }
                 AnimatedContent(stack.last(), transitionSpec = { fadeIn() togetherWith fadeOut() }, label = "screen") { screen ->
                     when (screen) {

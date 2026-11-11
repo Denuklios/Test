@@ -1,27 +1,29 @@
 package app.mailwerk.mail
 
+import app.mailwerk.tr
+
 import app.mailwerk.data.Category
 
 /** Wo eine Regel sucht. */
 enum class RuleField(val label: String) {
-    FROM("Absender"), TO("Empfänger (An/Cc)"), SUBJECT("Betreff"), BODY("Text"), ANY("Absender, Empfänger oder Betreff"), ALL("Jede Mail");
+    FROM(tr("Absender")), TO(tr("Empfänger (An/Cc)")), SUBJECT(tr("Betreff")), BODY(tr("Text")), ANY(tr("Absender, Empfänger oder Betreff")), ALL(tr("Jede Mail"));
     companion object { fun of(s: String?) = entries.firstOrNull { it.name == s } ?: FROM }
 }
 
 enum class RuleOp(val label: String) {
-    CONTAINS("enthält"), NOT_CONTAINS("enthält nicht"), EQUALS("ist genau"), STARTS("beginnt mit"), ENDS("endet mit");
+    CONTAINS(tr("enthält")), NOT_CONTAINS(tr("enthält nicht")), EQUALS(tr("ist genau")), STARTS(tr("beginnt mit")), ENDS(tr("endet mit"));
     companion object { fun of(s: String?) = entries.firstOrNull { it.name == s } ?: CONTAINS }
 }
 
 enum class RuleAction(val label: String, val needsArg: Boolean) {
-    MOVE("In Ordner verschieben", true),
-    CATEGORY("Einsortieren als", true),
-    READ("Als gelesen markieren", false),
-    FLAG("Markieren (Fähnchen)", false),
-    PIN("Anheften", false),
-    FORWARD("Weiterleiten an", true),
-    SPAM("In den Spam-Ordner", false),
-    DELETE("Löschen (Papierkorb)", false);
+    MOVE(tr("In Ordner verschieben"), true),
+    CATEGORY(tr("Einsortieren als"), true),
+    READ(tr("Als gelesen markieren"), false),
+    FLAG(tr("Markieren (Fähnchen)"), false),
+    PIN(tr("Anheften"), false),
+    FORWARD(tr("Weiterleiten an"), true),
+    SPAM(tr("In den Spam-Ordner"), false),
+    DELETE(tr("Löschen (Papierkorb)"), false);
     companion object { fun of(s: String?) = entries.firstOrNull { it.name == s } ?: MOVE }
 }
 
@@ -41,7 +43,7 @@ data class Rule(
     val stop: Boolean = false,
 ) {
     fun describe(): String {
-        val cond = if (field == RuleField.ALL) "Jede Mail" else "${field.label} ${op.label} „$value“"
+        val cond = if (field == RuleField.ALL) tr("Jede Mail") else "${field.label} ${op.label} „$value“"
         val act = when (action) {
             RuleAction.CATEGORY -> "${action.label} ${Category.of(arg).label}"
             RuleAction.MOVE, RuleAction.FORWARD -> "${action.label} $arg"
@@ -111,7 +113,7 @@ object RuleEngine {
     }
 
     fun decide(rules: List<Rule>, blocklist: List<BlockEntry>, m: Incoming): Decision {
-        if (blocklist.any { it.matches(m.from) }) return Decision(spam = true, blocked = true, matched = listOf("Gesperrter Absender"))
+        if (blocklist.any { it.matches(m.from) }) return Decision(spam = true, blocked = true, matched = listOf(tr("Gesperrter Absender")))
         var d = Decision()
         for (r in rules) {
             if (!r.enabled || !matches(r, m)) continue

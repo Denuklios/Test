@@ -31,6 +31,7 @@ import java.io.File
 @GraphicsMode(GraphicsMode.Mode.NATIVE)
 @Config(qualifiers = "w393dp-h852dp-xhdpi")
 class ScreenshotTest {
+    @org.junit.Before fun deLocale() { java.util.Locale.setDefault(java.util.Locale.GERMAN) }
     @get:Rule val rule = createEmptyComposeRule()
 
     companion object {
@@ -39,7 +40,7 @@ class ScreenshotTest {
             app.mailwerk.data.Prefs(ctx).presetCache = "Max Muster|max@beispiel-domain.de"
             app.mailwerk.data.PresetAccounts.load(ctx)
             val db = Db.get(ctx)
-            if (db.accounts().any { it.email == "robert@beispiel.de" }) return
+            if (db.accounts().any { it.email == "robert@beispiel.de" } && db.accounts().size == 1) return
             db.accounts().forEach { db.deleteAccount(it.id) }
             val a = db.saveAccount(Account(0, "Robert", "robert@beispiel.de", "imap.beispiel.de", 993, Security.SSL, "smtp.beispiel.de", 465, Security.SSL, "x", "x", color = 0xFF1E88E5.toInt()))
             val inbox = db.upsertFolder(a, "INBOX", "Posteingang", FolderRole.INBOX)

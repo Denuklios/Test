@@ -1,5 +1,7 @@
 package app.mailwerk.sync
 
+import app.mailwerk.tr
+
 import android.Manifest
 import android.app.NotificationChannel
 import android.app.NotificationManager
@@ -23,9 +25,9 @@ object Notifier {
 
     fun createChannels(ctx: Context) {
         val nm = ctx.getSystemService(NotificationManager::class.java)
-        nm.createNotificationChannel(NotificationChannel(CH_MAIL, "Neue E-Mails", NotificationManager.IMPORTANCE_DEFAULT))
-        nm.createNotificationChannel(NotificationChannel(CH_REMIND, "Erinnerungen & Zurückgestellt", NotificationManager.IMPORTANCE_HIGH))
-        nm.createNotificationChannel(NotificationChannel(CH_ERROR, "Versandfehler", NotificationManager.IMPORTANCE_HIGH))
+        nm.createNotificationChannel(NotificationChannel(CH_MAIL, tr("Neue E-Mails"), NotificationManager.IMPORTANCE_DEFAULT))
+        nm.createNotificationChannel(NotificationChannel(CH_REMIND, tr("Erinnerungen & Zurückgestellt"), NotificationManager.IMPORTANCE_HIGH))
+        nm.createNotificationChannel(NotificationChannel(CH_ERROR, tr("Versandfehler"), NotificationManager.IMPORTANCE_HIGH))
     }
 
     private fun allowed(ctx: Context) = ContextCompat.checkSelfPermission(ctx, Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
@@ -58,7 +60,7 @@ object Notifier {
         }
         if (msgs.size > 1) {
             nm.notify(-acc.id.toInt() - 1000, NotificationCompat.Builder(ctx, CH_MAIL)
-                .setSmallIcon(R.drawable.ic_notification).setContentTitle("${msgs.size} neue E-Mails")
+                .setSmallIcon(R.drawable.ic_notification).setContentTitle(tr("{0} neue E-Mails", msgs.size))
                 .setSubText(acc.email).setGroup(group).setGroupSummary(true).setAutoCancel(true)
                 .setContentIntent(open(ctx, null)).build())
         }
@@ -76,7 +78,7 @@ object Notifier {
     fun sendFailed(ctx: Context, o: OutboxItem, error: String) {
         if (!allowed(ctx)) return
         NotificationManagerCompat.from(ctx).notify(o.id.toInt() + 900000, NotificationCompat.Builder(ctx, CH_ERROR)
-            .setSmallIcon(R.drawable.ic_notification).setContentTitle("Senden fehlgeschlagen: ${o.subject}")
+            .setSmallIcon(R.drawable.ic_notification).setContentTitle(tr("Senden fehlgeschlagen: {0}", o.subject))
             .setContentText(error).setStyle(NotificationCompat.BigTextStyle().bigText(error))
             .setAutoCancel(true).setContentIntent(open(ctx, null)).build())
     }

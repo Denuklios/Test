@@ -15,6 +15,7 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class LogicTest {
+    @org.junit.Before fun deLocale() { java.util.Locale.setDefault(java.util.Locale.GERMAN) }
     @Test fun classifiesNewsletter() {
         assertEquals(Category.NEWSLETTER, Classifier.classify("news@shop.de", mapOf("list-unsubscribe" to "<https://x>"), false))
         assertEquals(Category.NEWSLETTER, Classifier.classify("hallo@shop.de", mapOf("precedence" to "bulk"), false))

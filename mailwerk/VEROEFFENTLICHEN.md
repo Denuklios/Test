@@ -60,8 +60,11 @@ Schlüssel + Passwort sicher aufbewahren (Passwort-Manager). Bei Verlust kann Go
 
 ## 5. Google Play
 1. Entwicklerkonto: https://play.google.com/console (einmalig 25 US-$, Identitätsprüfung)
-2. App erstellen → Sprache Deutsch, App, kostenlos
-3. Texte aus `store/eintrag-de.md` übernehmen; Screenshots aus `screenshots/`; Symbol 512×512 und Vorstellungsgrafik 1024×500
+2. App erstellen → **Standardsprache: Englisch (USA) – en-US**, App, kostenlos
+3. Store-Eintrag Englisch: Texte aus `store/listing-en.md`, Screenshots aus `screenshots/en/`.
+   Unter *Store-Eintrag → Übersetzungen verwalten* **Deutsch (de-DE)** hinzufügen: Texte aus `store/eintrag-de.md`, Screenshots aus `screenshots/`.
+   Symbol 512×512 und Vorstellungsgrafik 1024×500.
+   Die App selbst zeigt sich automatisch in der Sprache des Handys: Deutsch auf deutschsprachigen Geräten, sonst Englisch.
 4. **App-Inhalte**: Datenschutzerklärung (Link), Datensicherheit, Vordergrunddienst-Erklärung (Texte in `store/eintrag-de.md`),
    Inhaltseinstufung, Zielgruppe (ab 18 bzw. „nicht für Kinder“), keine Werbung
 5. `./gradlew bundlePlayRelease` → `.aab` unter *Testen → Geschlossener Test* hochladen

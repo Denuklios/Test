@@ -1,5 +1,7 @@
 package app.mailwerk.ui
 
+import app.mailwerk.tr
+
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -75,11 +77,11 @@ fun shortTime(t: Long): String {
     val now = Calendar.getInstance(); val c = Calendar.getInstance().apply { timeInMillis = t }
     return when {
         now.get(Calendar.YEAR) == c.get(Calendar.YEAR) && now.get(Calendar.DAY_OF_YEAR) == c.get(Calendar.DAY_OF_YEAR) ->
-            SimpleDateFormat("HH:mm", Locale.GERMAN).format(Date(t))
-        now.get(Calendar.YEAR) == c.get(Calendar.YEAR) && now.get(Calendar.DAY_OF_YEAR) - c.get(Calendar.DAY_OF_YEAR) == 1 -> "Gestern"
-        now.timeInMillis - t < 6 * 86_400_000L -> SimpleDateFormat("EEE", Locale.GERMAN).format(Date(t))
-        now.get(Calendar.YEAR) == c.get(Calendar.YEAR) -> SimpleDateFormat("d. MMM", Locale.GERMAN).format(Date(t))
-        else -> SimpleDateFormat("dd.MM.yy", Locale.GERMAN).format(Date(t))
+            SimpleDateFormat(if (app.mailwerk.I18n.german()) "HH:mm" else "h:mm a", Locale.getDefault()).format(Date(t))
+        now.get(Calendar.YEAR) == c.get(Calendar.YEAR) && now.get(Calendar.DAY_OF_YEAR) - c.get(Calendar.DAY_OF_YEAR) == 1 -> tr("Gestern")
+        now.timeInMillis - t < 6 * 86_400_000L -> SimpleDateFormat("EEE", Locale.getDefault()).format(Date(t))
+        now.get(Calendar.YEAR) == c.get(Calendar.YEAR) -> SimpleDateFormat(if (app.mailwerk.I18n.german()) "d. MMM" else "MMM d", Locale.getDefault()).format(Date(t))
+        else -> SimpleDateFormat(if (app.mailwerk.I18n.german()) "dd.MM.yy" else "MM/dd/yy", Locale.getDefault()).format(Date(t))
     }
 }
 
@@ -87,7 +89,7 @@ fun humanSize(b: Long): String = when {
     b <= 0 -> ""
     b < 1024 -> "$b B"
     b < 1024 * 1024 -> "${b / 1024} KB"
-    else -> String.format(Locale.GERMAN, "%.1f MB", b / 1048576.0)
+    else -> String.format(Locale.getDefault(), "%.1f MB", b / 1048576.0)
 }
 
 /** Schnellauswahl-Zeitpunkte wie in Spark/Gmail/Outlook. */
@@ -99,17 +101,17 @@ object QuickTimes {
     fun options(): List<Triple<String, ImageVector, Long>> {
         val now = Calendar.getInstance()
         val list = mutableListOf<Triple<String, ImageVector, Long>>()
-        list += Triple("In 3 Stunden", Icons.Outlined.Schedule, System.currentTimeMillis() + 3 * 3_600_000L)
-        if (now.get(Calendar.HOUR_OF_DAY) < 17) list += Triple("Heute Abend (18:00)", Icons.Outlined.DarkMode, at(0, 18))
-        list += Triple("Morgen früh (8:00)", Icons.Outlined.WbTwilight, at(1, 8))
+        list += Triple(tr("In 3 Stunden"), Icons.Outlined.Schedule, System.currentTimeMillis() + 3 * 3_600_000L)
+        if (now.get(Calendar.HOUR_OF_DAY) < 17) list += Triple(tr("Heute Abend (18:00)"), Icons.Outlined.DarkMode, at(0, 18))
+        list += Triple(tr("Morgen früh (8:00)"), Icons.Outlined.WbTwilight, at(1, 8))
         val dow = now.get(Calendar.DAY_OF_WEEK)
         if (dow != Calendar.SATURDAY && dow != Calendar.SUNDAY) {
             val toSat = (Calendar.SATURDAY - dow + 7) % 7
-            list += Triple("Am Wochenende (Sa 9:00)", Icons.Outlined.Weekend, at(toSat, 9))
+            list += Triple(tr("Am Wochenende (Sa 9:00)"), Icons.Outlined.Weekend, at(toSat, 9))
         }
         val toMon = ((Calendar.MONDAY - dow + 7) % 7).let { if (it == 0) 7 else it }
-        list += Triple("Nächste Woche (Mo 8:00)", Icons.Outlined.Today, at(toMon, 8))
-        list += Triple("In einem Monat", Icons.Outlined.LightMode, at(30, 8))
+        list += Triple(tr("Nächste Woche (Mo 8:00)"), Icons.Outlined.Today, at(toMon, 8))
+        list += Triple(tr("In einem Monat"), Icons.Outlined.LightMode, at(30, 8))
         return list
     }
 }
@@ -121,7 +123,7 @@ fun TimeChooser(title: String, onDismiss: () -> Unit, onPick: (Long) -> Unit) {
     var step by remember { mutableIntStateOf(0) } // 0=Liste 1=Datum 2=Uhrzeit
     var day by remember { mutableLongStateOf(0L) }
     when (step) {
-        0 -> AlertDialog(onDismissRequest = onDismiss, confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+        0 -> AlertDialog(onDismissRequest = onDismiss, confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen")) } },
             title = { Text(title) },
             text = {
                 Column {
@@ -129,19 +131,19 @@ fun TimeChooser(title: String, onDismiss: () -> Unit, onPick: (Long) -> Unit) {
                         ListItem(headlineContent = { Text(label) }, supportingContent = { Text(MainViewModel.fmt(t)) },
                             leadingContent = { Icon(icon, null) }, modifier = Modifier.clickable { onPick(t) })
                     }
-                    ListItem(headlineContent = { Text("Datum & Uhrzeit wählen …") }, leadingContent = { Icon(Icons.Outlined.CalendarMonth, null) },
+                    ListItem(headlineContent = { Text(tr("Datum & Uhrzeit wählen …")) }, leadingContent = { Icon(Icons.Outlined.CalendarMonth, null) },
                         modifier = Modifier.clickable { step = 1 })
                 }
             })
         1 -> {
             val st = rememberDatePickerState(initialSelectedDateMillis = System.currentTimeMillis() + 86_400_000L)
             DatePickerDialog(onDismissRequest = onDismiss,
-                confirmButton = { TextButton(onClick = { day = st.selectedDateMillis ?: System.currentTimeMillis(); step = 2 }) { Text("Weiter") } },
-                dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } }) { DatePicker(st) }
+                confirmButton = { TextButton(onClick = { day = st.selectedDateMillis ?: System.currentTimeMillis(); step = 2 }) { Text(tr("Weiter")) } },
+                dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen")) } }) { DatePicker(st) }
         }
         else -> {
             val tp = rememberTimePickerState(8, 0, true)
-            AlertDialog(onDismissRequest = onDismiss, title = { Text("Uhrzeit") }, text = { TimePicker(tp) },
+            AlertDialog(onDismissRequest = onDismiss, title = { Text(tr("Uhrzeit")) }, text = { TimePicker(tp) },
                 confirmButton = {
                     TextButton(onClick = {
                         // DatePicker liefert UTC-Mitternacht -> in lokale Zeit übertragen
@@ -153,7 +155,7 @@ fun TimeChooser(title: String, onDismiss: () -> Unit, onPick: (Long) -> Unit) {
                         onPick(local.timeInMillis)
                     }) { Text("OK") }
                 },
-                dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } })
+                dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen")) } })
         }
     }
 }

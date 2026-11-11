@@ -1,6 +1,6 @@
 {
-  "versionCode": 9,
-  "versionName": "1.5.1",
+  "versionCode": 10,
+  "versionName": "1.6",
   "apk": "Mailwerk.apk",
-  "notes": "Mails werden wieder geladen, Abruffehler werden angezeigt"
+  "notes": "Englische Oberfläche (folgt der Sprache des Handys)"
 }

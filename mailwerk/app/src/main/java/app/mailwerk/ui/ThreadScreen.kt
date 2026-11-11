@@ -1,5 +1,7 @@
 package app.mailwerk.ui
 
+import app.mailwerk.tr
+
 import android.annotation.SuppressLint
 import android.content.ActivityNotFoundException
 import android.content.Context
@@ -100,13 +102,13 @@ fun ThreadScreen(vm: MainViewModel, threadKey: String, snackHost: SnackbarHostSt
         containerColor = MaterialTheme.colorScheme.background,
         topBar = {
             TopAppBar(title = {}, colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background),
-                navigationIcon = { IconButton(onClick = { vm.pop() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Zurück") } },
+                navigationIcon = { IconButton(onClick = { vm.pop() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, tr("Zurück")) } },
                 actions = {
                     last?.let { m ->
-                        IconButton(onClick = { vm.archive(m); vm.pop() }) { Icon(Icons.Outlined.Archive, "Archivieren") }
-                        IconButton(onClick = { snooze = m }) { Icon(Icons.Outlined.Snooze, "Zurückstellen") }
-                        IconButton(onClick = { vm.delete(m); vm.pop() }) { Icon(Icons.Outlined.Delete, "Löschen") }
-                        IconButton(onClick = { actions = m }) { Icon(Icons.Outlined.MoreVert, "Mehr") }
+                        IconButton(onClick = { vm.archive(m); vm.pop() }) { Icon(Icons.Outlined.Archive, tr("Archivieren")) }
+                        IconButton(onClick = { snooze = m }) { Icon(Icons.Outlined.Snooze, tr("Zurückstellen")) }
+                        IconButton(onClick = { vm.delete(m); vm.pop() }) { Icon(Icons.Outlined.Delete, tr("Löschen")) }
+                        IconButton(onClick = { actions = m }) { Icon(Icons.Outlined.MoreVert, tr("Mehr")) }
                     }
                 })
         },
@@ -117,10 +119,10 @@ fun ThreadScreen(vm: MainViewModel, threadKey: String, snackHost: SnackbarHostSt
                     Row(Modifier.weight(1f).height(52.dp).clip(RoundedCornerShape(18.dp)).background(Brand.gradient).clickable { vm.reply(m, false) },
                         horizontalArrangement = Arrangement.Center, verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.AutoMirrored.Outlined.Reply, null, tint = Color.White); Spacer(Modifier.width(8.dp))
-                        Text("Antworten", color = Color.White, style = MaterialTheme.typography.titleMedium)
+                        Text(tr("Antworten"), color = Color.White, style = MaterialTheme.typography.titleMedium)
                     }
-                    RoundAction(Icons.AutoMirrored.Outlined.ReplyAll, "Allen antworten") { vm.reply(m, true) }
-                    RoundAction(Icons.AutoMirrored.Outlined.Forward, "Weiterleiten") { vm.forward(m) }
+                    RoundAction(Icons.AutoMirrored.Outlined.ReplyAll, tr("Allen antworten")) { vm.reply(m, true) }
+                    RoundAction(Icons.AutoMirrored.Outlined.Forward, tr("Weiterleiten")) { vm.forward(m) }
                 }
             }
         },
@@ -134,14 +136,14 @@ fun ThreadScreen(vm: MainViewModel, threadKey: String, snackHost: SnackbarHostSt
                         Row(verticalAlignment = Alignment.CenterVertically) {
                             Text(f.category.label, color = c, style = MaterialTheme.typography.labelMedium,
                                 modifier = Modifier.clip(RoundedCornerShape(8.dp)).background(c.copy(alpha = 0.12f)).padding(horizontal = 8.dp, vertical = 3.dp))
-                            if (msgs.size > 1) Text("  ${msgs.size} Nachrichten", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            if (msgs.size > 1) Text(tr("  {0} Nachrichten", msgs.size), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                         Spacer(Modifier.height(8.dp))
                     }
                 Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(msgs.firstOrNull()?.subject?.ifBlank { "(kein Betreff)" } ?: "", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
-                    if (msgs.any { it.pinned }) Icon(Icons.Filled.PushPin, "Angeheftet", tint = MaterialTheme.colorScheme.tertiary)
-                    if (msgs.any { it.flagged }) Icon(Icons.Filled.Flag, "Markiert", tint = Color(0xFFE53935))
+                    Text(msgs.firstOrNull()?.subject?.ifBlank { tr("(kein Betreff)") } ?: "", style = MaterialTheme.typography.headlineSmall, modifier = Modifier.weight(1f))
+                    if (msgs.any { it.pinned }) Icon(Icons.Filled.PushPin, tr("Angeheftet"), tint = MaterialTheme.colorScheme.tertiary)
+                    if (msgs.any { it.flagged }) Icon(Icons.Filled.Flag, tr("Markiert"), tint = Color(0xFFE53935))
                 }
                 }
             }
@@ -150,7 +152,7 @@ fun ThreadScreen(vm: MainViewModel, threadKey: String, snackHost: SnackbarHostSt
         }
     }
     actions?.let { m -> QuickActionsSheet(vm, m, onDismiss = { actions = null }, onSnooze = { actions = null; snooze = m }) }
-    snooze?.let { m -> TimeChooser("Zurückstellen bis …", { snooze = null }) { t -> vm.snooze(m, t); snooze = null; vm.pop() } }
+    snooze?.let { m -> TimeChooser(tr("Zurückstellen bis …"), { snooze = null }) { t -> vm.snooze(m, t); snooze = null; vm.pop() } }
 }
 
 @Composable
@@ -175,7 +177,7 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
             Spacer(Modifier.width(10.dp))
             Column(Modifier.weight(1f)) {
                 Text(m.fromName.ifBlank { m.fromAddr }, fontWeight = FontWeight.SemiBold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (expanded) Text("an ${m.toAddrs}" + if (m.ccAddrs.isNotBlank()) ", cc ${m.ccAddrs}" else "",
+                if (expanded) Text(tr("an {0}", m.toAddrs) + if (m.ccAddrs.isNotBlank()) tr(", cc {0}", m.ccAddrs) else "",
                     style = MaterialTheme.typography.bodySmall, maxLines = if (showDetails) 10 else 1, overflow = TextOverflow.Ellipsis,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.clickable { showDetails = !showDetails })
                 else Text(m.snippet, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis,
@@ -184,20 +186,20 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
             Text(shortTime(m.date), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
         if (showDetails && expanded) Column(Modifier.padding(horizontal = 12.dp)) {
-            Text("Von: ${m.fromName} <${m.fromAddr}>", style = MaterialTheme.typography.bodySmall)
-            Text("Datum: ${MainViewModel.fmt(m.date)}", style = MaterialTheme.typography.bodySmall)
-            if (m.replyTo.isNotBlank()) Text("Antwort an: ${m.replyTo}", style = MaterialTheme.typography.bodySmall)
+            Text(tr("Von: {0} <{1}>", m.fromName, m.fromAddr), style = MaterialTheme.typography.bodySmall)
+            Text(tr("Datum: {0}", MainViewModel.fmt(m.date)), style = MaterialTheme.typography.bodySmall)
+            if (m.replyTo.isNotBlank()) Text(tr("Antwort an: {0}", m.replyTo), style = MaterialTheme.typography.bodySmall)
         }
         if (expanded && sanitized != null) {
             // Datenschutz-Leiste: blockierte Tracker, Bilder, Abmelden
             val chips = sanitized.trackers > 0 || sanitized.remoteImages > 0 || m.unsubscribe != null
             if (chips) Row(Modifier.horizontalScroll(rememberScrollState()).padding(horizontal = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                if (sanitized.trackers > 0) AssistChip(onClick = { vm.snack("${sanitized.trackers} Spionage-Pixel entfernt – der Absender erfährt nicht, dass du die Mail geöffnet hast.") },
-                    label = { Text("${sanitized.trackers} Tracker blockiert") }, leadingIcon = { Icon(Icons.Outlined.Shield, null, Modifier.size(18.dp), tint = Color(0xFF2E7D32)) })
+                if (sanitized.trackers > 0) AssistChip(onClick = { vm.snack(tr("{0} Spionage-Pixel entfernt – der Absender erfährt nicht, dass du die Mail geöffnet hast.", sanitized.trackers)) },
+                    label = { Text(tr("{0} Tracker blockiert", sanitized.trackers)) }, leadingIcon = { Icon(Icons.Outlined.Shield, null, Modifier.size(18.dp), tint = Color(0xFF2E7D32)) })
                 if (sanitized.remoteImages > 0) AssistChip(onClick = { loadImages = true },
-                    label = { Text("Bilder laden (${sanitized.remoteImages})") }, leadingIcon = { Icon(Icons.Outlined.Image, null, Modifier.size(18.dp)) })
+                    label = { Text(tr("Bilder laden ({0})", sanitized.remoteImages)) }, leadingIcon = { Icon(Icons.Outlined.Image, null, Modifier.size(18.dp)) })
                 if (m.unsubscribe != null) AssistChip(onClick = { vm.unsubscribe(m) { openUrl(ctx, it) } },
-                    label = { Text("Abmelden") }, leadingIcon = { Icon(Icons.Outlined.Unsubscribe, null, Modifier.size(18.dp)) })
+                    label = { Text(tr("Abmelden")) }, leadingIcon = { Icon(Icons.Outlined.Unsubscribe, null, Modifier.size(18.dp)) })
             }
             MailWebView(sanitized.html)
             if (atts.isNotEmpty()) Column(Modifier.padding(12.dp)) {
@@ -206,10 +208,10 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
                         .background(MaterialTheme.colorScheme.surfaceContainerHigh, RoundedCornerShape(14.dp))
                         .clickable {
                             scope.launch {
-                                vm.snack("Lade ${a.name} …")
+                                vm.snack(tr("Lade {0} …", a.name))
                                 runCatching { vm.repo.downloadAttachment(m, a) }
                                     .onSuccess { f -> openFile(ctx, f, a.mime) }
-                                    .onFailure { vm.snack("Download fehlgeschlagen: ${app.mailwerk.mail.friendly(it)}") }
+                                    .onFailure { vm.snack(tr("Download fehlgeschlagen: {0}", app.mailwerk.mail.friendly(it))) }
                             }
                         }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
                         Icon(Icons.Outlined.AttachFile, null); Spacer(Modifier.width(8.dp))

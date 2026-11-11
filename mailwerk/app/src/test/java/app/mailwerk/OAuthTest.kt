@@ -17,6 +17,7 @@ import java.util.Base64
 
 @RunWith(RobolectricTestRunner::class)
 class OAuthTest {
+    @org.junit.Before fun deLocale() { java.util.Locale.setDefault(java.util.Locale.GERMAN) }
     private fun jwt(json: String) = "eyJhbGciOiJSUzI1NiJ9." + Base64.getUrlEncoder().withoutPadding().encodeToString(json.toByteArray()) + ".sig"
 
     @Test fun identityFromIdTokens() {
