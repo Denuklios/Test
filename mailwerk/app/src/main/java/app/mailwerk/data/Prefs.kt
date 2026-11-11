@@ -60,6 +60,34 @@ class Prefs(ctx: Context) {
     var presetCache: String
         get() = p.getString("preset_cache", "")!!
         set(v) = p.edit().putString("preset_cache", v).apply()
+    // ---- Abwesenheitsnotiz
+    var vacationOn: Boolean
+        get() = p.getBoolean("vac_on", false)
+        set(v) = p.edit().putBoolean("vac_on", v).apply()
+    /** 0 = sofort */
+    var vacationFrom: Long
+        get() = p.getLong("vac_from", 0)
+        set(v) = p.edit().putLong("vac_from", v).apply()
+    /** 0 = bis zum Ausschalten */
+    var vacationUntil: Long
+        get() = p.getLong("vac_until", 0)
+        set(v) = p.edit().putLong("vac_until", v).apply()
+    var vacationSubject: String
+        get() = p.getString("vac_subject", "Abwesenheitsnotiz")!!
+        set(v) = p.edit().putString("vac_subject", v).apply()
+    var vacationText: String
+        get() = p.getString("vac_text", "Hallo,\n\nvielen Dank für Ihre Nachricht. Ich bin derzeit nicht erreichbar und melde mich nach meiner Rückkehr.\n\nViele Grüße")!!
+        set(v) = p.edit().putString("vac_text", v).apply()
+    var vacationContactsOnly: Boolean
+        get() = p.getBoolean("vac_contacts", false)
+        set(v) = p.edit().putBoolean("vac_contacts", v).apply()
+    /** leer = alle Konten, sonst durch Komma getrennte Konto-IDs */
+    var vacationAccounts: String
+        get() = p.getString("vac_accounts", "")!!
+        set(v) = p.edit().putString("vac_accounts", v).apply()
+    fun vacationActive(now: Long = System.currentTimeMillis()) =
+        vacationOn && (vacationFrom == 0L || now >= vacationFrom) && (vacationUntil == 0L || now < vacationUntil)
+
     var initialSyncDays: Int
         get() = p.getInt("sync_days", 60)
         set(v) = p.edit().putInt("sync_days", v).apply()

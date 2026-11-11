@@ -99,6 +99,18 @@ class ScreenshotTest {
                 app.mailwerk.sync.Updater.Info(99, "1.4", "Neue Funktionen und Verbesserungen", "")
         }
         shot("10_hinweise")
+        sc.onActivity { a ->
+            val vm = androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java]
+            vm.db.saveRule(app.mailwerk.mail.Rule(name = "Rechnungen", field = app.mailwerk.mail.RuleField.SUBJECT, value = "Rechnung",
+                action = app.mailwerk.mail.RuleAction.MOVE, arg = "Buchhaltung"))
+            vm.db.saveRule(app.mailwerk.mail.Rule(name = "Alles weiterleiten", field = app.mailwerk.mail.RuleField.ALL,
+                action = app.mailwerk.mail.RuleAction.FORWARD, arg = "buero@beispiel.de", enabled = false))
+            vm.push(app.mailwerk.ui.Screen.Rules())
+        }
+        shot("11_regeln")
+        sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java].replaceTop(app.mailwerk.ui.Screen.Vacation) }
+        shot("12_abwesenheit")
+        sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java].pop() }
         sc.onActivity { a -> androidx.lifecycle.ViewModelProvider(a)[app.mailwerk.ui.MainViewModel::class.java].update.value = null }
         rule.onAllNodesWithText("Schreiben", useUnmergedTree = true).onFirst().performClick()
         shot("6_neue_mail")

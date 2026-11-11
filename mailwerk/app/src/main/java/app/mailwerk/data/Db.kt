@@ -12,7 +12,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Lokale Datenbank (Offline-Speicher aller Mails). Bewusst ohne ORM gehalten.
  * Jede Schreiboperation erhöht [changes], damit die Oberfläche neu lädt.
  */
-class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 3) {
+class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 4) {
 
     private val _changes = MutableStateFlow(0L)
     val changes: StateFlow<Long> = _changes
@@ -25,7 +25,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
             id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, email TEXT,
             imap_host TEXT, imap_port INTEGER, imap_sec TEXT,
             smtp_host TEXT, smtp_port INTEGER, smtp_sec TEXT,
-            username TEXT, password TEXT, signature TEXT, color INTEGER)""")
+            username TEXT, password TEXT, signature TEXT, color INTEGER, reply_signature TEXT, logo_path TEXT)""")
         db.execSQL("""CREATE TABLE folders(
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             account_id INTEGER NOT NULL REFERENCES accounts(id) ON DELETE CASCADE,
@@ -53,6 +53,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         db.execSQL("CREATE TABLE contacts(address TEXT PRIMARY KEY, name TEXT, sent_count INTEGER DEFAULT 0, last_used INTEGER DEFAULT 0)")
         db.execSQL("CREATE TABLE sender_rules(address TEXT PRIMARY KEY, category TEXT, blocked INTEGER DEFAULT 0)")
         db.execSQL("CREATE TABLE local_state(message_id TEXT PRIMARY KEY, pinned INTEGER, snoozed_until INTEGER, remind_at INTEGER)")
+        createV4(db)
         db.execSQL("CREATE TABLE templates(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, body TEXT)")
         db.execSQL("""CREATE TABLE outbox(
             id INTEGER PRIMARY KEY AUTOINCREMENT, account_id INTEGER, to_addrs TEXT, cc TEXT, bcc TEXT,
@@ -66,8 +67,20 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         ).forEach { (n, b) -> db.insert("templates", null, ContentValues().apply { put("name", n); put("body", b) }) }
     }
 
+    private fun createV4(db: SQLiteDatabase) {
+        db.execSQL("CREATE TABLE IF NOT EXISTS blocklist(pattern TEXT PRIMARY KEY, is_domain INTEGER, created INTEGER)")
+        db.execSQL("""CREATE TABLE IF NOT EXISTS rules(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, enabled INTEGER, account_id INTEGER,
+            field TEXT, op TEXT, value TEXT, action TEXT, arg TEXT, stop INTEGER, position INTEGER)""")
+        db.execSQL("CREATE TABLE IF NOT EXISTS vacation_replied(address TEXT, account_id INTEGER, at INTEGER, PRIMARY KEY(address, account_id))")
+    }
+
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) shrinkHugeRows(db)
+        if (oldVersion < 4 && newVersion >= 4) {
+            runCatching { db.execSQL("ALTER TABLE accounts ADD COLUMN reply_signature TEXT") }
+            runCatching { db.execSQL("ALTER TABLE accounts ADD COLUMN logo_path TEXT") }
+            createV4(db)
+        }
         if (oldVersion < 3 && newVersion >= 3) {
             // Neue Dekodierung (Emojis, Breite): Mails einmal neu laden, eigene Markierungen merken
             db.execSQL("CREATE TABLE IF NOT EXISTS local_state(message_id TEXT PRIMARY KEY, pinned INTEGER, snoozed_until INTEGER, remind_at INTEGER)")
@@ -105,6 +118,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
             put("imap_host", a.imapHost); put("imap_port", a.imapPort); put("imap_sec", a.imapSecurity.name)
             put("smtp_host", a.smtpHost); put("smtp_port", a.smtpPort); put("smtp_sec", a.smtpSecurity.name)
             put("username", a.username); put("password", a.passwordEnc); put("signature", a.signature); put("color", a.color)
+            put("reply_signature", a.replySignature); put("logo_path", a.logoPath)
         }
         val id = if (a.id == 0L) writableDatabase.insert("accounts", null, cv)
         else { writableDatabase.update("accounts", cv, "id=?", arrayOf("${a.id}")); a.id }
@@ -332,6 +346,53 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
     }
     fun deleteTemplate(id: Long) { writableDatabase.delete("templates", "id=?", arrayOf("$id")); notifyChanged() }
 
+    // ---------------------------------------------------------------- Sperrliste
+    fun blocklist(): List<app.mailwerk.mail.BlockEntry> = readableDatabase.rawQuery("SELECT pattern, is_domain FROM blocklist ORDER BY pattern", null).use { c ->
+        c.map { app.mailwerk.mail.BlockEntry(it.getString(0), it.getInt(1) == 1) }
+    }
+    fun block(pattern: String, domain: Boolean) {
+        writableDatabase.insertWithOnConflict("blocklist", null, ContentValues().apply {
+            put("pattern", pattern.lowercase().trim().removePrefix("@")); put("is_domain", if (domain) 1 else 0); put("created", System.currentTimeMillis())
+        }, SQLiteDatabase.CONFLICT_REPLACE); notifyChanged()
+    }
+    fun unblock(pattern: String) { writableDatabase.delete("blocklist", "pattern=?", arrayOf(pattern.lowercase().trim())); notifyChanged() }
+    /** Gibt einen Absender frei – egal ob Adresse oder Domain gesperrt war. */
+    fun unblockSender(address: String) {
+        val a = address.lowercase().trim()
+        writableDatabase.delete("blocklist", "pattern=? OR (is_domain=1 AND pattern=?)", arrayOf(a, a.substringAfter('@'))); notifyChanged()
+    }
+
+    // ---------------------------------------------------------------- Regeln
+    fun rules(): List<app.mailwerk.mail.Rule> = readableDatabase.rawQuery("SELECT * FROM rules ORDER BY position, id", null).use { c ->
+        c.map {
+            app.mailwerk.mail.Rule(it.long("id"), it.str("name"), it.int("enabled") == 1,
+                if (it.isNull(it.getColumnIndexOrThrow("account_id"))) null else it.long("account_id"),
+                app.mailwerk.mail.RuleField.of(it.strOrNull("field")), app.mailwerk.mail.RuleOp.of(it.strOrNull("op")), it.str("value"),
+                app.mailwerk.mail.RuleAction.of(it.strOrNull("action")), it.str("arg"), it.int("stop") == 1)
+        }
+    }
+    fun saveRule(r: app.mailwerk.mail.Rule): Long {
+        val cv = ContentValues().apply {
+            put("name", r.name); put("enabled", if (r.enabled) 1 else 0); if (r.accountId == null) putNull("account_id") else put("account_id", r.accountId)
+            put("field", r.field.name); put("op", r.op.name); put("value", r.value); put("action", r.action.name); put("arg", r.arg)
+            put("stop", if (r.stop) 1 else 0)
+        }
+        val id = if (r.id == 0L) writableDatabase.insert("rules", null, cv.apply { put("position", System.currentTimeMillis() / 1000) })
+        else { writableDatabase.update("rules", cv, "id=?", arrayOf("${r.id}")); r.id }
+        notifyChanged(); return id
+    }
+    fun deleteRule(id: Long) { writableDatabase.delete("rules", "id=?", arrayOf("$id")); notifyChanged() }
+
+    // ---------------------------------------------------------------- Abwesenheitsnotiz
+    fun vacationReplied(address: String, accountId: Long): Boolean = readableDatabase.rawQuery(
+        "SELECT 1 FROM vacation_replied WHERE address=? AND account_id=?", arrayOf(address.lowercase(), "$accountId")).use { it.moveToFirst() }
+    fun markVacationReplied(address: String, accountId: Long) {
+        writableDatabase.insertWithOnConflict("vacation_replied", null, ContentValues().apply {
+            put("address", address.lowercase()); put("account_id", accountId); put("at", System.currentTimeMillis())
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+    }
+    fun resetVacationReplied() { writableDatabase.delete("vacation_replied", null, null) }
+
     // ---------------------------------------------------------------- Postausgang
     fun saveOutbox(o: OutboxItem): Long {
         val cv = ContentValues().apply {
@@ -375,7 +436,8 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
 
     private fun Cursor.toAccount() = Account(
         long("id"), str("name"), str("email"), str("imap_host"), int("imap_port"), Security.valueOf(str("imap_sec")),
-        str("smtp_host"), int("smtp_port"), Security.valueOf(str("smtp_sec")), str("username"), str("password"), str("signature"), int("color"))
+        str("smtp_host"), int("smtp_port"), Security.valueOf(str("smtp_sec")), str("username"), str("password"), str("signature"), int("color"),
+        replySignature = strOrNull("reply_signature") ?: "", logoPath = strOrNull("logo_path"))
 
     private fun Cursor.toFolder() = Folder(long("id"), long("account_id"), str("full_name"), str("display_name"), strOrNull("role"),
         int("cnt"), long("last_uid"), long("uid_validity"))

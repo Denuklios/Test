@@ -65,6 +65,9 @@ sealed interface Screen {
     data object Settings : Screen
     data object Outbox : Screen
     data object Templates : Screen
+    data class Rules(val prefill: app.mailwerk.mail.Rule? = null) : Screen
+    data object Blocklist : Screen
+    data object Vacation : Screen
 }
 
 data class Snack(val text: String, val actionLabel: String? = null, val action: (() -> Unit)? = null)
@@ -194,7 +197,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         }
         r
     }
-    fun spam(m: Message) = act { repo.markSpam(m) ?: run { snack("Als Spam markiert"); null } }
+    fun spam(m: Message) = act {
+        repo.markSpam(m) ?: run {
+            snack("Spam – künftige Mails von ${m.fromAddr} landen direkt im Spam-Ordner", "Rückgängig") { notSpam(m) }; null
+        }
+    }
+    fun notSpam(m: Message) = act { repo.notSpam(m) ?: run { snack("Kein Spam – zurück im Posteingang"); null } }
+    fun applyRules() = viewModelScope.launch {
+        snack("Regeln werden angewendet …")
+        val n = repo.applyRulesToExisting()
+        snack(if (n == 0) "Fertig – keine Mail musste verschoben werden" else "Fertig – $n Mail(s) verschoben")
+    }
     fun toggleSeen(m: Message) = act { repo.markSeen(m, !m.seen) }
     fun toggleFlag(m: Message) = act { repo.toggleFlag(m) }
     fun togglePin(m: Message) { repo.togglePin(m); snack(if (m.pinned) "Nicht mehr angeheftet" else "Angeheftet 📌") }
@@ -207,7 +220,11 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         snack("Erinnerung am ${fmt(at)}, falls keine Antwort kommt")
     }
     fun setCategory(m: Message, c: Category) { db.setCategoryForSender(m.fromAddr, c); snack("Mails von ${m.fromAddr} landen jetzt in „${c.label}“") }
-    fun block(m: Message) = act { repo.blockSender(m); snack("${m.fromAddr} blockiert"); null }
+    fun block(m: Message, domain: Boolean = false) = act {
+        repo.blockSender(m, domain)
+        val what = if (domain) "Alle Mails von @${m.fromAddr.substringAfter('@')}" else "Mails von ${m.fromAddr}"
+        snack("$what landen künftig direkt im Spam", "Rückgängig") { notSpam(m) }; null
+    }
     fun moveTo(m: Message, f: Folder) = act { repo.moveTo(m, f) ?: run { snack("Verschoben nach ${f.displayName}"); null } }
     fun unsubscribe(m: Message, openUrl: (String) -> Unit) = viewModelScope.launch {
         val (ok, msg) = repo.unsubscribe(m)
@@ -234,23 +251,27 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             .joinToString(", ") { if (it.second.isBlank()) it.first else "${it.second} <${it.first}>" } else ""
         val subj = if (m.subject.startsWith("Re:", true) || m.subject.startsWith("AW:", true)) m.subject else "Re: ${m.subject}"
         val actualTo = if (m.folderRole == FolderRole.SENT) m.toAddrs else to
-        push(Screen.Compose(ComposeInit(acc.id, actualTo, cc, "", subj, "\n\n${signature(acc)}${quote(m)}", m.messageId, m.references)))
+        push(Screen.Compose(ComposeInit(acc.id, actualTo, cc, "", subj, "\n\n${signature(acc, true)}${quote(m)}", m.messageId, m.references)))
     }
 
     fun forward(m: Message) {
         val subj = if (m.subject.startsWith("Fwd:", true) || m.subject.startsWith("WG:", true)) m.subject else "WG: ${m.subject}"
         val acc = db.account(m.accountId)
-        val header = "\n\n${acc?.let { signature(it) } ?: ""}---------- Weitergeleitete Nachricht ----------\n" +
+        val header = "\n\n${acc?.let { signature(it, true) } ?: ""}---------- Weitergeleitete Nachricht ----------\n" +
             "Von: ${m.fromName} <${m.fromAddr}>\nDatum: ${fmt(m.date)}\nBetreff: ${m.subject}\nAn: ${m.toAddrs}\n\n" + (db.message(m.id)?.bodyText ?: "")
         push(Screen.Compose(ComposeInit(m.accountId, subject = subj, body = header)))
     }
 
     fun compose(to: String = "") {
         val acc = (mailbox.value as? Mailbox.InFolder)?.folder?.accountId?.let { db.account(it) } ?: accounts.value.firstOrNull()
-        push(Screen.Compose(ComposeInit(acc?.id, to = to, body = acc?.let { signature(it) }?.takeIf { it.isNotBlank() }?.let { "\n\n$it" } ?: "")))
+        push(Screen.Compose(ComposeInit(acc?.id, to = to, body = acc?.let { signature(it, false) }?.takeIf { it.isNotBlank() }?.let { "\n\n$it" } ?: "")))
     }
 
-    private fun signature(a: Account) = if (a.signature.isBlank()) "" else "-- \n${a.signature}\n"
+    private fun signature(a: Account, reply: Boolean): String {
+        val text = if (reply && a.replySignature.isNotBlank()) a.replySignature else a.signature
+        val logo = if (a.logoPath != null && java.io.File(a.logoPath).exists()) "\n" + app.mailwerk.mail.TextFormat.LOGO_MARKER else ""
+        return if (text.isBlank() && logo.isEmpty()) "" else "-- \n${text.trim()}$logo\n"
+    }
 
     private fun quote(m: Message): String {
         val full = db.message(m.id)?.bodyText ?: m.snippet

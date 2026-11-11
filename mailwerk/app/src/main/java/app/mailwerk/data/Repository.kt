@@ -26,9 +26,16 @@ class Repository private constructor(private val ctx: Context) {
     val db = Db.get(ctx)
     val prefs = Prefs(ctx)
     private val syncLock = Mutex()
+    /** Für Tests austauschbar (Robolectric hat keinen Android-Keystore). */
+    internal var passwordOf: (Account) -> String = { Crypto.decrypt(it.passwordEnc) }
+
+    init {
+        // frühere Sperrliste (Einstellungen) in die Datenbank übernehmen
+        if (prefs.blockedSenders.isNotEmpty()) { prefs.blockedSenders.forEach { db.block(it, false) }; prefs.blockedSenders = emptySet() }
+    }
 
     private fun client(a: Account): MailClient {
-        val pw = try { Crypto.decrypt(a.passwordEnc) } catch (e: Exception) {
+        val pw = try { passwordOf(a) } catch (e: Exception) {
             throw IllegalStateException("Gespeichertes Passwort nicht lesbar – bitte unter Einstellungen → Konto das Passwort neu eingeben.")
         }
         return MailClient(a, pw)
@@ -92,14 +99,23 @@ class Repository private constructor(private val ctx: Context) {
                 }
                 var maxUid = f.lastUid
                 val fresh = mutableListOf<Message>()
+                val initial = f.lastUid == 0L // erster Abgleich: nichts automatisch weiterleiten/beantworten
+                val rules = db.rules().filter { it.enabled && (it.accountId == null || it.accountId == acc.id) }
+                val blocklist = db.blocklist()
                 for (p in res.newMessages) {
                     maxUid = maxOf(maxUid, p.uid)
                     if (p.uid in local) continue
                     val isSent = f.role == FolderRole.SENT || p.fromAddr.equals(acc.email, true)
+                    var decision = app.mailwerk.mail.Decision()
+                    if (f.role == FolderRole.INBOX && !isSent) {
+                        decision = app.mailwerk.mail.RuleEngine.decide(rules, blocklist, app.mailwerk.mail.Incoming(
+                            p.fromAddr, p.fromName, p.to, p.cc, p.subject, p.text ?: p.html?.let(HtmlSanitizer::htmlToText) ?: "", p.headers))
+                        if (applyServerActions(c, store, acc, f, p, decision, initial)) continue // Mail hat den Posteingang verlassen
+                    }
                     if (isSent) {
                         (parseAddrs(p.to) + parseAddrs(p.cc)).forEach { (addr, name) -> db.touchContact(addr, name, sent = true) }
                     } else db.touchContact(p.fromAddr, p.fromName, sent = false)
-                    val blocked = p.fromAddr.lowercase() in prefs.blockedSenders
+                    val blocked = decision.blocked
                     val cat = if (isSent) Category.PEOPLE else Classifier.classify(
                         p.fromAddr, p.headers, db.isKnownContact(p.fromAddr), db.senderRule(p.fromAddr))
                     val unsub = Unsubscribe.parse(p.headers["list-unsubscribe"], p.headers["list-unsubscribe-post"])
@@ -109,12 +125,14 @@ class Repository private constructor(private val ctx: Context) {
                         threadKey = Threads.key(acc.id, p.subject, p.messageId),
                         fromName = p.fromName, fromAddr = p.fromAddr, toAddrs = p.to, ccAddrs = p.cc, replyTo = p.replyTo,
                         subject = p.subject, date = p.date, snippet = HtmlSanitizer.snippet(text), bodyHtml = p.html, bodyText = text,
-                        seen = p.seen || isSent || blocked, flagged = p.flagged, category = cat,
+                        seen = p.seen || isSent || blocked || decision.read, flagged = p.flagged || decision.flag, category = decision.category ?: cat,
+                        pinned = decision.pin,
                         hasAttachments = p.attachments.isNotEmpty(), unsubscribe = unsub?.encode(), unsubscribePost = unsub?.oneClick == true,
                         inReplyTo = p.inReplyTo, references = p.references,
                     )
                     val id = db.insertMessage(m, p.attachments.map { Attachment(messageId = 0, partPath = it.path, name = it.name, mime = it.mime, size = it.size) })
                     if (id > 0 && !m.seen && f.role == FolderRole.INBOX && f.lastUid > 0) fresh += m.copy(id = id)
+                    if (id > 0 && f.role == FolderRole.INBOX && !isSent && !initial) runCatching { maybeVacationReply(c, acc, p, m.category) }
                 }
                 db.setFolderSyncState(f.id, maxUid, res.uidValidity)
                 if (notify && fresh.isNotEmpty()) {
@@ -123,6 +141,93 @@ class Repository private constructor(private val ctx: Context) {
                 }
             }
         }
+    }
+
+    /**
+     * Führt Regel-Aktionen auf dem Server aus. Gibt true zurück, wenn die Mail den Posteingang verlassen hat
+     * (Spam, Papierkorb, anderer Ordner) und deshalb nicht im Posteingang gespeichert wird.
+     */
+    private fun applyServerActions(c: MailClient, store: jakarta.mail.Store, acc: Account, inbox: Folder,
+                                   p: app.mailwerk.mail.ParsedMessage, d: app.mailwerk.mail.Decision, initial: Boolean): Boolean {
+        if (d.matched.isEmpty()) return false
+        try {
+            if (d.read || d.flag) c.setFlagsIn(store, inbox.fullName, p.uid, if (d.read) true else null, if (d.flag) true else null)
+            if (d.forwardTo.isNotEmpty() && !initial && !app.mailwerk.mail.RuleEngine.isAutomatedForward(p.headers)) {
+                val targets = d.forwardTo.filter { !it.equals(acc.email, true) }
+                if (targets.isNotEmpty()) c.forwardIn(store, inbox.fullName, p.uid, targets, p.subject, db.folderByRole(acc.id, FolderRole.SENT)?.fullName)
+            }
+            val target: String? = when {
+                d.spam -> db.folderByRole(acc.id, FolderRole.JUNK)?.fullName ?: c.ensureFolder(store, "Spam")
+                d.delete -> db.folderByRole(acc.id, FolderRole.TRASH)?.fullName ?: c.ensureFolder(store, "Papierkorb")
+                d.moveTo != null -> resolveFolder(c, store, acc, d.moveTo)
+                else -> null
+            }
+            if (target != null && !target.equals(inbox.fullName, true)) {
+                c.moveIn(store, inbox.fullName, p.uid, target)
+                if (d.spam) blockedCount++
+                return true
+            }
+        } catch (e: Exception) {
+            android.util.Log.w("Mailwerk", "Regel konnte nicht ausgeführt werden: ${friendly(e)}")
+        }
+        return false
+    }
+
+    /** Ordner per Anzeigename oder vollem Namen finden, sonst auf dem Server anlegen. */
+    private fun resolveFolder(c: MailClient, store: jakarta.mail.Store, acc: Account, name: String): String {
+        val fs = db.folders(acc.id)
+        fs.firstOrNull { it.fullName.equals(name, true) || it.displayName.equals(name, true) }?.let { return it.fullName }
+        val full = c.ensureFolder(store, name)
+        db.upsertFolder(acc.id, full, name.substringAfterLast('/').substringAfterLast('.'), null)
+        return full
+    }
+
+    @Volatile var blockedCount = 0
+
+    /** Abwesenheitsnotiz: höchstens einmal pro Absender, nie an Newsletter/automatische Mails. */
+    private fun maybeVacationReply(c: MailClient, acc: Account, p: app.mailwerk.mail.ParsedMessage, cat: Category) {
+        if (!prefs.vacationActive()) return
+        val accs = prefs.vacationAccounts.split(',').mapNotNull { it.trim().toLongOrNull() }
+        if (accs.isNotEmpty() && acc.id !in accs) return
+        if (cat != Category.PEOPLE || app.mailwerk.mail.RuleEngine.isAutomated(p.fromAddr, p.headers)) return
+        if (p.fromAddr.isBlank() || p.fromAddr.equals(acc.email, true)) return
+        if (prefs.vacationContactsOnly && !db.isKnownContact(p.fromAddr)) return
+        if (db.vacationReplied(p.fromAddr, acc.id)) return
+        val subj = prefs.vacationSubject.ifBlank { "Abwesenheitsnotiz" } + if (p.subject.isNotBlank()) ": ${p.subject}" else ""
+        c.sendAutoReply(p.fromAddr, subj, prefs.vacationText, p.messageId, db.folderByRole(acc.id, FolderRole.SENT)?.fullName)
+        db.markVacationReplied(p.fromAddr, acc.id)
+    }
+
+    /** Wendet alle Regeln (außer Weiterleiten) auf die Mails an, die schon im Posteingang liegen. */
+    suspend fun applyRulesToExisting(): Int = withContext(Dispatchers.IO) {
+        var moved = 0
+        for (acc in db.accounts()) {
+            val inbox = db.folderByRole(acc.id, FolderRole.INBOX) ?: continue
+            val rules = db.rules().filter { it.enabled && (it.accountId == null || it.accountId == acc.id) }
+                .map { if (it.action == app.mailwerk.mail.RuleAction.FORWARD) it.copy(enabled = false) else it }
+            val blocklist = db.blocklist()
+            val msgs = db.listMessages(listOf(inbox.id), null, null, limit = 2000)
+            if (msgs.isEmpty() || (rules.none { it.enabled } && blocklist.isEmpty())) continue
+            val c = client(acc)
+            try {
+                c.withStore { store ->
+                    for (m in msgs) {
+                        val d = app.mailwerk.mail.RuleEngine.decide(rules, blocklist,
+                            app.mailwerk.mail.Incoming(m.fromAddr, m.fromName, m.toAddrs, m.ccAddrs, m.subject, db.message(m.id)?.bodyText ?: ""))
+                        if (d.matched.isEmpty()) continue
+                        d.category?.let { db.updateFlags(m.id, category = it) }
+                        if (d.pin) db.updateFlags(m.id, pinned = true)
+                        if (d.read) db.updateFlags(m.id, seen = true)
+                        if (d.flag) db.updateFlags(m.id, flagged = true)
+                        if (m.uid > 0 && applyServerActions(c, store, acc, inbox, app.mailwerk.mail.ParsedMessage(m.uid, m.messageId, m.fromName, m.fromAddr,
+                                m.toAddrs, m.ccAddrs, m.replyTo, m.subject, m.date, null, null, m.seen, m.flagged, emptyMap(), emptyList(), null, null), d, initial = true)) {
+                            db.deleteMessage(m.id); moved++
+                        }
+                    }
+                }
+            } catch (e: Exception) { android.util.Log.w("Mailwerk", friendly(e)) }
+        }
+        db.notifyChanged(); moved
     }
 
     /** Zurückgestellte Mails wieder einblenden und „Erinnern, falls keine Antwort“ prüfen. */
@@ -185,7 +290,29 @@ class Repository private constructor(private val ctx: Context) {
         return moveToRole(m, FolderRole.TRASH, "Kein Papierkorb gefunden")
     }
 
-    suspend fun markSpam(m: Message): String? = moveToRole(m, FolderRole.JUNK, "Kein Spam-Ordner gefunden")
+    /** Spam: in den Spam-Ordner und den Absender sperren – künftige Mails gehen direkt in Spam. */
+    suspend fun markSpam(m: Message, blockSender: Boolean = true): String? {
+        if (blockSender && m.fromAddr.isNotBlank()) db.block(m.fromAddr, domain = false)
+        db.folderByRole(m.accountId, FolderRole.JUNK)?.let { return moveTo(m, it) }
+        // Kein Spam-Ordner vorhanden -> anlegen
+        val acc = db.account(m.accountId) ?: return "Konto nicht gefunden"
+        return withContext(Dispatchers.IO) {
+            try {
+                val c = client(acc)
+                val full = c.withStore { c.ensureFolder(it, "Spam") }
+                val fid = db.upsertFolder(acc.id, full, "Spam", FolderRole.JUNK)
+                db.folder(fid)?.let { moveTo(m, it) }
+            } catch (e: Exception) { friendly(e) }
+        }
+    }
+
+    /** „Kein Spam“: zurück in den Posteingang und Sperre aufheben. */
+    suspend fun notSpam(m: Message): String? {
+        db.unblockSender(m.fromAddr)
+        db.setCategoryForSender(m.fromAddr, Category.PEOPLE)
+        val inbox = db.folderByRole(m.accountId, FolderRole.INBOX) ?: return null
+        return moveTo(m, inbox)
+    }
 
     suspend fun moveTo(m: Message, target: Folder): String? {
         val src = db.folder(m.folderId) ?: return null
@@ -200,10 +327,9 @@ class Repository private constructor(private val ctx: Context) {
     }
 
     /** Absender blockieren: künftige Mails landen gelesen in „Benachrichtigungen“, vorhandene werden gelöscht. */
-    suspend fun blockSender(m: Message) {
-        prefs.blockedSenders = prefs.blockedSenders + m.fromAddr.lowercase()
-        db.setCategoryForSender(m.fromAddr, Category.NOTIFICATION)
-        delete(m)
+    suspend fun blockSender(m: Message, domain: Boolean = false) {
+        db.block(if (domain) m.fromAddr.substringAfter('@') else m.fromAddr, domain)
+        markSpam(m, blockSender = false)
     }
 
     /** Abmelden von Newslettern mit einem Tipp (RFC 8058 One-Click, sonst Mail an mailto-Adresse). */
@@ -254,7 +380,10 @@ class Repository private constructor(private val ctx: Context) {
         try {
             val atts = o.attachments.lines().filter { it.isNotBlank() }.map { readUri(Uri.parse(it)) }
             val c = client(acc)
-            val msg = c.buildMessage(o.to, o.cc, o.bcc, o.subject, o.body, atts, o.inReplyTo, o.references)
+            val logo = acc.logoPath?.let { File(it) }?.takeIf { it.exists() }?.let {
+                OutgoingAttachment("logo." + it.extension.ifBlank { "png" }, if (it.extension.equals("jpg", true) || it.extension.equals("jpeg", true)) "image/jpeg" else "image/png", it.readBytes())
+            }
+            val msg = c.buildMessage(o.to, o.cc, o.bcc, o.subject, o.body, atts, o.inReplyTo, o.references, logo)
             c.send(msg, db.folderByRole(acc.id, FolderRole.SENT)?.fullName)
             (parseAddrs(o.to) + parseAddrs(o.cc) + parseAddrs(o.bcc)).forEach { (a, n) -> db.touchContact(a, n, sent = true) }
             db.deleteOutbox(o.id)

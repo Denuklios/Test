@@ -42,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.foundation.background
@@ -80,6 +81,12 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
     var smtpPort by remember { mutableStateOf(existing?.smtpPort?.toString() ?: "465") }
     var smtpSec by remember { mutableStateOf(existing?.smtpSecurity ?: Security.SSL) }
     var signature by remember { mutableStateOf(existing?.signature ?: "") }
+    var replySignature by remember { mutableStateOf(existing?.replySignature ?: "") }
+    var logoPath by remember { mutableStateOf(existing?.logoPath) }
+    val ctxLocal = androidx.compose.ui.platform.LocalContext.current
+    val logoPicker = androidx.activity.compose.rememberLauncherForActivityResult(androidx.activity.result.contract.ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) logoPath = saveLogo(ctxLocal, uri) ?: logoPath.also { vm.snack("Bild konnte nicht gelesen werden") }
+    }
     var hint by remember { mutableStateOf<String?>(null) }
     var busy by remember { mutableStateOf(false) }
     var error by remember { mutableStateOf<String?>(null) }
@@ -91,7 +98,7 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
         imapHost = imapHost.trim(), imapPort = imapPort.toIntOrNull() ?: 993, imapSecurity = imapSec,
         smtpHost = smtpHost.trim(), smtpPort = smtpPort.toIntOrNull() ?: 587, smtpSecurity = smtpSec,
         username = user.trim().ifBlank { email.trim() }, passwordEnc = existing?.passwordEnc ?: "", signature = signature,
-        color = existing?.color ?: 0,
+        color = existing?.color ?: 0, replySignature = replySignature, logoPath = logoPath,
     )
 
     fun saveAndTest() {
@@ -99,6 +106,13 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
         scope.launch {
             try {
                 val acc = build()
+                val acc0 = build()
+                // Nur Signatur/Name geändert -> ohne Server-Test speichern
+                if (existing != null && password.isEmpty() && acc0.imapHost == existing.imapHost && acc0.imapPort == existing.imapPort &&
+                    acc0.imapSecurity == existing.imapSecurity && acc0.smtpHost == existing.smtpHost && acc0.smtpPort == existing.smtpPort &&
+                    acc0.smtpSecurity == existing.smtpSecurity && acc0.username == existing.username) {
+                    vm.repo.updateAccount(acc0, null); busy = false; vm.snack("Gespeichert"); vm.pop(); return@launch
+                }
                 val pw = password.ifEmpty { existing?.let { app.mailwerk.data.Crypto.decrypt(it.passwordEnc) } ?: "" }
                 vm.repo.testAccount(acc, pw)
                 if (existing == null) vm.repo.addAccount(acc, pw) else vm.repo.updateAccount(acc, password.ifEmpty { null })
@@ -182,7 +196,17 @@ fun AccountSetupScreen(vm: MainViewModel, editId: Long?) {
                     smtpSec = s; smtpPort = if (s == Security.SSL) "465" else "587"
                 }
                 SectionTitle("Signatur")
-                OutlinedTextField(signature, { signature = it }, label = { Text("Signatur") }, minLines = 3, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(signature, { signature = it }, label = { Text("Signatur für neue Mails") }, minLines = 3, modifier = Modifier.fillMaxWidth())
+                OutlinedTextField(replySignature, { replySignature = it }, label = { Text("Signatur für Antworten (leer = wie oben)") }, minLines = 2,
+                    modifier = Modifier.fillMaxWidth())
+                Text("Formatierung: **fett**, *kursiv*. Web- und E-Mail-Adressen werden beim Empfänger klickbar. Das Logo erscheint unter der Signatur.",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    val bmp = remember(logoPath) { logoPath?.let { android.graphics.BitmapFactory.decodeFile(it) }?.asImageBitmap() }
+                    if (bmp != null) androidx.compose.foundation.Image(bmp, "Logo", Modifier.size(width = 120.dp, height = 56.dp))
+                    OutlinedButtonCompat(if (bmp == null) "Logo hinzufügen" else "Logo ändern") { logoPicker.launch("image/*") }
+                    if (bmp != null) TextButton(onClick = { logoPath = null }) { Text("Entfernen") }
+                }
                 Button(enabled = !busy && imapHost.isNotBlank() && smtpHost.isNotBlank() && email.contains('@'), modifier = Modifier.fillMaxWidth(),
                     onClick = { saveAndTest() }) {
                     if (busy) { CircularProgressIndicator(Modifier.size(20.dp), strokeWidth = 2.dp); Spacer(Modifier.width(8.dp)); Text("Verbindung wird geprüft …") }
@@ -261,6 +285,21 @@ private fun PresetCard(vm: MainViewModel, p: PresetAccounts.Preset) {
         }
     }
 }
+
+@Composable
+private fun OutlinedButtonCompat(text: String, onClick: () -> Unit) =
+    androidx.compose.material3.OutlinedButton(onClick = onClick) { Text(text) }
+
+/** Logo verkleinern (max. 600 px breit) und als PNG im App-Speicher ablegen. */
+private fun saveLogo(ctx: android.content.Context, uri: android.net.Uri): String? = runCatching {
+    val src = ctx.contentResolver.openInputStream(uri)!!.use { android.graphics.BitmapFactory.decodeStream(it) } ?: return null
+    val scale = minOf(1f, 600f / src.width, 240f / src.height)
+    val bmp = if (scale < 1f) android.graphics.Bitmap.createScaledBitmap(src, (src.width * scale).toInt().coerceAtLeast(1), (src.height * scale).toInt().coerceAtLeast(1), true) else src
+    val dir = java.io.File(ctx.filesDir, "logos").apply { mkdirs() }
+    val f = java.io.File(dir, "logo_${System.currentTimeMillis()}.png")
+    f.outputStream().use { bmp.compress(android.graphics.Bitmap.CompressFormat.PNG, 100, it) }
+    f.absolutePath
+}.getOrNull()
 
 @Composable
 fun InfoCard(text: String, isError: Boolean = false) {

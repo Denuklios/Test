@@ -69,6 +69,8 @@ import androidx.compose.ui.unit.sp
 import androidx.compose.ui.graphics.luminance
 import androidx.compose.material.icons.outlined.DoneAll
 import androidx.compose.material.icons.outlined.Key
+import androidx.compose.material.icons.outlined.Rule
+import androidx.compose.material.icons.outlined.BeachAccess
 import androidx.compose.material.icons.outlined.SystemUpdate
 import androidx.compose.material.icons.outlined.Email
 import androidx.compose.foundation.clickable
@@ -137,6 +139,12 @@ private fun Banners(vm: MainViewModel) {
     val hidden by vm.hiddenBanners.collectAsState()
     val upd by vm.update.collectAsState()
     val progress by vm.updateProgress.collectAsState()
+    if (vm.prefs.vacationActive()) {
+        val until = vm.prefs.vacationUntil
+        Banner(Icons.Outlined.BeachAccess, "Abwesenheitsnotiz ist aktiv",
+            if (until > 0) "Automatische Antwort bis ${MainViewModel.fmt(until)}" else "Absender erhalten eine automatische Antwort",
+            "Einstellen", onAction = { vm.push(Screen.Vacation) }, onClose = null)
+    }
     upd?.let { u ->
         Banner(Icons.Outlined.SystemUpdate, "Mailwerk ${u.versionName} ist da",
             if (progress != null) "Wird geladen … ${((progress ?: 0f) * 100).toInt()} %" else u.notes.ifBlank { "Neue Funktionen und Verbesserungen" },
@@ -425,8 +433,17 @@ fun QuickActionsSheet(vm: MainViewModel, m: Message, onDismiss: () -> Unit, onSn
                     FilterChip(selected = m.category == c, onClick = { vm.setCategory(m, c); onDismiss() }, label = { Text(c.label) })
                 }
             }
-            item("Spam", Icons.Outlined.Report) { vm.spam(m); onDismiss() }()
-            item("Absender blockieren", Icons.Outlined.Block) { vm.block(m); onDismiss() }()
+            HorizontalDivider()
+            if (m.folderRole == FolderRole.JUNK) item("Kein Spam – zurück in den Posteingang", Icons.Outlined.Inbox) { vm.notSpam(m); onDismiss() }()
+            else {
+                item("Spam – Absender künftig sperren", Icons.Outlined.Report) { vm.spam(m); onDismiss() }()
+                item("Ganze Domain sperren (@${m.fromAddr.substringAfter('@')})", Icons.Outlined.Block) { vm.block(m, domain = true); onDismiss() }()
+            }
+            item("Regel aus dieser Mail erstellen …", Icons.Outlined.Rule) {
+                onDismiss()
+                vm.push(Screen.Rules(app.mailwerk.mail.Rule(name = "Mails von ${m.fromName.ifBlank { m.fromAddr }}",
+                    field = app.mailwerk.mail.RuleField.FROM, value = m.fromAddr, action = app.mailwerk.mail.RuleAction.MOVE)))
+            }()
         }
     }
     if (remindOpen) TimeChooser("Erinnern, falls bis dahin keine Antwort kommt", { remindOpen = false }) { t ->

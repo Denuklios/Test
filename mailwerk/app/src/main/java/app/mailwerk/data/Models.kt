@@ -27,6 +27,10 @@ data class Account(
     val passwordEnc: String,
     val signature: String = "",
     val color: Int = 0,
+    /** eigene Signatur für Antworten/Weiterleitungen; leer = wie [signature] */
+    val replySignature: String = "",
+    /** Logo-Bild für die Signatur (Datei im App-Speicher) */
+    val logoPath: String? = null,
 )
 
 object FolderRole {

@@ -77,7 +77,7 @@ class MailClient(private val acc: Account, private val password: String) {
         val headerNames = arrayOf(
             "List-Unsubscribe", "List-Unsubscribe-Post", "List-Id", "Precedence", "Auto-Submitted", "X-Campaign", "X-CampaignID",
             "X-Mailchimp", "X-MC-User", "X-SG-EID", "X-Mailgun-Tag", "X-Newsletter", "X-CMail-CampaignID", "X-Emarsys",
-            "X-Sib-Id", "X-Mailjet-Campaign", "Feedback-ID", "X-rpcampaign", "X-MktMail", "In-Reply-To", "References"
+            "X-Sib-Id", "X-Mailjet-Campaign", "Feedback-ID", "X-rpcampaign", "X-MktMail", "In-Reply-To", "References", "X-Mailwerk-Auto"
         )
     }
 
@@ -317,6 +317,63 @@ class MailClient(private val acc: Account, private val password: String) {
         try { return block(f) } finally { runCatching { f.close(true) } }
     }
 
+    // ---- Varianten mit bereits offenem Store (für Regeln während des Abgleichs)
+    fun ensureFolder(store: Store, name: String): String {
+        val f = store.getFolder(name)
+        if (!f.exists()) f.create(Folder.HOLDS_MESSAGES)
+        runCatching { f.isSubscribed = true }
+        return f.fullName
+    }
+
+    fun setFlagsIn(store: Store, folder: String, uid: Long, seen: Boolean?, flagged: Boolean?) =
+        withFolder(store, folder) { f ->
+            val m = f.getMessageByUID(uid) ?: return@withFolder
+            seen?.let { m.setFlag(Flags.Flag.SEEN, it) }
+            flagged?.let { m.setFlag(Flags.Flag.FLAGGED, it) }
+        }
+
+    fun moveIn(store: Store, fromFolder: String, uid: Long, toFolder: String) = withFolder(store, fromFolder) { f ->
+        val msg = f.getMessageByUID(uid) ?: return@withFolder
+        val target = store.getFolder(toFolder)
+        runCatching { f.moveMessages(arrayOf(msg), target) }.getOrElse { f.copyMessages(arrayOf(msg), target); msg.setFlag(Flags.Flag.DELETED, true) }
+    }
+
+    /** Leitet die Originalmail vollständig (mit allen Anhängen) als .eml-Anhang weiter. */
+    fun forwardIn(store: Store, folder: String, uid: Long, to: List<String>, subject: String, sentFolder: String?) {
+        val raw = withFolder(store, folder) { f ->
+            val m = f.getMessageByUID(uid) ?: return@withFolder null
+            java.io.ByteArrayOutputStream().also { m.writeTo(it) }.toByteArray()
+        } ?: return
+        val msg = MimeMessage(session)
+        msg.setFrom(InternetAddress(acc.email, acc.name, "UTF-8"))
+        msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to.joinToString(","), false))
+        msg.setSubject(if (subject.startsWith("WG:", true) || subject.startsWith("Fwd:", true)) subject else "WG: $subject", "UTF-8")
+        msg.setHeader("X-Mailwerk-Auto", "forward")
+        msg.setHeader("Auto-Submitted", "auto-forwarded")
+        val mp = MimeMultipart("mixed")
+        mp.addBodyPart(MimeBodyPart().apply { setText("Automatisch weitergeleitet von ${acc.email} (Mailwerk-Regel).\nDie Originalnachricht ist angehängt.", "UTF-8") })
+        mp.addBodyPart(MimeBodyPart().apply {
+            dataHandler = DataHandler(ByteArrayDataSource(raw, "message/rfc822"))
+            fileName = "Weitergeleitete Nachricht.eml"; disposition = Part.ATTACHMENT
+        })
+        msg.setContent(mp); msg.sentDate = Date(); msg.saveChanges()
+        send(msg, sentFolder)
+    }
+
+    /** Einfache automatische Antwort (Abwesenheitsnotiz) gemäß RFC 3834. */
+    fun sendAutoReply(to: String, subject: String, text: String, inReplyTo: String?, sentFolder: String?) {
+        val msg = MimeMessage(session)
+        msg.setFrom(InternetAddress(acc.email, acc.name, "UTF-8"))
+        msg.setRecipients(Message.RecipientType.TO, InternetAddress.parse(to, false))
+        msg.setSubject(subject, "UTF-8")
+        msg.setHeader("Auto-Submitted", "auto-replied")
+        msg.setHeader("X-Mailwerk-Auto", "vacation")
+        msg.setHeader("Precedence", "auto_reply")
+        inReplyTo?.let { msg.setHeader("In-Reply-To", it); msg.setHeader("References", it) }
+        msg.setText(text, "UTF-8"); msg.sentDate = Date(); msg.saveChanges()
+        send(msg, sentFolder)
+    }
+
     fun setFlag(folder: String, uid: Long, flag: Flags.Flag, value: Boolean) = withStore { s ->
         withFolder(s, folder) { f -> f.getMessageByUID(uid)?.setFlag(flag, value) }
     }
@@ -350,6 +407,7 @@ class MailClient(private val acc: Account, private val password: String) {
     fun buildMessage(
         to: String, cc: String, bcc: String, subject: String, body: String,
         attachments: List<OutgoingAttachment>, inReplyTo: String?, references: String?,
+        logo: OutgoingAttachment? = null,
     ): MimeMessage {
         val msg = MimeMessage(session)
         msg.setFrom(InternetAddress(acc.email, acc.name, "UTF-8"))
@@ -362,12 +420,23 @@ class MailClient(private val acc: Account, private val password: String) {
         listOfNotNull(references, inReplyTo).joinToString(" ").trim().takeIf { it.isNotEmpty() }?.let { msg.setHeader("References", it) }
         msg.setHeader("X-Mailer", "Mailwerk")
 
-        val htmlBody = "<div style=\"font-family:sans-serif\">" + body.split("\n").joinToString("<br>") { line ->
-            line.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
-        } + "</div>"
+        val useLogo = logo != null && body.lines().any { it.trim() == TextFormat.LOGO_MARKER }
+        val htmlBody = TextFormat.toHtml(body, useLogo)
+        val htmlPart = MimeBodyPart().apply { setContent(htmlBody, "text/html; charset=UTF-8") }
         val alt = MimeMultipart("alternative").apply {
-            addBodyPart(MimeBodyPart().apply { setText(body, "UTF-8") })
-            addBodyPart(MimeBodyPart().apply { setContent(htmlBody, "text/html; charset=UTF-8") })
+            addBodyPart(MimeBodyPart().apply { setText(TextFormat.toPlain(body), "UTF-8") })
+            if (useLogo) {
+                // HTML + eingebettetes Logo als multipart/related
+                val related = MimeMultipart("related")
+                related.addBodyPart(htmlPart)
+                related.addBodyPart(MimeBodyPart().apply {
+                    dataHandler = DataHandler(ByteArrayDataSource(logo!!.bytes, logo.mime))
+                    contentID = "<${TextFormat.LOGO_CID}>"
+                    disposition = Part.INLINE
+                    fileName = logo.name
+                })
+                addBodyPart(MimeBodyPart().apply { setContent(related) })
+            } else addBodyPart(htmlPart)
         }
         if (attachments.isEmpty()) msg.setContent(alt)
         else {

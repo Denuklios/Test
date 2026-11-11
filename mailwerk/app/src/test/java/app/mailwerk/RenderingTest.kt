@@ -50,4 +50,22 @@ class RenderingTest {
         assertFalse(r.html.contains("nowrap"))
         File("build/render-check").apply { mkdirs() }.let { File(it, "newsletter.html").writeText(r.html) }
     }
+
+    @Test fun signatureFormattingAndLogo() {
+        val body = "Hallo Anna,\n\ndanke!\n\n-- \n**Max Mustermann**\n*Musterfirma*\nwww.beispiel.dk · hej@beispiel.dk\n[Logo]\n\n> zitierte Zeile"
+        val h = app.mailwerk.mail.TextFormat.toHtml(body, hasLogo = true)
+        assertTrue(h.contains("<b>Max Mustermann</b>")); assertTrue(h.contains("<i>Musterfirma</i>"))
+        assertTrue(h.contains("href=\"https://www.beispiel.dk\"")); assertTrue(h.contains("href=\"mailto:hej@beispiel.dk\""))
+        assertTrue(h.contains("cid:signatur-logo@mailwerk")); assertTrue(h.contains("<blockquote"))
+        assertFalse(app.mailwerk.mail.TextFormat.toPlain(body).contains("[Logo]"))
+        assertFalse(app.mailwerk.mail.TextFormat.toHtml(body, hasLogo = false).contains("cid:"))
+        // 5*3 = 15 darf nicht kursiv werden
+        assertFalse(app.mailwerk.mail.TextFormat.inline("5 * 3 = 15 und 2 * 4").contains("<i>"))
+
+        val acc = app.mailwerk.data.Account(1, "Ich", "ich@x.de", "h", 1, app.mailwerk.data.Security.SSL, "h", 1, app.mailwerk.data.Security.SSL, "u", "")
+        val logo = app.mailwerk.mail.OutgoingAttachment("logo.png", "image/png", ByteArray(100) { 1 })
+        val msg = app.mailwerk.mail.MailClient(acc, "x").buildMessage("a@b.de", "", "", "Test", body, emptyList(), null, null, logo)
+        val out = java.io.ByteArrayOutputStream().also { msg.writeTo(it) }.toString()
+        assertTrue(out.contains("multipart/related")); assertTrue(out.contains("Content-ID: <signatur-logo@mailwerk>"))
+    }
 }

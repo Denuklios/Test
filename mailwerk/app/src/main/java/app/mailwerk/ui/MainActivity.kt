@@ -75,6 +75,9 @@ class MainActivity : ComponentActivity() {
                         Screen.Settings -> SettingsScreen(vm)
                         Screen.Outbox -> OutboxScreen(vm)
                         Screen.Templates -> TemplatesScreen(vm)
+                        is Screen.Rules -> RulesScreen(vm, screen.prefill)
+                        Screen.Blocklist -> BlocklistScreen(vm)
+                        Screen.Vacation -> VacationScreen(vm)
                     }
                 }
             }

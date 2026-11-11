@@ -17,6 +17,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.outlined.Rule
+import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.BeachAccess
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Refresh
@@ -56,7 +59,7 @@ import app.mailwerk.sync.Scheduler
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SubScaffold(vm: MainViewModel, title: String, fab: @Composable () -> Unit = {}, content: @Composable (Modifier) -> Unit) {
+internal fun SubScaffold(vm: MainViewModel, title: String, fab: @Composable () -> Unit = {}, content: @Composable (Modifier) -> Unit) {
     Scaffold(containerColor = MaterialTheme.colorScheme.background, topBar = {
         TopAppBar(title = { Text(title, style = MaterialTheme.typography.headlineSmall) },
             colors = androidx.compose.material3.TopAppBarDefaults.topAppBarColors(containerColor = MaterialTheme.colorScheme.background), navigationIcon = { IconButton(onClick = { vm.pop() }) { Icon(Icons.AutoMirrored.Outlined.ArrowBack, "Zurück") } })
@@ -98,6 +101,16 @@ fun SettingsScreen(vm: MainViewModel) {
                 Toggle("Externe Bilder blockieren", "Verhindert, dass Absender sehen, wann und wo du Mails öffnest. Tracking-Pixel werden immer entfernt.",
                     p.blockRemoteImages) { p.blockRemoteImages = it; changed() }
 
+                SectionTitle("Regeln & Schutz")
+                val rulesCount = remember(v) { vm.db.rules().size }
+                val blockCount = remember(v) { vm.db.blocklist().size }
+                ListItem(headlineContent = { Text("Regeln & Filter") }, supportingContent = { Text(if (rulesCount == 0) "Mails automatisch verschieben, markieren, weiterleiten …" else "$rulesCount Regel(n)") },
+                    leadingContent = { Icon(Icons.Outlined.Rule, null) }, modifier = Modifier.clickable { vm.push(Screen.Rules()) })
+                ListItem(headlineContent = { Text("Spam & gesperrte Absender") }, supportingContent = { Text(if (blockCount == 0) "Noch niemand gesperrt" else "$blockCount gesperrt – landen direkt im Spam") },
+                    leadingContent = { Icon(Icons.Outlined.Block, null) }, modifier = Modifier.clickable { vm.push(Screen.Blocklist) })
+                ListItem(headlineContent = { Text("Abwesenheitsnotiz") }, supportingContent = { Text(if (p.vacationActive()) "Aktiv" else if (p.vacationOn) "Geplant" else "Aus") },
+                    leadingContent = { Icon(Icons.Outlined.BeachAccess, null) }, modifier = Modifier.clickable { vm.push(Screen.Vacation) })
+
                 SectionTitle("Senden")
                 Choice("„Senden rückgängig“-Zeit", listOf(0, 5, 10, 20, 30), p.undoSeconds, { if (it == 0) "Aus" else "$it s" }) { p.undoSeconds = it; changed() }
                 ListItem(headlineContent = { Text("Vorlagen (Schnellantworten)") }, modifier = Modifier.clickable { vm.push(Screen.Templates) })
@@ -125,14 +138,6 @@ fun SettingsScreen(vm: MainViewModel) {
                     p.dynamicColor = it; changed()
                 }
 
-                if (p.blockedSenders.isNotEmpty()) {
-                    SectionTitle("Blockierte Absender")
-                    p.blockedSenders.sorted().forEach { s ->
-                        ListItem(headlineContent = { Text(s) }, trailingContent = {
-                            IconButton(onClick = { p.blockedSenders = p.blockedSenders - s; changed() }) { Icon(Icons.Outlined.Delete, "Freigeben") }
-                        })
-                    }
-                }
                 SectionTitle("App")
                 val upd by vm.update.collectAsState()
                 val prog by vm.updateProgress.collectAsState()
