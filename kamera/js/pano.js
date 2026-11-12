@@ -47,14 +47,17 @@ export class PanoCapture {
       }
       this.lastYaw = yaw;
     }
-    if (!this.prev) { this.prev = probe; this.firstFrame = this.snapshot(src); return; }
-    const s = estimateShift(this.prev.gray, probe.gray, probe.w, probe.h, 26, 10);
-    this.prev = probe;
+    if (!this.prev) { this.prev = probe; this.ref = probe; this.refFx = 0; this.refFy = 0; this.vx = 0; this.vy = 0; this.firstFrame = this.snapshot(src); return; }
     const scale = this.W / probe.w;
-    // Kamera bewegt sich entgegen dem Bildinhalt
-    this.Fx -= s.dx * scale;
-    this.Fy -= s.dy * scale;
-    this.lastShake = Math.abs(s.dy * scale);
+    // gegen das Referenzbild messen (Fehler summieren sich nicht), Suche um die erwartete Position
+    const pdx = -(this.Fx + this.vx - this.refFx) / scale, pdy = -(this.Fy + this.vy - this.refFy) / scale;
+    const s = estimateShift(this.ref.gray, probe.gray, probe.w, probe.h, 14, 8, pdx, pdy);
+    this.prev = probe;
+    const nFx = this.refFx - s.dx * scale, nFy = this.refFy - s.dy * scale;
+    this.vx = nFx - this.Fx; this.vy = nFy - this.Fy;
+    this.lastShake = Math.abs(this.vy);
+    this.Fx = nFx; this.Fy = nFy;
+    if (Math.abs(s.dx) > probe.w * 0.12 || Math.abs(s.dy) > probe.h * 0.06) { this.ref = probe; this.refFx = this.Fx; this.refFy = this.Fy; }
     if (!this.dir) {
       if (Math.abs(this.Fx) > this.W * 0.03) {
         this.dir = Math.sign(this.Fx);

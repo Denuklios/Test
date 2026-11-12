@@ -290,7 +290,7 @@ function tick() {
 
   const rec = S.rec;
   if (rec?.onFrame) rec.onFrame();
-  if (m === 'qr' && performance.now() - lastQr > 220 && !$('#sheet').hidden === false) {
+  if (m === 'qr' && performance.now() - lastQr > 220 && $('#sheet').hidden) {
     lastQr = performance.now();
     qr.scan(video).then((res) => { if (res && S.mode === 'qr' && $('#sheet').hidden) onQr(res); });
   }
@@ -1001,7 +1001,7 @@ async function stopRecording() {
 
 /* ---------- Panorama & 360° ---------- */
 let pano = null;
-const panoProbe = new Probe(160);
+const panoProbe = new Probe(240);
 function startPano() {
   if (pano) return finishPano();
   const full = S.mode === 'pano360';

@@ -61,32 +61,46 @@ export function smoothAuto(prev, next, k = 0.12) {
  * Verschiebung von b gegenüber a (Blockvergleich + Feinanteil).
  * Ergebnis: um wie viele Pixel sich der Bildinhalt bewegt hat.
  */
-export function estimateShift(a, b, w, h, rx = 24, ry = 10) {
-  const m = 6; // Randabstand
-  let best = Infinity, bx = 0, by = 0;
-  const cost = new Map();
-  const score = (dx, dy) => {
+export function estimateShift(a, b, w, h, rx = 24, ry = 10, px = 0, py = 0) {
+  // Stufe 1: halbe Auflösung, jede ganze Verschiebung prüfen
+  const hw = w >> 1, hh = h >> 1;
+  const half = (g) => {
+    const o = new Float32Array(hw * hh);
+    for (let y = 0; y < hh; y++) for (let x = 0; x < hw; x++) {
+      const i = 2 * y * w + 2 * x;
+      o[y * hw + x] = (g[i] + g[i + 1] + g[i + w] + g[i + w + 1]) * 0.25;
+    }
+    return o;
+  };
+  const sad = (A, B, W, H, dx, dy, m, step, sq = false) => {
     let s = 0, cnt = 0;
-    const x0 = Math.max(m, m - dx), x1 = Math.min(w - m, w - m - dx);
-    const y0 = Math.max(m, m - dy), y1 = Math.min(h - m, h - m - dy);
-    for (let y = y0; y < y1; y += 2) {
-      const ra = y * w, rb = (y + dy) * w + dx;
-      for (let x = x0; x < x1; x += 2) { s += Math.abs(a[ra + x] - b[rb + x]); cnt++; }
+    const x0 = Math.max(m, m - dx), x1 = Math.min(W - m, W - m - dx);
+    const y0 = Math.max(m, m - dy), y1 = Math.min(H - m, H - m - dy);
+    for (let y = y0; y < y1; y += step) {
+      const ra = y * W, rb = (y + dy) * W + dx;
+      if (sq) for (let x = x0; x < x1; x++) { const d = A[ra + x] - B[rb + x]; s += d * d; cnt++; }
+      else for (let x = x0; x < x1; x++) { s += Math.abs(A[ra + x] - B[rb + x]); cnt++; }
     }
     return cnt > 50 ? s / cnt : Infinity;
   };
-  // grob, dann fein
-  for (let dy = -ry; dy <= ry; dy += 2) for (let dx = -rx; dx <= rx; dx += 2) {
-    const s = score(dx, dy); cost.set(dx + ',' + dy, s);
-    if (s < best) { best = s; bx = dx; by = dy; }
+  const ha = half(a), hb = half(b);
+  let best = Infinity, bx = 0, by = 0;
+  const rx2 = Math.ceil(rx / 2), ry2 = Math.ceil(ry / 2);
+  const pcx = Math.round(px / 2), pcy = Math.round(py / 2);
+  for (let dy = pcy - ry2; dy <= pcy + ry2; dy++) for (let dx = pcx - rx2; dx <= pcx + rx2; dx++) {
+    const v = sad(ha, hb, hw, hh, dx, dy, 3, 1);
+    if (v < best) { best = v; bx = dx; by = dy; }
   }
-  const cx = bx, cy = by;
-  for (let dy = cy - 1; dy <= cy + 1; dy++) for (let dx = cx - 1; dx <= cx + 1; dx++) {
-    const s = cost.get(dx + ',' + dy) ?? score(dx, dy); cost.set(dx + ',' + dy, s);
-    if (s < best) { best = s; bx = dx; by = dy; }
+  // Stufe 2: volle Auflösung, Feinsuche
+  const cost = new Map();
+  const get = (dx, dy) => { const k = dx + ',' + dy; if (!cost.has(k)) cost.set(k, sad(a, b, w, h, dx, dy, 6, 2, true)); return cost.get(k); };
+  best = Infinity;
+  const cx = bx * 2, cy = by * 2;
+  for (let dy = cy - 2; dy <= cy + 2; dy++) for (let dx = cx - 2; dx <= cx + 2; dx++) {
+    const v = get(dx, dy);
+    if (v < best) { best = v; bx = dx; by = dy; }
   }
   // Parabel für Subpixel
-  const get = (dx, dy) => cost.get(dx + ',' + dy) ?? score(dx, dy);
   const sub = (l, c, r) => { const d = l - 2 * c + r; return d > 0 ? 0.5 * (l - r) / d : 0; };
   const fx = sub(get(bx - 1, by), best, get(bx + 1, by));
   const fy = sub(get(bx, by - 1), best, get(bx, by + 1));
