@@ -10,6 +10,8 @@ object I18n {
     fun german(): Boolean = Locale.getDefault().language == "de"
 
     val en: Map<String, String> = hashMapOf(
+        "Einklappen" to "Collapse",
+        "Aufklappen" to "Expand",
         "Mailwerk-Update bereit" to "Mailwerk update ready",
         "Zum Installieren tippen" to "Tap to install",
         "Mailwerk-Update nicht installiert" to "Mailwerk update not installed",

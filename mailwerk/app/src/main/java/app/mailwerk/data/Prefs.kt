@@ -110,6 +110,11 @@ class Prefs(ctx: Context) {
     fun syncError(accountId: Long): String? = if (p.getBoolean("sync_ok_$accountId", true)) null else p.getString("sync_err_$accountId", null)
     fun lastSync(accountId: Long): Long = p.getLong("sync_time_$accountId", 0)
 
+    /** Im Menü aufgeklappte Postfächer (Konto-IDs); null = noch nie eingestellt */
+    var drawerExpanded: Set<Long>?
+        get() = p.getStringSet("drawer_expanded", null)?.mapNotNull { it.toLongOrNull() }?.toSet()
+        set(v) = p.edit().putStringSet("drawer_expanded", v?.map { "$it" }?.toSet()).apply()
+
     var initialSyncDays: Int
         get() = p.getInt("sync_days", 60)
         set(v) = p.edit().putInt("sync_days", v).apply()

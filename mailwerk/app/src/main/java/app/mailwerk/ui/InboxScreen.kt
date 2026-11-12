@@ -1,5 +1,14 @@
 package app.mailwerk.ui
 
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.material3.Badge
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.ui.graphics.graphicsLayer
+import androidx.compose.material.icons.outlined.ExpandMore
+import androidx.compose.animation.core.FastOutSlowInEasing
+import androidx.compose.animation.core.Spring
+import androidx.compose.animation.core.spring
+import androidx.compose.animation.core.tween
 import app.mailwerk.tr
 
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -141,14 +150,18 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
                     else if (threads.isEmpty()) EmptyState(mailbox, category, query)
                     else LazyColumn(Modifier.fillMaxSize(), state = listState, contentPadding = PaddingValues(start = 12.dp, end = 12.dp, top = 4.dp, bottom = 110.dp)) {
                         var lastSection = ""
+                        val used = HashSet<String>()
+                        // stabile, eindeutige Schlüssel -> Einträge rutschen beim Entfernen geschmeidig nach
+                        fun uniq(k: String, idx: Int) = if (used.add(k)) k else "$k#$idx".also { used.add(it) }
                         threads.forEachIndexed { idx, t ->
                             val section = if (t.pinned) tr("Angeheftet") else sectionOf(t.latest.date)
                             if (section != lastSection) {
                                 lastSection = section
-                                item(key = "h_${idx}_$section") { SectionHeader(section) }
+                                item(key = uniq("h_$section", idx)) { Box(Modifier.animateItem(fadeInSpec = tween(220), placementSpec = spring(stiffness = Spring.StiffnessMediumLow), fadeOutSpec = tween(180))) { SectionHeader(section) } }
                             }
-                            item(key = t.latest.threadKey + t.latest.id) {
-                                SwipeRow(vm, t, onSnooze = { snoozeFor = it }) {
+                            item(key = uniq("m_${t.latest.id}", idx)) {
+                                SwipeRow(vm, t, Modifier.animateItem(fadeInSpec = tween(220), placementSpec = spring(stiffness = Spring.StiffnessMediumLow), fadeOutSpec = tween(180)),
+                                    onSnooze = { snoozeFor = it }) {
                                     ThreadRow(t, showAccount = accounts.size > 1 && mailbox !is Mailbox.InFolder, vm,
                                         onClick = { vm.push(Screen.Thread(t.latest.threadKey)) },
                                         onLong = { actionsFor = t.latest })
@@ -468,30 +481,50 @@ private fun EmptyState(mb: Mailbox, cat: Category?, q: String) {
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
-private fun SwipeRow(vm: MainViewModel, t: ThreadSummary, onSnooze: (Message) -> Unit, content: @Composable () -> Unit) {
+private fun SwipeRow(vm: MainViewModel, t: ThreadSummary, modifier: Modifier, onSnooze: (Message) -> Unit, content: @Composable () -> Unit) {
     val right = vm.prefs.swipeRight; val left = vm.prefs.swipeLeft
+    // Aktionen, bei denen die Mail die Liste verlässt: ganz hinausgleiten, dann zusammenschrumpfen lassen
+    fun leaves(a: SwipeAction) = a == SwipeAction.ARCHIVE || a == SwipeAction.DELETE
+    var pending by remember { mutableStateOf<SwipeAction?>(null) }
     val state = rememberSwipeToDismissBoxState(confirmValueChange = { v ->
-        when (v) {
-            SwipeToDismissBoxValue.StartToEnd -> vm.performSwipe(right, t.latest, onSnooze)
-            SwipeToDismissBoxValue.EndToStart -> vm.performSwipe(left, t.latest, onSnooze)
-            else -> {}
+        val action = when (v) { SwipeToDismissBoxValue.StartToEnd -> right; SwipeToDismissBoxValue.EndToStart -> left; else -> null }
+        when {
+            action == null -> false
+            leaves(action) -> { pending = action; true } // Karte gleitet ganz nach außen
+            else -> { vm.performSwipe(action, t.latest, onSnooze); false } // zurückfedern
         }
-        false
     }, positionalThreshold = { it * 0.35f })
-    SwipeToDismissBox(state, enableDismissFromStartToEnd = right != SwipeAction.NONE, enableDismissFromEndToStart = left != SwipeAction.NONE,
-        modifier = Modifier.padding(vertical = 2.dp),
-        backgroundContent = {
-            val dir = state.dismissDirection
-            val action = if (dir == SwipeToDismissBoxValue.StartToEnd) right else left
-            val (color, icon) = swipeLook(action)
-            if (dir != SwipeToDismissBoxValue.Settled) Box(Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(color).padding(horizontal = 26.dp),
-                contentAlignment = if (dir == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Icon(icon, null, tint = Color.White); Spacer(Modifier.width(8.dp))
-                    Text(action.label, color = Color.White, style = MaterialTheme.typography.titleSmall)
+    val visible = remember { androidx.compose.animation.core.MutableTransitionState(true) }
+    // nach dem Hinausgleiten: Höhe weich auf 0, dann erst ausführen -> die Mails darunter rutschen geschmeidig hoch
+    LaunchedEffect(pending, state.currentValue) {
+        if (pending != null && state.currentValue != SwipeToDismissBoxValue.Settled) visible.targetState = false
+    }
+    LaunchedEffect(visible.isIdle, visible.currentState) {
+        val a = pending
+        if (a != null && visible.isIdle && !visible.currentState) {
+            pending = null; vm.performSwipe(a, t.latest, onSnooze)
+            // Mail ist nach kurzer Zeit immer noch da (z. B. Rückgängig oder Fehler)? Wieder zeigen statt unsichtbar lassen
+            kotlinx.coroutines.delay(1500)
+            state.reset(); visible.targetState = true
+        }
+    }
+    AnimatedVisibility(visible, modifier = modifier,
+        exit = shrinkVertically(animationSpec = tween(260, easing = FastOutSlowInEasing)) + fadeOut(tween(200))) {
+        SwipeToDismissBox(state, enableDismissFromStartToEnd = right != SwipeAction.NONE, enableDismissFromEndToStart = left != SwipeAction.NONE,
+            modifier = Modifier.padding(vertical = 2.dp),
+            backgroundContent = {
+                val dir = state.dismissDirection
+                val action = if (dir == SwipeToDismissBoxValue.StartToEnd) right else left
+                val (color, icon) = swipeLook(action)
+                if (dir != SwipeToDismissBoxValue.Settled) Box(Modifier.fillMaxSize().clip(RoundedCornerShape(16.dp)).background(color).padding(horizontal = 26.dp),
+                    contentAlignment = if (dir == SwipeToDismissBoxValue.StartToEnd) Alignment.CenterStart else Alignment.CenterEnd) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(icon, null, tint = Color.White); Spacer(Modifier.width(8.dp))
+                        Text(action.label, color = Color.White, style = MaterialTheme.typography.titleSmall)
+                    }
                 }
-            }
-        }) { content() }
+            }) { content() }
+    }
 }
 
 private fun swipeLook(a: SwipeAction): Pair<Color, ImageVector> = when (a) {
@@ -654,12 +687,25 @@ private fun Drawer(vm: MainViewModel, close: () -> Unit) {
             entry(tr("Markiert"), Icons.Outlined.Star, current is Mailbox.Flagged) { vm.selectMailbox(Mailbox.Flagged) }
             entry(tr("Zurückgestellt"), Icons.Outlined.Snooze, current is Mailbox.Snoozed) { vm.selectMailbox(Mailbox.Snoozed) }
             entry(tr("Postausgang & Entwürfe"), Icons.Outlined.Outbox, false, vm.db.outbox().size) { vm.push(Screen.Outbox) }
+            var expanded by remember { mutableStateOf(vm.prefs.drawerExpanded ?: if (accounts.size == 1) accounts.map { it.id }.toSet() else emptySet()) }
             accounts.forEach { a ->
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(start = 16.dp, bottom = 4.dp)) {
+                val open = a.id in expanded
+                val arrow by androidx.compose.animation.core.animateFloatAsState(if (open) 180f else 0f, label = "pfeil")
+                val unread = folders[a.id].orEmpty().filter { it.role == FolderRole.INBOX }.sumOf { it.unread }
+                // Postfach-Kopf: antippen klappt die Ordner auf/zu
+                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth().clip(RoundedCornerShape(14.dp))
+                    .clickable {
+                        expanded = if (open) expanded - a.id else expanded + a.id
+                        vm.prefs.drawerExpanded = expanded
+                    }.padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp)) {
                     Box(Modifier.size(10.dp).background(Color(a.color), CircleShape)); Spacer(Modifier.width(8.dp))
-                    Text(a.email, style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(a.email, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    if (!open && unread > 0) Badge { Text("$unread") }
+                    Icon(Icons.Outlined.ExpandMore, if (open) tr("Einklappen") else tr("Aufklappen"), Modifier.padding(start = 6.dp).size(22.dp).graphicsLayer { rotationZ = arrow })
                 }
+                AnimatedVisibility(open, enter = expandVertically(tween(240)) + fadeIn(tween(200)), exit = shrinkVertically(tween(220)) + fadeOut(tween(160))) {
+                Column {
                 folders[a.id].orEmpty().forEach { f ->
                     val icon = when (f.role) {
                         FolderRole.INBOX -> Icons.Outlined.Inbox; FolderRole.SENT -> Icons.AutoMirrored.Outlined.Send
@@ -673,6 +719,8 @@ private fun Drawer(vm: MainViewModel, close: () -> Unit) {
                 }
                 NavigationDrawerItem(label = { Text(tr("Neuer Ordner"), color = MaterialTheme.colorScheme.primary) }, selected = false,
                     icon = { Icon(Icons.Outlined.CreateNewFolder, null, tint = MaterialTheme.colorScheme.primary) }, onClick = { newFolderFor = a.id })
+                }
+                }
             }
             HorizontalDivider(Modifier.padding(vertical = 8.dp))
             entry(tr("Konto hinzufügen"), Icons.Outlined.Add, false) { vm.push(Screen.AccountSetup()) }
