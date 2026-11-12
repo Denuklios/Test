@@ -767,20 +767,18 @@ class _EventEditorState extends State<EventEditor> {
             // Wiederholung
             if (!vac)
               DropdownButtonFormField<String>(
-                initialValue: ev.repeat,
+                initialValue: () {
+                  final r = ev.repeat == Repeat.biweekly ? 'weekly:2' : '${ev.repeat}:${ev.interval}';
+                  return repeatChoices.any((c) => '${c.$1}:${c.$2}' == r) ? r : '${ev.repeat}:1';
+                }(),
                 isExpanded: true,
-                decoration: const InputDecoration(
-                  labelText: 'Wiederholen',
-                  prefixIcon: Icon(Icons.repeat),
-                  border: OutlineInputBorder(),
-                ),
-                items: Repeat.labels.entries
-                    .map(
-                      (e) =>
-                          DropdownMenuItem(value: e.key, child: Text(e.value)),
-                    )
-                    .toList(),
-                onChanged: (v) => setState(() => ev.repeat = v ?? Repeat.none),
+                decoration: const InputDecoration(labelText: 'Wiederholen', prefixIcon: Icon(Icons.repeat), border: OutlineInputBorder()),
+                items: repeatChoices.map((c) => DropdownMenuItem(value: '${c.$1}:${c.$2}', child: Text(c.$3))).toList(),
+                onChanged: (v) => setState(() {
+                  final p = (v ?? 'none:1').split(':');
+                  ev.repeat = p[0];
+                  ev.interval = int.tryParse(p[1]) ?? 1;
+                }),
               ),
             if (ev.repeat != Repeat.none && !vac)
               ListTile(

@@ -35,7 +35,7 @@ class AppStore extends ChangeNotifier {
   bool showObservances = true;
   bool schoolDE = true;
   bool schoolDK = true;
-  int birthdayColor = 0xFFEC407A;
+  int birthdayColor = 0xFFFF5722; // kräftiges Orange-Rot, sonst nirgends benutzt
   List<int> defaultReminders = [60];
   int birthdayReminderDays = 1;
   bool notifyChanges = true;
@@ -96,7 +96,8 @@ class AppStore extends ChangeNotifier {
     showObservances = p.getBool('showObs') ?? true;
     schoolDE = p.getBool('schoolDE') ?? true;
     schoolDK = p.getBool('schoolDK') ?? true;
-    birthdayColor = p.getInt('birthdayColor') ?? 0xFFEC407A;
+    birthdayColor = p.getInt('birthdayColor') ?? 0xFFFF5722;
+    if (birthdayColor == 0xFFEC407A) birthdayColor = 0xFFFF5722; // altes Pink war zu nah an Jeannines Farbe
     defaultReminders = (p.getStringList('defaultReminders') ?? ['60']).map(int.parse).toList();
     birthdayReminderDays = p.getInt('birthdayReminderDays') ?? 1;
     notifyChanges = p.getBool('notifyChanges') ?? true;
@@ -450,7 +451,14 @@ class AppStore extends ChangeNotifier {
       return Occurrence(ev, s, e);
     }
 
-    final repeat = ev.isBirthday ? Repeat.yearly : ev.repeat;
+    var repeat = ev.isBirthday ? Repeat.yearly : ev.repeat;
+    var iv = ev.isBirthday ? 1 : ev.interval;
+    if (repeat == Repeat.biweekly) {
+      repeat = Repeat.weekly;
+      iv = 2;
+    }
+    if (iv < 1) iv = 1;
+    final skip = ev.exdates.toSet();
     if (repeat == Repeat.none) {
       final o = make(ev.start);
       if (!o.lastDay.isBefore(from) && !o.firstDay.isAfter(to)) res.add(o);
@@ -460,17 +468,15 @@ class AppStore extends ChangeNotifier {
     DateTime nth(int n) {
       switch (repeat) {
         case Repeat.daily:
-          return DateTime(s0.year, s0.month, s0.day + n, s0.hour, s0.minute);
+          return DateTime(s0.year, s0.month, s0.day + n * iv, s0.hour, s0.minute);
         case Repeat.weekly:
-          return DateTime(s0.year, s0.month, s0.day + 7 * n, s0.hour, s0.minute);
-        case Repeat.biweekly:
-          return DateTime(s0.year, s0.month, s0.day + 14 * n, s0.hour, s0.minute);
+          return DateTime(s0.year, s0.month, s0.day + 7 * n * iv, s0.hour, s0.minute);
         case Repeat.monthly:
-          final m = DateTime(s0.year, s0.month + n, 1);
+          final m = DateTime(s0.year, s0.month + n * iv, 1);
           final len = DateTime(m.year, m.month + 1, 0).day;
           return DateTime(m.year, m.month, s0.day > len ? len : s0.day, s0.hour, s0.minute);
         default: // jährlich
-          final y = s0.year + n;
+          final y = s0.year + n * iv;
           final len = DateTime(y, s0.month + 1, 0).day;
           return DateTime(y, s0.month, s0.day > len ? len : s0.day, s0.hour, s0.minute);
       }
@@ -482,19 +488,16 @@ class AppStore extends ChangeNotifier {
     if (daysToFrom > 0) {
       switch (repeat) {
         case Repeat.daily:
-          n = daysToFrom;
+          n = daysToFrom ~/ iv;
           break;
         case Repeat.weekly:
-          n = daysToFrom ~/ 7;
-          break;
-        case Repeat.biweekly:
-          n = daysToFrom ~/ 14;
+          n = daysToFrom ~/ (7 * iv);
           break;
         case Repeat.monthly:
-          n = (daysToFrom ~/ 31);
+          n = daysToFrom ~/ (31 * iv);
           break;
         default:
-          n = daysToFrom ~/ 366;
+          n = daysToFrom ~/ (366 * iv);
       }
     }
     final until = ev.repeatUntil == null ? null : dateOnly(ev.repeatUntil!);
@@ -502,6 +505,7 @@ class AppStore extends ChangeNotifier {
       final s = nth(n);
       if (dateOnly(s).isAfter(to)) break;
       if (until != null && dateOnly(s).isAfter(until)) break;
+      if (skip.isNotEmpty && skip.contains(dayKey(s))) continue;
       final o = make(s);
       if (!o.lastDay.isBefore(from)) res.add(o);
     }

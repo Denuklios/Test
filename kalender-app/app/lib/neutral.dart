@@ -3,7 +3,7 @@ const neutralColors = <String, int>{
   'muell': 0xFF795548, // Braun – Mülltonnen
   'ferien': 0xFFFFC107, // Bernstein – Schulferien, Feiertage
   'familie': 0xFF26A69A, // Mint – Familie & gemeinsam
-  'tier': 0xFF8D6E63, // Hellbraun – Hund & Tiere
+  'tier': 0xFF43A047, // Grün – Runa, Hund & Tiere
   'haus': 0xFF607D8B, // Blaugrau – Haushalt, Handwerker, Auto
   'anlass': 0xFF9C27B0, // Lila – Hochzeitstage, Feste anderer
 };

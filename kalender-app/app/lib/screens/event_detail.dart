@@ -51,7 +51,7 @@ class EventDetail extends StatelessWidget {
                   Navigator.pushReplacement(context, MaterialPageRoute(builder: (_) => EventEditor(event: c)));
                 },
               ),
-              IconButton(icon: const Icon(Icons.delete_outline), tooltip: 'Löschen', onPressed: () => _delete(context, ev)),
+              IconButton(icon: const Icon(Icons.delete_outline), tooltip: 'Löschen', onPressed: () => _delete(context, ev, o)),
             ],
           ),
           floatingActionButton: FloatingActionButton(
@@ -73,7 +73,7 @@ class EventDetail extends StatelessWidget {
               title: Text(o.firstDay == o.lastDay || ev.isBirthday ? df.format(o.start) : '${df.format(o.firstDay)}\nbis ${df.format(o.lastDay)}'),
               subtitle: Text(ev.isBirthday
                   ? (ev.birthYear != null ? 'Geboren ${ev.birthYear} · wird ${o.start.year - ev.birthYear!}' : 'Jedes Jahr')
-                  : timeText(o) + (ev.repeat != Repeat.none ? ' · ${Repeat.labels[ev.repeat]}' : '')),
+                  : timeText(o) + (ev.repeat != Repeat.none ? ' · ${repeatText(ev.repeat, ev.interval)}' : '')),
             ),
             if (ev.fromMail)
               ListTile(
@@ -213,7 +213,29 @@ class EventDetail extends StatelessWidget {
     SharePlus.instance.share(ShareParams(text: lines.join('\n')));
   }
 
-  Future<void> _delete(BuildContext context, CalEvent ev) async {
+  Future<void> _delete(BuildContext context, CalEvent ev, Occurrence o) async {
+    if (ev.repeat != Repeat.none && !ev.isBirthday) {
+      final which = await showDialog<String>(
+        context: context,
+        builder: (ctx) => AlertDialog(
+          title: const Text('Serie löschen?'),
+          content: Text('„${ev.title}“ wiederholt sich. Was soll weg?'),
+          actions: [
+            TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Abbrechen')),
+            TextButton(onPressed: () => Navigator.pop(ctx, 'one'), child: Text('Nur am ${DateFormat('d.M.', 'de_DE').format(o.start)}')),
+            FilledButton(style: FilledButton.styleFrom(backgroundColor: Colors.red), onPressed: () => Navigator.pop(ctx, 'all'), child: const Text('Ganze Serie')),
+          ],
+        ),
+      );
+      if (which == 'one') {
+        await store.saveEvent(ev.copy()..exdates = [...ev.exdates, dayKey(o.start)]);
+        if (context.mounted) Navigator.pop(context);
+      } else if (which == 'all') {
+        await store.deleteEvent(ev.copy());
+        if (context.mounted) Navigator.pop(context);
+      }
+      return;
+    }
     final ok = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(

@@ -60,6 +60,30 @@ class Repeat {
   };
 }
 
+/// Auswahl im Editor: (repeat, interval, Text)
+const repeatChoices = <(String, int, String)>[
+  ('none', 1, 'Nie'),
+  ('daily', 1, 'Täglich'),
+  ('weekly', 1, 'Jede Woche'),
+  ('weekly', 2, 'Alle 2 Wochen'),
+  ('weekly', 3, 'Alle 3 Wochen'),
+  ('weekly', 4, 'Alle 4 Wochen'),
+  ('monthly', 1, 'Jeden Monat'),
+  ('monthly', 2, 'Alle 2 Monate'),
+  ('monthly', 3, 'Alle 3 Monate'),
+  ('monthly', 6, 'Alle 6 Monate'),
+  ('yearly', 1, 'Jedes Jahr'),
+];
+
+String repeatText(String repeat, int interval) {
+  if (repeat == 'biweekly') return 'Alle 2 Wochen';
+  for (final c in repeatChoices) {
+    if (c.$1 == repeat && c.$2 == interval) return c.$3;
+  }
+  final unit = {'daily': 'Tage', 'weekly': 'Wochen', 'monthly': 'Monate', 'yearly': 'Jahre'}[repeat] ?? '';
+  return interval > 1 ? 'Alle $interval $unit' : (Repeat.labels[repeat] ?? '');
+}
+
 class CalEvent {
   String id;
   String title;
@@ -82,6 +106,8 @@ class CalEvent {
   bool deleted;
   List<String> checklist; // "[x] Text" / "[ ] Text"
   int? color; // eigene Farbe (sonst Farbe der Personen)
+  int interval; // alle x Tage/Wochen/Monate (bei Wiederholung)
+  List<String> exdates; // ausgelassene Tage einer Serie (yyyy-mm-dd)
   List<PrepItem> prep; // intelligente Vorbereitungsliste
   Map<String, String> answers; // Antworten aus dem Vorbereitungs-Assistenten
 
@@ -108,9 +134,12 @@ class CalEvent {
     List<String>? checklist,
     List<PrepItem>? prep,
     this.color,
+    this.interval = 1,
+    List<String>? exdates,
     Map<String, String>? answers,
   })  : participants = participants ?? [],
         prep = prep ?? [],
+        exdates = exdates ?? [],
         answers = answers ?? {},
         reminders = reminders ?? [],
         photos = photos ?? [],
@@ -161,6 +190,8 @@ class CalEvent {
         'checklist': checklist,
         'prep': prep.map((p) => p.toJson()).toList(),
         'color': color,
+        'interval': interval,
+        'exdates': exdates,
         'answers': answers,
       };
 
@@ -188,6 +219,8 @@ class CalEvent {
       deleted: j['deleted'] == true,
       checklist: ((j['checklist'] ?? []) as List).map((e) => e.toString()).toList(),
       color: (j['color'] as num?)?.toInt(),
+      interval: ((j['interval'] as num?)?.toInt() ?? 1).clamp(1, 52),
+      exdates: j['exdates'] is List ? (j['exdates'] as List).map((e) => e.toString()).toList() : [],
       prep: j['prep'] is List ? (j['prep'] as List).whereType<Map>().map((e) => PrepItem.fromJson(Map<String, dynamic>.from(e))).toList() : [],
       answers: j['answers'] is Map
           ? Map<String, String>.from((j['answers'] as Map).map((k, v) => MapEntry(k.toString(), v.toString())))
