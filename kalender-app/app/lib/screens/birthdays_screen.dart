@@ -4,6 +4,7 @@ import 'package:intl/intl.dart';
 import '../main.dart';
 import '../models.dart';
 import 'event_editor.dart';
+import '../widgets/fireworks.dart';
 
 class BirthdaysScreen extends StatelessWidget {
   final void Function(Occurrence) onOpen;
@@ -30,7 +31,8 @@ class BirthdaysScreen extends StatelessWidget {
                     final age = ev.birthYear != null ? o.start.year - ev.birthYear! : null;
                     final when = days == 0 ? 'Heute! 🎉' : (days == 1 ? 'Morgen' : 'in $days Tagen');
                     return ListTile(
-                      onTap: () => onOpen(o),
+                      onTap: () => days == 0 ? Fireworks.showIfBirthday(context, force: true) : onOpen(o),
+                      onLongPress: () => onOpen(o),
                       leading: CircleAvatar(
                         backgroundColor: days == 0 ? color : color.withValues(alpha: 0.18),
                         child: Text('${o.start.day}.${o.start.month}.', style: TextStyle(fontSize: 11, fontWeight: FontWeight.bold, color: days == 0 ? Colors.white : color)),

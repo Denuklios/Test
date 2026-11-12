@@ -9,6 +9,7 @@ import '../updater.dart';
 import '../voice_parser.dart';
 import '../widgets/common.dart';
 import '../widgets/event_tile.dart';
+import '../widgets/fireworks.dart';
 import '../widgets/prep_widgets.dart';
 import '../widgets/voice.dart';
 import 'agenda_screen.dart';
@@ -47,7 +48,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     store.startAutoSync();
     store.sync();
     Notifier.rescheduleAll(store);
-    WidgetsBinding.instance.addPostFrameCallback((_) => Updater.autoCheck(context));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      Updater.autoCheck(context);
+      Fireworks.showIfBirthday(context);
+    });
   }
 
   @override
@@ -64,6 +68,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       store.sync();
       Notifier.updateUnlockService(store);
       Updater.autoCheck(context);
+      Fireworks.showIfBirthday(context);
     } else if (state == AppLifecycleState.paused) {
       store.stopAutoSync();
     }

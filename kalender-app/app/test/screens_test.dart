@@ -11,6 +11,7 @@ import 'package:familienkalender/screens/event_editor.dart';
 import 'package:familienkalender/screens/month_view.dart';
 import 'package:familienkalender/screens/settings_screen.dart';
 import 'package:familienkalender/screens/time_grid_view.dart';
+import 'package:familienkalender/widgets/fireworks.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -220,6 +221,21 @@ void main() {
     await t.tap(find.text('Robert'));
     await t.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('/tmp/claude-0/-home-user-Test/cd4db189-3460-55ed-b918-077f9e0d3ba7/scratchpad/shots/person_mail.png'));
+  });
+  testWidgets('feuerwerk', (t) async {
+    t.view.physicalSize = const Size(1080, 2280);
+    t.view.devicePixelRatio = 2.625;
+    var done = false;
+    await t.pumpWidget(app(Stack(children: [
+      shell(MonthView(onDayTap: (_) {}, onDayLongPress: (_) {}, onEventTap: (_) {}), 'Heute', 0),
+      FireworksOverlay(text: '🎂 Ole hat heute Geburtstag!\n(wird 31)', onDone: () => done = true),
+    ])));
+    await t.pump(const Duration(milliseconds: 1400));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('/tmp/claude-0/-home-user-Test/cd4db189-3460-55ed-b918-077f9e0d3ba7/scratchpad/shots/feuerwerk1.png'));
+    await t.pump(const Duration(milliseconds: 1300));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('/tmp/claude-0/-home-user-Test/cd4db189-3460-55ed-b918-077f9e0d3ba7/scratchpad/shots/feuerwerk2.png'));
+    await t.pump(const Duration(seconds: 4));
+    expect(done, true); // verschwindet von selbst
   });
   testWidgets('detail', (t) async {
     final e = store.events.values.firstWhere((e) => e.title == 'Kaffee und Kuchen');
