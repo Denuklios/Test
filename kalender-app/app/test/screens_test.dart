@@ -10,6 +10,7 @@ import 'package:familienkalender/screens/event_detail.dart';
 import 'package:familienkalender/screens/event_editor.dart';
 import 'package:familienkalender/screens/month_view.dart';
 import 'package:familienkalender/screens/settings_screen.dart';
+import 'package:familienkalender/screens/time_grid_view.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -197,6 +198,28 @@ void main() {
   });
   testWidgets('gross_vorbereitung', (t) async {
     await bigShot(t, EventDetail(eventId: 'mallorca'), 'gross_vorbereitung', h: 2400);
+  });
+  testWidgets('woche', (t) async {
+    await shot(t, shell(TimeGridView(days: 7, onDayTap: (_) {}, onNewAt: (_) {}, onEventTap: (_) {}), 'Woche', 0), 'woche');
+  });
+  testWidgets('tag', (t) async {
+    await shot(t, shell(TimeGridView(days: 1, onDayTap: (_) {}, onNewAt: (_) {}, onEventTap: (_) {}), 'Tag', 0), 'tag');
+  });
+  testWidgets('jahr', (t) async {
+    await shot(t, shell(YearView(onMonthTap: (_) {}), 'Jahr', 0), 'jahr');
+  });
+  testWidgets('gross_woche', (t) async {
+    await bigShot(t, shell(TimeGridView(days: 7, onDayTap: (_) {}, onNewAt: (_) {}, onEventTap: (_) {}), 'Woche', 0), 'gross_woche');
+  });
+  testWidgets('person_mail', (t) async {
+    store.members['r']!.emails = ['robert@example.de'];
+    t.view.physicalSize = const Size(360 * 3, 900 * 3);
+    t.view.devicePixelRatio = 3;
+    await t.pumpWidget(app(const SettingsScreen(), scale: 1.3));
+    await t.pumpAndSettle();
+    await t.tap(find.text('Robert'));
+    await t.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('/tmp/claude-0/-home-user-Test/cd4db189-3460-55ed-b918-077f9e0d3ba7/scratchpad/shots/person_mail.png'));
   });
   testWidgets('detail', (t) async {
     final e = store.events.values.firstWhere((e) => e.title == 'Kaffee und Kuchen');

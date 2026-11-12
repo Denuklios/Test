@@ -78,6 +78,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     final isNew = m == null;
     final mm = m ?? Member(id: newId(), name: '', color: memberPalette[store.activeMembers.length % memberPalette.length]);
     final c = TextEditingController(text: mm.name);
+    final mails = TextEditingController(text: mm.emails.join(', '));
+    String? mailErr;
     var color = mm.color;
     final res = await showDialog<String>(
       context: context,
@@ -98,6 +100,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
                 child: ColorDot(Color(color), size: 40),
               ),
             ]),
+            const SizedBox(height: 12),
+            TextField(
+              controller: mails,
+              keyboardType: TextInputType.emailAddress,
+              minLines: 1,
+              maxLines: 3,
+              decoration: InputDecoration(
+                labelText: 'E-Mail-Adressen (für Mailwerk)',
+                hintText: 'name@beispiel.de, zweite@adresse.dk',
+                helperText: 'Termine aus Mails an diese Adressen erscheinen in dieser Farbe. Mehrere mit Komma trennen.',
+                helperMaxLines: 3,
+                errorText: mailErr,
+              ),
+            ),
             if (isNew)
               Padding(
                 padding: const EdgeInsets.only(top: 12),
@@ -109,7 +125,17 @@ class _SettingsScreenState extends State<SettingsScreen> {
             if (!isNew && m.id != store.myId)
               TextButton(onPressed: () => Navigator.pop(ctx, 'delete'), child: const Text('Entfernen', style: TextStyle(color: Colors.red))),
             TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Abbrechen')),
-            FilledButton(onPressed: () => Navigator.pop(ctx, 'save'), child: const Text('Speichern')),
+            FilledButton(
+              onPressed: () {
+                final bad = _splitMails(mails.text).where((m) => !RegExp(r'^[^@\s]+@[^@\s]+\.[^@\s]+$').hasMatch(m)).toList();
+                if (bad.isNotEmpty) {
+                  setD(() => mailErr = 'Keine gültige Adresse: ${bad.join(', ')}');
+                  return;
+                }
+                Navigator.pop(ctx, 'save');
+              },
+              child: const Text('Speichern'),
+            ),
           ],
         ),
       ),
@@ -117,7 +143,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     if (res == 'save' && c.text.trim().isNotEmpty) {
       mm
         ..name = c.text.trim()
-        ..color = color;
+        ..color = color
+        ..emails = _splitMails(mails.text);
       await store.saveMember(mm);
     } else if (res == 'delete') {
       mm.deleted = true;
@@ -125,6 +152,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
     setState(() {});
   }
+
+  List<String> _splitMails(String t) =>
+      t.split(RegExp(r'[,;\s]+')).map((e) => e.trim().toLowerCase()).where((e) => e.isNotEmpty).toSet().toList();
 
   Future<void> _editTemplate(Template? t) async {
     final tt = t ?? Template(id: newId(), title: '');
@@ -250,13 +280,14 @@ class _SettingsScreenState extends State<SettingsScreen> {
             ListTile(
               leading: MemberAvatar(me),
               title: Text(me.name),
-              subtitle: const Text('Name und Farbe ändern'),
+              subtitle: Text(me.emails.isEmpty ? 'Name, Farbe und E-Mail-Adressen ändern' : '✉ ${me.emails.join(', ')}'),
               onTap: () => _editMember(me),
             ),
           _header('Gruppe „${store.groupName}“'),
           ...store.activeMembers.where((m) => m.id != store.myId).map((m) => ListTile(
                 leading: MemberAvatar(m),
                 title: Text(m.name),
+                subtitle: m.emails.isEmpty ? null : Text('✉ ${m.emails.join(', ')}'),
                 trailing: const Icon(Icons.edit_outlined, size: 20),
                 onTap: () => _editMember(m),
               )),

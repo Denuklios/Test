@@ -16,6 +16,7 @@ import 'birthdays_screen.dart';
 import 'event_detail.dart';
 import 'event_editor.dart';
 import 'month_view.dart';
+import 'time_grid_view.dart';
 import 'settings_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -27,6 +28,8 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _tab = 0;
   final _monthKey = GlobalKey<MonthViewState>();
+  final _dayKey = GlobalKey<TimeGridViewState>();
+  final _weekKey = GlobalKey<TimeGridViewState>();
   DateTime _shownMonth = DateTime(DateTime.now().year, DateTime.now().month);
   Template? _brush; // Schicht-Pinsel
   bool _painting = false;
@@ -171,7 +174,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     return Scaffold(
       appBar: AppBar(
         title: _tab == 0
-            ? GestureDetector(onTap: () => _monthKey.currentState?.goToday(), child: Text(isCurrent ? 'Heute' : 'Zu heute'))
+            ? GestureDetector(
+                onTap: () {
+                  _monthKey.currentState?.goToday();
+                  _dayKey.currentState?.goToday();
+                  _weekKey.currentState?.goToday();
+                },
+                child: Text(store.viewMode == 'month' ? (isCurrent ? 'Heute' : 'Zu heute') : const {'day': 'Tag', 'week': 'Woche', 'year': 'Jahr'}[store.viewMode]!))
             : Text(_tab == 1 ? 'Termine' : 'Geburtstage'),
         actions: [
           ListenableBuilder(
@@ -189,7 +198,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       )
                     : const SizedBox.shrink(),
           ),
-          if (_tab == 0)
+          if (_tab == 0 && store.viewMode == 'month')
             IconButton(
               icon: Icon(_painting ? Icons.brush : Icons.brush_outlined),
               tooltip: 'Schicht-Pinsel',
@@ -208,13 +217,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (!_painting) PrepBanner(onOpen: _openEvent),
         Expanded(
           child: IndexedStack(index: _tab, children: [
-            MonthView(
-              key: _monthKey,
-              onDayTap: _dayTap,
-              onDayLongPress: (d) => _newEvent(day: d),
-              onEventTap: (o) => _painting ? _paintDay(o.firstDay) : _openEvent(o),
-              onMonthChanged: (m) => setState(() => _shownMonth = m),
-            ),
+            _calendarView(),
             AgendaScreen(onOpen: _openEvent),
             BirthdaysScreen(onOpen: _openEvent),
           ]),
@@ -236,6 +239,42 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ],
       ),
     );
+  }
+
+  Widget _calendarView() {
+    switch (store.viewMode) {
+      case 'day':
+      case 'week':
+        return TimeGridView(
+          key: store.viewMode == 'day' ? _dayKey : _weekKey,
+          days: store.viewMode == 'day' ? 1 : 7,
+          onDayTap: _dayTap,
+          onNewAt: (at) => Navigator.push(context, MaterialPageRoute(builder: (_) => EventEditor(day: at, startAt: at))),
+          onEventTap: _openEvent,
+        );
+      case 'year':
+        return YearView(onMonthTap: (m) {
+          _setView('month');
+          WidgetsBinding.instance.addPostFrameCallback((_) => _monthKey.currentState?.goTo(m));
+        });
+      default:
+        return MonthView(
+          key: _monthKey,
+          onDayTap: _dayTap,
+          onDayLongPress: (d) => _newEvent(day: d),
+          onEventTap: (o) => _painting ? _paintDay(o.firstDay) : _openEvent(o),
+          onMonthChanged: (m) => setState(() => _shownMonth = m),
+        );
+    }
+  }
+
+  void _setView(String v) {
+    setState(() {
+      store.viewMode = v;
+      _tab = 0;
+      if (v != 'month') _painting = false;
+    });
+    store.saveSettings();
   }
 
   Widget _brushBar() {
@@ -284,6 +323,34 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             Text(store.groupName, style: const TextStyle(color: Colors.white70)),
           ]),
         ),
+        Padding(
+          padding: const EdgeInsets.fromLTRB(16, 4, 16, 4),
+          child: Text('Ansicht', style: TextStyle(color: Colors.grey.shade700, fontWeight: FontWeight.bold)),
+        ),
+        for (final v in const [
+          ('day', Icons.view_day_outlined, 'Tag'),
+          ('week', Icons.view_week_outlined, 'Woche'),
+          ('month', Icons.calendar_view_month_outlined, 'Monat'),
+          ('year', Icons.calendar_today_outlined, 'Jahr'),
+        ])
+          ListTile(
+            leading: Icon(v.$2),
+            title: Text(v.$3),
+            selected: _tab == 0 && store.viewMode == v.$1,
+            onTap: () {
+              Navigator.pop(context);
+              _setView(v.$1);
+            },
+          ),
+        ListTile(leading: const Icon(Icons.view_agenda_outlined), title: const Text('Terminliste'), selected: _tab == 1, onTap: () {
+          Navigator.pop(context);
+          setState(() => _tab = 1);
+        }),
+        ListTile(leading: const Icon(Icons.cake_outlined), title: const Text('Geburtstage'), selected: _tab == 2, onTap: () {
+          Navigator.pop(context);
+          setState(() => _tab = 2);
+        }),
+        const Divider(),
         ListTile(leading: const Icon(Icons.person_add_alt), title: const Text('Jemanden einladen'), onTap: () {
           Navigator.pop(context);
           showInvite(context);

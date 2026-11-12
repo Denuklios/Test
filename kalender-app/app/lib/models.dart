@@ -20,17 +20,20 @@ class Member {
   int color;
   bool deleted;
   int updatedAt;
-  Member({required this.id, required this.name, required this.color, this.deleted = false, this.updatedAt = 0});
+  List<String> emails; // für Mailwerk: Termine aus Mails an diese Adressen gehören dieser Person
+  Member({required this.id, required this.name, required this.color, this.deleted = false, this.updatedAt = 0, List<String>? emails})
+      : emails = emails ?? [];
 
   Color get c => Color(color);
 
-  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'color': color, 'deleted': deleted, 'updatedAt': updatedAt};
+  Map<String, dynamic> toJson() => {'id': id, 'name': name, 'color': color, 'deleted': deleted, 'updatedAt': updatedAt, 'emails': emails};
   factory Member.fromJson(Map<String, dynamic> j) => Member(
         id: j['id'] as String,
         name: (j['name'] ?? '') as String,
         color: (j['color'] as num?)?.toInt() ?? 0xFF1E88E5,
         deleted: j['deleted'] == true,
         updatedAt: (j['updatedAt'] as num?)?.toInt() ?? 0,
+        emails: j['emails'] is List ? (j['emails'] as List).map((e) => e.toString().trim().toLowerCase()).where((e) => e.isNotEmpty).toList() : [],
       );
 }
 

@@ -21,7 +21,8 @@ class EventEditor extends StatefulWidget {
   final DateTime? day;
   final VoiceResult? voice;
   final String? kind;
-  const EventEditor({super.key, this.event, this.day, this.voice, this.kind});
+  final DateTime? startAt;
+  const EventEditor({super.key, this.event, this.day, this.voice, this.kind, this.startAt});
   @override
   State<EventEditor> createState() => _EventEditorState();
 }
@@ -51,7 +52,7 @@ class _EventEditorState extends State<EventEditor> {
       final h = (widget.day == null || dateOnly(d) == dateOnly(now))
           ? (now.hour + 1).clamp(0, 23)
           : 9;
-      final s = DateTime(d.year, d.month, d.day, h);
+      final s = widget.startAt ?? DateTime(d.year, d.month, d.day, h);
       ev = CalEvent(
         id: newId(),
         title: '',
