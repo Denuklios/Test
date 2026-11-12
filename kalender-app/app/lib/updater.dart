@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 
 import 'main.dart';
 
@@ -52,15 +53,70 @@ class Updater {
     return (v, base.resolve('${j['file'] ?? 'familienkalender.apk'}?v=$v'), (j['notes'] ?? '').toString());
   }
 
-  /// Automatisch beim Start / Zurückkehren
+  static bool _installing = false;
+
+  /// Automatisch beim Start / Zurückkehren: still laden und ohne Rückfrage installieren
   static Future<void> autoCheck(BuildContext context) async {
-    if (_dialogOpen) return;
+    await _announceUpdated(context);
+    if (_dialogOpen || _installing) return;
     if (_lastCheck != null && DateTime.now().difference(_lastCheck!) < const Duration(hours: 1)) return;
     _lastCheck = DateTime.now();
     try {
       final u = await check();
-      if (u != null && context.mounted) await offer(context, u);
+      if (u == null || !context.mounted) return;
+      if (!store.autoUpdate) {
+        await offer(context, u);
+        return;
+      }
+      _installing = true;
+      final messenger = ScaffoldMessenger.of(context);
+      messenger.showSnackBar(SnackBar(content: Text('Update ${u.$1} wird geladen und installiert …'), duration: const Duration(seconds: 4)));
+      final f = await _fetch(u.$2);
+      final res = await _ch.invokeMethod<String>('installApkSilent', {'path': f.path});
+      _installing = false;
+      if (res != 'ok' && context.mounted) {
+        // ohne Erlaubnis oder Fehler: wie bisher mit Nachfrage
+        await offer(context, u);
+      }
+    } catch (_) {
+      _installing = false;
+    }
+  }
+
+  /// Nach einem Update einmal „Aktualisiert auf x.y“ zeigen
+  static Future<void> _announceUpdated(BuildContext context) async {
+    try {
+      final p = await SharedPreferences.getInstance();
+      final now = await currentVersion();
+      final last = p.getString('lastRunVersion') ?? '';
+      if (last != now) {
+        await p.setString('lastRunVersion', now);
+        if (last.isNotEmpty && newer(now, last) && context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Aktualisiert auf $now ✓')));
+        }
+      }
+      final err = await _ch.invokeMethod<String>('lastUpdateError');
+      if (err != null && context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text('Automatisches Update fehlgeschlagen: $err')));
+      }
     } catch (_) {}
+  }
+
+  static Future<File> _fetch(Uri url, {ValueNotifier<double?>? progress}) async {
+    final dir = await getTemporaryDirectory();
+    final f = File('${dir.path}/familienkalender-update.apk');
+    final req = await http.Client().send(http.Request('GET', url));
+    if (req.statusCode != 200) throw Exception('HTTP ${req.statusCode}');
+    final total = req.contentLength ?? 0;
+    var got = 0;
+    final sink = f.openWrite();
+    await for (final chunk in req.stream) {
+      sink.add(chunk);
+      got += chunk.length;
+      if (total > 0 && progress != null) progress.value = got / total;
+    }
+    await sink.close();
+    return f;
   }
 
   /// Von Hand (Einstellungen)
@@ -114,21 +170,11 @@ class Updater {
       ),
     );
     try {
-      final dir = await getTemporaryDirectory();
-      final f = File('${dir.path}/familienkalender-update.apk');
-      final req = await http.Client().send(http.Request('GET', url));
-      if (req.statusCode != 200) throw Exception('HTTP ${req.statusCode}');
-      final total = req.contentLength ?? 0;
-      var got = 0;
-      final sink = f.openWrite();
-      await for (final chunk in req.stream) {
-        sink.add(chunk);
-        got += chunk.length;
-        if (total > 0) progress.value = got / total;
-      }
-      await sink.close();
+      final f = await _fetch(url, progress: progress);
       nav.pop();
-      final res = await _ch.invokeMethod<String>('installApk', {'path': f.path});
+      // Sitzung bevorzugt: dann ist die App selbst „Installer“ und spätere Updates laufen ohne Rückfrage
+      var res = await _ch.invokeMethod<String>('installApkSilent', {'path': f.path});
+      if (res != null && res.startsWith('error')) res = await _ch.invokeMethod<String>('installApk', {'path': f.path});
       if (res == 'permission' && context.mounted) {
         await showDialog(
           context: context,

@@ -55,6 +55,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() {});
   }
 
+  /// Auswahlfeld über die ganze Breite (bricht auch bei großer Schrift nicht um)
+  Widget _choice<T>(String label, IconData? icon, T value, List<(T, String)> items, void Function(T) onChanged) => Padding(
+        padding: const EdgeInsets.fromLTRB(16, 6, 16, 6),
+        child: DropdownButtonFormField<T>(
+          initialValue: value,
+          isExpanded: true,
+          decoration: InputDecoration(labelText: label, prefixIcon: icon == null ? null : Icon(icon), border: const OutlineInputBorder()),
+          items: items.map((e) => DropdownMenuItem<T>(value: e.$1, child: Text(e.$2, overflow: TextOverflow.ellipsis))).toList(),
+          onChanged: (v) {
+            if (v != null) onChanged(v);
+          },
+        ),
+      );
+
   Widget _header(String t) => Padding(
         padding: const EdgeInsets.fromLTRB(16, 20, 16, 6),
         child: Text(t, style: TextStyle(color: Theme.of(context).colorScheme.primary, fontWeight: FontWeight.bold)),
@@ -249,18 +263,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ListTile(leading: const Icon(Icons.person_add_alt_1), title: const Text('Person ohne App hinzufügen (z. B. Kind)'), onTap: () => _editMember(null)),
           ListTile(leading: const Icon(Icons.qr_code), title: const Text('Einladen (Code / QR / Nachricht)'), onTap: () => showInvite(context)),
           _header('Feiertage & Ferien'),
-          ListTile(
-            leading: const Icon(Icons.map_outlined),
-            title: const Text('Bundesland'),
-            trailing: DropdownButton<String>(
-              value: store.state,
-              items: bundeslaender.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
-              onChanged: (v) {
-                store.state = v ?? 'SH';
-                _save();
-              },
-            ),
-          ),
+          _choice<String>('Bundesland', Icons.map_outlined, store.state, bundeslaender.entries.map((e) => (e.key, e.value)).toList(), (v) {
+            store.state = v;
+            _save();
+          }),
           SwitchListTile(title: const Text('🇩🇪 Feiertage Deutschland'), value: store.showDE, onChanged: (v) => _set(() => store.showDE = v)),
           SwitchListTile(title: const Text('🇩🇰 Helligdage Dänemark'), value: store.showDK, onChanged: (v) => _set(() => store.showDK = v)),
           SwitchListTile(
@@ -291,21 +297,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
               if (c != null) _set(() => store.birthdayColor = c);
             },
           ),
-          ListTile(
-            leading: const Icon(Icons.card_giftcard),
-            title: const Text('Vorab erinnern'),
-            trailing: DropdownButton<int>(
-              value: store.birthdayReminderDays,
-              items: const [
-                DropdownMenuItem(value: 0, child: Text('Nur am Tag')),
-                DropdownMenuItem(value: 1, child: Text('1 Tag vorher')),
-                DropdownMenuItem(value: 3, child: Text('3 Tage vorher')),
-                DropdownMenuItem(value: 7, child: Text('1 Woche vorher')),
-                DropdownMenuItem(value: 14, child: Text('2 Wochen vorher')),
-              ],
-              onChanged: (v) => _set(() => store.birthdayReminderDays = v ?? 1),
-            ),
-          ),
+          _choice<int>('Vorab erinnern', Icons.card_giftcard, store.birthdayReminderDays,
+              const [(0, 'Nur am Tag'), (1, '1 Tag vorher'), (3, '3 Tage vorher'), (7, '1 Woche vorher'), (14, '2 Wochen vorher')],
+              (v) => _set(() => store.birthdayReminderDays = v)),
           _header('Benachrichtigungen'),
           ListTile(
             leading: const Icon(Icons.alarm),
@@ -331,14 +325,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: (v) => _set(() => store.morningSummary = v),
           ),
           if (store.morningSummary)
-            ListTile(
-              title: const Text('Uhrzeit der Tagesvorschau'),
-              trailing: DropdownButton<int>(
-                value: store.morningHour,
-                items: List.generate(8, (i) => i + 5).map((h) => DropdownMenuItem(value: h, child: Text('$h:00'))).toList(),
-                onChanged: (v) => _set(() => store.morningHour = v ?? 7),
-              ),
-            ),
+            _choice<int>('Uhrzeit der Tagesvorschau', Icons.wb_twilight, store.morningHour,
+                List.generate(8, (i) => i + 5).map((h) => (h, '$h:00 Uhr')).toList(), (v) => _set(() => store.morningHour = v)),
           _header('✨ Intelligente Checklisten'),
           SwitchListTile(
             title: const Text('Vorschläge automatisch übernehmen'),
@@ -360,14 +348,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
             onChanged: (v) => _set(() => store.unlockReminder = v),
           ),
           if (store.unlockReminder)
-            ListTile(
-              title: const Text('Ab wann?'),
-              trailing: DropdownButton<int>(
-                value: store.prepWindowDays,
-                items: const [1, 2, 3, 5, 7].map((d) => DropdownMenuItem(value: d, child: Text(d == 1 ? '1 Tag vorher' : '$d Tage vorher'))).toList(),
-                onChanged: (v) => _set(() => store.prepWindowDays = v ?? 3),
-              ),
-            ),
+            _choice<int>('Ab wann?', Icons.lock_clock, store.prepWindowDays,
+                [1, 2, 3, 5, 7].map((d) => (d, d == 1 ? '1 Tag vorher' : '$d Tage vorher')).toList(), (v) => _set(() => store.prepWindowDays = v)),
           _header('Schnell-Vorlagen (Schicht-Pinsel)'),
           ...store.activeTemplates.map((t) => ListTile(
                 leading: const Icon(Icons.bolt),
@@ -417,12 +399,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
             },
           ),
           _header('App'),
+          SwitchListTile(
+            secondary: const Icon(Icons.autorenew),
+            title: const Text('Updates automatisch installieren'),
+            subtitle: const Text('Ohne Rückfrage, sobald eine neue Version da ist'),
+            value: store.autoUpdate,
+            onChanged: (v) => _set(() => store.autoUpdate = v),
+          ),
           FutureBuilder<String>(
             future: Updater.currentVersion(),
             builder: (context, snap) => ListTile(
               leading: const Icon(Icons.system_update),
               title: Text('Version ${snap.data ?? ''}'),
-              subtitle: const Text('Updates kommen automatisch – hier von Hand suchen'),
+              subtitle: const Text('Jetzt nach Updates suchen'),
               onTap: () => Updater.manualCheck(context),
             ),
           ),

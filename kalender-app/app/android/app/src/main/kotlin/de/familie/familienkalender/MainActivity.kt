@@ -37,6 +37,24 @@ class MainActivity : FlutterActivity() {
                         result.success("ok")
                     }
                 }
+                "installApkSilent" -> {
+                    if (Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
+                        result.success("permission")
+                    } else {
+                        try {
+                            SilentUpdate.install(this, java.io.File(call.argument<String>("path")!!))
+                            result.success("ok")
+                        } catch (e: Exception) {
+                            result.success("error: " + e.message)
+                        }
+                    }
+                }
+                "lastUpdateError" -> {
+                    val p = getSharedPreferences("updates", MODE_PRIVATE)
+                    val e = p.getString("error", null)
+                    p.edit().remove("error").apply()
+                    result.success(e)
+                }
                 "openInstallSettings" -> {
                     if (Build.VERSION.SDK_INT >= 26) {
                         startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))

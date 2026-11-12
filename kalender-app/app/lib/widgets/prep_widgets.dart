@@ -199,20 +199,24 @@ class _AddOwnState extends State<_AddOwn> {
 
   @override
   Widget build(BuildContext context) {
-    return Row(children: [
-      Expanded(
-        child: TextField(
-          controller: _c,
-          decoration: const InputDecoration(hintText: 'Eigenen Punkt hinzufügen …'),
-          onSubmitted: (_) => _add(),
+    return Column(children: [
+      TextField(
+        controller: _c,
+        decoration: const InputDecoration(hintText: 'Eigenen Punkt hinzufügen …'),
+        onSubmitted: (_) => _add(),
+      ),
+      Row(children: [
+        const Text('Fällig: '),
+        Expanded(
+          child: DropdownButton<int>(
+            value: _days,
+            isExpanded: true,
+            items: const [0, 1, 2, 3, 7, 14].map((d) => DropdownMenuItem(value: d, child: Text(daysBeforeLabel(d)))).toList(),
+            onChanged: (v) => setState(() => _days = v ?? 1),
+          ),
         ),
-      ),
-      DropdownButton<int>(
-        value: _days,
-        items: const [0, 1, 2, 3, 7, 14].map((d) => DropdownMenuItem(value: d, child: Text(daysBeforeLabel(d)))).toList(),
-        onChanged: (v) => setState(() => _days = v ?? 1),
-      ),
-      IconButton(icon: const Icon(Icons.add), onPressed: _add),
+        IconButton(icon: const Icon(Icons.add_circle), onPressed: _add),
+      ]),
     ]);
   }
 }

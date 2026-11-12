@@ -46,6 +46,7 @@ class AppStore extends ChangeNotifier {
   bool showWeekNumbers = true;
   bool prepNotify = true;
   bool autoPrep = true;
+  bool autoUpdate = true;
   bool unlockReminder = true;
   int prepWindowDays = 3;
 
@@ -104,6 +105,7 @@ class AppStore extends ChangeNotifier {
     showWeekNumbers = p.getBool('showWeekNumbers') ?? true;
     prepNotify = p.getBool('prepNotify') ?? true;
     autoPrep = p.getBool('autoPrep') ?? true;
+    autoUpdate = p.getBool('autoUpdate') ?? true;
     unlockReminder = p.getBool('unlockReminder') ?? true;
     prepWindowDays = p.getInt('prepWindowDays') ?? 3;
     _applyHolidayConfig();
@@ -170,6 +172,7 @@ class AppStore extends ChangeNotifier {
     await p.setBool('showWeekNumbers', showWeekNumbers);
     await p.setBool('prepNotify', prepNotify);
     await p.setBool('autoPrep', autoPrep);
+    await p.setBool('autoUpdate', autoUpdate);
     await p.setBool('unlockReminder', unlockReminder);
     await p.setInt('prepWindowDays', prepWindowDays);
     _applyHolidayConfig();

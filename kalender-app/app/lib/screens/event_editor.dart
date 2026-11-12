@@ -441,7 +441,7 @@ class _EventEditorState extends State<EventEditor> {
                 decoration: multiColorDecoration(_people.map((id) => store.member(id)?.c ?? Colors.grey).toList()),
               ),
               const SizedBox(width: 8),
-              Text('So sieht der Termin im Kalender aus', style: TextStyle(color: Colors.grey.shade600, fontSize: 12)),
+              Expanded(child: Text('So sieht der Termin im Kalender aus', style: TextStyle(color: Colors.grey.shade600, fontSize: 12))),
             ]),
           ),
         if (!bday) ...[
@@ -465,17 +465,13 @@ class _EventEditorState extends State<EventEditor> {
           const SizedBox(height: 16),
           // Wiederholung
           if (!vac)
-            Row(children: [
-              const Icon(Icons.repeat),
-              const SizedBox(width: 12),
-              const Text('Wiederholen'),
-              const Spacer(),
-              DropdownButton<String>(
-                value: ev.repeat,
-                items: Repeat.labels.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
-                onChanged: (v) => setState(() => ev.repeat = v ?? Repeat.none),
-              ),
-            ]),
+            DropdownButtonFormField<String>(
+              initialValue: ev.repeat,
+              isExpanded: true,
+              decoration: const InputDecoration(labelText: 'Wiederholen', prefixIcon: Icon(Icons.repeat), border: OutlineInputBorder()),
+              items: Repeat.labels.entries.map((e) => DropdownMenuItem(value: e.key, child: Text(e.value))).toList(),
+              onChanged: (v) => setState(() => ev.repeat = v ?? Repeat.none),
+            ),
           if (ev.repeat != Repeat.none && !vac)
             ListTile(
               contentPadding: EdgeInsets.zero,

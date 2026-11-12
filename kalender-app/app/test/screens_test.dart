@@ -9,6 +9,7 @@ import 'package:familienkalender/screens/birthdays_screen.dart';
 import 'package:familienkalender/screens/event_detail.dart';
 import 'package:familienkalender/screens/event_editor.dart';
 import 'package:familienkalender/screens/month_view.dart';
+import 'package:familienkalender/screens/settings_screen.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -76,7 +77,8 @@ void seed() {
   ev('Oma', DateTime(1950, 12, 24), DateTime(1950, 12, 24), 'k', allDay: true, kind: EventKind.birthday, by: 1950);
 }
 
-Widget app(Widget home) => MaterialApp(
+Widget app(Widget home, {double scale = 1}) => MaterialApp(
+      builder: (c, child) => MediaQuery(data: MediaQuery.of(c).copyWith(textScaler: TextScaler.linear(scale)), child: child!),
       debugShowCheckedModeBanner: false,
       locale: const Locale('de', 'DE'),
       supportedLocales: const [Locale('de', 'DE')],
@@ -171,6 +173,29 @@ void main() {
   });
   testWidgets('mail_detail', (t) async {
     await shot(t, EventDetail(eventId: 'mail0123456789abcdef0123456789ab'), 'mail_detail');
+  });
+  // Große Schrift auf schmalem Handy: nichts darf umbrechen oder überlaufen
+  Future<void> bigShot(WidgetTester t, Widget w, String name, {double h = 800}) async {
+    t.view.physicalSize = Size(360 * 3, h * 3);
+    t.view.devicePixelRatio = 3;
+    await t.pumpWidget(app(w, scale: 1.4));
+    await t.pumpAndSettle();
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('/tmp/claude-0/-home-user-Test/cd4db189-3460-55ed-b918-077f9e0d3ba7/scratchpad/shots/$name.png'));
+  }
+
+  testWidgets('gross_einstellungen', (t) async {
+    store.places['p1'] = Place(id: 'p1', name: 'Hundeschule', address: 'Am Sportplatz 3, Wriezen');
+    await bigShot(t, const SettingsScreen(), 'gross_einstellungen', h: 4200);
+  });
+  testWidgets('gross_editor', (t) async {
+    final e = store.events.values.firstWhere((e) => e.title == 'Düsseldorf');
+    await bigShot(t, EventEditor(event: e), 'gross_editor', h: 2600);
+  });
+  testWidgets('gross_monat', (t) async {
+    await bigShot(t, shell(MonthView(onDayTap: (_) {}, onDayLongPress: (_) {}, onEventTap: (_) {}), 'Heute', 0), 'gross_monat');
+  });
+  testWidgets('gross_vorbereitung', (t) async {
+    await bigShot(t, EventDetail(eventId: 'mallorca'), 'gross_vorbereitung', h: 2400);
   });
   testWidgets('detail', (t) async {
     final e = store.events.values.firstWhere((e) => e.title == 'Kaffee und Kuchen');
