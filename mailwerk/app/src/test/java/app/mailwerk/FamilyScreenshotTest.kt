@@ -69,7 +69,8 @@ class FamilyScreenshotTest {
 
         val sc = ActivityScenario.launch(MainActivity::class.java)
         rule.waitForIdle()
-        rule.onAllNodesWithText("Elternabend", substring = true, useUnmergedTree = true).onFirst().performClick()
+        val key = db.message(id)!!.threadKey
+        sc.onActivity { act -> androidx.lifecycle.ViewModelProvider(act)[app.mailwerk.ui.MainViewModel::class.java].push(app.mailwerk.ui.Screen.Thread(key)) }
         shot("19_einladung_familienkalender")
         sc.onActivity { act -> androidx.lifecycle.ViewModelProvider(act)[app.mailwerk.ui.MainViewModel::class.java].push(app.mailwerk.ui.Screen.FamilyCalendar) }
         shot("20_familienkalender_einstellungen")

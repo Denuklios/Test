@@ -10,6 +10,10 @@ object I18n {
     fun german(): Boolean = Locale.getDefault().language == "de"
 
     val en: Map<String, String> = hashMapOf(
+        "Frist: {0}" to "Deadline: {0}",
+        "Im Mailtext erkannt" to "Found in the email text",
+        "Auch Termine im Mailtext erkennen" to "Also detect dates in the email text",
+        "z. B. „melde dich bis Montag 16:00“ oder „am 24.11. um 19:30“ – nur bei persönlichen Mails, nicht bei Newslettern." to "e.g. “get back to me by Monday 4pm” or “on 24 Nov at 7:30pm” – only in personal emails, not newsletters.",
         "Termin" to "Appointment",
         "Wiederholung laut Einladung: {0}" to "Repeats according to invitation: {0}",
         "📧 Aus E-Mail: {0}" to "📧 From email: {0}",

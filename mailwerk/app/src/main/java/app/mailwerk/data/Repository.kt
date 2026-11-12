@@ -182,7 +182,7 @@ class Repository private constructor(private val ctx: Context) {
                     ).let { if (isMdn) it.copy(category = Category.NOTIFICATION) else it }
                     val id = db.insertMessage(m, p.attachments.map { Attachment(messageId = 0, partPath = it.path, name = it.name, mime = it.mime, size = it.size) })
                     if (id > 0 && !isSent && f.role != FolderRole.SENT && f.role != FolderRole.JUNK && f.role != FolderRole.TRASH)
-                        p.calendar?.let { db.saveInvite(id, acc.id, it) }
+                        (p.calendar ?: detectedIcs(p, m, initial))?.let { db.saveInvite(id, acc.id, it) }
                     if (id > 0 && !m.seen && f.role == FolderRole.INBOX && f.lastUid > 0) fresh += m.copy(id = id)
                     if (id > 0 && f.role == FolderRole.INBOX && !isSent && !initial) runCatching { maybeVacationReply(c, acc, p, m.category) }
                 }
@@ -201,6 +201,7 @@ class Repository private constructor(private val ctx: Context) {
         if (!family.connected || !family.autoAdd) return
         for (inv in db.pendingInvites()) {
             if (family.memberFor(inv.accountId) == null) continue // Konto noch keinem Familienmitglied zugeordnet
+            if (!family.detectText && app.mailwerk.mail.TextDates.isDetected(inv.ics)) continue // im Text erkannt: nur auf Knopfdruck
             addInvite(inv, manual = false)
         }
     }
@@ -217,6 +218,19 @@ class Repository private constructor(private val ctx: Context) {
             FamilyCalendar.STATUS_CANCELLED -> tr("Absage im Familienkalender übernommen")
             else -> now?.info?.ifBlank { null } ?: tr("Nicht eingetragen")
         }
+    }
+
+    /**
+     * Termine/Fristen im Text einer persönlichen Mail („melde dich bis Montag 16:00“) als kleine .ics ablegen.
+     * Nicht bei Newslettern, automatischen Mails oder beim ersten Laden alter Mails.
+     */
+    private fun detectedIcs(p: app.mailwerk.mail.ParsedMessage, m: Message, initial: Boolean): String? {
+        if (initial || m.category != Category.PEOPLE || app.mailwerk.mail.RuleEngine.isAutomated(p.fromAddr, p.headers)) return null
+        val sent = java.time.Instant.ofEpochMilli(m.date).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime()
+        val found = runCatching { app.mailwerk.mail.TextDates.find(m.bodyText ?: "", sent, max = 1) }.getOrDefault(emptyList()).firstOrNull() ?: return null
+        val subj = m.subject.replace(Regex("^((re|aw|wg|fw|fwd)\\s*:\\s*)+", RegexOption.IGNORE_CASE), "").trim().ifBlank { m.fromName.ifBlank { m.fromAddr } }
+        val title = if (found.deadline) tr("Frist: {0}", subj) else subj
+        return app.mailwerk.mail.TextDates.toIcs(found, "text-" + (m.messageId ?: "${m.accountId}-${m.uid}-${m.date}"), title)
     }
 
     private fun addInvite(inv: Db.Invite, manual: Boolean) {

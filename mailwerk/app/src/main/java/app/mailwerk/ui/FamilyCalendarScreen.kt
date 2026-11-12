@@ -121,6 +121,14 @@ fun FamilyCalendarScreen(vm: MainViewModel) {
                         }
                         Switch(fam.autoAdd, { fam.autoAdd = it; v++ })
                     }
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Column(Modifier.weight(1f)) {
+                            Text(tr("Auch Termine im Mailtext erkennen"), style = MaterialTheme.typography.titleMedium)
+                            Text(tr("z. B. „melde dich bis Montag 16:00“ oder „am 24.11. um 19:30“ – nur bei persönlichen Mails, nicht bei Newslettern."),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        }
+                        Switch(fam.detectText, { fam.detectText = it; v++ })
+                    }
                     Text(tr("Wer nutzt welches Postfach?"), style = MaterialTheme.typography.titleMedium)
                     if (accounts.isEmpty()) Text(tr("Noch kein Mail-Konto eingerichtet."))
                     accounts.forEach { a ->

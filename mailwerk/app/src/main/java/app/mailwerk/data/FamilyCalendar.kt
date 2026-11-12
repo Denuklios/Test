@@ -35,6 +35,10 @@ class FamilyCalendar(ctx: Context) {
     var autoAdd: Boolean
         get() = p.getBoolean("auto", true)
         set(v) = p.edit().putBoolean("auto", v).apply()
+    /** Auch Termine und Fristen im Mailtext erkennen („bis Montag 16:00“) */
+    var detectText: Boolean
+        get() = p.getBoolean("detect_text", true)
+        set(v) = p.edit().putBoolean("detect_text", v).apply()
     val connected get() = serverUrl.isNotBlank() && code.isNotBlank()
 
     var members: List<FamilyMember>

@@ -295,6 +295,8 @@ private fun InviteCard(vm: MainViewModel, m: Message) {
     val events = remember(i.ics) { runCatching { app.mailwerk.mail.Ics.parse(i.ics) }.getOrDefault(emptyList()).filter { !it.isReply } }
     val ev = events.firstOrNull() ?: return
     val fam = vm.repo.family
+    val detected = remember(i.ics) { app.mailwerk.mail.TextDates.isDetected(i.ics) }
+    if (detected && !fam.connected) return // Texterkennung nur zeigen, wenn ein Familienkalender verbunden ist
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     val member = fam.memberFor(m.accountId)
@@ -310,6 +312,7 @@ private fun InviteCard(vm: MainViewModel, m: Message) {
             Column(Modifier.weight(1f)) {
                 Text((if (ev.isCancel) tr("Abgesagt: ") else "") + ev.summary.ifBlank { tr("Termin") }, fontWeight = FontWeight.SemiBold,
                     maxLines = 2, overflow = TextOverflow.Ellipsis)
+                if (detected) Text(tr("Im Mailtext erkannt"), style = MaterialTheme.typography.labelSmall, color = accent)
                 Text(inviteWhen(ev), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (ev.location.isNotBlank()) Text("📍 " + ev.location, style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
@@ -352,6 +355,7 @@ private fun inviteWhen(ev: app.mailwerk.mail.IcsEvent): String {
     return if (ev.allDay) {
         if (ev.end.toLocalDate() == ev.start.toLocalDate()) tr("{0} · ganztägig", ev.start.format(day))
         else "${ev.start.format(day)} – ${ev.end.format(day)}"
-    } else if (ev.end.toLocalDate() == ev.start.toLocalDate()) "${ev.start.format(day)} · ${ev.start.format(time)}–${ev.end.format(time)}"
+    } else if (ev.end == ev.start) "${ev.start.format(day)} · ${ev.start.format(time)}"
+    else if (ev.end.toLocalDate() == ev.start.toLocalDate()) "${ev.start.format(day)} · ${ev.start.format(time)}–${ev.end.format(time)}"
     else "${ev.start.format(day)} ${ev.start.format(time)} – ${ev.end.format(day)} ${ev.end.format(time)}"
 }

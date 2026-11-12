@@ -27,7 +27,7 @@ Mailwerk verbindet sich nur in diesen Fällen mit anderen Servern als deinem E-M
 - **Newsletter abbestellen**: Nur wenn du „Abmelden“ antippst, wird die vom Absender angegebene Abmelde-Adresse aufgerufen.
 - **Startbildschirm „Powered by“**: Nur wenn du den Hinweis antippst, öffnet sich die Website des Partners im Browser.
 - **Familienkalender (optional)**: Nur wenn du ihn unter Einstellungen → Familienkalender verbindest, werden Termine aus
-  Kalender-Einladungen in deinen Mails (Titel, Zeit, Ort, Beschreibung, Absender und Betreff der Mail) an den Kalender-Server
+  Kalender-Einladungen und im Mailtext erkannte Termine/Fristen (Titel, Zeit, Ort, Beschreibung, Absender und Betreff der Mail) an den Kalender-Server
   übertragen, den du dort angibst. Alle Mitglieder dieser Kalender-Gruppe sehen die Termine. Der Inhalt der Mails selbst wird nicht übertragen.
 - **Externe Bilder** in Mails werden standardmäßig blockiert und nur geladen, wenn du es erlaubst.
 - **Direkt-Version (nicht Play Store)**: Die App prüft auf GitHub, ob eine neue Version vorliegt. Dabei werden keine persönlichen Daten gesendet.
@@ -60,7 +60,7 @@ no ad networks, no analytics or tracking.
   and are exchanged only with **your own email provider** over encrypted connections (TLS).
 - Server auto-detection looks up the *domain* of your address at autoconfig.thunderbird.net and via DNS (dns.google).
 - "Sign in with Google/Microsoft" happens in the browser directly with Google/Microsoft; Mailwerk only receives an access token for your mailbox.
-- Family calendar (optional): only if you connect it under Settings → Family calendar, appointments from calendar invitations in your
+- Family calendar (optional): only if you connect it under Settings → Family calendar, appointments from calendar invitations and dates found in your
   emails (title, time, place, description, sender and subject) are sent to the calendar server you enter there and are visible to that group.
 - Unsubscribe links and the “Powered by” sponsor website are only opened when you tap them. Remote images are blocked by default.
 - Crash reports are stored locally and only sent if you tap "Send report"; they contain no emails, addresses or passwords.

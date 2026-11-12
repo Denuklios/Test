@@ -273,6 +273,16 @@ class FamilyCalendarFlowTest {
         assertEquals("m1", after.getString("ownerId")); assertEquals(0, after.getJSONArray("participants").length())
         assertFalse(after.getBoolean("deleted"))
 
+        // Ganz normale Mail mit Frist im Text -> Frist in Papas Farbe
+        val tm = MimeMessage(Session.getInstance(Properties()))
+        tm.setFrom(InternetAddress("trainer@verein.example", "Tom Trainer")); tm.setRecipients(jakarta.mail.Message.RecipientType.TO, "papa@test.de")
+        tm.subject = "Re: Turnier"; tm.setText("Hallo,\nbitte melde dich bis Montag 16:00, ob ihr beim Turnier dabei seid.\nGruß Tom", "UTF-8"); tm.saveChanges()
+        gm.managers.imapHostManager.getInbox(gm.managers.userManager.getUser("papa@test.de")).store(tm)
+        assertTrue(repo.sync().isEmpty())
+        val frist = cal.events().single { it.getString("title") == "Frist: Turnier" }
+        assertEquals("p1", frist.getString("ownerId")); assertEquals("16:00:00", frist.getString("start").substringAfter('T'))
+        assertTrue(frist.getString("notes").contains("bis Montag 16:00"))
+
         // Erneuter Abgleich trägt nichts doppelt ein
         val saves = cal.saves.size
         assertTrue(repo.sync().isEmpty())
