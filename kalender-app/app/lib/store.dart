@@ -144,8 +144,15 @@ class AppStore extends ChangeNotifier {
         pending = ((j['pending'] as List?) ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
       }
     } catch (_) {}
+    // Neues Datenformat (z. B. Abstand bei Wiederholungen): alles einmal frisch vom Server holen,
+    // sonst fehlen Felder, die eine ältere App-Version beim Zwischenspeichern nicht kannte.
+    const schema = 2;
+    if (p.getInt('schema') != schema) {
+      moved = true;
+      await p.setInt('schema', schema);
+    }
     if (moved) {
-      since = 0; // auf dem neuen Server alles einmal komplett holen
+      since = 0;
       await _saveData();
     }
   }
