@@ -212,7 +212,15 @@ class MailClient(private val acc: Account, private val password: String) {
                     .let { if (it.size > initialMax) it.copyOfRange(it.size - initialMax, it.size) else it }
             }
             prefetch(folder, newMsgs, envelopeOnly = false)
-            val parsed = newMsgs.mapNotNull { m -> runCatching { parse(folder, m) }.getOrElse { e -> fallbackParse(folder, m, e) } }
+            // Kleine Mails (fast alle) in EINER Abfrage komplett laden statt Teil für Teil – spart Dutzende Rückfragen pro Mail
+            val whole = newMsgs.filter { runCatching { it.size in 0..WHOLE_LIMIT }.getOrDefault(false) }.toTypedArray()
+            if (whole.isNotEmpty()) runCatching {
+                whole.toList().chunked(25).forEach { batch ->
+                    folder.fetch(batch.toTypedArray(), FetchProfile().apply { add(IMAPFolder.FetchProfileItem.MESSAGE) })
+                }
+            }
+            val wholeSet = whole.toHashSet()
+            val parsed = newMsgs.mapNotNull { m -> runCatching { parse(folder, m, m in wholeSet) }.getOrElse { e -> fallbackParse(folder, m, e) } }
 
             // Flags der letzten Nachrichten abgleichen (gelesen auf anderem Gerät, gelöscht …)
             val startNum = maxOf(1, total - flagWindow + 1)
@@ -226,17 +234,22 @@ class MailClient(private val acc: Account, private val password: String) {
         } finally { runCatching { folder.close(false) } }
     }
 
+    /** bis zu dieser Größe wird eine Mail beim Abruf komplett in einem Stück geladen */
+    private val WHOLE_LIMIT = 2_000_000
+
     private fun prefetch(folder: IMAPFolder, msgs: Array<Message>, envelopeOnly: Boolean) {
         if (msgs.isEmpty()) return
         val fp = FetchProfile().apply {
             add(FetchProfile.Item.ENVELOPE); add(FetchProfile.Item.FLAGS); add(UIDFolder.FetchProfileItem.UID)
-            if (!envelopeOnly) { add(FetchProfile.Item.CONTENT_INFO); headerNames.forEach { add(it) } }
+            if (!envelopeOnly) { add(FetchProfile.Item.SIZE); add(FetchProfile.Item.CONTENT_INFO); headerNames.forEach { add(it) } }
         }
         folder.fetch(msgs, fp)
     }
 
-    private fun parse(folder: IMAPFolder, m: Message): ParsedMessage {
-        val mm = m as IMAPMessage
+    private fun parse(folder: IMAPFolder, m: Message, whole: Boolean = false): ParsedMessage {
+        val imap = m as IMAPMessage
+        // komplett geladene Mail lokal zerlegen (keine weiteren Server-Abfragen)
+        val mm: MimeMessage = if (whole) runCatching { MimeMessage(imap) }.getOrDefault(imap) else imap
         val from = (mm.from?.firstOrNull() as? InternetAddress)
         val headers = buildMap {
             headerNames.forEach { h -> mm.getHeader(h)?.firstOrNull()?.let { put(h.lowercase(), decode(it)) } }
@@ -251,11 +264,11 @@ class MailClient(private val acc: Account, private val password: String) {
             cc = addrList(mm.getRecipients(Message.RecipientType.CC)),
             replyTo = addrList(mm.replyTo?.takeIf { r -> r.any { (it as? InternetAddress)?.address != from?.address } }),
             subject = (mm.getHeader("Subject", null) ?: mm.subject)?.let(::decode) ?: "",
-            date = (mm.receivedDate ?: mm.sentDate ?: Date()).time,
+            date = (imap.receivedDate ?: mm.sentDate ?: Date()).time,
             html = body.html(),
             text = body.text,
-            seen = mm.isSet(Flags.Flag.SEEN),
-            flagged = mm.isSet(Flags.Flag.FLAGGED),
+            seen = imap.isSet(Flags.Flag.SEEN),
+            flagged = imap.isSet(Flags.Flag.FLAGGED),
             headers = headers,
             attachments = body.attachments,
             inReplyTo = headers["in-reply-to"],

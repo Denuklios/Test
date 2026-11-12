@@ -78,6 +78,12 @@ es reicht der Gruppen-Code. Liegt die Einladung in der Zwischenablage oder kam s
 
 <img src="screenshots/19_einladung_familienkalender.png" width="260"> <img src="screenshots/20_familienkalender_einstellungen.png" width="260"> <img src="screenshots/21_familienkalender_verbinden.png" width="260">
 
+## Geschwindigkeit
+
+Beim Abruf wird jede Mail in einem Stück geladen statt Teil für Teil (Text, HTML, Anhangsliste). Gemessen mit 80 Mails und
+40 ms Verzögerung pro Anfrage (typisches Mobilfunknetz): vorher **197 s / 2.329 Anfragen**, jetzt **≈1,5 s / 13 Anfragen**
+(`SpeedTest`). Mails werden im Hintergrund aufbereitet und zwischengespeichert, die Listen haben passende Datenbank-Indizes.
+
 ## Push, Updates, Konten später einrichten
 
 - **Sofort-Benachrichtigung (Push):** Mailwerk hält per IMAP IDLE eine Verbindung zum Posteingang jedes Kontos offen –

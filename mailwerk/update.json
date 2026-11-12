@@ -1,6 +1,6 @@
 {
-  "versionCode": 21,
-  "versionName": "1.14",
+  "versionCode": 22,
+  "versionName": "1.15",
   "apk": "Mailwerk.apk",
-  "notes": "Updates werden ab jetzt automatisch installiert"
+  "notes": "Deutlich schneller: Mails werden am Stück geladen, Anzeige ruckelt nicht mehr"
 }

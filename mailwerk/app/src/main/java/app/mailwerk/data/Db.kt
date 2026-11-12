@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Lokale Datenbank (Offline-Speicher aller Mails). Bewusst ohne ORM gehalten.
  * Jede Schreiboperation erhöht [changes], damit die Oberfläche neu lädt.
  */
-class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 8) {
+class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 9) {
 
     private val _changes = MutableStateFlow(0L)
     val changes: StateFlow<Long> = _changes
@@ -75,6 +75,15 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
             field TEXT, op TEXT, value TEXT, action TEXT, arg TEXT, stop INTEGER, position INTEGER)""")
         db.execSQL("CREATE TABLE IF NOT EXISTS vacation_replied(address TEXT, account_id INTEGER, at INTEGER, PRIMARY KEY(address, account_id))")
         createV8(db)
+        createV9(db)
+    }
+
+    /** Indizes für die Listen (Posteingang/Ordner nach Datum, Kategorien, ungelesen) */
+    private fun createV9(db: SQLiteDatabase) {
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_msg_folder_date ON messages(folder_id, date)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_msg_folder_cat_date ON messages(folder_id, category, date)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_msg_folder_seen ON messages(folder_id, seen)")
+        db.execSQL("CREATE INDEX IF NOT EXISTS idx_att_msg ON attachments(message_id)")
     }
 
     /** Kalender-Einladungen aus Mails (für den Familienkalender) */
@@ -86,6 +95,7 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) shrinkHugeRows(db)
         if (oldVersion < 8 && newVersion >= 8) createV8(db)
+        if (oldVersion < 9 && newVersion >= 9) createV9(db)
         if (oldVersion < 7 && newVersion >= 7) {
             runCatching { db.execSQL("ALTER TABLE messages ADD COLUMN read_at INTEGER DEFAULT 0") }
             runCatching { db.execSQL("ALTER TABLE messages ADD COLUMN receipt_to TEXT") }

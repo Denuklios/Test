@@ -164,10 +164,12 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
     val ctx = LocalContext.current
     val scope = rememberCoroutineScope()
     val dark = isDark(vm.prefs.theme)
-    val sanitized = remember(m.id, loadImages, dark, expanded) {
-        if (!expanded) null
-        else if (m.bodyHtml != null) HtmlSanitizer.sanitize(m.bodyHtml, blockRemote = !loadImages, darkMode = dark)
-        else HtmlSanitizer.Result(HtmlSanitizer.textToHtml(m.bodyText ?: "", dark), 0, 0)
+    // Aufbereiten (HTML säubern, Tracker entfernen) im Hintergrund – große Newsletter blockieren so nicht die Oberfläche
+    val sanitized by produceState(RenderCache.get(m.id, loadImages, dark).takeIf { expanded }, m.id, loadImages, dark, expanded) {
+        value = if (!expanded) null else RenderCache.get(m.id, loadImages, dark) ?: withContext(Dispatchers.Default) {
+            (if (m.bodyHtml != null) HtmlSanitizer.sanitize(m.bodyHtml, blockRemote = !loadImages, darkMode = dark)
+            else HtmlSanitizer.Result(HtmlSanitizer.textToHtml(m.bodyText ?: "", dark), 0, 0)).also { RenderCache.put(m.id, loadImages, dark, it) }
+        }
     }
     val atts by produceState(emptyList<Attachment>(), m.id) { value = withContext(Dispatchers.IO) { vm.db.attachments(m.id) } }
 
@@ -207,6 +209,9 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
         }
         InviteCard(vm, m)
         JoinCalendarCard(vm, m)
+        if (expanded && sanitized == null) Text(m.snippet, Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        val sanitized = sanitized
         if (expanded && sanitized != null) {
             // Datenschutz-Leiste: blockierte Tracker, Bilder, Abmelden
             val chips = sanitized.trackers > 0 || sanitized.remoteImages > 0 || m.unsubscribe != null
@@ -273,7 +278,10 @@ private fun MailWebView(html: String, onLink: (String) -> Boolean = { false }) {
                     }
                 }
             }
-        }, update = { it.loadDataWithBaseURL(null, html, "text/html", "utf-8", null) },
+        }, update = {
+            // nur neu laden, wenn sich der Inhalt wirklich geändert hat (nicht bei jeder Neuzeichnung)
+            if (it.tag != html) { it.tag = html; it.loadDataWithBaseURL(null, html, "text/html", "utf-8", null) }
+        },
             modifier = Modifier.fillMaxWidth())
     }
 }
@@ -395,4 +403,11 @@ private fun JoinCalendarCard(vm: MainViewModel, m: Message) {
             }
         }) { Text(tr("Familienkalender verbinden")) }
     }
+}
+
+/** Zuletzt aufbereitete Mails – erneutes Öffnen ist dann sofort da. */
+private object RenderCache {
+    private val cache = android.util.LruCache<String, HtmlSanitizer.Result>(24)
+    fun get(id: Long, images: Boolean, dark: Boolean): HtmlSanitizer.Result? = cache.get("$id/$images/$dark")
+    fun put(id: Long, images: Boolean, dark: Boolean, r: HtmlSanitizer.Result) { cache.put("$id/$images/$dark", r) }
 }
