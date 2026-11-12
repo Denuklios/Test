@@ -268,6 +268,12 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
 
     fun invite(msgId: Long): Invite? = readableDatabase.rawQuery("$inviteCols WHERE msg_id=?", arrayOf("$msgId")).use { c -> if (c.moveToFirst()) c.toInvite() else null }
 
+    /** persönliche Mails seit [since] ohne Kalender-Eintrag (für die nachträgliche Texterkennung) */
+    fun messageIdsWithoutInvite(since: Long): List<Long> = readableDatabase.rawQuery(
+        "SELECT m.id FROM messages m JOIN folders f ON f.id=m.folder_id LEFT JOIN cal_invites c ON c.msg_id=m.id " +
+            "WHERE c.msg_id IS NULL AND m.date>? AND m.category='PEOPLE' AND f.role IN ('inbox','sent') ORDER BY m.date DESC LIMIT 300", arrayOf("$since")
+    ).use { c -> buildList { while (c.moveToNext()) add(c.getLong(0)) } }
+
     fun pendingInvites(): List<Invite> = readableDatabase.rawQuery("$inviteCols WHERE status='' ORDER BY msg_id", null).use { c ->
         buildList { while (c.moveToNext()) add(c.toInvite()) }
     }

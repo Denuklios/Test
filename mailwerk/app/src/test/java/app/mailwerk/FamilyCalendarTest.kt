@@ -311,6 +311,19 @@ class FamilyCalendarFlowTest {
         assertEquals("m1", treffen.getString("ownerId")); assertEquals("Flensburg", treffen.getString("location"))
         assertEquals(FamilyCalendar.isoLocal(LocalDateTime.now().plusDays(1).withHour(19).withMinute(0)), treffen.getString("start"))
 
+        // Mail, die schon VOR der verbesserten Erkennung abgerufen wurde -> wird beim nächsten Abgleich nachgeholt
+        val km = MimeMessage(Session.getInstance(Properties()))
+        km.setFrom(InternetAddress("papa@test.de", "Papa Muster")); km.setRecipients(jakarta.mail.Message.RecipientType.TO, "papa@test.de")
+        km.setText("Morgen ins Kino um 20:00", "UTF-8"); km.saveChanges()
+        gm.managers.imapHostManager.getInbox(gm.managers.userManager.getUser("papa@test.de")).store(km)
+        repo.family.detectText = false; assertTrue(repo.sync().isEmpty()); repo.family.detectText = true // simuliert „alte Version“
+        assertTrue(cal.events().none { it.getString("title") == "Kino" })
+        repo.family.rescanVersion = 0
+        assertTrue(repo.sync().isEmpty())
+        val kino = cal.events().single { it.getString("title") == "Kino" }
+        assertEquals("p1", kino.getString("ownerId"))
+        assertEquals(FamilyCalendar.isoLocal(LocalDateTime.now().plusDays(1).withHour(20).withMinute(0)), kino.getString("start"))
+
         // Erneuter Abgleich trägt nichts doppelt ein
         val saves = cal.saves.size
         assertTrue(repo.sync().isEmpty())

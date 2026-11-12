@@ -27,8 +27,8 @@ android {
         applicationId = cfg("applicationId", "app.mailwerk")
         minSdk = 26
         targetSdk = 36
-        versionCode = 23
-        versionName = "1.16"
+        versionCode = 24
+        versionName = "1.17"
         buildConfigField("String", "GOOGLE_CLIENT_ID", str(cfg("google.clientId")))
         buildConfigField("String", "MICROSOFT_CLIENT_ID", str(cfg("microsoft.clientId")))
         buildConfigField("String", "SUPPORT_EMAIL", str(cfg("support.email")))

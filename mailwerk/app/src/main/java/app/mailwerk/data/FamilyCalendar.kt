@@ -39,6 +39,14 @@ class FamilyCalendar(ctx: Context) {
     var detectText: Boolean
         get() = p.getBoolean("detect_text", true)
         set(v) = p.edit().putBoolean("detect_text", v).apply()
+    /** letzter Fehler beim Eintragen (leer = alles gut) – wird in den Einstellungen angezeigt */
+    var lastError: String
+        get() = p.getString("last_error", "")!!
+        set(v) = p.edit().putString("last_error", v).apply()
+    /** Stand der Texterkennung, mit dem zuletzt nachträglich gesucht wurde */
+    var rescanVersion: Int
+        get() = p.getInt("rescan_version", 0)
+        set(v) = p.edit().putInt("rescan_version", v).apply()
     val connected get() = serverUrl.isNotBlank() && code.isNotBlank()
 
     var members: List<FamilyMember>

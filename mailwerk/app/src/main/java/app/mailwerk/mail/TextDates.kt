@@ -17,6 +17,8 @@ data class FoundDate(
     val sentence: String,
     /** Ort, falls genannt („in Flensburg“, „bei Oma“) */
     val location: String = "",
+    /** kurzer Titel aus dem Satz ohne Datum/Uhrzeit („Morgen ins Kino um 20:00“ -> „Kino“) */
+    val title: String = "",
 )
 
 /**
@@ -51,11 +53,51 @@ object TextDates {
             "|($monthAlt)\\.?\\s+(\\d{1,2})(?:st|nd|rd|th)?(?:,?\\s+(\\d{4}))?)(?![\\w])",
         RegexOption.IGNORE_CASE,
     )
-    private val timeRx = Regex(
-        "^[\\s,–-]*(?:um|ab|gegen|bis|at|by|von)?\\s*(\\d{1,2})(?:[:.](\\d{2}))?\\s*(uhr|h\\b|am\\b|pm\\b|a\\.m\\.|p\\.m\\.)?",
+    private val deadlineRx = Regex("(\\bbis\\b|spätestens|frist|deadline|abgabe|einsende|anmeldeschluss|\\bby\\b|\\buntil\\b|\\bdue\\b|no later than)\\s*[:\\w\\s]{0,22}$", RegexOption.IGNORE_CASE)
+
+    private val anyTimeRx = Regex(
+        "(?<![\\d.:])(um|ab|gegen|at|by|von|bis)?\\s*(\\d{1,2})(?:[:](\\d{2})|\\.(\\d{2})(?![.\\d]))?\\s*(uhr|h\\b|am\\b|pm\\b|a\\.m\\.|p\\.m\\.)?(?![\\d:/]|[.,]\\d)",
         RegexOption.IGNORE_CASE,
     )
-    private val deadlineRx = Regex("(\\bbis\\b|spätestens|frist|deadline|abgabe|einsende|anmeldeschluss|\\bby\\b|\\buntil\\b|\\bdue\\b|no later than)\\s*[:\\w\\s]{0,22}$", RegexOption.IGNORE_CASE)
+
+    /** Uhrzeit in der Nähe des Datums (gleiche Zeile/gleicher Satz). Zweiter Wert: der gefundene Text. */
+    private fun findTime(body: String, from: Int, to: Int): Pair<LocalTime, String>? {
+        fun parse(mt: MatchResult): Pair<LocalTime, String>? {
+            val h = mt.groupValues[2].toIntOrNull() ?: return null
+            val minS = mt.groupValues[3].ifEmpty { mt.groupValues[4] }
+            val suffix = mt.groupValues[5].lowercase()
+            val prep = mt.groupValues[1].isNotEmpty()
+            // nur eindeutige Uhrzeiten: mit Minuten, „Uhr“/am/pm, oder „um 20“
+            if (minS.isEmpty() && suffix.isEmpty() && !(prep && mt.groupValues[1].lowercase() in setOf("um", "at", "gegen"))) return null
+            // „12.50“ ohne „Uhr“/„um“ ist eher ein Preis als eine Uhrzeit
+            if (mt.groupValues[4].isNotEmpty() && suffix.isEmpty() && !prep) return null
+            val min = minS.ifEmpty { "0" }.toInt()
+            val hh = when { suffix.startsWith("p") && h in 1..11 -> h + 12; suffix.startsWith("a") && h == 12 -> 0; else -> h }
+            if (hh !in 0..23 || min !in 0..59) return null
+            return LocalTime.of(hh, min) to mt.value.trim()
+        }
+        // danach: bis Satzende, höchstens 60 Zeichen
+        val afterEnd = (to + 1 until minOf(body.length, to + 61)).firstOrNull { body[it] in "\n!?" || (body[it] == '.' && (it + 1 >= body.length || body[it + 1].isWhitespace()) && !body[it - 1].isDigit()) } ?: minOf(body.length, to + 61)
+        anyTimeRx.findAll(body.substring(to + 1, afterEnd)).firstNotNullOfOrNull { parse(it) }?.let { return it }
+        // davor: gleiche Zeile, höchstens 40 Zeichen
+        val lineStart = maxOf(body.lastIndexOf('\n', from - 1) + 1, from - 40, 0)
+        return anyTimeRx.findAll(body.substring(lineStart, from)).toList().asReversed().firstNotNullOfOrNull { parse(it) }
+    }
+
+    private val fillers = Regex("^(?:(?:ins|in|im|zum|zur|um|am|an|bis|gegen|ab|wir|ich|lass uns|lasst uns|let's|gehen|geht|treffen uns|sehen uns|wollen|dann|und|also)\\b\\s*)+", RegexOption.IGNORE_CASE)
+
+    /** Titel aus dem Satz: Datum und Uhrzeit raus, Füllwörter vorne weg, erster Buchstabe groß. */
+    fun titleOf(sentence: String, remove: List<String>): String {
+        var t = sentence
+        remove.forEach { r -> if (r.isNotBlank()) t = t.replaceFirst(r, " ") }
+        t = t.replace(Regex("\\b(um|am|ab|gegen|at|on)\\s*(?=[,.!?]|$)", RegexOption.IGNORE_CASE), " ")
+        t = t.replace(Regex("\\s+"), " ").trim().trim(',', '.', '!', '?', ':', '-', '–', ' ')
+        t = t.replace(fillers, "").trim().trim(',', '.', '!', '?', ':', '-', '–', ' ')
+        // abschließende Präposition ohne Inhalt („… um“)
+        t = t.replace(Regex("\\s+(um|am|ab|gegen|bis)$", RegexOption.IGNORE_CASE), "")
+        if (t.isBlank()) return ""
+        return (t.first().uppercase() + t.drop(1)).take(60)
+    }
 
     /** Zitierte frühere Mails („> …“, „Am … schrieb …“, „-----Original“) abschneiden. */
     fun ownText(text: String): String {
@@ -76,19 +118,10 @@ object TextDates {
         val res = mutableListOf<FoundDate>()
         for (m in dateRx.findAll(body)) {
             val day = resolve(m, sent.toLocalDate()) ?: continue
-            // Uhrzeit direkt danach („Montag 16:00“, „24.11. um 19:30 Uhr“, „Friday at 3pm“)
-            val after = body.substring(m.range.last + 1).take(24)
-            val tm = timeRx.find(after)
-            var time: LocalTime? = null
-            if (tm != null && tm.value.isNotBlank()) {
-                val h = tm.groupValues[1].toInt(); val min = tm.groupValues[2].ifEmpty { "0" }.toInt()
-                val suffix = tm.groupValues[3].lowercase()
-                val explicit = tm.groupValues[2].isNotEmpty() || suffix.isNotEmpty()
-                if (explicit && min in 0..59) {
-                    val hh = when { suffix.startsWith("p") && h in 1..11 -> h + 12; suffix.startsWith("a") && h == 12 -> 0; else -> h }
-                    if (hh in 0..23) time = LocalTime.of(hh, min)
-                }
-            }
+            // Uhrzeit im selben Satz suchen: direkt danach („Montag 16:00“), etwas später („Morgen ins Kino um 20:00“)
+            // oder davor („um 20 Uhr morgen“)
+            val tf = findTime(body, m.range.first, m.range.last)
+            val time: LocalTime? = tf?.first
             val before = body.substring(0, m.range.first).takeLast(40)
             val line = before.substringAfterLast('\n')
             val deadline = deadlineRx.containsMatchIn(line)
@@ -105,7 +138,8 @@ object TextDates {
             if (start.toLocalDate().isBefore(sent.toLocalDate()) || start.isAfter(sent.plusDays(400))) continue
             if (time != null && start.isBefore(sent)) continue
             val sent0 = sentence(body, m.range.first, m.range.last)
-            val f = FoundDate(start, time == null, deadline, sent0, location(sent0))
+            val title = titleOf(sent0, listOfNotNull(m.value, tf?.second))
+            val f = FoundDate(start, time == null, deadline, sent0, location(sent0), title)
             if (res.none { it.start == f.start }) res += f
             if (res.size >= max) break
         }

@@ -1,6 +1,6 @@
 {
-  "versionCode": 23,
-  "versionName": "1.16",
+  "versionCode": 24,
+  "versionName": "1.17",
   "apk": "Mailwerk.apk",
-  "notes": "Postfächer im Menü einklappbar, weiche Animation beim Wischen und Löschen"
+  "notes": "Familienkalender: Termine wie „Morgen ins Kino um 20:00“ werden erkannt, Verbindung und Fehler sichtbar"
 }

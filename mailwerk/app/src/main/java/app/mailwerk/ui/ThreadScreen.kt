@@ -349,7 +349,7 @@ private fun InviteCard(vm: MainViewModel, m: Message) {
                 }
             }
             else -> Row(verticalAlignment = Alignment.CenterVertically) {
-                if (i.info.isNotBlank() && i.status == app.mailwerk.data.FamilyCalendar.STATUS_ERROR)
+                if (i.info.isNotBlank() && (i.status == app.mailwerk.data.FamilyCalendar.STATUS_ERROR || i.status == app.mailwerk.data.FamilyCalendar.STATUS_PENDING))
                     Text(i.info, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, maxLines = 2)
                 else Spacer(Modifier.weight(1f))
                 TextButton(onClick = { add() }, enabled = !busy) {

@@ -50,6 +50,19 @@ class TextDatesTest {
         assertEquals("Flensburg", ev.location)
     }
 
+    @Test fun timeLaterInSentenceAndTitle() {
+        // gemeldet: Mail ohne Betreff an sich selbst
+        val k = TextDates.find("Morgen ins Kino um 20:00", LocalDateTime.of(2026, 11, 12, 15, 8)).single()
+        assertEquals(LocalDateTime.of(2026, 11, 13, 20, 0), k.start); assertEquals("Kino", k.title)
+        assertEquals(LocalDateTime.of(2026, 11, 12, 20, 0), one("Wir gehen morgen ins Kino um 20 Uhr").start)
+        assertEquals("Kino", one("Wir gehen morgen ins Kino um 20 Uhr").title)
+        assertEquals(LocalDateTime.of(2026, 11, 12, 18, 30), one("Um 18:30 Uhr morgen Elternabend").start)
+        assertEquals("Treffen in Flensburg", one("treffen morgen um 19:00 in Flensburg").title)
+        assertEquals(LocalDateTime.of(2026, 11, 20, 20, 0), one("Am Freitag, 20.11. gehen wir essen, Tisch ist um 20.00 Uhr reserviert.").start)
+        // Preis ist keine Uhrzeit, „morgen“ ohne Uhrzeit bleibt unerkannt
+        none("Morgen kostet der Eintritt 12.50 Euro")
+    }
+
     @Test fun noFalsePositives() {
         none("Guten Morgen Sandra, wie geht es dir?")
         none("Ich melde mich morgen.")

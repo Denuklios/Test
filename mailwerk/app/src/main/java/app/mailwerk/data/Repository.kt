@@ -200,9 +200,25 @@ class Repository private constructor(private val ctx: Context) {
     }
 
     // ================================================================= Familienkalender
+    /**
+     * Mails der letzten Tage noch einmal nach Terminen im Text durchsuchen (einmal nach dem Verbinden bzw. nach einem Update
+     * der Erkennung), damit auch bereits abgerufene Mails wie „Morgen ins Kino um 20:00“ im Kalender landen.
+     */
+    fun rescanRecentTexts(days: Int = 4) {
+        if (!family.detectText) return
+        for (id in db.messageIdsWithoutInvite(System.currentTimeMillis() - days * 86_400_000L)) {
+            val m = db.message(id) ?: continue
+            val p = app.mailwerk.mail.ParsedMessage(m.uid, m.messageId, m.fromName, m.fromAddr, m.toAddrs, m.ccAddrs, m.replyTo, m.subject, m.date,
+                null, m.bodyText, m.seen, m.flagged, emptyMap(), emptyList(), m.inReplyTo, m.references)
+            detectedIcs(p, m, initial = false)?.let { db.saveInvite(id, m.accountId, it) }
+        }
+    }
+
     /** Neue Einladungen automatisch in den Familienkalender eintragen (in der Farbe des Empfängers). */
     fun processInvites() {
         if (!family.connected || !family.autoAdd) return
+        // Erkennung verbessert -> einmalig die letzten Tage nachholen
+        if (family.rescanVersion < TEXT_DETECTION_VERSION) { runCatching { rescanRecentTexts() }; family.rescanVersion = TEXT_DETECTION_VERSION }
         for (inv in db.pendingInvites()) {
             if (family.memberFor(inv.accountId) == null) continue // Konto noch keinem Familienmitglied zugeordnet
             if (!family.detectText && app.mailwerk.mail.TextDates.isDetected(inv.ics)) continue // im Text erkannt: nur auf Knopfdruck
@@ -232,7 +248,7 @@ class Repository private constructor(private val ctx: Context) {
         if (initial || m.category != Category.PEOPLE || app.mailwerk.mail.RuleEngine.isAutomated(p.fromAddr, p.headers)) return null
         val sent = java.time.Instant.ofEpochMilli(m.date).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime()
         val found = runCatching { app.mailwerk.mail.TextDates.find(m.bodyText ?: "", sent, max = 1) }.getOrDefault(emptyList()).firstOrNull() ?: return null
-        val subj = m.subject.replace(Regex("^((re|aw|wg|fw|fwd)\\s*:\\s*)+", RegexOption.IGNORE_CASE), "").trim().ifBlank { found.sentence.take(60) }
+        val subj = m.subject.replace(Regex("^((re|aw|wg|fw|fwd)\\s*:\\s*)+", RegexOption.IGNORE_CASE), "").trim().ifBlank { found.title.ifBlank { found.sentence.take(60) } }
         val title = if (found.deadline) tr("Frist: {0}", subj) else subj
         return app.mailwerk.mail.TextDates.toIcs(found, "text-" + (m.messageId ?: "${m.accountId}-${m.uid}-${m.date}"), title)
     }
@@ -252,9 +268,13 @@ class Repository private constructor(private val ctx: Context) {
             var last: FamilyCalendar.Result? = null
             for (ev in events.filter { !it.isReply }) last = family.apply(ev, member, source)
             db.setInviteStatus(inv.msgId, last!!.status, last.eventId, member.name)
+            family.lastError = "" 
         } catch (e: Exception) {
             // bleibt offen und wird beim nächsten Abgleich erneut versucht
-            db.setInviteStatus(inv.msgId, if (manual) FamilyCalendar.STATUS_ERROR else FamilyCalendar.STATUS_PENDING, "", e.message ?: friendly(e))
+            val msg = e.message ?: friendly(e)
+            family.lastError = msg
+            android.util.Log.w("Mailwerk", "Familienkalender: Eintragen fehlgeschlagen: $msg")
+            db.setInviteStatus(inv.msgId, if (manual) FamilyCalendar.STATUS_ERROR else FamilyCalendar.STATUS_PENDING, "", msg)
         }
     }
 
@@ -568,6 +588,8 @@ class Repository private constructor(private val ctx: Context) {
     companion object {
         /** Einladung für einen vergangenen Termin – nicht automatisch eingetragen */
         const val STATUS_OLD = "old"
+        /** bei Verbesserungen der Texterkennung erhöhen -> letzte Tage werden einmal neu durchsucht */
+        const val TEXT_DETECTION_VERSION = 2
         @Volatile private var inst: Repository? = null
         fun get(ctx: Context) = inst ?: synchronized(this) { inst ?: Repository(ctx.applicationContext).also { inst = it } }
 

@@ -128,6 +128,17 @@ fun FamilyCalendarScreen(vm: MainViewModel) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("📅 " + fam.groupName.ifBlank { tr("Familienkalender") }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                             Text(tr("Verbunden · Code {0}", fam.code), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            Text(fam.serverUrl.removePrefix("https://").removeSuffix("/api.php"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            // Verbindung beim Öffnen prüfen – Fehler (falscher Server/Code, kein Netz) sofort sichtbar
+                            val check by androidx.compose.runtime.produceState<String?>(null, v) {
+                                value = withContext(Dispatchers.IO) { runCatching { fam.api().groupName(); "" }.getOrElse { it.message ?: tr("Verbindung fehlgeschlagen") } }
+                            }
+                            when (check) {
+                                null -> Text(tr("Verbindung wird geprüft …"), style = MaterialTheme.typography.bodySmall)
+                                "" -> Text(tr("✓ Kalender-Server erreichbar"), style = MaterialTheme.typography.bodySmall, color = Color(0xFF2E7D32))
+                                else -> Text(tr("⚠ {0} – bitte „Trennen“ und neu verbinden", check!!), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error)
+                            }
+                            fam.lastError.takeIf { it.isNotBlank() }?.let { Text(tr("Letzter Fehler beim Eintragen: {0}", it), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error) }
                             Row(Modifier.horizontalScroll(rememberScrollState()).padding(top = 6.dp), horizontalArrangement = Arrangement.spacedBy(10.dp),
                                 verticalAlignment = Alignment.CenterVertically) {
                                 fam.members.forEach { m ->

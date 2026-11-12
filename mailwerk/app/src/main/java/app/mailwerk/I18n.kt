@@ -10,6 +10,9 @@ object I18n {
     fun german(): Boolean = Locale.getDefault().language == "de"
 
     val en: Map<String, String> = hashMapOf(
+        "✓ Kalender-Server erreichbar" to "✓ Calendar server reachable",
+        "⚠ {0} – bitte „Trennen“ und neu verbinden" to "⚠ {0} – please “Disconnect” and connect again",
+        "Letzter Fehler beim Eintragen: {0}" to "Last error while adding: {0}",
         "Einklappen" to "Collapse",
         "Aufklappen" to "Expand",
         "Mailwerk-Update bereit" to "Mailwerk update ready",
