@@ -109,6 +109,13 @@ class AppStore extends ChangeNotifier {
     unlockReminder = p.getBool('unlockReminder') ?? true;
     prepWindowDays = p.getInt('prepWindowDays') ?? 3;
     _applyHolidayConfig();
+    // Umzug: der frühere Test-Ordner ist jetzt www.wunsch-fabrik.dk/kalender (gleicher Gruppen-Code)
+    var moved = false;
+    if (RegExp(r'wunsch-fabrik\.dk/test/kalender/', caseSensitive: false).hasMatch(serverUrl)) {
+      serverUrl = 'https://www.wunsch-fabrik.dk/kalender/api.php';
+      moved = true;
+      await p.setString('serverUrl', serverUrl);
+    }
     try {
       final f = await _file();
       if (await f.exists()) {
@@ -133,6 +140,10 @@ class AppStore extends ChangeNotifier {
         pending = ((j['pending'] as List?) ?? []).map((e) => Map<String, dynamic>.from(e as Map)).toList();
       }
     } catch (_) {}
+    if (moved) {
+      since = 0; // auf dem neuen Server alles einmal komplett holen
+      await _saveData();
+    }
   }
 
   Future<void> _saveData() async {

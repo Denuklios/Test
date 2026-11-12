@@ -85,7 +85,17 @@ try {
         case 'create_group':
             $b = body();
             $name = trim((string) ($b['name'] ?? 'Familie'));
-            $code = newCode();
+            // Umzug von einem anderen Server: gewünschten Code übernehmen, wenn er frei ist
+            $want = strtoupper(trim((string) ($b['code'] ?? '')));
+            if ($want !== '') {
+                if (!preg_match('/^[A-HJ-NP-Z2-9]{8}$/', $want)) fail('Ungültiger Code');
+                $st = db()->prepare('SELECT 1 FROM groups WHERE code = ?');
+                $st->execute([$want]);
+                if ($st->fetch()) fail('Code schon vergeben', 409);
+                $code = $want;
+            } else {
+                $code = newCode();
+            }
             db()->prepare('INSERT INTO groups (code, name, created) VALUES (?,?,?)')->execute([$code, mb_substr($name, 0, 60), nowMs()]);
             out(['ok' => true, 'code' => $code, 'name' => $name]);
 
