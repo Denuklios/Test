@@ -86,8 +86,9 @@ es reicht der Gruppen-Code. Liegt die Einladung in der Zwischenablage oder kam s
   Android-Einstellungen ausblenden kann. Für zuverlässiges Push im Standby die Akku-Optimierung für Mailwerk ausschalten
   (die App fragt einmal danach). Unterstützt ein Server kein IDLE, wird jede Minute nachgesehen.
   Abschaltbar unter Einstellungen → Abgleich & Benachrichtigungen.
-- **Updates:** Die App prüft `update.json` in diesem Ordner und bietet neue Versionen im Posteingang an
-  („Aktualisieren“ → laden → installieren). Android installiert nur APKs mit demselben Signaturschlüssel.
+- **Updates (automatisch):** Die App prüft `update.json` in diesem Ordner, lädt neue Versionen im Hintergrund und installiert
+  sie ohne Rückfrage (Android 12+; beim ersten Update nach einer Installation aus dem Browser fragt Android einmal nach).
+  Danach kurz „Mailwerk wurde auf … aktualisiert ✓“. Abschaltbar unter Einstellungen → App. Android installiert nur APKs mit demselben Signaturschlüssel.
   Neue Version veröffentlichen: `versionCode`/`versionName` in `app/build.gradle.kts` erhöhen, bauen,
   `Mailwerk.apk` ersetzen und `update.json` anpassen.
 - **Konten später einrichten:** Vorbereitete Konten lassen sich überspringen. Ein Hinweis im Posteingang und ein Eintrag

@@ -162,6 +162,9 @@ fun SettingsScreen(vm: MainViewModel) {
                     }) },
                     modifier = Modifier.clickable { if (upd != null) vm.installUpdate() else vm.checkUpdate(manual = true) })
                 if (app.mailwerk.sync.Updater.enabled) Toggle(tr("Automatisch nach Updates suchen"), null, p.autoUpdateCheck) { p.autoUpdateCheck = it; changed() }
+                if (app.mailwerk.sync.Updater.enabled && p.autoUpdateCheck) Toggle(tr("Updates automatisch installieren"),
+                    tr("Neue Versionen werden im Hintergrund geladen und ohne Rückfrage installiert (Android 12+; beim ersten Mal fragt Android einmal nach)."),
+                    p.autoInstall) { p.autoInstall = it; changed() }
                 HorizontalDivider(Modifier.padding(top = 16.dp))
                 Text(tr("Mailwerk {0} · Alle Daten bleiben auf deinem Gerät und bei deinem Mail-Anbieter. Keine Cloud, keine Werbung, kein Tracking.", app.mailwerk.BuildConfig.VERSION_NAME),
                     style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant, modifier = Modifier.padding(16.dp))

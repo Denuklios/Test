@@ -56,6 +56,14 @@ class Prefs(ctx: Context) {
     var autoUpdateCheck: Boolean
         get() = p.getBoolean("auto_update", true)
         set(v) = p.edit().putBoolean("auto_update", v).apply()
+    /** Updates im Hintergrund laden und ohne Rückfrage installieren (Direkt-Version) */
+    var autoInstall: Boolean
+        get() = p.getBoolean("auto_install", true)
+        set(v) = p.edit().putBoolean("auto_install", v).apply()
+    /** zuletzt gestartete Version – für die Meldung „aktualisiert auf …“ */
+    var lastSeenVersion: Int
+        get() = p.getInt("last_seen_version", 0)
+        set(v) = p.edit().putInt("last_seen_version", v).apply()
     var lastUpdateCheck: Long
         get() = p.getLong("last_update_check", 0)
         set(v) = p.edit().putLong("last_update_check", v).apply()

@@ -2,5 +2,10 @@
 <!-- Nur in der Direkt-Version: Selbst-Aktualisierung und Akku-Ausnahme direkt anfragen -->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
     <uses-permission android:name="android.permission.REQUEST_INSTALL_PACKAGES" />
+    <!-- Updates ohne Rückfrage installieren (Android 12+, wenn Mailwerk selbst installiert hat) -->
+    <uses-permission android:name="android.permission.UPDATE_PACKAGES_WITHOUT_USER_ACTION" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
+    <application>
+        <receiver android:name="app.mailwerk.sync.UpdateResultReceiver" android:exported="false" />
+    </application>
 </manifest>

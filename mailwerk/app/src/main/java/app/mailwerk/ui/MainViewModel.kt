@@ -145,7 +145,12 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun checkUpdate(manual: Boolean) = viewModelScope.launch {
         if (!manual && (!prefs.autoUpdateCheck || System.currentTimeMillis() - prefs.lastUpdateCheck < 3 * 3_600_000L)) return@launch
         runCatching { Updater.check(getApplication()) }
-            .onSuccess { info -> update.value = info; if (manual && info == null) snack(tr("Du hast die neueste Version ({0}) ✓", BuildConfig.VERSION_NAME)) }
+            .onSuccess { info ->
+                update.value = info
+                if (manual && info == null) snack(tr("Du hast die neueste Version ({0}) ✓", BuildConfig.VERSION_NAME))
+                // automatisch laden und installieren (ohne Rückfrage, sofern Android es erlaubt)
+                if (!manual && info != null && prefs.autoInstall && Updater.canInstall(getApplication())) installUpdate()
+            }
             .onFailure { if (manual) snack(tr("Update-Prüfung fehlgeschlagen: {0}", it.message)) }
     }
 
@@ -156,7 +161,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             updateProgress.value = 0f
             runCatching { Updater.download(getApplication(), info) { updateProgress.value = it } }
                 .onSuccess { f ->
-                    if (!Updater.install(getApplication(), f))
+                    if (Updater.canInstall(getApplication()) &&
+                        runCatching { Updater.sessionInstall(getApplication(), f, foreground = true) }.isSuccess) {
+                        snack(tr("Update {0} wird installiert …", info.versionName))
+                    } else if (!Updater.install(getApplication(), f))
                         snack(tr("Bitte „Apps aus dieser Quelle zulassen“ einschalten und danach erneut auf Aktualisieren tippen"))
                 }
                 .onFailure { snack(tr("Update fehlgeschlagen: {0}", it.message)) }
@@ -165,6 +173,13 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     init {
+        // nach einem Update kurz Bescheid geben
+        val last = prefs.lastSeenVersion
+        if (last in 1 until BuildConfig.VERSION_CODE) viewModelScope.launch {
+            kotlinx.coroutines.delay(1500) // erst wenn die Oberfläche steht
+            snack(tr("Mailwerk wurde auf {0} aktualisiert ✓", BuildConfig.VERSION_NAME))
+        }
+        if (last != BuildConfig.VERSION_CODE) prefs.lastSeenVersion = BuildConfig.VERSION_CODE
         if (db.accounts().isEmpty()) _stack.value = listOf(Screen.Inbox, Screen.AccountSetup())
         else refresh()
     }

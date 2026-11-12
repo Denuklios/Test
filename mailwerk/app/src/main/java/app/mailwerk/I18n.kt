@@ -10,6 +10,13 @@ object I18n {
     fun german(): Boolean = Locale.getDefault().language == "de"
 
     val en: Map<String, String> = hashMapOf(
+        "Mailwerk-Update bereit" to "Mailwerk update ready",
+        "Zum Installieren tippen" to "Tap to install",
+        "Mailwerk-Update nicht installiert" to "Mailwerk update not installed",
+        "Update {0} wird installiert …" to "Installing update {0} …",
+        "Mailwerk wurde auf {0} aktualisiert ✓" to "Mailwerk was updated to {0} ✓",
+        "Updates automatisch installieren" to "Install updates automatically",
+        "Neue Versionen werden im Hintergrund geladen und ohne Rückfrage installiert (Android 12+; beim ersten Mal fragt Android einmal nach)." to "New versions are downloaded in the background and installed without asking (Android 12+; Android asks once the first time).",
         "Zwischenablage" to "clipboard",
         "Mail von {0}" to "email from {0}",
         "✨ Einladung gefunden" to "✨ Invitation found",

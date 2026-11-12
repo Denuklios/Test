@@ -1,6 +1,6 @@
 {
-  "versionCode": 20,
-  "versionName": "1.13",
+  "versionCode": 21,
+  "versionName": "1.14",
   "apk": "Mailwerk.apk",
-  "notes": "Familienkalender: Termine auch aus eigenen Mails, Ort wird übernommen, Server-Link in der Einladung öffnet das Verbinden"
+  "notes": "Updates werden ab jetzt automatisch installiert"
 }
