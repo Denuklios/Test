@@ -1,6 +1,6 @@
 {
-  "versionCode": 23,
-  "versionName": "1.16",
+  "versionCode": 22,
+  "versionName": "1.15",
   "apk": "Mailwerk.apk",
-  "notes": "Postfächer im Menü einklappbar, weiche Animation beim Wischen und Löschen"
+  "notes": "Deutlich schneller: Mails werden am Stück geladen, Anzeige ruckelt nicht mehr"
 }
