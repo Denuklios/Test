@@ -69,6 +69,10 @@ void seed() {
   ev('Düsseldorf', d(27), d(29), 'r', allDay: true, p: ['j', 's']);
   ev('Alessandro', DateTime(2019, 11, 28), DateTime(2019, 11, 28), 'k', allDay: true, kind: EventKind.birthday, by: 2019);
   ev('Ole', DateTime(1995, 11, 30), DateTime(1995, 11, 30), 'k', allDay: true, kind: EventKind.birthday, by: 1995);
+  store.events['mail0123456789abcdef0123456789ab'] = CalEvent(
+      id: 'mail0123456789abcdef0123456789ab', title: 'Elternabend 3b', start: d(18, 19), end: d(18, 21), ownerId: 'j',
+      location: 'Grundschule Nord', notes: 'Bitte Zeugnismappe mitbringen.\n\n📧 Aus E-Mail: Schule Nord <info@schule.de> – Einladung Elternabend',
+      createdBy: 'j', editedBy: 'j');
   ev('Oma', DateTime(1950, 12, 24), DateTime(1950, 12, 24), 'k', allDay: true, kind: EventKind.birthday, by: 1950);
 }
 
@@ -79,6 +83,7 @@ Widget app(Widget home) => MaterialApp(
       localizationsDelegates: const [GlobalMaterialLocalizations.delegate, GlobalWidgetsLocalizations.delegate, GlobalCupertinoLocalizations.delegate],
       theme: ThemeData(
         fontFamily: 'Roboto',
+        fontFamilyFallback: const ['NotoColorEmoji'],
         colorScheme: ColorScheme.fromSeed(seedColor: const Color(0xFF1976D2)),
         appBarTheme: const AppBarTheme(
           backgroundColor: Color(0xFF1976D2),
@@ -111,6 +116,9 @@ void main() {
     await initializeDateFormatting('de_DE');
     const f = '/opt/sdk/flutter/bin/cache/dart-sdk/bin/resources/devtools/assets/packages/devtools_app_shared/fonts/Roboto';
     await loadFont('Roboto', ['$f/Roboto-Regular.ttf', '$f/Roboto-Bold.ttf', '$f/Roboto-Medium.ttf']);
+    if (File('/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf').existsSync()) {
+      await loadFont('NotoColorEmoji', ['/usr/share/fonts/truetype/noto/NotoColorEmoji.ttf']);
+    }
     await loadFont('MaterialIcons', ['/opt/sdk/flutter/bin/cache/artifacts/material_fonts/MaterialIcons-Regular.otf']);
     seed();
   });
@@ -160,6 +168,9 @@ void main() {
     await t.pumpWidget(app(EventEditor(event: e)));
     await t.pumpAndSettle();
     await expectLater(find.byType(MaterialApp), matchesGoldenFile('/tmp/claude-0/-home-user-Test/cd4db189-3460-55ed-b918-077f9e0d3ba7/scratchpad/shots/editor_zahnarzt.png'));
+  });
+  testWidgets('mail_detail', (t) async {
+    await shot(t, EventDetail(eventId: 'mail0123456789abcdef0123456789ab'), 'mail_detail');
   });
   testWidgets('detail', (t) async {
     final e = store.events.values.firstWhere((e) => e.title == 'Kaffee und Kuchen');

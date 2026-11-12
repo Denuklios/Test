@@ -75,6 +75,12 @@ class EventDetail extends StatelessWidget {
                   ? (ev.birthYear != null ? 'Geboren ${ev.birthYear} · wird ${o.start.year - ev.birthYear!}' : 'Jedes Jahr')
                   : timeText(o) + (ev.repeat != Repeat.none ? ' · ${Repeat.labels[ev.repeat]}' : '')),
             ),
+            if (ev.fromMail)
+              ListTile(
+                leading: const Text('📧', style: TextStyle(fontSize: 22)),
+                title: const Text('Aus E-Mail eingetragen'),
+                subtitle: Text(ev.mailSource ?? 'automatisch von Mailwerk'),
+              ),
             if (ev.people.isNotEmpty && !ev.isBirthday)
               ListTile(
                 leading: const Icon(Icons.people_outline),

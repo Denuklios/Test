@@ -112,6 +112,14 @@ class CalEvent {
         checklist = checklist ?? [];
 
   bool get isBirthday => kind == EventKind.birthday;
+  /// Von der Mail-App „Mailwerk“ aus einer E-Mail eingetragen (ID bleibt auch nach Bearbeiten gleich)
+  bool get fromMail => RegExp(r'^mail[0-9a-f]{28}$').hasMatch(id);
+
+  /// „Absender – Betreff“ aus der Notiz-Zeile „📧 Aus E-Mail: …“ / „📧 From email: …“
+  String? get mailSource {
+    final m = RegExp(r'📧 (?:Aus E-Mail|From email):\s*(.+)').firstMatch(notes);
+    return m?.group(1)?.trim();
+  }
   bool get isVacation => kind == EventKind.vacation;
 
   /// Alle beteiligten Personen (Besitzer zuerst, ohne Doppelte)

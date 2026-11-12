@@ -393,7 +393,7 @@ class AppStore extends ChangeNotifier {
       final t = ev.title.trim().isEmpty ? 'Urlaub' : ev.title;
       return '🌴 ${names.isEmpty ? t : '$names: $t'}';
     }
-    return ev.title;
+    return ev.fromMail ? '📧 ${ev.title}' : ev.title;
   }
 
   /// Alle Vorkommen im Zeitraum [from, to] (Tage inklusive)
