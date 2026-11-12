@@ -78,6 +78,7 @@ class CalEvent {
   int updatedAt;
   bool deleted;
   List<String> checklist; // "[x] Text" / "[ ] Text"
+  int? color; // eigene Farbe (sonst Farbe der Personen)
   List<PrepItem> prep; // intelligente Vorbereitungsliste
   Map<String, String> answers; // Antworten aus dem Vorbereitungs-Assistenten
 
@@ -103,6 +104,7 @@ class CalEvent {
     this.deleted = false,
     List<String>? checklist,
     List<PrepItem>? prep,
+    this.color,
     Map<String, String>? answers,
   })  : participants = participants ?? [],
         prep = prep ?? [],
@@ -155,6 +157,7 @@ class CalEvent {
         'deleted': deleted,
         'checklist': checklist,
         'prep': prep.map((p) => p.toJson()).toList(),
+        'color': color,
         'answers': answers,
       };
 
@@ -181,6 +184,7 @@ class CalEvent {
       updatedAt: (j['updatedAt'] as num?)?.toInt() ?? 0,
       deleted: j['deleted'] == true,
       checklist: ((j['checklist'] ?? []) as List).map((e) => e.toString()).toList(),
+      color: (j['color'] as num?)?.toInt(),
       prep: j['prep'] is List ? (j['prep'] as List).whereType<Map>().map((e) => PrepItem.fromJson(Map<String, dynamic>.from(e))).toList() : [],
       answers: j['answers'] is Map
           ? Map<String, String>.from((j['answers'] as Map).map((k, v) => MapEntry(k.toString(), v.toString())))

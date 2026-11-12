@@ -301,7 +301,31 @@ class _EventEditorState extends State<EventEditor> {
         ev.prep = generatePrep(ev, ev.answers, idGen: newId);
       }
     }
+    final oldColor = widget.event?.color;
     await store.saveEvent(ev);
+    if (ev.color != oldColor && mounted) {
+      final same = store.events.values
+          .where((o) => !o.deleted && o.id != ev.id && o.title.trim().toLowerCase() == ev.title.trim().toLowerCase() && o.color != ev.color)
+          .toList();
+      if (same.isNotEmpty) {
+        final all = await showDialog<bool>(
+          context: context,
+          builder: (ctx) => AlertDialog(
+            title: const Text('Auch die anderen?'),
+            content: Text('Es gibt noch ${same.length} weitere Termine „${ev.title}“. Sollen alle diese Farbe bekommen?'),
+            actions: [
+              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Nur dieser')),
+              FilledButton(onPressed: () => Navigator.pop(ctx, true), child: Text('Alle ${same.length + 1}')),
+            ],
+          ),
+        );
+        if (all == true) {
+          for (final o in same) {
+            await store.saveEvent(o.copy()..color = ev.color);
+          }
+        }
+      }
+    }
     if (mounted) Navigator.pop(context, ev);
   }
 
@@ -443,6 +467,26 @@ class _EventEditorState extends State<EventEditor> {
               const SizedBox(width: 8),
               Expanded(child: Text('So sieht der Termin im Kalender aus', style: TextStyle(color: Colors.grey.shade600, fontSize: 12))),
             ]),
+          ),
+        if (!bday)
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: Container(
+              width: 34,
+              height: 22,
+              decoration: ev.color != null
+                  ? BoxDecoration(color: Color(ev.color!), borderRadius: BorderRadius.circular(5))
+                  : multiColorDecoration((_people.isEmpty ? {store.myId} : _people).map((id) => store.member(id)?.c ?? Colors.grey).toList()),
+            ),
+            title: const Text('Farbe'),
+            subtitle: Text(ev.color != null ? 'Eigene Farbe – z. B. für Müll, Haushalt, Allgemeines' : 'Automatisch: Farbe der Personen'),
+            trailing: ev.color != null
+                ? IconButton(icon: const Icon(Icons.close), tooltip: 'Wieder automatisch', onPressed: () => setState(() => ev.color = null))
+                : const Icon(Icons.palette_outlined),
+            onTap: () async {
+              final c = await pickEventColor(context, ev.color);
+              if (c != null) setState(() => ev.color = c < 0 ? null : c);
+            },
           ),
         if (!bday) ...[
           const Divider(height: 32),

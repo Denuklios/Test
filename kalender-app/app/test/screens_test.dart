@@ -53,6 +53,7 @@ void seed() {
   DateTime d(int day, [int h = 0]) => DateTime(2026, 11, day, h);
   ev('Früh', d(2, 6), d(4, 14), 'r', allDay: true);
   ev('Glas/Müll', d(2), d(2), 'j', allDay: true, repeat: Repeat.monthly);
+  store.events.values.last.color = 0xFF9E9E9E; // eigene Farbe: Mülltonne grau
   ev('Holzklotz', d(2), d(2), 's', allDay: true);
   for (final x in [5, 9, 12, 19, 20, 24]) {
     ev('Spät', d(x, 14), d(x, 22), 'r');

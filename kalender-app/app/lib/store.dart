@@ -375,6 +375,7 @@ class AppStore extends ChangeNotifier {
 
   List<Color> colorsFor(CalEvent ev) {
     if (ev.isBirthday) return [Color(birthdayColor)];
+    if (ev.color != null) return [Color(ev.color!)];
     final cols = <Color>[];
     for (final id in ev.people) {
       final m = members[id];

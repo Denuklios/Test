@@ -107,3 +107,53 @@ void toast(BuildContext context, String msg) {
 
 String two(int v) => v.toString().padLeft(2, '0');
 String hhmm(DateTime d) => '${two(d.hour)}:${two(d.minute)}';
+
+/// Farben für einzelne Termine (Personenfarben + neutrale Töne)
+const eventPalette = <int>[
+  ...memberPalette,
+  0xFF9E9E9E, // Grau
+  0xFF424242, // Dunkelgrau
+  0xFF2E7D32, // Dunkelgrün
+  0xFF0277BD, // Dunkelblau
+  0xFFFF7043, // Koralle
+  0xFF26A69A, // Mint
+  0xFFAFB42B, // Oliv
+  0xFF8D6E63, // Hellbraun
+];
+
+/// Farbe für einen Termin wählen; -1 = wieder automatisch (Personenfarbe)
+Future<int?> pickEventColor(BuildContext context, int? current) {
+  return showDialog<int>(
+    context: context,
+    builder: (ctx) => AlertDialog(
+      title: const Text('Farbe für diesen Termin'),
+      content: SingleChildScrollView(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          Wrap(
+            spacing: 10,
+            runSpacing: 10,
+            children: eventPalette.map((c) {
+              final sel = c == current;
+              return InkWell(
+                onTap: () => Navigator.pop(ctx, c),
+                customBorder: const CircleBorder(),
+                child: Container(
+                  width: 42,
+                  height: 42,
+                  decoration: BoxDecoration(color: Color(c), shape: BoxShape.circle, border: Border.all(color: sel ? Colors.black : Colors.transparent, width: 3)),
+                  child: sel ? Icon(Icons.check, color: textOn(Color(c))) : null,
+                ),
+              );
+            }).toList(),
+          ),
+          const SizedBox(height: 14),
+          OutlinedButton.icon(
+            onPressed: () => Navigator.pop(ctx, -1),
+            icon: const Icon(Icons.people_outline),
+            label: const Text('Automatisch (Farbe der Personen)'),
+          ),
+        ]),
+      ),
+    ),
+  );
+}
