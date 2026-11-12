@@ -28,12 +28,14 @@ class SwipeAndDrawerTest {
     @get:Rule val rule = createEmptyComposeRule()
 
     @Test fun swipeArchiveSlidesOutAndListCloses() {
-        ScreenshotTest.seed()
         val ctx = ApplicationProvider.getApplicationContext<android.content.Context>()
         val db = Db.get(ctx)
-        ActivityScenario.launch(MainActivity::class.java)
+        db.accounts().forEach { db.deleteAccount(it.id) } // frische Testdaten, unabhängig von anderen Tests
+        ScreenshotTest.seed()
+        val sc = ActivityScenario.launch(MainActivity::class.java)
         rule.waitForIdle()
-        assertEquals(1, rule.onAllNodesWithText("Termin nächste Woche", useUnmergedTree = true).fetchSemanticsNodes().size)
+        // die Liste wird im Hintergrund geladen -> warten, bis die Mail sichtbar ist
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Termin nächste Woche", useUnmergedTree = true).fetchSemanticsNodes().size == 1 }
         rule.mainClock.autoAdvance = false
         rule.onAllNodesWithText("Termin nächste Woche", useUnmergedTree = true).onFirst().performTouchInput { swipeRight() }
         // mitten in der Animation ist die Mail noch da (gleitet/schrumpft), noch nichts ausgeführt
@@ -46,12 +48,16 @@ class SwipeAndDrawerTest {
         assertEquals(0, db.listMessages(null, null, null).count { it.subject == "Termin nächste Woche" })
         assertEquals(0, rule.onAllNodesWithText("Termin nächste Woche", useUnmergedTree = true).fetchSemanticsNodes().size)
         assertTrue(rule.onAllNodesWithText("Steuerbüro Klein", substring = true, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+        sc.close()
     }
 
     @Test fun drawerAccountCollapses() {
+        Db.get(ApplicationProvider.getApplicationContext<android.content.Context>()).let { db -> db.accounts().forEach { db.deleteAccount(it.id) } }
+        app.mailwerk.data.Prefs(ApplicationProvider.getApplicationContext()).drawerExpanded = null
         ScreenshotTest.seed()
-        ActivityScenario.launch(MainActivity::class.java)
+        val sc = ActivityScenario.launch(MainActivity::class.java)
         rule.waitForIdle()
+        rule.waitUntil(10_000) { rule.onAllNodes(hasContentDescription("Menü")).fetchSemanticsNodes().isNotEmpty() }
         rule.onAllNodes(hasContentDescription("Menü")).onFirst().performClick()
         rule.waitForIdle()
         assertTrue(rule.onAllNodesWithText("Gesendet", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
@@ -62,5 +68,6 @@ class SwipeAndDrawerTest {
         rule.waitForIdle()
         assertTrue(rule.onAllNodesWithText("Gesendet", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
         ApplicationProvider.getApplicationContext<android.content.Context>().let { app.mailwerk.data.Prefs(it).drawerExpanded = null }
+        sc.close()
     }
 }
