@@ -79,6 +79,15 @@ object TextDates {
         // danach: bis Satzende, höchstens 60 Zeichen
         val afterEnd = (to + 1 until minOf(body.length, to + 61)).firstOrNull { body[it] in "\n!?" || (body[it] == '.' && (it + 1 >= body.length || body[it + 1].isWhitespace()) && !body[it - 1].isDigit()) } ?: minOf(body.length, to + 61)
         anyTimeRx.findAll(body.substring(to + 1, afterEnd)).firstNotNullOfOrNull { parse(it) }?.let { return it }
+        // „Morgen essen gehen. 19:00“ – Uhrzeit steht allein im nächsten Mini-Satz
+        Regex("^[.!]?\\s*(\\d{1,2}[:.]\\d{2}(?:\\s*uhr)?)\\s*(?:[.!?\\n]|$)", RegexOption.IGNORE_CASE).find(body.substring(afterEnd))?.let { bare ->
+            anyTimeRx.find(bare.groupValues[1])?.let { mt -> parse(mt)?.let { return it.first to it.second } }
+            // „19.00“ ohne Uhr: hier eindeutig eine Uhrzeit
+            Regex("(\\d{1,2})[:.](\\d{2})").find(bare.groupValues[1])?.let { t ->
+                val h = t.groupValues[1].toInt(); val mi = t.groupValues[2].toInt()
+                if (h in 0..23 && mi in 0..59) return LocalTime.of(h, mi) to bare.groupValues[1]
+            }
+        }
         // davor: gleiche Zeile, höchstens 40 Zeichen
         val lineStart = maxOf(body.lastIndexOf('\n', from - 1) + 1, from - 40, 0)
         return anyTimeRx.findAll(body.substring(lineStart, from)).toList().asReversed().firstNotNullOfOrNull { parse(it) }

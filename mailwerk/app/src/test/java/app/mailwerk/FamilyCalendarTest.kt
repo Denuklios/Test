@@ -324,6 +324,25 @@ class FamilyCalendarFlowTest {
         assertEquals("p1", kino.getString("ownerId"))
         assertEquals(FamilyCalendar.isoLocal(LocalDateTime.now().plusDays(1).withHour(20).withMinute(0)), kino.getString("start"))
 
+        // Knopf „In Kalender“: Mail ohne erkennbares Datum von Hand eintragen, für Mama und Kind
+        val plain = db.search("Abgesagt: Elternabend").first()
+        val mstart = LocalDateTime.now().plusDays(3).withHour(17).withMinute(15).withSecond(0).withNano(0)
+        assertEquals("Im Familienkalender eingetragen",
+            repo.addToCalendarManually(plain.id, "Laternelaufen", mstart, mstart.plusHours(2), false, "Schulhof", listOf("m1", "k1")))
+        val lat = cal.events().single { it.getString("title") == "Laternelaufen" }
+        assertEquals("m1", lat.getString("ownerId")); assertEquals("k1", lat.getJSONArray("participants").getString(0))
+        assertEquals("Schulhof", lat.getString("location")); assertEquals(FamilyCalendar.isoLocal(mstart), lat.getString("start"))
+        assertEquals(FamilyCalendar.STATUS_ADDED, db.invite(plain.id)!!.status)
+        assertEquals("Mama, Kind", db.invite(plain.id)!!.info)
+        // zweimal drücken ändert denselben Termin statt einen neuen anzulegen
+        repo.addToCalendarManually(plain.id, "Laternelaufen", mstart.plusHours(1), mstart.plusHours(2), false, "Schulhof", listOf("m1"))
+        assertEquals(1, cal.events().count { it.getString("title") == "Laternelaufen" })
+        // nicht verbunden -> klare Meldung
+        val url = repo.family.serverUrl; val code = repo.family.code
+        repo.family.code = ""
+        assertTrue(repo.addToCalendarManually(plain.id, "X", mstart, mstart, true, "", listOf("m1")).contains("nicht verbunden"))
+        repo.family.code = code; assertEquals(url, repo.family.serverUrl)
+
         // Erneuter Abgleich trägt nichts doppelt ein
         val saves = cal.saves.size
         assertTrue(repo.sync().isEmpty())

@@ -59,6 +59,8 @@ class TextDatesTest {
         assertEquals(LocalDateTime.of(2026, 11, 12, 18, 30), one("Um 18:30 Uhr morgen Elternabend").start)
         assertEquals("Treffen in Flensburg", one("treffen morgen um 19:00 in Flensburg").title)
         assertEquals(LocalDateTime.of(2026, 11, 20, 20, 0), one("Am Freitag, 20.11. gehen wir essen, Tisch ist um 20.00 Uhr reserviert.").start)
+        // Screenshot des Nutzers: Uhrzeit allein hinter dem Punkt
+        assertEquals(LocalDateTime.of(2026, 11, 13, 19, 0), TextDates.find("Morgen früh essen gehen. 19:00", LocalDateTime.of(2026, 11, 12, 15, 30)).single().start)
         // Preis ist keine Uhrzeit, „morgen“ ohne Uhrzeit bleibt unerkannt
         none("Morgen kostet der Eintritt 12.50 Euro")
     }

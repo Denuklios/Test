@@ -73,6 +73,8 @@ es reicht der Gruppen-Code. Liegt die Einladung in der Zwischenablage oder kam s
 - **Änderungen** werden übernommen, **Absagen** nehmen die Person aus dem Termin (der letzte löscht ihn).
 - Übernommen werden Titel, Zeit (Zeitzonen inkl. Outlook-Namen), ganztägig/mehrtägig, Ort, Beschreibung, Erinnerung und
   Wiederholungen (täglich, wöchentlich, alle 2 Wochen, monatlich, jährlich).
+- In jeder geöffneten Mail gibt es den Knopf **„📅 In Kalender“**: Titel, Tag, Uhrzeit, Ort und Person(en) sind vorausgefüllt
+  (aus Einladung oder Mailtext) und lassen sich ändern; ist Mailwerk noch nicht verbunden, wird es dort direkt verbunden.
 - In der Mail zeigt eine Karte den Termin und „Im Familienkalender eingetragen · Name“ in dessen Farbe; alte Einladungen
   (vergangene Termine) werden nicht automatisch eingetragen, lassen sich aber per Knopf übernehmen.
 

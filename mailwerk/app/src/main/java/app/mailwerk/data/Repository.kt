@@ -253,6 +253,33 @@ class Repository private constructor(private val ctx: Context) {
         return app.mailwerk.mail.TextDates.toIcs(found, "text-" + (m.messageId ?: "${m.accountId}-${m.uid}-${m.date}"), title)
     }
 
+    /**
+     * Termin aus einer Mail von Hand in den Familienkalender eintragen (Knopf „In Kalender“).
+     * Die erste Person ist „Besitzer“ (Farbe), weitere sind Teilnehmer. Liefert eine Meldung für die Oberfläche.
+     */
+    suspend fun addToCalendarManually(msgId: Long, title: String, start: java.time.LocalDateTime, end: java.time.LocalDateTime,
+                                      allDay: Boolean, location: String, memberIds: List<String>): String = withContext(Dispatchers.IO) {
+        if (!family.connected) return@withContext tr("Familienkalender ist nicht verbunden (Einstellungen → Familienkalender)")
+        val m = db.message(msgId) ?: return@withContext tr("Mail nicht gefunden")
+        val members = memberIds.mapNotNull { id -> family.members.firstOrNull { it.id == id } }
+        if (members.isEmpty()) return@withContext tr("Bitte mindestens eine Person auswählen")
+        if (family.memberFor(m.accountId) == null) family.setMember(m.accountId, members.first().id) // für künftige automatische Termine merken
+        val ev = app.mailwerk.mail.IcsEvent(uid = "manual-" + (m.messageId ?: "${m.accountId}-${m.uid}-${m.date}"), summary = title.ifBlank { tr("Termin") },
+            start = start, end = if (end.isBefore(start)) start else end, allDay = allDay, location = location, reminders = if (allDay) emptyList() else listOf(60))
+        val source = listOf(m.fromName.ifBlank { m.fromAddr }, m.subject).filter { it.isNotBlank() }.joinToString(" – ")
+        try {
+            var last: FamilyCalendar.Result? = null
+            for (mem in members) last = family.apply(ev, mem, source)
+            family.lastError = ""
+            db.replaceInvite(msgId, m.accountId, app.mailwerk.mail.Ics.build(ev, "X-MAILWERK-MANUAL:1\r\n"), FamilyCalendar.STATUS_ADDED,
+                last!!.eventId, members.joinToString(", ") { it.name })
+            tr("Im Familienkalender eingetragen")
+        } catch (e: Exception) {
+            val msg = e.message ?: friendly(e); family.lastError = msg
+            tr("Nicht eingetragen: {0}", msg)
+        }
+    }
+
     private fun addInvite(inv: Db.Invite, manual: Boolean) {
         val member = family.memberFor(inv.accountId)
             ?: return db.setInviteStatus(inv.msgId, FamilyCalendar.STATUS_PENDING, "", tr("Bitte zuerst festlegen, wer dieses Konto nutzt"))

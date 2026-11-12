@@ -23,6 +23,7 @@ import app.mailwerk.data.Message
 import app.mailwerk.data.Security
 import app.mailwerk.mail.Threads
 import app.mailwerk.ui.MainActivity
+import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -50,7 +51,7 @@ class FamilyScreenshotTest {
         db.accounts().forEach { db.deleteAccount(it.id) }
         val a = db.saveAccount(Account(0, "Sandra", "sandra@beispiel.de", "imap.beispiel.de", 993, Security.SSL, "smtp.beispiel.de", 465, Security.SSL, "x", "x", color = 0xFFE53935.toInt()))
         val inbox = db.upsertFolder(a, "INBOX", "Posteingang", FolderRole.INBOX)
-        val fam = app.mailwerk.data.FamilyCalendar(ctx)
+        val fam = app.mailwerk.data.Repository.get(ctx).family // dieselbe Instanz wie die App (Singleton über Tests hinweg)
         fam.serverUrl = "https://example.org/kalender/api.php"; fam.code = "K7MZ4QPA"; fam.groupName = "Familie Muster"
         fam.members = listOf(app.mailwerk.data.FamilyMember("k", "Emil", 0xFF43A047.toInt()), app.mailwerk.data.FamilyMember("p", "Jonas", 0xFF1E88E5.toInt()),
             app.mailwerk.data.FamilyMember("s", "Sandra", 0xFFE53935.toInt()))
@@ -74,6 +75,21 @@ class FamilyScreenshotTest {
         shot("19_einladung_familienkalender")
         sc.onActivity { act -> androidx.lifecycle.ViewModelProvider(act)[app.mailwerk.ui.MainViewModel::class.java].push(app.mailwerk.ui.Screen.FamilyCalendar) }
         shot("20_familienkalender_einstellungen")
+        // Knopf „In Kalender“ in einer Mail mit Datum im Text
+        val txt = db.insertMessage(Message(accountId = a, folderId = inbox, uid = 3, messageId = "<kino@x>", threadKey = Threads.key(a, "", "3"),
+            fromName = "Sandra", fromAddr = "sandra@beispiel.de", toAddrs = "sandra@beispiel.de", ccAddrs = "", replyTo = "", subject = "",
+            date = now - 600_000, snippet = "Morgen ins Kino um 20:00", bodyHtml = null, bodyText = "Morgen ins Kino um 20:00",
+            seen = true, flagged = false, category = Category.PEOPLE, hasAttachments = false, unsubscribe = null, inReplyTo = null, references = null), emptyList())
+        val tk = db.message(txt)!!.threadKey
+        sc.onActivity { act -> androidx.lifecycle.ViewModelProvider(act)[app.mailwerk.ui.MainViewModel::class.java].replaceTop(app.mailwerk.ui.Screen.Thread(tk)) }
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("📅 In Kalender", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.mainClock.autoAdvance = false // Dialog enthält ggf. Animationen (Cursor), daher Zeit von Hand weiterdrehen
+        rule.onAllNodesWithText("📅 In Kalender", useUnmergedTree = true).onFirst().performClick()
+        repeat(30) { rule.mainClock.advanceTimeByFrame() }
+        rule.mainClock.advanceTimeBy(500)
+        rule.onRoot().captureRoboImage("build/screenshots/22_in_kalender_eintragen.png")
+        assertEquals(1, rule.onAllNodesWithText("Kino", useUnmergedTree = true).fetchSemanticsNodes().size)
+        rule.mainClock.autoAdvance = true
         // Nicht verbunden, Einladung liegt als Mail vor -> wird automatisch gefunden
         fam.disconnect()
         db.insertMessage(Message(accountId = a, folderId = inbox, uid = 2, messageId = "<einl@x>", threadKey = Threads.key(a, "Unser Kalender", "2"),

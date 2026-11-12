@@ -10,6 +10,19 @@ object I18n {
     fun german(): Boolean = Locale.getDefault().language == "de"
 
     val en: Map<String, String> = hashMapOf(
+        "📅 In Kalender" to "📅 Add to calendar",
+        "Mail nicht gefunden" to "Email not found",
+        "Bitte mindestens eine Person auswählen" to "Please select at least one person",
+        "Nicht eingetragen: {0}" to "Not added: {0}",
+        "Mailwerk ist noch nicht mit dem Familienkalender verbunden." to "Mailwerk is not connected to the family calendar yet.",
+        "Jetzt verbinden (Code {0})" to "Connect now (code {0})",
+        "Titel" to "Title",
+        "Ganztägig" to "All day",
+        "Ort (optional)" to "Place (optional)",
+        "Für wen?" to "For whom?",
+        "Keine Personen gefunden – unter Einstellungen → Familienkalender „Personen neu laden“." to "No people found – use “Reload people” under Settings → Family calendar.",
+        "Eintragen" to "Add",
+        "OK" to "OK",
         "✓ Kalender-Server erreichbar" to "✓ Calendar server reachable",
         "⚠ {0} – bitte „Trennen“ und neu verbinden" to "⚠ {0} – please “Disconnect” and connect again",
         "Letzter Fehler beim Eintragen: {0}" to "Last error while adding: {0}",

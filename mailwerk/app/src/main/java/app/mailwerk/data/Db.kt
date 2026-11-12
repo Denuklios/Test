@@ -263,6 +263,14 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         }, SQLiteDatabase.CONFLICT_IGNORE)
     }
 
+    fun replaceInvite(msgId: Long, accountId: Long, ics: String, status: String, eventId: String, info: String) {
+        writableDatabase.insertWithOnConflict("cal_invites", null, ContentValues().apply {
+            put("msg_id", msgId); put("account_id", accountId); put("ics", ics.take(300_000)); put("status", status)
+            put("event_id", eventId); put("info", info); put("at", System.currentTimeMillis())
+        }, SQLiteDatabase.CONFLICT_REPLACE)
+        notifyChanged()
+    }
+
     private fun Cursor.toInvite() = Invite(getLong(0), getLong(1), getString(2) ?: "", getString(3) ?: "", getString(4) ?: "", getString(5) ?: "")
     private val inviteCols = "SELECT msg_id, account_id, ics, status, event_id, info FROM cal_invites"
 

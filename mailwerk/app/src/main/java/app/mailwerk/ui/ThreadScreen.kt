@@ -209,6 +209,13 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
         }
         InviteCard(vm, m)
         JoinCalendarCard(vm, m)
+        if (expanded) {
+            var calOpen by remember(m.id) { mutableStateOf(false) }
+            // jederzeit von Hand in den Familienkalender eintragen
+            AssistChip(onClick = { calOpen = true }, label = { Text(tr("📅 In Kalender")) },
+                modifier = Modifier.padding(horizontal = 12.dp))
+            if (calOpen) AddToCalendarDialog(vm, m) { calOpen = false }
+        }
         if (expanded && sanitized == null) Text(m.snippet, Modifier.padding(horizontal = 16.dp, vertical = 8.dp),
             style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
         val sanitized = sanitized

@@ -1,6 +1,6 @@
 {
-  "versionCode": 24,
-  "versionName": "1.17",
+  "versionCode": 25,
+  "versionName": "1.18",
   "apk": "Mailwerk.apk",
-  "notes": "Familienkalender: Termine wie „Morgen ins Kino um 20:00“ werden erkannt, Verbindung und Fehler sichtbar"
+  "notes": "Neu: Knopf „📅 In Kalender“ in jeder Mail"
 }

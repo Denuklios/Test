@@ -192,4 +192,22 @@ object Ics {
             }
         return Triple(rep, until, "")
     }
+
+    private fun esc(v: String) = v.replace("\\", "\\\\").replace("\n", "\\n").replace(",", "\\,").replace(";", "\\;")
+
+    /** Termin als kleine .ics (für die Anzeige in der Mail) */
+    fun build(ev: IcsEvent, extra: String = ""): String = buildString {
+        append("BEGIN:VCALENDAR\r\nVERSION:2.0\r\nPRODID:-//Mailwerk//DE\r\n").append(extra).append("BEGIN:VEVENT\r\n")
+        append("UID:").append(esc(ev.uid)).append("\r\n")
+        if (ev.allDay) {
+            append("DTSTART;VALUE=DATE:").append(ev.start.format(d)).append("\r\n")
+            append("DTEND;VALUE=DATE:").append(ev.end.plusDays(1).format(d)).append("\r\n")
+        } else {
+            append("DTSTART:").append(ev.start.format(dt)).append("\r\n")
+            append("DTEND:").append(ev.end.format(dt)).append("\r\n")
+        }
+        append("SUMMARY:").append(esc(ev.summary)).append("\r\n")
+        if (ev.location.isNotBlank()) append("LOCATION:").append(esc(ev.location)).append("\r\n")
+        append("END:VEVENT\r\nEND:VCALENDAR\r\n")
+    }
 }
