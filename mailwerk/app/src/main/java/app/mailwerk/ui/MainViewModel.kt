@@ -70,6 +70,7 @@ sealed interface Screen {
     data class Rules(val prefill: app.mailwerk.mail.Rule? = null) : Screen
     data object Blocklist : Screen
     data object Vacation : Screen
+    data object FamilyCalendar : Screen
 }
 
 data class Snack(val text: String, val actionLabel: String? = null, val action: (() -> Unit)? = null)

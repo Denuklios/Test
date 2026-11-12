@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.StateFlow
  * Lokale Datenbank (Offline-Speicher aller Mails). Bewusst ohne ORM gehalten.
  * Jede Schreiboperation erhöht [changes], damit die Oberfläche neu lädt.
  */
-class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 7) {
+class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db", null, 8) {
 
     private val _changes = MutableStateFlow(0L)
     val changes: StateFlow<Long> = _changes
@@ -74,10 +74,18 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         db.execSQL("""CREATE TABLE IF NOT EXISTS rules(id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, enabled INTEGER, account_id INTEGER,
             field TEXT, op TEXT, value TEXT, action TEXT, arg TEXT, stop INTEGER, position INTEGER)""")
         db.execSQL("CREATE TABLE IF NOT EXISTS vacation_replied(address TEXT, account_id INTEGER, at INTEGER, PRIMARY KEY(address, account_id))")
+        createV8(db)
+    }
+
+    /** Kalender-Einladungen aus Mails (für den Familienkalender) */
+    private fun createV8(db: SQLiteDatabase) {
+        db.execSQL("""CREATE TABLE IF NOT EXISTS cal_invites(msg_id INTEGER PRIMARY KEY REFERENCES messages(id) ON DELETE CASCADE,
+            account_id INTEGER, ics TEXT, status TEXT, event_id TEXT, info TEXT, at INTEGER)""")
     }
 
     override fun onUpgrade(db: SQLiteDatabase, oldVersion: Int, newVersion: Int) {
         if (oldVersion < 2) shrinkHugeRows(db)
+        if (oldVersion < 8 && newVersion >= 8) createV8(db)
         if (oldVersion < 7 && newVersion >= 7) {
             runCatching { db.execSQL("ALTER TABLE messages ADD COLUMN read_at INTEGER DEFAULT 0") }
             runCatching { db.execSQL("ALTER TABLE messages ADD COLUMN receipt_to TEXT") }
@@ -234,6 +242,29 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
             n += writableDatabase.update("messages", ContentValues().apply { put("read_at", at) }, "message_id=? AND read_at=0", arrayOf(id))
         }
         return n
+    }
+
+    // ---- Kalender-Einladungen
+    data class Invite(val msgId: Long, val accountId: Long, val ics: String, val status: String, val eventId: String, val info: String)
+
+    fun saveInvite(msgId: Long, accountId: Long, ics: String) {
+        writableDatabase.insertWithOnConflict("cal_invites", null, ContentValues().apply {
+            put("msg_id", msgId); put("account_id", accountId); put("ics", ics.take(300_000)); put("status", ""); put("at", System.currentTimeMillis())
+        }, SQLiteDatabase.CONFLICT_IGNORE)
+    }
+
+    private fun Cursor.toInvite() = Invite(getLong(0), getLong(1), getString(2) ?: "", getString(3) ?: "", getString(4) ?: "", getString(5) ?: "")
+    private val inviteCols = "SELECT msg_id, account_id, ics, status, event_id, info FROM cal_invites"
+
+    fun invite(msgId: Long): Invite? = readableDatabase.rawQuery("$inviteCols WHERE msg_id=?", arrayOf("$msgId")).use { c -> if (c.moveToFirst()) c.toInvite() else null }
+
+    fun pendingInvites(): List<Invite> = readableDatabase.rawQuery("$inviteCols WHERE status='' ORDER BY msg_id", null).use { c ->
+        buildList { while (c.moveToNext()) add(c.toInvite()) }
+    }
+
+    fun setInviteStatus(msgId: Long, status: String, eventId: String, info: String) {
+        writableDatabase.update("cal_invites", ContentValues().apply { put("status", status); put("event_id", eventId); put("info", info) }, "msg_id=?", arrayOf("$msgId"))
+        notifyChanged()
     }
 
     fun clearReceiptRequest(id: Long) {

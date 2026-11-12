@@ -1,6 +1,6 @@
 {
-  "versionCode": 16,
-  "versionName": "1.9.1",
+  "versionCode": 17,
+  "versionName": "1.10",
   "apk": "Mailwerk.apk",
-  "notes": "Neuer Kopfbereich: Posteingang-Titel, Auswahl-Knopf und ausfahrende Suche"
+  "notes": "Familienkalender: Termine aus E-Mail-Einladungen landen automatisch im gemeinsamen Kalender – in der Farbe des Empfängers"
 }

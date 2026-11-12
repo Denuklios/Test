@@ -205,6 +205,7 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
                 TextButton(onClick = { vm.db.clearReceiptRequest(m.id) }) { Text(tr("Ignorieren")) }
             }
         }
+        InviteCard(vm, m)
         if (expanded && sanitized != null) {
             // Datenschutz-Leiste: blockierte Tracker, Bilder, Abmelden
             val chips = sanitized.trackers > 0 || sanitized.remoteImages > 0 || m.unsubscribe != null
@@ -283,4 +284,74 @@ private fun openFile(ctx: Context, f: java.io.File, mime: String) {
     val uri = FileProvider.getUriForFile(ctx, "${ctx.packageName}.files", f)
     val i = Intent(Intent.ACTION_VIEW).setDataAndType(uri, mime.ifBlank { "*/*" }).addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
     try { ctx.startActivity(Intent.createChooser(i, f.name)) } catch (_: ActivityNotFoundException) {}
+}
+
+/** Kalender-Einladung in der Mail: Termin + Status im Familienkalender (in der Farbe des Empfängers). */
+@Composable
+private fun InviteCard(vm: MainViewModel, m: Message) {
+    val changes by vm.db.changes.collectAsState()
+    val inv by produceState<app.mailwerk.data.Db.Invite?>(null, m.id, changes) { value = withContext(Dispatchers.IO) { vm.db.invite(m.id) } }
+    val i = inv ?: return
+    val events = remember(i.ics) { runCatching { app.mailwerk.mail.Ics.parse(i.ics) }.getOrDefault(emptyList()).filter { !it.isReply } }
+    val ev = events.firstOrNull() ?: return
+    val fam = vm.repo.family
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    val member = fam.memberFor(m.accountId)
+    val accent = member?.let { Color(it.color) } ?: MaterialTheme.colorScheme.primary
+    fun add(memberId: String? = null) {
+        busy = true
+        scope.launch { val r = vm.repo.addInviteToCalendar(m.id, memberId); busy = false; vm.snack(r) }
+    }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clip(RoundedCornerShape(18.dp))
+        .background(accent.copy(alpha = 0.12f)).padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text("📅", style = MaterialTheme.typography.titleMedium); Spacer(Modifier.width(8.dp))
+            Column(Modifier.weight(1f)) {
+                Text((if (ev.isCancel) tr("Abgesagt: ") else "") + ev.summary.ifBlank { tr("Termin") }, fontWeight = FontWeight.SemiBold,
+                    maxLines = 2, overflow = TextOverflow.Ellipsis)
+                Text(inviteWhen(ev), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (ev.location.isNotBlank()) Text("📍 " + ev.location, style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+        }
+        when {
+            i.status == app.mailwerk.data.FamilyCalendar.STATUS_ADDED || i.status == app.mailwerk.data.FamilyCalendar.STATUS_UPDATED ||
+                i.status == app.mailwerk.data.FamilyCalendar.STATUS_CANCELLED -> Row(verticalAlignment = Alignment.CenterVertically) {
+                member?.let { MemberDot(it) }; Spacer(Modifier.width(6.dp))
+                Text(when (i.status) {
+                    app.mailwerk.data.FamilyCalendar.STATUS_CANCELLED -> tr("Absage im Familienkalender übernommen")
+                    app.mailwerk.data.FamilyCalendar.STATUS_UPDATED -> tr("Im Familienkalender aktualisiert · {0}", i.info)
+                    else -> tr("Im Familienkalender eingetragen · {0}", i.info)
+                }, style = MaterialTheme.typography.labelLarge, color = accent)
+            }
+            !fam.connected -> TextButton(onClick = { vm.push(Screen.FamilyCalendar) }) { Text(tr("Mit Familienkalender verbinden")) }
+            member == null -> {
+                Text(tr("Für wen ist der Termin?"), style = MaterialTheme.typography.bodySmall)
+                Row(Modifier.horizontalScroll(rememberScrollState()), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    fam.members.forEach { mem -> MemberChip(mem, false) { if (!busy) add(mem.id) } }
+                }
+            }
+            else -> Row(verticalAlignment = Alignment.CenterVertically) {
+                if (i.info.isNotBlank() && i.status == app.mailwerk.data.FamilyCalendar.STATUS_ERROR)
+                    Text(i.info, Modifier.weight(1f), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.error, maxLines = 2)
+                else Spacer(Modifier.weight(1f))
+                TextButton(onClick = { add() }, enabled = !busy) {
+                    MemberDot(member); Spacer(Modifier.width(6.dp))
+                    Text(if (i.status == app.mailwerk.data.FamilyCalendar.STATUS_ERROR) tr("Erneut versuchen") else tr("In Familienkalender eintragen"))
+                }
+            }
+        }
+    }
+}
+
+private fun inviteWhen(ev: app.mailwerk.mail.IcsEvent): String {
+    val loc = java.util.Locale.getDefault()
+    val day = java.time.format.DateTimeFormatter.ofPattern("EE, d. MMM yyyy", loc)
+    val time = java.time.format.DateTimeFormatter.ofPattern("HH:mm", loc)
+    return if (ev.allDay) {
+        if (ev.end.toLocalDate() == ev.start.toLocalDate()) tr("{0} · ganztägig", ev.start.format(day))
+        else "${ev.start.format(day)} – ${ev.end.format(day)}"
+    } else if (ev.end.toLocalDate() == ev.start.toLocalDate()) "${ev.start.format(day)} · ${ev.start.format(time)}–${ev.end.format(time)}"
+    else "${ev.start.format(day)} ${ev.start.format(time)} – ${ev.end.format(day)} ${ev.end.format(time)}"
 }

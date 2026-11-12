@@ -27,6 +27,7 @@ import java.net.URL
 class Repository private constructor(private val ctx: Context) {
     val db = Db.get(ctx)
     val prefs = Prefs(ctx)
+    val family = FamilyCalendar(ctx)
     private val syncLock = Mutex()
     /** Für Tests austauschbar (Robolectric hat keinen Android-Keystore). */
     internal var passwordOf: (Account) -> String = { a -> if (a.isOAuth) OAuth.freshToken(ctx, a) else Crypto.decrypt(a.passwordEnc) }
@@ -103,6 +104,7 @@ class Repository private constructor(private val ctx: Context) {
                 db.notifyChanged()
             }
             processTimers()
+            runCatching { processInvites() }
             db.notifyChanged()
             errors
         }
@@ -179,6 +181,8 @@ class Repository private constructor(private val ctx: Context) {
                         inReplyTo = p.inReplyTo, references = p.references, receiptTo = receiptTo,
                     ).let { if (isMdn) it.copy(category = Category.NOTIFICATION) else it }
                     val id = db.insertMessage(m, p.attachments.map { Attachment(messageId = 0, partPath = it.path, name = it.name, mime = it.mime, size = it.size) })
+                    if (id > 0 && !isSent && f.role != FolderRole.SENT && f.role != FolderRole.JUNK && f.role != FolderRole.TRASH)
+                        p.calendar?.let { db.saveInvite(id, acc.id, it) }
                     if (id > 0 && !m.seen && f.role == FolderRole.INBOX && f.lastUid > 0) fresh += m.copy(id = id)
                     if (id > 0 && f.role == FolderRole.INBOX && !isSent && !initial) runCatching { maybeVacationReply(c, acc, p, m.category) }
                 }
@@ -188,6 +192,51 @@ class Repository private constructor(private val ctx: Context) {
                     if (show.isNotEmpty()) Notifier.newMail(ctx, acc, show)
                 }
             }
+        }
+    }
+
+    // ================================================================= Familienkalender
+    /** Neue Einladungen automatisch in den Familienkalender eintragen (in der Farbe des Empfängers). */
+    fun processInvites() {
+        if (!family.connected || !family.autoAdd) return
+        for (inv in db.pendingInvites()) {
+            if (family.memberFor(inv.accountId) == null) continue // Konto noch keinem Familienmitglied zugeordnet
+            addInvite(inv, manual = false)
+        }
+    }
+
+    /** Einladung einer Mail eintragen (Knopf in der Mail). Liefert eine Meldung für die Oberfläche. */
+    suspend fun addInviteToCalendar(msgId: Long, memberId: String? = null): String = withContext(Dispatchers.IO) {
+        val inv = db.invite(msgId) ?: return@withContext tr("Keine Einladung gefunden")
+        if (!family.connected) return@withContext tr("Familienkalender ist nicht verbunden (Einstellungen → Familienkalender)")
+        if (memberId != null) family.setMember(inv.accountId, memberId)
+        addInvite(inv, manual = true)
+        val now = db.invite(msgId)
+        when (now?.status) {
+            FamilyCalendar.STATUS_ADDED, FamilyCalendar.STATUS_UPDATED -> tr("Im Familienkalender eingetragen")
+            FamilyCalendar.STATUS_CANCELLED -> tr("Absage im Familienkalender übernommen")
+            else -> now?.info?.ifBlank { null } ?: tr("Nicht eingetragen")
+        }
+    }
+
+    private fun addInvite(inv: Db.Invite, manual: Boolean) {
+        val member = family.memberFor(inv.accountId)
+            ?: return db.setInviteStatus(inv.msgId, FamilyCalendar.STATUS_PENDING, "", tr("Bitte zuerst festlegen, wer dieses Konto nutzt"))
+        val events = runCatching { app.mailwerk.mail.Ics.parse(inv.ics) }.getOrDefault(emptyList())
+        if (events.isEmpty() || events.all { it.isReply }) return db.setInviteStatus(inv.msgId, FamilyCalendar.STATUS_IGNORED, "", "")
+        val now = java.time.LocalDateTime.now()
+        // Beim automatischen Eintragen vergangene Termine überspringen (z. B. beim ersten Laden alter Mails)
+        if (!manual && events.all { it.repeat == "none" && it.end.isBefore(now.minusDays(1)) })
+            return db.setInviteStatus(inv.msgId, STATUS_OLD, "", "")
+        val msg = db.message(inv.msgId)
+        val source = msg?.let { listOf(it.fromName.ifBlank { it.fromAddr }, it.subject).filter { s -> s.isNotBlank() }.joinToString(" – ") } ?: ""
+        try {
+            var last: FamilyCalendar.Result? = null
+            for (ev in events.filter { !it.isReply }) last = family.apply(ev, member, source)
+            db.setInviteStatus(inv.msgId, last!!.status, last.eventId, member.name)
+        } catch (e: Exception) {
+            // bleibt offen und wird beim nächsten Abgleich erneut versucht
+            db.setInviteStatus(inv.msgId, if (manual) FamilyCalendar.STATUS_ERROR else FamilyCalendar.STATUS_PENDING, "", e.message ?: friendly(e))
         }
     }
 
@@ -499,6 +548,8 @@ class Repository private constructor(private val ctx: Context) {
     }
 
     companion object {
+        /** Einladung für einen vergangenen Termin – nicht automatisch eingetragen */
+        const val STATUS_OLD = "old"
         @Volatile private var inst: Repository? = null
         fun get(ctx: Context) = inst ?: synchronized(this) { inst ?: Repository(ctx.applicationContext).also { inst = it } }
 

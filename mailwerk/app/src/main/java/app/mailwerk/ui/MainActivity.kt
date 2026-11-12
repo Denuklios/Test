@@ -84,6 +84,7 @@ class MainActivity : ComponentActivity() {
                         is Screen.Rules -> RulesScreen(vm, screen.prefill)
                         Screen.Blocklist -> BlocklistScreen(vm)
                         Screen.Vacation -> VacationScreen(vm)
+                        Screen.FamilyCalendar -> FamilyCalendarScreen(vm)
                     }
                 }
                 StartOverlay(coldStart)

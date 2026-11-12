@@ -22,6 +22,7 @@ import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.Rule
 import androidx.compose.material.icons.outlined.Block
 import androidx.compose.material.icons.outlined.BeachAccess
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material.icons.outlined.ErrorOutline
 import androidx.compose.material.icons.outlined.Refresh
@@ -112,6 +113,12 @@ fun SettingsScreen(vm: MainViewModel) {
                     leadingContent = { Icon(Icons.Outlined.Block, null) }, modifier = Modifier.clickable { vm.push(Screen.Blocklist) })
                 ListItem(headlineContent = { Text(tr("Abwesenheitsnotiz")) }, supportingContent = { Text(if (p.vacationActive()) tr("Aktiv") else if (p.vacationOn) tr("Geplant") else tr("Aus")) },
                     leadingContent = { Icon(Icons.Outlined.BeachAccess, null) }, modifier = Modifier.clickable { vm.push(Screen.Vacation) })
+
+                SectionTitle(tr("Familienkalender"))
+                val fam = vm.repo.family
+                ListItem(headlineContent = { Text(tr("Familienkalender")) },
+                    supportingContent = { Text(if (fam.connected) tr("Verbunden mit „{0}“ – Termine aus Mails werden eingetragen", fam.groupName) else tr("Termine aus E-Mails automatisch in den gemeinsamen Kalender")) },
+                    leadingContent = { Icon(Icons.Outlined.CalendarMonth, null) }, modifier = Modifier.clickable { vm.push(Screen.FamilyCalendar) })
 
                 SectionTitle(tr("Senden"))
                 Choice(tr("„Senden rückgängig“-Zeit"), listOf(0, 5, 10, 20, 30), p.undoSeconds, { if (it == 0) tr("Aus") else "$it s" }) { p.undoSeconds = it; changed() }

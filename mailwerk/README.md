@@ -49,7 +49,26 @@ Karten-Layout mit Datumsgruppen, farbige Kategorie-Tabs, heller und dunkler Modu
 | Passwörter im Hardware-Schlüsselspeicher | FairEmail | ✅ Android-Keystore (AES-GCM) |
 | Eigene Ordner anlegen, umbenennen, löschen (auch im Posteingang) | Outlook | ✅ direkt auf dem Server |
 | Lesebestätigung anfordern / senden | Outlook | ✅ „✓✓ Gelesen am …“ an der gesendeten Mail |
+| Termine aus Einladungen in den **Familienkalender** – in der Farbe des Empfängers | – | ✅ siehe unten |
 | JavaScript in Mails | – | ❌ grundsätzlich aus (Sicherheit) |
+
+## Familienkalender
+
+Mailwerk lässt sich mit dem gemeinsamen **Familienkalender** (eigene Kalender-App mit Server) verknüpfen:
+Einstellungen → **Familienkalender** → Einladung aus der Kalender-App einfügen (Server + Gruppen-Code) → Verbinden.
+Danach legt man pro Postfach fest, wem es gehört (wird über den Vornamen meist automatisch erkannt).
+
+- Kommt eine **Termin-Einladung per Mail** (Outlook, Gmail, iCloud, Schul-/Arzt-Systeme – alles mit `.ics`/`text/calendar`),
+  trägt Mailwerk den Termin automatisch in den Familienkalender ein – **in der Farbe der Person, die die Mail bekommen hat**.
+  Alle in der Familie sehen ihn sofort in der Kalender-App.
+- Bekommen **mehrere** Familienmitglieder dieselbe Einladung, entsteht **ein** Termin mit allen Empfängern (alle Farben).
+- **Änderungen** werden übernommen, **Absagen** nehmen die Person aus dem Termin (der letzte löscht ihn).
+- Übernommen werden Titel, Zeit (Zeitzonen inkl. Outlook-Namen), ganztägig/mehrtägig, Ort, Beschreibung, Erinnerung und
+  Wiederholungen (täglich, wöchentlich, alle 2 Wochen, monatlich, jährlich).
+- In der Mail zeigt eine Karte den Termin und „Im Familienkalender eingetragen · Name“ in dessen Farbe; alte Einladungen
+  (vergangene Termine) werden nicht automatisch eingetragen, lassen sich aber per Knopf übernehmen.
+
+<img src="screenshots/19_einladung_familienkalender.png" width="260"> <img src="screenshots/20_familienkalender_einstellungen.png" width="260">
 
 ## Push, Updates, Konten später einrichten
 
@@ -113,5 +132,4 @@ installieren lassen). Für eine Veröffentlichung im Play Store einen eigenen, g
 - `ScreenshotTest` – rendert die Oberfläche (Robolectric) und erzeugt die Bilder oben
 
 ## Noch nicht enthalten (mögliche nächste Schritte)
-- Englische Übersetzung der Oberfläche (für Nutzer außerhalb des deutschsprachigen Raums)
-- Kalender, Exchange/ActiveSync, PGP/S-MIME-Verschlüsselung, Rich-Text-Editor, App-Sperre per Fingerabdruck
+- Eigene Kalenderansicht, Exchange/ActiveSync, PGP/S-MIME-Verschlüsselung, Rich-Text-Editor, App-Sperre per Fingerabdruck

@@ -51,6 +51,8 @@ data class ParsedMessage(
     val attachments: List<ParsedAttachment>,
     val inReplyTo: String?,
     val references: String?,
+    /** Kalender-Einladung (iCalendar-Text), falls vorhanden */
+    val calendar: String? = null,
 )
 
 data class RemoteFolder(val fullName: String, val display: String, val role: String?, val selectable: Boolean)
@@ -258,6 +260,7 @@ class MailClient(private val acc: Account, private val password: String) {
             attachments = body.attachments,
             inReplyTo = headers["in-reply-to"],
             references = headers["references"],
+            calendar = body.calendar,
         )
     }
 
@@ -298,11 +301,19 @@ class MailClient(private val acc: Account, private val password: String) {
         val inline = mutableMapOf<String, String>() // cid -> data-URI
         var inlineBytes = 0
         val attachments = mutableListOf<ParsedAttachment>()
+        var calendar: String? = null
+
+        /** Einladung (text/calendar oder .ics-Anhang) direkt mitlesen – klein und für den Familienkalender nötig */
+        private fun grabCalendar(p: Part) {
+            if (calendar != null || p.size > 300_000) return
+            calendar = runCatching { p.inputStream.use { String(it.readBytes(), Charsets.UTF_8) } }.getOrNull()?.takeIf { it.contains("BEGIN:VEVENT", true) }
+        }
 
         fun walk(p: Part, path: String) {
             val type = runCatching { p.contentType.lowercase() }.getOrDefault("text/plain")
             val disp = runCatching { p.disposition?.lowercase() }.getOrNull()
             val fileName = runCatching { p.fileName?.let { MimeUtility.decodeText(it) } }.getOrNull()
+            if (type.startsWith("text/calendar") || type.startsWith("application/ics") || fileName?.endsWith(".ics", true) == true) grabCalendar(p)
             when {
                 type.startsWith("multipart/") -> {
                     val mp = p.content as Multipart
