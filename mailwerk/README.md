@@ -67,7 +67,8 @@ es reicht der Gruppen-Code. Liegt die Einladung in der Zwischenablage oder kam s
 - Bekommen **mehrere** Familienmitglieder dieselbe Einladung, entsteht **ein** Termin mit allen Empfängern (alle Farben).
 - Auch **Termine und Fristen im normalen Mailtext** werden erkannt – z. B. „melde dich bis Montag 16:00“, „am 24.11. um 19:30“,
   „morgen um 10 Uhr“, „Anmeldeschluss: 15.12.“, „on Friday at 3pm“. Fristen erscheinen als „Frist: Betreff“ mit Erinnerung
-  zwei Stunden vorher. Nur bei persönlichen Mails (nicht bei Newslettern), zitierte ältere Mails werden ignoriert;
+  zwei Stunden vorher, ein genannter Ort („in Flensburg“) wird übernommen. Auch eigene Mails zählen (an jemanden geschrieben
+  oder an sich selbst). Nur bei persönlichen Mails (nicht bei Newslettern), zitierte ältere Mails werden ignoriert;
   abschaltbar unter Einstellungen → Familienkalender.
 - **Änderungen** werden übernommen, **Absagen** nehmen die Person aus dem Termin (der letzte löscht ihn).
 - Übernommen werden Titel, Zeit (Zeitzonen inkl. Outlook-Namen), ganztägig/mehrtägig, Ort, Beschreibung, Erinnerung und

@@ -40,6 +40,16 @@ class TextDatesTest {
         assertEquals(LocalDateTime.of(2026, 11, 18, 0, 0), one("Bitte bis Mittwoch zurückmelden.").start)
     }
 
+    @Test fun placeFromSentence() {
+        val f = one("treffen morgen um 19:00 in Flensburg")
+        assertEquals(LocalDateTime.of(2026, 11, 12, 19, 0), f.start); assertEquals("Flensburg", f.location)
+        assertEquals("Café Central", one("Wir sehen uns am Freitag um 12 Uhr im Café Central.").location)
+        assertEquals("Oma", one("Sonntag 15:00 Kaffee bei Oma").location)
+        assertEquals("", one("Bitte bis Montag 16:00 melden, dann ist alles in Ordnung.").location)
+        val ev = Ics.parse(TextDates.toIcs(f, "u", "Treffen"), ZoneId.of("Europe/Berlin")).single()
+        assertEquals("Flensburg", ev.location)
+    }
+
     @Test fun noFalsePositives() {
         none("Guten Morgen Sandra, wie geht es dir?")
         none("Ich melde mich morgen.")

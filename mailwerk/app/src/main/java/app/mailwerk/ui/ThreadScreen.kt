@@ -218,7 +218,10 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
                 if (m.unsubscribe != null) AssistChip(onClick = { vm.unsubscribe(m) { openUrl(ctx, it) } },
                     label = { Text(tr("Abmelden")) }, leadingIcon = { Icon(Icons.Outlined.Unsubscribe, null, Modifier.size(18.dp)) })
             }
-            MailWebView(sanitized.html)
+            MailWebView(sanitized.html) { url ->
+                // Link auf den Kalender-Server (aus einer Familienkalender-Einladung): nicht im Browser öffnen, sondern verbinden
+                if (app.mailwerk.data.Api.isCalendarApiLink(url)) { vm.push(Screen.FamilyCalendar); true } else false
+            }
             if (atts.isNotEmpty()) Column(Modifier.padding(12.dp)) {
                 atts.forEach { a ->
                     Row(Modifier.fillMaxWidth().padding(vertical = 3.dp)
@@ -250,7 +253,7 @@ private fun RoundAction(icon: androidx.compose.ui.graphics.vector.ImageVector, d
 
 @SuppressLint("SetJavaScriptEnabled")
 @Composable
-private fun MailWebView(html: String) {
+private fun MailWebView(html: String, onLink: (String) -> Boolean = { false }) {
     Box(Modifier.fillMaxWidth().heightIn(min = 40.dp)) {
         AndroidView(factory = { ctx ->
             WebView(ctx).apply {
@@ -265,7 +268,8 @@ private fun MailWebView(html: String) {
                 setBackgroundColor(android.graphics.Color.TRANSPARENT)
                 webViewClient = object : WebViewClient() {
                     override fun shouldOverrideUrlLoading(view: WebView, request: WebResourceRequest): Boolean {
-                        openUrl(view.context, request.url.toString()); return true
+                        val u = request.url.toString()
+                        if (!onLink(u)) openUrl(view.context, u); return true
                     }
                 }
             }

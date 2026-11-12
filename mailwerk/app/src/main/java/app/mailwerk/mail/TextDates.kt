@@ -15,6 +15,8 @@ data class FoundDate(
     val deadline: Boolean,
     /** der Satz, in dem das Datum steht */
     val sentence: String,
+    /** Ort, falls genannt („in Flensburg“, „bei Oma“) */
+    val location: String = "",
 )
 
 /**
@@ -102,11 +104,26 @@ object TextDates {
             // nur Zukunft (ab Versand) und höchstens ~1 Jahr voraus
             if (start.toLocalDate().isBefore(sent.toLocalDate()) || start.isAfter(sent.plusDays(400))) continue
             if (time != null && start.isBefore(sent)) continue
-            val f = FoundDate(start, time == null, deadline, sentence(body, m.range.first, m.range.last))
+            val sent0 = sentence(body, m.range.first, m.range.last)
+            val f = FoundDate(start, time == null, deadline, sent0, location(sent0))
             if (res.none { it.start == f.start }) res += f
             if (res.size >= max) break
         }
         return res
+    }
+
+    private val placeStop = setOf("ordnung", "ruhe", "zukunft", "kürze", "kuerze", "eile", "bezug", "zusammenarbeit", "the", "der", "die", "das", "touch")
+    private val placeRx = Regex("(?<![\\p{L}\\d])(?:in|im|bei|beim|at|auf dem|auf der)\\s+((?:der |dem |den |the )?\\p{Lu}[\\p{L}\\d.'-]*(?:[ -](?:[\\p{Lu}\\d][\\p{L}\\d.'-]*|am|an der|im))*)")
+
+    /** Ort aus dem Satz: „in Flensburg“, „bei Oma“, „im Café Central“, „at Starbucks“ */
+    fun location(sentence: String): String {
+        for (m in placeRx.findAll(sentence)) {
+            val place = m.groupValues[1].trim().trimEnd('.', ',', '!', '?').removeSuffix(" am").removeSuffix(" im").trim()
+            val first = place.removePrefix("der ").removePrefix("dem ").removePrefix("den ").removePrefix("the ").substringBefore(' ').lowercase()
+            if (first in placeStop || first in weekdays || first in months || place.length < 2) continue
+            return place
+        }
+        return ""
     }
 
     private fun sentence(body: String, from: Int, to: Int): String {
@@ -172,6 +189,7 @@ object TextDates {
             append("DTEND:").append((if (f.deadline) f.start else f.start.plusHours(1)).format(icsFmt)).append("\r\n")
         }
         append("SUMMARY:").append(esc(title)).append("\r\n")
+        if (f.location.isNotBlank()) append("LOCATION:").append(esc(f.location)).append("\r\n")
         append("DESCRIPTION:").append(esc("„${f.sentence}“")).append("\r\n")
         if (!f.allDay) append("BEGIN:VALARM\r\nTRIGGER:-PT${if (f.deadline) 120 else 60}M\r\nACTION:DISPLAY\r\nEND:VALARM\r\n")
         append("END:VEVENT\r\nEND:VCALENDAR\r\n")

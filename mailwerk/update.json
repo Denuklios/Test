@@ -1,6 +1,6 @@
 {
-  "versionCode": 19,
-  "versionName": "1.12",
+  "versionCode": 20,
+  "versionName": "1.13",
   "apk": "Mailwerk.apk",
-  "notes": "Familienkalender einfacher verbinden: nur noch der Code nötig, Einladungen aus Mails und Zwischenablage werden automatisch erkannt"
+  "notes": "Familienkalender: Termine auch aus eigenen Mails, Ort wird übernommen, Server-Link in der Einladung öffnet das Verbinden"
 }

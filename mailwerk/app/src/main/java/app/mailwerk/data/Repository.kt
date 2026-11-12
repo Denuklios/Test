@@ -181,8 +181,12 @@ class Repository private constructor(private val ctx: Context) {
                         inReplyTo = p.inReplyTo, references = p.references, receiptTo = receiptTo,
                     ).let { if (isMdn) it.copy(category = Category.NOTIFICATION) else it }
                     val id = db.insertMessage(m, p.attachments.map { Attachment(messageId = 0, partPath = it.path, name = it.name, mime = it.mime, size = it.size) })
-                    if (id > 0 && !isSent && f.role != FolderRole.SENT && f.role != FolderRole.JUNK && f.role != FolderRole.TRASH)
-                        (p.calendar ?: detectedIcs(p, m, initial))?.let { db.saveInvite(id, acc.id, it) }
+                    if (id > 0 && f.role != FolderRole.JUNK && f.role != FolderRole.TRASH) {
+                        // Einladungen nur in empfangenen Mails; Termine im Text auch in eigenen Mails
+                        // („treffen morgen um 19:00“ an jemanden geschrieben oder an sich selbst)
+                        val ics = if (!isSent && f.role != FolderRole.SENT) p.calendar ?: detectedIcs(p, m, initial) else detectedIcs(p, m, initial)
+                        ics?.let { db.saveInvite(id, acc.id, it) }
+                    }
                     if (id > 0 && !m.seen && f.role == FolderRole.INBOX && f.lastUid > 0) fresh += m.copy(id = id)
                     if (id > 0 && f.role == FolderRole.INBOX && !isSent && !initial) runCatching { maybeVacationReply(c, acc, p, m.category) }
                 }
@@ -228,7 +232,7 @@ class Repository private constructor(private val ctx: Context) {
         if (initial || m.category != Category.PEOPLE || app.mailwerk.mail.RuleEngine.isAutomated(p.fromAddr, p.headers)) return null
         val sent = java.time.Instant.ofEpochMilli(m.date).atZone(java.time.ZoneId.systemDefault()).toLocalDateTime()
         val found = runCatching { app.mailwerk.mail.TextDates.find(m.bodyText ?: "", sent, max = 1) }.getOrDefault(emptyList()).firstOrNull() ?: return null
-        val subj = m.subject.replace(Regex("^((re|aw|wg|fw|fwd)\\s*:\\s*)+", RegexOption.IGNORE_CASE), "").trim().ifBlank { m.fromName.ifBlank { m.fromAddr } }
+        val subj = m.subject.replace(Regex("^((re|aw|wg|fw|fwd)\\s*:\\s*)+", RegexOption.IGNORE_CASE), "").trim().ifBlank { found.sentence.take(60) }
         val title = if (found.deadline) tr("Frist: {0}", subj) else subj
         return app.mailwerk.mail.TextDates.toIcs(found, "text-" + (m.messageId ?: "${m.accountId}-${m.uid}-${m.date}"), title)
     }

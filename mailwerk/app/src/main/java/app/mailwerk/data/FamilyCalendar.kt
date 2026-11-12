@@ -210,6 +210,10 @@ class Api(val baseUrl: String, val code: String) {
             return u
         }
 
+        /** Link auf die Schnittstelle des Kalender-Servers (…/api.php ohne Aktion) – im Browser nutzlos */
+        fun isCalendarApiLink(url: String): Boolean =
+            Regex("^https?://[^\\s]+/api\\.php/?(\\?(?!.*\\ba=).*)?$", RegexOption.IGNORE_CASE).matches(url.trim())
+
         /** Einladungstext der Kalender-App („Server: … Code: …“) zerlegen. */
         fun parseInvite(text: String): Pair<String?, String?> {
             val url = Regex("https?://\\S+").find(text)?.value?.replace(Regex("[).,]+$"), "")

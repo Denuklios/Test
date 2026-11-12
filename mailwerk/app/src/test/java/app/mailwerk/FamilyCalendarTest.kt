@@ -186,6 +186,9 @@ class IcsTest {
             "Server: https://www.example.org/kalender/api.php\nCode: K7MZ4QPA")
         assertEquals("https://www.example.org/kalender/api.php", url); assertEquals("K7MZ4QPA", code)
         assertEquals("https://example.org/kalender/api.php", Api.normalizeUrl("example.org/kalender/"))
+        assertTrue(Api.isCalendarApiLink("https://www.wunsch-fabrik.dk/kalender/api.php"))
+        assertFalse(Api.isCalendarApiLink("https://www.wunsch-fabrik.dk/kalender/api.php?a=photo&name=x"))
+        assertFalse(Api.isCalendarApiLink("https://www.wunsch-fabrik.dk/kalender/"))
     }
 }
 
@@ -297,6 +300,16 @@ class FamilyCalendarFlowTest {
         val frist = cal.events().single { it.getString("title") == "Frist: Turnier" }
         assertEquals("p1", frist.getString("ownerId")); assertEquals("16:00:00", frist.getString("start").substringAfter('T'))
         assertTrue(frist.getString("notes").contains("bis Montag 16:00"))
+
+        // Mail an sich selbst: „treffen morgen um 19:00 in Flensburg“ -> Termin mit Ort
+        val sm = MimeMessage(Session.getInstance(Properties()))
+        sm.setFrom(InternetAddress("mama@test.de", "Mama Muster")); sm.setRecipients(jakarta.mail.Message.RecipientType.TO, "mama@test.de")
+        sm.subject = "Test"; sm.setText("treffen morgen um 19:00 in Flensburg", "UTF-8"); sm.saveChanges()
+        gm.managers.imapHostManager.getInbox(gm.managers.userManager.getUser("mama@test.de")).store(sm)
+        assertTrue(repo.sync().isEmpty())
+        val treffen = cal.events().single { it.getString("title") == "Test" }
+        assertEquals("m1", treffen.getString("ownerId")); assertEquals("Flensburg", treffen.getString("location"))
+        assertEquals(FamilyCalendar.isoLocal(LocalDateTime.now().plusDays(1).withHour(19).withMinute(0)), treffen.getString("start"))
 
         // Erneuter Abgleich trägt nichts doppelt ein
         val saves = cal.saves.size
