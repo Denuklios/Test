@@ -4,6 +4,8 @@ import { Probe, autoStats } from './motion.js';
 import { addItem, saveToPhone, fileName, makeThumb, settings } from './store.js';
 import { icon } from './icons.js';
 import { toast, busy } from './app.js';
+import { Remover } from './remover.js';
+import { warmup } from './ai.js';
 
 const $ = (s) => document.querySelector(s);
 const TABS = [
@@ -29,6 +31,7 @@ export async function openEditor(item, { onClose } = {}) {
   const stage = ed.querySelector('.estage');
   const view = ed.querySelector('.ev');
   const maskC = ed.querySelector('.em');
+  maskC.style.opacity = '0.5';
   const tools = ed.querySelector('.etools');
   const R = new Renderer(view);
 
@@ -69,7 +72,7 @@ export async function openEditor(item, { onClose } = {}) {
     const sw = stage.clientWidth, sh = stage.clientHeight;
     const k = Math.min(sw / prev.width, sh / prev.height);
     for (const c of [view, maskC]) { c.style.width = `${prev.width * k}px`; c.style.height = `${prev.height * k}px`; }
-    if (maskC.width !== prev.width || maskC.height !== prev.height) { maskC.width = prev.width; maskC.height = prev.height; }
+    remover.setSize(prev.width, prev.height);
   }
   window.addEventListener('resize', layout);
 
@@ -78,88 +81,19 @@ export async function openEditor(item, { onClose } = {}) {
   cmp.onpointerdown = () => { comparing = true; draw(); };
   cmp.onpointerup = cmp.onpointerleave = () => { comparing = false; draw(); };
 
-  // Maske malen (Entfernen)
-  const mctx = maskC.getContext('2d');
-  let brush = 40, painting = false, erasing = false, hasMask = false;
+  // Gegenstände entfernen (KI)
+  const remover = new Remover({
+    maskC,
+    getBase: () => base,
+    getPreview: () => prev,
+    commit: (nb) => { push(); base = nb; makePreview(); toast('Entfernt – mit „Vorher" vergleichen'); },
+    toast, busy,
+    onChange: () => { if (curTab === 'erase') updateEraseInfo(); },
+  });
   maskC.style.pointerEvents = 'none';
-  const pos = (e) => { const r = maskC.getBoundingClientRect(); return { x: (e.clientX - r.left) / r.width * maskC.width, y: (e.clientY - r.top) / r.height * maskC.height, k: maskC.width / r.width }; };
-  let last = null;
-  const paint = (e) => {
-    const p = pos(e);
-    mctx.globalCompositeOperation = erasing ? 'destination-out' : 'source-over';
-    mctx.strokeStyle = mctx.fillStyle = 'rgba(255,40,60,0.55)';
-    mctx.lineCap = 'round'; mctx.lineWidth = brush * p.k;
-    mctx.beginPath();
-    if (last) { mctx.moveTo(last.x, last.y); mctx.lineTo(p.x, p.y); mctx.stroke(); }
-    else { mctx.arc(p.x, p.y, brush * p.k / 2, 0, Math.PI * 2); mctx.fill(); }
-    last = p; hasMask = true;
-  };
-  maskC.addEventListener('pointerdown', (e) => { painting = true; last = null; maskC.setPointerCapture(e.pointerId); paint(e); });
-  maskC.addEventListener('pointermove', (e) => { if (painting) paint(e); });
-  maskC.addEventListener('pointerup', () => { painting = false; last = null; });
-
-  async function removeObjects() {
-    if (!hasMask) { toast('Erst mit dem Finger über den Gegenstand malen'); return; }
-    // Maske auf Originalgröße
-    const W = base.width, H = base.height;
-    const md = mctx.getImageData(0, 0, maskC.width, maskC.height).data;
-    let x0 = maskC.width, y0 = maskC.height, x1 = 0, y1 = 0;
-    for (let y = 0; y < maskC.height; y++) for (let x = 0; x < maskC.width; x++) if (md[(y * maskC.width + x) * 4 + 3] > 20) { x0 = Math.min(x0, x); y0 = Math.min(y0, y); x1 = Math.max(x1, x); y1 = Math.max(y1, y); }
-    if (x1 < x0) return;
-    const sk = W / maskC.width;
-    const bw = (x1 - x0) * sk, bh = (y1 - y0) * sk;
-    const marg = Math.max(bw, bh) * 1.2 + 40 * sk;
-    const cx0 = Math.max(0, Math.floor(x0 * sk - marg)), cy0 = Math.max(0, Math.floor(y0 * sk - marg));
-    const cx1 = Math.min(W, Math.ceil(x1 * sk + marg)), cy1 = Math.min(H, Math.ceil(y1 * sk + marg));
-    const cw = cx1 - cx0, ch = cy1 - cy0;
-    const k = Math.min(1, 640 / Math.max(cw, ch));
-    const ww = Math.max(8, Math.round(cw * k)), wh = Math.max(8, Math.round(ch * k));
-    const work = document.createElement('canvas'); work.width = ww; work.height = wh;
-    const wctx = work.getContext('2d', { willReadFrequently: true });
-    wctx.drawImage(base, cx0, cy0, cw, ch, 0, 0, ww, wh);
-    const img = wctx.getImageData(0, 0, ww, wh);
-    // Maske im Arbeitsausschnitt (etwas vergrößert, damit Ränder/Schatten mit weg sind)
-    const mc = document.createElement('canvas'); mc.width = ww; mc.height = wh;
-    const mcx = mc.getContext('2d', { willReadFrequently: true });
-    mcx.filter = `blur(${Math.max(1, Math.round(3 * k * sk))}px)`;
-    mcx.drawImage(maskC, cx0 / sk, cy0 / sk, cw / sk, ch / sk, 0, 0, ww, wh);
-    const mdat = mcx.getImageData(0, 0, ww, wh).data;
-    const mask = new Uint8Array(ww * wh);
-    for (let i = 0; i < mask.length; i++) mask[i] = mdat[i * 4 + 3] > 8 ? 1 : 0;
-    busy('Gegenstand wird entfernt …', 0);
-    try {
-      const out = await new Promise((res, rej) => {
-        const w = new Worker(new URL('./inpaint-worker.js', import.meta.url));
-        w.onmessage = (e) => { if (e.data.progress != null) busy(null, e.data.progress); if (e.data.done) { res(e.data.data); w.terminate(); } };
-        w.onerror = (e) => { rej(new Error(e.message || 'Fehler')); w.terminate(); };
-        w.postMessage({ w: ww, h: wh, data: img.data, mask }, [img.data.buffer]);
-      });
-      wctx.putImageData(new ImageData(out, ww, wh), 0, 0);
-      // nur den Maskenbereich (weich) übernehmen
-      const patch = document.createElement('canvas'); patch.width = cw; patch.height = ch;
-      const pc = patch.getContext('2d');
-      pc.imageSmoothingQuality = 'high';
-      pc.drawImage(work, 0, 0, cw, ch);
-      pc.globalCompositeOperation = 'destination-in';
-      pc.filter = `blur(${Math.max(1, Math.round(2 * sk))}px)`;
-      const fm = document.createElement('canvas'); fm.width = cw; fm.height = ch;
-      const fmc = fm.getContext('2d');
-      // Maske deckend machen (mehrfach übereinander) und weich in den Flicken übernehmen
-      for (let i = 0; i < 5; i++) fmc.drawImage(maskC, cx0 / sk, cy0 / sk, cw / sk, ch / sk, 0, 0, cw, ch);
-      fmc.globalCompositeOperation = 'source-in'; fmc.fillStyle = '#000'; fmc.fillRect(0, 0, cw, ch);
-      pc.drawImage(fm, 0, 0);
-      pc.filter = 'none';
-      push();
-      const nb = document.createElement('canvas'); nb.width = W; nb.height = H;
-      const nctx = nb.getContext('2d');
-      nctx.drawImage(base, 0, 0);
-      nctx.drawImage(patch, cx0, cy0);
-      base = nb;
-      mctx.clearRect(0, 0, maskC.width, maskC.height); hasMask = false;
-      makePreview();
-    } catch (e) {
-      toast('Entfernen fehlgeschlagen: ' + e.message);
-    } finally { busy(false); }
+  function updateEraseInfo() {
+    const el = tools.querySelector('.einfo');
+    if (el) el.textContent = remover.objects.length ? `${remover.objects.length} Gegenstand${remover.objects.length > 1 ? 'e' : ''} ausgewählt` : '';
   }
 
   // Werkzeug-Leisten
@@ -171,14 +105,20 @@ export async function openEditor(item, { onClose } = {}) {
     ed.querySelectorAll('.etabs button').forEach((b) => b.classList.toggle('on', b.dataset.t === id));
     maskC.style.pointerEvents = id === 'erase' ? 'auto' : 'none';
     maskC.style.display = id === 'erase' ? '' : 'none';
+    if (id === 'erase') { warmup('sam'); warmup('lama'); }
     let h = '';
     if (id === 'auto') {
       h = `<div class="row"><div>Auto-Verbessern<small>Belichtung, Kontrast und Weißabgleich automatisch</small></div><button class="switch${autoOn ? ' on' : ''}" data-a="auto"></button></div>
         <div class="btnrow"><button class="btn" data-a="oneTap">${icon('wand', 20)}Alles automatisch (inkl. Retusche)</button></div>`;
     } else if (id === 'erase') {
-      h = `<p class="subtle">Mit dem Finger über Gegenstände oder Personen malen, dann „Entfernen“. Der Bereich wird mit passender Umgebung gefüllt.</p>
-        <label class="slider"><span>Pinselgröße</span><input type="range" data-k="brush" min="8" max="120" step="1" value="${brush}"><span>${brush}</span></label>
-        <div class="btnrow"><button class="btn${erasing ? '' : ' primary'}" data-a="pen">Malen</button><button class="btn${erasing ? ' primary' : ''}" data-a="rub">Radieren</button><button class="btn" data-a="clear">Leeren</button></div>
+      const m = remover.mode;
+      h = `<p class="subtle">${m === 'tap' ? '<b>Antippen:</b> Gegenstand oder Person antippen – die KI erkennt den Umriss. Mehrere nacheinander möglich. Lange drücken nimmt eine Stelle wieder heraus.' : m === 'pen' ? '<b>Malen:</b> mit dem Finger über das, was weg soll.' : '<b>Radieren:</b> zu viel Markiertes wegwischen.'}</p>
+        <div class="seg" style="display:flex;margin-bottom:6px"><button class="${m === 'tap' ? 'on' : ''}" data-a="mtap" style="flex:1">Antippen (KI)</button><button class="${m === 'pen' ? 'on' : ''}" data-a="mpen" style="flex:1">Malen</button><button class="${m === 'rub' ? 'on' : ''}" data-a="mrub" style="flex:1">Radieren</button></div>
+        ${m === 'tap' ? `<div class="btnrow" style="margin-top:4px"><button class="btn" data-a="smaller">Auswahl kleiner</button><button class="btn" data-a="bigger">Auswahl größer</button></div>`
+          : `<label class="slider"><span>Pinselgröße</span><input type="range" data-k="brush" min="6" max="120" step="1" value="${remover.brush}"><span>${remover.brush}</span></label>`}
+        <label class="slider"><span>Rand / Schatten</span><input type="range" data-k="grow" min="0" max="40" step="1" value="${remover.grow}"><span>${remover.grow}</span></label>
+        <p class="subtle einfo"></p>
+        <div class="btnrow"><button class="btn" data-a="selundo">${icon('undo', 20)}Auswahl zurück</button><button class="btn" data-a="clear">Leeren</button></div>
         <div class="btnrow"><button class="btn primary" data-a="remove">${icon('eraser', 20)}Entfernen</button></div>`;
     } else if (id === 'retouch') {
       h = sl('Haut glätten', 'smooth', st.adjust.smooth, 0, 1, (v) => Math.round(v * 100))
@@ -197,6 +137,7 @@ export async function openEditor(item, { onClose } = {}) {
         <div class="btnrow"><button class="btn" data-a="applyStraight">Begradigung übernehmen</button></div>`;
     }
     tools.innerHTML = h;
+    if (id === 'erase') updateEraseInfo();
     tools.querySelectorAll('[data-fx]').forEach((b) => b.onclick = () => {
       push(); st.effect = +b.dataset.fx;
       const d = EFFECTS[st.effect].d || [0.5, 0.5]; st.p1 = d[0] ?? 0.5; st.p2 = d[1] ?? 0.5;
@@ -204,10 +145,11 @@ export async function openEditor(item, { onClose } = {}) {
     });
     let straight = 0;
     tools.querySelectorAll('input[type=range]').forEach((r) => {
-      r.onpointerdown = () => { if (r.dataset.k !== 'brush' && r.dataset.k !== 'straight') push(); };
+      r.onpointerdown = () => { if (!['brush', 'grow', 'straight'].includes(r.dataset.k)) push(); };
       r.oninput = () => {
         const k = r.dataset.k, v = +r.value, out = r.nextElementSibling;
-        if (k === 'brush') { brush = v; out.textContent = v; return; }
+        if (k === 'brush') { remover.brush = v; out.textContent = v; return; }
+        if (k === 'grow') { remover.grow = v; out.textContent = v; return; }
         if (k === 'straight') { straight = v; out.textContent = `${v.toFixed(1)}°`; view.style.transform = `translate(-50%,-50%) rotate(${v}deg) scale(${1 + Math.abs(v) / 40})`; return; }
         if (k === 'p0') st.p1 = v; else if (k === 'p1') st.p2 = v; else st.adjust[k] = v;
         out.textContent = ['exposure', 'contrast', 'saturation', 'temp', 'tint', 'highlights', 'shadows', 'clarity', 'sharpen', 'vignette'].includes(k) ? pm(v) : Math.round(v * 100);
@@ -222,10 +164,14 @@ export async function openEditor(item, { onClose } = {}) {
         Object.assign(st.adjust, { clarity: 0.2, sharpen: 0.15, smooth: 0.3, skinLight: 0.1, eyes: 0.2, shadows: 0.15, highlights: 0.15, saturation: 0.08 });
         draw(); toast('Automatisch verbessert – mit „Vorher“ vergleichen');
       }
-      if (a === 'pen') { erasing = false; showTab('erase'); }
-      if (a === 'rub') { erasing = true; showTab('erase'); }
-      if (a === 'clear') { mctx.clearRect(0, 0, maskC.width, maskC.height); hasMask = false; }
-      if (a === 'remove') removeObjects();
+      if (a === 'mtap') { remover.mode = 'tap'; showTab('erase'); }
+      if (a === 'mpen') { remover.mode = 'pen'; showTab('erase'); }
+      if (a === 'mrub') { remover.mode = 'rub'; showTab('erase'); }
+      if (a === 'bigger') remover.resize(1);
+      if (a === 'smaller') remover.resize(-1);
+      if (a === 'selundo') remover.undoSelection();
+      if (a === 'clear') remover.invalidate();
+      if (a === 'remove') remover.remove().catch((e) => toast('Entfernen fehlgeschlagen: ' + e.message));
       if (a === 'rotL' || a === 'rotR' || a === 'flipH') {
         push();
         const c = document.createElement('canvas');

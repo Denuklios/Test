@@ -1,0 +1,4 @@
+models/
+vendor/ort/
+.t/
+*.apk

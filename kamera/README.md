@@ -28,11 +28,19 @@ Oben: **😊 Live-Retusche** (Haut glätten/aufhellen, Details schärfen – Bil
 **Zauberstab** = Auto-Look. Zwei Finger = Zoom, Tippen = Fokus, lange drücken = Fokus/Belichtung sperren, Lautstärketasten = Auslöser.
 Hält man das Handy quer, werden Fotos und Videos automatisch richtig gedreht.
 
-## Nachträglich bearbeiten
+## Nachträglich bearbeiten – Gegenstände mit KI entfernen
 
-Galerie (Vorschaubild links unten) → Foto → **Bearbeiten**:
-**Entfernen** (über Gegenstände malen → „Entfernen“, die Stelle wird mit passender Umgebung gefüllt), **Retusche**, **Anpassen**,
-**Effekte**, **Auto**, **Drehen/Begradigen**, Vorher/Nachher, Rückgängig. Gespeichert wird als neues Foto, das Original bleibt.
+Galerie (Vorschaubild links unten) → Foto → **Bearbeiten** → **Entfernen**:
+
+1. **Antippen (KI):** Person oder Gegenstand antippen – die KI (SlimSAM) erkennt den genauen Umriss. Mehrere Dinge nacheinander antippen.
+   „Auswahl größer/kleiner“ wechselt zwischen den Vorschlägen (z. B. nur Jacke ↔ ganze Person), **lange drücken** nimmt eine Stelle wieder heraus.
+2. Alternativ **Malen/Radieren** mit dem Finger, z. B. für Schatten, Kabel oder kleine Flecken.
+3. **Rand / Schatten:** erweitert die Auswahl nach außen, damit keine Umriss-Reste bleiben.
+4. **Entfernen:** Die KI (LaMa) rekonstruiert, was hinter dem Gegenstand wäre – Wände, Himmel, Muster, Horizont. Jeder Bereich wird einzeln
+   mit viel Umgebung berechnet und in voller Foto-Auflösung eingesetzt; feine Körnung wird an die Umgebung angepasst, damit nichts verwaschen aussieht.
+
+Die KI läuft komplett auf dem Handy (kein Internet, nichts wird hochgeladen). Beim ersten Mal wird sie einmalig vorbereitet (einige Sekunden).
+Außerdem: **Retusche**, **Anpassen**, **Effekte**, **Auto**, **Drehen/Begradigen**, Vorher/Nachher, Rückgängig. Gespeichert wird als neues Foto, das Original bleibt.
 
 ## Grenzen (ehrlich)
 
@@ -43,10 +51,13 @@ Galerie (Vorschaubild links unten) → Foto → **Bearbeiten**:
 ## Selbst bauen
 
 ```bash
-cd kamera/android-app
+cd kamera/android-app   # lädt beim ersten Mal die KI-Modelle (~105 MB) nach .cache/
 npm ci
 npm run sync
 cd android && ./gradlew assembleRelease   # → app/build/outputs/apk/release/app-release.apk
 ```
 Signiert mit `android/debug-kamera.keystore`, damit spätere Versionen als Update installiert werden können.
 Am PC ausprobieren: Ordner `kamera/` über einen lokalen Webserver öffnen (Kamera braucht localhost oder https).
+
+KI-Modelle: LaMa (Apache-2.0, OpenCV-Fassung mit 8-Bit-Gewichten), SlimSAM (Apache-2.0). Zum Testen im Browser die Modelle nach `kamera/models/`
+und onnxruntime-web nach `kamera/vendor/ort/` legen (beides nicht im Repository).
