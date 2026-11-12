@@ -10,6 +10,12 @@ object I18n {
     fun german(): Boolean = Locale.getDefault().language == "de"
 
     val en: Map<String, String> = hashMapOf(
+        "Einrichten" to "Set up",
+        "Familienkalender noch nicht verbunden" to "Family calendar not connected yet",
+        "{0} Termin(e) aus Mails warten. Einladung liegt im Postfach – einmal verbinden." to "{0} appointment(s) from emails are waiting. The invitation is in your mailbox – connect once.",
+        "Die Einladung liegt im Postfach – einmal verbinden, dann landen Termine aus Mails automatisch im Kalender." to "The invitation is in your mailbox – connect once and appointments from emails go straight into the calendar.",
+        "Wer nutzt {0}?" to "Who uses {0}?",
+        "Termine aus diesem Postfach warten, bis eine Person ausgewählt ist." to "Appointments from this mailbox are waiting until a person is selected.",
         "📅 In Kalender" to "📅 Add to calendar",
         "Mail nicht gefunden" to "Email not found",
         "Bitte mindestens eine Person auswählen" to "Please select at least one person",

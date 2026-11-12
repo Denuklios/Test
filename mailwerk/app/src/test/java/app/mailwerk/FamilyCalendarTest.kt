@@ -343,6 +343,16 @@ class FamilyCalendarFlowTest {
         assertTrue(repo.addToCalendarManually(plain.id, "X", mstart, mstart, true, "", listOf("m1")).contains("nicht verbunden"))
         repo.family.code = code; assertEquals(url, repo.family.serverUrl)
 
+        // Zuordnung über die Mailadresse: Konto „Wunsch-Fabrik“ mit robert@… -> Robert; mehrdeutig/fremd -> keine
+        cal.member("r1", "Robert", 0xFF5E35B1)
+        repo.family.refreshMembers()
+        val rob = db.saveAccount(acc("Wunsch-Fabrik", "robert@test.de"))
+        val shop = db.saveAccount(acc("Wunsch-Fabrik", "hej@test.de"))
+        repo.family.autoMap(db.accounts())
+        assertEquals("r1", repo.family.memberFor(rob)?.id)
+        assertNull(repo.family.memberFor(shop))
+        db.deleteAccount(rob); db.deleteAccount(shop)
+
         // Erneuter Abgleich trägt nichts doppelt ein
         val saves = cal.saves.size
         assertTrue(repo.sync().isEmpty())

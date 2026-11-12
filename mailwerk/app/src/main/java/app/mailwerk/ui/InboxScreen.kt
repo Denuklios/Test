@@ -1,5 +1,6 @@
 package app.mailwerk.ui
 
+import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Badge
 import androidx.compose.runtime.LaunchedEffect
@@ -202,6 +203,13 @@ private fun Banners(vm: MainViewModel) {
         Banner(Icons.Outlined.SystemUpdate, tr("Mailwerk {0} ist da", u.versionName),
             if (progress != null) tr("Wird geladen … {0} %", ((progress ?: 0f) * 100).toInt()) else u.notes.ifBlank { tr("Neue Funktionen und Verbesserungen") },
             if (progress != null) null else tr("Aktualisieren"), gradient = true, onAction = { vm.installUpdate() }, onClose = null)
+    }
+    // Familienkalender: nicht still scheitern, sondern sagen, was fehlt
+    val calChanges by vm.db.changes.collectAsState()
+    val calHint = remember(calChanges, accs) { familyHint(vm, accs) }
+    calHint?.let { (title, text) ->
+        if ("cal:$title" !in hidden) Banner(Icons.Outlined.CalendarMonth, title, text, tr("Einrichten"),
+            onAction = { vm.push(Screen.FamilyCalendar) }, onClose = { vm.hiddenBanners.value = hidden + "cal:$title" })
     }
     pending.filter { it.email !in hidden }.forEach { p ->
         Banner(Icons.Outlined.Key, p.email, tr("Vorbereitet – es fehlt nur noch das Passwort."), tr("Verbinden"),
@@ -731,3 +739,20 @@ private fun Drawer(vm: MainViewModel, close: () -> Unit) {
         }
     }
 }
+
+/** Hinweis, wenn Termine aus Mails warten, aber der Familienkalender nicht verbunden oder ein Postfach niemandem zugeordnet ist. */
+private fun familyHint(vm: MainViewModel, accs: List<app.mailwerk.data.Account>): Pair<String, String>? = runCatching {
+    val fam = vm.repo.family
+    val waiting = vm.db.pendingInvites()
+    if (!fam.connected) {
+        // nur wer eine Einladung bekommen hat, nutzt den Familienkalender
+        if (vm.db.calendarInviteTexts().isEmpty()) return@runCatching null
+        tr("Familienkalender noch nicht verbunden") to
+            (if (waiting.isNotEmpty()) tr("{0} Termin(e) aus Mails warten. Einladung liegt im Postfach – einmal verbinden.", waiting.size)
+             else tr("Die Einladung liegt im Postfach – einmal verbinden, dann landen Termine aus Mails automatisch im Kalender."))
+    } else {
+        val unmapped = accs.filter { a -> fam.memberFor(a.id) == null && waiting.any { it.accountId == a.id } }
+        if (unmapped.isEmpty()) null
+        else tr("Wer nutzt {0}?", unmapped.first().email) to tr("Termine aus diesem Postfach warten, bis eine Person ausgewählt ist.")
+    }
+}.getOrNull()

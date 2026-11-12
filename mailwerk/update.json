@@ -1,6 +1,6 @@
 {
-  "versionCode": 25,
-  "versionName": "1.18",
+  "versionCode": 26,
+  "versionName": "1.19",
   "apk": "Mailwerk.apk",
-  "notes": "Neu: Knopf „📅 In Kalender“ in jeder Mail"
+  "notes": "Familienkalender: Postfächer werden automatisch der richtigen Person zugeordnet, Hinweis wenn die Verbindung fehlt"
 }

@@ -92,12 +92,21 @@ class FamilyCalendar(ctx: Context) {
         val name = api.groupName()
         serverUrl = u; code = c; groupName = name
         refreshMembers()
-        // Konten automatisch zuordnen, wenn der Vorname passt
-        val ms = members
+        autoMap(accounts)
+    }
+
+    /**
+     * Postfächer ohne Zuordnung automatisch der passenden Person zuordnen – über den Namen des Kontos
+     * oder die Mailadresse (robert@…, robert.muster@… -> „Robert“). Nur bei genau einem Treffer.
+     */
+    fun autoMap(accounts: List<Account>) {
+        val ms = members.filter { it.name.isNotBlank() }
+        fun norm(x: String) = x.lowercase().replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss").replace(Regex("[^a-z0-9]"), "")
         accounts.forEach { a ->
             if (memberFor(a.id) != null) return@forEach
-            val first = a.name.trim().substringBefore(' ').lowercase()
-            ms.firstOrNull { m -> first.isNotEmpty() && m.name.trim().substringBefore(' ').lowercase() == first }?.let { setMember(a.id, it.id) }
+            val words = (a.name.split(Regex("[\\s,]+")) + a.email.substringBefore('@').split('.', '_', '-', '+')).map(::norm).filter { it.length >= 2 }.toSet()
+            val hits = ms.filter { m -> norm(m.name.trim().substringBefore(' ')) in words }
+            if (hits.size == 1) setMember(a.id, hits.single().id)
         }
     }
 

@@ -217,6 +217,7 @@ class Repository private constructor(private val ctx: Context) {
     /** Neue Einladungen automatisch in den Familienkalender eintragen (in der Farbe des Empfängers). */
     fun processInvites() {
         if (!family.connected || !family.autoAdd) return
+        runCatching { family.autoMap(db.accounts()) }
         // Erkennung verbessert -> einmalig die letzten Tage nachholen
         if (family.rescanVersion < TEXT_DETECTION_VERSION) { runCatching { rescanRecentTexts() }; family.rescanVersion = TEXT_DETECTION_VERSION }
         for (inv in db.pendingInvites()) {
