@@ -22,9 +22,9 @@ void callbackDispatcher() {
       final s = AppStore();
       await s.load();
       if (!s.isConnected) return true;
-      final changes = await s.sync();
+      await s.sync();
       await Notifier.init();
-      if (changes.isNotEmpty) await Notifier.showChanges(s, changes);
+      // Meldungen über Änderungen kommen vom Push-Wächter (ChangeWatch), hier nicht doppelt
       await Notifier.rescheduleAll(s);
     } catch (_) {}
     return true;
@@ -51,6 +51,7 @@ Future<void> main() async {
   } catch (_) {}
   store.onDataChanged = () => Notifier.rescheduleAll(store);
   Notifier.foregroundStore = store;
+  store.onSynced = () => Notifier.updateChangeWatch(store);
   Notifier.onOpenEvent = (id) {
     if (!store.events.containsKey(id)) return;
     navigatorKey.currentState?.push(MaterialPageRoute(builder: (_) => EventDetail(eventId: id)));

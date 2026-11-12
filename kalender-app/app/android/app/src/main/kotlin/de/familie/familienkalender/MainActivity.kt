@@ -49,6 +49,15 @@ class MainActivity : FlutterActivity() {
                         }
                     }
                 }
+                "changeWatch" -> {
+                    ChangeWatch.configure(this, call.argument<String>("url") ?: "", call.argument<String>("code") ?: "",
+                        call.argument<String>("me") ?: "", (call.argument<Number>("since") ?: 0).toLong(),
+                        call.argument<String>("names") ?: "{}", call.argument<Boolean>("enabled") ?: true,
+                        call.argument<Boolean>("onlyMine") ?: false)
+                    val ids = call.argument<List<String>>("known")
+                    if (ids != null) getSharedPreferences("change_watch", MODE_PRIVATE).edit().putStringSet("known", ids.toSet()).apply()
+                    result.success(true)
+                }
                 "lastUpdateError" -> {
                     val p = getSharedPreferences("updates", MODE_PRIVATE)
                     val e = p.getString("error", null)

@@ -66,6 +66,7 @@ class AppStore extends ChangeNotifier {
   Timer? _timer;
   void Function(List<ChangeInfo>)? onRemoteChanges;
   void Function()? onDataChanged;
+  void Function()? onSynced;
 
   bool get isSetUp => serverUrl.isNotEmpty && code.isNotEmpty && myId.isNotEmpty && members.containsKey(myId);
   bool get isConnected => serverUrl.isNotEmpty && code.isNotEmpty;
@@ -281,6 +282,7 @@ class AppStore extends ChangeNotifier {
       await _saveData();
       final p = await SharedPreferences.getInstance();
       await p.setString('groupName', groupName);
+      onSynced?.call();
     } catch (e) {
       if (e is ApiException) {
         lastError = e.message;
@@ -384,16 +386,17 @@ class AppStore extends ChangeNotifier {
         if (!cols.contains(c)) cols.add(c);
       }
     }
-    if (cols.isEmpty) cols.add(Colors.blueGrey);
+    if (cols.isEmpty) cols.add(const Color(0xFF26A69A)); // allgemein
     return cols;
   }
 
-  String peopleNames(CalEvent ev) =>
+  String peopleNames(CalEvent ev) => ev.ownerId.isEmpty && ev.participants.isEmpty ? 'Alle' : _names(ev);
+  String _names(CalEvent ev) =>
       ev.people.map((id) => members[id]?.name).whereType<String>().where((s) => s.isNotEmpty).join(', ');
 
   bool isVisible(CalEvent ev) {
     if (ev.deleted) return false;
-    if (hidden.isEmpty || ev.isBirthday) return true;
+    if (hidden.isEmpty || ev.isBirthday || ev.people.isEmpty) return true;
     return ev.people.any((p) => !hidden.contains(p));
   }
 

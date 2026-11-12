@@ -236,7 +236,7 @@ List<PrepDue> upcomingPrep(AppStore s, {int days = 30}) {
   for (final o in s.occurrences(today, today.add(Duration(days: days)), onlyVisible: false)) {
     final ev = o.ev;
     if (ev.prep.isEmpty || seen.contains(ev.id)) continue;
-    if (!ev.isBirthday && !ev.people.contains(s.myId)) continue;
+    if (!ev.isBirthday && ev.people.isNotEmpty && !ev.people.contains(s.myId)) continue;
     if (o.start.isBefore(DateTime.now()) && !ev.allDay) continue;
     seen.add(ev.id);
     final open = ev.prep.where((p) => !p.doneFor(o.start)).toList();

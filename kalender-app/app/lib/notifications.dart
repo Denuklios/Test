@@ -134,7 +134,8 @@ class Notifier {
         }
         continue;
       }
-      if (!ev.people.contains(s.myId)) continue; // nur eigene / eingeladene Termine
+      final general = ev.ownerId.isEmpty && ev.participants.isEmpty;
+      if (!general && !ev.people.contains(s.myId)) continue; // nur eigene / eingeladene / allgemeine Termine
       final base = ev.allDay ? dateOnly(o.start).add(const Duration(hours: 9)) : o.start;
       for (final m in ev.reminders) {
         final at = ev.allDay && m == 0 ? dateOnly(o.start).add(const Duration(hours: 8)) : base.subtract(Duration(minutes: m));
@@ -197,6 +198,7 @@ class Notifier {
       }
     }
     await updateUnlockService(s);
+    await updateChangeWatch(s);
     // Tagesvorschau morgens
     if (s.morningSummary) {
       for (var d = 0; d < 21; d++) {
@@ -227,6 +229,23 @@ class Notifier {
         );
       }
     }
+  }
+
+  /// Push-Wächter (Android): meldet Änderungen anderer auch bei geschlossener App
+  static Future<void> updateChangeWatch(AppStore s) async {
+    if (!s.isConnected) return;
+    try {
+      await _channel.invokeMethod('changeWatch', {
+        'url': s.serverUrl,
+        'code': s.code,
+        'me': s.myId,
+        'since': s.since,
+        'names': jsonEncode({for (final m in s.members.values) m.id: m.name}),
+        'enabled': s.notifyChanges,
+        'onlyMine': s.notifyOnlyMine,
+        'known': s.events.keys.toList(),
+      });
+    } catch (_) {}
   }
 
   /// Daten für den Entsperr-Dienst (Android) – nur im Vordergrund möglich

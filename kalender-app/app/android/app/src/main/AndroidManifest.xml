@@ -67,6 +67,7 @@
                 android:value="Erinnert beim Entsperren des Handys an offene Vorbereitungen vor einem Termin"/>
         </service>
         <receiver android:name=".InstallResultReceiver" android:exported="false"/>
+        <receiver android:name=".ChangeWatchReceiver" android:exported="false"/>
         <receiver android:name=".UpdatedReceiver" android:exported="false">
             <intent-filter>
                 <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>

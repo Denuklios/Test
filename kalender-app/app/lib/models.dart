@@ -126,7 +126,7 @@ class CalEvent {
 
   /// Alle beteiligten Personen (Besitzer zuerst, ohne Doppelte)
   List<String> get people {
-    final l = <String>[ownerId];
+    final l = <String>[if (ownerId.isNotEmpty) ownerId];
     for (final p in participants) {
       if (!l.contains(p)) l.add(p);
     }
