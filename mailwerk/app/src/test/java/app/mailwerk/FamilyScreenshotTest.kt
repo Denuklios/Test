@@ -74,5 +74,16 @@ class FamilyScreenshotTest {
         shot("19_einladung_familienkalender")
         sc.onActivity { act -> androidx.lifecycle.ViewModelProvider(act)[app.mailwerk.ui.MainViewModel::class.java].push(app.mailwerk.ui.Screen.FamilyCalendar) }
         shot("20_familienkalender_einstellungen")
+        // Nicht verbunden, Einladung liegt als Mail vor -> wird automatisch gefunden
+        fam.disconnect()
+        db.insertMessage(Message(accountId = a, folderId = inbox, uid = 2, messageId = "<einl@x>", threadKey = Threads.key(a, "Unser Kalender", "2"),
+            fromName = "Jonas", fromAddr = "jonas@beispiel.de", toAddrs = "sandra@beispiel.de", ccAddrs = "", replyTo = "", subject = "Unser Kalender",
+            date = now - 3_600_000, snippet = "Komm in unseren Familienkalender", bodyHtml = null,
+            bodyText = "Komm in unseren Familienkalender „Familie Muster“! 📅\nServer: https://www.wunsch-fabrik.dk/kalender/api.php\nCode: K7MZ4QPA",
+            seen = true, flagged = false, category = Category.PEOPLE, hasAttachments = false, unsubscribe = null, inReplyTo = null, references = null), emptyList())
+        sc.onActivity { act -> androidx.lifecycle.ViewModelProvider(act)[app.mailwerk.ui.MainViewModel::class.java].pop() }
+        rule.waitForIdle()
+        sc.onActivity { act -> androidx.lifecycle.ViewModelProvider(act)[app.mailwerk.ui.MainViewModel::class.java].push(app.mailwerk.ui.Screen.FamilyCalendar) }
+        shot("21_familienkalender_verbinden")
     }
 }

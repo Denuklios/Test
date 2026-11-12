@@ -61,7 +61,7 @@ fun FamilyCalendarScreen(vm: MainViewModel) {
     val fam = vm.repo.family
     val scope = rememberCoroutineScope()
     var v by remember { mutableIntStateOf(0) }
-    var invite by remember { mutableStateOf("") }
+    var otherServer by remember { mutableStateOf(fam.defaultUrl.isBlank()) }
     var url by remember { mutableStateOf(fam.serverUrl) }
     var code by remember { mutableStateOf(fam.code) }
     var busy by remember { mutableStateOf(false) }
@@ -71,7 +71,7 @@ fun FamilyCalendarScreen(vm: MainViewModel) {
     fun connect() {
         busy = true; error = null
         scope.launch {
-            val r = withContext(Dispatchers.IO) { runCatching { fam.connect(url, code, vm.db.accounts()) } }
+            val r = withContext(Dispatchers.IO) { runCatching { fam.connect(if (otherServer) url else "", code, vm.db.accounts()) } }
             busy = false
             r.onSuccess { v++; vm.snack(tr("Mit „{0}“ verbunden", fam.groupName)); scope.launch { withContext(Dispatchers.IO) { runCatching { vm.repo.processInvites() } } } }
                 .onFailure { error = it.message ?: tr("Verbindung fehlgeschlagen") }
@@ -84,21 +84,44 @@ fun FamilyCalendarScreen(vm: MainViewModel) {
                 Text(tr("Termine, die per E-Mail kommen (Einladungen, .ics), landen automatisch im gemeinsamen Familienkalender – in der Farbe der Person, die die Mail bekommen hat. Alle in der Familie sehen den Termin sofort."),
                     style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 if (!fam.connected) {
-                    Text(tr("Verbinden"), style = MaterialTheme.typography.titleMedium)
-                    OutlinedTextField(invite, { t ->
-                        invite = t
+                    val ctx = androidx.compose.ui.platform.LocalContext.current
+                    var found by remember { mutableStateOf<app.mailwerk.data.FamilyCalendar.FoundInvite?>(null) }
+                    // Einladung automatisch suchen: Zwischenablage, dann Mails
+                    androidx.compose.runtime.LaunchedEffect(Unit) {
+                        val clip = runCatching {
+                            (ctx.getSystemService(android.content.Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager)
+                                .primaryClip?.getItemAt(0)?.coerceToText(ctx)?.toString()
+                        }.getOrNull()
+                        found = withContext(Dispatchers.IO) { fam.findInvite(clip, runCatching { vm.db.calendarInviteTexts() }.getOrDefault(emptyList())) }
+                        found?.let { f ->
+                            code = f.code
+                            if (f.url != null && Api.normalizeUrl(f.url) != Api.normalizeUrl(fam.defaultUrl.ifBlank { "-" })) { url = f.url; otherServer = true }
+                        }
+                    }
+                    found?.let { f ->
+                        Card(shape = RoundedCornerShape(18.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(tr("✨ Einladung gefunden"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(tr("Code {0} · aus {1}", f.code, f.source), style = MaterialTheme.typography.bodySmall)
+                                Button(onClick = ::connect, enabled = !busy) { Text(tr("Jetzt verbinden")) }
+                            }
+                        }
+                    }
+                    Text(tr("Gruppen-Code eingeben"), style = MaterialTheme.typography.titleMedium)
+                    OutlinedTextField(code, { t ->
+                        // ganze Einladung eingefügt? -> Code und Server herausziehen
                         val (u, c) = Api.parseInvite(t)
-                        if (u != null) url = u
-                        if (c != null) code = c
-                    }, label = { Text(tr("Einladung aus der Kalender-App hier einfügen")) }, minLines = 3, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(url, { url = it }, label = { Text(tr("Server-Adresse")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
-                    OutlinedTextField(code, { code = it.uppercase() }, label = { Text(tr("Gruppen-Code")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        if (c != null) { code = c; if (u != null && Api.normalizeUrl(u) != Api.normalizeUrl(fam.defaultUrl.ifBlank { "-" })) { url = u; otherServer = true } }
+                        else code = t.uppercase().filter { it.isLetterOrDigit() }.take(12)
+                    }, label = { Text(tr("Gruppen-Code (oder ganze Einladung einfügen)")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                    if (otherServer) OutlinedTextField(url, { url = it }, label = { Text(tr("Server-Adresse")) }, singleLine = true, modifier = Modifier.fillMaxWidth())
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(onClick = ::connect, enabled = !busy && url.isNotBlank() && code.isNotBlank()) { Text(tr("Verbinden")) }
+                        Button(onClick = ::connect, enabled = !busy && code.isNotBlank() && (!otherServer || url.isNotBlank() || fam.defaultUrl.isNotBlank())) { Text(tr("Verbinden")) }
                         if (busy) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
+                        if (!otherServer) TextButton(onClick = { otherServer = true }) { Text(tr("Anderer Server …")) }
                     }
-                    Text(tr("Die Einladung findest du in der Kalender-App unter Einstellungen → Einladen."),
+                    Text(tr("Den Code findest du in der Kalender-App unter Einstellungen → Einladen. Hast du die Einladung per Mail oder Nachricht bekommen, wird sie automatisch erkannt."),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
                     Card(shape = RoundedCornerShape(18.dp)) {
@@ -156,7 +179,7 @@ fun FamilyCalendarScreen(vm: MainViewModel) {
                                 r.onFailure { vm.snack(it.message ?: tr("Verbindung fehlgeschlagen")) }
                             }
                         }, enabled = !busy) { Text(tr("Personen neu laden")) }
-                        TextButton(onClick = { fam.disconnect(); url = ""; code = ""; invite = ""; v++ }) { Text(tr("Trennen")) }
+                        TextButton(onClick = { fam.disconnect(); url = ""; code = ""; v++ }) { Text(tr("Trennen")) }
                     }
                 }
             }

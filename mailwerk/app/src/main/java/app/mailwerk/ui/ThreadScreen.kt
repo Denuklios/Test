@@ -206,6 +206,7 @@ private fun MessageCard(vm: MainViewModel, m: Message, expandedInitially: Boolea
             }
         }
         InviteCard(vm, m)
+        JoinCalendarCard(vm, m)
         if (expanded && sanitized != null) {
             // Datenschutz-Leiste: blockierte Tracker, Bilder, Abmelden
             val chips = sanitized.trackers > 0 || sanitized.remoteImages > 0 || m.unsubscribe != null
@@ -358,4 +359,36 @@ private fun inviteWhen(ev: app.mailwerk.mail.IcsEvent): String {
     } else if (ev.end == ev.start) "${ev.start.format(day)} · ${ev.start.format(time)}"
     else if (ev.end.toLocalDate() == ev.start.toLocalDate()) "${ev.start.format(day)} · ${ev.start.format(time)}–${ev.end.format(time)}"
     else "${ev.start.format(day)} ${ev.start.format(time)} – ${ev.end.format(day)} ${ev.end.format(time)}"
+}
+
+/** Mail enthält eine Einladung in den Familienkalender -> mit einem Tipp beitreten. */
+@Composable
+private fun JoinCalendarCard(vm: MainViewModel, m: Message) {
+    val fam = vm.repo.family
+    val changes by vm.db.changes.collectAsState()
+    var joined by remember { mutableStateOf(false) }
+    val found = remember(m.id, changes) {
+        if (fam.connected) null else fam.findInvite(null, listOf((m.fromName.ifBlank { m.fromAddr }) to (m.bodyText ?: "")))
+    } ?: return
+    if (joined) return
+    val scope = rememberCoroutineScope()
+    var busy by remember { mutableStateOf(false) }
+    Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clip(RoundedCornerShape(18.dp))
+        .background(MaterialTheme.colorScheme.primaryContainer).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        Text(tr("📅 Einladung in den Familienkalender"), fontWeight = FontWeight.SemiBold)
+        Text(tr("Mit Mailwerk verbinden: Termine aus deinen Mails landen dann automatisch im gemeinsamen Kalender."),
+            style = MaterialTheme.typography.bodySmall)
+        TextButton(enabled = !busy, onClick = {
+            busy = true
+            scope.launch {
+                val r = withContext(Dispatchers.IO) { runCatching { fam.connect(found.url ?: "", found.code, vm.db.accounts()) } }
+                busy = false
+                r.onSuccess {
+                    joined = true
+                    vm.snack(tr("Mit „{0}“ verbunden", fam.groupName))
+                    vm.push(Screen.FamilyCalendar) // Postfächer den Personen zuordnen
+                }.onFailure { vm.snack(it.message ?: tr("Verbindung fehlgeschlagen")) }
+            }
+        }) { Text(tr("Familienkalender verbinden")) }
+    }
 }

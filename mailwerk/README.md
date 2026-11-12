@@ -57,6 +57,9 @@ Karten-Layout mit Datumsgruppen, farbige Kategorie-Tabs, heller und dunkler Modu
 Mailwerk lässt sich mit dem gemeinsamen **Familienkalender** (eigene Kalender-App mit Server) verknüpfen:
 Einstellungen → **Familienkalender** → Einladung aus der Kalender-App einfügen (Server + Gruppen-Code) → Verbinden.
 Danach legt man pro Postfach fest, wem es gehört (wird über den Vornamen meist automatisch erkannt).
+Die Server-Adresse muss niemand kennen: Der Kalender-Server ist fest hinterlegt (`calendar.url` in `mailwerk.properties`),
+es reicht der Gruppen-Code. Liegt die Einladung in der Zwischenablage oder kam sie per Mail, findet Mailwerk sie selbst
+(„✨ Einladung gefunden → Jetzt verbinden“); in der Einladungs-Mail gibt es außerdem direkt den Knopf „Familienkalender verbinden“.
 
 - Kommt eine **Termin-Einladung per Mail** (Outlook, Gmail, iCloud, Schul-/Arzt-Systeme – alles mit `.ics`/`text/calendar`),
   trägt Mailwerk den Termin automatisch in den Familienkalender ein – **in der Farbe der Person, die die Mail bekommen hat**.
@@ -72,7 +75,7 @@ Danach legt man pro Postfach fest, wem es gehört (wird über den Vornamen meist
 - In der Mail zeigt eine Karte den Termin und „Im Familienkalender eingetragen · Name“ in dessen Farbe; alte Einladungen
   (vergangene Termine) werden nicht automatisch eingetragen, lassen sich aber per Knopf übernehmen.
 
-<img src="screenshots/19_einladung_familienkalender.png" width="260"> <img src="screenshots/20_familienkalender_einstellungen.png" width="260">
+<img src="screenshots/19_einladung_familienkalender.png" width="260"> <img src="screenshots/20_familienkalender_einstellungen.png" width="260"> <img src="screenshots/21_familienkalender_verbinden.png" width="260">
 
 ## Push, Updates, Konten später einrichten
 

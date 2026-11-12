@@ -10,6 +10,18 @@ object I18n {
     fun german(): Boolean = Locale.getDefault().language == "de"
 
     val en: Map<String, String> = hashMapOf(
+        "Zwischenablage" to "clipboard",
+        "Mail von {0}" to "email from {0}",
+        "✨ Einladung gefunden" to "✨ Invitation found",
+        "Code {0} · aus {1}" to "Code {0} · from {1}",
+        "Jetzt verbinden" to "Connect now",
+        "Gruppen-Code eingeben" to "Enter group code",
+        "Gruppen-Code (oder ganze Einladung einfügen)" to "Group code (or paste the whole invitation)",
+        "Anderer Server …" to "Other server …",
+        "Den Code findest du in der Kalender-App unter Einstellungen → Einladen. Hast du die Einladung per Mail oder Nachricht bekommen, wird sie automatisch erkannt." to "You'll find the code in the calendar app under Settings → Invite. If you received the invitation by email or message, it is detected automatically.",
+        "📅 Einladung in den Familienkalender" to "📅 Invitation to the family calendar",
+        "Mit Mailwerk verbinden: Termine aus deinen Mails landen dann automatisch im gemeinsamen Kalender." to "Connect it to Mailwerk: appointments from your emails will then go straight into the shared calendar.",
+        "Familienkalender verbinden" to "Connect family calendar",
         "Frist: {0}" to "Deadline: {0}",
         "Im Mailtext erkannt" to "Found in the email text",
         "Auch Termine im Mailtext erkennen" to "Also detect dates in the email text",

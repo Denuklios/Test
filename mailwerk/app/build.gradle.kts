@@ -27,11 +27,13 @@ android {
         applicationId = cfg("applicationId", "app.mailwerk")
         minSdk = 26
         targetSdk = 36
-        versionCode = 18
-        versionName = "1.11"
+        versionCode = 19
+        versionName = "1.12"
         buildConfigField("String", "GOOGLE_CLIENT_ID", str(cfg("google.clientId")))
         buildConfigField("String", "MICROSOFT_CLIENT_ID", str(cfg("microsoft.clientId")))
         buildConfigField("String", "SUPPORT_EMAIL", str(cfg("support.email")))
+        // Server des Familienkalenders – dann reicht beim Verbinden der Gruppen-Code
+        buildConfigField("String", "CALENDAR_URL", str(cfg("calendar.url", "https://www.wunsch-fabrik.dk/kalender/api.php")))
         buildConfigField("String", "PRIVACY_URL", str(cfg("privacy.url",
             "https://github.com/Denuklios/Test/blob/ccr-71728653-8d4ka4/mailwerk/DATENSCHUTZ.md")))
         manifestPlaceholders["appAuthRedirectScheme"] = cfg("applicationId", "app.mailwerk")

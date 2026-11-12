@@ -267,6 +267,11 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         notifyChanged()
     }
 
+    /** Texte von Mails, die nach einer Familienkalender-Einladung aussehen (neueste zuerst). */
+    fun calendarInviteTexts(): List<Pair<String, String>> = readableDatabase.rawQuery(
+        "SELECT from_name, from_addr, body_text FROM messages WHERE body_text LIKE '%Familienkalender%' AND body_text LIKE '%Code%' ORDER BY date DESC LIMIT 20", null
+    ).use { c -> buildList { while (c.moveToNext()) add((c.getString(0)?.ifBlank { null } ?: c.getString(1) ?: "") to (c.getString(2) ?: "")) } }
+
     fun clearReceiptRequest(id: Long) {
         writableDatabase.update("messages", ContentValues().apply { put("receipt_to", "") }, "id=?", arrayOf("$id")); notifyChanged()
     }

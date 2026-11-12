@@ -17,3 +17,6 @@
 
 # Nur Direkt-Version: Ordner, in dem update.json und Mailwerk.apk liegen
 # update.url=https://example.com/mailwerk/
+
+# Server des Familienkalenders (Standard: Wunsch-Fabrik). Leer lassen = jeder gibt die Adresse selbst ein.
+# calendar.url=https://example.com/kalender/api.php

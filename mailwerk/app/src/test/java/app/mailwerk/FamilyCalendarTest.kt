@@ -232,8 +232,23 @@ class FamilyCalendarFlowTest {
         deliver("mama@test.de", "Sommerfest", invite("sommerfest-2020", LocalDateTime.of(2020, 6, 20, 15, 0), title = "Sommerfest"))
         assertTrue(repo.sync().isEmpty())
 
+        // Einladung kam per Mail -> wird automatisch gefunden (Server + Code), Verbinden ohne Eintippen
+        val im = MimeMessage(Session.getInstance(Properties()))
+        im.setFrom(InternetAddress("oma@example.org", "Oma")); im.setRecipients(jakarta.mail.Message.RecipientType.TO, "mama@test.de")
+        im.subject = "Kalender"; im.setText("Komm in unseren Familienkalender „Familie Muster“! 📅\nApp installieren, dann diese Nachricht beim Start einfügen.\n" +
+            "Server: ${cal.url}\nCode: ABCD2345", "UTF-8"); im.saveChanges()
+        gm.managers.imapHostManager.getInbox(gm.managers.userManager.getUser("mama@test.de")).store(im)
+        assertTrue(repo.sync().isEmpty())
+        val found = repo.family.findInvite("irgendwas anderes", db.calendarInviteTexts())!!
+        assertEquals("ABCD2345", found.code); assertEquals(cal.url, found.url); assertEquals("Mail von Oma", found.source)
+        // nur Code + Standard-Server
+        assertEquals("ABCD2345", repo.family.findInvite("Familienkalender – Code: ABCD2345", emptyList())!!.code)
+        assertNull(repo.family.findInvite("Code: 12345678 für dein Paket", emptyList()))
+
         // Verbinden: Konten werden über den Vornamen automatisch zugeordnet
-        repo.family.connect(cal.url, "abcd2345", db.accounts())
+        repo.family.defaultUrl = cal.url
+        repo.family.connect("", found.code, db.accounts())
+        assertEquals(cal.url, repo.family.serverUrl)
         assertEquals("Familie Muster", repo.family.groupName)
         assertEquals(listOf("Kind", "Mama", "Papa"), repo.family.members.map { it.name })
         assertEquals(0xFFE53935.toInt(), repo.family.members.first { it.name == "Mama" }.color)

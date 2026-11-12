@@ -58,9 +58,26 @@ class FamilyCalendar(ctx: Context) {
 
     fun disconnect() { p.edit().clear().apply() }
 
-    /** Verbinden: Adresse prüfen, Gruppe und Mitglieder laden. */
+    /** fest eingebauter Kalender-Server (leer = keiner) */
+    var defaultUrl: String = runCatching { app.mailwerk.BuildConfig.CALENDAR_URL }.getOrDefault("")
+
+    /** Gefundene Einladung: Server (null = Standard-Server), Code und woher sie stammt */
+    data class FoundInvite(val url: String?, val code: String, val source: String)
+
+    /** Einladung suchen: zuerst im übergebenen Text (Zwischenablage), dann in den Mails. */
+    fun findInvite(clipboard: String?, mails: List<Pair<String, String>>): FoundInvite? {
+        fun from(text: String, source: String): FoundInvite? {
+            val (u, c) = Api.parseInvite(text)
+            return if (c != null && (u != null || text.contains("Familienkalender", true) || text.contains("family calendar", true))) FoundInvite(u, c, source) else null
+        }
+        clipboard?.let { from(it, tr("Zwischenablage"))?.let { f -> return f } }
+        for ((who, text) in mails) from(text, tr("Mail von {0}", who))?.let { return it }
+        return null
+    }
+
+    /** Verbinden: Adresse prüfen, Gruppe und Mitglieder laden. Ohne Adresse wird der Standard-Server genutzt. */
     fun connect(url: String, groupCode: String, accounts: List<Account>) {
-        val u = Api.normalizeUrl(url)
+        val u = Api.normalizeUrl(url.ifBlank { defaultUrl })
         val c = groupCode.trim().uppercase()
         val api = Api(u, c)
         api.ping()
