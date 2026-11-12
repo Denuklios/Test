@@ -1,0 +1,15 @@
+{
+  "appId": "app.kamera.android",
+  "appName": "Kamera Pro",
+  "webDir": "www",
+  "android": {
+    "allowMixedContent": false,
+    "backgroundColor": "#000000"
+  },
+  "plugins": {
+    "SystemBars": {
+      "style": "DARK",
+      "insetsHandling": "css"
+    }
+  }
+}
