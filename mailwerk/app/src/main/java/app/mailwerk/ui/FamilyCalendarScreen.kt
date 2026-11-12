@@ -145,6 +145,12 @@ fun FamilyCalendarScreen(vm: MainViewModel) {
                                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(4.dp)) { MemberDot(m); Text(m.name) }
                                 }
                             }
+                            // im Kalender hinterlegte Mailadressen (dort bei der Person eintragen)
+                            fam.members.filter { it.emails.isNotEmpty() }.forEach { m ->
+                                Text("${m.name}: ${m.emails.joinToString(", ")}", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                            }
+                            if (fam.members.none { it.emails.isNotEmpty() }) Text(tr("Tipp: In der Kalender-App bei jeder Person die Mailadressen eintragen – dann ordnet Mailwerk jeden Termin eindeutig zu."),
+                                style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
                     }
                     Row(verticalAlignment = Alignment.CenterVertically) {

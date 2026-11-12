@@ -10,6 +10,7 @@ object I18n {
     fun german(): Boolean = Locale.getDefault().language == "de"
 
     val en: Map<String, String> = hashMapOf(
+        "Tipp: In der Kalender-App bei jeder Person die Mailadressen eintragen – dann ordnet Mailwerk jeden Termin eindeutig zu." to "Tip: enter each person's email addresses in the calendar app – Mailwerk then assigns every appointment to the right person.",
         "Einrichten" to "Set up",
         "Familienkalender noch nicht verbunden" to "Family calendar not connected yet",
         "{0} Termin(e) aus Mails warten. Einladung liegt im Postfach – einmal verbinden." to "{0} appointment(s) from emails are waiting. The invitation is in your mailbox – connect once.",

@@ -353,6 +353,20 @@ class FamilyCalendarFlowTest {
         assertNull(repo.family.memberFor(shop))
         db.deleteAccount(rob); db.deleteAccount(shop)
 
+        // Im Kalender hinterlegte Mailadressen: Mail an Kind (über Mamas Postfach, Kind in Cc) -> Termin für beide
+        cal.items["member/k1"]!!.put("emails", org.json.JSONArray(listOf("Kind@Test.de"))).put("updatedAt", 99_999L)
+        repo.family.refreshMembers()
+        assertEquals(listOf("kind@test.de"), repo.family.members.first { it.id == "k1" }.emails)
+        val cm = MimeMessage(Session.getInstance(Properties()))
+        cm.setFrom(InternetAddress("verein@example.org", "Sportverein")); cm.setRecipients(jakarta.mail.Message.RecipientType.TO, "mama@test.de")
+        cm.setRecipients(jakarta.mail.Message.RecipientType.CC, "kind@test.de")
+        cm.subject = "Training"; cm.setText("Das Training ist morgen um 17:30 in der Halle.", "UTF-8"); cm.saveChanges()
+        gm.managers.imapHostManager.getInbox(gm.managers.userManager.getUser("mama@test.de")).store(cm)
+        assertTrue(repo.sync().isEmpty())
+        val tr0 = cal.events().single { it.getString("title") == "Training" }
+        assertEquals("m1", tr0.getString("ownerId")) // Postfach-Inhaberin zuerst
+        assertEquals("k1", tr0.getJSONArray("participants").getString(0))
+
         // Erneuter Abgleich trägt nichts doppelt ein
         val saves = cal.saves.size
         assertTrue(repo.sync().isEmpty())

@@ -13,7 +13,17 @@ import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 
 /** Ein Familienmitglied im gemeinsamen Kalender (Name + Farbe). */
-data class FamilyMember(val id: String, val name: String, val color: Int)
+data class FamilyMember(val id: String, val name: String, val color: Int, val emails: List<String> = emptyList()) {
+    companion object {
+        /** aus dem JSON des Kalenders; "emails" (Liste) oder einzelnes "email" */
+        fun from(o: JSONObject): FamilyMember {
+            val list = o.optJSONArray("emails")?.let { a -> (0 until a.length()).map { a.optString(it) } }
+                ?: o.optString("email").split(',', ';', ' ')
+            return FamilyMember(o.getString("id"), o.optString("name"), o.optInt("color", 0xFF1E88E5.toInt()),
+                list.map { it.trim().lowercase() }.filter { it.contains('@') }.distinct())
+        }
+    }
+}
 
 /**
  * Verbindung zum Familienkalender (eigene Kalender-App mit PHP-Server, z. B. …/kalender/api.php).
@@ -52,9 +62,18 @@ class FamilyCalendar(ctx: Context) {
     var members: List<FamilyMember>
         get() = runCatching {
             val a = JSONArray(p.getString("members", "[]"))
-            (0 until a.length()).map { a.getJSONObject(it).let { o -> FamilyMember(o.getString("id"), o.optString("name"), o.optInt("color")) } }
+            (0 until a.length()).map { FamilyMember.from(a.getJSONObject(it)) }
         }.getOrDefault(emptyList())
-        set(v) = p.edit().putString("members", JSONArray(v.map { JSONObject().put("id", it.id).put("name", it.name).put("color", it.color) }).toString()).apply()
+        set(v) = p.edit().putString("members", JSONArray(v.map { JSONObject().put("id", it.id).put("name", it.name).put("color", it.color)
+            .put("emails", JSONArray(it.emails)) }).toString()).putLong("members_at", System.currentTimeMillis()).apply()
+    /** wann die Personen zuletzt vom Server geladen wurden */
+    val membersLoadedAt: Long get() = p.getLong("members_at", 0)
+
+    /** Personen, die eine dieser Mailadressen im Kalender hinterlegt haben */
+    fun membersWithAddress(addresses: Collection<String>): List<FamilyMember> {
+        val set = addresses.map { it.trim().lowercase() }.toSet()
+        return members.filter { m -> m.emails.any { it in set } }
+    }
 
     /** Welches Familienmitglied hinter welchem Mail-Konto steckt */
     fun memberFor(accountId: Long): FamilyMember? {
@@ -103,6 +122,8 @@ class FamilyCalendar(ctx: Context) {
         val ms = members.filter { it.name.isNotBlank() }
         fun norm(x: String) = x.lowercase().replace("ä", "ae").replace("ö", "oe").replace("ü", "ue").replace("ß", "ss").replace(Regex("[^a-z0-9]"), "")
         accounts.forEach { a ->
+            // im Kalender hinterlegte Mailadresse ist eindeutig und hat immer Vorrang
+            membersWithAddress(listOf(a.email)).singleOrNull()?.let { m -> if (memberFor(a.id)?.id != m.id) setMember(a.id, m.id); return@forEach }
             if (memberFor(a.id) != null) return@forEach
             val words = (a.name.split(Regex("[\\s,]+")) + a.email.substringBefore('@').split('.', '_', '-', '+')).map(::norm).filter { it.length >= 2 }.toSet()
             val hits = ms.filter { m -> norm(m.name.trim().substringBefore(' ')) in words }
@@ -114,7 +135,7 @@ class FamilyCalendar(ctx: Context) {
         val j = api().sync(0)
         val list = j.optJSONArray("members") ?: JSONArray()
         val ms = (0 until list.length()).map { list.getJSONObject(it) }.filter { !it.optBoolean("deleted") }
-            .map { FamilyMember(it.getString("id"), it.optString("name"), it.optInt("color", 0xFF1E88E5.toInt())) }
+            .map { FamilyMember.from(it) }
             .sortedBy { it.name.lowercase() }
         members = ms
         j.optString("group").takeIf { it.isNotBlank() }?.let { groupName = it }

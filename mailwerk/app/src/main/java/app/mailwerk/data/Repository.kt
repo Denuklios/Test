@@ -217,11 +217,13 @@ class Repository private constructor(private val ctx: Context) {
     /** Neue Einladungen automatisch in den Familienkalender eintragen (in der Farbe des Empfängers). */
     fun processInvites() {
         if (!family.connected || !family.autoAdd) return
+        // Personen (inkl. hinterlegter Mailadressen) regelmäßig neu laden
+        if (System.currentTimeMillis() - family.membersLoadedAt > 30 * 60_000L) runCatching { family.refreshMembers() }
         runCatching { family.autoMap(db.accounts()) }
         // Erkennung verbessert -> einmalig die letzten Tage nachholen
         if (family.rescanVersion < TEXT_DETECTION_VERSION) { runCatching { rescanRecentTexts() }; family.rescanVersion = TEXT_DETECTION_VERSION }
         for (inv in db.pendingInvites()) {
-            if (family.memberFor(inv.accountId) == null) continue // Konto noch keinem Familienmitglied zugeordnet
+            if (peopleFor(inv).isEmpty()) continue // weder Empfänger noch Postfach einer Person zugeordnet
             if (!family.detectText && app.mailwerk.mail.TextDates.isDetected(inv.ics)) continue // im Text erkannt: nur auf Knopfdruck
             addInvite(inv, manual = false)
         }
@@ -281,8 +283,29 @@ class Repository private constructor(private val ctx: Context) {
         }
     }
 
+    /**
+     * Für wen ist der Termin? Zuerst die Personen, deren im Kalender hinterlegte Mailadresse unter den Empfängern (An/Cc) steht,
+     * sonst die Person des Postfachs. Bei eigenen (gesendeten) Mails gehört der Termin dem Absender, Empfänger aus der Familie kommen dazu.
+     */
+    private fun peopleFor(inv: Db.Invite): List<FamilyMember> {
+        val m = db.message(inv.msgId)
+        val accMember = family.memberFor(inv.accountId)
+        val acc = db.account(inv.accountId)
+        val recipients = m?.let { (parseAddrs(it.toAddrs) + parseAddrs(it.ccAddrs)).map { a -> a.first } } ?: emptyList()
+        val own = acc != null && m != null && m.fromAddr.equals(acc.email, true)
+        val byAddress = family.membersWithAddress(recipients)
+        val list = when {
+            own -> listOfNotNull(accMember ?: family.membersWithAddress(listOfNotNull(acc?.email)).firstOrNull()) + byAddress
+            // Inhaber des Postfachs gehört dazu, wenn seine Adresse unter den Empfängern steht; dazu alle Familienmitglieder mit hinterlegter Adresse
+            byAddress.isNotEmpty() -> (if (accMember != null && (accMember in byAddress || recipients.any { it.equals(acc?.email, true) })) listOf(accMember) else emptyList()) + byAddress
+            else -> listOfNotNull(accMember)
+        }
+        return list.distinctBy { it.id }
+    }
+
     private fun addInvite(inv: Db.Invite, manual: Boolean) {
-        val member = family.memberFor(inv.accountId)
+        val people = peopleFor(inv)
+        val member = people.firstOrNull()
             ?: return db.setInviteStatus(inv.msgId, FamilyCalendar.STATUS_PENDING, "", tr("Bitte zuerst festlegen, wer dieses Konto nutzt"))
         val events = runCatching { app.mailwerk.mail.Ics.parse(inv.ics) }.getOrDefault(emptyList())
         if (events.isEmpty() || events.all { it.isReply }) return db.setInviteStatus(inv.msgId, FamilyCalendar.STATUS_IGNORED, "", "")
@@ -294,8 +317,12 @@ class Repository private constructor(private val ctx: Context) {
         val source = msg?.let { listOf(it.fromName.ifBlank { it.fromAddr }, it.subject).filter { s -> s.isNotBlank() }.joinToString(" – ") } ?: ""
         try {
             var last: FamilyCalendar.Result? = null
-            for (ev in events.filter { !it.isReply }) last = family.apply(ev, member, source)
-            db.setInviteStatus(inv.msgId, last!!.status, last.eventId, member.name)
+            for (ev in events.filter { !it.isReply }) {
+                last = family.apply(ev, member, source)
+                // weitere Familienmitglieder unter den Empfängern: als Teilnehmer dazu (bzw. bei Absage austragen)
+                people.drop(1).forEach { family.apply(ev, it, source) }
+            }
+            db.setInviteStatus(inv.msgId, last!!.status, last.eventId, people.joinToString(", ") { it.name })
             family.lastError = "" 
         } catch (e: Exception) {
             // bleibt offen und wird beim nächsten Abgleich erneut versucht

@@ -64,6 +64,8 @@ es reicht der Gruppen-Code. Liegt die Einladung in der Zwischenablage oder kam s
 - Kommt eine **Termin-Einladung per Mail** (Outlook, Gmail, iCloud, Schul-/Arzt-Systeme – alles mit `.ics`/`text/calendar`),
   trägt Mailwerk den Termin automatisch in den Familienkalender ein – **in der Farbe der Person, die die Mail bekommen hat**.
   Alle in der Familie sehen ihn sofort in der Kalender-App.
+- **Zuordnung über Mailadressen:** Wer in der Kalender-App bei seiner Person die eigenen Mailadressen einträgt, bekommt jeden
+  Termin aus Mails an diese Adressen (An/Cc) in seiner Farbe – egal in welchem Postfach die Mail landet.
 - Bekommen **mehrere** Familienmitglieder dieselbe Einladung, entsteht **ein** Termin mit allen Empfängern (alle Farben).
 - Auch **Termine und Fristen im normalen Mailtext** werden erkannt – z. B. „melde dich bis Montag 16:00“, „am 24.11. um 19:30“,
   „morgen um 10 Uhr“, „Anmeldeschluss: 15.12.“, „on Friday at 3pm“. Fristen erscheinen als „Frist: Betreff“ mit Erinnerung
