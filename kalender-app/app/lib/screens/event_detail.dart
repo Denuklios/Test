@@ -54,10 +54,11 @@ class EventDetail extends StatelessWidget {
               IconButton(icon: const Icon(Icons.delete_outline), tooltip: 'Löschen', onPressed: () => _delete(context, ev, o)),
             ],
           ),
-          floatingActionButton: FloatingActionButton(
+          floatingActionButton: FloatingActionButton.extended(
             heroTag: 'edit',
             onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventEditor(event: ev))),
-            child: const Icon(Icons.edit),
+            icon: const Icon(Icons.edit),
+            label: const Text('Bearbeiten'),
           ),
           body: ListView(padding: const EdgeInsets.only(bottom: 90), children: [
             Container(
@@ -81,19 +82,24 @@ class EventDetail extends StatelessWidget {
                 title: const Text('Aus E-Mail eingetragen'),
                 subtitle: Text(ev.mailSource ?? 'automatisch von Mailwerk'),
               ),
-            if (ev.people.isNotEmpty && !ev.isBirthday)
+            if (!ev.isBirthday)
               ListTile(
                 leading: const Icon(Icons.people_outline),
-                title: Wrap(
-                  spacing: 6,
-                  runSpacing: 4,
-                  children: ev.people.map((id) => store.member(id)).whereType<Member>().map((m) => Chip(
-                        avatar: MemberAvatar(m, size: 22),
-                        label: Text(m.name),
-                        backgroundColor: m.c.withValues(alpha: 0.15),
-                        side: BorderSide.none,
-                      )).toList(),
-                ),
+                title: ev.people.isEmpty
+                    ? const Text('👪 Allgemein (für alle)')
+                    : Wrap(
+                        spacing: 6,
+                        runSpacing: 4,
+                        children: ev.people.map((id) => store.member(id)).whereType<Member>().map((m) => Chip(
+                              avatar: MemberAvatar(m, size: 22),
+                              label: Text(m.name),
+                              backgroundColor: m.c.withValues(alpha: 0.15),
+                              side: BorderSide.none,
+                            )).toList(),
+                      ),
+                subtitle: const Text('Antippen, um die Person zu ändern'),
+                trailing: const Icon(Icons.swap_horiz),
+                onTap: () => changePeople(context, ev),
               ),
             if (ev.location.isNotEmpty)
               ListTile(
@@ -254,6 +260,44 @@ class EventDetail extends StatelessWidget {
       if (context.mounted) Navigator.pop(context);
     }
   }
+}
+
+/// Für wen ist der Termin? Direkt ändern, ohne den ganzen Editor
+Future<void> changePeople(BuildContext context, CalEvent ev) async {
+  final sel = ev.people.toSet();
+  final ok = await showModalBottomSheet<bool>(
+    context: context,
+    showDragHandle: true,
+    builder: (ctx) => StatefulBuilder(
+      builder: (ctx, setS) => SafeArea(
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(16, 0, 16, 16),
+          child: Column(mainAxisSize: MainAxisSize.min, crossAxisAlignment: CrossAxisAlignment.stretch, children: [
+            Text('Für wen ist „${ev.title}“?', style: const TextStyle(fontSize: 18, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 10),
+            Wrap(spacing: 8, runSpacing: 6, children: [
+              ChoiceChip(avatar: const Text('👪'), label: const Text('Allgemein'), selected: sel.isEmpty, onSelected: (_) => setS(sel.clear)),
+              ...store.activeMembers.map((m) => FilterChip(
+                    avatar: MemberAvatar(m, size: 24),
+                    label: Text(m.name),
+                    selected: sel.contains(m.id),
+                    selectedColor: m.c.withValues(alpha: 0.35),
+                    onSelected: (v) => setS(() => v ? sel.add(m.id) : sel.remove(m.id)),
+                  )),
+            ]),
+            const SizedBox(height: 14),
+            FilledButton(onPressed: () => Navigator.pop(ctx, true), child: const Text('Übernehmen')),
+          ]),
+        ),
+      ),
+    ),
+  );
+  if (ok != true) return;
+  final list = sel.toList();
+  final c = ev.copy()
+    ..ownerId = list.isEmpty ? '' : list.first
+    ..participants = list.skip(1).toList();
+  await store.saveEvent(c);
 }
 
 class _PhotoView extends StatelessWidget {

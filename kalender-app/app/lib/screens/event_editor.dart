@@ -383,7 +383,7 @@ class _EventEditorState extends State<EventEditor> {
       if (ev.end.isBefore(ev.start)) ev.end = ev.start;
     }
     // Passende Vorschläge automatisch übernehmen (bei Reisen mit kurzen Fragen)
-    if (ev.prep.isEmpty && _autoPrep && mounted) {
+    if (isNew && ev.prep.isEmpty && _autoPrep && mounted) {
       final cats = detectCategories(ev);
       if (cats.contains('travel')) {
         await runPrepWizard(context, ev);

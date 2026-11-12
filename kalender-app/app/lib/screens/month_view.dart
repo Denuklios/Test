@@ -5,6 +5,7 @@ import '../holidays.dart';
 import '../main.dart';
 import '../models.dart';
 import '../widgets/common.dart';
+import 'event_editor.dart';
 
 /// Ein Eintrag, der in der Wochenzeile als Balken gezeichnet wird
 class _Bar {
@@ -399,6 +400,9 @@ class _WeekRow extends StatelessWidget {
                   onTap: b.occ != null
                       ? () => onEventTap(b.occ!)
                       : () => onDayTap(dayList[b.startCol]),
+                  onLongPress: b.occ != null
+                      ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventEditor(event: store.events[b.occ!.ev.id] ?? b.occ!.ev)))
+                      : null,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
                     alignment: Alignment.centerLeft,
