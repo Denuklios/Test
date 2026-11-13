@@ -97,19 +97,22 @@ fun ComposerWindow(st: AppState, d: Draft, dark: Boolean, onClose: () -> Unit) {
     Window(onCloseRequest = onClose, title = subject.ifBlank { tr("Neue E-Mail") } + " – Mailwerk", icon = appIcon(),
         state = rememberWindowState(width = 760.dp, height = 680.dp),
         onPreviewKeyEvent = { e -> if (e.type == KeyEventType.KeyDown && e.isCtrlPressed && e.key == Key.Enter) { send(); true } else false }) {
-        MailwerkTheme(dark) { Zoomed(effectiveZoom(st)) {
+        MailwerkTheme(dark) {
+            val bar = MaterialTheme.colorScheme.surface
+            androidx.compose.runtime.LaunchedEffect(dark) { WinChrome.apply(window, dark, bar) }
+            Zoomed(effectiveZoom(st)) {
             Surface(Modifier.fillMaxSize()) {
                 Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Text(tr("Von:"), Modifier.width(60.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Column {
-                            TextButton(onClick = { pickFrom = true }) { Text(accounts.firstOrNull { it.id == accId }?.let { "${it.name} <${it.email}>" } ?: "") }
+                            TextButton(shape = ButtonShape, onClick = { pickFrom = true }) { Text(accounts.firstOrNull { it.id == accId }?.let { "${it.name} <${it.email}>" } ?: "") }
                             DropdownMenu(pickFrom, { pickFrom = false }) {
                                 accounts.forEach { a -> DropdownMenuItem({ Text("${a.name} <${a.email}>") }, { accId = a.id; pickFrom = false }) }
                             }
                         }
                         Spacer(Modifier.weight(1f))
-                        if (!showCc) TextButton(onClick = { showCc = true }) { Text(tr("Cc/Bcc")) }
+                        if (!showCc) TextButton(shape = ButtonShape, onClick = { showCc = true }) { Text(tr("Cc/Bcc")) }
                     }
                     RecipientField(st, tr("An"), to) { to = it }
                     if (showCc) { RecipientField(st, tr("Cc"), cc) { cc = it }; RecipientField(st, tr("Bcc"), bcc) { bcc = it } }
@@ -121,8 +124,8 @@ fun ComposerWindow(st: AppState, d: Draft, dark: Boolean, onClose: () -> Unit) {
                     }
                     error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                     Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                        Button(onClick = ::send, enabled = !busy && to.isNotBlank()) { Text(tr("Senden")) }
-                        OutlinedButton(onClick = ::attach) { Icon(Icons.Outlined.AttachFile, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Anhang")) }
+                        Button(shape = ButtonShape, onClick = ::send, enabled = !busy && to.isNotBlank()) { Text(tr("Senden")) }
+                        OutlinedButton(shape = ButtonShape, onClick = ::attach) { Icon(Icons.Outlined.AttachFile, null, Modifier.size(18.dp)); Spacer(Modifier.width(6.dp)); Text(tr("Anhang")) }
                         if (busy) CircularProgressIndicator(Modifier.size(22.dp), strokeWidth = 2.dp)
                         Spacer(Modifier.weight(1f))
                         Text(tr("Strg+Enter sendet"), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
@@ -213,17 +216,17 @@ fun AccountDialog(st: AppState, edit: Account?, onDone: () -> Unit) {
                         OutlinedTextField(smtpPort, { smtpPort = it.filter(Char::isDigit) }, Modifier.width(90.dp), label = { Text(tr("Port")) }, singleLine = true)
                     }
                     OutlinedTextField(username, { username = it }, Modifier.fillMaxWidth(), label = { Text(tr("Benutzername")) }, singleLine = true)
-                } else TextButton(onClick = { advanced = true }) { Text(tr("Server selbst eintragen")) }
+                } else TextButton(shape = ButtonShape, onClick = { advanced = true }) { Text(tr("Server selbst eintragen")) }
                 OutlinedTextField(signature, { signature = it }, Modifier.fillMaxWidth(), label = { Text(tr("Signatur")) }, minLines = 2)
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
                 if (busy) CircularProgressIndicator(Modifier.size(24.dp), strokeWidth = 2.dp)
             }
         },
-        confirmButton = { Button(onClick = ::save, enabled = !busy && email.contains('@') && (edit != null || password.isNotEmpty())) { Text(tr("Speichern")) } },
+        confirmButton = { Button(shape = ButtonShape, onClick = ::save, enabled = !busy && email.contains('@') && (edit != null || password.isNotEmpty())) { Text(tr("Speichern")) } },
         dismissButton = {
             Row {
-                if (edit != null) TextButton(onClick = { st.store.deleteAccount(edit.id); st.selected = null; onDone() }) { Text(tr("Konto entfernen"), color = MaterialTheme.colorScheme.error) }
-                TextButton(onClick = onDone) { Text(tr("Abbrechen")) }
+                if (edit != null) TextButton(shape = ButtonShape, onClick = { st.store.deleteAccount(edit.id); st.selected = null; onDone() }) { Text(tr("Konto entfernen"), color = MaterialTheme.colorScheme.error) }
+                TextButton(shape = ButtonShape, onClick = onDone) { Text(tr("Abbrechen")) }
             }
         })
 }
@@ -246,7 +249,7 @@ fun SettingsDialog(st: AppState, onTheme: () -> Unit, onDone: () -> Unit) {
                         Text(tr("Bearbeiten"), color = MaterialTheme.colorScheme.primary)
                     }
                 }
-                TextButton(onClick = { st.addAccount = true }) { Text(tr("+ Konto hinzufügen")) }
+                TextButton(shape = ButtonShape, onClick = { st.addAccount = true }) { Text(tr("+ Konto hinzufügen")) }
                 HorizontalDivider()
                 Text(tr("Darstellung"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -256,9 +259,9 @@ fun SettingsDialog(st: AppState, onTheme: () -> Unit, onDone: () -> Unit) {
                 }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(tr("Größe: {0} %", (effectiveZoom(st) * 100).toInt()), Modifier.weight(1f))
-                    TextButton(onClick = { st.changeZoom(effectiveZoom(st) - 0.1f) }) { Text("–") }
-                    TextButton(onClick = { st.changeZoom(1f) }) { Text("100 %") }
-                    TextButton(onClick = { st.changeZoom(effectiveZoom(st) + 0.1f) }) { Text("+") }
+                    TextButton(shape = ButtonShape, onClick = { st.changeZoom(effectiveZoom(st) - 0.1f) }) { Text("–") }
+                    TextButton(shape = ButtonShape, onClick = { st.changeZoom(1f) }) { Text("100 %") }
+                    TextButton(shape = ButtonShape, onClick = { st.changeZoom(effectiveZoom(st) + 0.1f) }) { Text("+") }
                 }
                 Text(tr("Auch mit Strg + Plus / Minus / 0"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 HorizontalDivider()
@@ -277,5 +280,5 @@ fun SettingsDialog(st: AppState, onTheme: () -> Unit, onDone: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         },
-        confirmButton = { TextButton(onClick = onDone) { Text(tr("Fertig")) } })
+        confirmButton = { TextButton(shape = ButtonShape, onClick = onDone) { Text(tr("Fertig")) } })
 }

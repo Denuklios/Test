@@ -1,5 +1,16 @@
 package app.mailwerk.desktop
 
+import androidx.compose.material.icons.automirrored.outlined.Sort
+import androidx.compose.material.icons.outlined.FilterAltOff
+import androidx.compose.material.icons.outlined.FilterAlt
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.ui.unit.sp
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.layout.IntrinsicSize
+import androidx.compose.foundation.text.BasicTextField
+import androidx.compose.foundation.rememberScrollbarAdapter
+import androidx.compose.foundation.VerticalScrollbar
 import androidx.compose.foundation.ContextMenuArea
 import androidx.compose.foundation.ContextMenuItem
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -240,25 +251,38 @@ fun Tip(text: String, content: @Composable () -> Unit) =
 
 @Composable
 fun ActionIcon(icon: ImageVector, text: String, enabled: Boolean = true, onClick: () -> Unit) =
-    Tip(text) { IconButton(onClick = onClick, enabled = enabled) { Icon(icon, text) } }
+    Tip(text) {
+        Box(Modifier.size(32.dp).clip(RoundedCornerShape(5.dp)).clickable(enabled = enabled, onClick = onClick), contentAlignment = Alignment.Center) {
+            Icon(icon, text, Modifier.size(18.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = if (enabled) 1f else 0.35f))
+        }
+    }
 
-/** Befehl mit Symbol und Beschriftung (wie im Outlook-Menüband) */
+/** Befehl: Symbol + Text nebeneinander (vereinfachtes Outlook-Menüband) */
 @Composable
-private fun Command(icon: ImageVector, label: String, enabled: Boolean = true, onClick: () -> Unit) {
-    Column(Modifier.clip(RoundedCornerShape(10.dp)).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 10.dp, vertical = 6.dp).widthIn(min = 56.dp),
-        horizontalAlignment = Alignment.CenterHorizontally) {
-        val c = if (enabled) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurface.copy(alpha = 0.35f)
-        Icon(icon, null, Modifier.size(22.dp), tint = c)
-        Text(label, style = MaterialTheme.typography.labelSmall, color = c, maxLines = 1)
+private fun Command(icon: ImageVector, label: String, enabled: Boolean = true, accent: Boolean = false, onClick: () -> Unit) {
+    val c = when { !enabled -> MaterialTheme.colorScheme.onSurface.copy(alpha = 0.32f); accent -> MaterialTheme.colorScheme.primary; else -> MaterialTheme.colorScheme.onSurface }
+    Row(Modifier.height(32.dp).clip(RoundedCornerShape(5.dp)).clickable(enabled = enabled, onClick = onClick).padding(horizontal = 9.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, Modifier.size(17.dp), tint = if (enabled && !accent) MaterialTheme.colorScheme.primary.copy(alpha = 0.85f) else c)
+        Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.bodyMedium, color = c, maxLines = 1)
     }
 }
 
 @Composable
-fun Avatar(name: String, addr: String, size: Int = 36) {
-    val label = name.ifBlank { addr }.split(' ', '.', '@').filter { it.isNotBlank() }.take(2).joinToString("") { it.first().uppercase() }
-    val hue = (addr.lowercase().hashCode() and 0xffffff) % 360
-    Box(Modifier.size(size.dp).clip(CircleShape).background(Color.hsl(hue.toFloat(), 0.55f, 0.45f)), contentAlignment = Alignment.Center) {
-        Text(label, color = Color.White, fontWeight = FontWeight.Bold, style = MaterialTheme.typography.labelLarge)
+private fun BarDivider() = Box(Modifier.padding(horizontal = 6.dp).width(1.dp).height(20.dp).background(MaterialTheme.colorScheme.outlineVariant))
+
+/** Ruhige Avatare: helle Pastellfläche, dunklere Initialen (wie Outlook) */
+@Composable
+fun Avatar(name: String, addr: String, size: Int = 32) {
+    val label = name.ifBlank { addr }.split(' ', '.', '@', '-', '_').filter { it.isNotBlank() && it.first().isLetterOrDigit() }.take(2)
+        .joinToString("") { it.first().uppercase() }.ifEmpty { "?" }
+    val hue = ((addr.lowercase().hashCode() and 0x7fffffff) % 12) * 30f
+    val dark = LocalDark.current
+    Box(Modifier.size(size.dp).clip(CircleShape).background(if (dark) Color.hsl(hue, 0.35f, 0.28f) else Color.hsl(hue, 0.55f, 0.90f)),
+        contentAlignment = Alignment.Center) {
+        Text(label, color = if (dark) Color.hsl(hue, 0.6f, 0.85f) else Color.hsl(hue, 0.55f, 0.32f), fontWeight = FontWeight.SemiBold,
+            fontSize = (size * 0.38f).sp)
     }
 }
 
@@ -268,11 +292,11 @@ private fun Splitter(onDrag: (Float) -> Unit, onDone: () -> Unit) {
     val density = LocalDensity.current
     val src = remember { MutableInteractionSource() }
     val hovered by src.collectIsHoveredAsState()
-    Box(Modifier.width(7.dp).fillMaxHeight().hoverable(src)
+    Box(Modifier.width(5.dp).fillMaxHeight().hoverable(src)
         .pointerHoverIcon(PointerIcon(java.awt.Cursor(java.awt.Cursor.E_RESIZE_CURSOR)))
         .draggable(rememberDraggableState { px -> onDrag(with(density) { px.toDp().value }) }, Orientation.Horizontal, onDragStopped = { onDone() }),
         contentAlignment = Alignment.Center) {
-        Box(Modifier.width(if (hovered) 3.dp else 1.dp).fillMaxHeight()
+        Box(Modifier.width(if (hovered) 2.dp else 1.dp).fillMaxHeight()
             .background(if (hovered) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.outlineVariant))
     }
 }
@@ -290,33 +314,36 @@ fun App(st: AppState) {
     Surface(Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
         if (accounts.isEmpty()) { Welcome(st); return@Surface }
         Column(Modifier.fillMaxSize()) {
-            CommandBar(st, syncing)
-            if (syncing) LinearProgressIndicator(Modifier.fillMaxWidth().height(2.dp)) else HorizontalDivider()
+            CommandBar(st)
+            Box(Modifier.fillMaxWidth().height(2.dp)) {
+                if (syncing) LinearProgressIndicator(Modifier.fillMaxSize(), trackColor = Color.Transparent)
+                else HorizontalDivider(Modifier.align(Alignment.BottomCenter), color = MaterialTheme.colorScheme.outlineVariant)
+            }
             Row(Modifier.fillMaxSize()) {
                 Sidebar(st, accounts, changes)
                 Splitter({ st.sidebarW = (st.sidebarW + it).coerceIn(180f, 520f) }, st::saveLayout)
                 Box(Modifier.width(st.listW.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surfaceContainerLow)) { MessageList(st, changes) }
                 Splitter({ st.listW = (st.listW + it).coerceIn(280f, 1100f) }, st::saveLayout)
-                Box(Modifier.weight(1f).fillMaxHeight()) { Reader(st, changes) }
+                Box(Modifier.weight(1f).fillMaxHeight().background(MaterialTheme.colorScheme.background)) { Reader(st, changes) }
             }
         }
         errors.entries.firstOrNull()?.let { (accId, err) ->
             Box(Modifier.fillMaxSize().padding(16.dp), contentAlignment = Alignment.BottomCenter) {
-                Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.errorContainer, shadowElevation = 4.dp) {
-                    Row(Modifier.padding(horizontal = 16.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.errorContainer, shadowElevation = 8.dp) {
+                    Row(Modifier.padding(horizontal = 14.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                         Text(tr("Abruf fehlgeschlagen: {0}", accounts.firstOrNull { it.id == accId }?.email ?: "") + " – " + err,
-                            Modifier.weight(1f, false), color = MaterialTheme.colorScheme.onErrorContainer, maxLines = 2)
-                        TextButton(onClick = { scope.launch { st.repo.sync() } }) { Text(tr("Erneut")) }
-                        TextButton(onClick = { st.repo.errors.value = emptyMap() }) { Text("✕") }
+                            Modifier.weight(1f, false), color = MaterialTheme.colorScheme.onSurface, maxLines = 2, style = MaterialTheme.typography.bodyMedium)
+                        TextButton(onClick = { scope.launch { st.repo.sync() } }, shape = ButtonShape) { Text(tr("Erneut")) }
+                        TextButton(onClick = { st.repo.errors.value = emptyMap() }, shape = ButtonShape) { Text("✕") }
                     }
                 }
             }
         }
         st.snack?.let { s ->
             LaunchedEffect(s) { kotlinx.coroutines.delay(3500); st.snack = null }
-            Box(Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.BottomStart) {
-                Surface(shape = RoundedCornerShape(12.dp), color = MaterialTheme.colorScheme.inverseSurface, shadowElevation = 6.dp) {
-                    Text(s, Modifier.padding(horizontal = 16.dp, vertical = 12.dp), color = MaterialTheme.colorScheme.inverseOnSurface)
+            Box(Modifier.fillMaxSize().padding(20.dp), contentAlignment = Alignment.BottomStart) {
+                Surface(shape = RoundedCornerShape(8.dp), color = MaterialTheme.colorScheme.inverseSurface, shadowElevation = 8.dp) {
+                    Text(s, Modifier.padding(horizontal = 16.dp, vertical = 10.dp), color = MaterialTheme.colorScheme.inverseOnSurface, style = MaterialTheme.typography.bodyMedium)
                 }
             }
         }
@@ -325,48 +352,52 @@ fun App(st: AppState) {
     }
 }
 
-/** Befehlsleiste oben – wie das Menüband großer Mail-Programme */
+/** Befehlsleiste oben – wie das vereinfachte Menüband von Outlook */
 @Composable
-private fun CommandBar(st: AppState, syncing: Boolean) {
+private fun CommandBar(st: AppState) {
     val scope = rememberCoroutineScope()
+    val syncing by st.repo.syncing.collectAsState()
     val has = st.selected != null || st.marked.isNotEmpty()
     val single = st.marked.size <= 1 && st.selected != null
     var catMenu by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = 8.dp, vertical = 4.dp),
+    var more by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.surfaceContainer).padding(horizontal = 10.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically) {
-        Box(Modifier.clip(RoundedCornerShape(14.dp)).background(Brand.gradient).clickable { st.newMail() }.padding(horizontal = 16.dp, vertical = 10.dp)) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(Icons.Outlined.Edit, null, tint = Color.White); Spacer(Modifier.width(8.dp))
-                Text(tr("Neue E-Mail"), color = Color.White, fontWeight = FontWeight.Bold)
-            }
+        // Hauptbefehl: schlicht in Akzentfarbe, kleine Rundung
+        Row(Modifier.height(32.dp).clip(ButtonShape).background(MaterialTheme.colorScheme.primary).clickable { st.newMail() }.padding(horizontal = 14.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Outlined.Edit, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onPrimary); Spacer(Modifier.width(8.dp))
+            Text(tr("Neue E-Mail"), color = MaterialTheme.colorScheme.onPrimary, style = MaterialTheme.typography.labelLarge)
         }
-        Spacer(Modifier.width(8.dp))
+        Spacer(Modifier.width(10.dp))
         Row(Modifier.weight(1f).horizontalScroll(rememberScrollState()), verticalAlignment = Alignment.CenterVertically) {
-            Command(Icons.AutoMirrored.Outlined.Reply, tr("Antworten"), single) { st.selected?.let { st.targets().lastOrNull()?.let { m -> st.reply(m, false) } } }
-            Command(Icons.AutoMirrored.Outlined.ReplyAll, tr("Allen"), single) { st.targets().lastOrNull()?.let { st.reply(it, true) } }
-            Command(Icons.AutoMirrored.Outlined.Forward, tr("Weiterleiten"), single) { st.targets().lastOrNull()?.let { st.forward(it) } }
-            VerticalDivider(Modifier.height(36.dp).padding(horizontal = 4.dp))
-            Command(Icons.Outlined.Archive, tr("Archivieren"), has) { scope.launch { st.archive() } }
             Command(Icons.Outlined.Delete, tr("Löschen"), has) { scope.launch { st.delete() } }
+            Command(Icons.Outlined.Archive, tr("Archivieren"), has) { scope.launch { st.archive() } }
             Command(Icons.Outlined.DriveFileMove, tr("Verschieben"), has) { st.moveDialog = st.targets() }
             Command(Icons.Outlined.Report, tr("Spam"), has) { scope.launch { st.spam() } }
-            Command(Icons.Outlined.Block, tr("Sperren"), has) { scope.launch { st.block() } }
-            VerticalDivider(Modifier.height(36.dp).padding(horizontal = 4.dp))
+            BarDivider()
+            Command(Icons.AutoMirrored.Outlined.Reply, tr("Antworten"), single) { st.targets().lastOrNull()?.let { st.reply(it, false) } }
+            Command(Icons.AutoMirrored.Outlined.ReplyAll, tr("Allen antworten"), single) { st.targets().lastOrNull()?.let { st.reply(it, true) } }
+            Command(Icons.AutoMirrored.Outlined.Forward, tr("Weiterleiten"), single) { st.targets().lastOrNull()?.let { st.forward(it) } }
+            BarDivider()
             Command(Icons.Outlined.MarkEmailRead, tr("Gelesen"), has) { scope.launch { st.setSeen(true) } }
             Command(Icons.Outlined.MarkEmailUnread, tr("Ungelesen"), has) { scope.launch { st.setSeen(false) } }
             Command(Icons.Outlined.Flag, tr("Markieren"), has) { scope.launch { st.toggleFlag() } }
-            Command(Icons.Outlined.PushPin, tr("Anheften"), has) { st.togglePin() }
             Box {
-                Command(Icons.Outlined.AllInbox, tr("Einsortieren"), has) { catMenu = true }
-                DropdownMenu(catMenu, { catMenu = false }) {
-                    Category.entries.forEach { c -> DropdownMenuItem({ Text(tr("Absender immer als „{0}“", c.label)) }, { catMenu = false; st.categorize(c) }) }
+                Command(Icons.Outlined.MoreHoriz, tr("Mehr"), has) { more = true }
+                DropdownMenu(more, { more = false }) {
+                    DropdownMenuItem({ Text(tr("Anheften / lösen")) }, { more = false; st.togglePin() }, leadingIcon = { Icon(Icons.Outlined.PushPin, null) })
+                    DropdownMenuItem({ Text(tr("Absender sperren")) }, { more = false; scope.launch { st.block() } }, leadingIcon = { Icon(Icons.Outlined.Block, null) })
+                    HorizontalDivider()
+                    Category.entries.forEach { c -> DropdownMenuItem({ Text(tr("Absender immer als „{0}“", c.label)) }, { more = false; st.categorize(c) },
+                        leadingIcon = { Icon(Icons.Outlined.AllInbox, null) }) }
                 }
             }
         }
-        Command(Icons.Outlined.ZoomOut, tr("Kleiner"), true) { st.changeZoom(effectiveZoom(st) - 0.1f) }
-        Command(Icons.Outlined.ZoomIn, tr("Größer"), true) { st.changeZoom(effectiveZoom(st) + 0.1f) }
-        Command(Icons.Outlined.Refresh, if (syncing) tr("Abruf …") else tr("Abrufen"), !syncing) { scope.launch { st.repo.sync((st.box as? Box.InFolder)?.folder?.id) } }
-        Command(Icons.Outlined.Settings, tr("Einstellungen")) { st.showSettings = true }
+        ActionIcon(Icons.Outlined.Refresh, if (syncing) tr("Abruf …") else tr("Abrufen (F5)"), !syncing) { scope.launch { st.repo.sync((st.box as? Box.InFolder)?.folder?.id) } }
+        ActionIcon(Icons.Outlined.ZoomOut, tr("Kleiner (Strg −)")) { st.changeZoom(effectiveZoom(st) - 0.1f) }
+        ActionIcon(Icons.Outlined.ZoomIn, tr("Größer (Strg +)")) { st.changeZoom(effectiveZoom(st) + 0.1f) }
+        ActionIcon(Icons.Outlined.Settings, tr("Einstellungen")) { st.showSettings = true }
     }
 }
 
@@ -384,12 +415,16 @@ val autoZoom: Float by lazy {
 
 @Composable
 private fun Welcome(st: AppState) {
-    Box(Modifier.fillMaxSize().background(Brand.gradient), contentAlignment = Alignment.Center) {
-        Surface(shape = RoundedCornerShape(28.dp), shadowElevation = 12.dp) {
-            Column(Modifier.padding(40.dp).width(420.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-                Text(tr("Willkommen bei Mailwerk"), style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+    Box(Modifier.fillMaxSize().background(MaterialTheme.colorScheme.surfaceContainer), contentAlignment = Alignment.Center) {
+        Surface(shape = RoundedCornerShape(10.dp), shadowElevation = 16.dp, color = MaterialTheme.colorScheme.surface) {
+            Column(Modifier.padding(36.dp).width(420.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Box(Modifier.size(44.dp).clip(RoundedCornerShape(10.dp)).background(Brand.gradient), contentAlignment = Alignment.Center) {
+                    Icon(Icons.Outlined.Inbox, null, tint = Color.White)
+                }
+                Text(tr("Willkommen bei Mailwerk"), style = MaterialTheme.typography.headlineMedium)
                 Text(tr("Alle Postfächer an einem Ort. Privat, schnell, ohne Werbung."), color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Button(onClick = { st.addAccount = true }) { Text(tr("E-Mail-Konto hinzufügen")) }
+                Spacer(Modifier.height(4.dp))
+                Button(onClick = { st.addAccount = true }, shape = ButtonShape) { Text(tr("E-Mail-Konto hinzufügen")) }
             }
         }
     }
@@ -399,22 +434,23 @@ private fun Welcome(st: AppState) {
 @Composable
 private fun Sidebar(st: AppState, accounts: List<Account>, changes: Long) {
     val scope = rememberCoroutineScope()
-    Column(Modifier.width(st.sidebarW.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surfaceContainer).padding(8.dp)) {
-        Column(Modifier.weight(1f).verticalScroll(rememberScrollState())) {
+    val scroll = rememberScrollState()
+    Box(Modifier.width(st.sidebarW.dp).fillMaxHeight().background(MaterialTheme.colorScheme.surfaceContainer)) {
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(start = 8.dp, end = 10.dp, top = 8.dp, bottom = 8.dp)) {
             val unifiedUnread = remember(changes) { st.store.unreadCounts(null).values.sum() }
             NavItem(Icons.Outlined.AllInbox, tr("Alle Posteingänge"), st.box is Box.Unified, unifiedUnread) { st.box = Box.Unified; st.afterRemove() }
             accounts.forEach { a ->
-                HorizontalDivider(Modifier.padding(vertical = 8.dp))
+                Spacer(Modifier.height(10.dp))
                 val open = st.isOpen(a.id)
                 ContextMenuArea(items = { listOf(
                     ContextMenuItem(tr("Neuer Ordner …")) { st.folderDialog = FolderEdit(a.id, null, null) },
                     ContextMenuItem(tr("Konto bearbeiten …")) { st.showAccount = a },
                 ) }) {
-                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(10.dp)).clickable { st.toggleOpen(a.id, accounts.map { it.id }) }
-                        .padding(horizontal = 10.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
-                        Box(Modifier.size(10.dp).clip(CircleShape).background(Color(a.color))); Spacer(Modifier.width(8.dp))
+                    Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(5.dp)).clickable { st.toggleOpen(a.id, accounts.map { it.id }) }
+                        .padding(horizontal = 8.dp, vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (open) "⌄" else "›", Modifier.width(14.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(a.email, Modifier.weight(1f), style = MaterialTheme.typography.titleSmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                        Text(if (open) "▾" else "▸", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Box(Modifier.size(8.dp).clip(CircleShape).background(Color(a.color)))
                     }
                 }
                 if (open) remember(changes, a.id) { st.store.folders(a.id) }.forEach { f ->
@@ -432,7 +468,8 @@ private fun Sidebar(st: AppState, accounts: List<Account>, changes: Long) {
                             add(ContextMenuItem(tr("Löschen")) { scope.launch { runCatching { st.repo.deleteFolder(f) }.onFailure { st.snack = app.mailwerk.mail.friendly(it) } } })
                         }
                     } }) {
-                        NavItem(icon, f.displayName, (st.box as? Box.InFolder)?.folder?.id == f.id, if (f.role == FolderRole.INBOX || f.role == null) f.unread else 0, depth) {
+                        NavItem(icon, f.displayName, (st.box as? Box.InFolder)?.folder?.id == f.id,
+                            if (f.role == FolderRole.INBOX || f.role == null || f.role == FolderRole.JUNK) f.unread else 0, depth + 1) {
                             st.box = Box.InFolder(f); st.afterRemove()
                             if (f.role != FolderRole.INBOX && f.role != FolderRole.SENT) scope.launch { st.repo.sync(f.id) }
                         }
@@ -440,20 +477,61 @@ private fun Sidebar(st: AppState, accounts: List<Account>, changes: Long) {
                 }
             }
         }
+        VerticalScrollbar(rememberScrollbarAdapter(scroll), Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 2.dp))
     }
 }
 
+/** Ordner-Eintrag: Auswahl mit Fläche + Akzentstrich links, Anzahl ungelesener in Akzentfarbe (kein rotes Badge) */
 @Composable
-private fun NavItem(icon: ImageVector, label: String, selected: Boolean, badge: Int = 0, depth: Int = 0, onClick: () -> Unit) {
-    Row(Modifier.fillMaxWidth().padding(vertical = 1.dp).clip(RoundedCornerShape(12.dp))
+private fun NavItem(icon: ImageVector, label: String, selected: Boolean, count: Int = 0, depth: Int = 0, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().height(34.dp).clip(RoundedCornerShape(5.dp))
         .background(if (selected) MaterialTheme.colorScheme.secondaryContainer else Color.Transparent)
-        .clickable(onClick = onClick).padding(start = (12 + depth * 14).dp, end = 10.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, null, Modifier.size(20.dp), tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
-        Spacer(Modifier.width(12.dp))
-        Text(label, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, fontWeight = if (selected || badge > 0) FontWeight.SemiBold else FontWeight.Normal)
-        if (badge > 0) Badge { Text("$badge") }
+        .clickable(onClick = onClick), verticalAlignment = Alignment.CenterVertically) {
+        Box(Modifier.width(3.dp).height(16.dp).clip(RoundedCornerShape(2.dp)).background(if (selected) MaterialTheme.colorScheme.primary else Color.Transparent))
+        Spacer(Modifier.width((8 + depth * 12).dp))
+        Icon(icon, null, Modifier.size(17.dp), tint = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(10.dp))
+        Text(label, Modifier.weight(1f), maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+            fontWeight = if (selected || count > 0) FontWeight.SemiBold else FontWeight.Normal)
+        if (count > 0) Text("$count", Modifier.padding(end = 8.dp), color = MaterialTheme.colorScheme.primary, style = MaterialTheme.typography.labelLarge)
     }
 }
+
+/** Reiter mit Unterstrich (wie „Relevant / Sonstige“ in Outlook) */
+@Composable
+private fun TabItem(label: String, count: Int, selected: Boolean, onClick: () -> Unit) {
+    Column(Modifier.clip(RoundedCornerShape(4.dp)).clickable(onClick = onClick).padding(horizontal = 8.dp).padding(top = 6.dp),
+        horizontalAlignment = Alignment.CenterHorizontally) {
+        Row(verticalAlignment = Alignment.CenterVertically) {
+            Text(label, style = MaterialTheme.typography.bodyMedium, fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal,
+                color = if (selected) MaterialTheme.colorScheme.onSurface else MaterialTheme.colorScheme.onSurfaceVariant)
+            if (count > 0) { Spacer(Modifier.width(5.dp)); Text("$count", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary) }
+        }
+        Spacer(Modifier.height(6.dp))
+        Box(Modifier.width(if (selected) 28.dp else 0.dp).height(2.dp).clip(RoundedCornerShape(1.dp)).background(MaterialTheme.colorScheme.primary))
+    }
+}
+
+/** Kompaktes Suchfeld (36 dp, kleine Rundung) */
+@Composable
+private fun SearchField(value: String, onChange: (String) -> Unit, modifier: Modifier = Modifier) {
+    Row(modifier.height(34.dp).clip(RoundedCornerShape(5.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
+        .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(5.dp)).padding(horizontal = 10.dp),
+        verticalAlignment = Alignment.CenterVertically) {
+        Icon(Icons.Outlined.Search, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+        Spacer(Modifier.width(8.dp))
+        Box(Modifier.weight(1f)) {
+            if (value.isEmpty()) Text(tr("Suchen (Strg+E)"), style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            BasicTextField(value, onChange, Modifier.fillMaxWidth().focusRequester(SearchFocus.requester), singleLine = true,
+                textStyle = MaterialTheme.typography.bodyMedium.copy(color = MaterialTheme.colorScheme.onSurface),
+                cursorBrush = androidx.compose.ui.graphics.SolidColor(MaterialTheme.colorScheme.primary))
+        }
+        if (value.isNotEmpty()) Text("✕", Modifier.clip(CircleShape).clickable { onChange("") }.padding(4.dp), color = MaterialTheme.colorScheme.onSurfaceVariant)
+    }
+}
+
+/** für Strg+E */
+object SearchFocus { val requester = FocusRequester() }
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
@@ -471,47 +549,66 @@ private fun MessageList(st: AppState, changes: Long) {
     var sortMenu by remember { mutableStateOf(false) }
     val scope = rememberCoroutineScope()
     Column(Modifier.fillMaxSize()) {
-        Row(Modifier.padding(start = 16.dp, end = 6.dp, top = 10.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
-            Text(folder?.displayName ?: tr("Posteingang"), Modifier.weight(1f), style = MaterialTheme.typography.headlineSmall,
-                fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        SearchField(st.query, { st.query = it }, Modifier.fillMaxWidth().padding(start = 12.dp, end = 12.dp, top = 10.dp))
+        Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Text(folder?.displayName ?: tr("Posteingang"), Modifier.weight(1f), style = MaterialTheme.typography.titleLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             ActionIcon(Icons.Outlined.DoneAll, tr("Alle als gelesen markieren")) { scope.launch { st.repo.markAllRead(folder?.id) } }
+            ActionIcon(if (st.unreadOnly) Icons.Outlined.FilterAltOff else Icons.Outlined.FilterAlt, if (st.unreadOnly) tr("Alle anzeigen") else tr("Nur ungelesene")) { st.unreadOnly = !st.unreadOnly }
             Box {
-                TextButton(onClick = { sortMenu = true }) {
-                    Text(when (st.sort) { "from" -> tr("Absender"); "subject" -> tr("Betreff"); "old" -> tr("Älteste zuerst"); else -> tr("Neueste zuerst") } + " ▾")
-                }
+                ActionIcon(Icons.AutoMirrored.Outlined.Sort, tr("Sortieren")) { sortMenu = true }
                 DropdownMenu(sortMenu, { sortMenu = false }) {
                     listOf("date" to tr("Neueste zuerst"), "old" to tr("Älteste zuerst"), "from" to tr("Absender"), "subject" to tr("Betreff")).forEach { (k, l) ->
-                        DropdownMenuItem({ Text(l) }, { st.sort = k; st.store.setSetting("sort", k); sortMenu = false })
+                        DropdownMenuItem({ Text((if (st.sort == k) "✓  " else "     ") + l) }, { st.sort = k; st.store.setSetting("sort", k); sortMenu = false })
                     }
                 }
             }
         }
-        OutlinedTextField(st.query, { st.query = it }, Modifier.fillMaxWidth().padding(horizontal = 12.dp), singleLine = true,
-            placeholder = { Text(tr("Suchen (Strg+E)")) }, leadingIcon = { Icon(Icons.Outlined.Search, null) }, shape = RoundedCornerShape(14.dp))
-        // Filter umbrechen statt abschneiden
-        FlowRow(Modifier.padding(horizontal = 12.dp, vertical = 6.dp), horizontalArrangement = Arrangement.spacedBy(6.dp)) {
-            if (smart && st.query.isBlank()) listOf<Category?>(Category.PEOPLE, Category.NEWSLETTER, Category.NOTIFICATION, null).forEach { c ->
-                val n = if (c == null) counts.values.sum() else counts[c] ?: 0
-                FilterChip(st.category == c, { st.category = c; st.afterRemove() },
-                    label = { Text((when (c) { null -> tr("Alle"); Category.NOTIFICATION -> tr("Hinweise"); else -> c.label }) + if (n > 0) " $n" else "", maxLines = 1) })
+        if (smart && st.query.isBlank()) Row(Modifier.padding(horizontal = 8.dp).horizontalScroll(rememberScrollState())) {
+            listOf<Category?>(Category.PEOPLE, Category.NEWSLETTER, Category.NOTIFICATION, null).forEach { c ->
+                TabItem(when (c) { null -> tr("Alle"); Category.NOTIFICATION -> tr("Hinweise"); else -> c.label },
+                    if (c == null) 0 else counts[c] ?: 0, st.category == c) { st.category = c; st.afterRemove() }
             }
-            FilterChip(st.unreadOnly, { st.unreadOnly = !st.unreadOnly }, label = { Text(tr("Nur ungelesene")) })
         }
-        if (st.marked.size > 1) Text(tr("{0} ausgewählt – Aktionen oben gelten für alle", st.marked.size), Modifier.padding(horizontal = 16.dp, vertical = 2.dp),
-            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
+        HorizontalDivider(color = MaterialTheme.colorScheme.outlineVariant)
+        if (st.unreadOnly || st.marked.size > 1) Text(
+            if (st.marked.size > 1) tr("{0} ausgewählt – Befehle oben gelten für alle", st.marked.size) else tr("Nur ungelesene"),
+            Modifier.fillMaxWidth().background(MaterialTheme.colorScheme.primaryContainer).padding(horizontal = 16.dp, vertical = 4.dp),
+            style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onPrimaryContainer)
         if (msgs.isEmpty()) Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(if (st.query.isNotBlank()) tr("Keine Treffer") else tr("Alles erledigt ✓"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Text(if (st.query.isNotBlank()) tr("Keine Treffer") else tr("Hier ist alles erledigt"), color = MaterialTheme.colorScheme.onSurfaceVariant)
         } else {
             val listState = rememberLazyListState()
-            // ausgewählte Mail beim Blättern mit den Pfeiltasten sichtbar halten
             LaunchedEffect(st.selected?.id) {
                 val i = msgs.indexOfFirst { it.id == st.selected?.id }
                 if (i >= 0 && (i < listState.firstVisibleItemIndex || i > listState.firstVisibleItemIndex + listState.layoutInfo.visibleItemsInfo.size - 2)) listState.animateScrollToItem(i)
             }
-            LazyColumn(Modifier.fillMaxSize(), listState) {
-                itemsIndexed(msgs, key = { _, m -> m.id }) { _, m -> MailRow(st, m, m.id in st.marked || (st.marked.isEmpty() && st.selected?.id == m.id)) }
+            Box(Modifier.fillMaxSize()) {
+                LazyColumn(Modifier.fillMaxSize().padding(end = 8.dp), listState) {
+                    itemsIndexed(msgs, key = { _, m -> m.id }) { idx, m ->
+                        val prev = msgs.getOrNull(idx - 1)
+                        val group = dayGroup(m.date)
+                        if (st.sort == "date" && !m.pinned && (prev == null || prev.pinned || dayGroup(prev.date) != group))
+                            Text(group, Modifier.padding(start = 16.dp, top = 12.dp, bottom = 4.dp), style = MaterialTheme.typography.labelLarge,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        MailRow(st, m, m.id in st.marked || (st.marked.isEmpty() && st.selected?.id == m.id))
+                    }
+                }
+                VerticalScrollbar(rememberScrollbarAdapter(listState), Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(vertical = 2.dp))
             }
         }
+    }
+}
+
+/** Gruppen wie in Outlook: Heute, Gestern, Diese Woche, Letzte Woche, Monat */
+fun dayGroup(t: Long): String {
+    val now = Calendar.getInstance(); val c = Calendar.getInstance().apply { timeInMillis = t }
+    val days = ((now.timeInMillis - c.timeInMillis) / 86_400_000L).toInt()
+    return when {
+        now.get(Calendar.YEAR) == c.get(Calendar.YEAR) && now.get(Calendar.DAY_OF_YEAR) == c.get(Calendar.DAY_OF_YEAR) -> tr("Heute")
+        days <= 1 && now.get(Calendar.DAY_OF_YEAR) - c.get(Calendar.DAY_OF_YEAR) == 1 -> tr("Gestern")
+        days < 7 && now.get(Calendar.WEEK_OF_YEAR) == c.get(Calendar.WEEK_OF_YEAR) -> tr("Diese Woche")
+        days < 14 -> tr("Letzte Woche")
+        else -> SimpleDateFormat("MMMM yyyy", Locale.getDefault()).format(Date(t))
     }
 }
 
@@ -537,46 +634,72 @@ private fun MailRow(st: AppState, m: Message, selected: Boolean) {
             ContextMenuItem(tr("Absender immer als „{0}“", Category.NEWSLETTER.label)) { st.categorize(Category.NEWSLETTER) },
         )
     }) {
-        Row(Modifier.fillMaxWidth().padding(horizontal = 6.dp, vertical = 1.dp).clip(RoundedCornerShape(10.dp))
-            .background(when { selected -> MaterialTheme.colorScheme.primaryContainer; !m.seen -> MaterialTheme.colorScheme.surfaceContainerLowest; else -> Color.Transparent })
+        val unread = !m.seen
+        Row(Modifier.fillMaxWidth().height(IntrinsicSize.Min)
+            .background(if (selected) MaterialTheme.colorScheme.primaryContainer else Color.Transparent)
             .onClick(keyboardModifiers = { isCtrlPressed }) { st.toggleMark(m) }
             .onClick(keyboardModifiers = { isShiftPressed }) { st.rangeMark(m) }
             .onClick { st.select(m); if (!m.seen) scope.launch { st.repo.setSeen(m, true) } }
-            .padding(horizontal = 10.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-            Box(Modifier.width(8.dp)) { if (!m.seen) Box(Modifier.size(8.dp).clip(CircleShape).background(MaterialTheme.colorScheme.primary)) }
-            Spacer(Modifier.width(6.dp))
-            Avatar(m.fromName, m.fromAddr)
-            Spacer(Modifier.width(10.dp))
-            Column(Modifier.weight(1f)) {
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    Text(if (m.folderRole == FolderRole.SENT) tr("an {0}", m.toAddrs) else m.fromName.ifBlank { m.fromAddr }, Modifier.weight(1f),
-                        fontWeight = if (m.seen) FontWeight.Normal else FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    if (m.pinned) Icon(Icons.Outlined.PushPin, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.tertiary)
-                    if (m.flagged) Icon(Icons.Outlined.Flag, null, Modifier.size(14.dp), tint = Color(0xFFE5484D))
-                    if (m.hasAttachments) Icon(Icons.Outlined.AttachFile, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Spacer(Modifier.width(4.dp))
-                    Text(fmtShort(m.date), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            .hoverHighlight(), verticalAlignment = Alignment.CenterVertically) {
+            // ungelesen: schmaler Akzentbalken links (wie Outlook)
+            Box(Modifier.width(3.dp).fillMaxHeight().background(if (unread) MaterialTheme.colorScheme.primary else Color.Transparent))
+            Row(Modifier.weight(1f).padding(start = 11.dp, end = 10.dp, top = 9.dp, bottom = 9.dp), verticalAlignment = Alignment.Top) {
+                Avatar(m.fromName, m.fromAddr, 32)
+                Spacer(Modifier.width(11.dp))
+                Column(Modifier.weight(1f)) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (m.folderRole == FolderRole.SENT) tr("an {0}", Repo.parse(m.toAddrs).firstOrNull()?.let { it.second.ifBlank { it.first } } ?: m.toAddrs)
+                            else m.fromName.ifBlank { m.fromAddr }, Modifier.weight(1f),
+                            style = MaterialTheme.typography.bodyMedium, fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal,
+                            maxLines = 1, overflow = TextOverflow.Ellipsis)
+                        if (m.hasAttachments) Icon(Icons.Outlined.AttachFile, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (m.pinned) Icon(Icons.Outlined.PushPin, null, Modifier.size(14.dp), tint = MaterialTheme.colorScheme.tertiary)
+                        if (m.flagged) Icon(Icons.Outlined.Flag, null, Modifier.size(14.dp), tint = Color(0xFFD13438))
+                        Spacer(Modifier.width(6.dp))
+                        Text(fmtShort(m.date), style = MaterialTheme.typography.labelMedium,
+                            color = if (unread) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant)
+                    }
+                    Text(m.subject.ifBlank { tr("(kein Betreff)") }, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodyMedium,
+                        color = if (unread) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface,
+                        fontWeight = if (unread) FontWeight.SemiBold else FontWeight.Normal)
+                    Text(m.snippet, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
-                Text(m.subject.ifBlank { tr("(kein Betreff)") }, maxLines = 1, overflow = TextOverflow.Ellipsis,
-                    fontWeight = if (m.seen) FontWeight.Normal else FontWeight.SemiBold, style = MaterialTheme.typography.bodyMedium)
-                Text(m.snippet, maxLines = 1, overflow = TextOverflow.Ellipsis, style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant)
             }
         }
+        HorizontalDivider(Modifier.padding(start = 57.dp), color = MaterialTheme.colorScheme.outlineVariant)
     }
+}
+
+/** Hervorhebung beim Überfahren für Elemente mit eigener Klick-Logik */
+@Composable
+private fun Modifier.hoverHighlight(): Modifier {
+    val src = remember { MutableInteractionSource() }
+    val hovered by src.collectIsHoveredAsState()
+    val tint = MaterialTheme.colorScheme.onSurface
+    return this.hoverable(src).then(if (hovered) Modifier.background(tint.copy(alpha = 0.045f)) else Modifier)
 }
 
 @Composable
 private fun Reader(st: AppState, changes: Long) {
     if (st.marked.size > 1) {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(tr("{0} Mails ausgewählt", st.marked.size), style = MaterialTheme.typography.titleLarge, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Outlined.DoneAll, null, Modifier.size(40.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(10.dp))
+                Text(tr("{0} Mails ausgewählt", st.marked.size), style = MaterialTheme.typography.titleLarge)
+                Text(tr("Befehle oben gelten für alle"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         return
     }
     val sel = st.selected ?: run {
         Box(Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
-            Text(tr("Wähle links eine Mail aus"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Icon(Icons.Outlined.Inbox, null, Modifier.size(44.dp), tint = MaterialTheme.colorScheme.outline)
+                Spacer(Modifier.height(10.dp))
+                Text(tr("Wähle links eine Mail aus"), color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
         }
         return
     }
@@ -584,9 +707,30 @@ private fun Reader(st: AppState, changes: Long) {
         value = withContext(Dispatchers.IO) { st.store.thread(sel.threadKey, sel.accountId).ifEmpty { listOfNotNull(st.store.message(sel.id)) } }
     }
     val last = thread.lastOrNull() ?: return
-    Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(horizontal = 28.dp, vertical = 20.dp), verticalArrangement = Arrangement.spacedBy(14.dp)) {
-        Text(last.subject.ifBlank { tr("(kein Betreff)") }, style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
-        thread.forEach { m -> MailCard(st, m, expandedInitially = m == last || !m.seen || thread.size <= 2) }
+    val scroll = rememberScrollState()
+    Box(Modifier.fillMaxSize()) {
+        Column(Modifier.fillMaxSize().verticalScroll(scroll).padding(horizontal = 32.dp, vertical = 22.dp)) {
+            Column(Modifier.widthIn(max = 900.dp)) {
+                Text(last.subject.ifBlank { tr("(kein Betreff)") }, style = MaterialTheme.typography.headlineSmall)
+                if (thread.size > 1) Text(tr("{0} Nachrichten", thread.size), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Spacer(Modifier.height(14.dp))
+                thread.forEachIndexed { i, m ->
+                    if (i > 0) HorizontalDivider(Modifier.padding(vertical = 6.dp), color = MaterialTheme.colorScheme.outlineVariant)
+                    MailCard(st, m, expandedInitially = m == last || !m.seen || thread.size <= 2)
+                }
+            }
+        }
+        VerticalScrollbar(rememberScrollbarAdapter(scroll), Modifier.align(Alignment.CenterEnd).fillMaxHeight().padding(2.dp))
+    }
+}
+
+/** Kleine Schaltfläche mit Text (Antworten, Weiterleiten …) */
+@Composable
+private fun SmallAction(icon: ImageVector, label: String, onClick: () -> Unit) {
+    Row(Modifier.height(30.dp).clip(ButtonShape).border(1.dp, MaterialTheme.colorScheme.outlineVariant, ButtonShape)
+        .background(MaterialTheme.colorScheme.surface).clickable(onClick = onClick).padding(horizontal = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+        Icon(icon, null, Modifier.size(15.dp), tint = MaterialTheme.colorScheme.primary); Spacer(Modifier.width(6.dp))
+        Text(label, style = MaterialTheme.typography.bodySmall)
     }
 }
 
@@ -602,39 +746,61 @@ private fun MailCard(st: AppState, m: Message, expandedInitially: Boolean) {
         }
     }
     val atts = remember(m.id) { st.store.attachments(m.id) }
-    Surface(shape = RoundedCornerShape(20.dp), color = MaterialTheme.colorScheme.surfaceContainerLowest,
-        modifier = Modifier.fillMaxWidth().border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(20.dp))) {
-        Column(Modifier.padding(18.dp)) {
-            Row(Modifier.fillMaxWidth().clickable { expanded = !expanded }, verticalAlignment = Alignment.CenterVertically) {
-                Avatar(m.fromName, m.fromAddr, 40); Spacer(Modifier.width(12.dp))
-                Column(Modifier.weight(1f)) {
-                    SelectionContainer { Text(m.fromName.ifBlank { m.fromAddr } + if (m.fromName.isNotBlank()) "  <${m.fromAddr}>" else "", fontWeight = FontWeight.SemiBold) }
-                    Text(tr("an {0}", m.toAddrs) + if (m.ccAddrs.isNotBlank()) tr(", cc {0}", m.ccAddrs) else "", style = MaterialTheme.typography.bodySmall,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = 2, overflow = TextOverflow.Ellipsis)
+    Column(Modifier.fillMaxWidth()) {
+        Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).clickable { expanded = !expanded }.padding(vertical = 6.dp),
+            verticalAlignment = Alignment.CenterVertically) {
+            Avatar(m.fromName, m.fromAddr, 40); Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Row(verticalAlignment = Alignment.Bottom) {
+                    Text(m.fromName.ifBlank { m.fromAddr }, style = MaterialTheme.typography.titleMedium)
+                    if (m.fromName.isNotBlank()) { Spacer(Modifier.width(8.dp)); Text(m.fromAddr, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant) }
                 }
-                Text(fmtLong(m.date), style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                ActionIcon(Icons.AutoMirrored.Outlined.Reply, tr("Antworten")) { st.reply(m, false) }
-                ActionIcon(Icons.AutoMirrored.Outlined.Forward, tr("Weiterleiten")) { st.forward(m) }
+                Text(tr("An: {0}", m.toAddrs) + if (m.ccAddrs.isNotBlank()) "   " + tr("Cc: {0}", m.ccAddrs) else "", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant, maxLines = if (expanded) 3 else 1, overflow = TextOverflow.Ellipsis)
             }
-            if (!expanded) Text(m.snippet, Modifier.padding(top = 8.dp), maxLines = 1, overflow = TextOverflow.Ellipsis, color = MaterialTheme.colorScheme.onSurfaceVariant)
-            else {
-                Spacer(Modifier.height(14.dp))
-                body?.let { SelectionContainer { Text(it, style = MaterialTheme.typography.bodyLarge) } } ?: Text(m.snippet, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                if (atts.isNotEmpty()) Column(Modifier.padding(top = 14.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                    atts.forEach { a ->
-                        Row(Modifier.clip(RoundedCornerShape(12.dp)).background(MaterialTheme.colorScheme.surfaceContainerHigh).clickable {
-                            scope.launch {
-                                st.snack = tr("Lade {0} …", a.name)
-                                runCatching { st.repo.downloadAttachment(m, a) }
-                                    .onSuccess { f -> st.snack = tr("Gespeichert in Downloads: {0}", f.name); runCatching { java.awt.Desktop.getDesktop().open(f) } }
-                                    .onFailure { st.snack = tr("Download fehlgeschlagen: {0}", app.mailwerk.mail.friendly(it)) }
-                            }
-                        }.padding(horizontal = 12.dp, vertical = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-                            Icon(Icons.Outlined.AttachFile, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp))
-                            Text(a.name); Spacer(Modifier.width(10.dp))
-                            Text(humanSize(a.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        }
+            Text(fmtLong(m.date), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        if (!expanded) Text(m.snippet, Modifier.padding(start = 52.dp, bottom = 4.dp), maxLines = 1, overflow = TextOverflow.Ellipsis,
+            style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        else {
+            Row(Modifier.padding(start = 52.dp, top = 6.dp), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                SmallAction(Icons.AutoMirrored.Outlined.Reply, tr("Antworten")) { st.reply(m, false) }
+                SmallAction(Icons.AutoMirrored.Outlined.ReplyAll, tr("Allen antworten")) { st.reply(m, true) }
+                SmallAction(Icons.AutoMirrored.Outlined.Forward, tr("Weiterleiten")) { st.forward(m) }
+            }
+            if (atts.isNotEmpty()) FlowRowAtts(st, m, atts, scope)
+            Spacer(Modifier.height(16.dp))
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface)
+                .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(horizontal = 26.dp, vertical = 22.dp)) {
+                body?.let { SelectionContainer { Text(it, style = MaterialTheme.typography.bodyLarge) } }
+                    ?: Text(m.snippet, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun FlowRowAtts(st: AppState, m: Message, atts: List<app.mailwerk.data.Attachment>, scope: kotlinx.coroutines.CoroutineScope) {
+    FlowRow(Modifier.padding(start = 52.dp, top = 12.dp), horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        atts.forEach { a ->
+            Row(Modifier.width(230.dp).clip(RoundedCornerShape(6.dp)).border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(6.dp))
+                .background(MaterialTheme.colorScheme.surface).clickable {
+                    scope.launch {
+                        st.snack = tr("Lade {0} …", a.name)
+                        runCatching { st.repo.downloadAttachment(m, a) }
+                            .onSuccess { f -> st.snack = tr("Gespeichert in Downloads: {0}", f.name); runCatching { java.awt.Desktop.getDesktop().open(f) } }
+                            .onFailure { st.snack = tr("Download fehlgeschlagen: {0}", app.mailwerk.mail.friendly(it)) }
                     }
+                }.padding(10.dp), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.size(32.dp).clip(RoundedCornerShape(4.dp)).background(MaterialTheme.colorScheme.primaryContainer), contentAlignment = Alignment.Center) {
+                    Text(a.name.substringAfterLast('.', "").take(4).uppercase().ifEmpty { "DATEI" }, style = MaterialTheme.typography.labelSmall,
+                        fontWeight = FontWeight.Bold, color = MaterialTheme.colorScheme.primary)
+                }
+                Spacer(Modifier.width(10.dp))
+                Column(Modifier.weight(1f)) {
+                    Text(a.name, style = MaterialTheme.typography.bodySmall, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                    Text(humanSize(a.size), style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 }
             }
         }
@@ -682,7 +848,7 @@ private fun FolderDialog(st: AppState, fe: FolderEdit, onDone: () -> Unit) {
                 error?.let { Text(it, color = MaterialTheme.colorScheme.error) }
             }
         },
-        confirmButton = { Button(enabled = name.isNotBlank(), onClick = {
+        confirmButton = { Button(shape = ButtonShape, enabled = name.isNotBlank(), onClick = {
             scope.launch {
                 runCatching { if (fe.folder != null) st.repo.renameFolder(fe.folder, name.trim()) else st.repo.createFolder(fe.accountId, name.trim(), fe.parent) }
                     .onSuccess { onDone() }.onFailure { error = app.mailwerk.mail.friendly(it) }

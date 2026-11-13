@@ -34,7 +34,7 @@ fun appIcon(): Painter = icon ?: BitmapPainter(useResource("icon.png", ::loadIma
 
 /** Kleine Windows-Helfer (Autostart über die Registrierung) */
 object Windows {
-    const val VERSION = "1.1.0"
+    const val VERSION = "1.2.0"
     private const val RUN = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
     /** Pfad der Mailwerk.exe (wird vom Starter gesetzt) */
     private val exe: String? get() = System.getProperty("mailwerk.exe")?.takeIf { File(it).exists() }
@@ -109,6 +109,7 @@ fun main(args: Array<String>) {
                 when {
                     e.key == Key.F5 || (ctrl && e.key == Key.M) -> { scope.launch { repo.sync((st.box as? Box.InFolder)?.folder?.id) }; true }
                     ctrl && e.key == Key.N -> { st.newMail(); true }
+                    ctrl && e.key == Key.E -> { runCatching { SearchFocus.requester.requestFocus() }; true }
                     ctrl && shift && e.key == Key.R -> { st.targets().lastOrNull()?.let { st.reply(it, true) }; true }
                     ctrl && e.key == Key.R -> { st.targets().lastOrNull()?.let { st.reply(it, false) }; true }
                     ctrl && e.key == Key.F -> { st.targets().lastOrNull()?.let { st.forward(it) }; true }
@@ -129,6 +130,9 @@ fun main(args: Array<String>) {
             },
         ) {
             MailwerkTheme(dark) {
+                // Titelleiste in derselben Farbe wie die Befehlsleiste (Windows 11)
+                val bar = androidx.compose.material3.MaterialTheme.colorScheme.surfaceContainer
+                LaunchedEffect(dark) { WinChrome.apply(window, dark, bar) }
                 Zoomed(effectiveZoom(st)) {
                     App(st)
                     if (st.addAccount) AccountDialog(st, null) { st.addAccount = false }

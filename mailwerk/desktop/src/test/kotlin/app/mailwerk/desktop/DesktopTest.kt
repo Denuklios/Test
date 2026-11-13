@@ -7,6 +7,8 @@ import androidx.compose.ui.test.onRoot
 import androidx.compose.ui.test.captureToImage
 import androidx.compose.ui.test.runDesktopComposeUiTest
 import androidx.compose.ui.unit.Density
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import app.mailwerk.data.Account
 import app.mailwerk.data.Category
 import app.mailwerk.data.FolderRole
@@ -149,9 +151,12 @@ class DesktopScreenshotTest {
         add("Steuerbüro Klein", "info@steuer-klein.de", "Unterlagen für Q3", "<p>Bitte senden Sie uns bis zum 15. die Belege.</p>", 50 * 3_600_000, true)
         val st = AppState(Repo(store).apply { passwordOf = { error("offline") } })
         st.select(store.list(null, Category.PEOPLE, "").first())
-        setContent { MailwerkTheme(false) { App(st) } }
+        var dark by androidx.compose.runtime.mutableStateOf(false)
+        setContent { MailwerkTheme(dark) { App(st) } }
         waitForIdle(); Thread.sleep(500); st.repo.errors.value = emptyMap(); waitForIdle()
-        val img = onRoot().captureToImage().toAwtImage()
-        File("build/screenshots").mkdirs(); ImageIO.write(img, "png", File("build/screenshots/desktop_hell.png"))
+        File("build/screenshots").mkdirs()
+        ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File("build/screenshots/desktop_hell.png"))
+        dark = true; waitForIdle(); Thread.sleep(300); st.repo.errors.value = emptyMap(); waitForIdle()
+        ImageIO.write(onRoot().captureToImage().toAwtImage(), "png", File("build/screenshots/desktop_dunkel.png"))
     }
 }
