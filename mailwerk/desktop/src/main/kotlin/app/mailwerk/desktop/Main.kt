@@ -12,6 +12,7 @@ import androidx.compose.ui.graphics.painter.Painter
 import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
 import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.isShiftPressed
 import androidx.compose.ui.input.key.key
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.res.loadImageBitmap
@@ -33,7 +34,7 @@ fun appIcon(): Painter = icon ?: BitmapPainter(useResource("icon.png", ::loadIma
 
 /** Kleine Windows-Helfer (Autostart über die Registrierung) */
 object Windows {
-    const val VERSION = "1.0.1"
+    const val VERSION = "1.1.0"
     private const val RUN = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
     /** Pfad der Mailwerk.exe (wird vom Starter gesetzt) */
     private val exe: String? get() = System.getProperty("mailwerk.exe")?.takeIf { File(it).exists() }
@@ -100,26 +101,50 @@ fun main(args: Array<String>) {
         if (visible) Window(
             onCloseRequest = { if (repo.store.setting("tray", "1") == "1") visible = false else { repo.stopPush(); exitApplication() } },
             title = "Mailwerk", icon = appIcon(),
-            state = rememberWindowState(placement = WindowPlacement.Floating, width = 1320.dp, height = 860.dp),
-            onPreviewKeyEvent = { e ->
+            state = rememberWindowState(placement = WindowPlacement.Maximized, width = 1440.dp, height = 900.dp),
+            // Tastenkürzel wie in Outlook; Textfelder bekommen die Tasten zuerst (Bearbeiten bleibt normal)
+            onKeyEvent = { e ->
                 if (e.type != KeyEventType.KeyDown) return@Window false
-                val sel = st.selected
+                val ctrl = e.isCtrlPressed; val shift = e.isShiftPressed
                 when {
-                    e.key == Key.F5 -> { scope.launch { repo.sync() }; true }
-                    e.isCtrlPressed && e.key == Key.N -> { st.store.accounts().firstOrNull()?.let { st.compose(Draft(it.id, body = st.signature(it))) }; true }
-                    e.isCtrlPressed && e.key == Key.R && sel != null -> { st.store.message(sel.id)?.let { st.reply(it, false) }; true }
-                    e.key == Key.Delete && sel != null -> { scope.launch { repo.delete(sel); st.selected = null; st.snack = tr("Gelöscht") }; true }
+                    e.key == Key.F5 || (ctrl && e.key == Key.M) -> { scope.launch { repo.sync((st.box as? Box.InFolder)?.folder?.id) }; true }
+                    ctrl && e.key == Key.N -> { st.newMail(); true }
+                    ctrl && shift && e.key == Key.R -> { st.targets().lastOrNull()?.let { st.reply(it, true) }; true }
+                    ctrl && e.key == Key.R -> { st.targets().lastOrNull()?.let { st.reply(it, false) }; true }
+                    ctrl && e.key == Key.F -> { st.targets().lastOrNull()?.let { st.forward(it) }; true }
+                    ctrl && e.key == Key.Q -> { scope.launch { st.setSeen(true) }; true }
+                    ctrl && e.key == Key.U -> { scope.launch { st.setSeen(false) }; true }
+                    ctrl && e.key == Key.A -> { st.marked = st.visible.map { it.id }.toSet(); true }
+                    ctrl && shift && e.key == Key.V -> { st.moveDialog = st.targets(); true }
+                    ctrl && (e.key == Key.Equals || e.key == Key.Plus || e.key == Key.NumPadAdd) -> { st.changeZoom(effectiveZoom(st) + 0.1f); true }
+                    ctrl && (e.key == Key.Minus || e.key == Key.NumPadSubtract) -> { st.changeZoom(effectiveZoom(st) - 0.1f); true }
+                    ctrl && (e.key == Key.Zero || e.key == Key.NumPad0) -> { st.changeZoom(1f); true }
+                    e.key == Key.Delete -> { scope.launch { st.delete() }; true }
+                    e.key == Key.Backspace && !ctrl -> { scope.launch { st.archive() }; true }
+                    e.key == Key.DirectionDown -> { st.moveSelection(1); true }
+                    e.key == Key.DirectionUp -> { st.moveSelection(-1); true }
+                    e.key == Key.Escape -> { st.afterRemove(); true }
                     else -> false
                 }
             },
         ) {
             MailwerkTheme(dark) {
-                App(st)
-                if (st.addAccount) AccountDialog(st, null) { st.addAccount = false }
-                st.showAccount?.let { a -> AccountDialog(st, a) { st.showAccount = null } }
-                if (st.showSettings && !st.addAccount && st.showAccount == null) SettingsDialog(st, { themeVersion++ }) { st.showSettings = false }
+                Zoomed(effectiveZoom(st)) {
+                    App(st)
+                    if (st.addAccount) AccountDialog(st, null) { st.addAccount = false }
+                    st.showAccount?.let { a -> AccountDialog(st, a) { st.showAccount = null } }
+                    if (st.showSettings && !st.addAccount && st.showAccount == null) SettingsDialog(st, { themeVersion++ }) { st.showSettings = false }
+                }
             }
         }
         st.drafts.forEach { d -> androidx.compose.runtime.key(d.id) { ComposerWindow(st, d, dark) { st.drafts = st.drafts - d } } }
     }
+}
+
+/** Alles vergrößern/verkleinern (Strg +/-), unabhängig von der Windows-Skalierung */
+@androidx.compose.runtime.Composable
+fun Zoomed(zoom: Float, content: @androidx.compose.runtime.Composable () -> Unit) {
+    val d = androidx.compose.ui.platform.LocalDensity.current
+    androidx.compose.runtime.CompositionLocalProvider(
+        androidx.compose.ui.platform.LocalDensity provides androidx.compose.ui.unit.Density(d.density * zoom, d.fontScale), content = content)
 }

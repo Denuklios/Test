@@ -194,15 +194,17 @@ class Store(file: File = File(Paths.home, "mailwerk.db")) {
     private val sel = "SELECT m.*, f.role FROM messages m JOIN folders f ON f.id=m.folder_id"
 
     /** Liste ohne Inhalte (schnell). folderId null = alle Posteingänge. */
-    fun list(folderId: Long?, category: Category?, query: String, limit: Int = 800): List<Message> {
+    fun list(folderId: Long?, category: Category?, query: String, limit: Int = 800, unreadOnly: Boolean = false, sort: String = "date"): List<Message> {
         val where = mutableListOf<String>(); val args = mutableListOf<Any?>()
+        if (unreadOnly) where += "m.seen=0"
         if (folderId == null) where += "f.role='inbox'" else { where += "m.folder_id=?"; args += folderId }
         if (category != null) { where += "m.category=?"; args += category.name }
         if (query.isNotBlank()) {
             where += "(m.subject LIKE ? OR m.from_name LIKE ? OR m.from_addr LIKE ? OR m.to_addrs LIKE ? OR m.body_text LIKE ?)"
             repeat(5) { args += "%${query.trim()}%" }
         }
-        return q("$sel WHERE ${where.joinToString(" AND ")} ORDER BY m.pinned DESC, m.date DESC LIMIT $limit", *args.toTypedArray()) { it.toMessage(false) }
+        val order = when (sort) { "from" -> "m.from_name COLLATE NOCASE, m.date DESC"; "subject" -> "m.subject COLLATE NOCASE, m.date DESC"; "old" -> "m.date ASC"; else -> "m.date DESC" }
+        return q("$sel WHERE ${where.joinToString(" AND ")} ORDER BY m.pinned DESC, $order LIMIT $limit", *args.toTypedArray()) { it.toMessage(false) }
     }
     fun message(id: Long): Message? = q("$sel WHERE m.id=?", id) { it.toMessage(true) }.firstOrNull()
     fun thread(key: String, accountId: Long): List<Message> =
@@ -220,6 +222,16 @@ class Store(file: File = File(Paths.home, "mailwerk.db")) {
         changed()
     }
     fun deleteMessage(id: Long) = x("DELETE FROM messages WHERE id=?", id)
+    fun markFolderRead(folderId: Long?) {
+        if (folderId == null) x("UPDATE messages SET seen=1 WHERE seen=0 AND folder_id IN (SELECT id FROM folders WHERE role='inbox')")
+        else x("UPDATE messages SET seen=1 WHERE seen=0 AND folder_id=?", folderId)
+        changed()
+    }
+    fun unreadIn(folderId: Long?): List<Message> = q("$sel WHERE m.seen=0 AND ${if (folderId == null) "f.role='inbox'" else "m.folder_id=$folderId"}") { it.toMessage(false) }
+    fun folderByName(accountId: Long, fullName: String): app.mailwerk.data.Folder? =
+        q("SELECT * FROM folders WHERE account_id=? AND full_name=?", accountId, fullName) { it.toFolder() }.firstOrNull()
+    fun isBlocked(addr: String) = setting("block:" + addr.lowercase()) == "1"
+    fun block(addr: String, on: Boolean) = setSetting("block:" + addr.lowercase(), if (on) "1" else "")
     fun setCategory(fromAddr: String, cat: Category) { x("UPDATE messages SET category=? WHERE from_addr=?", cat.name, fromAddr); setSetting("sender:" + fromAddr.lowercase(), cat.name) }
     fun senderRule(fromAddr: String): Category? = setting("sender:" + fromAddr.lowercase()).takeIf { it.isNotEmpty() }?.let { Category.of(it) }
 

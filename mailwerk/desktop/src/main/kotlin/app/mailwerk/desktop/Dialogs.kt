@@ -97,7 +97,7 @@ fun ComposerWindow(st: AppState, d: Draft, dark: Boolean, onClose: () -> Unit) {
     Window(onCloseRequest = onClose, title = subject.ifBlank { tr("Neue E-Mail") } + " – Mailwerk", icon = appIcon(),
         state = rememberWindowState(width = 760.dp, height = 680.dp),
         onPreviewKeyEvent = { e -> if (e.type == KeyEventType.KeyDown && e.isCtrlPressed && e.key == Key.Enter) { send(); true } else false }) {
-        MailwerkTheme(dark) {
+        MailwerkTheme(dark) { Zoomed(effectiveZoom(st)) {
             Surface(Modifier.fillMaxSize()) {
                 Column(Modifier.fillMaxSize().padding(18.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
@@ -129,7 +129,7 @@ fun ComposerWindow(st: AppState, d: Draft, dark: Boolean, onClose: () -> Unit) {
                     }
                 }
             }
-        }
+        } }
     }
 }
 
@@ -254,6 +254,13 @@ fun SettingsDialog(st: AppState, onTheme: () -> Unit, onDone: () -> Unit) {
                         FilterChip(theme == k, { theme = k; st.store.setSetting("theme", k); onTheme() }, label = { Text(l) })
                     }
                 }
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Text(tr("Größe: {0} %", (effectiveZoom(st) * 100).toInt()), Modifier.weight(1f))
+                    TextButton(onClick = { st.changeZoom(effectiveZoom(st) - 0.1f) }) { Text("–") }
+                    TextButton(onClick = { st.changeZoom(1f) }) { Text("100 %") }
+                    TextButton(onClick = { st.changeZoom(effectiveZoom(st) + 0.1f) }) { Text("+") }
+                }
+                Text(tr("Auch mit Strg + Plus / Minus / 0"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 HorizontalDivider()
                 if (Paths.isWindows) Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(tr("Mit Windows starten"), Modifier.weight(1f)); Switch(autostart, { autostart = it; Windows.setAutostart(it) })

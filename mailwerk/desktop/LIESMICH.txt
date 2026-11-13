@@ -20,5 +20,10 @@ Gut zu wissen:
   verschlüsselt und nur mit deinem Windows-Benutzerkonto lesbar.
 - Neue Mails werden sofort gemeldet (Windows-Benachrichtigung). Beim Schließen läuft Mailwerk
   unten rechts in der Taskleiste weiter – abschaltbar in den Einstellungen.
-- Tastenkürzel: Strg+N neue Mail, Strg+R antworten, Entf löschen, F5 abrufen, Strg+Enter senden.
+- Spaltenbreiten mit der Maus ziehen; Größe mit Strg + Plus / Minus / 0 (oder Einstellungen).
+- Mehrere Mails markieren: Strg-Klick, Umschalt-Klick, Strg+A – Befehle oben gelten dann für alle.
+- Rechtsklick auf Mails und Ordner: Verschieben, Spam, Absender sperren, Einsortieren, Ordner anlegen/umbenennen/löschen.
+- Tastenkürzel: Strg+N neue Mail, Strg+R antworten, Strg+Umschalt+R allen antworten, Strg+F weiterleiten,
+  Strg+Q gelesen, Strg+U ungelesen, Strg+Umschalt+V verschieben, Entf löschen, Rücktaste archivieren,
+  Pfeil hoch/runter blättern, F5 abrufen, Strg+Enter senden.
 - Bilder aus dem Internet werden in Mails nie geladen (keine Spionage-Pixel).

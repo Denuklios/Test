@@ -85,6 +85,12 @@ class Repo(val store: Store = Store()) {
                 val fresh = mutableListOf<Message>()
                 for (p in res.newMessages) {
                     if (p.uid in local) continue
+                    // Absender gesperrt -> direkt in den Spam-Ordner
+                    if (f.role == FolderRole.INBOX && store.isBlocked(p.fromAddr)) {
+                        val junk = store.folderByRole(acc.id, FolderRole.JUNK)?.fullName ?: c.ensureFolder(s, "Spam")
+                        runCatching { c.moveIn(s, f.fullName, p.uid, junk) }
+                        continue
+                    }
                     val isSent = f.role == FolderRole.SENT || p.fromAddr.equals(acc.email, true)
                     if (isSent) (parse(p.to) + parse(p.cc)).forEach { (addr, name) -> store.touchContact(addr, name, true) }
                     else store.touchContact(p.fromAddr, p.fromName, false)
@@ -137,6 +143,42 @@ class Repo(val store: Store = Store()) {
         if (m.folderRole == FolderRole.TRASH) { store.deleteMessage(m.id); store.changed(); onServer(m) { deleteForever(it, m.uid) }; true }
         else moveToRole(m, FolderRole.TRASH, tr("Papierkorb"))
     suspend fun spam(m: Message) = moveToRole(m, FolderRole.JUNK, "Spam")
+
+    /** in einen beliebigen Ordner verschieben */
+    suspend fun moveTo(m: Message, target: app.mailwerk.data.Folder) {
+        if (target.id == m.folderId) return
+        store.deleteMessage(m.id); store.changed()
+        onServer(m) { from -> move(from, m.uid, target.fullName) }
+    }
+
+    suspend fun markAllRead(folderId: Long?) = withContext(Dispatchers.IO) {
+        val msgs = store.unreadIn(folderId)
+        store.markFolderRead(folderId)
+        msgs.groupBy { it.folderId }.forEach { (fid, list) ->
+            val f = store.folder(fid) ?: return@forEach
+            val acc = store.account(f.accountId) ?: return@forEach
+            runCatching { client(acc).withStore { s -> list.forEach { m -> client(acc).setFlagsIn(s, f.fullName, m.uid, true, null) } } }
+        }
+    }
+
+    suspend fun blockSender(m: Message) { store.block(m.fromAddr, true); spam(m) }
+
+    // ------------------------------------------------------------------ Ordner verwalten
+    suspend fun createFolder(accountId: Long, name: String, parent: app.mailwerk.data.Folder?) = withContext(Dispatchers.IO) {
+        val acc = store.account(accountId) ?: return@withContext
+        val full = client(acc).createFolder(name, parent?.fullName)
+        store.upsertFolder(accountId, full, name, null); store.changed()
+    }
+    suspend fun renameFolder(f: app.mailwerk.data.Folder, newName: String) = withContext(Dispatchers.IO) {
+        val acc = store.account(f.accountId) ?: return@withContext
+        client(acc).renameFolder(f.fullName, newName)
+        sync()
+    }
+    suspend fun deleteFolder(f: app.mailwerk.data.Folder) = withContext(Dispatchers.IO) {
+        val acc = store.account(f.accountId) ?: return@withContext
+        client(acc).deleteFolder(f.fullName)
+        store.removeFoldersNotIn(acc.id, store.folders(acc.id).filter { it.id != f.id }.map { it.fullName }); store.changed()
+    }
 
     suspend fun downloadAttachment(m: Message, a: Attachment, dir: File = Paths.downloads): File = withContext(Dispatchers.IO) {
         val acc = store.account(m.accountId) ?: error("Konto fehlt")

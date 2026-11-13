@@ -98,13 +98,38 @@ class DesktopMailTest {
         // Archivieren: verschwindet aus dem Posteingang
         repo.archive(store.message(m.id)!!)
         assertEquals(1, store.list(null, null, "").size)
+
+        // Ordner anlegen, Mail hineinschieben, umbenennen
+        repo.createFolder(accId, "Projekte", null)
+        repo.sync()
+        val proj = store.folders(accId).first { it.displayName == "Projekte" }
+        val news = store.list(null, null, "").single()
+        repo.moveTo(news, proj)
+        assertEquals(0, store.list(null, null, "").size)
+        repo.sync(proj.id)
+        assertEquals(1, store.list(proj.id, null, "").size)
+        repo.renameFolder(store.folders(accId).first { it.displayName == "Projekte" }, "Kunden")
+        assertTrue(store.folders(accId).any { it.displayName == "Kunden" })
+
+        // Alle als gelesen + Absender sperren -> neue Mail landet direkt im Spam
+        deliver("a@x.example", "Eins", "<p>1</p>"); deliver("b@x.example", "Zwei", "<p>2</p>")
+        repo.sync()
+        assertEquals(2, store.list(null, null, "", unreadOnly = true).size)
+        repo.markAllRead(null)
+        assertEquals(0, store.list(null, null, "", unreadOnly = true).size)
+        repo.sync()
+        assertEquals(0, store.list(null, null, "", unreadOnly = true).size) // auch auf dem Server gelesen
+        repo.blockSender(store.list(null, null, "").first { it.fromAddr == "a@x.example" })
+        deliver("a@x.example", "Nochmal", "<p>Werbung</p>")
+        repo.sync()
+        assertTrue(store.list(null, null, "").none { it.subject == "Nochmal" })
         store.close()
     }
 }
 
 @OptIn(ExperimentalTestApi::class)
 class DesktopScreenshotTest {
-    @Test fun mainWindow() = runDesktopComposeUiTest(1320, 820) {
+    @Test fun mainWindow() = runDesktopComposeUiTest(1500, 880) {
         val store = Store(File.createTempFile("mailwerk", ".db").apply { delete() })
         val acc = store.saveAccount(Account(0, "Robert", "robert@beispiel.de", "imap.beispiel.de", 993, Security.SSL, "smtp.beispiel.de", 465, Security.SSL, "x", "x", color = 0xFF3D4FE0.toInt()))
         val inbox = store.upsertFolder(acc, "INBOX", "Posteingang", FolderRole.INBOX)
@@ -123,7 +148,7 @@ class DesktopScreenshotTest {
         add("Lisa Braun", "lisa@braun-design.de", "Logo-Datei in Vektor", "<p>Hier ist das Logo als SVG und PDF.</p>", 26 * 3_600_000, true, true)
         add("Steuerbüro Klein", "info@steuer-klein.de", "Unterlagen für Q3", "<p>Bitte senden Sie uns bis zum 15. die Belege.</p>", 50 * 3_600_000, true)
         val st = AppState(Repo(store).apply { passwordOf = { error("offline") } })
-        st.selected = store.list(null, Category.PEOPLE, "").first()
+        st.select(store.list(null, Category.PEOPLE, "").first())
         setContent { MailwerkTheme(false) { App(st) } }
         waitForIdle(); Thread.sleep(500); st.repo.errors.value = emptyMap(); waitForIdle()
         val img = onRoot().captureToImage().toAwtImage()
