@@ -1,0 +1,124 @@
+package app.mailwerk.desktop
+
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.ui.graphics.painter.BitmapPainter
+import androidx.compose.ui.graphics.painter.Painter
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.isCtrlPressed
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.res.loadImageBitmap
+import androidx.compose.ui.res.useResource
+import androidx.compose.ui.unit.dp
+import androidx.compose.ui.window.Notification
+import androidx.compose.ui.window.Tray
+import androidx.compose.ui.window.Window
+import androidx.compose.ui.window.WindowPlacement
+import androidx.compose.ui.window.application
+import androidx.compose.ui.window.rememberTrayState
+import androidx.compose.ui.window.rememberWindowState
+import app.mailwerk.tr
+import kotlinx.coroutines.launch
+import java.io.File
+
+private var icon: Painter? = null
+fun appIcon(): Painter = icon ?: BitmapPainter(useResource("icon.png", ::loadImageBitmap)).also { icon = it }
+
+/** Kleine Windows-Helfer (Autostart über die Registrierung) */
+object Windows {
+    const val VERSION = "1.0.0"
+    private const val RUN = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
+    /** Pfad der Mailwerk.exe (wird vom Starter gesetzt) */
+    private val exe: String? get() = System.getProperty("mailwerk.exe")?.takeIf { File(it).exists() }
+
+    fun autostartEnabled(): Boolean = runCatching {
+        Paths.isWindows && com.sun.jna.platform.win32.Advapi32Util.registryValueExists(com.sun.jna.platform.win32.WinReg.HKEY_CURRENT_USER, RUN, "Mailwerk")
+    }.getOrDefault(false)
+
+    fun setAutostart(on: Boolean) = runCatching {
+        if (!Paths.isWindows) return@runCatching
+        val hk = com.sun.jna.platform.win32.WinReg.HKEY_CURRENT_USER
+        if (on) exe?.let { com.sun.jna.platform.win32.Advapi32Util.registrySetStringValue(hk, RUN, "Mailwerk", "\"$it\" --minimized") }
+        else com.sun.jna.platform.win32.Advapi32Util.registryDeleteValue(hk, RUN, "Mailwerk")
+    }
+}
+
+/** Beim ersten Start: Verknüpfungen im Startmenü und auf dem Desktop anlegen (nur Windows, nur mit Mailwerk.exe) */
+private fun createShortcuts(store: Store) {
+    val exe = System.getProperty("mailwerk.exe")?.takeIf { File(it).exists() } ?: return
+    if (store.setting("shortcuts") == exe) return
+    val appData = System.getenv("APPDATA") ?: return
+    val targets = listOf(File(appData, "Microsoft\\Windows\\Start Menu\\Programs\\Mailwerk.lnk"),
+        File(System.getProperty("user.home"), "Desktop\\Mailwerk.lnk"))
+    val ps = targets.joinToString(";") { lnk ->
+        "\$s=(New-Object -ComObject WScript.Shell).CreateShortcut('${lnk.absolutePath.replace("'", "''")}');" +
+            "\$s.TargetPath='${exe.replace("'", "''")}';\$s.WorkingDirectory='${File(exe).parent.replace("'", "''")}';\$s.IconLocation='${exe.replace("'", "''")},0';\$s.Save()"
+    }
+    runCatching {
+        ProcessBuilder("powershell.exe", "-NoProfile", "-NonInteractive", "-WindowStyle", "Hidden", "-Command", ps).redirectErrorStream(true).start().waitFor()
+        store.setSetting("shortcuts", exe)
+    }
+}
+
+fun main(args: Array<String>) {
+    System.setProperty("skiko.renderApi", System.getProperty("skiko.renderApi") ?: "DIRECT3D".takeIf { Paths.isWindows } ?: "OPENGL")
+    val repo = Repo()
+    val st = AppState(repo)
+    if (Paths.isWindows) Thread { createShortcuts(repo.store) }.start()
+    application {
+        var visible by remember { mutableStateOf(!args.contains("--minimized")) }
+        var themeVersion by remember { mutableIntStateOf(0) }
+        val dark = remember(themeVersion) {
+            when (repo.store.setting("theme", "system")) { "dark" -> true; "light" -> false; else -> windowsPrefersDark() }
+        }
+        val tray = rememberTrayState()
+        val scope = rememberCoroutineScope()
+        // neue Mails -> Windows-Benachrichtigung
+        LaunchedEffect(Unit) {
+            repo.onNewMail = { acc, msgs ->
+                val m = msgs.first()
+                tray.sendNotification(Notification(
+                    if (msgs.size == 1) m.fromName.ifBlank { m.fromAddr } else tr("{0} neue Mails · {1}", msgs.size, acc.email),
+                    if (msgs.size == 1) m.subject else msgs.take(3).joinToString(" · ") { it.fromName.ifBlank { it.fromAddr } }, Notification.Type.Info))
+            }
+            repo.startPush { scope.launch { repo.sync() } }
+        }
+        Tray(icon = appIcon(), state = tray, tooltip = "Mailwerk", onAction = { visible = true }, menu = {
+            Item(tr("Öffnen"), onClick = { visible = true })
+            Item(tr("Abrufen"), onClick = { scope.launch { repo.sync() } })
+            Separator()
+            Item(tr("Beenden"), onClick = { repo.stopPush(); exitApplication() })
+        })
+        if (visible) Window(
+            onCloseRequest = { if (repo.store.setting("tray", "1") == "1") visible = false else { repo.stopPush(); exitApplication() } },
+            title = "Mailwerk", icon = appIcon(),
+            state = rememberWindowState(placement = WindowPlacement.Floating, width = 1320.dp, height = 860.dp),
+            onPreviewKeyEvent = { e ->
+                if (e.type != KeyEventType.KeyDown) return@Window false
+                val sel = st.selected
+                when {
+                    e.key == Key.F5 -> { scope.launch { repo.sync() }; true }
+                    e.isCtrlPressed && e.key == Key.N -> { st.store.accounts().firstOrNull()?.let { st.compose(Draft(it.id, body = st.signature(it))) }; true }
+                    e.isCtrlPressed && e.key == Key.R && sel != null -> { st.store.message(sel.id)?.let { st.reply(it, false) }; true }
+                    e.key == Key.Delete && sel != null -> { scope.launch { repo.delete(sel); st.selected = null; st.snack = tr("Gelöscht") }; true }
+                    else -> false
+                }
+            },
+        ) {
+            MailwerkTheme(dark) {
+                App(st)
+                if (st.addAccount) AccountDialog(st, null) { st.addAccount = false }
+                st.showAccount?.let { a -> AccountDialog(st, a) { st.showAccount = null } }
+                if (st.showSettings && !st.addAccount && st.showAccount == null) SettingsDialog(st, { themeVersion++ }) { st.showSettings = false }
+            }
+        }
+        st.drafts.forEach { d -> androidx.compose.runtime.key(d.id) { ComposerWindow(st, d, dark) { st.drafts = st.drafts - d } } }
+    }
+}

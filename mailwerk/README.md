@@ -52,6 +52,32 @@ Karten-Layout mit Datumsgruppen, farbige Kategorie-Tabs, heller und dunkler Modu
 | Termine aus Einladungen in den **Familienkalender** – in der Farbe des Empfängers | – | ✅ siehe unten |
 | JavaScript in Mails | – | ❌ grundsätzlich aus (Sicherheit) |
 
+## Windows-Version (PC und ARM-Laptops)
+
+Mailwerk gibt es auch als Windows-Programm – mit eigenem Fenster, ohne Browser:
+
+| Download | für |
+|---|---|
+| [`windows/Mailwerk-Windows-x64.zip`](windows/Mailwerk-Windows-x64.zip) | normale PCs und Laptops (Intel, AMD) |
+| [`windows/Mailwerk-Windows-ARM64.zip`](windows/Mailwerk-Windows-ARM64.zip) | ARM-Laptops (z. B. Samsung Galaxy Book S, Surface Pro X, Snapdragon X) |
+
+ZIP entpacken → `Mailwerk.exe` starten (beim ersten Start entstehen Verknüpfungen im Startmenü und auf dem Desktop).
+Keine Installation, keine Administratorrechte, Java ist schon dabei (schlanke Laufzeit, nur die benötigten Teile).
+
+<img src="screenshots/windows_posteingang.png" width="720">
+
+- Aufbau wie Outlook: links Postfächer und Ordner, Mitte Liste mit *Wichtig / Newsletter / Hinweise*, rechts die Mail
+- Mails als formatierter Text (Überschriften, fett, Listen, anklickbare Links) – **ohne** eingebetteten Browser, Bilder aus dem
+  Internet werden nie geladen, Skripte nie ausgeführt
+- Sofort-Benachrichtigung über IMAP IDLE als Windows-Benachrichtigung, läuft auf Wunsch unten rechts in der Taskleiste weiter
+- Schreiben in eigenen Fenstern, Kontaktvorschläge, Anhänge, Antworten/Weiterleiten, Archiv, Papierkorb, Spam, Anheften
+- Passwörter mit dem Windows-Kennwortschutz (DPAPI) verschlüsselt; Daten unter `%APPDATA%\Mailwerk`
+- Hell/Dunkel wie Windows, „Mit Windows starten“, Tastenkürzel (Strg+N, Strg+R, Entf, F5, Strg+Enter)
+- Der Mail-Kern (Abruf, Einsortierung, Server-Erkennung, Versand) ist **derselbe Code** wie in der Handy-App
+
+Bauen (auf Linux, für beide Windows-Varianten): `cd desktop && ../gradlew -p . windowsZips` –
+`build-jre.sh` schneidet die Java-Laufzeit zu, `launcher/` enthält den Starter `Mailwerk.exe` (C, für x64 und ARM64 übersetzt).
+
 ## Familienkalender
 
 Mailwerk lässt sich mit dem gemeinsamen **Familienkalender** (eigene Kalender-App mit Server) verknüpfen:

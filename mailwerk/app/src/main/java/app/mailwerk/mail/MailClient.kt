@@ -279,7 +279,7 @@ class MailClient(private val acc: Account, private val password: String) {
 
     /** Mail konnte nicht vollständig gelesen werden -> trotzdem mit Kopfdaten anzeigen statt verschwinden lassen. */
     private fun fallbackParse(folder: IMAPFolder, m: Message, e: Throwable): ParsedMessage? = runCatching {
-        android.util.Log.w("Mailwerk", "Mail nicht vollständig lesbar: ${e.message}")
+        System.err.println("Mailwerk: Mail nicht vollständig lesbar: ${e.message}") // läuft auf Android und Windows
         val from = runCatching { m.from?.firstOrNull() as? InternetAddress }.getOrNull()
         ParsedMessage(
             uid = folder.getUID(m), messageId = runCatching { (m as MimeMessage).messageID }.getOrNull(),

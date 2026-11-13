@@ -1,0 +1,24 @@
+Mailwerk für Windows
+====================
+
+So geht's:
+1. Diese ZIP-Datei mit Rechtsklick -> "Alle extrahieren" entpacken (z. B. in "Dokumente").
+2. Im entpackten Ordner "Mailwerk" doppelt auf Mailwerk.exe klicken.
+   Beim ersten Start legt Mailwerk eine Verknüpfung im Startmenü und auf dem Desktop an.
+3. Konto hinzufügen: Name, E-Mail-Adresse und Passwort – die Server werden automatisch erkannt.
+
+Wenn Windows "Der Computer wurde durch Windows geschützt" (SmartScreen) zeigt:
+"Weitere Informationen" -> "Trotzdem ausführen". Das kommt, weil das Programm (noch) nicht
+mit einem gekauften Zertifikat signiert ist.
+
+Welche Version?
+- Mailwerk-Windows-x64.zip   : normale PCs und Laptops (Intel, AMD)
+- Mailwerk-Windows-ARM64.zip : ARM-Laptops (z. B. Samsung Galaxy Book S, Surface Pro X, Snapdragon X)
+
+Gut zu wissen:
+- Daten liegen unter %APPDATA%\Mailwerk. Passwörter sind mit dem Windows-Kennwortschutz (DPAPI)
+  verschlüsselt und nur mit deinem Windows-Benutzerkonto lesbar.
+- Neue Mails werden sofort gemeldet (Windows-Benachrichtigung). Beim Schließen läuft Mailwerk
+  unten rechts in der Taskleiste weiter – abschaltbar in den Einstellungen.
+- Tastenkürzel: Strg+N neue Mail, Strg+R antworten, Entf löschen, F5 abrufen, Strg+Enter senden.
+- Bilder aus dem Internet werden in Mails nie geladen (keine Spionage-Pixel).
