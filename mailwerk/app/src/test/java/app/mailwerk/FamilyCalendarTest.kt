@@ -381,6 +381,10 @@ class FamilyCalendarFlowTest {
             assertTrue(repo.sync().isEmpty())
             val f = repo.family.findInvite(null, db.calendarInviteTexts())!!
             assertEquals("NEU23456", f.code); assertFalse(repo.family.isCurrent(f))
+            // gleicher Kalender, nur andere Schreibweise der Adresse -> KEIN Wechsel-Hinweis (gemeldeter Fehler)
+            val now0 = FamilyCalendar.FoundInvite(repo.family.serverUrl.replace("http://", "https://").removeSuffix("/api.php") + "/", repo.family.code.lowercase(), "x")
+            assertTrue(repo.family.isCurrent(now0))
+            assertTrue(repo.family.isCurrent(FamilyCalendar.FoundInvite(null, repo.family.code, "x")))
             repo.connectFamily(f.url!!, f.code)
             assertTrue(repo.family.isCurrent(f))
             val inNeu = neu.events().filter { !it.optBoolean("deleted") }

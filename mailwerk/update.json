@@ -1,6 +1,6 @@
 {
-  "versionCode": 28,
-  "versionName": "1.21",
+  "versionCode": 29,
+  "versionName": "1.22",
   "apk": "Mailwerk.apk",
-  "notes": "Familienkalender: Wechsel zu neuem Kalender wird angeboten, bisherige Termine werden dort nachgetragen"
+  "notes": "Behoben: falscher Hinweis „Andere Kalender-Einladung“ beim selben Kalender"
 }
