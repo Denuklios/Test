@@ -103,14 +103,10 @@ class FamilyCalendar(ctx: Context) {
     }
 
     /** Ist diese Einladung der Kalender, mit dem Mailwerk gerade verbunden ist? */
-    fun isCurrent(f: FoundInvite): Boolean {
-        if (!connected || !f.code.equals(code, true)) return false
-        // gleicher Code: nur ein anderer Server zählt als „anderer Kalender“ (www., http/https, Schreibweise egal)
-        fun host(u: String) = runCatching { java.net.URI(Api.normalizeUrl(u)).host.lowercase().removePrefix("www.") }.getOrDefault(u.lowercase())
-        fun path(u: String) = runCatching { java.net.URI(Api.normalizeUrl(u)).path.lowercase().trimEnd('/') }.getOrDefault("")
-        val other = f.url ?: return true
-        return host(other) == host(serverUrl) && path(other) == path(serverUrl)
-    }
+    fun isCurrent(f: FoundInvite): Boolean =
+        // Gleicher Gruppen-Code = dieselbe Familie. Nie einen „Wechsel“ zu einer alten Adresse (z. B. Test-Kalender) anbieten.
+        connected && f.code.equals(code, true)
+
 
     /** Verbinden: Adresse prüfen, Gruppe und Mitglieder laden. Ohne Adresse wird der Standard-Server genutzt. */
     fun connect(url: String, groupCode: String, accounts: List<Account>) {

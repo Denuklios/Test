@@ -1,6 +1,6 @@
 {
-  "versionCode": 29,
-  "versionName": "1.22",
+  "versionCode": 30,
+  "versionName": "1.23",
   "apk": "Mailwerk.apk",
-  "notes": "Behoben: falscher Hinweis „Andere Kalender-Einladung“ beim selben Kalender"
+  "notes": "Kein Wechsel-Hinweis mehr zum alten Test-Kalender"
 }

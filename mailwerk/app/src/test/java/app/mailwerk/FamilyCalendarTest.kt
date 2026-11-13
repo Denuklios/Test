@@ -385,6 +385,8 @@ class FamilyCalendarFlowTest {
             val now0 = FamilyCalendar.FoundInvite(repo.family.serverUrl.replace("http://", "https://").removeSuffix("/api.php") + "/", repo.family.code.lowercase(), "x")
             assertTrue(repo.family.isCurrent(now0))
             assertTrue(repo.family.isCurrent(FamilyCalendar.FoundInvite(null, repo.family.code, "x")))
+            // alte Einladung mit demselben Code, aber Adresse des Test-Kalenders -> kein Wechsel
+            assertTrue(repo.family.isCurrent(FamilyCalendar.FoundInvite("https://example.org/teSt/kalender/api.php", repo.family.code, "x")))
             repo.connectFamily(f.url!!, f.code)
             assertTrue(repo.family.isCurrent(f))
             val inNeu = neu.events().filter { !it.optBoolean("deleted") }
