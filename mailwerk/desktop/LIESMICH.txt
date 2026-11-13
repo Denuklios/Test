@@ -26,4 +26,6 @@ Gut zu wissen:
 - Tastenkürzel: Strg+N neue Mail, Strg+R antworten, Strg+Umschalt+R allen antworten, Strg+F weiterleiten,
   Strg+Q gelesen, Strg+U ungelesen, Strg+Umschalt+V verschieben, Entf löschen, Rücktaste archivieren,
   Pfeil hoch/runter blättern, F5 abrufen, Strg+Enter senden.
-- Bilder aus dem Internet werden in Mails nie geladen (keine Spionage-Pixel).
+- Bilder in Mails wie bei Outlook: eingebettete Logos sofort; Bilder aus dem Internet bei Kontakten automatisch,
+  sonst per Klick auf "Bilder herunterladen" oder "Absender immer vertrauen" (Einstellungen: immer laden/fragen).
+  Spionage-Pixel werden nie geladen.

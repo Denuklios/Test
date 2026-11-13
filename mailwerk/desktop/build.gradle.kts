@@ -8,7 +8,7 @@ plugins {
 }
 
 group = "app.mailwerk"
-version = "1.2.0"
+version = "1.3.0"
 
 kotlin { jvmToolchain(21) }
 
@@ -74,7 +74,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi)
             packageName = "Mailwerk"
-            packageVersion = "1.2.0"
+            packageVersion = "1.3.0"
         }
     }
 }

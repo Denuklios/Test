@@ -34,7 +34,7 @@ fun appIcon(): Painter = icon ?: BitmapPainter(useResource("icon.png", ::loadIma
 
 /** Kleine Windows-Helfer (Autostart über die Registrierung) */
 object Windows {
-    const val VERSION = "1.2.0"
+    const val VERSION = "1.3.0"
     private const val RUN = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
     /** Pfad der Mailwerk.exe (wird vom Starter gesetzt) */
     private val exe: String? get() = System.getProperty("mailwerk.exe")?.takeIf { File(it).exists() }

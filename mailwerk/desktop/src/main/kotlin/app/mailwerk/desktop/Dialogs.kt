@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -240,7 +241,7 @@ fun SettingsDialog(st: AppState, onTheme: () -> Unit, onDone: () -> Unit) {
     var background by remember { mutableStateOf(st.store.setting("tray", "1") == "1") }
     AlertDialog(onDismissRequest = onDone, title = { Text(tr("Einstellungen")) },
         text = {
-            Column(Modifier.width(480.dp), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+            Column(Modifier.width(480.dp).heightIn(max = 560.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
                 Text(tr("Konten"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
                 accounts.forEach { a ->
                     Row(Modifier.fillMaxWidth().clickable { st.showAccount = a }.padding(vertical = 6.dp), verticalAlignment = Alignment.CenterVertically) {
@@ -264,6 +265,16 @@ fun SettingsDialog(st: AppState, onTheme: () -> Unit, onDone: () -> Unit) {
                     TextButton(shape = ButtonShape, onClick = { st.changeZoom(effectiveZoom(st) + 0.1f) }) { Text("+") }
                 }
                 Text(tr("Auch mit Strg + Plus / Minus / 0"), style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                HorizontalDivider()
+                Text(tr("Bilder aus dem Internet in Mails"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                var imgMode by remember { mutableStateOf(st.store.setting("images", "contacts")) }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    listOf("always" to tr("Immer laden"), "contacts" to tr("Bei Kontakten laden"), "ask" to tr("Immer fragen")).forEach { (k, l) ->
+                        FilterChip(imgMode == k, { imgMode = k; st.store.setSetting("images", k) }, label = { Text(l) })
+                    }
+                }
+                Text(tr("„Bei Kontakten“ = Absender, denen du schon geschrieben hast (wie Outlook). Eingebettete Bilder und Logos erscheinen immer; Spionage-Pixel nie."),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 HorizontalDivider()
                 if (Paths.isWindows) Row(verticalAlignment = Alignment.CenterVertically) {
                     Text(tr("Mit Windows starten"), Modifier.weight(1f)); Switch(autostart, { autostart = it; Windows.setAutostart(it) })

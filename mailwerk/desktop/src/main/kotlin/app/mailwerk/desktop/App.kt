@@ -1,5 +1,6 @@
 package app.mailwerk.desktop
 
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.automirrored.outlined.Sort
 import androidx.compose.material.icons.outlined.FilterAltOff
 import androidx.compose.material.icons.outlined.FilterAlt
@@ -191,6 +192,11 @@ class AppState(val repo: Repo) {
         select(visible[(if (i < 0) 0 else i + delta).coerceIn(0, visible.size - 1)])
     }
     fun afterRemove() { selected = null; marked = emptySet() }
+
+    /** Bilder aus dem Internet: immer, für vertraute Absender, oder für Kontakte, denen man schon geschrieben hat (wie Outlook) */
+    fun imagesAllowed(m: Message) = store.setting("images", "contacts") == "always" || store.setting("img:" + m.fromAddr.lowercase()) == "1" ||
+        (store.setting("images", "contacts") == "contacts" && store.isKnownContact(m.fromAddr))
+    fun trustSender(addr: String) { store.setSetting("img:" + addr.lowercase(), "1"); snack = tr("Bilder von {0} werden künftig immer geladen", addr) }
 
     fun compose(d: Draft) { drafts = drafts + d }
     fun newMail() { store.accounts().let { a -> val acc = (box as? Box.InFolder)?.folder?.accountId?.let { id -> a.firstOrNull { it.id == id } } ?: a.firstOrNull()
@@ -739,12 +745,14 @@ private fun MailCard(st: AppState, m: Message, expandedInitially: Boolean) {
     var expanded by remember(m.id) { mutableStateOf(expandedInitially) }
     val scope = rememberCoroutineScope()
     val link = MaterialTheme.colorScheme.primary
-    val body by produceState<androidx.compose.ui.text.AnnotatedString?>(null, m.id, link) {
+    // HTML mit Bildern (wie Outlook): eingebettete sofort, aus dem Internet nur für vertrauenswürdige Absender oder auf Klick
+    val blocks by produceState<List<HtmlView.Block>?>(null, m.id, link) {
         value = withContext(Dispatchers.Default) {
             val html = m.bodyHtml
-            if (!html.isNullOrBlank()) RichText.fromHtml(html, link) else RichText.fromText(m.bodyText ?: "", link)
+            if (!html.isNullOrBlank()) HtmlView.parse(html, link) else listOf(HtmlView.Para(RichText.fromText(m.bodyText ?: "", link), androidx.compose.ui.text.style.TextAlign.Start))
         }
     }
+    var showImages by remember(m.id) { mutableStateOf(st.imagesAllowed(m)) }
     val atts = remember(m.id) { st.store.attachments(m.id) }
     Column(Modifier.fillMaxWidth()) {
         Row(Modifier.fillMaxWidth().clip(RoundedCornerShape(6.dp)).clickable { expanded = !expanded }.padding(vertical = 6.dp),
@@ -770,10 +778,23 @@ private fun MailCard(st: AppState, m: Message, expandedInitially: Boolean) {
             }
             if (atts.isNotEmpty()) FlowRowAtts(st, m, atts, scope)
             Spacer(Modifier.height(16.dp))
-            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(MaterialTheme.colorScheme.surface)
+            val bl = blocks
+            if (bl != null && !showImages && HtmlView.hasRemoteImages(bl)) {
+                // Leiste wie in Outlook: Bilder blockiert -> herunterladen / Absender vertrauen
+                Row(Modifier.fillMaxWidth().padding(bottom = 10.dp).clip(RoundedCornerShape(6.dp)).background(MaterialTheme.colorScheme.surfaceVariant)
+                    .padding(start = 12.dp, end = 4.dp, top = 4.dp, bottom = 4.dp), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(Icons.Outlined.Image, null, Modifier.size(16.dp), tint = MaterialTheme.colorScheme.onSurfaceVariant); Spacer(Modifier.width(8.dp))
+                    Text(tr("Bilder aus dem Internet wurden zum Schutz deiner Privatsphäre nicht geladen."), Modifier.weight(1f),
+                        style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    TextButton(onClick = { showImages = true }, shape = ButtonShape) { Text(tr("Bilder herunterladen")) }
+                    TextButton(onClick = { st.trustSender(m.fromAddr); showImages = true }, shape = ButtonShape) { Text(tr("Absender immer vertrauen")) }
+                }
+            }
+            Box(Modifier.fillMaxWidth().clip(RoundedCornerShape(8.dp)).background(if (LocalDark.current && showImages) Color.White else MaterialTheme.colorScheme.surface)
                 .border(1.dp, MaterialTheme.colorScheme.outlineVariant, RoundedCornerShape(8.dp)).padding(horizontal = 26.dp, vertical = 22.dp)) {
-                body?.let { SelectionContainer { Text(it, style = MaterialTheme.typography.bodyLarge) } }
-                    ?: Text(m.snippet, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                if (bl == null) Text(m.snippet, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                else if (LocalDark.current && showImages) MailwerkTheme(false) { HtmlBody(bl, true) } // Newsletter sind für hellen Hintergrund gestaltet
+                else HtmlBody(bl, showImages)
             }
         }
     }
