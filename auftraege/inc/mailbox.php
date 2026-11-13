@@ -270,6 +270,58 @@ final class WfImap
         return '';
     }
 
+    /** Ordner „Papierkorb“ finden (Kennzeichen \Trash, sonst übliche Namen). */
+    public function trashFolder(): string
+    {
+        [, $resp] = $this->cmd('LIST "" "*"');
+        $names = [];
+        foreach ($resp as [$l, $lits]) {
+            if (!preg_match('/^\* LIST \(([^)]*)\) (?:"[^"]*"|NIL) (.*)$/i', trim(str_replace("\x00", '', $l)), $m)) {
+                continue;
+            }
+            $name = $lits ? $lits[0] : trim($m[2], " \"");
+            if (stripos($m[1], '\\Trash') !== false) {
+                return $name;
+            }
+            $names[] = $name;
+        }
+        foreach ($names as $n) {
+            if (preg_match('/^(INBOX[.\/])?(Trash|Deleted|Deleted Items|Deleted Messages|Papierkorb|Gelöschte Elemente|Slettet post|Slettede elementer|Papirkurv)$/i', $n)) {
+                return $n;
+            }
+        }
+        return '';
+    }
+
+    /** Nachrichten des ausgewählten Ordners in den Papierkorb verschieben (ohne Papierkorb: endgültig löschen). */
+    public function trash(array $uids, string $trash): bool
+    {
+        $uids = array_values(array_filter(array_map('intval', $uids)));
+        if (!$uids) {
+            return true;
+        }
+        $set = implode(',', $uids);
+        if ($trash !== '') {
+            [$ok] = $this->cmd('UID MOVE ' . $set . ' ' . self::q($trash));
+            if ($ok) {
+                return true;
+            }
+            [$ok] = $this->cmd('UID COPY ' . $set . ' ' . self::q($trash));
+            if (!$ok) {
+                return false;
+            }
+        }
+        [$ok] = $this->cmd('UID STORE ' . $set . ' +FLAGS.SILENT (\\Deleted)');
+        if (!$ok) {
+            return false;
+        }
+        [$ok] = $this->cmd('UID EXPUNGE ' . $set);
+        if (!$ok) {
+            [$ok] = $this->cmd('EXPUNGE');
+        }
+        return $ok;
+    }
+
     public function append(string $box, string $msg): bool
     {
         [$ok] = $this->cmd('APPEND ' . self::q($box) . ' (\\Seen)', [str_replace(["\r\n", "\n"], ["\n", "\r\n"], $msg)]);
@@ -527,6 +579,9 @@ function wf_mail_store(PDO $db, string $raw, string $folder, ?int $uid, bool $se
     $p = wf_mime_parse($raw);
     $H = $p['headers'];
     $msgId = (wf_mail_ids((string)($H['message-id'] ?? ''))[0] ?? '');
+    if ($msgId !== '' && wf_mail_was_deleted($db, $msgId)) {
+        return null;   // in der App gelöscht: nicht wieder holen
+    }
     if ($msgId !== '') {
         $dup = $db->prepare('SELECT id FROM mail_msgs WHERE message_id = ? AND folder = ?');
         $dup->execute([$msgId, $folder]);
@@ -733,6 +788,78 @@ function wf_mail_atts_to_order(PDO $db, int $msgId, int $oid, ?array $only = nul
         }
     }
     return $n;
+}
+
+// ---------- Löschen ----------
+
+function wf_mail_trash_table(PDO $db): void
+{
+    $db->exec('CREATE TABLE IF NOT EXISTS mail_deleted (message_id TEXT PRIMARY KEY, deleted_at TEXT NOT NULL DEFAULT (datetime(\'now\')))');
+}
+
+function wf_mail_was_deleted(PDO $db, string $msgId): bool
+{
+    wf_mail_trash_table($db);
+    $q = $db->prepare('SELECT 1 FROM mail_deleted WHERE message_id = ?');
+    $q->execute([$msgId]);
+    return (bool)$q->fetchColumn();
+}
+
+/**
+ * Mails löschen: im Postfach am Server in den Papierkorb (damit sie auch am Handy/im Webmail weg sind und nicht
+ * wiederkommen), dann hier samt Anhängen entfernen. Liefert [gelöscht, Hinweis bei Serverfehler].
+ */
+function wf_mail_delete(PDO $db, array $ids): array
+{
+    wf_mail_trash_table($db);
+    $ids = array_values(array_unique(array_filter(array_map('intval', $ids))));
+    if (!$ids) {
+        return [0, ''];
+    }
+    $in = implode(',', array_fill(0, count($ids), '?'));
+    $st = $db->prepare("SELECT id, folder, uid, message_id FROM mail_msgs WHERE id IN ($in)");
+    $st->execute($ids);
+    $rows = $st->fetchAll();
+    $warn = '';
+    $byFolder = [];
+    foreach ($rows as $r) {
+        if ($r['uid'] !== null) {
+            $byFolder[$r['folder']][] = (int)$r['uid'];
+        }
+    }
+    if ($byFolder && ($c = wf_imap_cfg())) {
+        try {
+            $im = new WfImap($c);
+            $trash = $im->trashFolder();
+            $state = json_decode((string)($db->query("SELECT value FROM meta WHERE key = 'mail_state'")->fetchColumn() ?: '{}'), true) ?: [];
+            foreach ($byFolder as $folder => $uids) {
+                $box = $folder === 'sent' ? (string)($state['sent_box'] ?? '') : 'INBOX';
+                if ($box === '' || $box === $trash) {
+                    continue;
+                }
+                $im->select($box);
+                if (!$im->trash($uids, $trash)) {
+                    $warn = 'server';
+                }
+            }
+        } catch (Throwable $e) {
+            $warn = 'server';
+        }
+    }
+    $atts = $db->prepare("SELECT stored_name FROM mail_atts WHERE msg_id IN ($in)");
+    $atts->execute($ids);
+    foreach ($atts->fetchAll(PDO::FETCH_COLUMN) as $f) {
+        @unlink(wf_mail_dir() . basename((string)$f));
+    }
+    $tomb = $db->prepare('INSERT OR IGNORE INTO mail_deleted (message_id) VALUES (?)');
+    foreach ($rows as $r) {
+        if ((string)$r['message_id'] !== '') {
+            $tomb->execute([(string)$r['message_id']]);
+        }
+    }
+    $db->prepare("DELETE FROM mail_atts WHERE msg_id IN ($in)")->execute($ids);
+    $db->prepare("DELETE FROM mail_msgs WHERE id IN ($in)")->execute($ids);
+    return [count($rows), $warn];
 }
 
 // ---------- Abgleich ----------

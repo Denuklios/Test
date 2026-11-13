@@ -1,12 +1,12 @@
 #!/usr/bin/env python3
 """Mini-IMAP-Server nur für Tests (ohne Verschlüsselung, ein Postfach im Speicher).
 Aufruf: fake_imap.py PORT ORDNER   – ORDNER enthält *.eml für den Posteingang; APPEND landet in „Sent“.
-Kann: LOGIN (auch als Literal), LIST, SELECT, UID SEARCH, UID FETCH (FLAGS/RFC822.SIZE/BODY.PEEK[]), UID STORE, APPEND, LOGOUT.
+Kann: LOGIN (auch als Literal), LIST, SELECT, UID SEARCH, UID FETCH (FLAGS/RFC822.SIZE/BODY.PEEK[]), UID STORE, UID MOVE, APPEND, LOGOUT.
 """
 import os, re, socketserver, sys, json
 
 PORT = int(sys.argv[1]); DIR = sys.argv[2]
-BOXES = {'INBOX': [], 'Sent': []}   # Liste von dicts: uid, data(bytes), flags(set)
+BOXES = {'INBOX': [], 'Sent': [], 'Trash': []}   # Liste von dicts: uid, data(bytes), flags(set)
 for i, name in enumerate(sorted(os.listdir(DIR))):
     if name.endswith('.eml'):
         BOXES['INBOX'].append({'uid': i + 1, 'data': open(os.path.join(DIR, name), 'rb').read(), 'flags': set()})
@@ -49,7 +49,7 @@ class H(socketserver.StreamRequestHandler):
             elif cmd == 'LOGOUT':
                 self.w('* BYE\r\n'); self.w(f'{tag} OK bye\r\n'); return
             elif cmd == 'LIST':
-                self.w('* LIST (\\HasNoChildren) "." "INBOX"\r\n* LIST (\\HasNoChildren \\Sent) "." "Sent"\r\n'); self.w(f'{tag} OK\r\n')
+                self.w('* LIST (\\HasNoChildren) "." "INBOX"\r\n* LIST (\\HasNoChildren \\Sent) "." "Sent"\r\n* LIST (\\HasNoChildren \\Trash) "." "Trash"\r\n'); self.w(f'{tag} OK\r\n')
             elif cmd == 'SELECT':
                 box = rest.strip('"'); msgs = BOXES.get(box, [])
                 self.w(f'* {len(msgs)} EXISTS\r\n* OK [UIDVALIDITY 42] ok\r\n* OK [UIDNEXT {len(msgs) + 1}] ok\r\n'); self.w(f'{tag} OK [READ-WRITE] selected\r\n')
@@ -81,6 +81,17 @@ class H(socketserver.StreamRequestHandler):
                     if str(x['uid']) in ids.split(',') and '\\Seen' in what:
                         x['flags'].add('\\Seen')
                 save_log(); self.w(f'{tag} OK\r\n')
+            elif cmd == 'UID MOVE':
+                ids, _, dest = rest.partition(' ')
+                dest = dest.strip('"'); want = set(int(x) for x in ids.split(','))
+                keep, moved = [], []
+                for x in BOXES.get(box, []):
+                    (moved if x['uid'] in want else keep).append(x)
+                BOXES[box] = keep
+                tgt = BOXES.setdefault(dest, [])
+                for x in moved:
+                    tgt.append({'uid': len(tgt) + 1, 'data': x['data'], 'flags': x['flags']})
+                save_log(); self.w(f'{tag} OK MOVE completed\r\n')
             elif cmd == 'APPEND':
                 name = re.match(r'"([^"]+)"', rest).group(1)
                 lst = BOXES.setdefault(name, [])

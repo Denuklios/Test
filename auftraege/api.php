@@ -1262,6 +1262,20 @@ try {
             wf_json(['ok' => true, 'added' => $n]);
         }
 
+        // Mails löschen (am Server in den Papierkorb, hier entfernen); all_junk = alle aussortierten
+        case 'mail_delete': {
+            need_post();
+            $ids = array_map('intval', (array)($in['ids'] ?? []));
+            if (!empty($in['all_junk'])) {
+                $ids = array_map('intval', $db->query("SELECT id FROM mail_msgs WHERE folder = 'in' AND junk = 1 AND archived = 0")->fetchAll(PDO::FETCH_COLUMN));
+            }
+            [$n, $warn] = wf_mail_delete($db, array_slice($ids, 0, 500));
+            if ($n) {
+                wf_touch();
+            }
+            wf_json(['ok' => true, 'deleted' => $n, 'warn' => $warn]);
+        }
+
         // Mail aussortieren bzw. zurückholen; gilt künftig für alle Mails dieses Absenders
         case 'mail_junk': {
             need_post();

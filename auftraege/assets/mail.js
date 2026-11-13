@@ -126,6 +126,10 @@ route(/^\/mail$/, async () => {
       st.configured || st.smtp || /@/.test(st.from.addr || '') ? h('a', { class: 'btn primary', href: '#/mail/new' }, '✏️ ' + t('mail_new')) : null),
     st.error && mailFolder !== 'inq' ? h('div', { class: 'warnline' }, '⚠ ' + t('mail_last_error', st.error)) : null,
     h('div', { class: 'filters mtools' }, tabs, h('div', { class: 'row', style: 'gap:6px;flex:1;min-width:220px' }, search, syncBtn)), syncInfo, inqChips,
+    mailFolder === 'junk' ? h('div', { class: 'row end', style: 'margin:-4px 0 8px' }, h('button', { class: 'btn small danger', onclick: async () => {
+      if (!confirm(t('mail_del_junk_q'))) return;
+      try { const r = await api('mail_delete', { body: { all_junk: 1 } }); toast(t('mail_deleted_n', r.deleted) + (r.warn ? ' – ' + t('mail_del_warn') : '')); load(); } catch (e) { toast(e.message); }
+    } }, '🗑 ' + t('mail_del_junk'))) : null,
     h('div', { class: 'card', style: 'padding:0;overflow:hidden' }, list), more);
   await load();
   if (!st.configured) return;
@@ -221,7 +225,15 @@ route(/^\/mail\/(\d+)$/, async (id) => {
       m.folder === 'in' ? h('button', { class: 'btn', onclick: async () => { await api('mail_update', { body: { id: m.id, seen: 0 } }); MAIL.unread++; mailBadge(); location.hash = '#/mail'; } }, '● ' + t('mail_mark_unread')) : null,
       m.folder === 'in' ? h('button', { class: 'btn', onclick: async () => {
         try { await api('mail_junk', { body: { id: m.id, junk: +m.junk ? 0 : 1 } }); toast(+m.junk ? t('mail_unjunked', m.from_addr) : t('mail_junked', m.from_addr)); mailStatus(true); location.hash = '#/mail'; } catch (e) { toast(e.message); }
-      } }, +m.junk ? '✅ ' + t('mail_unjunk') : '🧹 ' + t('mail_do_junk')) : null);
+      } }, +m.junk ? '✅ ' + t('mail_unjunk') : '🧹 ' + t('mail_do_junk')) : null,
+      h('button', { class: 'btn danger', onclick: async () => {
+        if (!confirm(t('mail_del_q'))) return;
+        try {
+          const r = await api('mail_delete', { body: { ids: [m.id] } });
+          if (!+m.seen && m.folder === 'in' && !+m.junk) { MAIL.unread = Math.max(0, MAIL.unread - 1); mailBadge(); }
+          toast(r.warn ? t('mail_deleted') + ' – ' + t('mail_del_warn') : t('mail_deleted')); location.hash = '#/mail';
+        } catch (e) { toast(e.message); }
+      } }, '🗑 ' + t('mail_delete')));
     show(h('div', { class: 'row', style: 'margin-bottom:8px' }, h('a', { class: 'btn small', href: '#/mail' }, '← ' + t('nav_mail'))),
       h('div', { class: 'card mhead' },
         h('h2', { style: 'margin:0 0 8px' }, m.subject || t('mail_no_subject')),

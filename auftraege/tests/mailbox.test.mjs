@@ -118,6 +118,16 @@ try {
     await call('mail_update', { body: { id: news.id, customer_id: cust } });
     assert.equal((await call('mail_list', { params: { folder: 'all', customer_id: cust } })).j.mails.length, 3);
   });
+  await ok('Löschen: Mail kommt am Server in den Papierkorb, ist hier weg und kommt beim Abruf nicht wieder', async () => {
+    const news = (await call('mail_list', { params: { folder: 'archived' } })).j.mails[0];
+    const r = (await call('mail_delete', { body: { ids: [news.id] } })).j;
+    assert.equal(r.deleted, 1); assert.equal(r.warn, '');
+    const log = imapLog();
+    assert.equal(log.INBOX.length, 1, 'Posteingang am Server ohne die Mail'); assert.equal(log.Trash.length, 1, 'im Papierkorb');
+    assert.equal((await call('mail_list', { params: { folder: 'archived' } })).j.mails.length, 0);
+    assert.equal((await call('mail_get', { params: { id: news.id } })).j.error, 'not_found');
+    assert.equal((await call('mail_sync')).j.new, 0, 'nicht wieder abgeholt');
+  });
   await ok('Handy-App: neue Mail wird gemeldet und lässt sich öffnen', async () => {
     const c = await call('app_token_create', { body: { name: 'Robert Handy' } });
     const pr = await (await fetch(`${B}/api.php?a=app_pair`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ code: c.j.code }) })).json();
