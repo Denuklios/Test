@@ -2,7 +2,24 @@
 // Familienkalender – Sync-Server (PHP 7.4+ mit PDO-SQLite)
 // Einfach den Ordner "kalender" auf den Webspace hochladen. Fertig.
 declare(strict_types=1);
+// Nur verschlüsselt: http -> https umleiten (der Gruppen-Code darf nie unverschlüsselt übertragen werden)
+$isHttps = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off')
+    || (($_SERVER['HTTP_X_FORWARDED_PROTO'] ?? '') === 'https')
+    || (($_SERVER['REQUEST_SCHEME'] ?? '') === 'https')
+    || (($_SERVER['SERVER_PORT'] ?? '') == 443);
+$isLocal = in_array($_SERVER['REMOTE_ADDR'] ?? '', ['127.0.0.1', '::1'], true);
+if (!$isHttps && !$isLocal) {
+    if (($_SERVER['REQUEST_METHOD'] ?? 'GET') === 'GET') {
+        header('Location: https://' . ($_SERVER['HTTP_HOST'] ?? '') . ($_SERVER['REQUEST_URI'] ?? ''), true, 301);
+        exit;
+    }
+    http_response_code(403);
+    header('Content-Type: application/json; charset=utf-8');
+    echo '{"ok":false,"error":"Bitte https verwenden"}';
+    exit;
+}
 header('Content-Type: application/json; charset=utf-8');
+header('X-Content-Type-Options: nosniff');
 header('Access-Control-Allow-Origin: *');
 header('Access-Control-Allow-Headers: Content-Type, X-Group-Key');
 if (($_SERVER['REQUEST_METHOD'] ?? '') === 'OPTIONS') { exit; }
@@ -30,6 +47,8 @@ function db(): PDO {
     $pdo->exec('CREATE TABLE IF NOT EXISTS groups (id INTEGER PRIMARY KEY AUTOINCREMENT, code TEXT UNIQUE, name TEXT, created INTEGER)');
     $pdo->exec('CREATE TABLE IF NOT EXISTS items (group_id INTEGER, kind TEXT, id TEXT, data TEXT, deleted INTEGER DEFAULT 0, ts INTEGER, PRIMARY KEY(group_id, kind, id))');
     $pdo->exec('CREATE INDEX IF NOT EXISTS items_ts ON items(group_id, ts)');
+    $pdo->exec('CREATE TABLE IF NOT EXISTS auth_fail (ip TEXT, at INTEGER)');
+    $pdo->exec('CREATE INDEX IF NOT EXISTS auth_fail_ip ON auth_fail(ip, at)');
     return $pdo;
 }
 
@@ -39,14 +58,36 @@ function body(): array {
     return is_array($j) ? $j : [];
 }
 
+/** Schutz gegen Code-Raten: 10 Fehlversuche in 15 Minuten -> 1 Stunde gesperrt (nur diese IP) */
+const FAIL_MAX = 10;
+function clientIp(): string { return (string) ($_SERVER['REMOTE_ADDR'] ?? '?'); }
+function checkLocked(): void {
+    $st = db()->prepare('SELECT COUNT(*) FROM auth_fail WHERE ip = ? AND at > ?');
+    $st->execute([clientIp(), time() - 3600]);
+    if ((int) $st->fetchColumn() >= FAIL_MAX) {
+        // nur sperren, wenn die Fehlversuche gehäuft (innerhalb 15 Min.) kamen
+        $st = db()->prepare('SELECT MAX(at) - MIN(at) FROM (SELECT at FROM auth_fail WHERE ip = ? AND at > ? ORDER BY at DESC LIMIT ' . FAIL_MAX . ')');
+        $st->execute([clientIp(), time() - 3600]);
+        if ((int) $st->fetchColumn() <= 900) {
+            header('Retry-After: 3600');
+            fail('Zu viele falsche Codes – bitte in einer Stunde erneut versuchen', 429);
+        }
+    }
+}
+function noteFail(): void {
+    db()->prepare('INSERT INTO auth_fail (ip, at) VALUES (?, ?)')->execute([clientIp(), time()]);
+    db()->prepare('DELETE FROM auth_fail WHERE at < ?')->execute([time() - 86400]);
+}
+
 function groupFromKey(): array {
+    checkLocked();
     $key = $_SERVER['HTTP_X_GROUP_KEY'] ?? ($_GET['k'] ?? '');
     $key = strtoupper(trim((string) $key));
-    if ($key === '') fail('Gruppen-Code fehlt', 401);
+    if ($key === '') { noteFail(); fail('Gruppen-Code fehlt', 401); }
     $st = db()->prepare('SELECT * FROM groups WHERE code = ?');
     $st->execute([$key]);
     $g = $st->fetch(PDO::FETCH_ASSOC);
-    if (!$g) fail('Gruppen-Code unbekannt', 401);
+    if (!$g) { noteFail(); fail('Gruppen-Code unbekannt', 401); }
     return $g;
 }
 
@@ -83,6 +124,10 @@ try {
             out(['ok' => true, 'app' => 'familienkalender', 'version' => 1, 'time' => nowMs()]);
 
         case 'create_group':
+            // Neue Gruppen nur, wenn ausdrücklich freigeschaltet (Datei data/allow_create_group anlegen).
+            // Die Familie besteht schon – so können Fremde hier keine Gruppen anlegen.
+            if (!is_file(DATA_DIR . '/allow_create_group')) fail('Neue Kalender anlegen ist auf diesem Server abgeschaltet. Bitte mit Gruppen-Code beitreten.', 403);
+            checkLocked();
             $b = body();
             $name = trim((string) ($b['name'] ?? 'Familie'));
             // Umzug von einem anderen Server: gewünschten Code übernehmen, wenn er frei ist
