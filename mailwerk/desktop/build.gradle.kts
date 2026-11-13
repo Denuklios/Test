@@ -7,7 +7,7 @@ plugins {
 }
 
 group = "app.mailwerk"
-version = "1.0.0"
+version = "1.0.1"
 
 kotlin { jvmToolchain(21) }
 
@@ -56,8 +56,12 @@ dependencies {
     testImplementation(compose.desktop.uiTestJUnit4)
 }
 
+// fester Name ohne Version: neue Version kann einfach über die alte entpackt werden
+tasks.jar { archiveFileName.set("mailwerk-app.jar") }
+
 tasks.test {
     useJUnit()
+    forkEvery = 1 // Zertifikats-Test ändert die JVM-weiten TLS-Einstellungen
     systemProperty("mailwerk.home", layout.buildDirectory.dir("testhome").get().asFile.absolutePath)
     systemProperty("user.language", "de")
     systemProperty("skiko.renderApi", "SOFTWARE")
@@ -69,7 +73,7 @@ compose.desktop {
         nativeDistributions {
             targetFormats(TargetFormat.Msi)
             packageName = "Mailwerk"
-            packageVersion = "1.0.0"
+            packageVersion = "1.0.1"
         }
     }
 }

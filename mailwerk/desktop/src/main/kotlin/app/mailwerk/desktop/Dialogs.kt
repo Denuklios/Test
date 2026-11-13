@@ -186,7 +186,11 @@ fun AccountDialog(st: AppState, edit: Account?, onDone: () -> Unit) {
                 if (password.isNotEmpty()) st.repo.testAccount(a, password)
                 if (edit == null) st.repo.addAccount(a, password) else st.repo.updateAccount(a, password.ifEmpty { null })
             }.onSuccess { st.snack = tr("Konto gespeichert – Mails werden geladen …"); onDone(); st.repo.sync() }
-                .onFailure { error = friendly(it); advanced = true }
+                .onFailure {
+                    error = friendly(it) + if (friendly(it).contains(tr("Zertifikat"), true) || friendly(it).contains("Zertifikat", true))
+                        "\n" + tr("Häufige Ursache am PC: Ein Virenscanner mit „E-Mail-Schutz“ (z. B. Avast, AVG, ESET, Kaspersky) prüft die Verbindung. Dort den E-Mail-Schutz für verschlüsselte Verbindungen ausschalten oder Mailwerk als Ausnahme eintragen.") else ""
+                    advanced = true
+                }
             busy = false
         }
     }

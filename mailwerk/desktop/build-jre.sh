@@ -18,13 +18,15 @@ for a in x64 aarch64; do
 done
 # Was Mailwerk braucht: Oberfläche, TLS, Mail (SASL), Datenbank, XML (Server-Erkennung), JNA, deutsche/englische Datumsformate
 MODS=java.base,java.desktop,java.sql,java.naming,java.logging,java.xml,java.prefs,java.management,java.security.sasl,java.net.http,jdk.crypto.ec,jdk.crypto.cryptoki,jdk.unsupported,jdk.charsets,jdk.localedata,jdk.zipfs,jdk.accessibility
+# nur unter Windows vorhanden: Zugriff auf den Windows-Zertifikatsspeicher (Virenscanner, Firmennetze)
+WINMODS=$MODS,jdk.crypto.mscapi
 JLINK="$C/linux-x64/bin/jlink"
-build() { # module-pfad ziel
+build() { # module-pfad ziel module
   rm -rf "$2"
-  "$JLINK" --module-path "$1" --add-modules "$MODS" --include-locales=de,en --strip-java-debug-attributes --no-header-files --no-man-pages \
+  "$JLINK" --module-path "$1" --add-modules "$3" --include-locales=de,en --strip-java-debug-attributes --no-header-files --no-man-pages \
     --compress=zip-6 --output "$2"
 }
-build "$C/windows-x64/jmods" build/jre-windows-x64
-build "$C/windows-aarch64/jmods" build/jre-windows-aarch64
-build "$C/linux-x64/jmods" build/jre-linux-x64   # nur zum Prüfen auf dem Bau-Rechner
+build "$C/windows-x64/jmods" build/jre-windows-x64 "$WINMODS"
+build "$C/windows-aarch64/jmods" build/jre-windows-aarch64 "$WINMODS"
+build "$C/linux-x64/jmods" build/jre-linux-x64 "$MODS"   # nur zum Prüfen auf dem Bau-Rechner
 du -sh build/jre-windows-x64 build/jre-windows-aarch64 build/jre-linux-x64

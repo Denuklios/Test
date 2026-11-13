@@ -33,7 +33,7 @@ fun appIcon(): Painter = icon ?: BitmapPainter(useResource("icon.png", ::loadIma
 
 /** Kleine Windows-Helfer (Autostart über die Registrierung) */
 object Windows {
-    const val VERSION = "1.0.0"
+    const val VERSION = "1.0.1"
     private const val RUN = "Software\\Microsoft\\Windows\\CurrentVersion\\Run"
     /** Pfad der Mailwerk.exe (wird vom Starter gesetzt) */
     private val exe: String? get() = System.getProperty("mailwerk.exe")?.takeIf { File(it).exists() }
@@ -69,6 +69,7 @@ private fun createShortcuts(store: Store) {
 
 fun main(args: Array<String>) {
     System.setProperty("skiko.renderApi", System.getProperty("skiko.renderApi") ?: "DIRECT3D".takeIf { Paths.isWindows } ?: "OPENGL")
+    Trust.install() // vor der ersten Verbindung: auch dem Windows-Zertifikatsspeicher vertrauen
     val repo = Repo()
     val st = AppState(repo)
     if (Paths.isWindows) Thread { createShortcuts(repo.store) }.start()
