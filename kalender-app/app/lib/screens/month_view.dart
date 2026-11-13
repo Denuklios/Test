@@ -214,9 +214,15 @@ class _WeekRow extends StatelessWidget {
 
     // Balken sammeln: Feiertage zuerst, dann Termine
     final bars = <_Bar>[];
+    final birthdayCols = <int>{};
     for (final o in occ) {
       if (o.lastDay.isBefore(weekStart) || o.firstDay.isAfter(weekEnd))
         continue;
+      // Geburtstage: kein Balken, nur eine Torte neben der Tageszahl
+      if (o.ev.isBirthday) {
+        birthdayCols.add(col(o.firstDay));
+        continue;
+      }
       final s = o.firstDay.isBefore(weekStart) ? 0 : col(o.firstDay);
       final e = o.lastDay.isAfter(weekEnd) ? 6 : col(o.lastDay);
       final colors = store.colorsFor(o.ev);
@@ -385,6 +391,8 @@ class _WeekRow extends StatelessWidget {
                                 size: 11,
                                 color: Colors.brown.shade300,
                               ),
+                            if (birthdayCols.contains(col(d)))
+                              const Text('🎂', style: TextStyle(fontSize: 13, height: 1)),
                             const Spacer(),
                             Text(
                               '${d.day}',
