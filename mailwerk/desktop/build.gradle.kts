@@ -1,3 +1,4 @@
+import java.util.zip.ZipFile
 import org.jetbrains.compose.desktop.application.dsl.TargetFormat
 
 plugins {
@@ -149,7 +150,7 @@ val verifyIcons by tasks.registering {
     doLast {
         val names = mutableSetOf<String>()
         (listOf(slimIcons.get().archiveFile.get().asFile) + configurations.runtimeClasspath.get().files.filter { it.name.startsWith("material-icons-core") })
-            .forEach { jar -> java.util.zip.ZipFile(jar).use { z -> z.entries().asSequence().forEach { names += it.name } } }
+            .forEach { jar -> ZipFile(jar).use { z -> z.entries().asSequence().forEach { names += it.name } } }
         val missing = usedIcons.filter { ic ->
             val p = if (ic.startsWith("automirrored/")) "androidx/compose/material/icons/automirrored/outlined/${ic.removePrefix("automirrored/")}Kt.class"
                     else "androidx/compose/material/icons/outlined/${ic}Kt.class"
