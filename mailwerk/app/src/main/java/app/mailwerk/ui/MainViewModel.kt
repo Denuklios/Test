@@ -137,13 +137,16 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     // ------------------------------------------------------------ Vorbereitete Konten & Updates
     val pendingPresets: StateFlow<List<PresetAccounts.Preset>> =
         accounts.map { PresetAccounts.pending(it) }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
-    val hiddenBanners = MutableStateFlow(setOf<String>())
+    val hiddenBanners = MutableStateFlow(prefs.hiddenBanners).also { f ->
+        // gemerkt, damit ein weggeklickter Hinweis nicht bei jedem Öffnen wiederkommt
+        viewModelScope.launch { f.collect { prefs.hiddenBanners = it } }
+    }
     val update = MutableStateFlow<Updater.Info?>(null)
     /** null = kein Download; 0..1 = Fortschritt */
     val updateProgress = MutableStateFlow<Float?>(null)
 
     fun checkUpdate(manual: Boolean) = viewModelScope.launch {
-        if (!manual && (!prefs.autoUpdateCheck || System.currentTimeMillis() - prefs.lastUpdateCheck < 3 * 3_600_000L)) return@launch
+        if (!manual && (!prefs.autoUpdateCheck || System.currentTimeMillis() - prefs.lastUpdateCheck < 3_600_000L)) return@launch
         runCatching { Updater.check(getApplication()) }
             .onSuccess { info ->
                 update.value = info

@@ -115,6 +115,11 @@ class Prefs(ctx: Context) {
         get() = p.getStringSet("drawer_expanded", null)?.mapNotNull { it.toLongOrNull() }?.toSet()
         set(v) = p.edit().putStringSet("drawer_expanded", v?.map { "$it" }?.toSet()).apply()
 
+    /** weggeklickte Hinweise im Posteingang (bleiben weg, auch nach Neustart) */
+    var hiddenBanners: Set<String>
+        get() = p.getStringSet("hidden_banners", emptySet())!!.toSet()
+        set(v) = p.edit().putStringSet("hidden_banners", v).apply()
+
     var initialSyncDays: Int
         get() = p.getInt("sync_days", 60)
         set(v) = p.edit().putInt("sync_days", v).apply()
