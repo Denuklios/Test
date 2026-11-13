@@ -98,6 +98,8 @@ val usedIcons: Set<String> by lazy {
     }.toSet()
 }
 val slimIcons by tasks.registering(Jar::class) {
+    // Liste der benutzten Symbole als Eingabe: neue Symbole im Code -> Baustein wird neu erzeugt
+    inputs.property("icons", provider { usedIcons.sorted().joinToString(",") })
     archiveFileName.set("material-icons-mailwerk.jar")
     destinationDirectory.set(layout.buildDirectory.dir("slim"))
     from(configurations.runtimeClasspath.map { cp -> cp.filter { it.name.startsWith("material-icons-extended") }.map { zipTree(it) } }) {
@@ -141,6 +143,23 @@ fun windowsZip(name: String, arch: String, natives: Configuration, exe: String) 
 
 val zipX64 = windowsZip("x64", "x64", winX64, "Mailwerk-x86_64.exe")
 val zipArm = windowsZip("ARM64", "aarch64", winArm64, "Mailwerk-aarch64.exe")
+// Sicherheitsnetz: jedes im Code benutzte Symbol muss im Paket stecken (sonst Absturz beim Start)
+val verifyIcons by tasks.registering {
+    dependsOn(slimIcons)
+    doLast {
+        val names = mutableSetOf<String>()
+        (listOf(slimIcons.get().archiveFile.get().asFile) + configurations.runtimeClasspath.get().files.filter { it.name.startsWith("material-icons-core") })
+            .forEach { jar -> java.util.zip.ZipFile(jar).use { z -> z.entries().asSequence().forEach { names += it.name } } }
+        val missing = usedIcons.filter { ic ->
+            val p = if (ic.startsWith("automirrored/")) "androidx/compose/material/icons/automirrored/outlined/${ic.removePrefix("automirrored/")}Kt.class"
+                    else "androidx/compose/material/icons/outlined/${ic}Kt.class"
+            p !in names
+        }
+        if (missing.isNotEmpty()) throw GradleException("Symbole fehlen im Paket: $missing")
+    }
+}
+zipX64.configure { dependsOn(verifyIcons) }
+zipArm.configure { dependsOn(verifyIcons) }
 tasks.register("windowsZips") { group = "distribution"; dependsOn(zipX64, zipArm) }
 
 tasks.register("printClasspath") { doLast { println("CP=" + (configurations.runtimeClasspath.get().files + tasks.jar.get().archiveFile.get().asFile).joinToString(":")) } }
