@@ -10,6 +10,11 @@ object I18n {
     fun german(): Boolean = Locale.getDefault().language == "de"
 
     val en: Map<String, String> = hashMapOf(
+        "Andere Kalender-Einladung gefunden" to "Different calendar invitation found",
+        "Code {0} · aus {1}. Mailwerk ist zurzeit mit einem anderen Kalender verbunden." to "Code {0} · from {1}. Mailwerk is currently connected to a different calendar.",
+        "Zu diesem Kalender wechseln" to "Switch to this calendar",
+        "Mailwerk ist zurzeit mit einem anderen Kalender verbunden. Wechseln, damit Termine aus Mails in diesem Kalender landen?" to "Mailwerk is currently connected to a different calendar. Switch so that appointments from emails go into this calendar?",
+        "Code {0} · aus {1}. Mailwerk trägt zurzeit in einen anderen Kalender ein – zum Wechseln antippen." to "Code {0} · from {1}. Mailwerk is currently adding to a different calendar – tap to switch.",
         "Tipp: In der Kalender-App bei jeder Person die Mailadressen eintragen – dann ordnet Mailwerk jeden Termin eindeutig zu." to "Tip: enter each person's email addresses in the calendar app – Mailwerk then assigns every appointment to the right person.",
         "Einrichten" to "Set up",
         "Familienkalender noch nicht verbunden" to "Family calendar not connected yet",

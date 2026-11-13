@@ -102,6 +102,10 @@ class FamilyCalendar(ctx: Context) {
         return null
     }
 
+    /** Ist diese Einladung der Kalender, mit dem Mailwerk gerade verbunden ist? */
+    fun isCurrent(f: FoundInvite): Boolean = connected && f.code.equals(code, true) &&
+        Api.normalizeUrl(f.url ?: defaultUrl).equals(serverUrl, true)
+
     /** Verbinden: Adresse prüfen, Gruppe und Mitglieder laden. Ohne Adresse wird der Standard-Server genutzt. */
     fun connect(url: String, groupCode: String, accounts: List<Account>) {
         val u = Api.normalizeUrl(url.ifBlank { defaultUrl })

@@ -263,6 +263,12 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         }, SQLiteDatabase.CONFLICT_IGNORE)
     }
 
+    /** Nach dem Wechsel in einen anderen Kalender: alle eingetragenen Termine dort erneut eintragen */
+    fun resetInvitesForNewCalendar() {
+        writableDatabase.execSQL("UPDATE cal_invites SET status='', event_id='', info='' WHERE status IN ('added','updated','error')")
+        notifyChanged()
+    }
+
     fun replaceInvite(msgId: Long, accountId: Long, ics: String, status: String, eventId: String, info: String) {
         writableDatabase.insertWithOnConflict("cal_invites", null, ContentValues().apply {
             put("msg_id", msgId); put("account_id", accountId); put("ics", ics.take(300_000)); put("status", status)

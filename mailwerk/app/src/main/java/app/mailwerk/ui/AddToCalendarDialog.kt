@@ -98,7 +98,7 @@ fun AddToCalendarDialog(vm: MainViewModel, m: Message, onDismiss: () -> Unit) {
                         if (found != null) Button(enabled = !busy, onClick = {
                             busy = true; error = null
                             scope.launch {
-                                val r = withContext(Dispatchers.IO) { runCatching { fam.connect(found.url ?: "", found.code, vm.db.accounts()) } }
+                                val r = withContext(Dispatchers.IO) { runCatching { vm.repo.connectFamily(found.url ?: "", found.code) } }
                                 busy = false
                                 r.onSuccess { who = listOfNotNull(fam.memberFor(m.accountId)?.id); v++ }.onFailure { error = it.message }
                             }

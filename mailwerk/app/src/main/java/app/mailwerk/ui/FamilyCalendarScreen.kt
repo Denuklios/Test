@@ -71,9 +71,9 @@ fun FamilyCalendarScreen(vm: MainViewModel) {
     fun connect() {
         busy = true; error = null
         scope.launch {
-            val r = withContext(Dispatchers.IO) { runCatching { fam.connect(if (otherServer) url else "", code, vm.db.accounts()) } }
+            val r = withContext(Dispatchers.IO) { runCatching { vm.repo.connectFamily(if (otherServer) url else "", code) } }
             busy = false
-            r.onSuccess { v++; vm.snack(tr("Mit „{0}“ verbunden", fam.groupName)); scope.launch { withContext(Dispatchers.IO) { runCatching { vm.repo.processInvites() } } } }
+            r.onSuccess { v++; vm.snack(tr("Mit „{0}“ verbunden", fam.groupName)) }
                 .onFailure { error = it.message ?: tr("Verbindung fehlgeschlagen") }
         }
     }
@@ -124,6 +124,17 @@ fun FamilyCalendarScreen(vm: MainViewModel) {
                     Text(tr("Den Code findest du in der Kalender-App unter Einstellungen → Einladen. Hast du die Einladung per Mail oder Nachricht bekommen, wird sie automatisch erkannt."),
                         style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                 } else {
+                    // neuere Einladung im Postfach (anderer Kalender)? -> Wechsel anbieten
+                    val other = remember(v) { fam.findInvite(null, runCatching { vm.db.calendarInviteTexts() }.getOrDefault(emptyList()))?.takeIf { !fam.isCurrent(it) } }
+                    other?.let { f ->
+                        Card(shape = RoundedCornerShape(18.dp), colors = androidx.compose.material3.CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.tertiaryContainer)) {
+                            Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+                                Text(tr("Andere Kalender-Einladung gefunden"), style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                                Text(tr("Code {0} · aus {1}. Mailwerk ist zurzeit mit einem anderen Kalender verbunden.", f.code, f.source), style = MaterialTheme.typography.bodySmall)
+                                Button(enabled = !busy, onClick = { url = f.url ?: ""; code = f.code; otherServer = f.url != null; connect() }) { Text(tr("Zu diesem Kalender wechseln")) }
+                            }
+                        }
+                    }
                     Card(shape = RoundedCornerShape(18.dp)) {
                         Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                             Text("📅 " + fam.groupName.ifBlank { tr("Familienkalender") }, style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)

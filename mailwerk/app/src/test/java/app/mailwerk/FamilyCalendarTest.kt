@@ -367,6 +367,30 @@ class FamilyCalendarFlowTest {
         assertEquals("m1", tr0.getString("ownerId")) // Postfach-Inhaberin zuerst
         assertEquals("k1", tr0.getJSONArray("participants").getString(0))
 
+        // Umzug: alter Test-Kalender -> neuer Familienkalender. Wechsel trägt bisherige Termine im neuen nach.
+        val neu = FakeCalendarServer("NEU23456")
+        try {
+            neu.member("n-mama", "Mama", 0xFFE53935); neu.member("n-papa", "Papa", 0xFF1E88E5)
+            val anzahlAlt = cal.events().count { !it.optBoolean("deleted") }
+            assertTrue(anzahlAlt >= 3)
+            // neue Einladung kommt per Mail -> wird als „andere Einladung“ erkannt
+            val nm = MimeMessage(Session.getInstance(Properties()))
+            nm.setFrom(InternetAddress("papa@test.de", "Papa")); nm.setRecipients(jakarta.mail.Message.RecipientType.TO, "mama@test.de")
+            nm.subject = "Neuer Kalender"; nm.setText("Komm in unseren Familienkalender „Familie“! 📅\nServer: ${neu.url}\nCode: NEU23456", "UTF-8"); nm.saveChanges()
+            gm.managers.imapHostManager.getInbox(gm.managers.userManager.getUser("mama@test.de")).store(nm)
+            assertTrue(repo.sync().isEmpty())
+            val f = repo.family.findInvite(null, db.calendarInviteTexts())!!
+            assertEquals("NEU23456", f.code); assertFalse(repo.family.isCurrent(f))
+            repo.connectFamily(f.url!!, f.code)
+            assertTrue(repo.family.isCurrent(f))
+            val inNeu = neu.events().filter { !it.optBoolean("deleted") }
+            assertTrue("Termine im neuen Kalender nachgetragen: ${inNeu.size}", inNeu.any { it.getString("title") == "Kino" })
+            assertTrue(inNeu.any { it.getString("title") == "Elternabend Klasse 3b" })
+            assertTrue(inNeu.all { it.getString("ownerId").startsWith("n-") }) // Personen des neuen Kalenders
+            // zurück zum alten Kalender für die restlichen Prüfungen
+            repo.connectFamily(cal.url, "ABCD2345")
+        } finally { neu.stop() }
+
         // Erneuter Abgleich trägt nichts doppelt ein
         val saves = cal.saves.size
         assertTrue(repo.sync().isEmpty())

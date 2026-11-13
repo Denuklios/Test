@@ -387,20 +387,22 @@ private fun JoinCalendarCard(vm: MainViewModel, m: Message) {
     val changes by vm.db.changes.collectAsState()
     var joined by remember { mutableStateOf(false) }
     val found = remember(m.id, changes) {
-        if (fam.connected) null else fam.findInvite(null, listOf((m.fromName.ifBlank { m.fromAddr }) to (m.bodyText ?: "")))
+        fam.findInvite(null, listOf((m.fromName.ifBlank { m.fromAddr }) to (m.bodyText ?: "")))?.takeIf { !fam.isCurrent(it) }
     } ?: return
+    val switching = fam.connected
     if (joined) return
     val scope = rememberCoroutineScope()
     var busy by remember { mutableStateOf(false) }
     Column(Modifier.fillMaxWidth().padding(horizontal = 12.dp, vertical = 4.dp).clip(RoundedCornerShape(18.dp))
         .background(MaterialTheme.colorScheme.primaryContainer).padding(12.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(tr("📅 Einladung in den Familienkalender"), fontWeight = FontWeight.SemiBold)
-        Text(tr("Mit Mailwerk verbinden: Termine aus deinen Mails landen dann automatisch im gemeinsamen Kalender."),
+        Text(if (switching) tr("Mailwerk ist zurzeit mit einem anderen Kalender verbunden. Wechseln, damit Termine aus Mails in diesem Kalender landen?")
+            else tr("Mit Mailwerk verbinden: Termine aus deinen Mails landen dann automatisch im gemeinsamen Kalender."),
             style = MaterialTheme.typography.bodySmall)
         TextButton(enabled = !busy, onClick = {
             busy = true
             scope.launch {
-                val r = withContext(Dispatchers.IO) { runCatching { fam.connect(found.url ?: "", found.code, vm.db.accounts()) } }
+                val r = withContext(Dispatchers.IO) { runCatching { vm.repo.connectFamily(found.url ?: "", found.code) } }
                 busy = false
                 r.onSuccess {
                     joined = true
@@ -408,7 +410,7 @@ private fun JoinCalendarCard(vm: MainViewModel, m: Message) {
                     vm.push(Screen.FamilyCalendar) // Postfächer den Personen zuordnen
                 }.onFailure { vm.snack(it.message ?: tr("Verbindung fehlgeschlagen")) }
             }
-        }) { Text(tr("Familienkalender verbinden")) }
+        }) { Text(if (switching) tr("Zu diesem Kalender wechseln") else tr("Familienkalender verbinden")) }
     }
 }
 

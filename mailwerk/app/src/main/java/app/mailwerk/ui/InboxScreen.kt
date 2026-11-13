@@ -751,6 +751,11 @@ private fun familyHint(vm: MainViewModel, accs: List<app.mailwerk.data.Account>)
             (if (waiting.isNotEmpty()) tr("{0} Termin(e) aus Mails warten. Einladung liegt im Postfach – einmal verbinden.", waiting.size)
              else tr("Die Einladung liegt im Postfach – einmal verbinden, dann landen Termine aus Mails automatisch im Kalender."))
     } else {
+        // neuere Einladung (z. B. nach Umzug des Kalenders) -> Wechsel anbieten
+        fam.findInvite(null, vm.db.calendarInviteTexts())?.takeIf { !fam.isCurrent(it) }?.let { f ->
+            return@runCatching tr("Andere Kalender-Einladung gefunden") to
+                tr("Code {0} · aus {1}. Mailwerk trägt zurzeit in einen anderen Kalender ein – zum Wechseln antippen.", f.code, f.source)
+        }
         val unmapped = accs.filter { a -> fam.memberFor(a.id) == null && waiting.any { it.accountId == a.id } }
         if (unmapped.isEmpty()) null
         else tr("Wer nutzt {0}?", unmapped.first().email) to tr("Termine aus diesem Postfach warten, bis eine Person ausgewählt ist.")

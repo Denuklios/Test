@@ -214,6 +214,19 @@ class Repository private constructor(private val ctx: Context) {
         }
     }
 
+    /**
+     * Mit einem Familienkalender verbinden (oder in einen anderen wechseln). Beim Wechsel werden die bisher eingetragenen
+     * Termine im neuen Kalender nachgetragen und die letzten Tage erneut durchsucht.
+     */
+    suspend fun connectFamily(url: String, code: String) = withContext(Dispatchers.IO) {
+        val before = family.serverUrl to family.code
+        family.connect(url, code, db.accounts())
+        val switched = before.first.isNotBlank() && (before.first != family.serverUrl || !before.second.equals(family.code, true))
+        if (switched) { db.resetInvitesForNewCalendar(); family.rescanVersion = 0; family.lastError = "" }
+        runCatching { processInvites() }
+        Unit
+    }
+
     /** Neue Einladungen automatisch in den Familienkalender eintragen (in der Farbe des Empfängers). */
     fun processInvites() {
         if (!family.connected || !family.autoAdd) return
