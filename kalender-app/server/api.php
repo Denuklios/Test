@@ -83,7 +83,7 @@ function groupFromKey(): array {
     checkLocked();
     $key = $_SERVER['HTTP_X_GROUP_KEY'] ?? ($_GET['k'] ?? '');
     $key = strtoupper(trim((string) $key));
-    if ($key === '') { noteFail(); fail('Gruppen-Code fehlt', 401); }
+    if ($key === '') fail('Gruppen-Code fehlt', 401); // kein Rate-Versuch, zählt nicht
     $st = db()->prepare('SELECT * FROM groups WHERE code = ?');
     $st->execute([$key]);
     $g = $st->fetch(PDO::FETCH_ASSOC);
