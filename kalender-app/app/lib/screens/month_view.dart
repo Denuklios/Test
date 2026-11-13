@@ -214,15 +214,6 @@ class _WeekRow extends StatelessWidget {
 
     // Balken sammeln: Feiertage zuerst, dann Termine
     final bars = <_Bar>[];
-    for (final d in dayList) {
-      for (final h in store.holidays.forDay(d)) {
-        bars.add(
-          _Bar(col(d), col(d), h.label, [
-            h.free ? const Color(0xFF64B5F6) : const Color(0xFFBBDEFB),
-          ], textColor: h.free ? Colors.white : const Color(0xFF1565C0)),
-        );
-      }
-    }
     for (final o in occ) {
       if (o.lastDay.isBefore(weekStart) || o.firstDay.isAfter(weekEnd))
         continue;
@@ -241,6 +232,18 @@ class _WeekRow extends StatelessWidget {
           italic: vac,
         ),
       );
+    }
+    // Feiertage nach den eigenen Terminen (gesetzliche vor Gedenktagen), damit eure Termine sichtbar bleiben
+    for (final free in [true, false]) {
+      for (final d in dayList) {
+        for (final h in store.holidays.forDay(d).where((h) => h.free == free)) {
+          bars.add(
+            _Bar(col(d), col(d), h.label, [
+              h.free ? const Color(0xFF64B5F6) : const Color(0xFFBBDEFB),
+            ], textColor: h.free ? Colors.white : const Color(0xFF1565C0)),
+          );
+        }
+      }
     }
     // Spuren vergeben
     final lanes = <List<bool>>[];
@@ -273,18 +276,52 @@ class _WeekRow extends StatelessWidget {
         // Wenig los in der Woche? Dann höhere Balken mit zwei Zeilen
         final laneH = lanes.isEmpty
             ? 19.0
-            : (avail / lanes.length - gap).clamp(19.0, 34.0);
+            : (avail / lanes.length - gap).clamp(17.0, 34.0);
         final twoLines = laneH >= 30;
-        final maxLanes = (avail / (laneH + gap)).floor().clamp(1, 20);
-        final hiddenPerDay = List.filled(7, 0);
+        // +0.5: Rundungsfehler dürfen keine Zeile kosten
+        final maxLanes = ((avail + 0.5) / (laneH + gap)).floor().clamp(1, 20);
+        // Passt nicht alles? Dann wird die letzte Zeile an vollen Tagen zu kleinen Würfeln
+        final cubeLane = maxLanes - 1;
+        final cubeDay = List.filled(7, false);
         for (final b in bars) {
-          if (b.lane >= maxLanes - (lanes.length > maxLanes ? 1 : 0)) {
+          if (b.lane > cubeLane) {
             for (var c = b.startCol; c <= b.endCol; c++) {
-              hiddenPerDay[c]++;
+              cubeDay[c] = true;
             }
           }
         }
-        final visibleLanes = lanes.length > maxLanes ? maxLanes - 1 : maxLanes;
+        final asCube = <_Bar>{};
+        var changed = true;
+        while (changed) {
+          changed = false;
+          for (final b in bars) {
+            if (b.lane != cubeLane || asCube.contains(b)) continue;
+            var touches = false;
+            for (var c = b.startCol; c <= b.endCol; c++) {
+              if (cubeDay[c]) touches = true;
+            }
+            if (touches) {
+              asCube.add(b);
+              for (var c = b.startCol; c <= b.endCol; c++) {
+                if (!cubeDay[c]) {
+                  cubeDay[c] = true;
+                  changed = true;
+                }
+              }
+            }
+          }
+        }
+        final cubes = List.generate(7, (_) => <_Bar>[]);
+        for (final b in bars) {
+          if (b.lane > cubeLane || asCube.contains(b)) {
+            for (var c = b.startCol; c <= b.endCol; c++) {
+              cubes[c].add(b);
+            }
+          }
+        }
+        bool showBar(_Bar b) => b.lane < cubeLane || (b.lane == cubeLane && !asCube.contains(b));
+        final cubeTop = top + cubeLane * (laneH + gap);
+        final cubeSize = (laneH - 4).clamp(11.0, 15.0);
 
         return Stack(
           children: [
@@ -316,7 +353,6 @@ class _WeekRow extends StatelessWidget {
                         : const Color(0xFFE8F5E9);
                   }
                   if (isToday) bg = const Color(0xFFBBDEFB);
-                  final hidden = hiddenPerDay[col(d)];
                   return Expanded(
                     child: InkWell(
                       onTap: () => onDayTap(d),
@@ -349,19 +385,6 @@ class _WeekRow extends StatelessWidget {
                                 size: 11,
                                 color: Colors.brown.shade300,
                               ),
-                            if (hidden > 0)
-                              Flexible(
-                                child: Text(
-                                  '+$hidden',
-                                  maxLines: 1,
-                                  overflow: TextOverflow.clip,
-                                  style: const TextStyle(
-                                    color: Colors.blue,
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ),
                             const Spacer(),
                             Text(
                               '${d.day}',
@@ -386,7 +409,7 @@ class _WeekRow extends StatelessWidget {
               ],
             ),
             // Balken
-            ...bars.where((b) => b.lane < visibleLanes).map((b) {
+            ...bars.where(showBar).map((b) {
               final left = kwWidth + b.startCol * dw + 2;
               final width = (b.endCol - b.startCol + 1) * dw - 4;
               final tc =
@@ -401,7 +424,14 @@ class _WeekRow extends StatelessWidget {
                       ? () => onEventTap(b.occ!)
                       : () => onDayTap(dayList[b.startCol]),
                   onLongPress: b.occ != null
-                      ? () => Navigator.push(context, MaterialPageRoute(builder: (_) => EventEditor(event: store.events[b.occ!.ev.id] ?? b.occ!.ev)))
+                      ? () => Navigator.push(
+                          context,
+                          MaterialPageRoute(
+                            builder: (_) => EventEditor(
+                              event: store.events[b.occ!.ev.id] ?? b.occ!.ev,
+                            ),
+                          ),
+                        )
                       : null,
                   child: Container(
                     padding: const EdgeInsets.symmetric(horizontal: 4),
@@ -426,6 +456,35 @@ class _WeekRow extends StatelessWidget {
                 ),
               );
             }),
+            // Würfel für Termine, die keinen eigenen Balken mehr bekommen
+            for (var c = 0; c < 7; c++)
+              if (cubes[c].isNotEmpty)
+                Positioned(
+                  left: kwWidth + c * dw + 3,
+                  width: dw - 6,
+                  top: cubeTop + 1,
+                  bottom: 2,
+                  child: GestureDetector(
+                    behavior: HitTestBehavior.opaque,
+                    onTap: () => onDayTap(dayList[c]),
+                    child: ClipRect(
+                      child: Wrap(
+                        spacing: 3,
+                        runSpacing: 3,
+                        children: [
+                          for (final b in cubes[c])
+                            Container(
+                              width: cubeSize,
+                              height: cubeSize,
+                              decoration: b.occ?.ev.isVacation == true
+                                  ? vacationDecoration(b.colors)
+                                  : multiColorDecoration(b.colors, opacity: b.opacity, radius: 3),
+                            ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
           ],
         );
       },
