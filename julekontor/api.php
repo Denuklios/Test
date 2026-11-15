@@ -1,70 +1,43 @@
 <?php
-/* Öffentliche Schnittstelle der Website (keine Anmeldung):
-   ?a=site             Einstellungen, Kontakt, Öffnungszeiten, Kalender-Übersicht, Artikel für die Website
-   ?a=door&day=5       Inhalt eines Türchens – nur wenn der Tag erreicht ist (oder mit Vorschau-Schlüssel)
-   POST ?a=request     Anfrage / Reservierung speichern */
+/* Öffentliche Schnittstelle der Website (keine Anmeldung). Vor dem Eröffnungstag gibt sie nichts heraus.
+   ?a=door&day=5       Inhalt eines Türchens – nur wenn der Tag erreicht ist
+   POST ?a=request     Frage / Reservierung speichern
+   POST ?a=cart        Warenkorb prüfen und ausrechnen
+   POST ?a=order       Bestellung anlegen
+   ?a=pay&t=…          Kartenzahlung starten (leitet zu SumUp weiter)
+   ?a=paid&t=…         Rückkehr von SumUp: Zahlung prüfen, weiter zur Bestellseite */
 declare(strict_types=1);
 define('JK_NO_SESSION', true);
 require __DIR__ . '/admin/inc/bootstrap.php';
 require __DIR__ . '/admin/inc/shop.php';
 require __DIR__ . '/admin/inc/web.php';
-header('Content-Type: application/json; charset=utf-8');
 header('X-Robots-Tag: noindex');
 
 function out(array $data, int $code = 200): never {
+    header('Content-Type: application/json; charset=utf-8');
     http_response_code($code);
     echo json_encode($data, JSON_UNESCAPED_UNICODE | JSON_UNESCAPED_SLASHES);
     exit;
 }
+function body(): array {
+    $in = json_decode((string)file_get_contents('php://input'), true);
+    if (!is_array($in)) out(['error' => 'bad'], 400);
+    return $in;
+}
 
 try {
-    $a = (string)($_GET['a'] ?? 'site');
+    $a = (string)($_GET['a'] ?? '');
     $site = web_site();
-    $cal = $site['calendar'];
-    $year = (int)$cal['year'];
-    $pv = (string)($_GET['pv'] ?? '');
-    $preview = $pv !== '' && preg_match('/^[0-9a-f]{24}$/', (string)$cal['preview']) && hash_equals((string)$cal['preview'], $pv);
-
-    if ($a === 'site') {
-        $doors = [];
-        if ($cal['enabled']) {
-            $rows = advent_doors();
-            for ($d = 1; $d <= 24; $d++) $doors[] = ['day' => $d, 'open' => $preview || advent_open($d, $year), 'filled' => advent_door_filled($rows[$d] ?? null)];
-        }
-        $products = [];
-        $q = db()->query("SELECT p.id, p.name, p.price, p.image, p.web_kit, p.web_text, p.open_price, p.track_stock, p.stock, c.name AS category
-                          FROM products p LEFT JOIN categories c ON c.id = p.category_id
-                          WHERE p.web = 1 AND p.active = 1 ORDER BY p.web_kit DESC, p.updated DESC LIMIT 60");
-        foreach ($q as $r) {
-            $products[] = [
-                'id' => (int)$r['id'], 'name' => $r['name'], 'text' => $r['web_text'], 'category' => (string)$r['category'],
-                'price' => $r['open_price'] ? null : (int)$r['price'], 'kit' => (bool)$r['web_kit'],
-                'image' => $r['image'] !== '' ? 'data/produkte/' . rawurlencode($r['image']) : '',
-                'soldOut' => $r['track_stock'] && (float)$r['stock'] <= 0,
-            ];
-        }
-        $images = [];
-        foreach ($site['images'] as $k => $f) if (is_string($f) && $f !== '' && is_file(WEB_IMG_DIR . '/' . $f)) $images[$k] = 'data/bilder/' . rawurlencode($f);
-        $hours = $site['hours'];
-        if (!$hours['published']) $hours['days'] = [];
-        unset($hours['published']);
-        out([
-            'now' => date('c'),
-            'countdown' => $site['countdownEnabled'] ? $site['countdownTarget'] : null,
-            'snow' => (bool)$site['snow'], 'bell' => (bool)$site['bell'],
-            'hero' => $site['hero'], 'notice' => $site['notice'],
-            'contact' => $site['contact'], 'hours' => $hours,
-            'calendar' => $cal['enabled'] ? ['year' => $year, 'doors' => $doors, 'preview' => $preview] : null,
-            'currency' => setting('currency'),
-            'requests' => (bool)$site['requests'],
-            'products' => $products, 'images' => $images,
-        ]);
-    }
+    $preview = web_preview($site);
+    if (!web_is_open($site) && !$preview) out(['error' => 'closed'], 403);
+    $post = $_SERVER['REQUEST_METHOD'] === 'POST';
+    $lang = fn(array $in) => isset(WEB_LANGS[(string)($in['lang'] ?? '')]) ? (string)$in['lang'] : 'da';
 
     if ($a === 'door') {
+        $cal = $site['calendar'];
         $day = (int)($_GET['day'] ?? 0);
         if (!$cal['enabled'] || $day < 1 || $day > 24) out(['error' => 'unknown'], 404);
-        if (!$preview && !advent_open($day, $year)) out(['error' => 'locked'], 403);
+        if (!$preview && !advent_open($day, (int)$cal['year'])) out(['error' => 'locked'], 403);
         $r = advent_doors()[$day] ?? null;
         $o = ['day' => $day, 'filled' => advent_door_filled($r), 'title' => [], 'text' => [], 'image' => '', 'link' => '', 'code' => ''];
         if ($r) {
@@ -75,15 +48,13 @@ try {
         out($o);
     }
 
-    if ($a === 'request' && $_SERVER['REQUEST_METHOD'] === 'POST') {
+    if ($a === 'request' && $post) {
         if (!$site['requests']) out(['error' => 'off'], 403);
-        $in = json_decode((string)file_get_contents('php://input'), true);
-        if (!is_array($in)) out(['error' => 'bad'], 400);
+        $in = body();
         $s = fn(string $k, int $max) => mb_substr(trim((string)($in[$k] ?? '')), 0, $max);
         if ($s('website', 50) !== '') out(['ok' => true]);                       // Falle für Spam-Programme
         $name = $s('name', 80); $email = $s('email', 120); $phone = $s('phone', 40); $msg = $s('message', 2000);
         $kind = isset(WEB_REQUEST_KINDS[$s('kind', 20)]) ? $s('kind', 20) : 'frage';
-        $lang = isset(WEB_LANGS[$s('lang', 2)]) ? $s('lang', 2) : 'da';
         if ($name === '') out(['error' => 'name'], 422);
         if ($email !== '' && !filter_var($email, FILTER_VALIDATE_EMAIL)) out(['error' => 'email'], 422);
         if ($email === '' && $phone === '') out(['error' => 'contact'], 422);
@@ -94,23 +65,51 @@ try {
             $pname = (string)$st->fetchColumn();
             if ($pname === '') $pid = 0;
         }
-        if (!$pid && $msg === '') out(['error' => 'message'], 422);
+        if ($msg === '') out(['error' => 'message'], 422);
         $ip = hash('sha256', ($_SERVER['REMOTE_ADDR'] ?? '-') . '|jk-web');
-        $st = db()->prepare("SELECT COUNT(*) FROM web_requests WHERE ip_hash = ? AND created > ?");
+        $st = db()->prepare('SELECT COUNT(*) FROM web_requests WHERE ip_hash = ? AND created > ?');
         $st->execute([$ip, date('Y-m-d H:i:s', time() - 3600)]);
         if ((int)$st->fetchColumn() >= 5) out(['error' => 'limit'], 429);
         db()->prepare('INSERT INTO web_requests (created, kind, product_id, product_name, name, email, phone, message, lang, ip_hash) VALUES (?,?,?,?,?,?,?,?,?,?)')
-            ->execute([now(), $kind, $pid ?: null, $pname, $name, $email, $phone, $msg, $lang, $ip]);
-        $to = (string)$site['contact']['email'];
-        if (filter_var($to, FILTER_VALIDATE_EMAIL)) {
-            $clean = fn(string $v) => trim(preg_replace('/[\r\n]+/', ' ', $v));
-            $body = WEB_REQUEST_KINDS[$kind] . ($pname !== '' ? ': ' . $pname : '') . "\n\n"
-                  . 'Name: ' . $name . "\nE-Mail: " . $email . "\nTelefon: " . $phone . "\nSprache: " . WEB_LANGS[$lang] . "\n\n" . $msg . "\n";
-            $head = "Content-Type: text/plain; charset=utf-8\r\nFrom: Julekontor Website <" . $to . ">";
-            if ($email !== '') $head .= "\r\nReply-To: " . $clean($email);
-            @mail($to, '=?UTF-8?B?' . base64_encode('Julekontor: ' . WEB_REQUEST_KINDS[$kind] . ' von ' . $clean($name)) . '?=', $body, $head);
-        }
+            ->execute([now(), $kind, $pid ?: null, $pname, $name, $email, $phone, $msg, $lang($in), $ip]);
+        web_mail((string)$site['contact']['email'], 'Julekontor: ' . WEB_REQUEST_KINDS[$kind] . ' von ' . $name,
+            WEB_REQUEST_KINDS[$kind] . ($pname !== '' ? ': ' . $pname : '') . "\n\nName: $name\nE-Mail: $email\nTelefon: $phone\nSprache: " . WEB_LANGS[$lang($in)] . "\n\n$msg\n", $email);
         out(['ok' => true]);
+    }
+
+    if ($a === 'cart' && $post) {
+        $in = body();
+        $c = web_cart(is_array($in['items'] ?? null) ? $in['items'] : [], (string)($in['delivery'] ?? 'pickup'), $lang($in));
+        foreach ($c['lines'] as &$l) unset($l['raw_name'], $l['vat']);
+        out($c + ['shop_on' => setting('web_shop_on') === '1']);
+    }
+
+    if ($a === 'order' && $post) {
+        $in = body();
+        if (trim((string)($in['website'] ?? '')) !== '') out(['error' => 'server'], 400);
+        try {
+            $o = web_order_create($in, $lang($in));
+            $url = './?s=ordre&ny=1&t=' . $o['token'];
+            if ($o['payment'] === 'card') {
+                try { $url = web_card_start($o); } catch (Throwable $e) { error_log('julekontor sumup: ' . $e->getMessage()); }
+            }
+            out(['ok' => true, 'url' => $url]);
+        } catch (ShopError $e) {
+            out(['error' => $e->getMessage()], 422);
+        }
+    }
+
+    if ($a === 'pay' || $a === 'paid') {
+        $t = (string)($_GET['t'] ?? '');
+        $o = preg_match('/^[0-9a-f]{32}$/', $t) ? web_order_get('token', $t) : null;
+        if (!$o) { header('Location: ./?s=ordre'); exit; }
+        $to = './?s=ordre&t=' . $o['token'] . ($a === 'paid' ? '&ny=1' : '');
+        try {
+            if ($a === 'paid') web_card_check($o);
+            elseif (!$o['paid'] && $o['payment'] === 'card' && $o['status'] !== 'storniert' && web_card_ready()) $to = web_card_start($o);
+        } catch (Throwable $e) { error_log('julekontor sumup: ' . $e->getMessage()); }
+        header('Location: ' . $to);
+        exit;
     }
 
     out(['error' => 'unknown'], 404);

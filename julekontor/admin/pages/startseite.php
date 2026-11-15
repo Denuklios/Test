@@ -6,11 +6,13 @@ $errors = [];
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     csrf_check();
     $site['countdownEnabled'] = !empty($_POST['countdownEnabled']);
+    if (!empty($_POST['new_preview'])) $site['preview'] = '';
     $site['snow']     = !empty($_POST['snow']);
     $site['bell']     = !empty($_POST['bell']);
     $site['requests'] = !empty($_POST['requests']);
     $site['hero']     = web_post_langs('hero', 160);
     $site['notice']   = web_post_langs('notice', 160);
+    $site['launch']   = in_array($_POST['launch'] ?? '', ['auto', 'open', 'closed'], true) ? $_POST['launch'] : 'auto';
     $t = (string)($_POST['countdownTarget'] ?? '');
     $d = DateTime::createFromFormat('Y-m-d\TH:i', $t);
     if (!$d || $d->format('Y-m-d\TH:i') !== $t) $errors[] = 'Bitte ein gültiges Datum mit Uhrzeit wählen.';
@@ -22,16 +24,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     }
 }
 
-page_start('startseite', 'Startseite');
+$previewUrl = web_base_url() . '?vorschau=' . web_preview_token($site);
+page_start('startseite', 'Eröffnung & Startseite');
 foreach ($errors as $e) echo '<div class="flash err" role="alert">' . h($e) . '</div>';
 ?>
 <form method="post" class="card form">
   <?= csrf_field() ?>
   <fieldset>
     <legend>Eröffnung</legend>
-    <label class="check"><input type="checkbox" name="countdownEnabled" value="1" <?= $site['countdownEnabled'] ? 'checked' : '' ?>> Countdown bis zur Eröffnung anzeigen</label>
+    <p class="hint">Bis zur Eröffnung sehen Besucher nur die Countdown-Seite. Shop, Kalender und alle anderen Seiten sind bis dahin gesperrt.</p>
     <label>Eröffnung am<input type="datetime-local" name="countdownTarget" required value="<?= h($site['countdownTarget']) ?>"></label>
-    <p class="hint">Ist der Tag erreicht, verschwindet der Countdown von selbst und die Seite zeigt „Jetzt geöffnet“.</p>
+    <label class="check"><input type="checkbox" name="countdownEnabled" value="1" <?= $site['countdownEnabled'] ? 'checked' : '' ?>> Countdown-Uhr anzeigen</label>
+    <label class="check"><input type="radio" name="launch" value="auto" <?= $site['launch'] === 'auto' ? 'checked' : '' ?>> Website öffnet von selbst am Eröffnungstag</label>
+    <label class="check"><input type="radio" name="launch" value="open" <?= $site['launch'] === 'open' ? 'checked' : '' ?>> Website ist jetzt schon für alle offen</label>
+    <label class="check"><input type="radio" name="launch" value="closed" <?= $site['launch'] === 'closed' ? 'checked' : '' ?>> Website bleibt gesperrt, auch nach dem Eröffnungstag</label>
+    <p class="hint">Stand jetzt: <strong><?= web_is_open($site) ? 'Die Website ist für alle sichtbar.' : 'Besucher sehen nur die Countdown-Seite.' ?></strong></p>
+  </fieldset>
+
+  <fieldset>
+    <legend>Vorschau</legend>
+    <p class="hint">Mit diesem geheimen Link siehst du die ganze Website schon vor der Eröffnung – auf diesem Gerät dann 30 Tage lang. Im Adventskalender sind in der Vorschau alle Türchen offen. Nicht weitergeben.</p>
+    <div class="copy-row">
+      <input readonly value="<?= h($previewUrl) ?>" onclick="this.select()">
+      <a class="btn small" href="<?= h($previewUrl) ?>" target="_blank" rel="noopener">Vorschau öffnen ↗</a>
+    </div>
+    <label class="check"><input type="checkbox" name="new_preview" value="1"> Neuen Vorschau-Link erzeugen (der alte gilt dann nicht mehr)</label>
   </fieldset>
 
   <fieldset>

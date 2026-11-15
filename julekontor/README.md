@@ -1,35 +1,47 @@
-# Julekontor – Website
+# Julekontor – Website mit Online-Shop
 
-Website für das Julekontor (Danmarks Gammeldags Julebutik) in Dänisch, Deutsch und Englisch, mit Admin-Bereich, Warenwirtschaft und Kasse. Kein Build-Schritt.
+Vollständige Website für das Julekontor (Danmarks Gammeldags Julebutik) in Dänisch, Deutsch und Englisch – mit Online-Shop, Adventskalender, Admin-Bereich, Warenwirtschaft und Kasse. Läuft auf PHP 8.1+ mit SQLite, kein Build-Schritt.
+
+**Vor dem Eröffnungstag zeigt jede Adresse nur die Countdown-Seite.** Shop, Kalender und alle anderen Seiten und auch die Schnittstelle sind bis dahin gesperrt. Im Admin unter „Eröffnung & Startseite“ steht ein geheimer Vorschau-Link, mit dem man schon vorher alles sieht.
 
 | Pfad | Inhalt |
 |---|---|
-| `index.html` | Die Website: Kopfbereich mit Lichterkette, Schnee, Truck und Countdown, Sortiment, „Handgemacht“, Artikel aus der Kasse, Adventskalender, Kontakt |
-| `assets/` | Gestaltung (`css/site.css`), Programm (`js/site.js`), **alle Texte in drei Sprachen (`js/i18n.js`)**, Schriften, Logo, Truck und Zeichnungen |
-| `api.php` | Öffentliche Schnittstelle der Website: Einstellungen, Türchen (erst am jeweiligen Tag), Anfragen |
-| `admin/` | Admin-Bereich (PHP), siehe unten |
-| `data/site.json` | Einstellungen der Website – wird im Admin bearbeitet |
-| `data/bilder/`, `data/produkte/` | Hochgeladene Fotos |
+| `index.php` | Einstieg. Jede Seite ist `./?s=<name>`: `butik` (Shop), `vare` (Artikel), `kurv` (Warenkorb und Bestellung), `ordre` (Bestellbestätigung), `julekalender`, `nyheder`, `arrangementer`, `galleri`, `faq`, `om`, `kontakt`, `vilkaar` (Rechtstexte) |
+| `site/lib.php`, `site/pages/` | Seitenrahmen und die einzelnen Seiten |
+| `site/lang.php` | Alle Texte in drei Sprachen (im Admin unter „Texte & Seiten“ überschreibbar) |
+| `api.php` | Schnittstelle: Türchen, Anfragen, Warenkorb, Bestellung, Kartenzahlung |
+| `assets/` | Gestaltung, Programm, Schriften, Logo, Truck und die gemalten Bilder (mit Canva erzeugt) |
+| `admin/` | Admin-Bereich, siehe unten |
+| `data/` | Einstellungen (`site.json`), Datenbank (`private/shop.sqlite`), hochgeladene Fotos (`bilder/`, `produkte/`) |
 | `bastelwerkstatt/` | Bastelwerkstatt: Materialkosten, Arbeitszeit und Verkaufspreis je Projekt |
-| `.htaccess` | Leitet auf HTTPS um |
 
-## Website pflegen (Admin → Website)
+## Website pflegen (Admin)
 
 | Bereich | Was er kann |
 |---|---|
-| **Startseite** | Eröffnungs-Countdown (Datum, an/aus), Satz unter dem Logo und Hinweisband in drei Sprachen, Schnee, Glocke, Anfragen an/aus |
-| **Adventskalender** | 24 Türchen füllen: Überschrift und Text in drei Sprachen, Bild, Gutscheincode, Link. Jahr einstellen. Geheimer Vorschau-Link, mit dem schon vorher alle Türchen offen sind |
-| **Kontakt & Adresse** | Adresse, Telefon, E-Mail, Facebook, Instagram, Kartenlink, CVR. Leere Felder zeigt die Website nicht |
-| **Öffnungszeiten** | Wochentage mit Zeiten, Hinweistext in drei Sprachen. Erst sichtbar, wenn der Haken „zeigen“ gesetzt ist |
-| **Bilder** | Eigene Fotos für die Bereiche im Sortiment und die Werkstatt – sie ersetzen die Zeichnungen |
-| **Anfragen** | Fragen und Reservierungen von der Website, erledigen oder löschen |
-| **Artikel** (unter Laden) | Haken „Auf der Website zeigen“ und „Bausatz mit Anleitung“, kurzer Text für die Website |
+| **Eröffnung & Startseite** | Eröffnungstag, Countdown, Website sofort öffnen oder gesperrt lassen, Vorschau-Link, Satz unter dem Logo, Hinweisband, Schnee, Glocke |
+| **Texte & Seiten** | Alle Texte der Seiten in drei Sprachen: Startseite, Handgemacht, Über uns, Shop, Kontakt und die Rechtstexte |
+| **Neuigkeiten, Termine, Galerie, Häufige Fragen** | Beiträge, Veranstaltungen, Fotos und Fragen anlegen, ändern, löschen. Leere Bereiche erscheinen nicht im Menü |
+| **Adventskalender** | 24 Türchen mit Text in drei Sprachen, Bild, Gutscheincode, Link. Inhalt wird erst am jeweiligen Tag herausgegeben |
+| **Kontakt & Adresse, Öffnungszeiten, Bilder** | Adresse, Telefon, E-Mail, CVR; Zeiten je Wochentag; eigene Fotos statt der gemalten Bilder |
+| **Artikel** (unter Laden) | „Im Online-Shop zeigen“, „Kann verschickt werden“, „Bausatz“, Name und Beschreibung in drei Sprachen |
+| **Shop-Einstellungen** | Bestellen an/aus, Versandpreise Dänemark/Deutschland, versandkostenfrei ab, Euro-Kurs, Zahlungsarten |
+| **Bestellungen** | Liste, Status (bestätigt, versendet, abgeholt, storniert), bezahlt markieren, Notiz, CSV für die Buchhaltung |
+| **Anfragen** | Fragen und Reservierungen von der Website |
 
-**Adventskalender:** Ein Türchen öffnet sich an seinem Dezembertag um 0 Uhr (dänische Zeit) und bleibt bis zum 6. Januar offen. Der Inhalt wird vorher vom Server nicht herausgegeben. Leere Türchen zeigen einen Weihnachtsgruß.
+### So läuft eine Bestellung
 
-**Anfragen:** Ist unter „Kontakt & Adresse“ eine E-Mail eingetragen, schickt der Server zusätzlich eine E-Mail (nur wenn der Hoster das PHP-`mail()` erlaubt). Höchstens 5 Anfragen pro Stunde je Besucher.
+1. Der Kunde legt Artikel in den Warenkorb (liegt nur in seinem Browser), wählt Abholung oder Versand und die Zahlungsart und bestellt.
+2. Die Ware wird sofort im Lager reserviert (Lagerbewegung „Online-Bestellung“). Kunde und Laden bekommen eine E-Mail, wenn unter „Kontakt & Adresse“ eine E-Mail eingetragen ist und der Hoster das PHP-`mail()` erlaubt.
+3. Unter **Bestellungen** setzt du den Status und markierst die Zahlung. Stornieren bucht die Ware zurück ins Lager.
 
-**Logo und Truck** (`assets/img/logo.webp`, `truck.webp`) sind aus `weihnachtsbild.jpeg` freigestellt. Die Schriften Berkshire Swash und Alegreya liegen im Ordner `assets/fonts` (SIL Open Font License) – es wird nichts von fremden Servern geladen.
+**Zahlungsarten:** Bezahlen bei Abholung, MobilePay (Nummer eintragen), Überweisung (Bankverbindung eintragen), Karte über SumUp. Die Kartenzahlung nutzt den SumUp-Schlüssel aus den Kassen-Einstellungen und die SumUp-Bezahlseite. **Sie ist mit einem echten SumUp-Konto noch nicht getestet** – vor der Eröffnung eine Probebestellung mit kleinem Betrag machen.
+
+**Wichtig für die Buchhaltung:** Online-Bestellungen laufen nicht über die Kasse. Sie stehen nicht im Tagesabschluss und nicht in den Berichten; dafür gibt es unter Bestellungen die CSV-Liste. Bitte mit Revisor/Buchhalter klären, wie die Online-Umsätze gebucht werden.
+
+**Rechtstexte** (AGB, Widerrufsrecht, Datenschutz) sind Entwürfe und müssen vor der Eröffnung fachkundig geprüft werden.
+
+**Schriften** Berkshire Swash und Alegreya liegen im Ordner `assets/fonts` (SIL Open Font License) – es wird nichts von fremden Servern geladen.
 
 ## Lokal ansehen
 

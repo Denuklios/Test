@@ -8,7 +8,8 @@ require_once __DIR__ . '/db.php';
 const PAYMENTS = ['cash' => 'Bar', 'card' => 'Karte', 'mobilepay' => 'MobilePay', 'other' => 'Sonstige'];
 const PAYMENTS_DA = ['cash' => 'Kontant', 'card' => 'Kort', 'mobilepay' => 'MobilePay', 'other' => 'Andet'];
 const STOCK_REASONS = ['sale' => 'Verkauf', 'refund' => 'Rückgabe', 'receipt' => 'Wareneingang',
-                       'correction' => 'Korrektur', 'inventory' => 'Inventur', 'waste' => 'Bruch/Schwund'];
+                       'correction' => 'Korrektur', 'inventory' => 'Inventur', 'waste' => 'Bruch/Schwund',
+                       'web' => 'Online-Bestellung', 'web_cancel' => 'Online-Bestellung storniert'];
 
 class ShopError extends RuntimeException {}
 

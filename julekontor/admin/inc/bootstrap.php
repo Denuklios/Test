@@ -21,12 +21,19 @@ const JK_MODULES = [
     'berichte'      => ['title' => 'Berichte',         'icon' => '📊', 'ready' => true,  'group' => 'Laden',   'roles' => ['admin']],
     'etiketten'     => ['title' => 'Etiketten',        'icon' => '🔖', 'ready' => true,  'group' => 'Laden',   'roles' => ['admin']],
     'einstellungen' => ['title' => 'Kassen-Einstellungen', 'icon' => '⚙️', 'ready' => true, 'group' => 'Laden', 'roles' => ['admin']],
-    'anfragen'      => ['title' => 'Anfragen',         'icon' => '💌', 'ready' => true,  'group' => 'Website', 'roles' => ['admin']],
-    'startseite'    => ['title' => 'Startseite',       'icon' => '⏳', 'ready' => true,  'group' => 'Website', 'roles' => ['admin']],
+    'bestellungen'  => ['title' => 'Bestellungen',     'icon' => '🛒', 'ready' => true,  'group' => 'Online-Shop', 'roles' => ['admin']],
+    'shop'          => ['title' => 'Shop-Einstellungen', 'icon' => '🚚', 'ready' => true, 'group' => 'Online-Shop', 'roles' => ['admin']],
+    'anfragen'      => ['title' => 'Anfragen',         'icon' => '💌', 'ready' => true,  'group' => 'Online-Shop', 'roles' => ['admin']],
+    'startseite'    => ['title' => 'Eröffnung & Startseite', 'icon' => '⏳', 'ready' => true, 'group' => 'Website', 'roles' => ['admin']],
+    'texte'         => ['title' => 'Texte & Seiten',   'icon' => '✏️', 'ready' => true,  'group' => 'Website', 'roles' => ['admin']],
+    'neuigkeiten'   => ['title' => 'Neuigkeiten',      'icon' => '📰', 'ready' => true,  'group' => 'Website', 'roles' => ['admin']],
+    'termine'       => ['title' => 'Termine',          'icon' => '📅', 'ready' => true,  'group' => 'Website', 'roles' => ['admin']],
+    'galerie'       => ['title' => 'Galerie',          'icon' => '🖼️', 'ready' => true,  'group' => 'Website', 'roles' => ['admin']],
+    'fragen'        => ['title' => 'Häufige Fragen',   'icon' => '❓', 'ready' => true,  'group' => 'Website', 'roles' => ['admin']],
     'adventskalender' => ['title' => 'Adventskalender', 'icon' => '🎁', 'ready' => true,  'group' => 'Website', 'roles' => ['admin']],
     'kontakt'       => ['title' => 'Kontakt & Adresse', 'icon' => '📍', 'ready' => true, 'group' => 'Website', 'roles' => ['admin']],
     'zeiten'        => ['title' => 'Öffnungszeiten',   'icon' => '🕯️', 'ready' => true, 'group' => 'Website', 'roles' => ['admin']],
-    'bilder'        => ['title' => 'Bilder',           'icon' => '🖼️', 'ready' => true, 'group' => 'Website', 'roles' => ['admin']],
+    'bilder'        => ['title' => 'Bilder',           'icon' => '🎨', 'ready' => true, 'group' => 'Website', 'roles' => ['admin']],
     'benutzer'      => ['title' => 'Benutzer',         'icon' => '👥', 'ready' => true,  'group' => 'Konto',   'roles' => ['admin']],
     'konto'         => ['title' => 'Mein Konto',       'icon' => '🔑', 'ready' => true,  'group' => 'Konto',   'roles' => JK_ALL],
 ];
@@ -150,6 +157,7 @@ function flash(?string $msg = null, string $type = 'ok'): ?array {
     unset($_SESSION['flash']);
     return $f;
 }
+function flash_peek(): bool { return !empty($_SESSION['flash']); }
 /* redirect('artikel') oder redirect('artikel&id=5') – der Teil nach dem ersten & muss schon kodiert sein */
 function redirect(string $page): never {
     [$page, $frag] = array_pad(explode('#', $page, 2), 2, null);

@@ -1,8 +1,9 @@
 {
   "countdownEnabled": true,
   "countdownTarget": "2027-11-14T00:00",
+  "launch": "auto",
   "snow": true,
   "bell": true,
   "contact": { "street": "", "city": "6330 Padborg / Vilsbæk", "phone": "", "email": "", "facebook": "", "instagram": "", "maps": "", "cvr": "" },
-  "calendar": { "enabled": true, "year": 2027, "preview": "" }
+  "calendar": { "enabled": true, "year": 2027 }
 }

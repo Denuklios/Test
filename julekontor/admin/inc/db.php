@@ -142,6 +142,50 @@ function migrate(PDO $db): void {
         PRAGMA user_version = 5;
         SQL);
     }
+    if ($v < 6) {
+        $db->exec(<<<SQL
+        ALTER TABLE products ADD COLUMN web_ship INTEGER NOT NULL DEFAULT 1;     -- kann verschickt werden (sonst nur Abholung)
+        ALTER TABLE products ADD COLUMN web_name_da TEXT NOT NULL DEFAULT '';
+        ALTER TABLE products ADD COLUMN web_name_de TEXT NOT NULL DEFAULT '';
+        ALTER TABLE products ADD COLUMN web_name_en TEXT NOT NULL DEFAULT '';
+        ALTER TABLE products ADD COLUMN web_desc_da TEXT NOT NULL DEFAULT '';
+        ALTER TABLE products ADD COLUMN web_desc_de TEXT NOT NULL DEFAULT '';
+        ALTER TABLE products ADD COLUMN web_desc_en TEXT NOT NULL DEFAULT '';
+        CREATE TABLE web_texts (key TEXT PRIMARY KEY, da TEXT NOT NULL DEFAULT '', de TEXT NOT NULL DEFAULT '', en TEXT NOT NULL DEFAULT '');
+        CREATE TABLE web_posts (                     -- Neuigkeiten
+            id INTEGER PRIMARY KEY, date TEXT NOT NULL, published INTEGER NOT NULL DEFAULT 1, image TEXT NOT NULL DEFAULT '',
+            title_da TEXT NOT NULL DEFAULT '', title_de TEXT NOT NULL DEFAULT '', title_en TEXT NOT NULL DEFAULT '',
+            text_da TEXT NOT NULL DEFAULT '', text_de TEXT NOT NULL DEFAULT '', text_en TEXT NOT NULL DEFAULT '');
+        CREATE TABLE web_events (                    -- Termine und Workshops
+            id INTEGER PRIMARY KEY, date TEXT NOT NULL, time TEXT NOT NULL DEFAULT '', published INTEGER NOT NULL DEFAULT 1, image TEXT NOT NULL DEFAULT '',
+            title_da TEXT NOT NULL DEFAULT '', title_de TEXT NOT NULL DEFAULT '', title_en TEXT NOT NULL DEFAULT '',
+            text_da TEXT NOT NULL DEFAULT '', text_de TEXT NOT NULL DEFAULT '', text_en TEXT NOT NULL DEFAULT '',
+            price TEXT NOT NULL DEFAULT '');
+        CREATE TABLE web_gallery (
+            id INTEGER PRIMARY KEY, sort INTEGER NOT NULL DEFAULT 0, image TEXT NOT NULL DEFAULT '',
+            title_da TEXT NOT NULL DEFAULT '', title_de TEXT NOT NULL DEFAULT '', title_en TEXT NOT NULL DEFAULT '');
+        CREATE TABLE web_faq (
+            id INTEGER PRIMARY KEY, sort INTEGER NOT NULL DEFAULT 0,
+            title_da TEXT NOT NULL DEFAULT '', title_de TEXT NOT NULL DEFAULT '', title_en TEXT NOT NULL DEFAULT '',
+            text_da TEXT NOT NULL DEFAULT '', text_de TEXT NOT NULL DEFAULT '', text_en TEXT NOT NULL DEFAULT '');
+        CREATE TABLE web_orders (                    -- Bestellungen aus dem Online-Shop
+            id INTEGER PRIMARY KEY, number INTEGER NOT NULL UNIQUE, token TEXT NOT NULL UNIQUE, created TEXT NOT NULL,
+            status TEXT NOT NULL DEFAULT 'neu',      -- neu, bestaetigt, versendet, abgeholt, storniert
+            paid INTEGER NOT NULL DEFAULT 0, paid_at TEXT NOT NULL DEFAULT '', pay_ref TEXT NOT NULL DEFAULT '',
+            delivery TEXT NOT NULL,                  -- pickup, dk, de
+            payment TEXT NOT NULL,                   -- pickup, mobilepay, bank, card
+            name TEXT NOT NULL, email TEXT NOT NULL, phone TEXT NOT NULL DEFAULT '',
+            street TEXT NOT NULL DEFAULT '', zip TEXT NOT NULL DEFAULT '', city TEXT NOT NULL DEFAULT '', country TEXT NOT NULL DEFAULT '',
+            note TEXT NOT NULL DEFAULT '', admin_note TEXT NOT NULL DEFAULT '', lang TEXT NOT NULL DEFAULT 'da',
+            subtotal INTEGER NOT NULL, shipping INTEGER NOT NULL DEFAULT 0, total INTEGER NOT NULL, vat_total INTEGER NOT NULL DEFAULT 0,
+            ip_hash TEXT NOT NULL DEFAULT '');
+        CREATE INDEX web_orders_created ON web_orders(created);
+        CREATE TABLE web_order_items (
+            id INTEGER PRIMARY KEY, order_id INTEGER NOT NULL REFERENCES web_orders(id) ON DELETE CASCADE,
+            product_id INTEGER, name TEXT NOT NULL, qty INTEGER NOT NULL, unit_price INTEGER NOT NULL, total INTEGER NOT NULL, vat INTEGER NOT NULL DEFAULT 2500);
+        PRAGMA user_version = 6;
+        SQL);
+    }
 }
 
 /* ---------- Einstellungen ---------- */
@@ -165,6 +209,16 @@ const SHOP_DEFAULTS = [
     'receipt_qr'   => '1',             // nach dem Bezahlen QR-Code für den digitalen Beleg zeigen
     'bon_width'    => '80',            // Bonrolle 80 oder 58 mm
     'invoice_note' => '',              // z. B. Bankverbindung unter der A4-Rechnung
+    'web_ship_dk'  => '4900',          // Versand Dänemark in Øre
+    'web_ship_de'  => '9900',          // Versand Deutschland in Øre
+    'web_ship_free' => '0',            // ab diesem Warenwert versandkostenfrei (0 = nie)
+    'web_eur_rate' => '7.46',          // 1 Euro = so viele Kronen (nur als Hinweis)
+    'web_pay_pickup' => '1',           // Bezahlen bei Abholung
+    'web_pay_mobilepay' => '1',
+    'web_pay_bank' => '0',
+    'web_pay_card' => '0',             // Karte über SumUp (Online-Bezahlseite)
+    'web_bank_text' => '',             // Bankverbindung für Überweisung
+    'web_shop_on'  => '1',             // Bestellen im Online-Shop möglich
     'sumup_enabled' => '0',
     'sumup_api_key' => '',
     'sumup_affiliate_key' => '',

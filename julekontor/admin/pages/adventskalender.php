@@ -13,7 +13,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($y < 2024 || $y > 2100) { flash('Bitte ein gültiges Jahr eintragen.', 'err'); redirect('adventskalender'); }
         $site['calendar']['enabled'] = !empty($_POST['enabled']);
         $site['calendar']['year'] = $y;
-        if (!empty($_POST['new_preview'])) $site['calendar']['preview'] = '';
         web_save($site);
         flash('Gespeichert.');
         redirect('adventskalender');
@@ -83,11 +82,8 @@ if ($day) {
 }
 
 /* ---------- Übersicht ---------- */
-$token = advent_preview_token($site);
 $filled = count(array_filter($doors, 'advent_door_filled'));
-$scheme = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https' : 'http';
-$base = $scheme . '://' . ($_SERVER['HTTP_HOST'] ?? 'localhost') . rtrim(str_replace('\\', '/', dirname($_SERVER['SCRIPT_NAME'], 2)), '/') . '/';
-$previewUrl = $base . '?vorschau=' . $token . '#kalender';
+$previewUrl = web_base_url() . '?vorschau=' . web_preview_token($site) . '&s=julekalender';
 page_start('adventskalender', 'Adventskalender');
 ?>
 <p class="muted"><?= $filled ?> von 24 Türchen sind gefüllt. Jedes Türchen öffnet sich an seinem Tag um 0 Uhr und bleibt bis zum 6. Januar offen. Vorher kann niemand hineinschauen – auch nicht über Umwege.</p>
@@ -109,12 +105,11 @@ page_start('adventskalender', 'Adventskalender');
   </fieldset>
   <fieldset>
     <legend>Vorschau</legend>
-    <p class="hint">Mit diesem geheimen Link sind schon jetzt alle Türchen offen – zum Ausprobieren. Nicht weitergeben.</p>
+    <p class="hint">In der Vorschau sind schon jetzt alle Türchen offen – zum Ausprobieren. Den Link nicht weitergeben.</p>
     <div class="copy-row">
       <input readonly value="<?= h($previewUrl) ?>" onclick="this.select()">
       <a class="btn small" href="<?= h($previewUrl) ?>" target="_blank" rel="noopener">Vorschau öffnen ↗</a>
     </div>
-    <label class="check"><input type="checkbox" name="new_preview" value="1"> Neuen Vorschau-Link erzeugen (der alte gilt dann nicht mehr)</label>
   </fieldset>
   <div class="actions"><button class="btn" type="submit">Speichern</button></div>
 </form>

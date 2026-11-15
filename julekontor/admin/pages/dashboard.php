@@ -8,6 +8,7 @@ $low = (int)$db->query('SELECT COUNT(*) FROM products WHERE active = 1 AND track
 $nProducts = (int)$db->query('SELECT COUNT(*) FROM products WHERE active = 1')->fetchColumn();
 $admin = role() === 'admin';
 $nReq = (int)$db->query("SELECT COUNT(*) FROM web_requests WHERE status = 'neu'")->fetchColumn();
+$nOrd = (int)$db->query("SELECT COUNT(*) FROM web_orders WHERE status = 'neu'")->fetchColumn();
 $nDoors = count(array_filter(advent_doors(), 'advent_door_filled'));
 page_start('dashboard', 'Übersicht');
 $target = strtotime((string)($site['countdownTarget'] ?? ''));
@@ -44,6 +45,12 @@ $target = strtotime((string)($site['countdownTarget'] ?? ''));
     <?php if (!empty($site['countdownEnabled']) && $target): ?>
       <p>Countdown bis <strong><?= h(date('d.m.Y', $target)) ?></strong> – noch <strong><?= max(0, (int)ceil(($target - time()) / 86400)) ?></strong> Tage</p>
     <?php endif; ?>
+  </a>
+  <a class="card tile" href="./?p=bestellungen">
+    <span class="big" aria-hidden="true">🛒</span>
+    <h2>Bestellungen</h2>
+    <p><?= $nOrd ? '<span class="pill red">' . $nOrd . ' neu</span>' : 'Keine neuen Bestellungen' ?></p>
+    <p class="muted"><?= web_is_open($site) ? 'Website ist geöffnet' : 'Website noch gesperrt (Countdown)' ?></p>
   </a>
   <a class="card tile" href="./?p=anfragen">
     <span class="big" aria-hidden="true">💌</span>
