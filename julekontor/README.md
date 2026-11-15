@@ -1,14 +1,35 @@
 # Julekontor – Website
 
-Nachbau der Website aus `www_2.zip` (ursprünglich mit Gemini gebaut). Reine statische Dateien, kein Build-Schritt.
+Website für das Julekontor (Danmarks Gammeldags Julebutik) in Dänisch, Deutsch und Englisch, mit Admin-Bereich, Warenwirtschaft und Kasse. Kein Build-Schritt.
 
 | Pfad | Inhalt |
 |---|---|
-| `index.html` | Startseite „Vi åbner snart“ mit Countdown, Schneefall und Glocke (`glocke.mp3`) |
+| `index.html` | Die Website: Kopfbereich mit Lichterkette, Schnee, Truck und Countdown, Sortiment, „Handgemacht“, Artikel aus der Kasse, Adventskalender, Kontakt |
+| `assets/` | Gestaltung (`css/site.css`), Programm (`js/site.js`), **alle Texte in drei Sprachen (`js/i18n.js`)**, Schriften, Logo, Truck und Zeichnungen |
+| `api.php` | Öffentliche Schnittstelle der Website: Einstellungen, Türchen (erst am jeweiligen Tag), Anfragen |
 | `admin/` | Admin-Bereich (PHP), siehe unten |
-| `data/site.json` | Texte und Einstellungen der Startseite – wird im Admin bearbeitet |
+| `data/site.json` | Einstellungen der Website – wird im Admin bearbeitet |
+| `data/bilder/`, `data/produkte/` | Hochgeladene Fotos |
 | `bastelwerkstatt/` | Bastelwerkstatt: Materialkosten, Arbeitszeit und Verkaufspreis je Projekt |
 | `.htaccess` | Leitet auf HTTPS um |
+
+## Website pflegen (Admin → Website)
+
+| Bereich | Was er kann |
+|---|---|
+| **Startseite** | Eröffnungs-Countdown (Datum, an/aus), Satz unter dem Logo und Hinweisband in drei Sprachen, Schnee, Glocke, Anfragen an/aus |
+| **Adventskalender** | 24 Türchen füllen: Überschrift und Text in drei Sprachen, Bild, Gutscheincode, Link. Jahr einstellen. Geheimer Vorschau-Link, mit dem schon vorher alle Türchen offen sind |
+| **Kontakt & Adresse** | Adresse, Telefon, E-Mail, Facebook, Instagram, Kartenlink, CVR. Leere Felder zeigt die Website nicht |
+| **Öffnungszeiten** | Wochentage mit Zeiten, Hinweistext in drei Sprachen. Erst sichtbar, wenn der Haken „zeigen“ gesetzt ist |
+| **Bilder** | Eigene Fotos für die Bereiche im Sortiment und die Werkstatt – sie ersetzen die Zeichnungen |
+| **Anfragen** | Fragen und Reservierungen von der Website, erledigen oder löschen |
+| **Artikel** (unter Laden) | Haken „Auf der Website zeigen“ und „Bausatz mit Anleitung“, kurzer Text für die Website |
+
+**Adventskalender:** Ein Türchen öffnet sich an seinem Dezembertag um 0 Uhr (dänische Zeit) und bleibt bis zum 6. Januar offen. Der Inhalt wird vorher vom Server nicht herausgegeben. Leere Türchen zeigen einen Weihnachtsgruß.
+
+**Anfragen:** Ist unter „Kontakt & Adresse“ eine E-Mail eingetragen, schickt der Server zusätzlich eine E-Mail (nur wenn der Hoster das PHP-`mail()` erlaubt). Höchstens 5 Anfragen pro Stunde je Besucher.
+
+**Logo und Truck** (`assets/img/logo.webp`, `truck.webp`) sind aus `weihnachtsbild.jpeg` freigestellt. Die Schriften Berkshire Swash und Alegreya liegen im Ordner `assets/fonts` (SIL Open Font License) – es wird nichts von fremden Servern geladen.
 
 ## Lokal ansehen
 
@@ -26,14 +47,13 @@ Läuft auf jedem Webhosting mit **PHP 8.1 oder neuer** und **SQLite** (bei fast 
 2. `https://deine-domain/admin/` öffnen. Beim ersten Aufruf legst du dein Admin-Konto an (E-Mail + Passwort, mind. 10 Zeichen). Das geht nur einmal.
 3. Danach anmelden und die Bereiche bearbeiten.
 
-Schon fertig: **Startseite** (Überschrift, Countdown, Fußzeile, Schnee, Glocke), **Mein Konto** (Passwort ändern) und die komplette **Warenwirtschaft mit Kasse** (siehe unten).
-Noch leer: Kontakt & Adresse, Öffnungszeiten, Bilder.
+Enthalten: die Website-Bereiche (siehe oben), **Mein Konto** (Passwort ändern) und die komplette **Warenwirtschaft mit Kasse** (siehe unten).
 
 **Neuen Bereich anlegen:** in `admin/inc/bootstrap.php` unter `JK_MODULES` eintragen und `admin/pages/<name>.php` anlegen (Vorlage: `startseite.php`).
 
 **Sicherheit:** Passwörter nur als Hash. Konto und Sperrliste liegen als PHP-Dateien in `data/private/` (per `.htaccess` gesperrt und werden nie als Text ausgeliefert). Nach 5 falschen Anmeldungen ist die IP 15 Minuten gesperrt. Alle Formulare sind gegen Fremd-Absenden geschützt (CSRF).
 
-**Achtung beim Hochladen:** `data/site.json` nicht überschreiben, sonst sind die im Admin gespeicherten Texte weg. `data/private/` nie überschreiben oder löschen, sonst ist das Admin-Konto weg (dann legt man beim nächsten Aufruf einfach ein neues an).
+**Achtung beim Hochladen:** `data/site.json`, `data/bilder/` und `data/produkte/` nicht überschreiben, sonst sind die im Admin gespeicherten Texte und Fotos weg. `data/private/` nie überschreiben oder löschen, sonst ist das Admin-Konto weg (dann legt man beim nächsten Aufruf einfach ein neues an).
 
 **Passwort vergessen:** `data/private/config.php` per FTP löschen und unter `/admin/` ein neues Konto anlegen.
 
@@ -93,11 +113,3 @@ Hinweise: Das Solo braucht WLAN (oder Mobilfunk). Rückerstattungen auf die Kart
 
 - `bastelwerkstatt/api/me`, `api/img/<id>` und weitere `api/…` – Anmeldung und Sync. Ohne Server speichert die Bastelwerkstatt nur lokal im Browser.
 - `bastelwerkstatt/sw.js` – Service Worker (offline), wird nur unter HTTPS geladen.
-
-## Änderungen gegenüber dem Zip
-
-- `bastelwerkstatt/index.html` war in ein zweites HTML-Gerüst eingepackt (doppeltes `<!doctype>`). Das äußere Gerüst ist entfernt, der Inhalt ist unverändert.
-- Die Testseite `TEST/` ist wieder entfernt.
-- Die Startseite liest Überschrift, Countdown, Fußzeile, Schnee und Glocke aus `data/site.json`. Fehlt die Datei, gelten die alten Werte.
-- `bastelwerkstatt/manifest.webmanifest` ergänzt (war verlinkt, fehlte aber).
-- Nicht übernommen, weil nirgends verwendet: `style.css`, `script.js`, `onewebmedia/`.

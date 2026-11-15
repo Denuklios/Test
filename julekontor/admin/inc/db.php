@@ -119,6 +119,29 @@ function migrate(PDO $db): void {
         PRAGMA user_version = 4;
         SQL);
     }
+    if ($v < 5) {
+        $db->exec(<<<SQL
+        ALTER TABLE products ADD COLUMN web INTEGER NOT NULL DEFAULT 0;        -- auf der Website zeigen
+        ALTER TABLE products ADD COLUMN web_kit INTEGER NOT NULL DEFAULT 0;    -- Bausatz mit Anleitung zum Selberbauen
+        ALTER TABLE products ADD COLUMN web_text TEXT NOT NULL DEFAULT '';     -- kurzer Text für die Website
+        CREATE TABLE advent_doors (                  -- Adventskalender: Inhalt der 24 Türchen
+            day INTEGER PRIMARY KEY,
+            title_da TEXT NOT NULL DEFAULT '', title_de TEXT NOT NULL DEFAULT '', title_en TEXT NOT NULL DEFAULT '',
+            text_da TEXT NOT NULL DEFAULT '', text_de TEXT NOT NULL DEFAULT '', text_en TEXT NOT NULL DEFAULT '',
+            image TEXT NOT NULL DEFAULT '', link TEXT NOT NULL DEFAULT '', code TEXT NOT NULL DEFAULT '',
+            updated TEXT NOT NULL DEFAULT '');
+        CREATE TABLE web_requests (                  -- Anfragen und Reservierungen von der Website
+            id INTEGER PRIMARY KEY, created TEXT NOT NULL,
+            kind TEXT NOT NULL DEFAULT 'frage',      -- frage, reservierung, bausatz
+            product_id INTEGER, product_name TEXT NOT NULL DEFAULT '',
+            name TEXT NOT NULL, email TEXT NOT NULL DEFAULT '', phone TEXT NOT NULL DEFAULT '',
+            message TEXT NOT NULL DEFAULT '', lang TEXT NOT NULL DEFAULT 'da',
+            status TEXT NOT NULL DEFAULT 'neu',      -- neu, erledigt
+            ip_hash TEXT NOT NULL DEFAULT '');
+        CREATE INDEX web_requests_created ON web_requests(created);
+        PRAGMA user_version = 5;
+        SQL);
+    }
 }
 
 /* ---------- Einstellungen ---------- */

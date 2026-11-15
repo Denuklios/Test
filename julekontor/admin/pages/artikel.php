@@ -37,13 +37,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $vals = [$name, mb_substr(trim((string)($_POST['sku'] ?? '')), 0, 40), $barcode ?: null, $catId, $price, $cost, $vat,
                  parse_qty((string)($_POST['min_stock'] ?? '0')) ?? 0, mb_substr(trim((string)($_POST['unit'] ?? '')) ?: 'Stk.', 0, 10),
                  !empty($_POST['track_stock']) ? 1 : 0, !empty($_POST['open_price']) ? 1 : 0, !empty($_POST['favorite']) ? 1 : 0,
-                 !empty($_POST['active']) ? 1 : 0, mb_substr(trim((string)($_POST['note'] ?? '')), 0, 500), now()];
+                 !empty($_POST['active']) ? 1 : 0, mb_substr(trim((string)($_POST['note'] ?? '')), 0, 500),
+                 !empty($_POST['web']) ? 1 : 0, !empty($_POST['web_kit']) ? 1 : 0, mb_substr(trim((string)($_POST['web_text'] ?? '')), 0, 300), now()];
         if ($id) {
-            $db->prepare('UPDATE products SET name=?, sku=?, barcode=?, category_id=?, price=?, cost=?, vat=?, min_stock=?, unit=?, track_stock=?, open_price=?, favorite=?, active=?, note=?, updated=? WHERE id=?')
+            $db->prepare('UPDATE products SET name=?, sku=?, barcode=?, category_id=?, price=?, cost=?, vat=?, min_stock=?, unit=?, track_stock=?, open_price=?, favorite=?, active=?, note=?, web=?, web_kit=?, web_text=?, updated=? WHERE id=?')
                ->execute([...$vals, $id]);
             flash('Artikel gespeichert.');
         } else {
-            $db->prepare('INSERT INTO products (name, sku, barcode, category_id, price, cost, vat, min_stock, unit, track_stock, open_price, favorite, active, note, updated, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+            $db->prepare('INSERT INTO products (name, sku, barcode, category_id, price, cost, vat, min_stock, unit, track_stock, open_price, favorite, active, note, web, web_kit, web_text, updated, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
                ->execute([...$vals, now()]);
             $id = (int)$db->lastInsertId();
             $start = parse_qty((string)($_POST['stock'] ?? '0')) ?? 0;
@@ -183,7 +184,7 @@ if (isset($_GET['code']) && trim((string)$_GET['code']) !== '') {
 $id = (int)($_GET['id'] ?? 0);
 if ($id || isset($_GET['new'])) {
     $p = ['id' => 0, 'name' => '', 'sku' => '', 'barcode' => (string)($_GET['barcode'] ?? ''), 'category_id' => null, 'price' => 0, 'cost' => 0,
-          'vat' => vat_rates()[0], 'stock' => 0, 'min_stock' => 0, 'unit' => 'Stk.', 'track_stock' => 1, 'open_price' => 0, 'favorite' => 1, 'active' => 1, 'note' => ''];
+          'vat' => vat_rates()[0], 'stock' => 0, 'min_stock' => 0, 'unit' => 'Stk.', 'track_stock' => 1, 'open_price' => 0, 'favorite' => 1, 'active' => 1, 'note' => '', 'web' => 0, 'web_kit' => 0, 'web_text' => ''];
     if ($id) {
         $st = $db->prepare('SELECT * FROM products WHERE id = ?');
         $st->execute([$id]);
@@ -254,6 +255,13 @@ if ($id || isset($_GET['new'])) {
         <label class="check"><input type="checkbox" name="favorite" value="1" <?= $chk('favorite') ? 'checked' : '' ?>> Als Kachel in der Kasse zeigen</label>
         <label class="check"><input type="checkbox" name="active" value="1" <?= $chk('active') ? 'checked' : '' ?>> Aktiv (verkaufbar)</label>
         <label>Notiz (intern)<textarea name="note" maxlength="500"><?= h($v('note', $p['note'])) ?></textarea></label>
+      </fieldset>
+      <fieldset>
+        <legend>Website</legend>
+        <label class="check"><input type="checkbox" name="web" value="1" <?= $chk('web') ? 'checked' : '' ?>> Auf der Website zeigen (mit Foto und Preis)</label>
+        <label class="check"><input type="checkbox" name="web_kit" value="1" <?= $chk('web_kit') ? 'checked' : '' ?>> Bausatz mit Anleitung zum Selberbauen</label>
+        <label>Kurzer Text für die Website<textarea name="web_text" maxlength="300"><?= h($v('web_text', $p['web_text'] ?? '')) ?></textarea></label>
+        <p class="hint">Besucher können den Artikel auf der Website anfragen oder reservieren. Die Anfragen stehen unter <a href="./?p=anfragen">Anfragen</a>.</p>
       </fieldset>
       <div class="actions">
         <button class="btn" type="submit">Speichern</button>

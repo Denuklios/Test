@@ -1,12 +1,14 @@
 <?php
 declare(strict_types=1);
-$site = read_json('site');
+$site = web_site();
 $db = db();
 $c = open_closing();
 $today = $db->query("SELECT COALESCE(SUM(total),0) t, COALESCE(SUM(CASE WHEN type='sale' THEN 1 END),0) n FROM sales WHERE date(created) = '" . date('Y-m-d') . "'")->fetch();
 $low = (int)$db->query('SELECT COUNT(*) FROM products WHERE active = 1 AND track_stock = 1 AND stock <= min_stock')->fetchColumn();
 $nProducts = (int)$db->query('SELECT COUNT(*) FROM products WHERE active = 1')->fetchColumn();
 $admin = role() === 'admin';
+$nReq = (int)$db->query("SELECT COUNT(*) FROM web_requests WHERE status = 'neu'")->fetchColumn();
+$nDoors = count(array_filter(advent_doors(), 'advent_door_filled'));
 page_start('dashboard', 'Übersicht');
 $target = strtotime((string)($site['countdownTarget'] ?? ''));
 ?>
@@ -39,10 +41,19 @@ $target = strtotime((string)($site['countdownTarget'] ?? ''));
   <a class="card tile" href="./?p=startseite">
     <span class="big" aria-hidden="true">⏳</span>
     <h2>Startseite</h2>
-    <p class="muted">„<?= h($site['title'] ?? '') ?>“</p>
     <?php if (!empty($site['countdownEnabled']) && $target): ?>
       <p>Countdown bis <strong><?= h(date('d.m.Y', $target)) ?></strong> – noch <strong><?= max(0, (int)ceil(($target - time()) / 86400)) ?></strong> Tage</p>
     <?php endif; ?>
+  </a>
+  <a class="card tile" href="./?p=anfragen">
+    <span class="big" aria-hidden="true">💌</span>
+    <h2>Anfragen</h2>
+    <p><?= $nReq ? '<span class="pill red">' . $nReq . ' neu</span>' : 'Keine offenen Anfragen' ?></p>
+  </a>
+  <a class="card tile" href="./?p=adventskalender">
+    <span class="big" aria-hidden="true">🎁</span>
+    <h2>Adventskalender</h2>
+    <p class="muted"><?= $nDoors ?> von 24 Türchen gefüllt</p>
   </a>
   <a class="card tile" href="../bastelwerkstatt/" target="_blank" rel="noopener">
     <span class="big" aria-hidden="true">✂️</span>

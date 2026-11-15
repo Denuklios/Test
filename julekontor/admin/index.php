@@ -3,6 +3,7 @@ declare(strict_types=1);
 require __DIR__ . '/inc/bootstrap.php';
 require __DIR__ . '/inc/layout.php';
 require __DIR__ . '/inc/shop.php';
+require __DIR__ . '/inc/web.php';
 
 $p = (string)($_GET['p'] ?? 'dashboard');
 
