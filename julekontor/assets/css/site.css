@@ -240,7 +240,7 @@ button, input, textarea { font: inherit; color: inherit; }
 .seal { position: relative; width: clamp(190px, 21vw, 270px); aspect-ratio: 1; display: grid; place-items: center; }
 .seal::before { content: ""; position: absolute; inset: 14%; border-radius: 50%; background: var(--red); border: 2px solid var(--gold-light); box-shadow: 0 0 0 6px var(--red-deep), 0 0 0 7px var(--gold), 0 18px 30px -10px #000a; }
 .seal-ring { position: absolute; inset: 0; animation: spin 40s linear infinite; }
-.seal-ring text { font: 700 17.5px var(--f-body); letter-spacing: .2em; fill: var(--gold-light); }
+.seal-ring text { font: 700 17px var(--f-body); fill: var(--gold-light); }
 .seal-core { position: relative; display: flex; align-items: baseline; color: var(--gold-light); text-shadow: 0 3px 0 var(--red-dark); }
 .seal-num { font: 400 clamp(4rem, 7.4vw, 6.2rem)/1 var(--f-display); font-variant-numeric: tabular-nums; }
 .seal-pct { font: 400 clamp(1.8rem, 3vw, 2.6rem)/1 var(--f-display); margin-left: 4px; }
