@@ -48,6 +48,16 @@ class SwipeAndDrawerTest {
         assertEquals(0, db.listMessages(null, null, null).count { it.subject == "Termin nächste Woche" })
         assertEquals(0, rule.onAllNodesWithText("Termin nächste Woche", useUnmergedTree = true).fetchSemanticsNodes().size)
         assertTrue(rule.onAllNodesWithText("Steuerbüro Klein", substring = true, useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty())
+
+        // „Rückgängig“: Mail kommt zurück -> muss normal dastehen, ohne stehengebliebenen Wisch-Balken
+        val archived = db.search("Termin nächste Woche").single()
+        val inboxFolder = db.folders(archived.accountId).first { it.role == app.mailwerk.data.FolderRole.INBOX }
+        kotlinx.coroutines.runBlocking { app.mailwerk.data.Repository.get(ctx).moveTo(archived, inboxFolder) }
+        db.notifyChanged()
+        rule.waitUntil(10_000) { rule.onAllNodesWithText("Termin nächste Woche", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.waitForIdle(); Thread.sleep(300); rule.waitForIdle()
+        assertEquals("kein stehengebliebener Balken „Archivieren“", 0,
+            rule.onAllNodesWithText("Archivieren", useUnmergedTree = true).fetchSemanticsNodes().size)
         sc.close()
     }
 

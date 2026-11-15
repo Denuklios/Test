@@ -510,6 +510,9 @@ private fun SwipeRow(vm: MainViewModel, t: ThreadSummary, modifier: Modifier, on
         }
     }, positionalThreshold = { it * 0.35f })
     val visible = remember { androidx.compose.animation.core.MutableTransitionState(true) }
+    // Die Liste merkt sich den Wisch-Zustand pro Mail. Kommt eine Mail zurück (z. B. „Rückgängig“ nach dem Löschen),
+    // wäre sie sonst noch „weggewischt“ und der rote Balken bliebe stehen -> immer in die Ausgangslage
+    LaunchedEffect(Unit) { if (pending == null && state.currentValue != SwipeToDismissBoxValue.Settled) state.reset() }
     // nach dem Hinausgleiten: Höhe weich auf 0, dann erst ausführen -> die Mails darunter rutschen geschmeidig hoch
     LaunchedEffect(pending, state.currentValue) {
         if (pending != null && state.currentValue != SwipeToDismissBoxValue.Settled) visible.targetState = false

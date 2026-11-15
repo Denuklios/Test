@@ -1,6 +1,6 @@
 {
-  "versionCode": 33,
-  "versionName": "1.26",
+  "versionCode": 34,
+  "versionName": "1.27",
   "apk": "Mailwerk.apk",
-  "notes": "Mails in der Liste deutlicher voneinander abgegrenzt"
+  "notes": "Behoben: Nach „Rückgängig“ blieb der rote Löschen-Balken stehen"
 }
