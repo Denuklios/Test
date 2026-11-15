@@ -388,68 +388,95 @@ class WidgetPainter(val ctx: Context, val cfg: WidgetCfg, val data: JSONObject?,
     }
 
     // ---------- Tag / Liste ----------
+    private val accent get() = if (cfg.theme == "light") 0xFF1565C0.toInt() else 0xFF90CAF9.toInt()
+    private val todayBlock get() = if (cfg.theme == "light") 0xFFE3F2FD.toInt() else 0x403F8EF5
+
     private fun drawAgenda(c: Canvas, a: RectF, days: Int, dayMode: Boolean) {
         val hol = WidgetData.holidays(data!!)
-        val occ = WidgetData.occurrences(data, cfg, today, today.plusDays(if (dayMode) 7 else days.toLong()))
+        val lastDay = today.plusDays(if (dayMode) 7 else days.toLong())
+        val occ = WidgetData.occurrences(data, cfg, today, lastDay)
         val rowH = dp(24f * f)
-        val headH = dp(20f * f)
-        var y = a.top
+        val headH = dp(22f * f)
+        val tRowH = dp(28f * f)   // heute: etwas höher und größer
+        val tHeadH = dp(26f * f)
         val tTitle = tp(13.5f, fg)
         val tTime = tp(12f, sub)
-        val tDay = tp(12f, sub, true)
+        val tDay = tp(12.5f, sub, true)
+        val tTodayHead = tp(15f, accent, true)
+        val tTodayTitle = tp(15f, fg, true)
+        val tTodayTime = tp(13f, accent, true)
+        val strong = Paint(Paint.ANTI_ALIAS_FLAG).apply { color = if (cfg.theme == "light") 0x40000000 else 0x55FFFFFF }
+        var y = a.top
         var d = today
-        var shownDays = 0
-        val lastDay = today.plusDays(if (dayMode) 7 else days.toLong())
         var anything = false
+        var shownDays = 0
+
+        fun row(o: WOcc, day: LocalDate, top: Float, h: Float, big: Boolean, left: Float) {
+            val bar = RectF(left, top + dp(4f), left + dp(if (big) 6f else 5f), top + h - dp(4f))
+            fillColors(c, bar, o.colors, dp(3f), if (o.vacation) 140 else 255)
+            val time = when {
+                o.timed -> hhmm(o.start)
+                o.first != o.last && !o.allDay && day == o.first -> "ab " + hhmm(o.start)
+                o.first != o.last && !o.allDay && day == o.last -> "bis " + hhmm(o.end)
+                else -> ""
+            }
+            val tt = if (big) tTodayTime else tTime
+            val ti = if (big) tTodayTitle else tTitle
+            val base = top + h / 2 + ti.textSize * 0.36f
+            var x = left + dp(12f)
+            if (time.isNotEmpty()) {
+                c.drawText(time, x, base, tt)
+                x += tt.measureText("00:00") + dp(8f)
+            }
+            c.drawText(ellip(o.title, ti, a.right - dp(8f) - x), x, base, ti)
+        }
+
         while (!d.isAfter(lastDay) && y + rowH <= a.bottom) {
             val list = occ.filter { it.covers(d) }
             val h = hol[d]?.filter { it.free }.orEmpty()
             val isToday = d == today
-            if (list.isNotEmpty() || h.isNotEmpty() || (dayMode && isToday)) {
-                // Im Tagesmodus: heute immer, danach nur so viel wie Platz ist (morgen, übermorgen …)
-                if (dayMode && !isToday && shownDays >= 1 && y + headH + rowH > a.bottom) break
-                if (!(dayMode && isToday)) {
-                    val label = when (ChronoUnit.DAYS.between(today, d)) {
-                        0L -> "Heute"; 1L -> "Morgen"
-                        else -> "${wd[d.dayOfWeek.value - 1]}., ${d.dayOfMonth}.${d.monthValue}."
-                    } + (if (h.isNotEmpty()) " · " + h.joinToString(", ") { it.label } else "")
-                    if (y + headH + (if (list.isEmpty()) 0f else rowH) > a.bottom) break
-                    tDay.color = if (h.isNotEmpty() || d.dayOfWeek == DayOfWeek.SUNDAY) red else sub
-                    c.drawText(ellip(label, tDay, a.width()), a.left + dp(4f), y + headH * 0.72f, tDay)
-                    y += headH
-                } else if (h.isNotEmpty()) {
-                    tDay.color = red
-                    c.drawText(ellip(h.joinToString(", ") { it.label }, tDay, a.width()), a.left + dp(4f), y + headH * 0.72f, tDay)
-                    y += headH
+            if (list.isEmpty() && h.isEmpty() && !isToday) { d = d.plusDays(1); continue }
+            if (isToday) {
+                // Heute: eigener, farbig hinterlegter Block mit kräftiger Schrift
+                val rows = max(1, list.size)
+                val fit = min(rows, ((a.bottom - y - tHeadH - dp(6f)) / tRowH).toInt()).coerceAtLeast(0)
+                val blockH = tHeadH + fit * tRowH + dp(6f)
+                val blk = RectF(a.left, y, a.right, y + blockH)
+                c.drawRoundRect(blk, dp(10f), dp(10f), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = todayBlock })
+                c.save(); c.clipRect(blk.left, blk.top, blk.left + dp(5f), blk.bottom)
+                c.drawRoundRect(blk, dp(10f), dp(10f), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = accent })
+                c.restore()
+                val label = "Heute" + (if (h.isNotEmpty()) " · " + h.joinToString(", ") { it.label } else "")
+                c.drawText(ellip(label, tTodayHead, a.width() - dp(20f)), a.left + dp(14f), y + tHeadH * 0.74f, tTodayHead)
+                var ry = y + tHeadH
+                if (list.isEmpty() && fit > 0) {
+                    c.drawText("Keine Termine", a.left + dp(14f), ry + tRowH / 2 + dp(5f * f), tp(14f, sub))
                 }
-                if (dayMode && isToday && list.isEmpty()) {
-                    c.drawText("Heute keine Termine", a.left + dp(4f), y + rowH * 0.7f, tp(13.5f, sub))
-                    y += rowH
-                }
+                for (o in list.take(fit)) { row(o, d, ry, tRowH, true, a.left + dp(12f)); ry += tRowH; anything = true }
+                y += blockH + dp(8f)
+            } else {
+                if (y + headH + (if (list.isEmpty()) 0f else rowH) > a.bottom) break
+                // deutliche Trennlinie zwischen den Tagen
+                if (shownDays > 0) c.drawRect(a.left + dp(4f), y, a.right - dp(4f), y + dp(1.5f), strong)
+                val label = when (ChronoUnit.DAYS.between(today, d)) {
+                    1L -> "Morgen"
+                    else -> "${wd[d.dayOfWeek.value - 1]}., ${d.dayOfMonth}.${d.monthValue}."
+                } + (if (h.isNotEmpty()) " · " + h.joinToString(", ") { it.label } else "")
+                tDay.color = if (h.isNotEmpty() || d.dayOfWeek == DayOfWeek.SUNDAY) red else sub
+                c.drawText(ellip(label, tDay, a.width()), a.left + dp(4f), y + headH * 0.72f, tDay)
+                y += headH
                 for (o in list) {
                     if (y + rowH > a.bottom) break
-                    val r = RectF(a.left + dp(2f), y + dp(3f), a.left + dp(7f), y + rowH - dp(3f))
-                    fillColors(c, r, o.colors, dp(2.5f), if (o.vacation) 140 else 255)
-                    val time = when {
-                        o.timed -> hhmm(o.start)
-                        o.first != o.last && !o.allDay && d == o.first -> "ab " + hhmm(o.start)
-                        o.first != o.last && !o.allDay && d == o.last -> "bis " + hhmm(o.end)
-                        else -> ""
-                    }
-                    var x = a.left + dp(13f)
-                    if (time.isNotEmpty()) {
-                        c.drawText(time, x, y + rowH * 0.68f, tTime)
-                        x += tTime.measureText("00:00") + dp(8f)
-                    }
-                    c.drawText(ellip(o.title, tTitle, a.right - x), x, y + rowH * 0.68f, tTitle)
+                    row(o, d, y, rowH, false, a.left + dp(2f))
                     y += rowH
                     anything = true
                 }
-                shownDays++
+                y += dp(3f)
             }
+            shownDays++
             d = d.plusDays(1)
         }
-        if (!dayMode && !anything) c.drawText("Keine Termine", a.left + dp(4f), a.top + rowH * 0.7f, tp(13.5f, sub))
+        if (!dayMode && !anything && shownDays == 0) c.drawText("Keine Termine", a.left + dp(4f), a.top + rowH * 0.7f, tp(13.5f, sub))
     }
 
     // ---------- Woche ----------
@@ -463,14 +490,15 @@ class WidgetPainter(val ctx: Context, val cfg: WidgetCfg, val data: JSONObject?,
         val tLab = tp(12.5f, fg, true)
         val tNum = tp(12.5f, fg)
         val tPill = tp(11.5f, Color.WHITE, true)
-        val lp = Paint().apply { color = line }
+        val lp = Paint().apply { color = if (cfg.theme == "light") 0x55000000 else 0x66FFFFFF }
         for (i in 0 until 7) {
             val d = mo.plusDays(i.toLong())
             val top = a.top + i * rowH
             if (d == today) c.drawRoundRect(RectF(a.left, top + dp(1f), a.right, top + rowH - dp(1f)), dp(6f), dp(6f), Paint(Paint.ANTI_ALIAS_FLAG).apply { color = todayBg })
-            if (i > 0) c.drawRect(a.left + dp(4f), top, a.right - dp(4f), top + max(1f, dp(0.6f)), lp)
+            if (i > 0) c.drawRect(a.left + dp(2f), top - dp(0.9f), a.right - dp(2f), top + dp(0.9f), lp)
             val free = d.dayOfWeek == DayOfWeek.SUNDAY || hol[d].orEmpty().any { it.free }
-            tLab.color = if (free) red else fg; tNum.color = tLab.color
+            tLab.color = if (free) red else if (d == today) accent else fg; tNum.color = tLab.color
+            tNum.typeface = if (d == today) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
             val baseY = top + rowH / 2 + dp(4.5f * f)
             c.drawText(wd[i], a.left + dp(4f), baseY, tLab)
             c.drawText("${d.dayOfMonth}", a.left + dp(4f) + tLab.measureText("Mo "), baseY, tNum)
