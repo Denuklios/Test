@@ -8,7 +8,7 @@ require __DIR__ . '/../admin/inc/shop.php';
 require __DIR__ . '/../admin/inc/web.php';
 
 const SITE_LOCALE = ['da' => 'da-DK', 'de' => 'de-DE', 'en' => 'en-GB'];
-const SITE_V = '3';   // Versionsnummer für CSS/JS (bei Änderungen erhöhen)
+const SITE_V = '4';   // Versionsnummer für CSS/JS (bei Änderungen erhöhen)
 
 $SITE = web_site();
 $PREVIEW = web_preview($SITE);
@@ -210,7 +210,7 @@ function hero(bool $soon): void {
     <source media="(max-width: 700px)" srcset="assets/img/landskab-m.webp">
     <img src="assets/img/landskab.webp" alt="" width="2400" height="1200" fetchpriority="high">
   </picture>
-  <div class="garland" aria-hidden="true"></div>
+  <div class="garland" aria-hidden="true"><?php for ($g = 0; $g < 4; $g++): ?><div class="g-tile"><i style="left:72.87%;top:45.8%;--d:-0.00s;--t:2.20s"></i><i style="left:27.09%;top:45.8%;--d:-0.73s;--t:2.57s"></i><i style="left:8.35%;top:47.6%;--d:-1.46s;--t:2.94s"></i><i style="left:60.4%;top:48.0%;--d:-2.19s;--t:3.31s"></i><i style="left:91.54%;top:47.9%;--d:-2.92s;--t:3.68s"></i><i style="left:39.18%;top:48.6%;--d:-0.55s;--t:2.35s"></i><i style="left:85.66%;top:59.7%;--d:-1.28s;--t:2.72s"></i><i style="left:20.08%;top:59.7%;--d:-2.01s;--t:3.09s"></i><i style="left:80.29%;top:59.8%;--d:-2.74s;--t:3.46s"></i><i style="left:15.36%;top:60.7%;--d:-0.37s;--t:3.83s"></i><i style="left:52.35%;top:68.3%;--d:-1.10s;--t:2.50s"></i><i style="left:47.79%;top:68.4%;--d:-1.83s;--t:2.87s"></i></div><?php endfor; ?></div>
   <?php if ($S['bell']): ?>
   <button class="bell" id="bell" type="button" aria-label="<?= e('bell') ?>">
     <svg viewBox="0 0 60 92" aria-hidden="true"><path class="bell-string" d="M30 0v26"/><g class="bell-body"><path d="M30 24c-11 0-17 9-17 22 0 9-3 14-8 19h50c-5-5-8-10-8-19 0-13-6-22-17-22z" fill="url(#bellG)" stroke="#8a5a14" stroke-width="1.5"/><path d="M5 65h50v5H5z" fill="#b07a22" stroke="#8a5a14" stroke-width="1.2"/><circle class="bell-clap" cx="30" cy="76" r="6" fill="#8a5a14"/><path d="M21 34c-3 4-4 9-4 14" stroke="#fff3c9" stroke-width="2.5" stroke-linecap="round" fill="none" opacity=".7"/><path d="M18 24c4-7 20-7 24 0-5 3-19 3-24 0z" fill="#a8231c"/><path d="M30 22l-12-9 2 12zM30 22l12-9-2 12z" fill="#c5322a"/></g><defs><linearGradient id="bellG" x1="0" x2="1"><stop offset="0" stop-color="#e9c46a"/><stop offset=".55" stop-color="#c9973f"/><stop offset="1" stop-color="#9b6a1c"/></linearGradient></defs></svg>
@@ -247,7 +247,8 @@ function hero(bool $soon): void {
       <div class="truck-beam"></div>
       <img class="truck" src="assets/img/truck.webp" width="778" height="584" alt="">
       <span class="truck-light l1"></span><span class="truck-light l2"></span>
-      <span class="truck-shadow"></span>
+      <span class="truck-under"></span>
+      <span class="truck-contact c1"></span><span class="truck-contact c2"></span><span class="truck-contact c3"></span>
       <span class="puff p1"></span><span class="puff p2"></span><span class="puff p3"></span>
     </div>
   </div>
