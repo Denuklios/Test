@@ -1,6 +1,6 @@
 {
-  "versionCode": 32,
-  "versionName": "1.25",
+  "versionCode": 33,
+  "versionName": "1.26",
   "apk": "Mailwerk.apk",
-  "notes": "Mailwerk merkt sich das zuletzt gewählte Postfach; Begrüßung passend zum Postfach"
+  "notes": "Mails in der Liste deutlicher voneinander abgegrenzt"
 }

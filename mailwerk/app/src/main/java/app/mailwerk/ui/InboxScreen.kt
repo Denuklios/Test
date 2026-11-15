@@ -526,7 +526,7 @@ private fun SwipeRow(vm: MainViewModel, t: ThreadSummary, modifier: Modifier, on
     AnimatedVisibility(visible, modifier = modifier,
         exit = shrinkVertically(animationSpec = tween(260, easing = FastOutSlowInEasing)) + fadeOut(tween(200))) {
         SwipeToDismissBox(state, enableDismissFromStartToEnd = right != SwipeAction.NONE, enableDismissFromEndToStart = left != SwipeAction.NONE,
-            modifier = Modifier.padding(vertical = 2.dp),
+            modifier = Modifier.padding(vertical = 4.dp), // Luft zwischen den Karten (Platz für den Schatten)
             backgroundContent = {
                 val dir = state.dismissDirection
                 val action = if (dir == SwipeToDismissBoxValue.StartToEnd) right else left
@@ -562,12 +562,15 @@ private fun ThreadRow(t: ThreadSummary, showAccount: Boolean, vm: MainViewModel,
     val dark = cs.background.luminance() < 0.5f
     val shape = RoundedCornerShape(16.dp)
     // Ungelesen: helle Karte, farbiger Rand und Streifen links. Gelesen: zurückhaltend, ohne Akzent.
-    val cardColor = if (dark) { if (unread) cs.surfaceContainerHigh else cs.surfaceContainerLow }
-                    else { if (unread) cs.surfaceContainerLowest else cs.surfaceContainer }
-    Row(Modifier.fillMaxWidth().clip(shape)
+    // Jede Mail als klar abgegrenzte Karte: hell = weiß mit Rand und leichtem Schatten, dunkel = hellere Fläche mit Rand
+    val cardColor = if (dark) { if (unread) cs.surfaceContainerHigh else cs.surfaceContainer } else cs.surfaceContainerLowest
+    val edge = if (unread) cs.primary.copy(alpha = if (dark) 0.6f else 0.38f)
+               else if (dark) cs.outline.copy(alpha = 0.55f) else Color(0xFFD9DCE8)
+    Row(Modifier.fillMaxWidth()
+        .then(if (!dark) Modifier.shadow(2.dp, shape, ambientColor = Color(0x22151827), spotColor = Color(0x33151827)) else Modifier)
+        .clip(shape)
         .background(cardColor)
-        .then(if (unread) Modifier.border(1.dp, cs.primary.copy(alpha = if (dark) 0.55f else 0.30f), shape)
-              else if (dark) Modifier.border(1.dp, cs.outlineVariant, shape) else Modifier)
+        .border(1.dp, edge, shape)
         .drawBehind { if (unread) drawRect(Brand.gradient, size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height)) }
         .combinedClickable(onClick = onClick, onLongClick = onLong).padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
