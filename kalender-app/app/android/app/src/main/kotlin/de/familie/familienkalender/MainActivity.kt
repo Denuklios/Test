@@ -58,6 +58,11 @@ class MainActivity : FlutterActivity() {
                     if (ids != null) getSharedPreferences("change_watch", MODE_PRIVATE).edit().putStringSet("known", ids.toSet()).apply()
                     result.success(true)
                 }
+                "widgetData" -> {
+                    WidgetData.save(this, call.argument<String>("json") ?: "{}")
+                    KalenderWidget.updateAll(this)
+                    result.success(true)
+                }
                 "lastUpdateError" -> {
                     val p = getSharedPreferences("updates", MODE_PRIVATE)
                     val e = p.getString("error", null)

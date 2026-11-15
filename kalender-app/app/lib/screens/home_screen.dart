@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 
+import '../home_widget.dart';
 import '../main.dart';
 import '../models.dart';
 import '../notifications.dart';
@@ -48,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     store.startAutoSync();
     store.sync();
     Notifier.rescheduleAll(store);
+    HomeWidgetBridge.push(store);
     WidgetsBinding.instance.addPostFrameCallback((_) {
       Updater.autoCheck(context);
       Fireworks.showIfBirthday(context);

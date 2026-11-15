@@ -88,6 +88,8 @@ object ChangeWatch {
             val known = (p.getStringSet("known", emptySet()) ?: emptySet()).toMutableSet()
             for (i in 0 until evAll.length()) known.add(evAll.getJSONObject(i).optString("id"))
             p.edit().putStringSet("known", known).apply()
+            // Widget gleich mit aktualisieren, auch wenn die App zu ist
+            try { WidgetData.merge(ctx, evAll); KalenderWidget.updateAll(ctx) } catch (_: Exception) {}
         }
         p.edit().putLong("since", newSince).apply()
     }

@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent">
+    <ImageView
+        android:id="@+id/widget_img"
+        android:layout_width="match_parent"
+        android:layout_height="match_parent"
+        android:scaleType="fitXY"
+        android:contentDescription="Familienkalender" />
+    <ImageView
+        android:id="@+id/widget_cfg"
+        android:layout_width="40dp"
+        android:layout_height="36dp"
+        android:layout_gravity="top|end"
+        android:paddingTop="8dp"
+        android:paddingBottom="6dp"
+        android:paddingStart="10dp"
+        android:paddingEnd="8dp"
+        android:src="@drawable/ic_widget_settings"
+        android:contentDescription="Widget einrichten" />
+</FrameLayout>

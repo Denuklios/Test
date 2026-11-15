@@ -66,6 +66,23 @@
                 android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
                 android:value="Erinnert beim Entsperren des Handys an offene Vorbereitungen vor einem Termin"/>
         </service>
+        <receiver android:name=".KalenderWidget" android:exported="true" android:label="Familienkalender">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data android:name="android.appwidget.provider" android:resource="@xml/kalender_widget"/>
+        </receiver>
+        <activity
+            android:name=".WidgetConfigActivity"
+            android:exported="true"
+            android:label="Widget einrichten"
+            android:theme="@android:style/Theme.DeviceDefault.Light.NoActionBar"
+            android:taskAffinity="de.familie.familienkalender.widget"
+            android:excludeFromRecents="true">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_CONFIGURE"/>
+            </intent-filter>
+        </activity>
         <receiver android:name=".InstallResultReceiver" android:exported="false"/>
         <receiver android:name=".ChangeWatchReceiver" android:exported="false"/>
         <receiver android:name=".UpdatedReceiver" android:exported="false">

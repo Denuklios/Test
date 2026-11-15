@@ -11,6 +11,7 @@ import 'package:uuid/uuid.dart';
 
 import 'api.dart';
 import 'holidays.dart';
+import 'home_widget.dart';
 import 'models.dart';
 
 const _uuid = Uuid();
@@ -158,6 +159,7 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> _saveData() async {
+    HomeWidgetBridge.schedule(this);
     final f = await _file();
     final tmp = File('${f.path}.tmp');
     await tmp.writeAsString(jsonEncode({
@@ -172,6 +174,7 @@ class AppStore extends ChangeNotifier {
   }
 
   Future<void> saveSettings() async {
+    HomeWidgetBridge.schedule(this);
     final p = await SharedPreferences.getInstance();
     await p.setString('serverUrl', serverUrl);
     await p.setString('code', code);
