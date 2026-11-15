@@ -306,10 +306,17 @@ private fun Header(vm: MainViewModel, mailbox: Mailbox, userName: String?, colla
                    searchOpen: Boolean, query: String, onQuery: (String) -> Unit, onSearchOpen: (Boolean) -> Unit, onMenu: () -> Unit) {
     val hour = java.util.Calendar.getInstance().get(java.util.Calendar.HOUR_OF_DAY)
     val greet = when (hour) { in 5..10 -> tr("Guten Morgen"); in 11..17 -> tr("Hallo"); in 18..22 -> tr("Guten Abend"); else -> tr("Gute Nacht") }
-    val first = userName?.split(' ')?.firstOrNull()?.takeIf { it.isNotBlank() }
-    val boxTitle = if (mailbox is Mailbox.Unified) tr("Posteingang") else mailbox.title
-    val sub = (mailbox as? Mailbox.InFolder)?.accountEmail ?: (if (first != null) "$greet, $first 👋" else greet)
-    val acc = vm.accounts.value.firstOrNull()
+    // Begrüßung passend zum gewählten Postfach: „Guten Morgen, Wunsch-Fabrik“ bzw. „Guten Morgen, Robert“
+    val boxAcc = (mailbox as? Mailbox.InFolder)?.let { mb -> vm.accounts.value.firstOrNull { it.id == mb.folder.accountId } }
+    val single = vm.accounts.value.singleOrNull()
+    val name = (boxAcc ?: single)?.name?.trim()?.takeIf { it.isNotBlank() }
+    val boxTitle = when {
+        mailbox is Mailbox.Unified && vm.accounts.value.size > 1 -> tr("Alle Posteingänge")
+        mailbox is Mailbox.Unified -> tr("Posteingang")
+        else -> mailbox.title
+    }
+    val sub = if (name != null) "$greet, $name 👋" else "$greet 👋"
+    val acc = boxAcc ?: vm.accounts.value.firstOrNull()
     val titleSize by androidx.compose.animation.core.animateFloatAsState(if (collapsed) 20f else 30f, label = "title")
 
     Column(Modifier.fillMaxWidth().animateContentSize().padding(start = 4.dp, end = 12.dp, top = if (collapsed) 2.dp else 8.dp, bottom = if (collapsed) 4.dp else 6.dp)) {

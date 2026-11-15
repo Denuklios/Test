@@ -120,6 +120,11 @@ class Prefs(ctx: Context) {
         get() = p.getStringSet("hidden_banners", emptySet())!!.toSet()
         set(v) = p.edit().putStringSet("hidden_banners", v).apply()
 
+    /** zuletzt gewähltes Postfach: unified, pinned, flagged, snoozed oder folder:<id> – beim Start wiederherstellen */
+    var lastMailbox: String
+        get() = p.getString("last_mailbox", "unified")!!
+        set(v) = p.edit().putString("last_mailbox", v).apply()
+
     var initialSyncDays: Int
         get() = p.getInt("sync_days", 60)
         set(v) = p.edit().putInt("sync_days", v).apply()

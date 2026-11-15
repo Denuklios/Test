@@ -87,7 +87,17 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun pop(): Boolean { if (_stack.value.size <= 1) return false; _stack.value = _stack.value.dropLast(1); return true }
     fun replaceTop(s: Screen) { _stack.value = _stack.value.dropLast(1) + s }
 
-    val mailbox = MutableStateFlow<Mailbox>(Mailbox.Unified)
+    /** Start mit dem zuletzt gewählten Postfach (z. B. nur Wunsch-Fabrik), nicht immer „Alle Posteingänge“ */
+    val mailbox = MutableStateFlow(restoreMailbox())
+
+    private fun restoreMailbox(): Mailbox = runCatching {
+        when (val k = prefs.lastMailbox) {
+            "pinned" -> Mailbox.Pinned; "flagged" -> Mailbox.Flagged; "snoozed" -> Mailbox.Snoozed
+            else -> k.removePrefix("folder:").toLongOrNull()?.let { id ->
+                db.folder(id)?.let { f -> db.account(f.accountId)?.let { a -> Mailbox.InFolder(f, a.email) } }
+            } ?: Mailbox.Unified
+        }
+    }.getOrDefault(Mailbox.Unified)
     /** null = alle Kategorien */
     val category = MutableStateFlow<Category?>(if (prefs.smartInbox) Category.PEOPLE else null)
     val query = MutableStateFlow("")
@@ -189,6 +199,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun selectMailbox(mb: Mailbox) {
         mailbox.value = mb
+        prefs.lastMailbox = when (mb) {
+            Mailbox.Unified -> "unified"; Mailbox.Pinned -> "pinned"; Mailbox.Flagged -> "flagged"; Mailbox.Snoozed -> "snoozed"
+            is Mailbox.InFolder -> "folder:${mb.folder.id}"
+        }
         if (mb is Mailbox.InFolder && mb.folder.role != FolderRole.INBOX) refresh(mb.folder.id)
     }
 
