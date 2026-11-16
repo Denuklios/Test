@@ -614,7 +614,10 @@ a.card { text-decoration: none; color: inherit; }
 .top-brand:hover { rotate: 0deg; translate: 0 2px; }
 .top-brand img { height: clamp(40px, 4.6vw, 56px); width: auto; }
 .nav-home { display: inline-flex; align-items: center; gap: 7px; }
-.nav-home svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+.nav-home svg { width: auto; height: 36px; fill: var(--gold-light); filter: drop-shadow(0 2px 2px #00000080); transition: transform .4s var(--ease); transform-origin: 50% 100%; }
+.nav-home:hover svg, .nav-home.on svg { transform: rotate(-8deg) scale(1.12); }
+.top-nav a.nav-home { padding: 0 2px; } .top-nav a.nav-home::after { display: none; }
+@media (max-width: 1060px) { .top-nav a.nav-home { padding: 10px 0; justify-content: flex-start; } }
 .top-nav a { text-shadow: 0 1px 2px #00000080; }
 @media (max-width: 1060px) { .top-nav { background: #6f0f0c; border-bottom: 2px solid var(--gold); } .top-brand { margin-bottom: -16px; padding: 5px 11px 6px; } }
 @media (max-width: 420px) { .top { gap: 10px; padding-inline: 10px; } .top-brand img { height: 34px; } .lang a { padding: 6px 7px; } }
