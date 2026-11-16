@@ -34,6 +34,17 @@
       .then(function (r) { return r.json().catch(function () { return { error: "server" }; }); });
   }
 
+  /* Kopfbereich füllt genau das Fenster unter der Kopfzeile – auf jedem Bildschirm */
+  var heroEl = $("#hero");
+  function fitHero() {
+    if (!heroEl) return;
+    var top = heroEl.getBoundingClientRect().top + window.scrollY;
+    root.style.setProperty("--hero-h", Math.max(0, window.innerHeight - top) + "px");
+  }
+  fitHero();
+  window.addEventListener("resize", fitHero);
+  window.addEventListener("orientationchange", fitHero);
+
   /* ---------- Menü ---------- */
   var burger = $(".burger"), nav = $("#nav");
   if (burger && nav) burger.addEventListener("click", function () {

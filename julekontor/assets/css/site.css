@@ -554,3 +554,38 @@ a.card { text-decoration: none; color: inherit; }
 .foot-col a { text-decoration: none; } .foot-col a:hover { text-decoration: underline; }
 .foot-base { text-align: center; margin-top: 44px; padding-top: 26px; border-top: 1px solid #ffffff22; }
 @media (max-width: 820px) { .foot-grid { grid-template-columns: 1fr 1fr; } .foot-brand { grid-column: 1 / -1; justify-self: center; } }
+
+/* ================= Kopfbereich passt immer genau in ein Bildschirmfenster =================
+   --hero-h setzt site.js (Fensterhöhe minus Kopfzeile). Alle Größen richten sich nach Breite UND Höhe. */
+.hero, .hero-soon { --hh: var(--hero-h, calc(100svh - 67px)); height: max(var(--hh), 520px); min-height: 0; display: grid; align-items: center; }
+.hero { --gar: clamp(70px, min(12vw, calc(var(--hh) * .19)), 176px); }
+.garland { height: var(--gar); top: -6px; padding-bottom: 24px; }
+.g-tile { height: var(--gar); }
+.hero-grid { padding: calc(var(--gar) * .78) 0 calc(var(--hh) * .04); align-items: center; }
+.hero-brand { gap: clamp(8px, calc(var(--hh) * .02), 22px); }
+.logo { width: min(100%, 560px, calc(var(--hh) * .52)); }
+.hero-line { font-size: clamp(1.05rem, min(2.1vw, calc(var(--hh) * .033)), 1.6rem); }
+.count { gap: clamp(6px, calc(var(--hh) * .012), 10px); }
+.count-unit { width: clamp(58px, min(8.2vw, calc(var(--hh) * .115)), 96px); padding: clamp(6px, calc(var(--hh) * .014), 12px) 4px clamp(5px, calc(var(--hh) * .011), 9px); }
+.count-num { font-size: clamp(1.5rem, min(3.4vw, calc(var(--hh) * .052)), 2.7rem); }
+.count-name { font-size: clamp(.6rem, calc(var(--hh) * .014), .78rem); }
+.count-label { font-size: clamp(.72rem, calc(var(--hh) * .017), .92rem); }
+.soon-text { font-size: clamp(.95rem, calc(var(--hh) * .023), 1.15rem); }
+.open-now { font-size: clamp(1.2rem, calc(var(--hh) * .036), 1.9rem); }
+.hero-cta .btn { min-height: clamp(42px, calc(var(--hh) * .065), 52px); }
+.scene { height: min(27vw, calc(var(--hh) * .5)); }
+.truck-wrap { width: clamp(240px, min(42vw, calc(var(--hh) * .74)), 650px); bottom: 6%; left: clamp(8px, 7vw, 190px); }
+.bell { width: clamp(40px, calc(var(--hh) * .075), 62px); }
+@media (max-width: 900px) {
+  /* Hochformat: Logo und Countdown oben, Truck unten – zusammen genau ein Bildschirm */
+  .hero, .hero-soon { height: max(var(--hh), 560px); align-items: start; }
+  .hero { --gar: clamp(60px, min(22vw, calc(var(--hh) * .12)), 130px); --trk: min(70vw, calc(var(--hh) * .31)); }
+  .hero-grid { grid-template-columns: 1fr; padding: calc(var(--gar) * .8) 0 0; }
+  .hero-brand { grid-column: 1; }
+  .logo { width: min(100%, 440px, calc(var(--hh) * .31)); }
+  .hero-brand { gap: clamp(6px, calc(var(--hh) * .014), 16px); }
+  .scene { height: calc(var(--trk) * .9); }
+  .truck-wrap { width: var(--trk); left: 50%; margin-left: calc(var(--trk) / -2); bottom: 5%; }
+  .soon-text { max-width: 30ch; }
+}
+@media (max-width: 900px) and (max-height: 720px) { .soon-text { display: none; } }
