@@ -134,9 +134,8 @@ button, input, textarea { font: inherit; color: inherit; }
 /* Szene: Schneehügel, Tannen, Truck */
 .scene { position: absolute; left: 0; right: 0; bottom: 0; height: clamp(230px, 27vw, 400px); z-index: 4; pointer-events: none; }
 .truck-wrap { position: absolute; left: clamp(10px, 9vw, 190px); bottom: 5%; width: clamp(300px, 43vw, 650px); pointer-events: auto; cursor: pointer; }
-.js .truck-wrap { transform: translateX(-125vw); }
-.js.ready .truck-wrap { animation: drive 3.4s cubic-bezier(.2, .7, .25, 1) .5s forwards; }
-@keyframes drive { 0% { transform: translateX(-125vw); } 80% { transform: translateX(1.6%); } 90% { transform: translateX(-.5%); } 100% { transform: none; } }
+.js .truck-wrap { opacity: 0; }
+.js.ready .truck-wrap { opacity: 1; transition: opacity 1.6s ease .3s; }
 .truck { position: relative; width: 100%; height: auto; z-index: 2; animation: idle .5s ease-in-out infinite alternate; }
 @keyframes idle { from { transform: translateY(0) rotate(0); } to { transform: translateY(-1.6px) rotate(-.12deg); } }
 .truck-wrap.honk .truck { animation: honk .7s var(--ease); }
@@ -384,7 +383,7 @@ address strong { font: 400 1.5rem var(--f-display); display: block; }
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
-  .js .truck-wrap { transform: none; } .js .reveal { opacity: 1; transform: none; } .js .logo img { opacity: 1; transform: none; }
+  .js .truck-wrap { opacity: 1; } .js .reveal { opacity: 1; transform: none; } .js .logo img { opacity: 1; transform: none; }
   .ribbon-track { animation: none; }
 }
 
