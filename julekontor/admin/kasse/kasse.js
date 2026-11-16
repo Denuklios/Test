@@ -81,13 +81,14 @@
     else if (cat === "fav") list = list.filter(p => p.fav);
     else if (cat !== "all") list = list.filter(p => String(p.cat) === String(cat));
     const colors = Object.fromEntries(D.categories.map(c => [c.id, c.color]));
-    $("tiles").innerHTML = list.length ? list.slice(0, 400).map(p => {
+    const manual = `<button type="button" class="tile tile-manual" data-manual="1"><span class="mi" aria-hidden="true">⌨</span><span class="n">Betrag von Hand eingeben</span><span class="p">ohne Scanner, ohne Kachel</span></button>`;
+    $("tiles").innerHTML = manual + (list.length ? list.slice(0, 400).map(p => {
       const low = p.track && p.stock <= 0;
       return `<button type="button" class="tile${p.img ? " has-img" : ""}" data-id="${p.id}" style="--c:${esc(colors[p.cat] || "var(--gold-soft)")}">
         ${p.img ? `<img src="${esc(p.img)}" alt="" loading="lazy" draggable="false">` : ""}
         ${p.track ? `<span class="s ${low ? "" : "ok"}">${fmtQ(p.stock)}</span>` : ""}
         <span class="n">${esc(p.name)}</span><span class="p">${p.open ? "Preis eingeben" : fmt(p.price)}</span></button>`;
-    }).join("") : `<div class="empty">${q ? "Nichts gefunden." : products().length ? "Keine Artikel in dieser Auswahl." : "Noch keine Artikel. Lege sie im Admin unter „Artikel“ an."}</div>`;
+    }).join("") : `<div class="empty">${q ? "Nichts gefunden – du kannst den Betrag von Hand eingeben." : products().length ? "Keine Artikel in dieser Auswahl." : "Noch keine Artikel. Lege sie im Admin unter „Artikel“ an."}</div>`);
   }
 
   /* ---------- Warenkorb ---------- */
@@ -216,7 +217,7 @@
 
   async function addMisc() {
     if (!D) return;
-    const price = await numpad({ title: "Diverse", hint: "Betrag für einen Artikel ohne Strichcode", money: true, ok: "Weiter" });
+    const price = await numpad({ title: "Betrag eingeben", hint: "Preis eintippen – zum Beispiel 4 9 9 5 für 49,95", money: true, ok: "In den Warenkorb" });
     if (!price) return;
     const rates = D.settings.vat_rates;
     let vat = rates[0];
@@ -595,7 +596,7 @@
 
   /* ---------- Ereignisse ---------- */
   $("cats").addEventListener("click", e => { const b = e.target.closest("[data-cat]"); if (!b) return; cat = b.dataset.cat; LS.set("jk-cat", cat); query = ""; $("search").value = ""; renderCats(); renderTiles(); });
-  $("tiles").addEventListener("click", e => { const b = e.target.closest(".tile"); if (!b) return; const p = byId(+b.dataset.id); if (p) addProduct(p); });
+  $("tiles").addEventListener("click", e => { const b = e.target.closest(".tile"); if (!b) return; if (b.dataset.manual) { addMisc(); return; } const p = byId(+b.dataset.id); if (p) addProduct(p); });
   $("lines").addEventListener("click", e => { const li = e.target.closest("li[data-key]"); if (li) editLine(li.dataset.key); });
   $("search").addEventListener("input", e => { query = e.target.value.trim(); renderTiles(); });
   $("search").addEventListener("keydown", e => {

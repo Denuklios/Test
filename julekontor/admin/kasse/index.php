@@ -20,10 +20,10 @@ header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:;
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="kasse.css?v=5">
+<link rel="stylesheet" href="kasse.css?v=6">
 <script src="../assets/scanner.js?v=2" defer></script>
 <script src="../assets/qrcode.js?v=1" defer></script>
-<script src="kasse.js?v=5" defer></script>
+<script src="kasse.js?v=6" defer></script>
 </head>
 <body>
 <header class="bar">
@@ -44,7 +44,7 @@ header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:;
     <div class="cart-head"><h2>Warenkorb</h2><span><button id="clear" class="link" type="button">Leeren</button><button id="cart-close" class="link cart-close" type="button" aria-label="Warenkorb zuklappen">▼ Zu</button></span></div>
     <ul id="lines" class="lines"></ul>
     <div class="cart-tools">
-      <button id="misc" class="tool" type="button">＋ Diverse</button>
+      <button id="misc" class="tool tool-main" type="button">⌨ Betrag eingeben</button>
       <button id="disc" class="tool" type="button">％ Rabatt</button>
     </div>
     <div class="sums" id="sums"></div>

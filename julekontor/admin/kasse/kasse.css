@@ -167,3 +167,19 @@ table.rep td:last-child { text-align: right; font-variant-numeric: tabular-nums;
   .cart-close { display: inline-block; }
   .tiles { padding-bottom: 96px; grid-template-columns: repeat(auto-fill, minmax(130px, 1fr)); }
 }
+
+/* Betrag von Hand eingeben: große Kachel, großer Knopf, großes Zahlenfeld */
+.tile-manual { grid-column: span 2; min-height: 128px; background: var(--red); color: #fff7ec; border-color: var(--red); justify-content: center; }
+.tile-manual::before { background: var(--gold); }
+.tile-manual .mi { font-size: 2rem; line-height: 1; }
+.tile-manual .n { font-size: 1.3rem; padding-right: 0; color: #fff7ec; }
+.tile-manual .p { font: 600 .95rem var(--f-body, inherit); color: #ffe9c2; }
+.cart-tools .tool { height: 56px; font-size: 1.05rem; }
+.cart-tools .tool-main { flex: 1.6; background: var(--red); color: #fff7ec; border-color: var(--red); }
+.field { padding: 14px 18px; }
+.field b { font-size: 2.6rem; }
+.pad { gap: 10px; }
+.pad button { height: clamp(64px, 10dvh, 92px); font-size: 2.1rem; }
+.pad .fn { font-size: 1.5rem; }
+.sheet .row .btn { min-height: 60px; font-size: 1.15rem; }
+@media (max-width: 480px) { .tile-manual { grid-column: 1 / -1; } }
