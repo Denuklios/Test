@@ -8,7 +8,7 @@ require __DIR__ . '/../admin/inc/shop.php';
 require __DIR__ . '/../admin/inc/web.php';
 
 const SITE_LOCALE = ['da' => 'da-DK', 'de' => 'de-DE', 'en' => 'en-GB'];
-const SITE_V = '7';   // Versionsnummer für CSS/JS (bei Änderungen erhöhen)
+const SITE_V = '8';   // Versionsnummer für CSS/JS (bei Änderungen erhöhen)
 
 $SITE = web_site();
 $PREVIEW = web_preview($SITE);
@@ -157,9 +157,10 @@ function site_head(string $title, string $active = '', string $desc = '', bool $
 <?php if ($GLOBALS['PREVIEW'] && !web_is_open($S)): ?><div class="notice notice-preview"><?= e('preview.bar') ?></div><?php endif; ?>
 <?php $n = tl(['x_da' => $S['notice']['da'], 'x_de' => $S['notice']['de'], 'x_en' => $S['notice']['en']], 'x'); if ($n !== '' && !$bare): ?><div class="notice"><?= h($n) ?></div><?php endif; ?>
 <header class="top" id="top">
-  <a class="top-brand" href="<?= h(url()) ?>">Julekontor</a>
+  <a class="top-brand" href="<?= h(url()) ?>" aria-label="Julekontor – <?= e('nav.home') ?>" title="<?= e('nav.home') ?>"><img src="assets/img/wordmark.webp" alt="Julekontor" width="520" height="216"></a>
   <?php if (!$bare): ?>
   <nav class="top-nav" aria-label="<?= e('nav.menu') ?>" id="nav">
+    <a class="nav-home<?= $active === 'home' ? ' on' : '' ?>" href="<?= h(url()) ?>"<?= $active === 'home' ? ' aria-current="page"' : '' ?>><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 11.500 12 4l9 7.500M5.500 10v9.500h4.500v-5.500h4v5.500h4.500V10"/></svg><?= e('nav.home') ?></a>
     <?php foreach (site_nav() as $s => $k): ?><a href="<?= h(url($s)) ?>"<?= $s === $active ? ' class="on" aria-current="page"' : '' ?>><?= e($k) ?></a><?php endforeach; ?>
   </nav>
   <a class="cart-link" href="<?= h(url('kurv')) ?>" aria-label="<?= e('nav.cart') ?>">
