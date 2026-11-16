@@ -589,3 +589,8 @@ a.card { text-decoration: none; color: inherit; }
   .soon-text { max-width: 30ch; }
 }
 @media (max-width: 900px) and (max-height: 720px) { .soon-text { display: none; } }
+
+/* Rechtstexte und Fragen */
+.prose h2 { font-size: 1.7rem; color: var(--red); margin-top: .7em; }
+.prose.legal { max-width: none; font-size: 1.12rem; }
+.faq-foot { text-align: center; margin-top: 34px; display: grid; gap: 14px; justify-items: center; color: var(--ink-soft); }

@@ -243,43 +243,119 @@ Kig forbi, tag dig god tid og gå på opdagelse.',
     'legal.withdrawal' => 'Fortrydelsesret',
     'legal.privacy' => 'Privatlivspolitik',
     'legal.imprint' => 'Virksomhedsoplysninger',
-    'legal.terms.body' => 'Disse betingelser gælder for køb i Julekontors netbutik.
+    'legal.terms.body' => '## 1. Hvem du handler med
+Disse handelsbetingelser gælder for alle køb i netbutikken på denne hjemmeside. Sælger er {shop}, {street}, {city}, Danmark, CVR-nr. {cvr}, e-mail {email}.
 
-Priser: Alle priser er i danske kroner (DKK) inkl. moms. Beløb i euro er kun vejledende.
+## 2. Bestilling og aftale
+Varerne i netbutikken er en opfordring til at bestille. Når du trykker på ”Bestil med betalingspligt”, afgiver du en bindende bestilling. Du får straks en e-mail med en oversigt over bestillingen. Aftalen er indgået, når vi har bekræftet bestillingen, eller når varen er afsendt eller udleveret. Aftalen indgås på dansk, tysk eller engelsk. Vi gemmer din bestilling; du kan altid se den via linket i bekræftelsen.
 
-Bestilling: Når du har bestilt, får du en bekræftelse på e-mail. Aftalen er indgået, når vi har bekræftet bestillingen.
+## 3. Priser
+Alle priser er i danske kroner (DKK) og inkl. dansk moms. Eventuel fragt vises i kurven, før du bestiller. Beløb i euro er kun vejledende og beregnet efter en fast kurs; du betaler altid i kroner.
 
-Betaling: Du kan betale ved afhentning i butikken eller med de betalingsmåder, der vises ved bestillingen.
+## 4. Betaling
+Du kan betale med de betalingsmåder, der vises ved bestillingen: ved afhentning i butikken, med MobilePay, ved bankoverførsel eller med betalingskort. Vælger du MobilePay eller bankoverførsel, sender vi varen eller lægger den klar, når betalingen er modtaget. Vi beder dig betale inden for 7 dage; ellers kan vi annullere bestillingen.
 
-Levering: Du kan hente varerne i butikken eller få dem sendt til Danmark og Tyskland. Fragtprisen vises, før du bestiller.
+## 5. Levering og afhentning
+Du kan hente varerne i butikken eller få dem sendt til en adresse i Danmark eller Tyskland. Nogle varer kan kun afhentes; det står ved varen. Vi afsender normalt inden for få hverdage efter betaling og giver besked, hvis det varer længere. Senest leverer vi inden for 30 dage. Afhentning sker i butikkens åbningstid; vi lægger varen til side i 14 dage.
 
-Håndlavede varer: Mange varer er lavet i hånden. Små afvigelser i farve, form og størrelse i forhold til billedet er derfor naturlige.
+## 6. Risiko og ejendomsforbehold
+Risikoen for varen går over til dig, når du har modtaget den. Varen forbliver vores ejendom, indtil hele købesummen er betalt.
 
-Reklamation: Du har 24 måneders reklamationsret efter købeloven.
+## 7. Håndlavede varer
+Det meste af vores sortiment er lavet i hånden af naturmaterialer. Små afvigelser i farve, form, størrelse og struktur i forhold til billederne er derfor naturlige og ikke en mangel. Friske kranse og gran er naturprodukter med begrænset holdbarhed.
 
-Klage: Kontakt os først, så finder vi en løsning. Du kan også klage via EU\'s platform for onlinetvistbilæggelse.',
-    'legal.withdrawal.body' => 'Du har 14 dages fortrydelsesret, når du handler i netbutikken. Fristen løber fra den dag, du modtager varen.
+## 8. Fortrydelsesret
+Som forbruger har du 14 dages fortrydelsesret. Reglerne står på siden ”Fortrydelsesret”.
 
-For at fortryde skal du give os tydelig besked, f.eks. på e-mail, inden fristen udløber. Derefter sender du varen tilbage inden 14 dage. Du betaler selv returfragten.
+## 9. Reklamation
+Du har 24 måneders reklamationsret efter købeloven. Er der en fejl ved varen, kan du få den repareret, ombyttet, få afslag i prisen eller få pengene tilbage, afhængigt af situationen. Reklamér inden for rimelig tid, efter du har opdaget fejlen; reklamerer du inden for to måneder, er det altid rettidigt. Skriv til {email} med dit ordrenummer og gerne et billede. Vi refunderer rimelige fragtomkostninger ved berettigede reklamationer.
 
-Vi betaler købsprisen og den oprindelige fragt tilbage senest 14 dage efter, at vi har fået din besked – dog tidligst, når vi har modtaget varen.
+## 10. Ansvar
+Vi hæfter efter dansk rets almindelige regler. Stearinlys og lyskæder må aldrig brænde uden opsyn; følg altid anvisningerne på varen.
 
-Fortrydelsesretten gælder ikke for varer, der er fremstillet efter dine egne ønsker, f.eks. en personlig gravering.',
-    'legal.privacy.body' => 'Vi behandler kun de oplysninger, vi har brug for.
+## 11. Klageadgang
+Kontakt os først, hvis du er utilfreds. Finder vi ikke en løsning, kan du klage til Nævnenes Hus, Toldboden 2, 8800 Viborg, via naevneneshus.dk.
 
-Når du skriver til os eller reserverer en vare, gemmer vi dit navn, din e-mail eller dit telefonnummer og din besked for at kunne svare dig.
+## 12. Lovvalg
+Aftalen er underlagt dansk ret. Bor du som forbruger i et andet EU-land, bevarer du den beskyttelse, som de ufravigelige regler i dit bopælsland giver dig.',
+    'legal.withdrawal.body' => '## Fortrydelsesret
+Du har ret til at fortryde dit køb i netbutikken inden for 14 dage uden at give en begrundelse. Fristen udløber 14 dage efter den dag, hvor du eller en person, du har udpeget, får varen i hænde. Har du bestilt flere varer, der leveres hver for sig, regnes fristen fra den dag, du modtager den sidste vare.
 
-Når du bestiller i netbutikken, gemmer vi desuden din adresse og din bestilling for at kunne levere varerne og opfylde bogføringsloven.
+## Sådan fortryder du
+Giv os en tydelig besked om, at du vil fortryde – for eksempel i en e-mail til {email} eller i et brev til {shop}, {street}, {city}, Danmark. Du kan bruge formularen nederst på siden, men det er ikke et krav. Fristen er overholdt, hvis du sender din besked, inden de 14 dage er gået. Det er ikke nok blot at nægte at modtage pakken.
 
-Vi giver ikke dine oplysninger videre – bortset fra til fragtfirmaet og betalingsudbyderen, når det er nødvendigt for din bestilling.
+## Returnering
+Send varen tilbage til {shop}, {street}, {city}, Danmark, eller aflever den i butikken – uden unødig forsinkelse og senest 14 dage efter, at du har givet os besked. Du betaler selv udgifterne til at sende varen tilbage og bærer risikoen, indtil vi har modtaget den.
 
-Hjemmesiden bruger ingen sporing og ingen reklamecookies. Dit sprogvalg og din kurv gemmes kun i din egen browser.
+## Varens stand
+Du må undersøge varen, som du ville gøre i en butik. Har du brugt den ud over det, hæfter du for den værdiforringelse, det medfører.
 
-Du kan til enhver tid få oplyst, rettet eller slettet dine oplysninger. Skriv blot til os. Du kan klage til Datatilsynet.',
+## Tilbagebetaling
+Vi betaler alle beløb tilbage, som vi har modtaget fra dig, også den oprindelige standardfragt, senest 14 dage efter, at vi har fået din besked. Vi bruger samme betalingsmiddel, som du selv brugte, medmindre vi aftaler andet. Vi kan vente med at betale, til vi har fået varen retur, eller du har dokumenteret, at den er sendt.
+
+## Undtagelser
+Fortrydelsesretten gælder ikke for varer, der er fremstillet efter dine egne ønsker eller har fået et tydeligt personligt præg, f.eks. en gravering med navn. Den gælder heller ikke for varer, der hurtigt forringes, som friske kranse og gran. Køb i selve butikken er ikke omfattet af fortrydelsesretten.
+
+## Standardfortrydelsesformular
+(Udfyld og send kun denne formular, hvis du vil fortryde købet.)
+
+Til {shop}, {street}, {city}, Danmark, {email}:
+Jeg meddeler herved, at jeg ønsker at gøre fortrydelsesretten gældende i forbindelse med min købsaftale om følgende varer:
+Ordrenummer:
+Bestilt den / modtaget den:
+Navn:
+Adresse:
+Dato:
+Underskrift (kun hvis formularen sendes på papir):',
+    'legal.privacy.body' => '## Dataansvarlig
+{shop}, {street}, {city}, Danmark, CVR-nr. {cvr}, e-mail {email}, er ansvarlig for behandlingen af dine personoplysninger.
+
+## Hvilke oplysninger vi behandler – og hvorfor
+Bestilling i netbutikken: navn, e-mail, telefon, eventuel leveringsadresse, bestilte varer, betalingsmåde og din bemærkning. Vi bruger oplysningerne til at gennemføre købet (databeskyttelsesforordningens artikel 6, stk. 1, litra b) og til at opfylde bogføringsloven (litra c).
+Spørgsmål og reservationer: navn, e-mail eller telefon og din besked. Vi bruger dem til at svare dig (litra b og f).
+Teknisk drift: Når du besøger siden, registrerer webserveren kortvarigt din IP-adresse, tidspunkt og den hentede side for at kunne levere siden og afværge misbrug (litra f). Ved bestillinger og beskeder gemmer vi en krypteret, ikke-læsbar afledning af IP-adressen for at forhindre spam.
+
+## Cookies og lokal lagring
+Vi bruger ingen sporing, ingen statistikværktøjer og ingen reklamecookies. Der sættes kun en teknisk nødvendig cookie, som husker dit sprogvalg. Din kurv og de julekalenderlåger, du har åbnet, gemmes kun i din egen browser. Skrifttyper og billeder hentes fra vores egen server, ikke fra tredjeparter.
+
+## Hvem modtager oplysningerne
+Vi giver kun oplysninger videre, når det er nødvendigt: til vores webhotel, der driver serveren, til fragtfirmaet, når en vare skal sendes, og til betalingsudbyderen (f.eks. SumUp eller MobilePay), når du betaler online. Betalingskortoplysninger indtaster du direkte hos betalingsudbyderen; vi ser dem ikke. Vi sælger ikke oplysninger og overfører dem ikke til lande uden for EU/EØS.
+
+## Hvor længe vi gemmer
+Bestillinger og regnskabsmateriale gemmer vi i fem år efter udgangen af regnskabsåret, som bogføringsloven kræver. Spørgsmål og reservationer sletter vi, når de er afsluttet, og senest efter 12 måneder.
+
+## Dine rettigheder
+Du har ret til indsigt, berigtigelse, sletning, begrænsning af behandlingen, dataportabilitet og til at gøre indsigelse. Skriv til {email}. Du kan klage til Datatilsynet, Carl Jacobsens Vej 35, 2500 Valby, datatilsynet.dk.
+
+## Sikkerhed
+Hjemmesiden bruger krypteret forbindelse (https). Kun vi og vores medarbejdere med adgangskode har adgang til bestillingerne.',
     'foot.shop' => 'Butik',
     'foot.info' => 'Information',
     'foot.legal' => 'Vilkår',
     'req.sent' => 'Tak! Vi vender tilbage.',
+    'legal.imprint.body' => '## Virksomhed
+{owner}
+{shop}
+{street}
+{city}
+Danmark
+
+## Kontakt
+Telefon: {phone}
+E-mail: {email}
+
+## Registrering
+CVR-nr.: {cvr}
+Momsnummer: DK{cvr}
+
+## Ansvarlig for indholdet
+{owner}, adresse som ovenfor.
+
+## Klageadgang
+Har du en klage over en vare, så kontakt os først. Finder vi ikke en løsning, kan du klage til Nævnenes Hus, Toldboden 2, 8800 Viborg, via naevneneshus.dk. Vi er hverken forpligtet eller villige til at deltage i en tvistbilæggelse ved et tysk forbrugermæglingsorgan.
+
+## Ophavsret
+Tekster, billeder og logo på denne hjemmeside tilhører Julekontor og må ikke bruges uden tilladelse.',
   ),
   'de' => 
   array (
@@ -522,43 +598,119 @@ Komm vorbei, nimm dir Zeit und stöbere.',
     'legal.withdrawal' => 'Widerrufsrecht',
     'legal.privacy' => 'Datenschutz',
     'legal.imprint' => 'Impressum',
-    'legal.terms.body' => 'Diese Bedingungen gelten für Käufe im Online-Shop des Julekontor.
+    'legal.terms.body' => '## 1. Mit wem du den Vertrag schließt
+Diese Allgemeinen Geschäftsbedingungen gelten für alle Käufe im Online-Shop dieser Website. Verkäufer ist {shop}, {street}, {city}, Dänemark, CVR-Nr. {cvr}, E-Mail {email}.
 
-Preise: Alle Preise sind in dänischen Kronen (DKK) inkl. Mehrwertsteuer. Euro-Beträge dienen nur der Orientierung.
+## 2. Bestellung und Vertragsschluss
+Die Artikel im Online-Shop sind eine Aufforderung zur Bestellung. Mit dem Klick auf „Zahlungspflichtig bestellen“ gibst du eine verbindliche Bestellung ab. Du erhältst sofort eine E-Mail mit der Übersicht deiner Bestellung. Der Vertrag kommt zustande, wenn wir die Bestellung bestätigen oder die Ware versenden bzw. übergeben. Der Vertrag kann auf Dänisch, Deutsch oder Englisch geschlossen werden. Wir speichern deine Bestellung; über den Link in der Bestätigung kannst du sie jederzeit ansehen.
 
-Bestellung: Nach deiner Bestellung bekommst du eine Bestätigung per E-Mail. Der Vertrag kommt zustande, wenn wir die Bestellung bestätigt haben.
+## 3. Preise
+Alle Preise sind in dänischen Kronen (DKK) und enthalten die dänische Mehrwertsteuer. Versandkosten werden im Warenkorb angezeigt, bevor du bestellst. Euro-Beträge dienen nur der Orientierung und sind mit einem festen Kurs umgerechnet; bezahlt wird immer in Kronen.
 
-Bezahlung: Du kannst bei Abholung im Laden bezahlen oder mit den Zahlungsarten, die bei der Bestellung angezeigt werden.
+## 4. Bezahlung
+Du kannst mit den Zahlungsarten bezahlen, die bei der Bestellung angezeigt werden: bei Abholung im Laden, per MobilePay, per Überweisung oder mit Karte. Bei MobilePay und Überweisung verschicken wir die Ware bzw. legen sie bereit, sobald die Zahlung eingegangen ist. Wir bitten um Zahlung innerhalb von 7 Tagen; andernfalls können wir die Bestellung stornieren.
 
-Lieferung: Du kannst die Ware im Laden abholen oder nach Dänemark und Deutschland schicken lassen. Die Versandkosten werden vor der Bestellung angezeigt.
+## 5. Lieferung und Abholung
+Du kannst die Ware im Laden abholen oder an eine Adresse in Dänemark oder Deutschland schicken lassen. Manche Artikel gibt es nur zur Abholung; das steht beim Artikel. Wir versenden in der Regel innerhalb weniger Werktage nach Zahlungseingang und melden uns, falls es länger dauert. Spätestens liefern wir innerhalb von 30 Tagen. Abholung ist während der Öffnungszeiten möglich; wir legen die Ware 14 Tage für dich zurück.
 
-Handgemachte Ware: Vieles ist von Hand gemacht. Kleine Abweichungen in Farbe, Form und Größe gegenüber dem Bild sind deshalb normal.
+## 6. Gefahrübergang und Eigentumsvorbehalt
+Das Risiko geht auf dich über, sobald du die Ware erhalten hast. Die Ware bleibt bis zur vollständigen Bezahlung unser Eigentum.
 
-Gewährleistung: Es gilt die gesetzliche Gewährleistung von 24 Monaten.
+## 7. Handgemachte Ware
+Der größte Teil unseres Sortiments ist von Hand aus Naturmaterialien gefertigt. Kleine Abweichungen in Farbe, Form, Größe und Struktur gegenüber den Abbildungen sind deshalb normal und kein Mangel. Frische Kränze und Tannengrün sind Naturprodukte mit begrenzter Haltbarkeit.
 
-Beschwerden: Sprich uns bitte zuerst an, wir finden eine Lösung. Du kannst auch die EU-Plattform zur Online-Streitbeilegung nutzen.',
-    'legal.withdrawal.body' => 'Du hast ein Widerrufsrecht von 14 Tagen, wenn du im Online-Shop kaufst. Die Frist beginnt an dem Tag, an dem du die Ware erhältst.
+## 8. Widerrufsrecht
+Als Verbraucher hast du ein Widerrufsrecht von 14 Tagen. Die Einzelheiten stehen auf der Seite „Widerrufsrecht“.
 
-Um zu widerrufen, teilst du uns das vor Ablauf der Frist eindeutig mit, zum Beispiel per E-Mail. Danach schickst du die Ware innerhalb von 14 Tagen zurück. Die Kosten der Rücksendung trägst du.
+## 9. Gewährleistung
+Es gilt die gesetzliche Gewährleistung von 24 Monaten. Ist die Ware mangelhaft, kannst du je nach Lage Reparatur, Ersatz, Preisnachlass oder Rückzahlung verlangen. Bitte melde den Mangel in angemessener Zeit, nachdem du ihn entdeckt hast; innerhalb von zwei Monaten ist das immer rechtzeitig. Schreib an {email} mit deiner Bestellnummer und möglichst einem Foto. Bei berechtigten Reklamationen erstatten wir angemessene Versandkosten.
 
-Wir erstatten den Kaufpreis und die ursprünglichen Versandkosten spätestens 14 Tage nach deiner Mitteilung – frühestens jedoch, wenn die Ware bei uns angekommen ist.
+## 10. Haftung
+Wir haften nach den allgemeinen gesetzlichen Regeln. Kerzen und Lichterketten dürfen nie unbeaufsichtigt brennen; beachte immer die Hinweise an der Ware.
 
-Kein Widerrufsrecht besteht bei Ware, die nach deinen Wünschen angefertigt wurde, zum Beispiel mit persönlicher Gravur.',
-    'legal.privacy.body' => 'Wir verarbeiten nur die Angaben, die wir brauchen.
+## 11. Beschwerden
+Sprich uns bitte zuerst an, wenn du unzufrieden bist. Finden wir keine Lösung, kannst du dich an die dänische Beschwerdestelle Nævnenes Hus, Toldboden 2, 8800 Viborg, wenden (naevneneshus.dk).
 
-Wenn du uns schreibst oder einen Artikel reservierst, speichern wir deinen Namen, deine E-Mail-Adresse oder Telefonnummer und deine Nachricht, um dir antworten zu können.
+## 12. Anwendbares Recht
+Es gilt dänisches Recht. Wenn du als Verbraucher in einem anderen EU-Land wohnst, behältst du den Schutz, den dir die zwingenden Vorschriften deines Wohnsitzlandes geben.',
+    'legal.withdrawal.body' => '## Widerrufsrecht
+Du hast das Recht, deinen Kauf im Online-Shop binnen 14 Tagen ohne Angabe von Gründen zu widerrufen. Die Frist beträgt 14 Tage ab dem Tag, an dem du oder eine von dir benannte Person die Ware erhalten hat. Bei mehreren Artikeln, die getrennt geliefert werden, beginnt die Frist mit dem Erhalt des letzten Artikels.
 
-Wenn du im Online-Shop bestellst, speichern wir außerdem deine Adresse und deine Bestellung, um die Ware zu liefern und die Buchführungspflichten zu erfüllen.
+## So widerrufst du
+Teile uns eindeutig mit, dass du den Vertrag widerrufst – zum Beispiel per E-Mail an {email} oder per Brief an {shop}, {street}, {city}, Dänemark. Du kannst dafür das Formular unten auf dieser Seite verwenden, musst es aber nicht. Die Frist ist gewahrt, wenn du deine Mitteilung vor Ablauf der 14 Tage absendest. Es genügt nicht, nur die Annahme des Pakets zu verweigern.
 
-Wir geben deine Daten nicht weiter – außer an das Versandunternehmen und den Zahlungsanbieter, soweit das für deine Bestellung nötig ist.
+## Rücksendung
+Schick die Ware unverzüglich und spätestens 14 Tage nach deiner Mitteilung zurück an {shop}, {street}, {city}, Dänemark, oder gib sie im Laden ab. Die Kosten der Rücksendung trägst du; bis die Ware bei uns ankommt, trägst du auch das Risiko.
 
-Die Website nutzt kein Tracking und keine Werbe-Cookies. Deine Sprachwahl und dein Warenkorb werden nur in deinem eigenen Browser gespeichert.
+## Zustand der Ware
+Du darfst die Ware so prüfen, wie du es in einem Laden tun würdest. Hast du sie darüber hinaus benutzt, musst du den dadurch entstandenen Wertverlust ersetzen.
 
-Du kannst jederzeit Auskunft, Berichtigung oder Löschung deiner Daten verlangen. Schreib uns einfach. Beschwerden sind bei der dänischen Datenschutzbehörde (Datatilsynet) möglich.',
+## Rückzahlung
+Wir zahlen dir alle Beträge zurück, die wir von dir erhalten haben, einschließlich der ursprünglichen Standard-Versandkosten, und zwar spätestens 14 Tage nach Eingang deiner Mitteilung. Wir verwenden dasselbe Zahlungsmittel, das du benutzt hast, sofern wir nichts anderes vereinbaren. Wir dürfen die Rückzahlung zurückhalten, bis die Ware wieder bei uns ist oder du den Versand nachgewiesen hast.
+
+## Ausnahmen
+Kein Widerrufsrecht besteht bei Ware, die nach deinen Wünschen angefertigt oder eindeutig auf dich zugeschnitten wurde, zum Beispiel eine Gravur mit Namen. Es besteht auch nicht bei Ware, die schnell verdirbt, wie frische Kränze und Tannengrün. Für Käufe direkt im Laden gilt das Widerrufsrecht nicht.
+
+## Muster-Widerrufsformular
+(Fülle dieses Formular nur aus und sende es zurück, wenn du den Vertrag widerrufen willst.)
+
+An {shop}, {street}, {city}, Dänemark, {email}:
+Hiermit widerrufe ich den von mir abgeschlossenen Vertrag über den Kauf der folgenden Waren:
+Bestellnummer:
+Bestellt am / erhalten am:
+Name:
+Anschrift:
+Datum:
+Unterschrift (nur bei Mitteilung auf Papier):',
+    'legal.privacy.body' => '## Verantwortlicher
+Verantwortlich für die Verarbeitung deiner personenbezogenen Daten ist {shop}, {street}, {city}, Dänemark, CVR-Nr. {cvr}, E-Mail {email}.
+
+## Welche Daten wir verarbeiten – und wozu
+Bestellung im Online-Shop: Name, E-Mail, Telefon, gegebenenfalls Lieferadresse, bestellte Artikel, Zahlungsart und dein Hinweis. Wir brauchen diese Daten, um den Kauf abzuwickeln (Art. 6 Abs. 1 Buchst. b DSGVO) und unsere Buchführungspflichten zu erfüllen (Buchst. c).
+Fragen und Reservierungen: Name, E-Mail oder Telefon und deine Nachricht. Wir verwenden sie, um dir zu antworten (Buchst. b und f).
+Technischer Betrieb: Beim Aufruf der Seite speichert der Webserver kurzzeitig deine IP-Adresse, die Uhrzeit und die abgerufene Seite, um die Seite auszuliefern und Missbrauch abzuwehren (Buchst. f). Bei Bestellungen und Nachrichten speichern wir einen verschlüsselten, nicht rückrechenbaren Wert deiner IP-Adresse, um Spam zu verhindern.
+
+## Cookies und lokaler Speicher
+Wir verwenden kein Tracking, keine Statistik-Werkzeuge und keine Werbe-Cookies. Es wird nur ein technisch notwendiges Cookie gesetzt, das deine Sprachwahl merkt. Dein Warenkorb und die geöffneten Türchen des Adventskalenders werden nur in deinem eigenen Browser gespeichert. Schriften und Bilder kommen von unserem eigenen Server, nicht von Dritten.
+
+## Wer die Daten erhält
+Wir geben Daten nur weiter, wenn es nötig ist: an unseren Webhoster, der den Server betreibt, an das Versandunternehmen, wenn Ware verschickt wird, und an den Zahlungsanbieter (z. B. SumUp oder MobilePay), wenn du online bezahlst. Kartendaten gibst du direkt beim Zahlungsanbieter ein; wir sehen sie nicht. Wir verkaufen keine Daten und übermitteln sie nicht in Länder außerhalb der EU/des EWR.
+
+## Wie lange wir speichern
+Bestellungen und Buchungsunterlagen bewahren wir fünf Jahre nach Ende des Geschäftsjahres auf, wie es das dänische Buchführungsgesetz verlangt. Fragen und Reservierungen löschen wir, sobald sie erledigt sind, spätestens nach 12 Monaten.
+
+## Deine Rechte
+Du hast das Recht auf Auskunft, Berichtigung, Löschung, Einschränkung der Verarbeitung, Datenübertragbarkeit und Widerspruch. Schreib an {email}. Du kannst dich bei der dänischen Datenschutzbehörde Datatilsynet, Carl Jacobsens Vej 35, 2500 Valby, datatilsynet.dk, oder bei der Aufsichtsbehörde an deinem Wohnort beschweren.
+
+## Sicherheit
+Die Website nutzt eine verschlüsselte Verbindung (https). Zugriff auf die Bestellungen haben nur wir und unsere Mitarbeiter mit Passwort.',
     'foot.shop' => 'Shop',
     'foot.info' => 'Information',
     'foot.legal' => 'Rechtliches',
     'req.sent' => 'Danke! Wir melden uns.',
+    'legal.imprint.body' => '## Anbieter
+{owner}
+{shop}
+{street}
+{city}
+Dänemark
+
+## Kontakt
+Telefon: {phone}
+E-Mail: {email}
+
+## Registrierung
+CVR-Nr. (dänisches Unternehmensregister): {cvr}
+Umsatzsteuer-Identifikationsnummer: DK{cvr}
+
+## Verantwortlich für den Inhalt
+{owner}, Anschrift wie oben.
+
+## Streitbeilegung
+Bei einer Beschwerde über eine Ware sprich uns bitte zuerst an. Finden wir keine Lösung, kannst du dich an die dänische Beschwerdestelle Nævnenes Hus, Toldboden 2, 8800 Viborg, wenden (naevneneshus.dk). Wir sind weder verpflichtet noch bereit, an einem Streitbeilegungsverfahren vor einer deutschen Verbraucherschlichtungsstelle teilzunehmen.
+
+## Urheberrecht
+Texte, Bilder und Logo dieser Website gehören dem Julekontor und dürfen nicht ohne Erlaubnis verwendet werden.',
   ),
   'en' => 
   array (
@@ -801,42 +953,118 @@ Drop by, take your time and explore.',
     'legal.withdrawal' => 'Right of withdrawal',
     'legal.privacy' => 'Privacy policy',
     'legal.imprint' => 'Company information',
-    'legal.terms.body' => 'These terms apply to purchases in the Julekontor online shop.
+    'legal.terms.body' => '## 1. Who you are buying from
+These terms and conditions apply to all purchases in the online shop on this website. The seller is {shop}, {street}, {city}, Denmark, CVR no. {cvr}, email {email}.
 
-Prices: All prices are in Danish kroner (DKK) including VAT. Amounts in euro are for guidance only.
+## 2. Ordering and contract
+The items in the online shop are an invitation to order. By clicking “Place binding order” you submit a binding order. You immediately receive an email summarising your order. The contract is concluded when we confirm the order or when the goods are dispatched or handed over. The contract can be concluded in Danish, German or English. We store your order; you can view it at any time via the link in the confirmation.
 
-Ordering: After ordering you receive a confirmation by email. The contract is concluded when we have confirmed the order.
+## 3. Prices
+All prices are in Danish kroner (DKK) and include Danish VAT. Any shipping cost is shown in the basket before you order. Amounts in euro are for guidance only and converted at a fixed rate; you always pay in kroner.
 
-Payment: You can pay on collection in the shop or with the payment methods shown at checkout.
+## 4. Payment
+You can pay with the methods shown at checkout: on collection in the shop, by MobilePay, by bank transfer or by card. For MobilePay and bank transfer we dispatch or set aside the goods once payment has been received. Please pay within 7 days; otherwise we may cancel the order.
 
-Delivery: You can collect your order in the shop or have it sent within Denmark and Germany. Shipping costs are shown before you order.
+## 5. Delivery and collection
+You can collect your order in the shop or have it sent to an address in Denmark or Germany. Some items are available for collection only; this is stated on the item. We normally dispatch within a few working days after payment and let you know if it takes longer. We deliver within 30 days at the latest. Collection is possible during opening hours; we keep the goods for you for 14 days.
 
-Handmade goods: Many items are made by hand. Small differences in colour, shape and size compared with the picture are therefore natural.
+## 6. Risk and retention of title
+Risk passes to you when you have received the goods. The goods remain our property until paid for in full.
 
-Warranty: The statutory 24-month warranty applies.
+## 7. Handmade goods
+Most of our range is made by hand from natural materials. Small differences in colour, shape, size and texture compared with the pictures are therefore natural and not a defect. Fresh wreaths and fir are natural products with a limited life.
 
-Complaints: Please contact us first and we will find a solution. You may also use the EU online dispute resolution platform.',
-    'legal.withdrawal.body' => 'You have the right to withdraw within 14 days when you buy in the online shop. The period starts on the day you receive the goods.
+## 8. Right of withdrawal
+As a consumer you have a 14-day right of withdrawal. The details are on the page “Right of withdrawal”.
 
-To withdraw, tell us clearly before the period ends, for example by email. Then return the goods within 14 days. You pay the cost of returning them.
+## 9. Warranty
+The statutory 24-month warranty applies. If an item is faulty you may, depending on the situation, have it repaired or replaced, receive a price reduction or get your money back. Please tell us within a reasonable time after discovering the fault; within two months is always in time. Write to {email} with your order number and, if possible, a photo. For justified complaints we refund reasonable shipping costs.
 
-We refund the purchase price and the original shipping cost no later than 14 days after your notice – but not before we have received the goods.
+## 10. Liability
+We are liable under the general rules of law. Never leave candles or fairy lights burning unattended; always follow the instructions on the item.
 
-The right of withdrawal does not apply to goods made to your specifications, such as a personal engraving.',
-    'legal.privacy.body' => 'We only process the information we need.
+## 11. Complaints
+Please contact us first if you are unhappy. If we cannot find a solution, you may complain to the Danish complaints body Nævnenes Hus, Toldboden 2, 8800 Viborg (naevneneshus.dk).
 
-When you write to us or reserve an item, we store your name, your email address or phone number and your message so that we can reply.
+## 12. Governing law
+Danish law applies. If you are a consumer living in another EU country, you keep the protection given by the mandatory rules of your country of residence.',
+    'legal.withdrawal.body' => '## Right of withdrawal
+You have the right to withdraw from your purchase in the online shop within 14 days without giving any reason. The period expires 14 days after the day on which you, or a person named by you, receive the goods. If you ordered several items delivered separately, the period starts when you receive the last item.
 
-When you order in the online shop, we also store your address and your order in order to deliver the goods and meet bookkeeping obligations.
+## How to withdraw
+Tell us clearly that you are withdrawing – for example by email to {email} or by letter to {shop}, {street}, {city}, Denmark. You may use the form at the bottom of this page, but you do not have to. The deadline is met if you send your notice before the 14 days have passed. Simply refusing to accept the parcel is not enough.
 
-We do not pass your data on – except to the carrier and the payment provider where this is necessary for your order.
+## Returning the goods
+Send the goods back to {shop}, {street}, {city}, Denmark, or hand them in at the shop – without undue delay and no later than 14 days after telling us. You pay the cost of returning the goods and bear the risk until we receive them.
 
-The website uses no tracking and no advertising cookies. Your language choice and basket are stored only in your own browser.
+## Condition of the goods
+You may examine the goods as you would in a shop. If you have used them beyond that, you are liable for the resulting loss in value.
 
-You can ask us at any time to show, correct or delete your data. Just write to us. You may complain to the Danish Data Protection Agency (Datatilsynet).',
+## Refund
+We refund all payments received from you, including the original standard shipping cost, no later than 14 days after receiving your notice. We use the same means of payment that you used, unless we agree otherwise. We may withhold the refund until we have received the goods back or you have shown that you sent them.
+
+## Exceptions
+The right of withdrawal does not apply to goods made to your specifications or clearly personalised, such as an engraving with a name. Nor does it apply to goods that deteriorate quickly, such as fresh wreaths and fir. Purchases made in the shop itself are not covered.
+
+## Model withdrawal form
+(Complete and return this form only if you wish to withdraw from the contract.)
+
+To {shop}, {street}, {city}, Denmark, {email}:
+I hereby give notice that I withdraw from my contract of sale of the following goods:
+Order number:
+Ordered on / received on:
+Name:
+Address:
+Date:
+Signature (only if this form is sent on paper):',
+    'legal.privacy.body' => '## Controller
+{shop}, {street}, {city}, Denmark, CVR no. {cvr}, email {email}, is responsible for processing your personal data.
+
+## What we process – and why
+Orders in the online shop: name, email, phone, delivery address where relevant, items ordered, payment method and your note. We need this to carry out the purchase (GDPR Art. 6(1)(b)) and to meet bookkeeping obligations (Art. 6(1)(c)).
+Questions and reservations: name, email or phone and your message. We use them to reply to you (Art. 6(1)(b) and (f)).
+Technical operation: when you visit the site, the web server briefly records your IP address, the time and the page requested in order to deliver the site and prevent abuse (Art. 6(1)(f)). For orders and messages we store an encrypted, irreversible value derived from your IP address to prevent spam.
+
+## Cookies and local storage
+We use no tracking, no analytics tools and no advertising cookies. Only one technically necessary cookie is set, which remembers your language choice. Your basket and the advent calendar doors you have opened are stored only in your own browser. Fonts and images come from our own server, not from third parties.
+
+## Who receives the data
+We pass data on only where necessary: to our web host, which runs the server, to the carrier when goods are shipped, and to the payment provider (such as SumUp or MobilePay) when you pay online. You enter card details directly with the payment provider; we do not see them. We do not sell data and do not transfer it outside the EU/EEA.
+
+## How long we keep it
+We keep orders and accounting records for five years after the end of the financial year, as required by the Danish Bookkeeping Act. We delete questions and reservations once they are dealt with, and after 12 months at the latest.
+
+## Your rights
+You have the right of access, rectification, erasure, restriction of processing, data portability and the right to object. Write to {email}. You may complain to the Danish Data Protection Agency (Datatilsynet), Carl Jacobsens Vej 35, 2500 Valby, datatilsynet.dk, or to the supervisory authority where you live.
+
+## Security
+The website uses an encrypted connection (https). Only we and our staff with a password have access to orders.',
     'foot.shop' => 'Shop',
     'foot.info' => 'Information',
     'foot.legal' => 'Legal',
     'req.sent' => 'Thank you! We will be in touch.',
+    'legal.imprint.body' => '## Company
+{owner}
+{shop}
+{street}
+{city}
+Denmark
+
+## Contact
+Phone: {phone}
+Email: {email}
+
+## Registration
+CVR no. (Danish business register): {cvr}
+VAT number: DK{cvr}
+
+## Responsible for the content
+{owner}, address as above.
+
+## Complaints
+If you have a complaint about an item, please contact us first. If we cannot find a solution, you may complain to the Danish complaints body Nævnenes Hus, Toldboden 2, 8800 Viborg (naevneneshus.dk). We are neither obliged nor willing to take part in dispute resolution before a German consumer arbitration board.
+
+## Copyright
+Texts, pictures and the logo on this website belong to Julekontor and may not be used without permission.',
   ),
 );

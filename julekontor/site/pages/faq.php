@@ -9,6 +9,7 @@ page_banner(t('faq.eyebrow'), t('faq.title'));
     <?php foreach ($rows as $r): ?>
     <details class="faq reveal"><summary><?= h(tl($r, 'title')) ?></summary><div class="prose"><?= paragraphs(tl($r, 'text')) ?></div></details>
     <?php endforeach; ?>
+    <?php if ($rows): ?><div class="faq-foot reveal"><p><?= e('faq.empty') ?></p><a class="btn" href="<?= h(url('kontakt')) ?>#skriv"><?= e('form.title') ?></a></div><?php endif; ?>
   </div>
 </section>
 <?php site_foot(['page' => 'faq']);

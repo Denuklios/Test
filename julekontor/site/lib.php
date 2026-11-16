@@ -8,7 +8,7 @@ require __DIR__ . '/../admin/inc/shop.php';
 require __DIR__ . '/../admin/inc/web.php';
 
 const SITE_LOCALE = ['da' => 'da-DK', 'de' => 'de-DE', 'en' => 'en-GB'];
-const SITE_V = '6';   // Versionsnummer für CSS/JS (bei Änderungen erhöhen)
+const SITE_V = '7';   // Versionsnummer für CSS/JS (bei Änderungen erhöhen)
 
 $SITE = web_site();
 $PREVIEW = web_preview($SITE);
@@ -36,11 +36,39 @@ $LANG = site_pick_lang();
 function t(string $key, array $vars = []): string { return web_t($key, $GLOBALS['LANG'], $vars); }
 function e(string $key, array $vars = []): string { return h(t($key, $vars)); }
 function tl(array $row, string $field): string { return web_pick($row, $field, $GLOBALS['LANG']); }
-/* Mehrzeiligen Text als Absätze ausgeben */
+/* Mehrzeiligen Text als Absätze ausgeben. Eine Zeile, die mit "## " beginnt, wird eine Zwischenüberschrift. */
 function paragraphs(string $text): string {
     $out = '';
-    foreach (preg_split('/\n\s*\n/', trim(str_replace("\r", '', $text))) as $p) if (trim($p) !== '') $out .= '<p>' . nl2br(h(trim($p))) . '</p>';
+    foreach (preg_split('/\n\s*\n/', trim(str_replace("\r", '', $text))) as $p) {
+        $p = trim($p);
+        if ($p === '') continue;
+        if (str_starts_with($p, '## ')) {
+            [$head, $rest] = array_pad(explode("\n", $p, 2), 2, '');
+            $p = trim($rest);
+            if ($p === '') continue;                      // Überschrift ohne Inhalt (fehlende Angaben) weglassen
+            $out .= '<h2>' . h(substr($head, 3)) . '</h2>';
+        }
+        $out .= '<p>' . nl2br(h($p)) . '</p>';
+    }
     return $out;
+}
+/* Firmendaten in die Rechtstexte einsetzen: {shop} {owner} {street} {city} {cvr} {email} {phone}.
+   Fehlt eine Angabe, fällt die Zeile bzw. der Listeneintrag weg, statt eine Lücke zu zeigen. */
+function legal_fill(string $text): string {
+    $c = $GLOBALS['SITE']['contact'];
+    $v = ['shop' => setting('shop_name') ?: 'Julekontor', 'owner' => (string)($c['owner'] ?? ''), 'street' => (string)$c['street'], 'city' => (string)$c['city'],
+          'cvr' => (string)$c['cvr'], 'email' => (string)$c['email'], 'phone' => (string)$c['phone']];
+    $lines = [];
+    foreach (explode("\n", str_replace("\r", '', $text)) as $line) {
+        foreach ($v as $k => $val) {
+            if ($val !== '' || !str_contains($line, '{' . $k . '}')) continue;
+            if (mb_strlen(trim($line)) < 70) continue 2;                                             // kurze Zeile wie "CVR-nr.: {cvr}" ganz weglassen
+            $line = preg_replace('/, (?:[\p{L}\-.]+ ){0,3}\{' . $k . '\}/u', '', $line);              // Eintrag in einer Aufzählung
+            $line = str_replace('{' . $k . '}', in_array($k, ['email', 'owner'], true) ? 'Julekontor' : '', $line);
+        }
+        $lines[] = strtr($line, array_combine(array_map(fn($k) => '{' . $k . '}', array_keys($v)), array_values($v)));
+    }
+    return implode("\n", $lines);
 }
 function url(string $s = '', array $q = []): string {
     $q = ($s !== '' && $s !== 'home' ? ['s' => $s] : []) + $q;

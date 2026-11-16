@@ -9,7 +9,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $txt = fn(string $k, int $max = 120) => mb_substr(trim((string)($_POST[$k] ?? '')), 0, $max);
     $c = ['street' => $txt('street'), 'city' => $txt('city'), 'phone' => $txt('phone', 40), 'email' => strtolower($txt('email')),
           'facebook' => web_url($txt('facebook', 300)), 'instagram' => web_url($txt('instagram', 300)),
-          'maps' => web_url($txt('maps', 300)), 'cvr' => $txt('cvr', 20)];
+          'maps' => web_url($txt('maps', 300)), 'cvr' => $txt('cvr', 20), 'owner' => $txt('owner', 120)];
     if ($c['email'] !== '' && !filter_var($c['email'], FILTER_VALIDATE_EMAIL)) $errors[] = 'Die E-Mail-Adresse ist nicht gültig.';
     if ($c['city'] === '') $errors[] = 'Bitte Postleitzahl und Ort eintragen.';
     if (!$errors) {
@@ -21,6 +21,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 page_start('kontakt', 'Kontakt & Adresse');
+$miss = array_keys(array_filter(['Inhaber/Firmenname' => ($c['owner'] ?? '') === '', 'Straße und Hausnummer' => $c['street'] === '', 'E-Mail' => $c['email'] === '', 'CVR-Nummer' => $c['cvr'] === '']));
+if ($miss) echo '<div class="flash err">Für Impressum, AGB, Widerrufsrecht und Datenschutz fehlen noch: <strong>' . h(implode(', ', $miss)) . '</strong>. Ohne diese Angaben sind die Rechtstexte unvollständig.</div>';
 foreach ($errors as $e) echo '<div class="flash err" role="alert">' . h($e) . '</div>';
 ?>
 <form method="post" class="card form">
@@ -42,7 +44,9 @@ foreach ($errors as $e) echo '<div class="flash err" role="alert">' . h($e) . '<
   </fieldset>
   <fieldset>
     <legend>Firma</legend>
+    <label>Inhaber oder Firmenname mit Rechtsform (z. B. „Julekontor v/ Vorname Nachname“ oder „Julekontor ApS“)<input name="owner" maxlength="120" value="<?= h($c['owner'] ?? '') ?>"></label>
     <label>CVR-Nummer<input name="cvr" maxlength="20" value="<?= h($c['cvr']) ?>"></label>
+    <p class="hint">Inhaber, Straße, CVR-Nummer und E-Mail werden automatisch in Impressum, AGB, Widerrufsrecht und Datenschutz eingesetzt.</p>
   </fieldset>
   <div class="actions"><button class="btn" type="submit">Speichern</button></div>
 </form>

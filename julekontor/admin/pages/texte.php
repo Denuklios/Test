@@ -9,7 +9,7 @@ $groups = [
     'about'   => ['Über uns', ['about.eyebrow', 'about.title', 'about.body']],
     'shop'    => ['Shop & Bestellung', ['shop.eyebrow', 'shop.title', 'shop.lead', 'shop.empty', 'order.title', 'order.pay.pickup', 'order.pay.mobilepay', 'order.pay.bank', 'mail.thanks', 'mail.bye']],
     'visit'   => ['Kontakt & Besuch', ['visit.eyebrow', 'visit.title', 'visit.lead', 'form.title', 'form.lead', 'form.privacy']],
-    'legal'   => ['Rechtstexte', ['legal.terms.body', 'legal.withdrawal.body', 'legal.privacy.body']],
+    'legal'   => ['Rechtstexte', ['legal.imprint.body', 'legal.terms.body', 'legal.withdrawal.body', 'legal.privacy.body']],
 ];
 $g = (string)($_GET['g'] ?? 'start');
 if (!isset($groups[$g])) $g = 'start';
@@ -41,7 +41,8 @@ page_start('texte', 'Texte & Seiten');
   <?php foreach ($groups as $k => $gr): ?><a class="btn small <?= $k === $g ? '' : 'ghost' ?>" href="./?p=texte&g=<?= h($k) ?>"><?= h($gr[0]) ?></a><?php endforeach; ?>
 </p>
 <?php if ($g === 'legal'): ?>
-<div class="flash err">Die Rechtstexte sind Entwürfe. Bitte vor der Eröffnung von einer fachkundigen Person prüfen lassen (dänisches Verbraucherrecht, Versand nach Deutschland).</div>
+<div class="flash" style="background:var(--paper)">Reihenfolge: Impressum, AGB, Widerrufsrecht, Datenschutz. Die Platzhalter <code>{shop} {owner} {street} {city} {cvr} {email} {phone}</code> werden automatisch mit den Angaben aus <a href="./?p=kontakt">Kontakt &amp; Adresse</a> gefüllt. Eine Zeile, die mit <code>## </code> beginnt, wird eine Überschrift.<br>
+Die Texte sind nach dänischem Verbraucherrecht für einen Shop mit Versand nach Dänemark und Deutschland geschrieben. Eine Rechtsberatung ersetzen sie nicht – bitte einmal vom Revisor oder Anwalt gegenlesen lassen.</div>
 <?php endif; ?>
 <form method="post" class="card form">
   <?= csrf_field() ?>

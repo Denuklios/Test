@@ -26,7 +26,7 @@ function web_site(): array {
         'hero' => ['da' => '', 'de' => '', 'en' => ''],        // eigener Satz unter dem Logo (leer = Standardtext)
         'notice' => ['da' => '', 'de' => '', 'en' => ''],      // Hinweisband ganz oben (leer = aus)
         'contact' => ['street' => '', 'city' => '6330 Padborg / Vilsbæk', 'phone' => '', 'email' => '',
-                      'facebook' => '', 'instagram' => '', 'maps' => '', 'cvr' => ''],
+                      'facebook' => '', 'instagram' => '', 'maps' => '', 'cvr' => '', 'owner' => ''],
         'hours' => ['published' => false, 'days' => [],
                     'note' => ['da' => '', 'de' => '', 'en' => '']],
         'calendar' => ['enabled' => true, 'year' => 2027],

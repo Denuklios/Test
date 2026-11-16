@@ -39,7 +39,7 @@ Vollständige Website für das Julekontor (Danmarks Gammeldags Julebutik) in Dä
 
 **Wichtig für die Buchhaltung:** Online-Bestellungen laufen nicht über die Kasse. Sie stehen nicht im Tagesabschluss und nicht in den Berichten; dafür gibt es unter Bestellungen die CSV-Liste. Bitte mit Revisor/Buchhalter klären, wie die Online-Umsätze gebucht werden.
 
-**Rechtstexte** (AGB, Widerrufsrecht, Datenschutz) sind Entwürfe und müssen vor der Eröffnung fachkundig geprüft werden.
+**Rechtstexte** (Impressum, AGB, Widerrufsrecht, Datenschutz) sind vollständig in drei Sprachen hinterlegt. Inhaber, Straße, CVR-Nummer, E-Mail und Telefon aus „Kontakt & Adresse“ werden automatisch eingesetzt; fehlt eine Angabe, entfällt die Zeile. Die Texte folgen dänischem Verbraucherrecht, ersetzen aber keine Rechtsberatung – einmal gegenlesen lassen. **Häufige Fragen** sind mit elf Einträgen vorbefüllt und im Admin änderbar.
 
 **Schriften** Berkshire Swash und Alegreya liegen im Ordner `assets/fonts` (SIL Open Font License) – es wird nichts von fremden Servern geladen.
 
