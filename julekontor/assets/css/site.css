@@ -615,7 +615,11 @@ a.card { text-decoration: none; color: inherit; }
 .top-brand img { height: clamp(40px, 4.6vw, 56px); width: auto; }
 .nav-home { display: inline-flex; align-items: center; gap: 7px; }
 .nav-home svg { width: auto; height: 36px; fill: var(--gold-light); filter: drop-shadow(0 2px 2px #00000080); transition: transform .4s var(--ease); transform-origin: 50% 100%; }
-.nav-home:hover svg, .nav-home.on svg { transform: rotate(-8deg) scale(1.12); }
+.nav-home svg { overflow: visible; }
+.nav-home .hat { transform-box: fill-box; transform-origin: 50% 100%; }
+/* Beim Darüberfahren wackelt die Mütze: die Spitze schwingt von rechts nach links */
+.nav-home:hover .hat, .nav-home:focus-visible .hat { animation: hat-wag .9s ease-in-out infinite; }
+@keyframes hat-wag { 0%, 100% { transform: skewX(0deg); } 25% { transform: skewX(16deg); } 75% { transform: skewX(-16deg); } }
 .top-nav a.nav-home { padding: 0 2px; } .top-nav a.nav-home::after { display: none; }
 @media (max-width: 1060px) { .top-nav a.nav-home { padding: 10px 0; justify-content: flex-start; } }
 .top-nav a { text-shadow: 0 1px 2px #00000080; }
