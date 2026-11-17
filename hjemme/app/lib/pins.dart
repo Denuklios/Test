@@ -96,18 +96,8 @@ class StyledPin extends StatelessWidget {
       width: 84,
       height: 84,
       child: Stack(clipBehavior: Clip.none, alignment: Alignment.bottomCenter, children: [
-        // weicher Schatten auf dem Boden – die Kugel „schwebt“
-        Positioned(
-          bottom: -12,
-          child: Container(
-            width: 60,
-            height: 20,
-            decoration: BoxDecoration(
-              borderRadius: const BorderRadius.all(Radius.elliptical(60, 20)),
-              gradient: RadialGradient(colors: [Colors.black.withValues(alpha: 0.85), Colors.black.withValues(alpha: 0.4), Colors.black.withValues(alpha: 0)], stops: const [0, 0.55, 1]),
-            ),
-          ),
-        ),
+        // Schatten auf dem Boden (Sonne von oben)
+        const Positioned(left: 42, bottom: 0, child: CustomPaint(size: Size(1, 1), painter: _CastShadow())),
         // Lichtpunkt am Boden
         Positioned(
           bottom: -7,
@@ -175,8 +165,6 @@ class StyledPin extends StatelessWidget {
                 colors: [c, Color.lerp(c, magenta, 0.6)!, Color.lerp(c, coral, 0.7)!, Color.lerp(c, violet, 0.5)!, c],
               ),
               boxShadow: [
-                // Schlagschatten unter der Kugel
-                BoxShadow(color: Colors.black.withValues(alpha: 0.55), blurRadius: 10, offset: const Offset(0, 7)),
                 BoxShadow(color: c.withValues(alpha: 0.75), blurRadius: 18, spreadRadius: 1),
                 BoxShadow(color: Color.lerp(c, coral, 0.6)!.withValues(alpha: 0.45), blurRadius: 30, spreadRadius: 4),
               ],
@@ -310,4 +298,31 @@ class _DropPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_DropPainter o) => o.c != c;
+}
+
+/// Schatten auf dem Boden bei Sonne von oben: weiche Ellipse genau unter der Kugel,
+/// um den Fußpunkt herum, innen dunkel und nach außen auslaufend.
+class _CastShadow extends CustomPainter {
+  const _CastShadow();
+  @override
+  void paint(Canvas canvas, Size size) {
+    const r = 30.0;
+    final rect = Rect.fromCircle(center: Offset.zero, radius: r);
+    canvas.save();
+    canvas.scale(1, 0.32); // flach auf dem Boden
+    canvas.drawCircle(
+      Offset.zero,
+      r,
+      Paint()
+        ..shader = RadialGradient(colors: [
+          Colors.black.withValues(alpha: 0.72),
+          Colors.black.withValues(alpha: 0.4),
+          Colors.black.withValues(alpha: 0),
+        ], stops: const [0, 0.5, 1]).createShader(rect),
+    );
+    canvas.restore();
+  }
+
+  @override
+  bool shouldRepaint(_CastShadow o) => false;
 }
