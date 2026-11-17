@@ -9,6 +9,7 @@ import 'package:latlong2/latlong.dart' hide Circle;
 
 import '../geo.dart';
 import '../models.dart';
+import '../pins.dart';
 import '../store.dart';
 import '../tracker.dart';
 import '../ui.dart';
@@ -270,7 +271,7 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
                       alignment: Alignment.topCenter,
                       child: GestureDetector(
                         onTap: () => focusMember(m),
-                        child: MemberPin(m, selected: focused == m.id, sos: sosMembers.contains(m)),
+                        child: StyledPin(m, style: PinStyle.orb, selected: focused == m.id, sos: sosMembers.contains(m)),
                       ),
                     ),
               ]),
