@@ -17,6 +17,12 @@ const brandGradient = LinearGradient(colors: [violet, magenta, coral], begin: Al
 
 const memberColors = [0x6C3BFF, 0xE23BC8, 0xFF6A3D, 0x00B8A9, 0x2E86FF, 0xFFB400, 0x43C463, 0xFF4D6D, 0x8D6E63, 0x546E7A];
 const memberEmojis = ['', '😎', '🦊', '🐼', '🦄', '🐯', '🐸', '🐙', '🌻', '⚽', '🎸', '🚀', '👑', '🐶', '🐱', '🍀'];
+/// Feste Vorlagen für häufige Adressen
+const placePresets = [('🏠', 'Zuhause'), ('🏢', 'Arbeit'), ('🏫', 'Schule'), ('🧸', 'Kita'), ('⚽', 'Sport'), ('👵', 'Oma & Opa'), ('🛒', 'Einkaufen')];
+
+/// Ist die gewählte Karte dunkel? (Knöpfe passen ihren Kontrast daran an)
+bool mapIsDark(String style, bool darkTheme) => style == 'dark' || style == 'satellite' || (style == 'auto' && darkTheme);
+
 const placeIcons = ['🏠', '🏫', '🏢', '🏋️', '⚽', '🛒', '👵', '👴', '🏥', '🎵', '🌳', '⛪', '🏖️', '🍕', '🚉', '📍'];
 
 ThemeData buildTheme(Brightness b) {
@@ -262,33 +268,34 @@ class GlassPill extends StatelessWidget {
 }
 
 
-/// Dezenter Glas-Knopf ohne Farbe
+/// Dezenter Glas-Knopf ohne Farbe – Kontrast richtet sich nach der Karte darunter
 class GlassButton extends StatelessWidget {
   final IconData icon;
   final VoidCallback onTap;
   final double size;
-  const GlassButton({super.key, required this.icon, required this.onTap, this.size = 40});
+  final bool onDarkMap;
+  const GlassButton({super.key, required this.icon, required this.onTap, this.size = 40, this.onDarkMap = false});
   @override
   Widget build(BuildContext context) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
+    final d = onDarkMap;
     return Container(
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: 0.18), blurRadius: 8, offset: const Offset(0, 2))],
+        boxShadow: [BoxShadow(color: Colors.black.withValues(alpha: d ? 0.3 : 0.16), blurRadius: 8, offset: const Offset(0, 2))],
       ),
       child: ClipOval(
         child: BackdropFilter(
           filter: ui.ImageFilter.blur(sigmaX: 10, sigmaY: 10),
           child: Material(
-            color: (dark ? Colors.white : Colors.white).withValues(alpha: dark ? 0.12 : 0.55),
-            shape: CircleBorder(side: BorderSide(color: Colors.white.withValues(alpha: dark ? 0.28 : 0.7), width: 1)),
+            color: d ? Colors.black.withValues(alpha: 0.35) : Colors.white.withValues(alpha: 0.72),
+            shape: CircleBorder(side: BorderSide(color: d ? Colors.white.withValues(alpha: 0.3) : Colors.black.withValues(alpha: 0.08), width: 1)),
             child: InkWell(
               customBorder: const CircleBorder(),
               onTap: onTap,
               child: SizedBox(
                 width: size,
                 height: size,
-                child: Icon(icon, size: size * 0.48, color: dark ? Colors.white.withValues(alpha: 0.9) : Colors.black.withValues(alpha: 0.7)),
+                child: Icon(icon, size: size * 0.5, color: d ? Colors.white : const Color(0xFF1B2140)),
               ),
             ),
           ),

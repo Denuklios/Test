@@ -193,7 +193,27 @@ class _PlaceEditorState extends State<_PlaceEditor> {
           child: Padding(
             padding: const EdgeInsets.fromLTRB(16, 12, 16, 12),
             child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-              TextField(controller: name, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'Name, z. B. Zuhause')),
+              if (isNew)
+                SizedBox(
+                  height: 44,
+                  child: ListView(scrollDirection: Axis.horizontal, children: [
+                    for (final (i, n) in placePresets)
+                      Padding(
+                        padding: const EdgeInsets.only(right: 6),
+                        child: ChoiceChip(
+                          avatar: Text(i),
+                          label: Text(n),
+                          selected: name.text == n,
+                          onSelected: (_) => setState(() {
+                            name.text = n;
+                            icon = i;
+                          }),
+                        ),
+                      ),
+                  ]),
+                ),
+              if (isNew) const SizedBox(height: 8),
+              TextField(controller: name, textCapitalization: TextCapitalization.sentences, decoration: const InputDecoration(labelText: 'Name, z. B. Arbeit')),
               const SizedBox(height: 10),
               SizedBox(
                 height: 44,

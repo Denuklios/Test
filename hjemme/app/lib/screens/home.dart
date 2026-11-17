@@ -404,8 +404,27 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
         if (c != null && c.places.isEmpty)
           const Padding(
             padding: EdgeInsets.fromLTRB(16, 0, 16, 8),
-            child: Text('Lege Orte wie Zuhause oder Schule an – dann meldet Hjemme, wenn jemand ankommt oder losgeht. '
-                'Tipp: lange auf die Karte drücken.'),
+            child: Text('Lege feste Adressen wie Zuhause oder Arbeit an – dann meldet Hjemme, wenn jemand ankommt oder losgeht.'),
+          ),
+        // Vorlagen für feste Adressen, die noch fehlen
+        if (c != null)
+          SizedBox(
+            height: 46,
+            child: ListView(scrollDirection: Axis.horizontal, padding: const EdgeInsets.symmetric(horizontal: 12), children: [
+              for (final (icon, name) in placePresets)
+                if (!c.places.any((p) => p.name.toLowerCase() == name.toLowerCase()))
+                  Padding(
+                    padding: const EdgeInsets.only(right: 6),
+                    child: ActionChip(
+                      avatar: Text(icon),
+                      label: Text('+ $name'),
+                      onPressed: () {
+                        final p = Tracker.i.lastPos;
+                        editPlace(context, Place(id: '', name: name, icon: icon, lat: p?.latitude ?? 51.1657, lng: p?.longitude ?? 10.4515));
+                      },
+                    ),
+                  ),
+            ]),
           ),
         if (c != null)
           SizedBox(
@@ -519,7 +538,7 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
       isLabelVisible: badge > 0,
       label: Text('$badge'),
       backgroundColor: coral,
-      child: GlassButton(icon: icon, onTap: onTap),
+      child: GlassButton(icon: icon, onTap: onTap, onDarkMap: mapIsDark(store.mapStyle, Theme.of(context).brightness == Brightness.dark)),
     );
   }
 
