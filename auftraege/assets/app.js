@@ -2706,7 +2706,7 @@ route(/^\/settings$/, async () => {
     h('div', { class: 'row', style: 'flex-wrap:wrap' },
       h('button', { class: 'btn danger', onclick: async () => {
         if (!twice(t('reset_confirm'), t('cdel_word'))) return;
-        try { const r = await api('accounting_reset', { body: { confirm: 'RESET' } }); toast(t('reset_done', r.invoices, r.expenses)); await reloadMe(); render(); } catch (e) { toast(e.message); }
+        try { const r = await api('accounting_reset', { body: { confirm: 'RESET' } }); toast(t('reset_done', r.invoices, r.expenses, r.orders_purged || 0)); await reloadMe(); render(); } catch (e) { toast(e.message); }
       } }, '↺ ' + t('reset_btn')),
       h('button', { class: 'btn primary', onclick: async () => {
         if (!twice(t('live_confirm'), t('live_word'))) return;

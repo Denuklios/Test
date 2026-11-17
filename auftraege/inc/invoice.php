@@ -109,8 +109,54 @@ function wf_accounting_reset(PDO $db): array
         @unlink($dir . $fn);
         array_map('unlink', glob($dir . 'thumbs/' . $fn . '.*') ?: []);
     }
+    $n += wf_orders_reset_numbers($db);
     wf_touch();
     return $n;
+}
+
+/**
+ * Nur Testphase: Aufträge im Papierkorb endgültig löschen und die übrigen Aufträge je Jahr
+ * lückenlos neu nummerieren (2026-0001, 2026-0002 … in der Reihenfolge ihrer Anlage).
+ */
+function wf_orders_reset_numbers(PDO $db): array
+{
+    $dir = rtrim((string)wf_cfg('data_dir'), '/') . '/uploads/';
+    $trash = array_map('intval', $db->query('SELECT id FROM orders WHERE deleted_at IS NOT NULL')->fetchAll(PDO::FETCH_COLUMN));
+    $files = [];
+    $db->beginTransaction();
+    if ($trash) {
+        $in = implode(',', $trash);
+        $files = $db->query("SELECT stored_name FROM order_files WHERE order_id IN ($in)")->fetchAll(PDO::FETCH_COLUMN);
+        foreach (['order_files', 'status_log', 'order_confirmations'] as $t) {
+            $db->exec("DELETE FROM $t WHERE order_id IN ($in)");
+        }
+        if ($db->query("SELECT 1 FROM sqlite_master WHERE type = 'table' AND name = 'inquiry_orders'")->fetchColumn()) {
+            $db->exec("DELETE FROM inquiry_orders WHERE order_id IN ($in)");
+        }
+        $db->exec("UPDATE mail_msgs SET order_id = NULL WHERE order_id IN ($in)");
+        $db->exec("DELETE FROM orders WHERE id IN ($in)");
+    }
+    // neu nummerieren: erst vorübergehende Nummern (eindeutig), dann fortlaufend je Jahr
+    $rows = $db->query('SELECT id, nr, created_at FROM orders ORDER BY created_at, id')->fetchAll();
+    $db->exec("UPDATE orders SET nr = 'TMP-' || id");
+    $seq = [];
+    $up = $db->prepare('UPDATE orders SET nr = ? WHERE id = ?');
+    $changed = 0;
+    foreach ($rows as $r) {
+        $year = preg_match('/^(\d{4})-/', (string)$r['nr'], $m) ? $m[1] : substr((string)$r['created_at'], 0, 4);
+        $seq[$year] = ($seq[$year] ?? 0) + 1;
+        $nr = sprintf('%s-%04d', $year, $seq[$year]);
+        $up->execute([$nr, (int)$r['id']]);
+        if ($nr !== $r['nr']) {
+            $changed++;
+        }
+    }
+    $db->commit();
+    foreach ($files as $fn) {
+        @unlink($dir . $fn);
+        array_map('unlink', glob($dir . 'thumbs/' . $fn . '.*') ?: []);
+    }
+    return ['orders_purged' => count($trash), 'orders_renumbered' => $changed];
 }
 
 function wf_company_save(array $c): void
