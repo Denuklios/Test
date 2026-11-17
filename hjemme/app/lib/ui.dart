@@ -1,3 +1,4 @@
+import 'package:flutter_map/flutter_map.dart';
 import 'package:material_ui/material_ui.dart';
 
 import 'geo.dart';
@@ -253,15 +254,28 @@ Future<T?> guard<T>(BuildContext context, Future<T> Function() f) async {
   }
 }
 
-String tileUrl(String style, bool dark) {
+const _esri = 'https://server.arcgisonline.com/ArcGIS/rest/services';
+
+/// Kartenkacheln ohne API-Schlüssel: OpenStreetMap und Esri
+List<Widget> mapTiles(String style, bool dark) {
+  if (style == 'none') return const [];
+  if (style == 'auto') style = dark ? 'dark' : 'light';
+  TileLayer t(String url, {int maxNative = 19}) => TileLayer(
+        urlTemplate: url,
+        userAgentPackageName: 'de.familie.hjemme',
+        maxNativeZoom: maxNative,
+        maxZoom: 20,
+        retinaMode: false,
+      );
   switch (style) {
     case 'satellite':
-      return 'https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}';
+      return [t('$_esri/World_Imagery/MapServer/tile/{z}/{y}/{x}'), t('$_esri/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}')];
     case 'dark':
-      return 'https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png';
-    case 'light':
-      return 'https://{s}.basemaps.cartocdn.com/rastertiles/voyager/{z}/{x}/{y}{r}.png';
+      return [t('$_esri/Canvas/World_Dark_Gray_Base/MapServer/tile/{z}/{y}/{x}', maxNative: 16),
+        t('$_esri/Canvas/World_Dark_Gray_Reference/MapServer/tile/{z}/{y}/{x}', maxNative: 16)];
+    case 'streets':
+      return [t('$_esri/World_Street_Map/MapServer/tile/{z}/{y}/{x}')];
     default:
-      return dark ? tileUrl('dark', true) : tileUrl('light', false);
+      return [t('https://tile.openstreetmap.org/{z}/{x}/{y}.png')];
   }
 }

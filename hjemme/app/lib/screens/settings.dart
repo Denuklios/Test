@@ -215,7 +215,7 @@ class SettingsScreen extends StatelessWidget {
               },
             ),
             const SizedBox(height: 30),
-            Center(child: Text('Hjemme · Kartendaten © OpenStreetMap-Mitwirkende, CARTO, Esri', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor))),
+            Center(child: Text('Hjemme · Kartendaten © OpenStreetMap-Mitwirkende, Esri', style: TextStyle(fontSize: 11, color: Theme.of(context).hintColor))),
             const SizedBox(height: 30),
           ]),
         );

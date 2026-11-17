@@ -89,7 +89,7 @@ class _HistoryScreenState extends State<HistoryScreen> {
                 interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
               ),
               children: [
-                TileLayer(urlTemplate: tileUrl(store.mapStyle, dark), subdomains: const ['a', 'b', 'c', 'd'], retinaMode: true, userAgentPackageName: 'de.familie.hjemme'),
+                ...mapTiles(store.mapStyle, dark),
                 PolylineLayer(polylines: [
                   if (shown.length > 1)
                     Polyline(points: shown.map((p) => p.p).toList(), strokeWidth: 5, gradientColors: [violet, magenta, coral], borderColor: Colors.white, borderStrokeWidth: 1.5),

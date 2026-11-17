@@ -117,7 +117,7 @@ class _PlaceEditorState extends State<_PlaceEditor> {
                 interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
               ),
               children: [
-                TileLayer(urlTemplate: tileUrl(store.mapStyle, dark), subdomains: const ['a', 'b', 'c', 'd'], retinaMode: true, userAgentPackageName: 'de.familie.hjemme'),
+                ...mapTiles(store.mapStyle, dark),
                 CircleLayer(circles: [
                   CircleMarker(point: pos, radius: radius, useRadiusInMeter: true, color: magenta.withValues(alpha: 0.18), borderColor: magenta, borderStrokeWidth: 2.5),
                 ]),

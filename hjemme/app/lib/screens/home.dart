@@ -141,13 +141,7 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
             interactionOptions: const InteractionOptions(flags: InteractiveFlag.all & ~InteractiveFlag.rotate),
           ),
           children: [
-            if (store.mapStyle != 'none') TileLayer(
-              urlTemplate: tileUrl(store.mapStyle, dark),
-              subdomains: const ['a', 'b', 'c', 'd'],
-              retinaMode: true,
-              userAgentPackageName: 'de.familie.hjemme',
-              maxZoom: 19,
-            ),
+            ...mapTiles(store.mapStyle, dark),
             if (c != null)
               CircleLayer(circles: [
                 for (final p in c.places)
@@ -207,7 +201,7 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
               ]),
             const Align(alignment: Alignment.bottomLeft, child: Padding(
               padding: EdgeInsets.only(left: 6, bottom: 4),
-              child: Text('© OpenStreetMap, CARTO', style: TextStyle(fontSize: 9, color: Colors.black54)),
+              child: Text('© OpenStreetMap, Esri', style: TextStyle(fontSize: 9, color: Colors.black54)),
             )),
           ],
         ),
@@ -252,23 +246,22 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
                 }),
               for (final m in sosMembers)
                 _banner('SOS von ${m.name}! Tippen für Standort.', Icons.sos_rounded, const Color(0xFFE53935), onTap: () => focusMember(m)),
+              const SizedBox(height: 10),
+              Align(
+                alignment: Alignment.centerRight,
+                child: Column(children: [
+                  _roundBtn(Icons.layers_rounded, () => _styles(context)),
+                  const SizedBox(height: 8),
+                  _roundBtn(Icons.my_location_rounded, () {
+                    final me = c?.member(store.api.memberId ?? '');
+                    if (me != null) focusMember(me, open: false);
+                  }),
+                  const SizedBox(height: 8),
+                  _roundBtn(Icons.groups_rounded, fitAll),
+                ]),
+              ),
             ]),
           ),
-        ),
-        // ---------- rechte Knöpfe ----------
-        Positioned(
-          right: 12,
-          top: MediaQuery.of(context).padding.top + 74 + (sosMembers.length + (!_bgOk ? 1 : 0) + (!store.online ? 1 : 0)) * 52,
-          child: Column(children: [
-            _roundBtn(Icons.layers_rounded, () => _styles(context)),
-            const SizedBox(height: 8),
-            _roundBtn(Icons.my_location_rounded, () {
-              final me = c?.member(store.api.memberId ?? '');
-              if (me != null) focusMember(me, open: false);
-            }),
-            const SizedBox(height: 8),
-            _roundBtn(Icons.groups_rounded, fitAll),
-          ]),
         ),
         // ---------- Liste unten ----------
         DraggableScrollableSheet(
@@ -486,7 +479,7 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
       builder: (ctx) => SafeArea(
         child: Column(mainAxisSize: MainAxisSize.min, children: [
           const Text('Kartenstil', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-          for (final s in const [('auto', 'Automatisch (hell/dunkel)', Icons.brightness_auto_rounded), ('light', 'Hell', Icons.light_mode_rounded),
+          for (final s in const [('auto', 'Automatisch (hell/dunkel)', Icons.brightness_auto_rounded), ('light', 'Hell (OpenStreetMap)', Icons.light_mode_rounded), ('streets', 'Straßen', Icons.map_rounded),
             ('dark', 'Nacht', Icons.dark_mode_rounded), ('satellite', 'Satellit', Icons.satellite_alt_rounded)])
             ListTile(
               leading: Icon(s.$3),
