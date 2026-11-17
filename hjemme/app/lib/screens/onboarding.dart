@@ -1,5 +1,6 @@
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 
 import '../store.dart';
 import '../ui.dart';
@@ -22,6 +23,7 @@ class _OnboardingState extends State<Onboarding> {
   String emoji = '';
   bool busy = false;
   bool joinMode = false;
+  Uint8List? photo;
 
   @override
   Widget build(BuildContext context) {
@@ -86,22 +88,48 @@ class _OnboardingState extends State<Onboarding> {
       Text('So sieht dich deine Familie auf der Karte.', style: TextStyle(color: white)),
       const SizedBox(height: 28),
       Center(
-        child: Container(
-          width: 120,
-          height: 120,
-          decoration: BoxDecoration(
-            shape: BoxShape.circle,
-            color: mColor(color),
-            boxShadow: [BoxShadow(color: mColor(color).withValues(alpha: 0.6), blurRadius: 30)],
-          ),
-          alignment: Alignment.center,
-          child: Text(
-            emoji.isNotEmpty ? emoji : (name.text.trim().isEmpty ? '?' : String.fromCharCode(name.text.trim().runes.first).toUpperCase()),
-            style: TextStyle(fontSize: emoji.isNotEmpty ? 56 : 48, color: Colors.white, fontWeight: FontWeight.w900),
-          ),
+        child: GestureDetector(
+          onTap: _pickPhoto,
+          child: Stack(clipBehavior: Clip.none, children: [
+            Container(
+              width: 130,
+              height: 130,
+              padding: EdgeInsets.all(photo == null ? 0 : 5),
+              decoration: BoxDecoration(
+                shape: BoxShape.circle,
+                color: mColor(color),
+                boxShadow: [BoxShadow(color: mColor(color).withValues(alpha: 0.6), blurRadius: 30)],
+              ),
+              alignment: Alignment.center,
+              child: photo != null
+                  ? ClipOval(child: Image.memory(photo!, width: 120, height: 120, fit: BoxFit.cover))
+                  : Text(
+                      emoji.isNotEmpty ? emoji : (name.text.trim().isEmpty ? '?' : String.fromCharCode(name.text.trim().runes.first).toUpperCase()),
+                      style: TextStyle(fontSize: emoji.isNotEmpty ? 56 : 48, color: Colors.white, fontWeight: FontWeight.w900),
+                    ),
+            ),
+            Positioned(
+              right: -2,
+              bottom: -2,
+              child: Container(
+                padding: const EdgeInsets.all(10),
+                decoration: BoxDecoration(gradient: brandGradient, shape: BoxShape.circle, border: Border.all(color: navy, width: 3)),
+                child: const Icon(Icons.photo_camera_rounded, color: Colors.white, size: 22),
+              ),
+            ),
+          ]),
         ),
       ),
-      const SizedBox(height: 24),
+      const SizedBox(height: 10),
+      Center(
+        child: TextButton.icon(
+          onPressed: _pickPhoto,
+          icon: const Icon(Icons.add_photo_alternate_rounded, color: Colors.white),
+          label: Text(photo == null ? 'Eigenes Foto hochladen' : 'Foto ändern',
+              style: const TextStyle(color: Colors.white, fontWeight: FontWeight.w700)),
+        ),
+      ),
+      const SizedBox(height: 14),
       TextField(
         controller: name,
         autofocus: true,
@@ -146,10 +174,41 @@ class _OnboardingState extends State<Onboarding> {
     ]);
   }
 
+  Future<void> _pickPhoto() async {
+    final src = await showModalBottomSheet<ImageSource?>(
+      context: context,
+      builder: (ctx) => SafeArea(
+        child: Column(mainAxisSize: MainAxisSize.min, children: [
+          ListTile(leading: const Icon(Icons.photo_camera_rounded), title: const Text('Foto aufnehmen'), onTap: () => Navigator.pop(ctx, ImageSource.camera)),
+          ListTile(leading: const Icon(Icons.photo_library_rounded), title: const Text('Aus der Galerie wählen'), onTap: () => Navigator.pop(ctx, ImageSource.gallery)),
+          if (photo != null)
+            ListTile(
+              leading: const Icon(Icons.delete_outline_rounded),
+              title: const Text('Foto entfernen'),
+              onTap: () {
+                setState(() => photo = null);
+                Navigator.pop(ctx);
+              },
+            ),
+        ]),
+      ),
+    );
+    if (src == null) return;
+    try {
+      final f = await ImagePicker().pickImage(source: src, maxWidth: 512, maxHeight: 512, imageQuality: 82, preferredCameraDevice: CameraDevice.front);
+      if (f == null) return;
+      final b = await f.readAsBytes();
+      if (mounted) setState(() => photo = b);
+    } catch (e) {
+      if (mounted) toast(context, 'Foto konnte nicht geladen werden');
+    }
+  }
+
   Future<void> _register() async {
     setState(() => busy = true);
     final ok = await guard(context, () async {
       await store.register(name.text.trim(), color, emoji);
+      if (photo != null) await store.uploadAvatar(photo!);
       return true;
     });
     if (!mounted) return;

@@ -57,7 +57,9 @@ class Api {
     try {
       j = jsonDecode(utf8.decode(r.bodyBytes)) as Map<String, dynamic>;
     } catch (_) {
-      throw ApiError('Server antwortet nicht richtig (${r.statusCode})', r.statusCode);
+      throw ApiError(r.statusCode == 404
+          ? 'Hjemme ist auf dem Server noch nicht eingerichtet (404). Bitte Server-Adresse in den Einstellungen prüfen.'
+          : 'Server antwortet nicht richtig (${r.statusCode})', r.statusCode);
     }
     if (j['ok'] != true) throw ApiError((j['error'] ?? 'Fehler ${r.statusCode}').toString(), r.statusCode);
     return j;

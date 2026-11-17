@@ -1,7 +1,11 @@
 import 'dart:async';
 import 'dart:convert';
+import 'dart:typed_data';
+
+import 'dart:ui' as ui;
 
 import 'package:flutter/widgets.dart';
+import 'package:image/image.dart' as img;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'api.dart';
@@ -216,8 +220,8 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
     await poll();
   }
 
-  Future<void> uploadAvatar(List<int> jpeg) async {
-    await api.post('avatar_upload', {'jpeg': base64Encode(jpeg)});
+  Future<void> uploadAvatar(List<int> bytes) async {
+    await api.post('avatar_upload', {'jpeg': base64Encode(await toJpeg(bytes))});
     await poll();
   }
 
@@ -282,3 +286,16 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 }
 
 final store = Store();
+
+/// Beliebiges Bild (JPEG, PNG, HEIC über die Bildbibliothek des Handys) quadratisch zuschneiden und als JPEG liefern
+Future<List<int>> toJpeg(List<int> bytes) async {
+  final codec = await ui.instantiateImageCodec(Uint8List.fromList(bytes), targetWidth: 512);
+  final frame = await codec.getNextFrame();
+  final data = await frame.image.toByteData(format: ui.ImageByteFormat.rawRgba);
+  final w = frame.image.width, h = frame.image.height;
+  var im = img.Image.fromBytes(width: w, height: h, bytes: data!.buffer, numChannels: 4);
+  final side = w < h ? w : h;
+  im = img.copyCrop(im, x: (w - side) ~/ 2, y: (h - side) ~/ 2, width: side, height: side);
+  if (side > 400) im = img.copyResize(im, width: 400, height: 400);
+  return img.encodeJpg(im, quality: 82);
+}
