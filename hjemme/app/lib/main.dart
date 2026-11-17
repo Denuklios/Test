@@ -9,6 +9,7 @@ import 'screens/home.dart';
 import 'screens/member.dart';
 import 'screens/onboarding.dart';
 import 'screens/settings.dart';
+import 'screens/splash.dart';
 import 'store.dart';
 import 'tracker.dart';
 import 'ui.dart';
@@ -52,6 +53,7 @@ class Root extends StatefulWidget {
 class _RootState extends State<Root> {
   bool get ready => store.api.loggedIn && store.circles.isNotEmpty;
   bool _started = false;
+  bool _splash = true;
 
   @override
   void initState() {
@@ -114,13 +116,16 @@ class _RootState extends State<Root> {
 
   @override
   Widget build(BuildContext context) {
-    if (!ready) {
-      return Onboarding(onDone: () {
-        setState(() {});
-        _start();
-      });
-    }
-    return Home(key: homeKey);
+    final Widget content = !ready
+        ? Onboarding(onDone: () {
+            setState(() {});
+            _start();
+          })
+        : Home(key: homeKey);
+    return Stack(children: [
+      Positioned.fill(child: content),
+      if (_splash) Positioned.fill(child: SplashOverlay(onDone: () => setState(() => _splash = false))),
+    ]);
   }
 }
 

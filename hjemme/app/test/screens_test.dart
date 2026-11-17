@@ -12,6 +12,7 @@ import 'package:hjemme/screens/chat.dart';
 import 'package:hjemme/screens/home.dart';
 import 'package:hjemme/screens/onboarding.dart';
 import 'package:hjemme/screens/sos.dart';
+import 'package:hjemme/screens/splash.dart';
 import 'package:hjemme/store.dart';
 import 'package:hjemme/ui.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -89,7 +90,7 @@ void main() {
     t.view.devicePixelRatio = 2.75;
     await t.pumpWidget(app(w, b: b));
     await t.runAsync(() async {
-      for (final a in ['assets/welcome.jpg', 'assets/sos.jpg']) {
+      for (final a in ['assets/welcome.jpg', 'assets/sos.jpg', 'assets/icon.png']) {
         await precacheImage(AssetImage(a), t.element(find.byType(MaterialApp)));
       }
     });
@@ -119,5 +120,20 @@ void main() {
   testWidgets('SOS', (t) async {
     fakeData();
     await shot(t, const SosScreen(), '4_sos');
+  });
+
+  testWidgets('Startbildschirm', (t) async {
+    fakeData();
+    t.view.physicalSize = const Size(1080, 2280);
+    t.view.devicePixelRatio = 2.75;
+    await t.pumpWidget(app(SplashOverlay(onDone: () {})));
+    await t.runAsync(() async {
+      for (final a in ['assets/welcome.jpg', 'assets/icon.png']) {
+        await precacheImage(AssetImage(a), t.element(find.byType(MaterialApp)));
+      }
+    });
+    await t.pump(const Duration(milliseconds: 1200));
+    await expectLater(find.byType(MaterialApp), matchesGoldenFile('shots/0_start.png'));
+    await t.pump(const Duration(seconds: 3));
   });
 }
