@@ -185,7 +185,13 @@ body{padding:0}main{max-width:640px;margin:0 auto;padding:20px 16px 40px}
       <dt><?= $e($T['qty']) ?></dt><dd><?= (int)$snap['qty'] ?> <?= $e($T['pcs']) ?><?= $snap['article'] ? ' · ' . $e($snap['article']) : '' ?></dd>
       <?php if ($snap['processes']): ?><dt><?= $e($T['process']) ?></dt><dd><?= $e(implode(', ', array_map(fn($p) => $lang === 'da' ? $p['da'] : $p['de'], $snap['processes']))) ?></dd><?php endif; ?>
       <?php if ($snap['due_date']): ?><dt><?= $e($T['due']) ?></dt><dd><?= $e(wf_doc_date($snap['due_date'], $lang)) ?></dd><?php endif; ?>
-      <?php if ($snap['price'] > 0): ?><dt><?= $e($T['price']) ?></dt><dd><b><?= $e($money($snap['price'], $snap['currency'])) ?></b> <?= $e($T['vat_' . $snap['vat']]) ?></dd><?php endif; ?>
+      <?php if ($snap['price'] > 0): ?><dt><?= $e($T['price']) ?></dt><dd><b><?= $e($money($snap['price'], $snap['currency'])) ?></b> <?= $e($T['vat_' . $snap['vat']]) ?></dd>
+      <?php if ($snap['vat'] === 'excl'): $vatAmt = round($snap['price'] * 0.25, 2); ?>
+      <dt><?= $e($T['vat_line']) ?></dt><dd><?= $e($money($vatAmt, $snap['currency'])) ?></dd>
+      <dt><?= $e($T['total_incl']) ?></dt><dd><b><?= $e($money($snap['price'] + $vatAmt, $snap['currency'])) ?></b></dd>
+      <?php elseif ($snap['vat'] === 'incl'): ?>
+      <dt><?= $e($T['vat_in']) ?></dt><dd><?= $e($money(round($snap['price'] - $snap['price'] / 1.25, 2), $snap['currency'])) ?></dd>
+      <?php endif; ?><?php endif; ?>
       <?php if ($snap['deposit'] > 0): ?><dt><?= $e($T['deposit']) ?></dt><dd><?= $e($money($snap['deposit'], $snap['currency'])) ?></dd><?php endif; ?>
     </dl>
     <?php if ($snap['files']): ?><div style="margin-top:12px"><label><?= $e($T['files']) ?></label><div class="thumbs"><?php foreach ($snap['files'] as $fid): ?><img src="<?= $e($thumbSrc((int)$fid)) ?>" alt=""><?php endforeach; ?></div></div><?php endif; ?>

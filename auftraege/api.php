@@ -245,7 +245,7 @@ function clean_procs(PDO $db, $list): array
 
 function order_row(PDO $db, int $id): array
 {
-    $st = $db->prepare('SELECT o.*, c.name AS customer_name, c.company AS customer_company, c.email AS customer_email, c.address AS customer_address, c.phone AS customer_phone, c.country AS customer_country FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = ?');
+    $st = $db->prepare('SELECT o.*, c.name AS customer_name, c.company AS customer_company, c.email AS customer_email, c.address AS customer_address, c.phone AS customer_phone, c.country AS customer_country, c.is_business AS customer_is_business, c.vat_id AS customer_vat_id FROM orders o JOIN customers c ON c.id = o.customer_id WHERE o.id = ?');
     $st->execute([$id]);
     $o = $st->fetch();
     if (!$o) {

@@ -933,7 +933,18 @@ async function orderForm(o, presetCustomer, note = '') {
       processes: (D.processes || []).map((p) => ({ process_id: +p.process_id, per_piece: Math.min(60, Math.max(1, p.per_piece ? +p.per_piece : Math.round(+p.minutes / q))) })) };
   };
   if (!D.items.length && (!isNew || note) && (D.title || D.processes.length)) D.items = [legacyItem()];
-  let cust = null;
+  let cust = D.customer_id ? { id: D.customer_id, country: D.customer_country || 'DK', is_business: D.customer_is_business, vat_id: D.customer_vat_id || '' } : null;
+  // Moms je nach Kunde: Firma = Preise netto + 25 %, Privat = Preise inkl. 25 %, EU-Firma = Reverse Charge, außerhalb EU = Export
+  const vatInfo = (sum) => {
+    if (!cust || !sum) return '';
+    const cur = F.currency.value, mm = (v) => money(Math.round(v * 100) / 100, cur);
+    if (!me.company.moms_registered) return t('ov_novat');
+    const eu = me.eu.includes(cust.country);
+    if (cust.country !== 'DK' && !eu) return t('ov_export');
+    if (cust.country !== 'DK' && +cust.is_business && cust.vat_id) return t('ov_rc');
+    if (+cust.is_business) return t('ov_net', mm(sum * 0.25), mm(sum * 1.25));
+    return t('ov_incl', mm(sum - sum / 1.25), mm(sum / 1.25));
+  };
   if (D.customer_id) cust = (await api('customer', { params: { id: D.customer_id } })).customer;
   if (isNew && cust && !(NP && NP.currency)) D.currency = cust.currency;
   const F = {};
@@ -946,7 +957,7 @@ async function orderForm(o, presetCustomer, note = '') {
   const custName = h('input', { type: 'text', placeholder: t('customer_ph'), autocomplete: 'off', value: cust ? cust.name + (cust.company ? ' · ' + cust.company : '') : '' });
   const sug = h('div', { class: 'suggest-list hidden' });
   let ct;
-  const pickCust = (c) => { cust = c; D.customer_id = c.id; custName.value = c.name + (c.company ? ' · ' + c.company : ''); sug.classList.add('hidden'); if (isNew) F.currency.value = c.currency; };
+  const pickCust = (c) => { cust = c; D.customer_id = c.id; setTimeout(() => itemsChanged(true), 0); custName.value = c.name + (c.company ? ' · ' + c.company : ''); sug.classList.add('hidden'); if (isNew) F.currency.value = c.currency; };
   // Liste beim Antippen (alle Kunden), beim Tippen gefiltert – wie bei den Produkten
   const custSearch = (delay) => {
     clearTimeout(ct);
@@ -998,6 +1009,7 @@ async function orderForm(o, presetCustomer, note = '') {
   const itemsSum = () => Math.round(items.reduce((s_, r) => s_ + r.sum(), 0) * 100) / 100;
   let titleTouched = !isNew || !!note, priceTouched = !isNew && Math.abs((+D.price || 0) - D.items.reduce((s_, i) => s_ + itemTotal(i), 0)) > 0.005;
   const totLine = h('div', { class: 'itemtot' });
+  const vatLine = h('div', { class: 'muted', style: 'font-size:.85rem;margin-top:4px' });
   function itemsChanged(init) {
     const sum = itemsSum();
     if (!titleTouched) F.title.value = items.map((r) => r.get().name).filter(Boolean).join(' + ').slice(0, 200);
@@ -1006,6 +1018,7 @@ async function orderForm(o, presetCustomer, note = '') {
       ? [t('price_differs', money(sum, F.currency.value)), ' ', h('button', { type: 'button', class: 'btn small', onclick: () => { priceTouched = false; itemsChanged(); } }, '↺ ' + t('price_use_sum'))] : []));
     const q = items.reduce((s_, r) => s_ + r.get().qty, 0);
     totLine.replaceChildren(...(items.length ? [h('span', {}, `${q} ${t('pcs')}`), h('b', {}, money(sum, F.currency.value)), h('span', {}, '⏱ ' + hm(totalMin()))] : [h('span', { class: 'muted' }, t('items_empty'))]));
+    vatLine.textContent = vatInfo(num(F.price.value) || sum);
     if (init === true) updateSummary(); else procChanged();
   }
   function addItem(it, focus) {
@@ -1235,7 +1248,7 @@ async function orderForm(o, presetCustomer, note = '') {
       h('div', {}, h('label', {}, t('due')), duePicker)),
     sec(t('files'), photoButtons((list) => { pending.push(...list); drawThumbs(); }), thumbs,
       isNew ? null : h('div', { class: 'files' }, (D.files || []).map((f) => h('div', { class: 'file' }, f.mime.startsWith('image/') ? h('img', { src: thumbUrl(f.id), alt: f.original_name, loading: 'lazy' }) : h('div', { class: 'pdf' }, 'PDF'), h('div', { class: 'n' }, h('span', { style: 'overflow:hidden;text-overflow:ellipsis;white-space:nowrap' }, f.original_name)))))),
-    sec(t('form_price'), payRow, priceHint, field('deposit', t('deposit'), inp('deposit', 'number', { step: '0.01', min: 0, inputmode: 'decimal' }))),
+    sec(t('form_price'), payRow, priceHint, vatLine, field('deposit', t('deposit'), inp('deposit', 'number', { step: '0.01', min: 0, inputmode: 'decimal' }))),
     // Details: Status und Notizen; Artikel/Beschreibung nur noch bei alten Aufträgen, die sie schon haben
     sec(t('form_details'),
       field('status', t('status'), h('select', {}, me.statuses.map((s_) => h('option', { value: s_, selected: s_ === D.status }, t('st_' + s_))))),
