@@ -1,6 +1,9 @@
 import 'dart:async';
 
 import 'package:material_ui/material_ui.dart';
+import 'dart:math' as math;
+
+import 'package:flutter/scheduler.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:latlong2/latlong.dart' hide Circle;
 
@@ -30,9 +33,52 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
   bool _fitted = false;
   bool _bgOk = true;
 
+  // Weiche Bewegung: angezeigte Position läuft der echten Position flüssig hinterher
+  final Map<String, LatLng> _shown = {};
+  late final Ticker _ticker;
+  Duration _lastTick = Duration.zero;
+
+  LatLng? _target(Member m) {
+    if (m.id == store.api.memberId) {
+      final p = Tracker.i.lastPos;
+      if (p != null && !m.paused && p.timestamp.millisecondsSinceEpoch >= (m.last?.ts ?? 0) - 1000) return LatLng(p.latitude, p.longitude);
+    }
+    return m.last?.pos;
+  }
+
+  LatLng? shownPos(Member m) => _shown[m.id] ?? _target(m);
+
+  void _tick(Duration elapsed) {
+    final dt = (elapsed - _lastTick).inMicroseconds / 1e6;
+    _lastTick = elapsed;
+    final c = store.circle;
+    if (c == null || dt <= 0) return;
+    final k = 1 - math.exp(-dt / 0.5);
+    var moved = false;
+    for (final m in c.members) {
+      final t = _target(m);
+      if (t == null) continue;
+      final cur = _shown[m.id];
+      if (cur == null || meters(cur, t) > 5000) {
+        _shown[m.id] = t;
+        moved = true;
+      } else if (meters(cur, t) > 0.05) {
+        _shown[m.id] = LatLng(cur.latitude + (t.latitude - cur.latitude) * k, cur.longitude + (t.longitude - cur.longitude) * k);
+        moved = true;
+      }
+    }
+    if (!moved) return;
+    setState(() {});
+    if (focused != null && !(_anim?.isAnimating ?? false)) {
+      final p = _shown[focused!];
+      if (p != null) map.move(p, map.camera.zoom);
+    }
+  }
+
   @override
   void initState() {
     super.initState();
+    _ticker = createTicker(_tick)..start();
     store.addListener(_changed);
     _checkBg();
     if (store.circle != null) {
@@ -43,6 +89,7 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
 
   @override
   void dispose() {
+    _ticker.dispose();
     store.removeListener(_changed);
     super.dispose();
   }
@@ -62,9 +109,6 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
     if (!_fitted) {
       _fitted = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => fitAll());
-    } else if (focused != null) {
-      final m = c.member(focused!);
-      if (m?.last?.pos != null) _animateTo(m!.last!.pos!, map.camera.zoom);
     }
   }
 
@@ -155,32 +199,45 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
                   ),
                 for (final m in c.members)
                   if (m.last?.pos != null && (m.last!.acc ?? 0) > 60 && !m.paused)
-                    CircleMarker(point: m.last!.pos!, radius: m.last!.acc!, useRadiusInMeter: true, color: mColor(m.color).withValues(alpha: 0.10)),
+                    CircleMarker(point: shownPos(m)!, radius: m.last!.acc!, useRadiusInMeter: true, color: mColor(m.color).withValues(alpha: 0.10)),
               ]),
             if (c != null)
               PolylineLayer(polylines: [
                 for (final m in c.members)
                   if (m.eta != null && m.last?.pos != null)
-                    Polyline(points: [m.last!.pos!, m.eta!.pos], strokeWidth: 3, color: mColor(m.color), pattern: StrokePattern.dashed(segments: const [8, 6])),
+                    Polyline(points: [shownPos(m)!, m.eta!.pos], strokeWidth: 3, color: mColor(m.color), pattern: StrokePattern.dashed(segments: const [8, 6])),
               ]),
             if (c != null)
               MarkerLayer(markers: [
                 for (final p in c.places)
                   Marker(
                     point: p.pos,
-                    width: 120,
-                    height: 54,
+                    width: 140,
+                    height: 44,
+                    // Schild unter dem Ort, damit es den Positionspunkt nicht verdeckt
+                    alignment: Alignment.bottomCenter,
                     child: GestureDetector(
                       onTap: () => editPlace(context, p),
-                      child: Column(mainAxisSize: MainAxisSize.min, children: [
-                        Text(p.icon, style: const TextStyle(fontSize: 22)),
-                        Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
-                          decoration: BoxDecoration(color: Colors.black.withValues(alpha: 0.55), borderRadius: BorderRadius.circular(8)),
-                          child: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis,
-                              style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700)),
+                      child: Align(
+                        alignment: Alignment.bottomCenter,
+                        child: Container(
+                          padding: const EdgeInsets.fromLTRB(6, 3, 9, 3),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFF0E1638).withValues(alpha: 0.82),
+                            borderRadius: BorderRadius.circular(14),
+                            border: Border.all(color: violet.withValues(alpha: 0.8), width: 1.2),
+                            boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 6)],
+                          ),
+                          child: Row(mainAxisSize: MainAxisSize.min, children: [
+                            Text(p.icon, style: const TextStyle(fontSize: 14)),
+                            const SizedBox(width: 4),
+                            Flexible(
+                              child: Text(p.name, maxLines: 1, overflow: TextOverflow.ellipsis,
+                                  style: const TextStyle(color: Colors.white, fontSize: 11, fontWeight: FontWeight.w800)),
+                            ),
+                          ]),
                         ),
-                      ]),
+                      ),
                     ),
                   ),
                 for (final m in c.members)
@@ -189,9 +246,9 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
                 for (final m in c.members)
                   if (m.last?.pos != null && !(m.paused && m.id != store.api.memberId))
                     Marker(
-                      point: m.last!.pos!,
-                      width: 76,
-                      height: 76,
+                      point: shownPos(m)!,
+                      width: 84,
+                      height: 84,
                       alignment: Alignment.topCenter,
                       child: GestureDetector(
                         onTap: () => focusMember(m),
@@ -297,11 +354,11 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Row(children: [
-            Expanded(child: _action('✔️', 'Check-in', () => showCheckin(context))),
+            Expanded(child: _action(Icons.where_to_vote_rounded, 'Check-in', () => showCheckin(context))),
             const SizedBox(width: 8),
-            Expanded(child: _action('🧭', 'Unterwegs', () => showEtaSheet(context))),
+            Expanded(child: _action(Icons.navigation_rounded, 'Unterwegs', () => showEtaSheet(context))),
             const SizedBox(width: 8),
-            Expanded(child: _action('🆘', 'SOS', () => _open(const SosScreen()), danger: true)),
+            Expanded(child: _action(Icons.sos_rounded, 'SOS', () => _open(const SosScreen()), danger: true)),
           ]),
         ),
         const SizedBox(height: 8),
@@ -398,25 +455,36 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
     );
   }
 
-  Widget _action(String emoji, String label, VoidCallback onTap, {bool danger = false}) {
+  Widget _action(IconData icon, String label, VoidCallback onTap, {bool danger = false}) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final grad = danger ? const LinearGradient(colors: [Color(0xFFFF2D55), coral], begin: Alignment.topLeft, end: Alignment.bottomRight) : brandGradient;
     return Material(
       color: Colors.transparent,
       child: Ink(
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(18),
-          gradient: danger
-              ? const LinearGradient(colors: [Color(0xFFFF3B5C), coral])
-              : LinearGradient(colors: [violet.withValues(alpha: 0.14), magenta.withValues(alpha: 0.10)]),
+          borderRadius: BorderRadius.circular(22),
+          color: danger ? null : (dark ? Colors.white.withValues(alpha: 0.06) : violet.withValues(alpha: 0.06)),
+          gradient: danger ? LinearGradient(colors: [const Color(0xFFFF2D55).withValues(alpha: 0.18), coral.withValues(alpha: 0.14)]) : null,
+          border: Border.all(color: (danger ? coral : violet).withValues(alpha: dark ? 0.35 : 0.22)),
         ),
         child: InkWell(
-          borderRadius: BorderRadius.circular(18),
+          borderRadius: BorderRadius.circular(22),
           onTap: onTap,
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Column(children: [
-              Text(emoji, style: const TextStyle(fontSize: 22)),
-              const SizedBox(height: 2),
-              Text(label, style: TextStyle(fontWeight: FontWeight.w800, color: danger ? Colors.white : null)),
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: grad,
+                  boxShadow: [BoxShadow(color: (danger ? const Color(0xFFFF2D55) : magenta).withValues(alpha: 0.45), blurRadius: 14, offset: const Offset(0, 4))],
+                ),
+                child: Icon(icon, color: Colors.white, size: 24),
+              ),
+              const SizedBox(height: 8),
+              Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
             ]),
           ),
         ),
@@ -424,26 +492,20 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
     );
   }
 
-  Widget _glass({required Widget child}) {
-    final dark = Theme.of(context).brightness == Brightness.dark;
-    return Material(
-      color: (dark ? const Color(0xFF0F1A3D) : Colors.white).withValues(alpha: 0.92),
-      borderRadius: BorderRadius.circular(24),
-      elevation: 4,
-      shadowColor: Colors.black38,
-      child: child,
-    );
-  }
+  Widget _glass({required Widget child}) => GlassPill(child: child);
 
   Widget _roundBtn(IconData icon, VoidCallback onTap, {int badge = 0}) {
     return Badge(
       isLabelVisible: badge > 0,
       label: Text('$badge'),
-      child: _glass(
-        child: InkWell(
-          borderRadius: BorderRadius.circular(24),
-          onTap: onTap,
-          child: Padding(padding: const EdgeInsets.all(11), child: Icon(icon, size: 22)),
+      backgroundColor: coral,
+      child: GlassPill(
+        circle: true,
+        onTap: onTap,
+        child: SizedBox(
+          width: 46,
+          height: 46,
+          child: Center(child: ShaderMask(shaderCallback: (r) => brandGradient.createShader(r), child: Icon(icon, size: 24, color: Colors.white))),
         ),
       ),
     );

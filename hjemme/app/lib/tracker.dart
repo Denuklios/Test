@@ -39,8 +39,8 @@ class Tracker {
     if (!await hasPermission()) return;
     final settings = AndroidSettings(
       accuracy: LocationAccuracy.high,
-      distanceFilter: 25,
-      intervalDuration: const Duration(seconds: 15),
+      distanceFilter: 8,
+      intervalDuration: const Duration(seconds: 4),
       foregroundNotificationConfig: const ForegroundNotificationConfig(
         notificationTitle: 'Hjemme ist für deine Familie da',
         notificationText: 'Dein Standort wird mit deinem Kreis geteilt',
@@ -70,7 +70,8 @@ class Tracker {
     position.value = p;
     _queue(p);
     // schnell unterwegs: häufiger senden; sonst gebündelt
-    final gap = (p.speed * 3.6) > 15 ? const Duration(seconds: 15) : const Duration(seconds: 30);
+    // in Bewegung alle ~4 s senden, sonst gebündelt
+    final gap = p.speed > 1.5 ? const Duration(seconds: 4) : const Duration(seconds: 30);
     if (DateTime.now().difference(_lastSent) >= gap) flush();
   }
 

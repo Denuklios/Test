@@ -71,7 +71,7 @@ class Store extends ChangeNotifier with WidgetsBindingObserver {
 
   void startPolling() {
     _timer?.cancel();
-    _timer = Timer.periodic(Duration(seconds: visible ? 8 : 45), (_) => poll());
+    _timer = Timer.periodic(Duration(seconds: visible ? 3 : 45), (_) => poll());
     poll();
   }
 

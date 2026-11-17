@@ -1,3 +1,6 @@
+import 'dart:math' as math;
+import 'dart:ui' as ui;
+
 import 'package:flutter_map/flutter_map.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -100,63 +103,156 @@ class Avatar extends StatelessWidget {
       );
 }
 
-/// Karten-Markierung: Avatar in einer Tropfenform, darunter Status-Abzeichen
-class MemberPin extends StatelessWidget {
+/// Karten-Markierung: leuchtender Punkt genau auf der Position, darüber schwebt das Profilbild
+class MemberPin extends StatefulWidget {
   final Member m;
   final bool selected, sos;
   const MemberPin(this.m, {super.key, this.selected = false, this.sos = false});
   @override
+  State<MemberPin> createState() => _MemberPinState();
+}
+
+class _MemberPinState extends State<MemberPin> with SingleTickerProviderStateMixin {
+  late final AnimationController _pulse = AnimationController(vsync: this, duration: const Duration(milliseconds: 1800))..repeat();
+
+  @override
+  void dispose() {
+    _pulse.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final c = sos ? const Color(0xFFFF3B30) : mColor(m.color);
+    final m = widget.m;
+    final sos = widget.sos;
+    final c = sos ? const Color(0xFFFF2D55) : mColor(m.color);
+    final c2 = Color.lerp(c, sos ? coral : magenta, 0.55)!;
     final l = m.last;
     final stale = l == null || DateTime.now().difference(l.time).inMinutes > 60;
-    final size = selected ? 58.0 : 50.0;
+    final live = !stale && DateTime.now().difference(l.time).inMinutes < 10;
+    final size = widget.selected ? 56.0 : 48.0;
     return Opacity(
-      opacity: stale ? 0.65 : 1,
-      child: Column(mainAxisSize: MainAxisSize.min, children: [
-        Stack(clipBehavior: Clip.none, children: [
-          Container(
-            padding: const EdgeInsets.all(3),
-            decoration: BoxDecoration(
-              color: c,
-              shape: BoxShape.circle,
-              boxShadow: [BoxShadow(color: c.withValues(alpha: 0.6), blurRadius: sos ? 22 : 10, spreadRadius: sos ? 4 : 0)],
+      opacity: stale ? 0.7 : 1,
+      child: Stack(clipBehavior: Clip.none, alignment: Alignment.bottomCenter, children: [
+        // pulsierender Lichthof auf dem Boden
+        if (live || sos)
+          Positioned(
+            bottom: -22,
+            child: AnimatedBuilder(
+              animation: _pulse,
+              builder: (_, __) {
+                final t = _pulse.value;
+                final d = 10 + (sos ? 60 : 34) * t;
+                return SizedBox(
+                  width: 70,
+                  height: 44,
+                  child: Center(
+                    child: Container(
+                      width: d,
+                      height: d * 0.62,
+                      decoration: BoxDecoration(
+                        borderRadius: BorderRadius.all(Radius.elliptical(d, d * 0.62)),
+                        color: c.withValues(alpha: (1 - t) * (sos ? 0.55 : 0.4)),
+                      ),
+                    ),
+                  ),
+                );
+              },
             ),
-            child: Avatar(m, size: size - 6, ring: false),
           ),
-          if (l?.driving == true)
-            Positioned(right: -6, top: -4, child: _badge('🚗 ${l!.kmh.round()}', Colors.black87)),
-          if (m.paused || !m.sharing) Positioned(right: -4, top: -4, child: _badge('⏸', Colors.black87)),
-          if (m.bubble) Positioned(right: -4, top: -4, child: _badge('🫧', Colors.black54)),
-          if (l?.bat != null && l!.bat! <= 20) Positioned(left: -6, bottom: -2, child: _badge('🪫${l.bat}', const Color(0xFFD32F2F))),
-        ]),
-        CustomPaint(size: const Size(14, 9), painter: _Tip(c)),
+        // Punkt genau auf der Position
+        Positioned(
+          bottom: -6,
+          child: Container(
+            width: 12,
+            height: 12,
+            decoration: BoxDecoration(
+              shape: BoxShape.circle,
+              gradient: LinearGradient(colors: [c, c2]),
+              border: Border.all(color: Colors.white, width: 2.5),
+              boxShadow: [BoxShadow(color: c.withValues(alpha: 0.7), blurRadius: 8)],
+            ),
+          ),
+        ),
+        Padding(
+          padding: const EdgeInsets.only(bottom: 4),
+          child: Column(mainAxisAlignment: MainAxisAlignment.end, children: [
+            Stack(clipBehavior: Clip.none, children: [
+              AnimatedContainer(
+                duration: const Duration(milliseconds: 250),
+                padding: const EdgeInsets.all(3),
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: SweepGradient(colors: [c, c2, Color.lerp(c, Colors.white, 0.3)!, c]),
+                  boxShadow: [
+                    BoxShadow(color: c.withValues(alpha: 0.55), blurRadius: widget.selected ? 20 : 12, offset: const Offset(0, 4)),
+                    BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 6, offset: const Offset(0, 3)),
+                  ],
+                ),
+                child: Container(
+                  padding: const EdgeInsets.all(2.5),
+                  decoration: const BoxDecoration(color: Colors.white, shape: BoxShape.circle),
+                  child: Avatar(m, size: size - 11, ring: false),
+                ),
+              ),
+              if (l?.hdg != null && (l?.spd ?? 0) > 1.5 && !m.paused)
+                Positioned(
+                  left: -5,
+                  top: -5,
+                  child: Transform.rotate(
+                    angle: l!.hdg! * math.pi / 180,
+                    child: Container(
+                      width: 22,
+                      height: 22,
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(colors: [c, c2]),
+                        shape: BoxShape.circle,
+                        border: Border.all(color: Colors.white, width: 2),
+                      ),
+                      child: const Icon(Icons.navigation_rounded, size: 12, color: Colors.white),
+                    ),
+                  ),
+                ),
+              if (l?.driving == true) Positioned(right: -10, top: -6, child: _badge('🚗 ${l!.kmh.round()}', Colors.black87)),
+              if (m.paused || !m.sharing) Positioned(right: -6, top: -6, child: _badge('⏸', Colors.black87)),
+              if (m.bubble) Positioned(right: -6, top: -6, child: _badge('🫧', Colors.black54)),
+              if (l?.bat != null && l!.bat! <= 20) Positioned(left: -8, bottom: -2, child: _badge('🪫${l.bat}', const Color(0xFFD32F2F))),
+            ]),
+            CustomPaint(size: const Size(16, 10), painter: _Tip(c, c2)),
+          ]),
+        ),
       ]),
     );
   }
 
   Widget _badge(String t, Color bg) => Container(
-        padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
-        decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(10), border: Border.all(color: Colors.white, width: 1.2)),
-        child: Text(t, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w700)),
+        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+        decoration: BoxDecoration(
+          color: bg,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: Colors.white, width: 1.5),
+          boxShadow: const [BoxShadow(color: Colors.black26, blurRadius: 4)],
+        ),
+        child: Text(t, style: const TextStyle(color: Colors.white, fontSize: 10, fontWeight: FontWeight.w800)),
       );
 }
 
+/// Geschwungene Spitze unter dem Profilbild
 class _Tip extends CustomPainter {
-  final Color c;
-  _Tip(this.c);
+  final Color a, b;
+  _Tip(this.a, this.b);
   @override
   void paint(Canvas canvas, Size s) {
     final p = Path()
       ..moveTo(0, 0)
-      ..lineTo(s.width, 0)
-      ..lineTo(s.width / 2, s.height)
+      ..quadraticBezierTo(s.width * 0.32, s.height * 0.15, s.width / 2, s.height)
+      ..quadraticBezierTo(s.width * 0.68, s.height * 0.15, s.width, 0)
       ..close();
-    canvas.drawPath(p, Paint()..color = c);
+    canvas.drawPath(p, Paint()..shader = LinearGradient(colors: [a, b]).createShader(Offset.zero & s));
   }
 
   @override
-  bool shouldRepaint(_Tip o) => o.c != c;
+  bool shouldRepaint(_Tip o) => o.a != a || o.b != b;
 }
 
 class BatteryChip extends StatelessWidget {
@@ -277,5 +373,43 @@ List<Widget> mapTiles(String style, bool dark) {
       return [t('$_esri/World_Street_Map/MapServer/tile/{z}/{y}/{x}')];
     default:
       return [t('https://tile.openstreetmap.org/{z}/{x}/{y}.png')];
+  }
+}
+
+/// Glas-Knopf: verschwommener Hintergrund, leuchtender Verlaufsrand wie im App-Icon
+class GlassPill extends StatelessWidget {
+  final Widget child;
+  final VoidCallback? onTap;
+  final bool circle;
+  const GlassPill({super.key, required this.child, this.onTap, this.circle = false});
+  @override
+  Widget build(BuildContext context) {
+    final dark = Theme.of(context).brightness == Brightness.dark;
+    final radius = BorderRadius.circular(circle ? 100 : 26);
+    return Container(
+      padding: const EdgeInsets.all(1.6),
+      decoration: BoxDecoration(
+        borderRadius: radius,
+        gradient: LinearGradient(
+          colors: [violet.withValues(alpha: 0.95), magenta.withValues(alpha: 0.9), coral.withValues(alpha: 0.9)],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+        ),
+        boxShadow: [
+          BoxShadow(color: magenta.withValues(alpha: dark ? 0.35 : 0.22), blurRadius: 16, offset: const Offset(0, 4)),
+          BoxShadow(color: Colors.black.withValues(alpha: 0.25), blurRadius: 10, offset: const Offset(0, 3)),
+        ],
+      ),
+      child: ClipRRect(
+        borderRadius: radius,
+        child: BackdropFilter(
+          filter: ui.ImageFilter.blur(sigmaX: 14, sigmaY: 14),
+          child: Material(
+            color: dark ? const Color(0xFF0E1638).withValues(alpha: 0.78) : Colors.white.withValues(alpha: 0.82),
+            child: InkWell(onTap: onTap, child: child),
+          ),
+        ),
+      ),
+    );
   }
 }
