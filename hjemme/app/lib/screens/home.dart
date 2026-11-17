@@ -120,11 +120,18 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
     } catch (_) {}
   }
 
+  int? _lastCircle;
+
   void _changed() {
     if (!mounted) return;
     setState(() {});
     final c = store.circle;
     if (c == null) return;
+    if (_lastCircle != null && _lastCircle != c.id) {
+      _fitted = false;
+      _shown.clear();
+    }
+    _lastCircle = c.id;
     if (!_fitted) {
       _fitted = true;
       WidgetsBinding.instance.addPostFrameCallback((_) => fitAll());
@@ -287,29 +294,11 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
             padding: const EdgeInsets.fromLTRB(12, 8, 12, 0),
             child: Column(children: [
               Row(children: [
-                _glass(
-                  child: InkWell(
-                    borderRadius: BorderRadius.circular(24),
-                    onTap: () => _circlePicker(context),
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 11),
-                      child: Row(mainAxisSize: MainAxisSize.min, children: [
-                        ShaderMask(shaderCallback: (r) => brandGradient.createShader(r), child: const Icon(Icons.favorite_rounded, color: Colors.white, size: 20)),
-                        const SizedBox(width: 8),
-                        ConstrainedBox(
-                          constraints: const BoxConstraints(maxWidth: 150),
-                          child: Text(c?.name ?? 'Kein Kreis', overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16)),
-                        ),
-                        const Icon(Icons.expand_more_rounded),
-                      ]),
-                    ),
-                  ),
-                ),
                 const Spacer(),
                 _roundBtn(Icons.chat_bubble_rounded, () => _open(const ChatScreen()), badge: unread),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 _roundBtn(Icons.notifications_rounded, () => _open(const ActivityScreen())),
-                const SizedBox(width: 8),
+                const SizedBox(width: 6),
                 _roundBtn(Icons.settings_rounded, () => _open(const SettingsScreen())),
               ]),
               if (!store.online)
@@ -380,7 +369,20 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
             Expanded(child: _action(Icons.sos_rounded, 'SOS', () => _open(const SosScreen()), danger: true)),
           ]),
         ),
-        const SizedBox(height: 8),
+        if (c != null)
+          InkWell(
+            onTap: () => _circlePicker(context),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(18, 14, 16, 2),
+              child: Row(children: [
+                Text(c.name.toUpperCase(),
+                    style: TextStyle(fontWeight: FontWeight.w800, fontSize: 12, letterSpacing: 1.2,
+                        color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55))),
+                if (store.circles.length > 1)
+                  Icon(Icons.expand_more_rounded, size: 18, color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.55)),
+              ]),
+            ),
+          ),
         if (c != null)
           for (final m in c.members) _memberTile(m, c),
         if (c != null)
@@ -511,22 +513,13 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
     );
   }
 
-  Widget _glass({required Widget child}) => GlassPill(child: child);
 
   Widget _roundBtn(IconData icon, VoidCallback onTap, {int badge = 0}) {
     return Badge(
       isLabelVisible: badge > 0,
       label: Text('$badge'),
       backgroundColor: coral,
-      child: GlassPill(
-        circle: true,
-        onTap: onTap,
-        child: SizedBox(
-          width: 46,
-          height: 46,
-          child: Center(child: ShaderMask(shaderCallback: (r) => brandGradient.createShader(r), child: Icon(icon, size: 24, color: Colors.white))),
-        ),
-      ),
+      child: GlassButton(icon: icon, onTap: onTap),
     );
   }
 
@@ -576,44 +569,7 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
     );
   }
 
-  void _circlePicker(BuildContext context) {
-    showModalBottomSheet(
-      context: context,
-      builder: (ctx) => SafeArea(
-        child: Column(mainAxisSize: MainAxisSize.min, children: [
-          const Text('Deine Kreise', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
-          const SizedBox(height: 6),
-          for (final c in store.circles)
-            ListTile(
-              leading: SizedBox(
-                width: 56,
-                height: 32,
-                child: Stack(children: [
-                  for (var i = 0; i < c.members.length && i < 3; i++) Positioned(left: i * 12.0, child: Avatar(c.members[i], size: 32, ring: false)),
-                ]),
-              ),
-              title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w700)),
-              subtitle: Text('${c.members.length} ${c.members.length == 1 ? 'Person' : 'Personen'}'),
-              trailing: c.id == store.circle?.id ? const Icon(Icons.check_circle_rounded, color: violet) : null,
-              onTap: () {
-                store.selectCircle(c.id);
-                Navigator.pop(ctx);
-                _fitted = false;
-                _changed();
-              },
-            ),
-          ListTile(
-            leading: const Icon(Icons.add_circle_outline_rounded),
-            title: const Text('Neuen Kreis gründen oder beitreten'),
-            onTap: () {
-              Navigator.pop(ctx);
-              Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCircleScreen()));
-            },
-          ),
-        ]),
-      ),
-    );
-  }
+  void _circlePicker(BuildContext context) => showCirclePicker(context);
 }
 
 /// „Unterwegs teilen“: Ziel wählen, Ankunftszeit wird geschätzt und geteilt
@@ -706,4 +662,42 @@ class _DestPickerState extends State<_DestPicker> {
       ),
     );
   }
+}
+
+/// Kreis wechseln (von der Liste unten und aus den Einstellungen)
+void showCirclePicker(BuildContext context) {
+  showModalBottomSheet(
+    context: context,
+    builder: (ctx) => SafeArea(
+      child: Column(mainAxisSize: MainAxisSize.min, children: [
+        const Text('Deine Kreise', style: TextStyle(fontWeight: FontWeight.w800, fontSize: 18)),
+        const SizedBox(height: 6),
+        for (final c in store.circles)
+          ListTile(
+            leading: SizedBox(
+              width: 56,
+              height: 32,
+              child: Stack(children: [
+                for (var i = 0; i < c.members.length && i < 3; i++) Positioned(left: i * 12.0, child: Avatar(c.members[i], size: 32, ring: false)),
+              ]),
+            ),
+            title: Text(c.name, style: const TextStyle(fontWeight: FontWeight.w700)),
+            subtitle: Text('${c.members.length} ${c.members.length == 1 ? 'Person' : 'Personen'}'),
+            trailing: c.id == store.circle?.id ? const Icon(Icons.check_circle_rounded, color: violet) : null,
+            onTap: () {
+              store.selectCircle(c.id);
+              Navigator.pop(ctx);
+            },
+          ),
+        ListTile(
+          leading: const Icon(Icons.add_circle_outline_rounded),
+          title: const Text('Neuen Kreis gründen oder beitreten'),
+          onTap: () {
+            Navigator.pop(ctx);
+            Navigator.push(context, MaterialPageRoute(builder: (_) => const AddCircleScreen()));
+          },
+        ),
+      ]),
+    ),
+  );
 }

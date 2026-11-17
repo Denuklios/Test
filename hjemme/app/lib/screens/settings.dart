@@ -14,6 +14,7 @@ import '../store.dart';
 import '../tracker.dart';
 import '../ui.dart';
 import '../updater.dart';
+import 'home.dart';
 import 'member.dart';
 import 'onboarding.dart';
 
@@ -133,6 +134,12 @@ class SettingsScreen extends StatelessWidget {
             if (me != null && c != null) Padding(padding: const EdgeInsets.symmetric(horizontal: 16), child: privacyControls(context, me)),
             if (c != null) ...[
               _head('Kreis „${c.name}“'),
+              ListTile(
+                leading: const Icon(Icons.swap_horiz_rounded),
+                title: const Text('Kreis wechseln'),
+                subtitle: Text('Aktuell: ${c.name}${store.circles.length > 1 ? ' · ${store.circles.length} Kreise' : ''}'),
+                onTap: () => showCirclePicker(context),
+              ),
               ListTile(leading: const Icon(Icons.person_add_alt_1_rounded), title: const Text('Einladen'), subtitle: Text('Code ${c.code}'), onTap: () => showInvite(context, c)),
               if (admin)
                 ListTile(

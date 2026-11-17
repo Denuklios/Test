@@ -315,8 +315,8 @@ class _CastShadow extends CustomPainter {
       r,
       Paint()
         ..shader = RadialGradient(colors: [
-          Colors.black.withValues(alpha: 0.72),
-          Colors.black.withValues(alpha: 0.4),
+          Colors.black.withValues(alpha: 0.32),
+          Colors.black.withValues(alpha: 0.15),
           Colors.black.withValues(alpha: 0),
         ], stops: const [0, 0.5, 1]).createShader(rect),
     );
