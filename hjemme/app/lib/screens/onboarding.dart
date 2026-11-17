@@ -3,6 +3,7 @@ import 'package:flutter/services.dart';
 import 'package:image_picker/image_picker.dart';
 
 import '../store.dart';
+import 'photo_crop.dart';
 import '../ui.dart';
 
 /// Einrichtung: Begrüßung → Profil → Kreis gründen oder beitreten
@@ -195,10 +196,10 @@ class _OnboardingState extends State<Onboarding> {
     );
     if (src == null) return;
     try {
-      final f = await ImagePicker().pickImage(source: src, maxWidth: 512, maxHeight: 512, imageQuality: 82, preferredCameraDevice: CameraDevice.front);
-      if (f == null) return;
-      final b = await f.readAsBytes();
-      if (mounted) setState(() => photo = b);
+      final f = await ImagePicker().pickImage(source: src, maxWidth: 1600, maxHeight: 1600, imageQuality: 90, preferredCameraDevice: CameraDevice.front);
+      if (f == null || !mounted) return;
+      final cropped = await cropPhoto(context, await f.readAsBytes());
+      if (cropped != null && mounted) setState(() => photo = cropped);
     } catch (e) {
       if (mounted) toast(context, 'Foto konnte nicht geladen werden');
     }

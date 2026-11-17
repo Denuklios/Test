@@ -17,6 +17,7 @@ import '../updater.dart';
 import 'home.dart';
 import 'member.dart';
 import 'onboarding.dart';
+import 'photo_crop.dart';
 
 String appLink() {
   final u = Uri.parse(store.api.server);
@@ -434,11 +435,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
       ),
     );
     if (src == null) return;
-    final f = await ImagePicker().pickImage(source: src, maxWidth: 400, maxHeight: 400, imageQuality: 80, preferredCameraDevice: CameraDevice.front);
+    final f = await ImagePicker().pickImage(source: src, maxWidth: 1600, maxHeight: 1600, imageQuality: 90, preferredCameraDevice: CameraDevice.front);
     if (f == null || !mounted) return;
-    final bytes = await f.readAsBytes();
-    if (!mounted) return;
-    await guard(context, () => store.uploadAvatar(bytes));
+    final cropped = await cropPhoto(context, await f.readAsBytes());
+    if (cropped == null || !mounted) return;
+    await guard(context, () => store.uploadAvatar(cropped));
   }
 }
 
