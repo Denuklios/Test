@@ -305,11 +305,11 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
                   ),
                 ),
                 const Spacer(),
-                _roundBtn('chat', () => _open(const ChatScreen()), badge: unread),
+                _roundBtn(Icons.chat_bubble_rounded, () => _open(const ChatScreen()), badge: unread),
                 const SizedBox(width: 8),
-                _roundBtn('bell', () => _open(const ActivityScreen())),
+                _roundBtn(Icons.notifications_rounded, () => _open(const ActivityScreen())),
                 const SizedBox(width: 8),
-                _roundBtn('settings', () => _open(const SettingsScreen())),
+                _roundBtn(Icons.settings_rounded, () => _open(const SettingsScreen())),
               ]),
               if (!store.online)
                 _banner('Keine Verbindung zum Server – neue Standorte werden gesammelt und später gesendet.', Icons.cloud_off_rounded, Colors.grey.shade800),
@@ -325,14 +325,14 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
               Align(
                 alignment: Alignment.centerRight,
                 child: Column(children: [
-                  _roundBtn('layers', () => _styles(context)),
+                  _roundBtn(Icons.layers_rounded, () => _styles(context)),
                   const SizedBox(height: 8),
-                  _roundBtn('locate', () {
+                  _roundBtn(Icons.my_location_rounded, () {
                     final me = c?.member(store.api.memberId ?? '');
                     if (me != null) focusMember(me, open: false);
                   }),
                   const SizedBox(height: 8),
-                  _roundBtn('group', fitAll),
+                  _roundBtn(Icons.groups_rounded, fitAll),
                 ]),
               ),
             ]),
@@ -372,11 +372,11 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Row(children: [
-            Expanded(child: _action('checkin', 'Check-in', () => showCheckin(context))),
+            Expanded(child: _action(Icons.where_to_vote_rounded, 'Check-in', () => showCheckin(context))),
             const SizedBox(width: 8),
-            Expanded(child: _action('unterwegs', 'Unterwegs', () => showEtaSheet(context))),
+            Expanded(child: _action(Icons.navigation_rounded, 'Unterwegs', () => showEtaSheet(context))),
             const SizedBox(width: 8),
-            Expanded(child: _action('sos', 'SOS', () => _open(const SosScreen()), danger: true)),
+            Expanded(child: _action(Icons.sos_rounded, 'SOS', () => _open(const SosScreen()), danger: true)),
           ]),
         ),
         const SizedBox(height: 8),
@@ -473,8 +473,9 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
     );
   }
 
-  Widget _action(String icon, String label, VoidCallback onTap, {bool danger = false}) {
+  Widget _action(IconData icon, String label, VoidCallback onTap, {bool danger = false}) {
     final dark = Theme.of(context).brightness == Brightness.dark;
+    final grad = danger ? const LinearGradient(colors: [Color(0xFFFF2D55), coral], begin: Alignment.topLeft, end: Alignment.bottomRight) : brandGradient;
     return Material(
       color: Colors.transparent,
       child: Ink(
@@ -490,7 +491,16 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Column(children: [
-              IconTile(icon, size: 54),
+              Container(
+                width: 46,
+                height: 46,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  gradient: grad,
+                  boxShadow: [BoxShadow(color: (danger ? const Color(0xFFFF2D55) : magenta).withValues(alpha: 0.45), blurRadius: 14, offset: const Offset(0, 4))],
+                ),
+                child: Icon(icon, color: Colors.white, size: 24),
+              ),
               const SizedBox(height: 8),
               Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
             ]),
@@ -502,12 +512,20 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
 
   Widget _glass({required Widget child}) => GlassPill(child: child);
 
-  Widget _roundBtn(String icon, VoidCallback onTap, {int badge = 0}) {
+  Widget _roundBtn(IconData icon, VoidCallback onTap, {int badge = 0}) {
     return Badge(
       isLabelVisible: badge > 0,
       label: Text('$badge'),
       backgroundColor: coral,
-      child: IconTile(icon, size: 50, onTap: onTap),
+      child: GlassPill(
+        circle: true,
+        onTap: onTap,
+        child: SizedBox(
+          width: 46,
+          height: 46,
+          child: Center(child: ShaderMask(shaderCallback: (r) => brandGradient.createShader(r), child: Icon(icon, size: 24, color: Colors.white))),
+        ),
+      ),
     );
   }
 

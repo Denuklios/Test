@@ -89,7 +89,7 @@ void main() {
     t.view.devicePixelRatio = 2.75;
     await t.pumpWidget(app(w, b: b));
     await t.runAsync(() async {
-      for (final a in ['assets/welcome.jpg', 'assets/sos.jpg', for (final n in ['chat', 'bell', 'settings', 'layers', 'locate', 'group', 'checkin', 'unterwegs', 'sos']) 'assets/icons/$n.png']) {
+      for (final a in ['assets/welcome.jpg', 'assets/sos.jpg']) {
         await precacheImage(AssetImage(a), t.element(find.byType(MaterialApp)));
       }
     });
