@@ -413,3 +413,45 @@ class GlassPill extends StatelessWidget {
     );
   }
 }
+
+/// Symbol-Kachel aus den Canva-Grafiken (Stil wie das App-Icon), mit Leuchten und Drück-Effekt
+class IconTile extends StatefulWidget {
+  final String name;
+  final double size;
+  final VoidCallback? onTap;
+  const IconTile(this.name, {super.key, this.size = 50, this.onTap});
+  @override
+  State<IconTile> createState() => _IconTileState();
+}
+
+class _IconTileState extends State<IconTile> {
+  bool _down = false;
+  @override
+  Widget build(BuildContext context) {
+    final glow = widget.name == 'sos' ? const Color(0xFFFF2D55) : magenta;
+    final tile = AnimatedScale(
+      scale: _down ? 0.9 : 1,
+      duration: const Duration(milliseconds: 120),
+      child: Container(
+        width: widget.size,
+        height: widget.size,
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(widget.size * 0.24),
+          boxShadow: [
+            BoxShadow(color: glow.withValues(alpha: 0.38), blurRadius: widget.size * 0.32, offset: Offset(0, widget.size * 0.08)),
+            BoxShadow(color: Colors.black.withValues(alpha: 0.35), blurRadius: widget.size * 0.12, offset: Offset(0, widget.size * 0.05)),
+          ],
+        ),
+        child: Image.asset('assets/icons/${widget.name}.png', width: widget.size, height: widget.size, filterQuality: FilterQuality.medium),
+      ),
+    );
+    if (widget.onTap == null) return tile;
+    return GestureDetector(
+      onTapDown: (_) => setState(() => _down = true),
+      onTapUp: (_) => setState(() => _down = false),
+      onTapCancel: () => setState(() => _down = false),
+      onTap: widget.onTap,
+      child: tile,
+    );
+  }
+}

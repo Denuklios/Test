@@ -38,12 +38,30 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
   late final Ticker _ticker;
   Duration _lastTick = Duration.zero;
 
+  static const _geo = Distance();
+
+  /// Wo die Person jetzt vermutlich ist: letzte Meldung + Weiterfahrt in Fahrtrichtung
+  /// (nur in Bewegung, höchstens 30 s), damit der Pin nicht springt, sondern gleitet.
   LatLng? _target(Member m) {
+    LatLng? pos = m.last?.pos;
+    var ts = m.last?.ts ?? 0;
+    double? spd = m.last?.spd, hdg = m.last?.hdg, acc = m.last?.acc;
     if (m.id == store.api.memberId) {
       final p = Tracker.i.lastPos;
-      if (p != null && !m.paused && p.timestamp.millisecondsSinceEpoch >= (m.last?.ts ?? 0) - 1000) return LatLng(p.latitude, p.longitude);
+      if (p != null && !m.paused && p.timestamp.millisecondsSinceEpoch >= ts - 1000) {
+        pos = LatLng(p.latitude, p.longitude);
+        ts = p.timestamp.millisecondsSinceEpoch;
+        spd = p.speed;
+        hdg = p.heading;
+        acc = p.accuracy;
+      }
     }
-    return m.last?.pos;
+    if (pos == null || m.paused || m.bubble) return pos;
+    final age = (DateTime.now().millisecondsSinceEpoch - ts) / 1000.0;
+    if (spd != null && hdg != null && spd > 2 && hdg >= 0 && (acc ?? 99) <= 60 && age > 0 && age < 45) {
+      return _geo.offset(pos, spd * math.min(age, 30) * 0.92, hdg);
+    }
+    return pos;
   }
 
   LatLng? shownPos(Member m) => _shown[m.id] ?? _target(m);
@@ -53,7 +71,7 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
     _lastTick = elapsed;
     final c = store.circle;
     if (c == null || dt <= 0) return;
-    final k = 1 - math.exp(-dt / 0.5);
+    final k = 1 - math.exp(-dt / 0.7);
     var moved = false;
     for (final m in c.members) {
       final t = _target(m);
@@ -287,11 +305,11 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
                   ),
                 ),
                 const Spacer(),
-                _roundBtn(Icons.chat_bubble_rounded, () => _open(const ChatScreen()), badge: unread),
+                _roundBtn('chat', () => _open(const ChatScreen()), badge: unread),
                 const SizedBox(width: 8),
-                _roundBtn(Icons.notifications_rounded, () => _open(const ActivityScreen())),
+                _roundBtn('bell', () => _open(const ActivityScreen())),
                 const SizedBox(width: 8),
-                _roundBtn(Icons.settings_rounded, () => _open(const SettingsScreen())),
+                _roundBtn('settings', () => _open(const SettingsScreen())),
               ]),
               if (!store.online)
                 _banner('Keine Verbindung zum Server – neue Standorte werden gesammelt und später gesendet.', Icons.cloud_off_rounded, Colors.grey.shade800),
@@ -307,14 +325,14 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
               Align(
                 alignment: Alignment.centerRight,
                 child: Column(children: [
-                  _roundBtn(Icons.layers_rounded, () => _styles(context)),
+                  _roundBtn('layers', () => _styles(context)),
                   const SizedBox(height: 8),
-                  _roundBtn(Icons.my_location_rounded, () {
+                  _roundBtn('locate', () {
                     final me = c?.member(store.api.memberId ?? '');
                     if (me != null) focusMember(me, open: false);
                   }),
                   const SizedBox(height: 8),
-                  _roundBtn(Icons.groups_rounded, fitAll),
+                  _roundBtn('group', fitAll),
                 ]),
               ),
             ]),
@@ -354,11 +372,11 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 14),
           child: Row(children: [
-            Expanded(child: _action(Icons.where_to_vote_rounded, 'Check-in', () => showCheckin(context))),
+            Expanded(child: _action('checkin', 'Check-in', () => showCheckin(context))),
             const SizedBox(width: 8),
-            Expanded(child: _action(Icons.navigation_rounded, 'Unterwegs', () => showEtaSheet(context))),
+            Expanded(child: _action('unterwegs', 'Unterwegs', () => showEtaSheet(context))),
             const SizedBox(width: 8),
-            Expanded(child: _action(Icons.sos_rounded, 'SOS', () => _open(const SosScreen()), danger: true)),
+            Expanded(child: _action('sos', 'SOS', () => _open(const SosScreen()), danger: true)),
           ]),
         ),
         const SizedBox(height: 8),
@@ -455,9 +473,8 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
     );
   }
 
-  Widget _action(IconData icon, String label, VoidCallback onTap, {bool danger = false}) {
+  Widget _action(String icon, String label, VoidCallback onTap, {bool danger = false}) {
     final dark = Theme.of(context).brightness == Brightness.dark;
-    final grad = danger ? const LinearGradient(colors: [Color(0xFFFF2D55), coral], begin: Alignment.topLeft, end: Alignment.bottomRight) : brandGradient;
     return Material(
       color: Colors.transparent,
       child: Ink(
@@ -473,16 +490,7 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
           child: Padding(
             padding: const EdgeInsets.symmetric(vertical: 12),
             child: Column(children: [
-              Container(
-                width: 46,
-                height: 46,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  gradient: grad,
-                  boxShadow: [BoxShadow(color: (danger ? const Color(0xFFFF2D55) : magenta).withValues(alpha: 0.45), blurRadius: 14, offset: const Offset(0, 4))],
-                ),
-                child: Icon(icon, color: Colors.white, size: 24),
-              ),
+              IconTile(icon, size: 54),
               const SizedBox(height: 8),
               Text(label, style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 14)),
             ]),
@@ -494,20 +502,12 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
 
   Widget _glass({required Widget child}) => GlassPill(child: child);
 
-  Widget _roundBtn(IconData icon, VoidCallback onTap, {int badge = 0}) {
+  Widget _roundBtn(String icon, VoidCallback onTap, {int badge = 0}) {
     return Badge(
       isLabelVisible: badge > 0,
       label: Text('$badge'),
       backgroundColor: coral,
-      child: GlassPill(
-        circle: true,
-        onTap: onTap,
-        child: SizedBox(
-          width: 46,
-          height: 46,
-          child: Center(child: ShaderMask(shaderCallback: (r) => brandGradient.createShader(r), child: Icon(icon, size: 24, color: Colors.white))),
-        ),
-      ),
+      child: IconTile(icon, size: 50, onTap: onTap),
     );
   }
 
