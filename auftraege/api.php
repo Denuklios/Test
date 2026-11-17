@@ -706,13 +706,7 @@ try {
                 }
                 log_order($db, $id, $user, 'edit');
             } else {
-                $year = date('Y');
-                $n = (int)$db->query("SELECT COUNT(*) FROM orders WHERE nr LIKE '$year-%'")->fetchColumn() + 1;
-                do {
-                    $nr = sprintf('%s-%04d', $year, $n++);
-                    $ex = $db->prepare('SELECT 1 FROM orders WHERE nr = ?');
-                    $ex->execute([$nr]);
-                } while ($ex->fetchColumn());
+                $nr = wf_next_order_nr($db);
                 $db->prepare('INSERT INTO orders (nr, customer_id, title, description, article, qty, price, deposit, currency, pay_status, status, due_date, worker_id, notes, items, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
                    ->execute([$nr, $cid, $title, s($in, 'description', 5000), s($in, 'article', 300), $qty, $price, $deposit, $cur, $pay, $status, $due, $wid, s($in, 'notes', 5000), json_encode($items, JSON_UNESCAPED_UNICODE), $user['id'] ?: null]);
                 $id = (int)$db->lastInsertId();
@@ -1547,13 +1541,7 @@ try {
                     $due = preg_match('/^\d{4}-\d{2}-\d{2}$/', (string)($q['wish_date'] ?? '')) ? $q['wish_date'] : null;
                     $note = 'Aus Website-Anfrage #' . $qid . ' vom ' . date('d.m.Y', strtotime((string)$q['created_at']))
                         . ($q['phone'] ?? '' ? "\nTelefon: " . $q['phone'] : '') . ($q['file_name'] ?? '' ? "\nDatei vom Kunden: " . $q['file_name'] : '');
-                    $year = date('Y');
-                    $n = (int)$db->query("SELECT COUNT(*) FROM orders WHERE nr LIKE '$year-%'")->fetchColumn() + 1;
-                    $ex = $db->prepare('SELECT 1 FROM orders WHERE nr = ?');
-                    do {
-                        $nr = sprintf('%s-%04d', $year, $n++);
-                        $ex->execute([$nr]);
-                    } while ($ex->fetchColumn());
+                    $nr = wf_next_order_nr($db);
                     $db->prepare('INSERT INTO orders (nr, customer_id, title, description, article, qty, price, deposit, currency, pay_status, status, due_date, worker_id, notes, items, created_by) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
                        ->execute([$nr, $cid, mb_substr($title, 0, 200), mb_substr((string)($q['message'] ?? ''), 0, 5000), $prod !== '' ? mb_substr($prod, 0, 300) : '', $qty, 0, 0, $cur, 'open', 'inquiry', $due, 1, mb_substr($note, 0, 5000), '[]', $user['id'] ?: null]);
                     $oid = (int)$db->lastInsertId();
@@ -3310,6 +3298,31 @@ try {
                 wf_fail('live_locked', 409);
             }
             wf_json(['ok' => true] + wf_accounting_reset($db));
+        }
+
+        // Auftragsnummern neu ordnen (vom Inhaber per Knopf, doppelt bestätigt): Papierkorb endgültig leeren und
+        // übrige Aufträge ab Startnummer fortlaufend nummerieren. Gesperrt, sobald eine festgeschriebene Rechnung
+        // auf einen Auftrag verweist (deren Text nennt die Auftragsnummer).
+        case 'orders_renumber_info':
+            wf_json(['ok' => true, 'trash' => (int)$db->query('SELECT COUNT(*) FROM orders WHERE deleted_at IS NOT NULL')->fetchColumn(),
+                'active' => (int)$db->query('SELECT COUNT(*) FROM orders WHERE deleted_at IS NULL')->fetchColumn(),
+                'blocked' => (int)$db->query("SELECT COUNT(*) FROM invoices WHERE status = 'final' AND order_id IS NOT NULL")->fetchColumn(),
+                'start' => wf_order_nr_start($db, date('Y')), 'next' => wf_next_order_nr($db)]);
+
+        case 'orders_renumber': {
+            need_post();
+            if (($in['confirm'] ?? '') !== 'RENUMBER') {
+                wf_fail('confirm_required');
+            }
+            if ((int)$db->query("SELECT COUNT(*) FROM invoices WHERE status = 'final' AND order_id IS NOT NULL")->fetchColumn()) {
+                wf_fail('renumber_blocked', 409);
+            }
+            $start = max(1, min(9000, (int)($in['start'] ?? 1)));
+            $db->prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)')->execute(['order_nr_start_' . date('Y'), (string)$start]);
+            $r = wf_orders_reset_numbers($db);
+            $db->prepare('INSERT OR REPLACE INTO meta (key, value) VALUES (?, ?)')->execute(['orders_renumbered_last', date('Y-m-d H:i:s') . ' ' . $user['name'] . ' ' . json_encode($r)]);
+            wf_touch();
+            wf_json(['ok' => true] + $r + ['next' => wf_next_order_nr($db)]);
         }
 
         case 'go_live': {

@@ -114,6 +114,29 @@ function wf_accounting_reset(PDO $db): array
     return $n;
 }
 
+/** Startnummer der Auftragsnummern im Jahr (Einstellung order_nr_start_JJJJ, sonst 1). */
+function wf_order_nr_start(PDO $db, string $year): int
+{
+    $q = $db->prepare('SELECT value FROM meta WHERE key = ?');
+    $q->execute(['order_nr_start_' . $year]);
+    return max(1, (int)($q->fetchColumn() ?: 1));
+}
+
+/** Nächste freie Auftragsnummer: höchste Nummer des Jahres + 1, nie unter der Startnummer. */
+function wf_next_order_nr(PDO $db, ?string $year = null): string
+{
+    $year = $year ?? date('Y');
+    $q = $db->prepare("SELECT MAX(CAST(substr(nr, 6) AS INTEGER)) FROM orders WHERE nr LIKE ? AND length(nr) >= 9");
+    $q->execute([$year . '-%']);
+    $n = max((int)$q->fetchColumn() + 1, wf_order_nr_start($db, $year));
+    $ex = $db->prepare('SELECT 1 FROM orders WHERE nr = ?');
+    do {
+        $nr = sprintf('%s-%04d', $year, $n++);
+        $ex->execute([$nr]);
+    } while ($ex->fetchColumn());
+    return $nr;
+}
+
 /**
  * Nur Testphase: Aufträge im Papierkorb endgültig löschen und die übrigen Aufträge je Jahr
  * lückenlos neu nummerieren (2026-0001, 2026-0002 … in der Reihenfolge ihrer Anlage).
@@ -134,6 +157,7 @@ function wf_orders_reset_numbers(PDO $db): array
             $db->exec("DELETE FROM inquiry_orders WHERE order_id IN ($in)");
         }
         $db->exec("UPDATE mail_msgs SET order_id = NULL WHERE order_id IN ($in)");
+        $db->exec("UPDATE invoices SET order_id = NULL WHERE order_id IN ($in) AND status = 'draft'");
         $db->exec("DELETE FROM orders WHERE id IN ($in)");
     }
     // neu nummerieren: erst vorübergehende Nummern (eindeutig), dann fortlaufend je Jahr
@@ -144,7 +168,7 @@ function wf_orders_reset_numbers(PDO $db): array
     $changed = 0;
     foreach ($rows as $r) {
         $year = preg_match('/^(\d{4})-/', (string)$r['nr'], $m) ? $m[1] : substr((string)$r['created_at'], 0, 4);
-        $seq[$year] = ($seq[$year] ?? 0) + 1;
+        $seq[$year] = isset($seq[$year]) ? $seq[$year] + 1 : wf_order_nr_start($db, $year);
         $nr = sprintf('%s-%04d', $year, $seq[$year]);
         $up->execute([$nr, (int)$r['id']]);
         if ($nr !== $r['nr']) {

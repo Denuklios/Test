@@ -2702,6 +2702,20 @@ route(/^\/settings$/, async () => {
     cronBox);
   // Testphase: Rechnungen/Belege löschen und Nummern zurücksetzen, bis „Echtbetrieb starten“
   const twice = (msg, word) => { if (!confirm(msg)) return false; const v = prompt(t('cdel_type', word)); if (v === null) return false; if (v.trim().toUpperCase() !== word.toUpperCase()) { toast(t('cdel_wrong')); return false; } return true; };
+  // Auftragsnummern neu ordnen (auch im Echtbetrieb; nur solange keine festgeschriebene Rechnung auf einen Auftrag verweist)
+  const renumBox = h('div');
+  const renumCard = h('div', { class: 'card' }, h('h3', {}, '🔢 ' + t('renum_title')), renumBox);
+  api('orders_renumber_info').then((r) => {
+    if (r.blocked) { renumBox.replaceChildren(h('p', { class: 'muted' }, t('renum_blocked', r.next))); return; }
+    const startIn = h('input', { type: 'number', min: 1, max: 9000, value: Math.max(r.start, 1), style: 'max-width:120px' });
+    renumBox.replaceChildren(h('p', { class: 'muted' }, t('renum_text', r.active, r.trash, r.next)),
+      h('div', { class: 'row', style: 'gap:8px;align-items:center;flex-wrap:wrap' }, h('label', { style: 'margin:0' }, t('renum_start')), startIn,
+        h('button', { class: 'btn danger', onclick: async () => {
+          const st = Math.max(1, +startIn.value || 1), y = new Date().getFullYear();
+          if (!twice(t('renum_confirm', r.trash, `${y}-${String(st).padStart(4, '0')}`), t('cdel_word'))) return;
+          try { const x = await api('orders_renumber', { body: { confirm: 'RENUMBER', start: st } }); toast(t('renum_done', x.orders_purged, x.next)); render(); } catch (e) { toast(e.message); }
+        } }, '🔢 ' + t('renum_btn'))));
+  }).catch(() => renumCard.remove());
   const testCard = me.live ? null : h('div', { class: 'card warnbox' }, h('h3', {}, '🧪 ' + t('test_title')), h('p', { class: 'muted' }, t('test_text')),
     h('div', { class: 'row', style: 'flex-wrap:wrap' },
       h('button', { class: 'btn danger', onclick: async () => {
@@ -2761,6 +2775,7 @@ route(/^\/settings$/, async () => {
   show(
     h('div', { class: 'page-head' }, h('div', {}, h('div', { class: 'eyebrow' }, t('nav_settings')), h('h1', {}, t('settings_h1_a'), ' ', h('em', {}, t('settings_h1_b'))))),
     testCard,
+    renumCard,
     themeCard,
     companyCard,
     mailCard,
