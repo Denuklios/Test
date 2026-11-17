@@ -1,0 +1,4 @@
+Options -Indexes
+<FilesMatch "\.(apk)$">
+  Header set Cache-Control "no-cache"
+</FilesMatch>

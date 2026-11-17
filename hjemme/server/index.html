@@ -1,0 +1,48 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hjemme – Familien-Ortung</title>
+<link rel="icon" href="icon.png">
+<style>
+  :root { --navy:#0B1433; --violet:#6C3BFF; --magenta:#E23BC8; --coral:#FF6A3D; }
+  * { box-sizing: border-box; }
+  body { margin:0; min-height:100vh; font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; color:#fff;
+         background: radial-gradient(circle at 30% 10%, #24307a 0, var(--navy) 60%); display:flex; align-items:center; justify-content:center; padding:24px; }
+  main { max-width: 440px; text-align:center; }
+  img { width:140px; height:140px; border-radius:32px; box-shadow: 0 20px 60px rgba(226,59,200,.35); }
+  h1 { font-size:52px; margin:20px 0 4px; letter-spacing:-1.5px;
+       background: linear-gradient(90deg,var(--violet),var(--magenta),var(--coral)); -webkit-background-clip:text; background-clip:text; color:transparent; }
+  p { color: rgba(255,255,255,.78); line-height:1.5; }
+  a.btn { display:block; margin:28px 0 14px; padding:18px; border-radius:18px; color:#fff; font-weight:800; font-size:18px; text-decoration:none;
+          background: linear-gradient(90deg,var(--violet),var(--magenta),var(--coral)); box-shadow: 0 10px 30px rgba(226,59,200,.35); }
+  .code { font-size: 34px; letter-spacing: 8px; font-weight: 900; margin: 6px 0; }
+  ol { text-align:left; color: rgba(255,255,255,.8); line-height:1.7; }
+  small { color: rgba(255,255,255,.5); }
+</style>
+</head>
+<body>
+<main>
+  <img src="icon.png" alt="">
+  <h1>Hjemme</h1>
+  <p>Wissen, dass alle gut ankommen. Live-Karte, Ankunfts-Meldungen, SOS und Chat für deine Familie.</p>
+  <div id="invite" hidden>
+    <p>Dein Einladungs-Code:</p>
+    <div class="code" id="code"></div>
+  </div>
+  <a class="btn" href="app/hjemme.apk">App für Android laden</a>
+  <ol>
+    <li>Datei öffnen und „Installieren“ tippen (ggf. „Aus dieser Quelle zulassen“).</li>
+    <li>Namen eingeben, dann „Beitreten“ und den Code eingeben.</li>
+    <li>Standort „Immer erlauben“ – fertig.</li>
+  </ol>
+  <small id="ver"></small>
+</main>
+<script>
+  const c = location.hash.replace('#','').toUpperCase().replace(/[^A-Z0-9]/g,'');
+  if (c.length === 6) { document.getElementById('invite').hidden = false; document.getElementById('code').textContent = c; }
+  fetch('app/version.json?t=' + Date.now()).then(r => r.json()).then(j => document.getElementById('ver').textContent = 'Version ' + j.version).catch(() => {});
+</script>
+</body>
+</html>
