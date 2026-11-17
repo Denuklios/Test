@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 
 import 'package:battery_plus/battery_plus.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter/widgets.dart';
 import 'package:geolocator/geolocator.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -128,13 +129,7 @@ class Tracker {
     if (q.isEmpty) return;
     final api = await Api.load();
     if (!api.loggedIn) return;
-    int? bat;
-    var chg = false;
-    try {
-      bat = await battery.batteryLevel;
-      final s = await battery.batteryState;
-      chg = s == BatteryState.charging || s == BatteryState.full;
-    } catch (_) {}
+    final (bat, chg) = await readBattery(battery);
     final batch = q.take(400).toList();
     await api.post('loc', {'points': batch.map(jsonDecode).toList(), 'bat': bat, 'chg': chg});
     final rest = (prefs.getStringList('locQueue') ?? []).skip(batch.length).toList();
@@ -211,4 +206,25 @@ void callbackDispatcher() {
     } catch (_) {}
     return true;
   });
+}
+
+/// Akkustand lesen: zuerst direkt über Android, sonst über battery_plus.
+/// 0 % oder unsinnige Werte gelten als „unbekannt“ (null), damit keine falschen Warnungen entstehen.
+Future<(int?, bool)> readBattery(Battery battery) async {
+  try {
+    final r = await const MethodChannel('hjemme/native').invokeMapMethod<String, dynamic>('battery');
+    final l = (r?['level'] as num?)?.toInt() ?? -1;
+    if (l > 0 && l <= 100) return (l, r?['charging'] == true);
+  } catch (_) {
+    // im Hintergrund-Abgleich gibt es den Kanal nicht – dann battery_plus
+  }
+  try {
+    final l = await battery.batteryLevel;
+    final s = await battery.batteryState;
+    final chg = s == BatteryState.charging || s == BatteryState.full;
+    if (l > 0 && l <= 100) return (l, chg);
+    return (null, chg);
+  } catch (_) {
+    return (null, false);
+  }
 }

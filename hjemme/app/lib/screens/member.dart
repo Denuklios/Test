@@ -69,7 +69,7 @@ class _MemberSheetState extends State<_MemberSheet> {
             const SizedBox(width: 16),
             Expanded(
               child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
-                Text(isMe ? '${m.name} (ich)' : m.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
+                Text(isMe && m.name.trim().toLowerCase() != 'ich' ? '${m.name} (ich)' : m.name, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.w900)),
                 const SizedBox(height: 2),
                 Text(statusLine(m, c), style: TextStyle(color: Theme.of(context).colorScheme.onSurface.withValues(alpha: 0.7))),
               ]),

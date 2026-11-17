@@ -480,7 +480,7 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
       contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
       leading: Avatar(m, size: 48),
       title: Row(children: [
-        Flexible(child: Text(isMe ? '${m.name} (ich)' : m.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))),
+        Flexible(child: Text(isMe && m.name.trim().toLowerCase() != 'ich' ? '${m.name} (ich)' : m.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))),
         if (sos) const Padding(padding: EdgeInsets.only(left: 6), child: Text('🆘')),
         if (m.isAdmin) Padding(padding: const EdgeInsets.only(left: 6), child: Icon(Icons.shield_rounded, size: 14, color: violet.withValues(alpha: 0.7))),
       ]),

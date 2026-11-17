@@ -233,7 +233,7 @@ function checkRules(array $me, array $p, ?int $bat, bool $chg, ?array $prevLast)
         }
         // Akku
         $prevBat = $prevLast['bat'] ?? null;
-        if ($bat !== null && !$chg && $bat <= LOW_BATTERY && ($prevBat === null || $prevBat > LOW_BATTERY)
+        if ($bat !== null && $bat > 0 && !$chg && $bat <= LOW_BATTERY && ($prevBat === null || $prevBat > LOW_BATTERY)
             && ($now - (int) ($alerts["bat$cid"] ?? 0)) > 3 * 3600000) {
             addEvent($cid, 'battery_low', $mid, ['bat' => $bat]);
             $alerts["bat$cid"] = $now;
@@ -429,6 +429,9 @@ function route(string $a): void {
             $bat = isset($b['bat']) ? max(0, min(100, (int) $b['bat'])) : null;
             $chg = !empty($b['chg']);
             $prev = json_decode((string) ($me['last'] ?? ''), true) ?: null;
+            // 0 % liefern manche Handys fälschlich (z. B. im Energiesparmodus) – dann letzten bekannten Wert behalten
+            if ($bat === 0) $bat = null;
+            if ($bat === null && isset($prev['bat']) && (int) $prev['bat'] > 0) $bat = (int) $prev['bat'];
             $prevTs = (int) ($prev['ts'] ?? 0);
             $now = nowMs();
             $ins = db()->prepare('INSERT INTO locs (member_id, ts, lat, lng, acc, spd, bat) VALUES (?,?,?,?,?,?,?)');

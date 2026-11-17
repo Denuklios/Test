@@ -15,6 +15,16 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hjemme/native").setMethodCallHandler { call, result ->
             when (call.method) {
                 "appVersion" -> result.success(packageManager.getPackageInfo(packageName, 0).versionName)
+                "battery" -> {
+                    // Akku direkt aus dem System-Broadcast (zuverlässiger als BatteryManager-Property)
+                    val i = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))
+                    val level = i?.getIntExtra(android.os.BatteryManager.EXTRA_LEVEL, -1) ?: -1
+                    val scale = i?.getIntExtra(android.os.BatteryManager.EXTRA_SCALE, -1) ?: -1
+                    val status = i?.getIntExtra(android.os.BatteryManager.EXTRA_STATUS, -1) ?: -1
+                    val pct = if (level >= 0 && scale > 0) Math.round(level * 100f / scale) else -1
+                    val charging = status == android.os.BatteryManager.BATTERY_STATUS_CHARGING || status == android.os.BatteryManager.BATTERY_STATUS_FULL
+                    result.success(mapOf("level" to pct, "charging" to charging))
+                }
                 "installApk" -> {
                     if (Build.VERSION.SDK_INT >= 26 && !packageManager.canRequestPackageInstalls()) {
                         result.success("permission")

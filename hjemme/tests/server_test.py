@@ -81,6 +81,9 @@ try:
     check('SOS + Chat', 'sos' in [e['type'] for e in ev] and any(e['data'].get('text') == 'Hallo 👋' for e in ev))
     check('Fremder darf nicht in Kreis schreiben', not call('send', {'circle': c['id'], 'type': 'chat', 'text': 'x'}, fremd, expect_ok=False)['ok'])
     check('ungültiges Token', not call('poll', who={'id': kind['id'], 'token': 'falsch'}, expect_ok=False)['ok'])
+    call('loc', {'points': [{'lat': 55.1006, 'lng': 10.0, 'acc': 8, 'ts': now + 12000}], 'bat': 0}, kind)
+    lena = [m for m in call('poll', who=mama, qs='&since=0')['circles'][0]['members'] if m['name'] == 'Lena'][0]
+    check('Akku 0 wird ignoriert, letzter Wert bleibt', lena['last']['bat'] == 50)
     call('leave', {'circle': c['id']}, kind)
     check('Austreten', len(call('poll', who=mama, qs='&since=0')['circles'][0]['members']) == 1)
 finally:
