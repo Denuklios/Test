@@ -51,6 +51,16 @@
     burger.setAttribute("aria-expanded", String(nav.classList.toggle("open")));
   });
 
+  /* Wichtel im Menü: beim Darüberfahren schwingt die Mützenspitze von rechts über oben nach links und zurück */
+  $$(".nav-home").forEach(function (a) {
+    var anims = $$("animate.wag", a);
+    if (!anims.length || calm || !anims[0].beginElement) return;
+    var on = function () { anims.forEach(function (x) { x.beginElement(); }); };
+    var off = function () { anims.forEach(function (x) { x.endElement(); }); };
+    a.addEventListener("mouseenter", on); a.addEventListener("focus", on);
+    a.addEventListener("mouseleave", off); a.addEventListener("blur", off);
+  });
+
   /* ---------- Laufband ---------- */
   var ribbon = $("#ribbon");
   if (ribbon && Array.isArray(JK.t.ribbon)) {
