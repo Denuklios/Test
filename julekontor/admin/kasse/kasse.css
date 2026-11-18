@@ -174,3 +174,32 @@ table.rep td:last-child { text-align: right; font-variant-numeric: tabular-nums;
 .pad .fn { font-size: 1.5rem; }
 .sheet .row .btn { min-height: 60px; font-size: 1.15rem; }
 @media (max-width: 480px) { .tile-manual { grid-column: 1 / -1; } }
+
+/* Nachtmodus der Kasse (nur wenn das Tablet auf dunkel steht): Tannengrün, Weinrot, Gold */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0f2219; --card: #17301f; --ink: #f4ead6; --muted: #c4b58f; --line: #2c4a36;
+    --red: #b8322a; --red-dark: #9a2620; --on-red: #fff7ec; --gold: #e2c27a; --gold-soft: #6b5a2c; --green: #2f6b47; --green-2: #3a7d55;
+    --err: #ffa49b; --err-bg: #3e1a17; --ok-bg: #1c3a28;
+    --shadow: 0 1px 0 #0006, 0 10px 24px -14px #000d;
+    color-scheme: dark;
+  }
+  body { background: radial-gradient(900px 420px at 30% -10%, #ffcf7a14 0, #ffcf7a00 70%), var(--paper); }
+  h2, .cart-head h2 { color: var(--gold); }
+}
+
+/* Knöpfe: Samt-Etikett mit Goldlinie */
+.btn { position: relative; isolation: isolate; border: 1px solid #5e0f0c; background: linear-gradient(180deg, #c23a30 0%, #a3201d 48%, #861812 100%);
+  box-shadow: inset 0 1px 0 #ffffff40, inset 0 -2px 0 #00000026, 0 8px 16px -10px #5e0f0cb3; text-shadow: 0 1px 0 #0000004d; }
+.btn::before { content: ""; position: absolute; inset: 4px; border: 1px solid #f1d491a6; border-radius: 10px; pointer-events: none; }
+.btn:active { transform: translateY(1px); box-shadow: inset 0 2px 4px #0000004d; }
+.btn.green, .pay { border: 1px solid #163a26; background: linear-gradient(180deg, #3b7a55 0%, #2a5f3f 50%, #1f4a31 100%); box-shadow: inset 0 1px 0 #ffffff33, inset 0 -2px 0 #00000026, 0 8px 16px -10px #163a26b3; }
+.pay[disabled] { filter: grayscale(.6) opacity(.55); }
+.btn.ghost { background: linear-gradient(180deg, #fffdf8, #f6ecd6); color: var(--red); border-color: #c9a865; text-shadow: none; }
+.btn.ghost::before { border-color: #c9a86559; }
+.tool { border-radius: 12px; background: linear-gradient(180deg, #fffdf8, #f6ecd6); border-color: #c9a865; box-shadow: inset 0 1px 0 #fff, 0 4px 10px -8px #5a3214a6; }
+.cart-tools .tool-main { background: linear-gradient(180deg, #c23a30 0%, #a3201d 48%, #861812 100%); border-color: #5e0f0c; color: #fff7ec; box-shadow: inset 0 1px 0 #ffffff40, 0 6px 12px -8px #5e0f0cb3; }
+@media (prefers-color-scheme: dark) {
+  .btn.ghost, .tool { background: linear-gradient(180deg, #1f3b29, #17301f); color: var(--gold); border-color: #e2c27a80; box-shadow: none; }
+  .btn.ghost::before { border-color: #e2c27a33; }
+}

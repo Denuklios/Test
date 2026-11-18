@@ -15,7 +15,7 @@ header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:;
 <meta name="csrf" content="<?= h(csrf_token()) ?>">
 <title>Preiskalkulation · Julekontor</title>
 <link rel="icon" href="../kasse/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="kalk.css?v=2">
+<link rel="stylesheet" href="kalk.css?v=4">
 <script src="kalk.js?v=2" defer></script>
 </head>
 <body>

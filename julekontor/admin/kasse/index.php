@@ -11,7 +11,7 @@ header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:;
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no">
 <meta name="robots" content="noindex, nofollow">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#a3201d">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
@@ -21,7 +21,7 @@ header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:;
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="kasse.css?v=6">
+<link rel="stylesheet" href="kasse.css?v=8">
 <script src="../assets/scanner.js?v=2" defer></script>
 <script src="../assets/qrcode.js?v=1" defer></script>
 <script src="kasse.js?v=6" defer></script>

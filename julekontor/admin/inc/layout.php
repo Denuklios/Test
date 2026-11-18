@@ -8,12 +8,12 @@ function page_head(string $title): void { ?>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<meta name="color-scheme" content="light">
+<meta name="color-scheme" content="light dark">
 <meta name="theme-color" content="#7c1511">
 <meta name="robots" content="noindex, nofollow">
 <title><?= h($title) ?> · Julekontor Admin</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎅</text></svg>">
-<link rel="stylesheet" href="admin.css?v=3">
+<link rel="stylesheet" href="admin.css?v=5">
 <script src="assets/scanner.js?v=2" defer></script>
 </head>
 <?php }

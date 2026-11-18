@@ -235,3 +235,75 @@ body.auth { background: linear-gradient(#f7f0e1cc, #f7f0e1e6), url(../assets/img
   .side { background: #fffbf3; }
   .top .brand img { height: 32px; }
 }
+
+/* ================= Nachtmodus (nur wenn das Gerät auf dunkel steht): Tannengrün, Weinrot, Gold, Kerzenlicht ================= */
+@media (prefers-color-scheme: dark) {
+  :root {
+    --paper: #0f2219; --card: #17301f; --ink: #f4ead6; --muted: #c4b58f; --line: #2c4a36;
+    --red: #b8322a; --red-dark: #9a2620; --on-red: #fff7ec; --gold: #e2c27a; --green: #8fc79e;
+    --gold-soft: #2a3f2a; --pine: #2f6b47; --pine-soft: #1c3a28;
+    --ok-bg: #1c3a28; --err-bg: #3e1a17; --err: #ffa49b;
+    --shadow: 0 1px 0 #0006, 0 14px 30px -18px #000d;
+    color-scheme: dark;
+  }
+  body { background:
+    radial-gradient(900px 420px at 75% -5%, #ffcf7a1f 0, #ffcf7a00 70%),
+    radial-gradient(700px 500px at 0% 100%, #7c151133 0, #7c151100 70%),
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 1 0 0 0 0 .9 0 0 0 0 .7 0 0 0 .035 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"),
+    var(--paper); }
+  h1, h2, legend, .tile h2 { color: var(--gold); }
+  .side { background: #122a1dee; border-right-color: #2c4a36; box-shadow: 8px 0 22px -18px #000; }
+  .side a { color: var(--ink); }
+  .side a:hover { background: #21402d; }
+  .side a.active { background: var(--red); color: #fff7ec; box-shadow: 0 6px 14px -8px #000, inset 0 0 0 1px #e2c27a55; }
+  .side a.nav-kasse { background: #2f6b47; color: #fff7ec; }
+  .nav-group { color: var(--gold); }
+  .card { background: linear-gradient(180deg, #1b3725, #162f20); border-color: #2c4a36; }
+  .tile { border-top-color: var(--gold); }
+  .tile:hover { border-color: var(--gold); }
+  .tile .big { background: radial-gradient(circle at 50% 40%, #ffd98a33, #2a3f2a 70%); border-color: #e2c27a66; }
+  table.list th { background: #21402d; color: var(--gold); }
+  table.list tr.click:hover td { background: #1f3b29; }
+  input:not([type=checkbox]):not([type=radio]), select, textarea { background: #0f2219; border-color: #3a5c45; color: var(--ink); }
+  input:focus, select:focus, textarea:focus { border-color: var(--gold); }
+  .btn.ghost { color: var(--gold); border-color: #e2c27a99; }
+  .btn.ghost:hover { background: #21402d; }
+  .flash { background: #1c3a28; color: #b9e2c3; border-left-color: #8fc79e; }
+  .flash.err { background: #3e1a17; color: #ffb4ab; border-left-color: #ff8a80; }
+  .pill { background: #21402d; border-color: #2c4a36; color: var(--ink); }
+  .pill.gold { color: var(--gold); border-color: var(--gold); }
+  a { color: inherit; }
+  .hint, .muted { color: var(--muted); }
+  .garland-strip { filter: drop-shadow(0 4px 6px #000a) brightness(1.05); }
+  .side-deco { filter: drop-shadow(0 6px 10px #000a); }
+  body.auth { background: linear-gradient(#0f2219cc, #0f2219e6), url(../assets/img/butik.webp) center / cover fixed, var(--paper); }
+  .auth-card { background: #17301f; border-color: var(--gold); }
+  .auth-card h1 { color: var(--gold); }
+  .brand-img { background: #fffbf3; padding: 8px 14px; border-radius: 6px; border: 1px solid #c2913f; }
+  .img-slot img, .img-slot .ph { background: #0f2219; }
+  .door-tile { background: #17301f; }
+  .door-tile b { color: var(--gold); }
+}
+
+/* ================= Knöpfe: Samt-Etikett mit Goldlinie ================= */
+.btn { position: relative; isolation: isolate; border-radius: 12px; border: 1px solid #5e0f0c; letter-spacing: .02em; font-weight: 800;
+  background: linear-gradient(180deg, #c23a30 0%, #a3201d 48%, #861812 100%); color: #fff7ec;
+  box-shadow: inset 0 1px 0 #ffffff40, inset 0 -2px 0 #00000026, 0 6px 14px -8px #5e0f0cb3; text-shadow: 0 1px 0 #0000004d;
+  transition: transform .15s, box-shadow .15s, filter .15s; }
+.btn::before { content: ""; position: absolute; inset: 3px; border: 1px solid #f1d491a6; border-radius: 9px; pointer-events: none; }
+.btn:hover { background: linear-gradient(180deg, #cc4337 0%, #ad251f 48%, #8f1a14 100%); transform: translateY(-1px); box-shadow: inset 0 1px 0 #ffffff4d, inset 0 -2px 0 #00000026, 0 10px 18px -10px #5e0f0cd9; }
+.btn:active { transform: translateY(1px); box-shadow: inset 0 2px 4px #0000004d; }
+.btn.green { border-color: #163a26; background: linear-gradient(180deg, #3b7a55 0%, #2a5f3f 50%, #1f4a31 100%); box-shadow: inset 0 1px 0 #ffffff33, inset 0 -2px 0 #00000026, 0 6px 14px -8px #163a26b3; }
+.btn.green:hover { background: linear-gradient(180deg, #448660 0%, #306a47 50%, #235237 100%); }
+.btn.danger { border-color: #6e110d; }
+.btn.ghost { background: linear-gradient(180deg, #fffdf8, #f6ecd6); color: var(--red); border-color: #c9a865; text-shadow: none; box-shadow: inset 0 1px 0 #fff, 0 4px 10px -8px #5a3214a6; }
+.btn.ghost::before { border-color: #c9a86559; }
+.btn.ghost:hover { background: linear-gradient(180deg, #fff, #f3e4c0); color: var(--red-dark); }
+.btn.small { border-radius: 10px; } .btn.small::before { inset: 2px; border-radius: 8px; }
+.btn:focus-visible { outline: 3px solid var(--gold); outline-offset: 3px; }
+@media (prefers-color-scheme: dark) {
+  .btn { border-color: #3d0907; box-shadow: inset 0 1px 0 #ffffff33, inset 0 -2px 0 #00000040, 0 8px 16px -8px #000; }
+  .btn.ghost { background: linear-gradient(180deg, #1f3b29, #17301f); color: var(--gold); border-color: #e2c27a80; box-shadow: inset 0 1px 0 #ffffff14, 0 6px 12px -8px #000; }
+  .btn.ghost::before { border-color: #e2c27a33; }
+  .btn.ghost:hover { background: linear-gradient(180deg, #264a33, #1c3a28); color: #f6dc9d; }
+}
