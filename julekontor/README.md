@@ -13,7 +13,8 @@ Vollständige Website für das Julekontor (Danmarks Gammeldags Julebutik) in Dä
 | `assets/` | Gestaltung, Programm, Schriften, Logo, Truck und die gemalten Bilder (mit Canva erzeugt) |
 | `admin/` | Admin-Bereich, siehe unten |
 | `data/` | Einstellungen (`site.json`), Datenbank (`private/shop.sqlite`), hochgeladene Fotos (`bilder/`, `produkte/`) |
-| `bastelwerkstatt/` | Bastelwerkstatt: Materialkosten, Arbeitszeit und Verkaufspreis je Projekt |
+| `admin/kalkulation/` | **Preiskalkulation**: Materiallager, Projekte, Arbeitszeit mit Stoppuhr, Stundensatz aus Monatsbedarf, großer Preiszettel, Übernahme des Preises in die Kasse |
+| `bastelwerkstatt/` | Alte Bastelwerkstatt-App (nur noch, um ihre Sicherung in die Preiskalkulation zu übernehmen) |
 
 ## Website pflegen (Admin)
 
@@ -125,3 +126,15 @@ Hinweise: Das Solo braucht WLAN (oder Mobilfunk). Rückerstattungen auf die Kart
 
 - `bastelwerkstatt/api/me`, `api/img/<id>` und weitere `api/…` – Anmeldung und Sync. Ohne Server speichert die Bastelwerkstatt nur lokal im Browser.
 - `bastelwerkstatt/sw.js` – Service Worker (offline), wird nur unter HTTPS geladen.
+
+## Preiskalkulation (Admin → Laden → Preiskalkulation)
+
+Großzügige Arbeitsfläche unter `/admin/kalkulation/`, Daten in der gemeinsamen Datenbank (auf jedem Gerät gleich).
+
+- **Materiallager:** jede Rolle, Packung oder Flasche einmal mit Preis in kr. oder € (Umrechnung mit dem Euro-Kurs aus den Shop-Einstellungen). Arten: Fläche, Länge, Stück, Gewicht, Gießpulver mit Mischverhältnis, Form & Werkzeug (Verschleiß), Flüssig. Über 70 Vorlagen.
+- **Projekt:** Verbrauch je Material, Stückzahl pro Durchgang, Arbeitszeit (Stoppuhr), Verpackung pro Stück, Sonstiges, Foto.
+- **Preiszettel:** Material + Arbeitszeit + Verpackung + Sonstiges = Selbstkosten → + Gewinnaufschlag (Schieberegler) → + 25 % Moms → + Kartengebühr → auf volle Krone, 5 oder 10 kr. gerundet. Dazu Gewinn pro Stück, Marge, Verdienst pro Stunde, „Was wäre wenn“-Tabelle, eigener Preis, Euro-Hinweis und wie viele Stück für den Monatsbedarf nötig sind.
+- **Stundensatz:** Standard 150 kr. (grob Einzelhandelsniveau in Dänemark) oder aus dem Monatsbedarf: (Netto ÷ (1 − Steuern) + feste Kosten) ÷ Bastelstunden.
+- **In die Kasse:** legt einen Artikel mit dem Preis an oder aktualisiert den verknüpften. Einkaufspreis = Material + Verpackung + Sonstiges pro Stück.
+- **Nachbauen:** Bereitlege-Liste für N Stück mit Mengen, Packungen, Kosten, Zeit und Verkaufswert.
+- **Alte Daten:** Sicherung der alten Bastelwerkstatt unter „Stundensatz & Einstellungen“ übernehmen.

@@ -19,6 +19,7 @@ const JK_MODULES = [
     'verkaeufe'     => ['title' => 'Belege',           'icon' => '🧮', 'ready' => true,  'group' => 'Laden',   'roles' => JK_ALL],
     'abschluss'     => ['title' => 'Tagesabschluss',   'icon' => '🔒', 'ready' => true,  'group' => 'Laden',   'roles' => JK_ALL],
     'berichte'      => ['title' => 'Berichte',         'icon' => '📊', 'ready' => true,  'group' => 'Laden',   'roles' => ['admin']],
+    'kalkulation'   => ['title' => 'Preiskalkulation', 'icon' => '🧮', 'ready' => true, 'group' => 'Laden', 'roles' => ['admin'], 'href' => 'kalkulation/'],
     'etiketten'     => ['title' => 'Etiketten',        'icon' => '🔖', 'ready' => true,  'group' => 'Laden',   'roles' => ['admin']],
     'einstellungen' => ['title' => 'Kassen-Einstellungen', 'icon' => '⚙️', 'ready' => true, 'group' => 'Laden', 'roles' => ['admin']],
     'bestellungen'  => ['title' => 'Bestellungen',     'icon' => '🛒', 'ready' => true,  'group' => 'Online-Shop', 'roles' => ['admin']],

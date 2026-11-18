@@ -62,10 +62,10 @@ $target = strtotime((string)($site['countdownTarget'] ?? ''));
     <h2>Adventskalender</h2>
     <p class="muted"><?= $nDoors ?> von 24 Türchen gefüllt</p>
   </a>
-  <a class="card tile" href="../bastelwerkstatt/" target="_blank" rel="noopener">
-    <span class="big" aria-hidden="true">✂️</span>
-    <h2>Bastelwerkstatt ↗</h2>
-    <p class="muted">Kalkulation für Bastelprojekte</p>
+  <a class="card tile" href="kalkulation/">
+    <span class="big" aria-hidden="true">🧮</span>
+    <h2>Preiskalkulation</h2>
+    <p class="muted">Material, Arbeitszeit und Verkaufspreis für jedes Stück – mit Übernahme in die Kasse</p>
   </a>
   <?php endif; ?>
 </div>

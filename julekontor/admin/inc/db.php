@@ -206,6 +206,34 @@ function migrate(PDO $db): void {
         }
         $db->exec('PRAGMA user_version = 7');
     }
+    if ($v < 8) {
+        $db->exec(<<<SQL
+        CREATE TABLE calc_categories (id INTEGER PRIMARY KEY, name TEXT NOT NULL, sort INTEGER NOT NULL DEFAULT 0);
+        CREATE TABLE calc_materials (                -- Materiallager der Preiskalkulation
+            id INTEGER PRIMARY KEY, name TEXT NOT NULL, grp TEXT NOT NULL DEFAULT '',
+            type TEXT NOT NULL,                      -- area, length, piece, weight, cast, wear, volume
+            price REAL NOT NULL DEFAULT 0,           -- Preis der Packung in der angegebenen Währung
+            currency TEXT NOT NULL DEFAULT 'DKK',    -- DKK oder EUR
+            pack TEXT NOT NULL DEFAULT '{}',         -- Packungsgröße (JSON)
+            supplier TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', updated TEXT NOT NULL);
+        CREATE TABLE calc_projects (
+            id INTEGER PRIMARY KEY, category_id INTEGER, name TEXT NOT NULL, notes TEXT NOT NULL DEFAULT '',
+            status TEXT NOT NULL DEFAULT 'arbeit',   -- arbeit, fertig
+            batch INTEGER NOT NULL DEFAULT 1,        -- Material und Zeit gelten für so viele Stück
+            minutes REAL NOT NULL DEFAULT 0, wage REAL, markup REAL,
+            packaging REAL NOT NULL DEFAULT 0,       -- Verpackung pro Stück in Kronen
+            extra REAL NOT NULL DEFAULT 0,           -- Sonstiges pro Durchgang in Kronen
+            own_price REAL,                          -- eigener Verkaufspreis (statt des errechneten)
+            product_id INTEGER, image TEXT NOT NULL DEFAULT '', built INTEGER NOT NULL DEFAULT 0, timer_start INTEGER,
+            created TEXT NOT NULL, updated TEXT NOT NULL);
+        CREATE TABLE calc_lines (
+            id INTEGER PRIMARY KEY, project_id INTEGER NOT NULL REFERENCES calc_projects(id) ON DELETE CASCADE,
+            material_id INTEGER NOT NULL REFERENCES calc_materials(id) ON DELETE CASCADE,
+            use TEXT NOT NULL DEFAULT '{}', sort INTEGER NOT NULL DEFAULT 0);
+        CREATE INDEX calc_lines_project ON calc_lines(project_id);
+        PRAGMA user_version = 8;
+        SQL);
+    }
 }
 
 /* ---------- Einstellungen ---------- */
@@ -239,6 +267,17 @@ const SHOP_DEFAULTS = [
     'web_pay_card' => '0',             // Karte über SumUp (Online-Bezahlseite)
     'web_bank_text' => '',             // Bankverbindung für Überweisung
     'web_shop_on'  => '1',             // Bestellen im Online-Shop möglich
+    'calc_wage'    => '150',           // Preiskalkulation: Stundenlohn in Kronen
+    'calc_markup'  => '30',            // Gewinnaufschlag in Prozent
+    'calc_fee'     => '0',             // Kartengebühr in Prozent
+    'calc_vat'     => '1',             // Moms auf den Preis rechnen
+    'calc_round'   => '5',             // auf volle 5 oder 10 Kronen runden
+    'calc_round_mode' => 'up',         // up = aufrunden, near = kaufmännisch
+    'calc_wage_mode' => 'standard',    // standard = fester Stundensatz, bedarf = aus dem Monatsbedarf errechnet
+    'calc_need'    => '0',             // so viel Geld braucht man im Monat netto (Kronen)
+    'calc_tax'     => '35',            // geschätzte Steuern und Abgaben in Prozent
+    'calc_fixed'   => '0',             // feste Kosten pro Monat (Kronen), z. B. Miete, Strom
+    'calc_hours'   => '100',           // so viele Stunden im Monat wird gebastelt
     'sumup_enabled' => '0',
     'sumup_api_key' => '',
     'sumup_affiliate_key' => '',
