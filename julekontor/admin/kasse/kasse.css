@@ -203,3 +203,27 @@ table.rep td:last-child { text-align: right; font-variant-numeric: tabular-nums;
   .btn.ghost, .tool { background: linear-gradient(180deg, #1f3b29, #17301f); color: var(--gold); border-color: #e2c27a80; box-shadow: none; }
   .btn.ghost::before { border-color: #e2c27a33; }
 }
+
+/* Kopf als Samtband mit Steppnaht und Logo-Etikett – wie auf der Website und im Admin */
+.bar { position: relative; isolation: isolate; border-bottom: 0;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='120'%3E%3Cfilter id='v'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85 .32' numOctaves='3' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 -.12'/%3E%3C/filter%3E%3Crect width='240' height='120' filter='url(%23v)'/%3E%3C/svg%3E"),
+    radial-gradient(120% 90% at 22% -30%, #ffffff2e, #fff0 60%),
+    linear-gradient(180deg, #a82a22 0%, #8a1814 22%, #6f0f0c 62%, #540a08 100%);
+  box-shadow: inset 0 1px 0 #ffffff33, inset 0 -1px 0 #00000080, 0 5px 12px -4px #2a0605b3; color: #fff7ec;
+  padding-block: 10px 12px; padding-top: max(10px, env(safe-area-inset-top)); }
+.bar::before, .bar::after { content: ""; position: absolute; left: 0; right: 0; height: 7px; pointer-events: none; z-index: -1;
+  background: linear-gradient(#e6c67f, #b98a36) 0 0 / 100% 2px no-repeat, repeating-linear-gradient(90deg, #e6c67fcc 0 9px, #0000 9px 15px) 0 5px / 100% 1.5px no-repeat; }
+.bar::before { top: 0; }
+.bar::after { bottom: 0; transform: scaleY(-1); }
+.brand { display: flex; align-items: center; gap: 10px; }
+.brand img { height: 38px; width: auto; background: #fffbf3; padding: 4px 10px; border: 1px solid #c2913f; outline: 1px solid #c2913f80; outline-offset: -4px; border-radius: 3px; rotate: -1.5deg; box-shadow: 0 6px 10px -5px #2a0605cc; }
+.brand span { color: #ffe9c2; opacity: 1; }
+.search input { box-shadow: inset 0 2px 3px #3a1d1726; border: 1px solid #c2913f; }
+.icon-btn { background: #ffffff1f; box-shadow: inset 0 0 0 1px #e6c67f66; }
+@media (max-width: 700px) { .brand img { height: 30px; padding: 3px 7px; } }
+@media (max-width: 700px) {
+  .bar { flex-wrap: wrap; row-gap: 8px; }
+  .brand { margin-right: auto; }
+  .search { order: 3; flex: 1 1 100%; max-width: none; }
+}

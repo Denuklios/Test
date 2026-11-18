@@ -21,14 +21,14 @@ header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:;
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" href="icon.svg" type="image/svg+xml">
 <link rel="apple-touch-icon" href="icon-192.png">
-<link rel="stylesheet" href="kasse.css?v=8">
+<link rel="stylesheet" href="kasse.css?v=9">
 <script src="../assets/scanner.js?v=2" defer></script>
 <script src="../assets/qrcode.js?v=1" defer></script>
 <script src="kasse.js?v=6" defer></script>
 </head>
 <body>
 <header class="bar">
-  <div class="brand">Julekontor <span>Kasse</span></div>
+  <div class="brand"><img src="../../assets/img/wordmark.webp" alt="Julekontor" width="520" height="216"><span>Kasse</span></div>
   <div class="search">
     <input id="search" type="search" placeholder="Suchen oder scannen …" autocomplete="off" enterkeyhint="search" aria-label="Artikel suchen">
     <button id="cam" class="icon-btn" type="button" aria-label="Mit Kamera scannen" title="Mit Kamera scannen">📷</button>
