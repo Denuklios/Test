@@ -304,3 +304,24 @@ class GlassButton extends StatelessWidget {
     );
   }
 }
+
+/// Warum kommen von diesem Handy evtl. keine Standorte? (für die Familie sichtbar)
+List<String> deviceProblems(Member m) {
+  final l = m.last;
+  final out = <String>[];
+  if (m.paused) return out;
+  if (l == null || l.ts == 0) return ['Noch kein Standort empfangen – Hjemme auf diesem Handy einmal öffnen.'];
+  final age = DateTime.now().difference(l.time);
+  if (age.inMinutes >= 30) {
+    out.add('Seit ${fmtDuration(age)} keine Meldung – Handy aus, kein Netz oder Hjemme wurde vom Handy beendet.');
+  }
+  final d = l.diag;
+  if (d == null) {
+    out.add('Alte App-Version ohne Hintergrund-Dienst – Hjemme auf diesem Handy öffnen, dann kommt das Update.');
+  } else {
+    if (d['bg'] == false) out.add('Standort nur bei geöffneter App erlaubt – in den Handy-Einstellungen auf „Immer erlauben“ stellen.');
+    if (d['opt'] == true) out.add('Akku-Optimierung ist an – Android kann Hjemme im Hintergrund stoppen.');
+    if (d['save'] == true) out.add('Energiesparmodus ist an – Standorte kommen seltener.');
+  }
+  return out;
+}

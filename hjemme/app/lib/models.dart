@@ -9,7 +9,8 @@ class LastLoc {
   final bool chg;
   final int ts;
   final String act;
-  LastLoc({this.lat, this.lng, this.acc, this.spd, this.hdg, this.bat, this.chg = false, this.ts = 0, this.act = ''});
+  final Map<String, dynamic>? diag;
+  LastLoc({this.diag, this.lat, this.lng, this.acc, this.spd, this.hdg, this.bat, this.chg = false, this.ts = 0, this.act = ''});
   factory LastLoc.fromJson(Map<String, dynamic> j) => LastLoc(
         lat: _d(j['lat']),
         lng: _d(j['lng']),
@@ -20,6 +21,7 @@ class LastLoc {
         chg: j['chg'] == true,
         ts: _i(j['ts']),
         act: (j['act'] ?? '').toString(),
+        diag: j['diag'] is Map ? Map<String, dynamic>.from(j['diag']) : null,
       );
   bool get hasPos => lat != null && lng != null;
   LatLng? get pos => hasPos ? LatLng(lat!, lng!) : null;

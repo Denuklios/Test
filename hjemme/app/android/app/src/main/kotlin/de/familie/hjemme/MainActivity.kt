@@ -15,6 +15,19 @@ class MainActivity : FlutterActivity() {
         MethodChannel(flutterEngine.dartExecutor.binaryMessenger, "hjemme/native").setMethodCallHandler { call, result ->
             when (call.method) {
                 "appVersion" -> result.success(packageManager.getPackageInfo(packageName, 0).versionName)
+                "startService" -> { LocationService.start(this); result.success(true) }
+                "stopService" -> { LocationService.stop(this); result.success(true) }
+                "locateNow" -> {
+                    if (LocationService.hasLocation(this)) {
+                        val i = Intent(this, LocationService::class.java).putExtra("now", true)
+                        try { if (Build.VERSION.SDK_INT >= 26) startForegroundService(i) else startService(i) } catch (_: Exception) {}
+                    }
+                    result.success(true)
+                }
+                "diag" -> {
+                    val d = LocationService.diag(this)
+                    result.success(mapOf("bg" to d.getBoolean("bg"), "opt" to d.getBoolean("opt"), "save" to d.getBoolean("save")))
+                }
                 "battery" -> {
                     // Akku direkt aus dem System-Broadcast (zuverlässiger als BatteryManager-Property)
                     val i = registerReceiver(null, android.content.IntentFilter(Intent.ACTION_BATTERY_CHANGED))

@@ -482,6 +482,7 @@ class HomeState extends State<Home> with TickerProviderStateMixin {
       title: Row(children: [
         Flexible(child: Text(isMe ? '${m.name} (ich)' : m.name, overflow: TextOverflow.ellipsis, style: const TextStyle(fontWeight: FontWeight.w800))),
         if (sos) const Padding(padding: EdgeInsets.only(left: 6), child: Text('🆘')),
+        if (deviceProblems(m).isNotEmpty) const Padding(padding: EdgeInsets.only(left: 6), child: Icon(Icons.warning_amber_rounded, size: 18, color: coral)),
         if (m.isAdmin) Padding(padding: const EdgeInsets.only(left: 6), child: Icon(Icons.shield_rounded, size: 14, color: violet.withValues(alpha: 0.7))),
       ]),
       subtitle: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [

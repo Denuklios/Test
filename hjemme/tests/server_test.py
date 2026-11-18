@@ -84,6 +84,9 @@ try:
     call('loc', {'points': [{'lat': 55.1006, 'lng': 10.0, 'acc': 8, 'ts': now + 12000}], 'bat': 0}, kind)
     lena = [m for m in call('poll', who=mama, qs='&since=0')['circles'][0]['members'] if m['name'] == 'Lena'][0]
     check('Akku 0 wird ignoriert, letzter Wert bleibt', lena['last']['bat'] == 50)
+    call('loc', {'points': [{'lat': 55.1006, 'lng': 10.0, 'acc': 8, 'ts': now + 13000}], 'bat': 44, 'diag': {'bg': False, 'opt': True, 'save': False, 'svc': True, 'v': '1.0.13'}}, kind)
+    lena = [m for m in call('poll', who=mama, qs='&since=0')['circles'][0]['members'] if m['name'] == 'Lena'][0]
+    check('Geräte-Einstellungen kommen an', lena['last']['diag']['bg'] is False and lena['last']['diag']['opt'] is True)
     call('leave', {'circle': c['id']}, kind)
     check('Austreten', len(call('poll', who=mama, qs='&since=0')['circles'][0]['members']) == 1)
 finally:

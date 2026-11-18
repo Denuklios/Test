@@ -91,8 +91,13 @@ class _HistoryScreenState extends State<HistoryScreen> {
               children: [
                 ...mapTiles(store.mapStyle, dark),
                 PolylineLayer(polylines: [
-                  if (shown.length > 1)
-                    Polyline(points: shown.map((p) => p.p).toList(), strokeWidth: 5, gradientColors: [violet, magenta, coral], borderColor: Colors.white, borderStrokeWidth: 1.5),
+                  // echte Strecke: nur zusammenhängende Stücke
+                  for (final ch in splitAtGaps(shown))
+                    if (ch.length > 1)
+                      Polyline(points: ch.map((p) => p.p).toList(), strokeWidth: 5, gradientColors: [violet, magenta, coral], borderColor: Colors.white, borderStrokeWidth: 1.5),
+                  // Lücken ohne Daten: gestrichelt grau
+                  for (final g in segs.whereType<Gap>())
+                    Polyline(points: [g.from, g.to], strokeWidth: 3, color: Colors.grey.withValues(alpha: 0.8), pattern: StrokePattern.dashed(segments: const [6, 8])),
                   if (selected is Trip)
                     Polyline(points: (selected as Trip).pts.map((p) => p.p).toList(), strokeWidth: 8, color: color.withValues(alpha: 0.85)),
                 ]),
@@ -193,6 +198,16 @@ class _HistoryScreenState extends State<HistoryScreen> {
           setState(() => selected = s);
           map.move(s.center, 16);
         },
+      );
+    }
+    if (s is Gap) {
+      return ListTile(
+        leading: CircleAvatar(backgroundColor: Colors.grey.withValues(alpha: 0.18), child: const Icon(Icons.signal_wifi_off_rounded, color: Colors.grey)),
+        title: const Text('Keine Standortdaten', style: TextStyle(fontWeight: FontWeight.w700)),
+        subtitle: Text('$time · ${fmtDuration(s.duration)} · ${fmtDist(meters(s.from, s.to))} Luftlinie\n'
+            'Handy aus, kein Netz oder Hjemme wurde vom Handy beendet'),
+        isThreeLine: true,
+        onTap: () => _fit([s.from, s.to]),
       );
     }
     final t = s as Trip;

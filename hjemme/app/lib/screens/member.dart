@@ -75,6 +75,28 @@ class _MemberSheetState extends State<_MemberSheet> {
               ]),
             ),
           ]),
+          if (deviceProblems(m).isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.all(12),
+              decoration: BoxDecoration(color: coral.withValues(alpha: 0.14), borderRadius: BorderRadius.circular(14), border: Border.all(color: coral.withValues(alpha: 0.5))),
+              child: Column(crossAxisAlignment: CrossAxisAlignment.start, children: [
+                Row(children: [
+                  const Icon(Icons.warning_amber_rounded, color: coral),
+                  const SizedBox(width: 8),
+                  Text(isMe ? 'Dein Handy' : '${m.name}s Handy', style: const TextStyle(fontWeight: FontWeight.w800)),
+                ]),
+                const SizedBox(height: 6),
+                for (final p in deviceProblems(m))
+                  Padding(padding: const EdgeInsets.only(top: 4), child: Text('• $p')),
+                if (isMe)
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(onPressed: () => askBackgroundPermission(context), child: const Text('Jetzt einstellen')),
+                  ),
+              ]),
+            ),
+          ],
           if (sos != null) ...[
             const SizedBox(height: 14),
             Container(

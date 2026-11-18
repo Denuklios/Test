@@ -51,6 +51,17 @@
             android:grantUriPermissions="true">
             <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/update_paths"/>
         </provider>
+        <service
+            android:name=".LocationService"
+            android:exported="false"
+            android:foregroundServiceType="location"/>
+        <receiver android:name=".BootReceiver" android:exported="true">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED"/>
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED"/>
+                <action android:name="android.intent.action.QUICKBOOT_POWERON"/>
+            </intent-filter>
+        </receiver>
         <receiver android:name=".InstallResultReceiver" android:exported="false"/>
         <receiver android:name=".UpdatedReceiver" android:exported="false">
             <intent-filter>

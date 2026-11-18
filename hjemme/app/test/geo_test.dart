@@ -36,4 +36,17 @@ void main() {
     expect(fmtDist(2400), '2,4 km');
     expect(fmtDuration(const Duration(minutes: 75)), '1 Std. 15 Min.');
   });
+
+  test('Lücke ohne Daten wird nicht als Fahrt gezählt', () {
+    final t0 = DateTime(2026, 11, 18, 12, 0);
+    final pts = <Pt>[
+      // in Kruså (ca. 30 km weg) bis 12:20
+      for (var i = 0; i <= 20; i += 2) Pt(t0.add(Duration(minutes: i)), const LatLng(54.85, 9.40), acc: 10, spd: 0),
+      // dann 50 Min. nichts, nächster Punkt zuhause
+      for (var i = 70; i <= 90; i += 2) Pt(t0.add(Duration(minutes: i)), const LatLng(55.10, 9.60), acc: 10, spd: 0),
+    ];
+    final segs = segment(pts);
+    expect(segs.map((s) => s.runtimeType.toString()).toList(), ['Stay', 'Gap', 'Stay']);
+    expect(stats(pts, [], 0).trips, 0);
+  });
 }

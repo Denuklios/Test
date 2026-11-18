@@ -20,9 +20,7 @@ class Tracker {
   Tracker._();
 
   StreamSubscription<Position>? _sub;
-  Timer? _heartbeat;
   Position? lastPos;
-  DateTime _lastSent = DateTime(2000);
   bool _flushing = false;
   final _battery = Battery();
   final ValueNotifier<Position?> position = ValueNotifier(null);
@@ -38,42 +36,50 @@ class Tracker {
   Future<void> start() async {
     if (_sub != null) return;
     if (!await hasPermission()) return;
-    final settings = AndroidSettings(
-      accuracy: LocationAccuracy.high,
-      distanceFilter: 8,
-      intervalDuration: const Duration(seconds: 4),
-      foregroundNotificationConfig: const ForegroundNotificationConfig(
-        notificationTitle: 'Hjemme ist für deine Familie da',
-        notificationText: 'Dein Standort wird mit deinem Kreis geteilt',
-        notificationChannelName: 'Standort teilen',
-        notificationIcon: AndroidResource(name: 'ic_notification', defType: 'drawable'),
-        enableWakeLock: true,
-        setOngoing: true,
-      ),
-    );
+    // Hochladen übernimmt der eigene Android-Standortdienst (läuft auch ohne App weiter).
+    await startNativeService();
+    // Hier nur für die Anzeige der eigenen Position, solange die App offen ist.
+    final settings = AndroidSettings(accuracy: LocationAccuracy.high, distanceFilter: 3, intervalDuration: const Duration(seconds: 2));
     _sub = Geolocator.getPositionStream(locationSettings: settings).listen(_onPos, onError: (_) {
       _sub?.cancel();
       _sub = null;
     });
-    _heartbeat?.cancel();
-    _heartbeat = Timer.periodic(const Duration(minutes: 5), (_) => sendNow());
     await registerBackground();
   }
 
   Future<void> stop() async {
     await _sub?.cancel();
     _sub = null;
-    _heartbeat?.cancel();
+    await stopNativeService();
   }
 
   void _onPos(Position p) {
     lastPos = p;
     position.value = p;
-    _queue(p);
-    // schnell unterwegs: häufiger senden; sonst gebündelt
-    // in Bewegung alle ~4 s senden, sonst gebündelt
-    final gap = p.speed > 1.5 ? const Duration(seconds: 4) : const Duration(seconds: 30);
-    if (DateTime.now().difference(_lastSent) >= gap) flush();
+  }
+
+  static const _native = MethodChannel('hjemme/native');
+
+  static Future<void> startNativeService() async {
+    try {
+      await _native.invokeMethod('startService');
+    } catch (_) {}
+  }
+
+  static Future<void> stopNativeService() async {
+    try {
+      await _native.invokeMethod('stopService');
+    } catch (_) {}
+  }
+
+  /// Gerätezustand: Standort „Immer“, Akku-Optimierung, Energiesparmodus
+  static Future<Map<String, bool>> deviceDiag() async {
+    try {
+      final r = await _native.invokeMapMethod<String, dynamic>('diag');
+      return {for (final e in (r ?? {}).entries) e.key: e.value == true};
+    } catch (_) {
+      return {};
+    }
   }
 
   static Map<String, dynamic> _pt(Position p) => {
@@ -91,8 +97,6 @@ class Tracker {
     q.add(jsonEncode(_pt(p)));
     await prefs.setStringList('locQueue', q.length > 2000 ? q.sublist(q.length - 2000) : q);
   }
-
-  void _queue(Position p) => _queueStatic(p);
 
   /// Aktuellen Standort sofort holen und senden (z. B. „Wo bist du?“ oder Herzschlag)
   Future<void> sendNow({bool precise = false}) async {
@@ -114,7 +118,6 @@ class Tracker {
     _flushing = true;
     try {
       await flushQueue(_battery);
-      _lastSent = DateTime.now();
     } catch (_) {
       // offline – bleibt in der Warteschlange
     } finally {
@@ -151,6 +154,9 @@ class Tracker {
 Future<void> runCommands(List<Ev> cmds) async {
   for (final c in cmds) {
     if (c.type == 'locate') {
+      try {
+        await const MethodChannel('hjemme/native').invokeMethod('locateNow');
+      } catch (_) {}
       await Tracker.i.sendNow(precise: true);
     } else if (c.type == 'ring_stop') {
       await Notify.cancel(900001);

@@ -109,7 +109,7 @@ class Trip extends Segment {
 }
 
 /// Ein Aufenthalt: mind. [minStay] lang innerhalb von [radius] Metern.
-List<Segment> segment(List<Pt> pts, {List<Place> places = const [], double radius = 120, Duration minStay = const Duration(minutes: 5)}) {
+List<Segment> _segmentChunk(List<Pt> pts, {List<Place> places = const [], double radius = 120, Duration minStay = const Duration(minutes: 5)}) {
   final out = <Segment>[];
   if (pts.isEmpty) return out;
   final good = pts.where((p) => (p.acc ?? 0) <= 200).toList();
@@ -164,6 +164,48 @@ List<Segment> segment(List<Pt> pts, {List<Place> places = const [], double radiu
       }
     }
     s.place = best;
+  }
+  return out;
+}
+
+/// Zeitraum ohne Standortdaten (Handy aus, kein Netz, App vom System beendet)
+class Gap extends Segment {
+  @override
+  final DateTime start, end;
+  final LatLng from, to;
+  Gap(this.start, this.end, this.from, this.to);
+}
+
+/// Längere Pausen zwischen zwei Punkten, in denen die Person woanders war, sind Lücken –
+/// sie werden nicht als gerade „Fahrt“ verbunden.
+bool isGap(Pt a, Pt b) {
+  final dt = b.t.difference(a.t);
+  final d = meters(a.p, b.p);
+  return dt > const Duration(minutes: 12) && d > 600 && d / dt.inSeconds < 50; // < 50 m/s, sonst Ausreißer
+}
+
+/// Punkte an Lücken in zusammenhängende Stücke teilen
+List<List<Pt>> splitAtGaps(List<Pt> pts) {
+  final out = <List<Pt>>[];
+  var cur = <Pt>[];
+  for (final p in pts) {
+    if (cur.isNotEmpty && isGap(cur.last, p)) {
+      out.add(cur);
+      cur = [];
+    }
+    cur.add(p);
+  }
+  if (cur.isNotEmpty) out.add(cur);
+  return out;
+}
+
+List<Segment> segment(List<Pt> pts, {List<Place> places = const [], double radius = 120, Duration minStay = const Duration(minutes: 5)}) {
+  final good = pts.where((p) => (p.acc ?? 0) <= 200).toList();
+  final chunks = splitAtGaps(good);
+  final out = <Segment>[];
+  for (var i = 0; i < chunks.length; i++) {
+    if (i > 0) out.add(Gap(chunks[i - 1].last.t, chunks[i].first.t, chunks[i - 1].last.p, chunks[i].first.p));
+    out.addAll(_segmentChunk(chunks[i], places: places, radius: radius, minStay: minStay));
   }
   return out;
 }

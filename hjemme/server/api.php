@@ -452,9 +452,17 @@ function route(string $a): void {
             if (!$newest) fail('Keine gültigen Punkte');
             if ($newest['ts'] >= $prevTs) {
                 $last = $newest + ['bat' => $bat, 'chg' => $chg, 'act' => cleanText($b['act'] ?? '', 16), 'net' => cleanText($b['net'] ?? '', 10)];
+                // Geräte-Einstellungen (Standort „Immer“, Akku-Optimierung …) vom Standortdienst
+                if (isset($b['diag']) && is_array($b['diag'])) {
+                    $d = $b['diag'];
+                    $last['diag'] = ['bg' => !empty($d['bg']), 'opt' => !empty($d['opt']), 'save' => !empty($d['save']),
+                        'svc' => !empty($d['svc']), 'v' => cleanText($d['v'] ?? '', 16)];
+                } elseif (isset($prev['diag'])) {
+                    $last['diag'] = $prev['diag'];
+                }
                 if ((int) $me['paused'] === 1 && $prev) {
                     // pausiert: Ort einfrieren, nur Akku/Zeit aktualisieren
-                    $last = array_merge($prev, ['bat' => $bat, 'chg' => $chg, 'ts' => $newest['ts']]);
+                    $last = array_merge($prev, ['bat' => $bat, 'chg' => $chg, 'ts' => $newest['ts']] + (isset($last['diag']) ? ['diag' => $last['diag']] : []));
                 }
                 q('UPDATE members SET last = ?, updated = ? WHERE id = ?', [json_encode($last), $now, $me['id']]);
                 checkRules($me, $newest, $bat, $chg, $prev);
