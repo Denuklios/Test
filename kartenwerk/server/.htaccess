@@ -1,0 +1,6 @@
+AddType application/vnd.android.package-archive .apk
+<IfModule mod_headers.c>
+  <Files "version.json">
+    Header set Cache-Control "no-cache"
+  </Files>
+</IfModule>
