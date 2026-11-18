@@ -138,3 +138,11 @@ Großzügige Arbeitsfläche unter `/admin/kalkulation/`, Daten in der gemeinsame
 - **In die Kasse:** legt einen Artikel mit dem Preis an oder aktualisiert den verknüpften. Einkaufspreis = Material + Verpackung + Sonstiges pro Stück.
 - **Nachbauen:** Bereitlege-Liste für N Stück mit Mengen, Packungen, Kosten, Zeit und Verkaufswert.
 - **Alte Daten:** Sicherung der alten Bastelwerkstatt unter „Stundensatz & Einstellungen“ übernehmen.
+
+## Updates direkt auf den Server (One.com)
+
+Im Website-Ordner auf dem Server liegt `deploy.php` (Quelle: `julekontor-deploy/deploy.php` im Repository, nicht im Upload-Paket).
+Sie nimmt ein ZIP der Website nur mit dem richtigen Schlüssel im Kopf `X-Deploy-Token` an und entpackt es an Ort und Stelle.
+Nie überschrieben werden `data/private` (Datenbank, Konto, Schlüssel), `data/bilder`, `data/produkte` und `data/site.json`.
+Nach 5 falschen Schlüsseln ist eine Stunde Pause. Neuer Schlüssel: auf dem Server `data/private/deploy-key.php` löschen,
+`deploy.php` neu hochladen und innerhalb von 2 Stunden `POST deploy.php?a=setup` mit dem neuen Schlüssel aufrufen.
