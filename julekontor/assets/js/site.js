@@ -51,14 +51,26 @@
     burger.setAttribute("aria-expanded", String(nav.classList.toggle("open")));
   });
 
-  /* Wichtel im Menü: beim Darüberfahren schwingt die Mützenspitze von rechts über oben nach links und zurück */
-  $$(".nav-home").forEach(function (a) {
-    var anims = $$("animate.wag", a);
-    if (!anims.length || calm || !anims[0].beginElement) return;
-    var on = function () { anims.forEach(function (x) { x.beginElement(); }); };
-    var off = function () { anims.forEach(function (x) { x.endElement(); }); };
-    a.addEventListener("mouseenter", on); a.addEventListener("focus", on);
-    a.addEventListener("mouseleave", off); a.addEventListener("blur", off);
+  /* Wichtel im Menü: die Mützenspitze schwingt von rechts über oben nach links und zurück.
+     Am Computer beim Darüberfahren, am Handy solange das Menü offen ist und beim Antippen. */
+  var gnomes = $$(".nav-home").map(function (a) {
+    var anims = $$("animate.wag", a), running = false;
+    var ok = anims.length && !calm && anims[0].beginElement;
+    return {
+      el: a,
+      on: function () { if (ok && !running) { running = true; anims.forEach(function (x) { x.beginElement(); }); } },
+      off: function () { if (ok && running) { running = false; anims.forEach(function (x) { x.endElement(); }); } }
+    };
+  });
+  gnomes.forEach(function (g) {
+    g.el.addEventListener("mouseenter", g.on); g.el.addEventListener("focus", g.on);
+    g.el.addEventListener("mouseleave", function () { if (!(nav && nav.classList.contains("open"))) g.off(); });
+    g.el.addEventListener("blur", function () { if (!(nav && nav.classList.contains("open"))) g.off(); });
+    g.el.addEventListener("touchstart", g.on, { passive: true });
+  });
+  if (burger && nav) burger.addEventListener("click", function () {
+    var open = nav.classList.contains("open");
+    gnomes.forEach(function (g) { if (open) g.on(); else g.off(); });
   });
 
   /* ---------- Laufband ---------- */
