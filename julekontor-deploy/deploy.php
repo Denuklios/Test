@@ -1,6 +1,6 @@
 <?php
 /* Julekontor – Empfangsstelle für Updates der Website.
-   Nimmt nur ein ZIP an, wenn im Kopf "Authorization: Bearer <Schlüssel>" der richtige Schlüssel steht.
+   Nimmt nur ein ZIP an, wenn im Kopf "X-Deploy-Token" (oder "Authorization: Bearer") der richtige Schlüssel steht.
    Der Schlüssel selbst wird nirgends gespeichert, nur ein Prüfwert in data/private/deploy-key.php.
 
    Einrichten: Diese Datei in den Website-Ordner legen (dorthin, wo index.php liegt).
@@ -27,10 +27,17 @@ function write_php(string $f, array $d): void {
     file_put_contents($t, "<?php\nreturn " . var_export($d, true) . ";\n", LOCK_EX); rename($t, $f);
     if (function_exists('opcache_invalidate')) @opcache_invalidate($f, true);
 }
+/* Schlüssel aus dem Kopf "X-Deploy-Token" (wird von One.com durchgereicht) oder "Authorization: Bearer …" */
+function headers_all(): array {
+    $h = [];
+    foreach ($_SERVER as $k => $v) if (str_starts_with($k, 'HTTP_') || str_starts_with($k, 'REDIRECT_HTTP_')) $h[strtolower(str_replace('_', '-', preg_replace('/^(REDIRECT_)?HTTP_/', '', $k)))] = (string)$v;
+    if (function_exists('getallheaders')) foreach ((array)getallheaders() as $k => $v) $h[strtolower((string)$k)] = (string)$v;
+    return $h;
+}
 function bearer(): string {
-    $h = $_SERVER['HTTP_AUTHORIZATION'] ?? $_SERVER['REDIRECT_HTTP_AUTHORIZATION'] ?? '';
-    if ($h === '' && function_exists('getallheaders')) foreach (getallheaders() as $k => $v) if (strtolower($k) === 'authorization') $h = $v;
-    return preg_match('/^Bearer\s+(\S+)$/i', trim($h), $m) ? $m[1] : '';
+    $h = headers_all();
+    if (($h['x-deploy-token'] ?? '') !== '') return trim(preg_replace('/^Bearer\s+/i', '', $h['x-deploy-token']));
+    return preg_match('/^Bearer\s+(\S+)$/i', trim($h['authorization'] ?? ''), $m) ? $m[1] : '';
 }
 
 if ($_SERVER['REQUEST_METHOD'] !== 'POST') out(['error' => 'nur POST'], 405);
@@ -51,7 +58,10 @@ $fail = function () use ($lock): never { $lock[] = time(); write_php(LOCKFILE, $
 if ($a === 'setup') {
     if ($key) out(['error' => 'Schlüssel ist schon eingerichtet'], 409);
     if (time() - filemtime(__FILE__) > 7200) out(['error' => 'Einrichtungszeit abgelaufen – deploy.php neu hochladen'], 403);
-    if (strlen($token) < 24) out(['error' => 'Schlüssel zu kurz (mind. 24 Zeichen)'], 422);
+    if (strlen($token) < 24) {
+        $h = headers_all();      // Hilfe bei der Fehlersuche: nur ob und wie lang, nie der Inhalt
+        out(['error' => 'Schlüssel zu kurz (mind. 24 Zeichen)', 'seen' => ['x-deploy-token' => strlen($h['x-deploy-token'] ?? ''), 'authorization' => strlen($h['authorization'] ?? '')]], 422);
+    }
     $salt = bin2hex(random_bytes(16));
     write_php(KEYFILE, ['salt' => $salt, 'hash' => hash('sha256', $salt . $token), 'created' => date('c')]);
     out(['ok' => true, 'setup' => true]);
