@@ -9,15 +9,6 @@
   --cart-w: 390px;
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #1c1412; --card: #281d19; --ink: #f3e7d3; --muted: #bba48f; --line: #47362d;
-    --red: #c9342c; --red-dark: #a8291f; --on-red: #fff7ec; --gold: #d9ab5c; --green: #3f7a51; --green-2: #4f9465;
-    --err: #ff8a80; --err-bg: #3d1f1c; --ok-bg: #20352a;
-    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 8px 20px -12px rgba(0,0,0,.7);
-    color-scheme: dark;
-  }
-}
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
 [hidden] { display: none !important; }
 html, body { height: 100%; }

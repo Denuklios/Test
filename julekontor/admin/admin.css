@@ -8,15 +8,6 @@
   --f-body: system-ui, -apple-system, "Segoe UI", sans-serif;
   color-scheme: light;
 }
-@media (prefers-color-scheme: dark) {
-  :root {
-    --paper: #1c1412; --card: #281d19; --ink: #f3e7d3; --muted: #bba48f; --line: #47362d;
-    --red: #d8463d; --red-dark: #b8352d; --on-red: #1c1412; --gold: #d9ab5c; --green: #82b592;
-    --ok-bg: #20352a; --err-bg: #3d1f1c; --err: #ff8a80;
-    --shadow: 0 1px 0 rgba(0,0,0,.3), 0 8px 20px -12px rgba(0,0,0,.7);
-    color-scheme: dark;
-  }
-}
 * { box-sizing: border-box; }
 body { margin: 0; background: var(--paper); color: var(--ink); font: 16px/1.5 var(--f-body); }
 h1, h2 { font-family: var(--f-display); color: var(--red); margin: 0 0 16px; line-height: 1.2; }
@@ -182,3 +173,65 @@ details.card summary { cursor: pointer; font-weight: 700; color: var(--red); }
 .req-msg { white-space: pre-wrap; margin: 4px 0; }
 .copy-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
 .copy-row input { flex: 1 1 260px; font-family: ui-monospace, monospace; font-size: .85rem; }
+
+/* ================= Weihnachtlich hell: Samtband, Girlande, Papier, Gold und Tannengrün ================= */
+:root { --paper: #f7f0e1; --card: #fffbf3; --ink: #3a1d17; --muted: #7a6152; --line: #e6d6b6; --gold-soft: #f3e4c0; --pine: #24553a; --pine-soft: #e6efe5; color-scheme: light; }
+body { background:
+  radial-gradient(1200px 500px at 70% -10%, #fffaf0 0, #fffaf000 70%),
+  url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='220' height='220'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='2' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 .35 0 0 0 0 .2 0 0 0 0 .1 0 0 0 .06 0'/%3E%3C/filter%3E%3Crect width='220' height='220' filter='url(%23n)'/%3E%3C/svg%3E"),
+  var(--paper); }
+h1 { font-size: 2rem; padding-bottom: 10px; margin-bottom: 20px; background: linear-gradient(90deg, var(--gold), #c2913f00) 0 100% / 220px 2px no-repeat; }
+
+/* Kopf als Samtband mit Logo-Etikett */
+.top { padding: 10px 20px; gap: 16px; border-bottom: 0; position: sticky;
+  background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='240' height='120'%3E%3Cfilter id='v'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85 .32' numOctaves='3' seed='4' stitchTiles='stitch'/%3E%3CfeColorMatrix values='0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 .55 -.12'/%3E%3C/filter%3E%3Crect width='240' height='120' filter='url(%23v)'/%3E%3C/svg%3E"),
+    linear-gradient(180deg, #a82a22 0%, #8a1814 25%, #6f0f0c 65%, #540a08 100%);
+  box-shadow: inset 0 1px 0 #ffffff33, 0 4px 10px -4px #2a0605b3; color: #fff7ec; }
+.top::after { content: ""; position: absolute; left: 0; right: 0; bottom: 3px; height: 1.5px; background: repeating-linear-gradient(90deg, #e6c67fcc 0 9px, #0000 9px 15px); }
+.top .brand { display: flex; align-items: center; gap: 12px; background: none; }
+.top .brand img { height: 40px; width: auto; background: #fffbf3; padding: 4px 10px; border: 1px solid #c2913f; outline: 1px solid #c2913f80; outline-offset: -4px; border-radius: 3px; rotate: -1.5deg; box-shadow: 0 6px 10px -5px #2a0605cc; }
+.top .brand span { color: #ffe9c2; opacity: 1; }
+.top .view-site { color: #ffe9c2; }
+.garland-strip { height: 44px; margin-top: -6px; position: relative; z-index: 4; pointer-events: none; background: url(../assets/img/guirlande.webp) 50% 0 / auto 100% repeat-x; filter: drop-shadow(0 4px 4px #3b1e1626); }
+
+/* Seitenleiste wie eine Karteikarte */
+.shell { grid-template-columns: 260px 1fr; margin-top: -30px; }
+.side { background: #fffbf3cc; border-right: 1px solid var(--line); box-shadow: 6px 0 18px -16px #5a3a1a; padding: 34px 12px 16px; }
+.nav-group { color: var(--pine); margin-top: 18px; }
+.side a { color: var(--ink); }
+.side a:hover { background: var(--gold-soft); }
+.side a.active { background: var(--red); color: #fff7ec; box-shadow: 0 6px 12px -8px #7c1511; }
+.side a.nav-kasse { background: var(--pine); color: #fff; }
+.side a.nav-kasse:hover { background: #1b4530; }
+.side-deco { width: 100%; height: auto; margin: 18px 0 6px; opacity: .95; }
+.content { max-width: 1120px; padding: 46px 32px 40px; }
+
+/* Karten, Kacheln, Tabellen */
+.card { background: var(--card); border-color: var(--line); box-shadow: 0 1px 0 #5a321408, 0 12px 26px -18px #5a3214a6; }
+.tile { border-top: 4px solid var(--gold); }
+.tile:hover { border-color: var(--red); transform: translateY(-3px); }
+.tile .big { width: 54px; height: 54px; display: grid; place-items: center; border-radius: 50%; background: var(--gold-soft); border: 1px solid #e3cf9f; font-size: 1.6rem; }
+.tile h2 { color: var(--red); }
+legend { color: var(--red); border-bottom-color: var(--gold); }
+table.list th { background: var(--gold-soft); color: #6b4a1e; }
+.btn.green, .pill.green { --x: 0; }
+.flash { background: var(--pine-soft); color: var(--pine); border-left: 4px solid var(--pine); }
+.flash.err { border-left-color: var(--err); }
+input:not([type=checkbox]):not([type=radio]), select, textarea { background: #fff; border-color: #dcc9a2; }
+
+/* Anmelden: gemalte Ladenszene im Hintergrund */
+body.auth { background: linear-gradient(#f7f0e1cc, #f7f0e1e6), url(../assets/img/butik.webp) center / cover fixed, var(--paper); }
+.auth-card { position: relative; padding-top: 70px; border-color: #c2913f; box-shadow: 0 30px 60px -24px #3b1e16b3; }
+.auth-deco { position: absolute; left: 50%; top: -58px; width: 300px; max-width: 90%; translate: -50% 0; pointer-events: none; }
+.brand-img { display: block; width: 220px; height: auto; margin: 0 auto 10px; }
+.auth-card h1 { text-align: center; background: none; padding: 0; }
+.auth-card > p { text-align: center; }
+
+@media (max-width: 800px) {
+  .shell { grid-template-columns: 1fr; margin-top: 0; }
+  .garland-strip { height: 30px; }
+  .content { padding: 24px 16px; }
+  .side { background: #fffbf3; }
+  .top .brand img { height: 32px; }
+}

@@ -8,10 +8,12 @@ function page_head(string $title): void { ?>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="color-scheme" content="light">
+<meta name="theme-color" content="#7c1511">
 <meta name="robots" content="noindex, nofollow">
 <title><?= h($title) ?> · Julekontor Admin</title>
 <link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎅</text></svg>">
-<link rel="stylesheet" href="admin.css?v=2">
+<link rel="stylesheet" href="admin.css?v=3">
 <script src="assets/scanner.js?v=2" defer></script>
 </head>
 <?php }
@@ -24,7 +26,8 @@ function page_auth(string $title, string $sub, string $error, bool $setup): void
     page_head($title); ?>
 <body class="auth">
 <main class="auth-card">
-  <div class="brand">Julekontor</div>
+  <img class="auth-deco" src="../assets/img/admin-zweig.webp" alt="" aria-hidden="true">
+  <img class="brand-img" src="../assets/img/wordmark.webp" alt="Julekontor" width="520" height="216">
   <h1><?= h($title) ?></h1>
   <p class="muted"><?= h($sub) ?></p>
   <?php flash_box(); ?>
@@ -49,9 +52,10 @@ function page_start(string $active, string $title): void {
 <body>
 <header class="top">
   <button class="menu-btn" type="button" aria-label="Menü" aria-expanded="false" onclick="var o=document.body.classList.toggle('nav-open');this.setAttribute('aria-expanded',o)">☰</button>
-  <a class="brand" href="./">Julekontor <span>Admin</span></a>
+  <a class="brand" href="./"><img src="../assets/img/wordmark.webp" alt="Julekontor" width="520" height="216"><span>Admin</span></a>
   <a class="view-site" href="../" target="_blank" rel="noopener">Website ansehen ↗</a>
 </header>
+<div class="garland-strip" aria-hidden="true"></div>
 <div class="shell">
   <nav class="side" aria-label="Bereiche">
     <?php $g = null; foreach (JK_MODULES as $id => $m): if (!can($id)) continue; ?>
@@ -61,6 +65,7 @@ function page_start(string $active, string $title): void {
         <?php if (!$m['ready']): ?><small>bald</small><?php endif; ?>
       </a>
     <?php endforeach; ?>
+    <img class="side-deco" src="../assets/img/admin-zweig.webp" alt="" aria-hidden="true">
     <form method="post" action="./?p=logout" class="logout">
       <?= csrf_field() ?>
       <span class="muted small"><?= h(user_name($u)) ?><?= role() === 'kasse' ? ' · Kasse' : '' ?></span>
