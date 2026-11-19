@@ -275,7 +275,9 @@ const SHOP_DEFAULTS = [
     'calc_round_mode' => 'up',         // up = aufrunden, near = kaufmännisch
     'calc_wage_mode' => 'standard',    // standard = fester Stundensatz, bedarf = aus dem Monatsbedarf errechnet
     'calc_need'    => '0',             // so viel Geld braucht man im Monat netto (Kronen)
-    'calc_tax'     => '35',            // geschätzte Steuern und Abgaben in Prozent
+    'calc_tax'     => '33',            // geschätzte Einkommensteuer nach AM-bidrag in Prozent
+    'calc_am'      => '8',             // AM-bidrag in Prozent
+    'calc_deduct_off' => '',           // Abzüge, die in „Was bleibt dir wirklich?“ abgehakt sind
     'calc_fixed'   => '0',             // feste Kosten pro Monat (Kronen), z. B. Miete, Strom
     'calc_hours'   => '100',           // so viele Stunden im Monat wird gebastelt
     'sumup_enabled' => '0',

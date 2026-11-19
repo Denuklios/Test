@@ -111,12 +111,18 @@
 
   /* ---------- Stundensatz und Preis ---------- */
   const S = () => D.settings;
+  /* Steuern auf den Gewinn: erst AM-bidrag (8 %), vom Rest die Einkommensteuer */
+  const amRate = () => Math.min(0.5, num(S().am) / 100);
+  const taxRate = () => Math.min(0.8, num(S().tax) / 100);
+  const totalTax = () => 1 - (1 - amRate()) * (1 - taxRate());
   function needWage() {
-    const need = num(S().need), tax = Math.min(80, num(S().tax)), fixed = num(S().fixed), hours = num(S().hours);
+    const need = num(S().need), fixed = num(S().fixed), hours = num(S().hours);
     if (need <= 0 || hours <= 0) return 0;
-    return (need / (1 - tax / 100) + fixed) / hours;
+    return (need / (1 - totalTax()) + fixed) / hours;
   }
-  function monthTarget() { const tax = Math.min(80, num(S().tax)); return num(S().need) > 0 ? num(S().need) / (1 - tax / 100) + num(S().fixed) : 0; }
+  function monthTarget() { return num(S().need) > 0 ? num(S().need) / (1 - totalTax()) + num(S().fixed) : 0; }
+  const fixedPerMinute = () => num(S().hours) > 0 ? num(S().fixed) / (num(S().hours) * 60) : 0;
+  const deductOff = () => String(S().deduct_off || "").split(",").filter(Boolean);
   function baseWage() { const w = needWage(); return S().wage_mode === "bedarf" && w > 0 ? w : num(S().wage); }
   function roundPrice(v) {
     const r = num(S().round);
@@ -133,18 +139,18 @@
     const profitPlan = self * markupPct / 100;
     const net = self + profitPlan;
     const vatF = S().vat === "1" ? 1 + D.vat : 1;
-    const vat = net * (vatF - 1);
     const fee = Math.min(0.5, num(S().fee) / 100);
     const gross = net * vatF;
-    const withFee = gross / (1 - fee);
+    const withFee = net / Math.max(0.05, 1 / vatF - fee);      // so bleibt nach Moms und Kartengebühr genau „net“
     const rounded = roundPrice(withFee);
     const own = markupOverride === undefined && !isEmpty(p.own_price) && num(p.own_price) > 0;
     const final = own ? num(p.own_price) : rounded;
-    const revenue = final * (1 - fee) / vatF;                 // bleibt nach Moms und Gebühr
+    const revenue = final / vatF - final * fee;               // bleibt nach Moms und Kartengebühr
     const profit = revenue - self;
     const minutesPiece = num(p.minutes) / n;
     const hourly = minutesPiece > 0 ? (profit + labor) / (minutesPiece / 60) : null;
-    return { n, wage, material, materialAll, labor, extra, pack, self, markupPct, profitPlan, net, vat, vatF, fee, feeAmt: withFee - gross, gross, withFee, rounded, own, final,
+    const vat = withFee - withFee / vatF;
+    return { n, wage, material, materialAll, labor, extra, pack, self, markupPct, profitPlan, net, vat, vatF, fee, feeAmt: withFee * fee, gross, withFee, rounded, own, final,
              revenue, profit, margin: revenue > 0 ? profit / revenue * 100 : 0, hourly, minutesPiece, cost: material + extra + pack };
   }
 
@@ -495,6 +501,7 @@
         <div class="${c.hourly !== null && c.hourly < c.wage ? "neg" : "pos"}"><b>${c.hourly === null ? "–" : nf(0).format(c.hourly) + " kr."}</b><span>verdienst du pro Stunde</span></div>
       </div>
       ${c.profit < 0 ? `<p class="note bad">Bei diesem Preis machst du ${kr(-c.profit)} Verlust pro Stück.</p>` : c.hourly !== null && c.hourly < c.wage ? `<p class="note">Bei diesem Preis verdienst du weniger als deinen Stundensatz von ${nf(0).format(c.wage)} kr.</p>` : ""}
+      ${keepBlock(p, c)}
       ${pieces ? `<div class="month">Für deinen Monatsbedarf müsstest du <b>${pieces} Stück</b> davon im Monat verkaufen${c.minutesPiece ? " – das sind " + minText(pieces * c.minutesPiece) + " Arbeit" : ""}.</div>` : ""}
       <h3 style="font-size:1.15rem;margin:8px 0 4px">Was wäre wenn … <span class="muted" style="font-size:.9rem;font-family:var(--f-body)">(Zeile antippen = übernehmen)</span></h3>
       <table class="scen"><thead><tr><th>Aufschlag</th><th>Preis</th><th>Gewinn</th><th>pro Std.</th></tr></thead><tbody>
@@ -518,6 +525,50 @@
     const own = $("#own", el); own.placeholder = nf(0).format(c.rounded); if (document.activeElement !== own) own.value = inputVal(p.own_price);
     $("#own-clear", el).hidden = !c.own;
     el.onclick = e => { const tr = e.target.closest("tr[data-mkrow]"); if (tr) { cur.markup = tr.dataset.mkrow; cur.own_price = ""; scheduleSave(); renderTicket(); } };
+    el.onchange = e => {
+      const k = e.target.dataset && e.target.dataset.ded; if (!k) return;
+      const off = new Set(deductOff()); if (e.target.checked) off.delete(k); else off.add(k);
+      S().deduct_off = [...off].join(","); renderTicket(true);
+      api("settings", S()).then(() => savedNote("✓ Gespeichert")).catch(() => {});
+    };
+  }
+
+  /* Was bleibt nach allen Abzügen? Jeder Abzug hat einen Haken; die Auswahl gilt für alle Projekte. */
+  function keepBlock(p, c) {
+    const off = deductOff(), on = k => !off.includes(k);
+    const P = c.final, fixedShare = fixedPerMinute() * c.minutesPiece;
+    const items = [
+      ["moms", "Moms an Skattestyrelsen", S().vat === "1" ? P - P / c.vatF : 0, S().vat === "1" ? nf(0).format(D.vat * 100) + " % im Preis enthalten" : "nicht eingerechnet (Einstellung „Moms“)"],
+      ["fee", "Kartengebühr", P * c.fee, c.fee > 0 ? nf(2).format(c.fee * 100) + " % vom Preis" : "0 % eingetragen – unter Einstellungen änderbar"],
+      ["material", "Material", c.material, ""],
+      ["pack", "Verpackung", c.pack, ""],
+      ["extra", "Sonstiges", c.extra, ""],
+      ["fixed", "Anteil feste Kosten", fixedShare, num(S().fixed) > 0 ? "Miete, Strom … verteilt auf deine Bastelstunden" : "keine festen Kosten eingetragen"],
+    ];
+    let rest = P, rows = "";
+    for (const [k, label, amt, sub] of items) {
+      const use = on(k) && amt > 0;
+      if (use) rest -= amt;
+      rows += `<label class="ded${use ? "" : " off"}"><input type="checkbox" data-ded="${k}"${on(k) ? " checked" : ""}><span>${label}${sub ? `<small>${esc(sub)}</small>` : ""}</span><b>${amt > 0 ? "− " + kr(amt) : "–"}</b></label>`;
+    }
+    const beforeTax = rest;
+    rows += `<div class="ded sum"><span>Vor Steuern <small>dein Arbeitslohn + Gewinn</small></span><b>${kr(beforeTax)}</b></div>`;
+    const base = Math.max(0, beforeTax);
+    const am = on("am") ? base * amRate() : 0;
+    const tax = on("tax") ? (base - am) * taxRate() : 0;
+    rows += `<label class="ded${on("am") && am > 0 ? "" : " off"}"><input type="checkbox" data-ded="am"${on("am") ? " checked" : ""}><span>AM-bidrag<small>${nf(0).format(amRate() * 100)} % Arbeitsmarktbeitrag</small></span><b>${am > 0 ? "− " + kr(am) : "–"}</b></label>`;
+    rows += `<label class="ded${on("tax") && tax > 0 ? "" : " off"}"><input type="checkbox" data-ded="tax"${on("tax") ? " checked" : ""}><span>Einkommensteuer<small>geschätzt ${nf(0).format(taxRate() * 100)} % – unter Einstellungen änderbar</small></span><b>${tax > 0 ? "− " + kr(tax) : "–"}</b></label>`;
+    const keep = beforeTax - am - tax;
+    const perHour = c.minutesPiece > 0 ? keep / (c.minutesPiece / 60) : null;
+    return `<div class="keep">
+        <h3>Was bleibt dir wirklich? <span class="muted">pro Stück</span></h3>
+        <p class="hint" style="margin:0 0 10px">Haken weg = wird nicht abgezogen. Gilt für alle Projekte.</p>
+        <div class="ded top"><span>Verkaufspreis <small>was der Kunde bezahlt</small></span><b>${kr(P)}</b></div>
+        ${rows}
+        <div class="keep-final ${keep < 0 ? "neg" : ""}"><span>Bleibt dir auf die Hand</span><b>${kr(keep)}</b>
+          <small>${P > 0 ? nf(0).format(keep / P * 100) + " % vom Verkaufspreis" : ""}${perHour !== null ? " · " + nf(0).format(perHour) + " kr. netto pro Stunde" : ""}</small></div>
+        <p class="hint">Steuern sind eine Schätzung ohne Freibeträge (personfradrag) und ohne Abschreibungen. Für die genaue Rechnung frag deinen Revisor.</p>
+      </div>`;
   }
 
   /* Nachbauen: was muss bereitliegen? */
@@ -711,7 +762,8 @@
         <p class="lead">Trag ein, wie viel Geld du im Monat netto (auf die Hand) brauchst. Daraus rechnet die App, welchen Stundensatz du dafür bräuchtest – und zeigt bei jedem Projekt, wie viele Stück du im Monat verkaufen müsstest.</p>
         <div class="grid2">
           <label class="field"><span>Netto im Monat</span><div class="unit" data-u="kr."><input inputmode="decimal" data-s="need" value="${esc(inputVal(num(st.need) || ""))}" placeholder="z. B. 15.000"></div></label>
-          <label class="field"><span>Steuern &amp; Abgaben (geschätzt)</span><div class="unit" data-u="%"><input inputmode="decimal" data-s="tax" value="${esc(inputVal(st.tax))}"></div><p class="hint">In Dänemark gehen inkl. AM-bidrag meist 30–40 % ab. Frag im Zweifel deinen Revisor.</p></label>
+          <label class="field"><span>AM-bidrag</span><div class="unit" data-u="%"><input inputmode="decimal" data-s="am" value="${esc(inputVal(st.am))}"></div><p class="hint">Arbeitsmarktbeitrag in Dänemark: 8 % vom Gewinn.</p></label>
+          <label class="field"><span>Einkommensteuer (geschätzt)</span><div class="unit" data-u="%"><input inputmode="decimal" data-s="tax" value="${esc(inputVal(st.tax))}"></div><p class="hint">Gemeinde- und Staatssteuer nach dem AM-bidrag, meist 33–42 %. Zusammen ergibt das <b id="tax-total"></b>. Frag im Zweifel deinen Revisor.</p></label>
           <label class="field"><span>Feste Kosten im Monat (Miete, Strom, Versicherung …)</span><div class="unit" data-u="kr."><input inputmode="decimal" data-s="fixed" value="${esc(inputVal(num(st.fixed) || ""))}" placeholder="0"></div></label>
           <label class="field"><span>So viele Stunden im Monat wird gebastelt</span><div class="unit" data-u="Std."><input inputmode="decimal" data-s="hours" value="${esc(inputVal(st.hours))}"></div><p class="hint">Nur die Zeit, die wirklich in Stücke fließt – nicht Ladenzeit oder Einkauf.</p></label>
         </div>
@@ -733,9 +785,10 @@
         <label class="btn ghost big"><input type="file" id="imp" accept="application/json,.json" hidden>Sicherung auswählen …</label>
       </section>`;
     const out = () => {
+      const tt = $("#tax-total"); if (tt) tt.textContent = nf(1).format(totalTax() * 100) + " % Abzüge";
       const w = needWage(), t = monthTarget(), stdW = num(S().wage);
       $("#need-out").innerHTML = w > 0 ? `<div class="note ${w > stdW * 1.6 ? "bad" : w < stdW * 0.8 ? "" : "good"}" style="font-size:1.1rem">
-        Dafür bräuchtest du <strong style="font-size:1.4rem">${nf(0).format(w)} kr. pro Stunde</strong> (Einnahmen vor Steuern: ${kr(t)} im Monat).<br>
+        Dafür bräuchtest du <strong style="font-size:1.4rem">${nf(0).format(w)} kr. pro Stunde</strong> (nötige Einnahmen vor Steuern: ${kr(t)} im Monat).<br>
         ${w > stdW * 1.6 ? "Das ist deutlich mehr als der Standard von " + nf(0).format(stdW) + " kr. – die Preise würden hoch. Plane mehr Bastelstunden ein oder bleib beim Standard-Stundensatz; jedes Projekt zeigt dir dann, wie viele Stück du für deinen Bedarf verkaufen musst."
           : w < stdW * 0.8 ? "Das liegt unter dem Standard von " + nf(0).format(stdW) + " kr. – mit dem Standard-Stundensatz bist du auf der sicheren Seite." : "Das passt gut zum Standard von " + nf(0).format(stdW) + " kr."}
         ${S().wage_mode === "bedarf" ? "<br><strong>Wird in allen Projekten verwendet.</strong>" : "<br>Zurzeit wird der Standard-Stundensatz verwendet – oben auf „Aus meinem Monatsbedarf“ umstellen, um diesen zu nutzen."}</div>`

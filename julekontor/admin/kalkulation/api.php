@@ -23,7 +23,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 }
 
 const CALC_TYPES = ['area', 'length', 'piece', 'weight', 'cast', 'wear', 'volume'];
-const CALC_SETTINGS = ['calc_wage', 'calc_markup', 'calc_fee', 'calc_vat', 'calc_round', 'calc_round_mode', 'calc_wage_mode', 'calc_need', 'calc_tax', 'calc_fixed', 'calc_hours'];
+const CALC_SETTINGS = ['calc_wage', 'calc_markup', 'calc_fee', 'calc_vat', 'calc_round', 'calc_round_mode', 'calc_wage_mode', 'calc_need', 'calc_tax', 'calc_fixed', 'calc_hours', 'calc_am', 'calc_deduct_off'];
 
 $num = function ($v, float $min = 0, float $max = 1e9): float {
     $v = is_string($v) ? str_replace(',', '.', trim($v)) : $v;
@@ -86,6 +86,8 @@ try {
             'calc_vat' => !empty($in['vat']) ? '1' : '0', 'calc_round' => in_array((string)($in['round'] ?? ''), ['0', '1', '5', '10'], true) ? (string)$in['round'] : '5',
             'calc_round_mode' => ($in['round_mode'] ?? '') === 'near' ? 'near' : 'up', 'calc_wage_mode' => ($in['wage_mode'] ?? '') === 'bedarf' ? 'bedarf' : 'standard',
             'calc_need' => $num($in['need'] ?? 0, 0, 1e7), 'calc_tax' => $num($in['tax'] ?? 0, 0, 80), 'calc_fixed' => $num($in['fixed'] ?? 0, 0, 1e7), 'calc_hours' => $num($in['hours'] ?? 0, 0, 744),
+            'calc_am' => $num($in['am'] ?? 8, 0, 50),
+            'calc_deduct_off' => implode(',', array_intersect(explode(',', (string)($in['deduct_off'] ?? '')), ['moms', 'fee', 'material', 'pack', 'extra', 'fixed', 'am', 'tax'])),
         ];
         foreach ($v as $k => $x) set_setting($k, (string)$x);
         out(['ok' => true]);
