@@ -14,6 +14,15 @@ Danach wird das Video über Metricool auf Instagram (und TikTok, sobald verbunde
    - SVG-Animationen über Attribute: `data-a` (pop, fade, hoch, runter, links, rechts, wachsen, breit,
      dreh, federn, schweben, puls, wackeln, kreisen, draw), `data-d` Start in s, `data-l` Dauer in s.
      Mehrere Arten mit Leerzeichen kombinierbar. Keine Emojis im SVG (fehlende Schrift).
+   **Bilder aus Canva (Standard, sieht hochwertiger aus):**
+   - Je Szene `Canva generate-image` mit `aspectRatio: PORTRAIT_9_16`. Prompt auf Englisch, gleicher Stil
+     in allen Szenen („bold clean vector illustration style, thick dark outlines, flat colors with soft
+     shading, no text, vertical composition with empty space at top and bottom“), gleiche Figur beschreiben.
+   - Die Bild-Jobs liefern nur Vorschaubilder. Volle Auflösung: `create-design` (Format „Instagram Story“,
+     `references` = die Media-IDs in Reihenfolge, Brief: „exactly N pages, each one image full bleed, no text“),
+     dann `export-design` als PNG 1080×1920 und die URLs nach `bilder/` herunterladen.
+   - In der Szene `"foto": "bilder/xyz.png"` setzen; `bild` (SVG) bleibt leer oder legt Extras darüber.
+   - Ohne Canva: SVG-Illustrationen selbst zeichnen (siehe `videos/001-kraken`).
 3. **Bauen und rendern:**
    ```bash
    cd videos/NNN-kurzname

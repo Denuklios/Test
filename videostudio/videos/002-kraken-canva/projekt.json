@@ -1,0 +1,63 @@
+{
+ "titel": "Kraken haben 3 Herzen",
+ "datei": "kraken-3-herzen-canva",
+ "stimme": "de-DE-ConradNeural",
+ "tempo": "+10%",
+ "stil": {
+  "bg1": "#041a30",
+  "bg2": "#0b4f78",
+  "akzent": "#ffd23f",
+  "text": "#ffffff",
+  "form": "#9be7ff"
+ },
+ "cover": {
+  "titel": "Kraken haben <b>3&nbsp;Herzen</b>",
+  "szene": 0,
+  "nur_foto": true
+ },
+ "szenen": [
+  {
+   "kopf": "Kraken haben <b>3&nbsp;Herzen</b>",
+   "text": "Kraken haben drei Herzen, blaues Blut und quasi neun Gehirne. Und das ist noch nicht mal das Verrückteste.",
+   "bild": "",
+   "foto": "bilder/canva1.png"
+  },
+  {
+   "kopf": "2 für die <b>Kiemen</b>",
+   "text": "Zwei der Herzen pumpen das Blut nur durch die Kiemen. Das dritte versorgt den ganzen restlichen Körper.",
+   "bild": "",
+   "foto": "bilder/canva2.png"
+  },
+  {
+   "kopf": "Herz <b>aus!</b>",
+   "text": "Und jetzt kommt's: Wenn ein Krake schwimmt, hört sein Hauptherz einfach auf zu schlagen.",
+   "bild": "",
+   "foto": "bilder/canva4.png"
+  },
+  {
+   "kopf": "Lieber <b>krabbeln</b>",
+   "text": "Deshalb krabbeln Kraken lieber über den Meeresboden. Schwimmen ist für sie richtig anstrengend.",
+   "bild": "",
+   "foto": "bilder/canva3.png"
+  },
+  {
+   "kopf": "Warum <b>blau?</b>",
+   "text": "Ihr Blut ist blau, weil es Sauerstoff mit Kupfer statt mit Eisen transportiert. Das funktioniert besser im kalten Wasser.",
+   "bild": "",
+   "foto": "bilder/canva5.png"
+  },
+  {
+   "kopf": "Jeder Arm <b>denkt mit</b>",
+   "text": "Und die neun Gehirne? Eins im Kopf und ein eigenes Nervenzentrum in jedem der acht Arme. Zwei Drittel ihrer Nervenzellen stecken in den Armen.",
+   "bild": "",
+   "foto": "bilder/canva6.png"
+  },
+  {
+   "kopf": "Mehr <b>Fakten?</b>",
+   "text": "Folg mir für mehr verrückte Fakten aus der Tierwelt!",
+   "min_dauer": 3.2,
+   "bild": "",
+   "foto": "bilder/canva7.png"
+  }
+ ]
+}

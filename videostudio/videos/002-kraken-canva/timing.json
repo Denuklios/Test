@@ -1,0 +1,720 @@
+{
+ "gesamt": 47.316,
+ "szenen": [
+  {
+   "start": 0.0,
+   "dauer": 7.404
+  },
+  {
+   "start": 7.404,
+   "dauer": 6.876
+  },
+  {
+   "start": 14.28,
+   "dauer": 5.508
+  },
+  {
+   "start": 19.788,
+   "dauer": 6.372
+  },
+  {
+   "start": 26.16,
+   "dauer": 7.62
+  },
+  {
+   "start": 33.78,
+   "dauer": 9.9
+  },
+  {
+   "start": 43.68,
+   "dauer": 3.636
+  }
+ ],
+ "woerter": [
+  {
+   "wort": "Kraken",
+   "start": 0.095,
+   "ende": 0.482,
+   "szene": 0
+  },
+  {
+   "wort": "haben",
+   "start": 0.493,
+   "ende": 0.72,
+   "szene": 0
+  },
+  {
+   "wort": "drei",
+   "start": 0.732,
+   "ende": 0.948,
+   "szene": 0
+  },
+  {
+   "wort": "Herzen",
+   "start": 0.959,
+   "ende": 1.425,
+   "szene": 0
+  },
+  {
+   "wort": "blaues",
+   "start": 1.55,
+   "ende": 1.914,
+   "szene": 0
+  },
+  {
+   "wort": "Blut",
+   "start": 1.925,
+   "ende": 2.209,
+   "szene": 0
+  },
+  {
+   "wort": "und",
+   "start": 2.22,
+   "ende": 2.414,
+   "szene": 0
+  },
+  {
+   "wort": "quasi",
+   "start": 2.425,
+   "ende": 2.777,
+   "szene": 0
+  },
+  {
+   "wort": "neun",
+   "start": 2.789,
+   "ende": 3.005,
+   "szene": 0
+  },
+  {
+   "wort": "Gehirne",
+   "start": 3.016,
+   "ende": 3.505,
+   "szene": 0
+  },
+  {
+   "wort": "Und",
+   "start": 4.284,
+   "ende": 4.455,
+   "szene": 0
+  },
+  {
+   "wort": "das",
+   "start": 4.466,
+   "ende": 4.67,
+   "szene": 0
+  },
+  {
+   "wort": "ist",
+   "start": 4.682,
+   "ende": 4.864,
+   "szene": 0
+  },
+  {
+   "wort": "noch",
+   "start": 4.875,
+   "ende": 5.034,
+   "szene": 0
+  },
+  {
+   "wort": "nicht",
+   "start": 5.045,
+   "ende": 5.261,
+   "szene": 0
+  },
+  {
+   "wort": "mal",
+   "start": 5.273,
+   "ende": 5.42,
+   "szene": 0
+  },
+  {
+   "wort": "das",
+   "start": 5.432,
+   "ende": 5.602,
+   "szene": 0
+  },
+  {
+   "wort": "Verrückteste",
+   "start": 5.614,
+   "ende": 6.295,
+   "szene": 0
+  },
+  {
+   "wort": "Zwei",
+   "start": 7.499,
+   "ende": 7.772,
+   "szene": 1
+  },
+  {
+   "wort": "der",
+   "start": 7.784,
+   "ende": 7.886,
+   "szene": 1
+  },
+  {
+   "wort": "Herzen",
+   "start": 7.897,
+   "ende": 8.215,
+   "szene": 1
+  },
+  {
+   "wort": "pumpen",
+   "start": 8.227,
+   "ende": 8.522,
+   "szene": 1
+  },
+  {
+   "wort": "das",
+   "start": 8.534,
+   "ende": 8.727,
+   "szene": 1
+  },
+  {
+   "wort": "Blut",
+   "start": 8.738,
+   "ende": 8.999,
+   "szene": 1
+  },
+  {
+   "wort": "nur",
+   "start": 9.011,
+   "ende": 9.193,
+   "szene": 1
+  },
+  {
+   "wort": "durch",
+   "start": 9.204,
+   "ende": 9.374,
+   "szene": 1
+  },
+  {
+   "wort": "die",
+   "start": 9.386,
+   "ende": 9.477,
+   "szene": 1
+  },
+  {
+   "wort": "Kiemen",
+   "start": 9.488,
+   "ende": 9.943,
+   "szene": 1
+  },
+  {
+   "wort": "Das",
+   "start": 10.722,
+   "ende": 10.949,
+   "szene": 1
+  },
+  {
+   "wort": "dritte",
+   "start": 10.961,
+   "ende": 11.268,
+   "szene": 1
+  },
+  {
+   "wort": "versorgt",
+   "start": 11.279,
+   "ende": 11.643,
+   "szene": 1
+  },
+  {
+   "wort": "den",
+   "start": 11.654,
+   "ende": 11.802,
+   "szene": 1
+  },
+  {
+   "wort": "ganzen",
+   "start": 11.813,
+   "ende": 12.154,
+   "szene": 1
+  },
+  {
+   "wort": "restlichen",
+   "start": 12.165,
+   "ende": 12.62,
+   "szene": 1
+  },
+  {
+   "wort": "Körper",
+   "start": 12.631,
+   "ende": 13.188,
+   "szene": 1
+  },
+  {
+   "wort": "Und",
+   "start": 14.375,
+   "ende": 14.569,
+   "szene": 2
+  },
+  {
+   "wort": "jetzt",
+   "start": 14.58,
+   "ende": 14.853,
+   "szene": 2
+  },
+  {
+   "wort": "kommt's",
+   "start": 14.864,
+   "ende": 15.228,
+   "szene": 2
+  },
+  {
+   "wort": "Wenn",
+   "start": 15.421,
+   "ende": 15.58,
+   "szene": 2
+  },
+  {
+   "wort": "ein",
+   "start": 15.591,
+   "ende": 15.716,
+   "szene": 2
+  },
+  {
+   "wort": "Krake",
+   "start": 15.728,
+   "ende": 16.069,
+   "szene": 2
+  },
+  {
+   "wort": "schwimmt",
+   "start": 16.08,
+   "ende": 16.444,
+   "szene": 2
+  },
+  {
+   "wort": "hört",
+   "start": 16.637,
+   "ende": 16.853,
+   "szene": 2
+  },
+  {
+   "wort": "sein",
+   "start": 16.864,
+   "ende": 17.046,
+   "szene": 2
+  },
+  {
+   "wort": "Hauptherz",
+   "start": 17.057,
+   "ende": 17.546,
+   "szene": 2
+  },
+  {
+   "wort": "einfach",
+   "start": 17.557,
+   "ende": 17.921,
+   "szene": 2
+  },
+  {
+   "wort": "auf",
+   "start": 17.932,
+   "ende": 18.08,
+   "szene": 2
+  },
+  {
+   "wort": "zu",
+   "start": 18.091,
+   "ende": 18.205,
+   "szene": 2
+  },
+  {
+   "wort": "schlagen",
+   "start": 18.216,
+   "ende": 18.694,
+   "szene": 2
+  },
+  {
+   "wort": "Deshalb",
+   "start": 19.883,
+   "ende": 20.304,
+   "szene": 3
+  },
+  {
+   "wort": "krabbeln",
+   "start": 20.315,
+   "ende": 20.69,
+   "szene": 3
+  },
+  {
+   "wort": "Kraken",
+   "start": 20.702,
+   "ende": 21.02,
+   "szene": 3
+  },
+  {
+   "wort": "lieber",
+   "start": 21.031,
+   "ende": 21.27,
+   "szene": 3
+  },
+  {
+   "wort": "über",
+   "start": 21.281,
+   "ende": 21.44,
+   "szene": 3
+  },
+  {
+   "wort": "den",
+   "start": 21.452,
+   "ende": 21.588,
+   "szene": 3
+  },
+  {
+   "wort": "Meeresboden",
+   "start": 21.599,
+   "ende": 22.338,
+   "szene": 3
+  },
+  {
+   "wort": "Schwimmen",
+   "start": 23.118,
+   "ende": 23.538,
+   "szene": 3
+  },
+  {
+   "wort": "ist",
+   "start": 23.549,
+   "ende": 23.743,
+   "szene": 3
+  },
+  {
+   "wort": "für",
+   "start": 23.754,
+   "ende": 23.879,
+   "szene": 3
+  },
+  {
+   "wort": "sie",
+   "start": 23.89,
+   "ende": 24.004,
+   "szene": 3
+  },
+  {
+   "wort": "richtig",
+   "start": 24.015,
+   "ende": 24.368,
+   "szene": 3
+  },
+  {
+   "wort": "anstrengend",
+   "start": 24.379,
+   "ende": 25.061,
+   "szene": 3
+  },
+  {
+   "wort": "Ihr",
+   "start": 26.255,
+   "ende": 26.403,
+   "szene": 4
+  },
+  {
+   "wort": "Blut",
+   "start": 26.415,
+   "ende": 26.665,
+   "szene": 4
+  },
+  {
+   "wort": "ist",
+   "start": 26.676,
+   "ende": 26.846,
+   "szene": 4
+  },
+  {
+   "wort": "blau",
+   "start": 26.858,
+   "ende": 27.13,
+   "szene": 4
+  },
+  {
+   "wort": "weil",
+   "start": 27.29,
+   "ende": 27.471,
+   "szene": 4
+  },
+  {
+   "wort": "es",
+   "start": 27.483,
+   "ende": 27.585,
+   "szene": 4
+  },
+  {
+   "wort": "Sauerstoff",
+   "start": 27.596,
+   "ende": 28.04,
+   "szene": 4
+  },
+  {
+   "wort": "mit",
+   "start": 28.051,
+   "ende": 28.187,
+   "szene": 4
+  },
+  {
+   "wort": "Kupfer",
+   "start": 28.199,
+   "ende": 28.528,
+   "szene": 4
+  },
+  {
+   "wort": "statt",
+   "start": 28.54,
+   "ende": 28.801,
+   "szene": 4
+  },
+  {
+   "wort": "mit",
+   "start": 28.812,
+   "ende": 28.983,
+   "szene": 4
+  },
+  {
+   "wort": "Eisen",
+   "start": 28.994,
+   "ende": 29.221,
+   "szene": 4
+  },
+  {
+   "wort": "transportiert",
+   "start": 29.233,
+   "ende": 30.005,
+   "szene": 4
+  },
+  {
+   "wort": "Das",
+   "start": 30.774,
+   "ende": 30.978,
+   "szene": 4
+  },
+  {
+   "wort": "funktioniert",
+   "start": 30.99,
+   "ende": 31.512,
+   "szene": 4
+  },
+  {
+   "wort": "besser",
+   "start": 31.524,
+   "ende": 31.785,
+   "szene": 4
+  },
+  {
+   "wort": "im",
+   "start": 31.796,
+   "ende": 31.899,
+   "szene": 4
+  },
+  {
+   "wort": "kalten",
+   "start": 31.91,
+   "ende": 32.24,
+   "szene": 4
+  },
+  {
+   "wort": "Wasser",
+   "start": 32.251,
+   "ende": 32.683,
+   "szene": 4
+  },
+  {
+   "wort": "Und",
+   "start": 33.875,
+   "ende": 34.057,
+   "szene": 5
+  },
+  {
+   "wort": "die",
+   "start": 34.069,
+   "ende": 34.171,
+   "szene": 5
+  },
+  {
+   "wort": "neun",
+   "start": 34.182,
+   "ende": 34.444,
+   "szene": 5
+  },
+  {
+   "wort": "Gehirne",
+   "start": 34.455,
+   "ende": 35.035,
+   "szene": 5
+  },
+  {
+   "wort": "Eins",
+   "start": 35.825,
+   "ende": 36.144,
+   "szene": 5
+  },
+  {
+   "wort": "im",
+   "start": 36.155,
+   "ende": 36.257,
+   "szene": 5
+  },
+  {
+   "wort": "Kopf",
+   "start": 36.269,
+   "ende": 36.541,
+   "szene": 5
+  },
+  {
+   "wort": "und",
+   "start": 36.553,
+   "ende": 36.712,
+   "szene": 5
+  },
+  {
+   "wort": "ein",
+   "start": 36.723,
+   "ende": 36.871,
+   "szene": 5
+  },
+  {
+   "wort": "eigenes",
+   "start": 36.882,
+   "ende": 37.257,
+   "szene": 5
+  },
+  {
+   "wort": "Nervenzentrum",
+   "start": 37.269,
+   "ende": 38.064,
+   "szene": 5
+  },
+  {
+   "wort": "in",
+   "start": 38.075,
+   "ende": 38.212,
+   "szene": 5
+  },
+  {
+   "wort": "jedem",
+   "start": 38.223,
+   "ende": 38.496,
+   "szene": 5
+  },
+  {
+   "wort": "der",
+   "start": 38.507,
+   "ende": 38.644,
+   "szene": 5
+  },
+  {
+   "wort": "acht",
+   "start": 38.655,
+   "ende": 38.871,
+   "szene": 5
+  },
+  {
+   "wort": "Arme",
+   "start": 38.882,
+   "ende": 39.314,
+   "szene": 5
+  },
+  {
+   "wort": "Zwei",
+   "start": 40.098,
+   "ende": 40.371,
+   "szene": 5
+  },
+  {
+   "wort": "Drittel",
+   "start": 40.382,
+   "ende": 40.7,
+   "szene": 5
+  },
+  {
+   "wort": "ihrer",
+   "start": 40.712,
+   "ende": 40.916,
+   "szene": 5
+  },
+  {
+   "wort": "Nervenzellen",
+   "start": 40.928,
+   "ende": 41.541,
+   "szene": 5
+  },
+  {
+   "wort": "stecken",
+   "start": 41.553,
+   "ende": 41.882,
+   "szene": 5
+  },
+  {
+   "wort": "in",
+   "start": 41.894,
+   "ende": 41.973,
+   "szene": 5
+  },
+  {
+   "wort": "den",
+   "start": 41.985,
+   "ende": 42.144,
+   "szene": 5
+  },
+  {
+   "wort": "Armen",
+   "start": 42.155,
+   "ende": 42.587,
+   "szene": 5
+  },
+  {
+   "wort": "Folg",
+   "start": 43.775,
+   "ende": 44.105,
+   "szene": 6
+  },
+  {
+   "wort": "mir",
+   "start": 44.116,
+   "ende": 44.275,
+   "szene": 6
+  },
+  {
+   "wort": "für",
+   "start": 44.287,
+   "ende": 44.435,
+   "szene": 6
+  },
+  {
+   "wort": "mehr",
+   "start": 44.446,
+   "ende": 44.605,
+   "szene": 6
+  },
+  {
+   "wort": "verrückte",
+   "start": 44.616,
+   "ende": 45.025,
+   "szene": 6
+  },
+  {
+   "wort": "Fakten",
+   "start": 45.037,
+   "ende": 45.389,
+   "szene": 6
+  },
+  {
+   "wort": "aus",
+   "start": 45.4,
+   "ende": 45.525,
+   "szene": 6
+  },
+  {
+   "wort": "der",
+   "start": 45.537,
+   "ende": 45.662,
+   "szene": 6
+  },
+  {
+   "wort": "Tierwelt",
+   "start": 45.673,
+   "ende": 46.23,
+   "szene": 6
+  }
+ ],
+ "anbieter": "edge"
+}

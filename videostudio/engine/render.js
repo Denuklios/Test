@@ -12,6 +12,8 @@ const fps = +(args[args.indexOf("--fps") + 1] || 30) || 30;
 const nurCover = args.includes("--nur-cover");
 
 const projekt = JSON.parse(fs.readFileSync(path.join(ordner, "projekt.json"), "utf8"));
+// Bildpfade relativ zum Projektordner -> file://-URL
+projekt.szenen.forEach(sz => { if (sz.foto && !/^(https?|file|data):/.test(sz.foto)) sz.foto = "file://" + path.join(ordner, sz.foto); });
 const timing = JSON.parse(fs.readFileSync(path.join(ordner, "timing.json"), "utf8"));
 const name = projekt.datei || "video";
 

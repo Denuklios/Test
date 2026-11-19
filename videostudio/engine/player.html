@@ -16,6 +16,10 @@ html, body { width: 1080px; height: 1920px; overflow: hidden; background: #000; 
   color: var(--text); text-transform: uppercase; text-shadow: 0 6px 0 rgba(0,0,0,.25);
 }
 .szene .kopf b { color: var(--akzent); font-weight: normal; }
+.szene .foto { position: absolute; inset: 0; overflow: hidden; }
+.szene .foto img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; transform-origin: 50% 45%; }
+.szene .foto::after { content: ""; position: absolute; inset: 0;
+  background: linear-gradient(rgba(0,0,0,.55) 0%, rgba(0,0,0,0) 26%, rgba(0,0,0,0) 62%, rgba(0,0,0,.6) 100%); }
 .szene .bild { position: absolute; left: 90px; top: 560px; width: 900px; height: 900px; }
 .szene .bild svg { width: 100%; height: 100%; overflow: visible; }
 .szene .bild svg [data-a] { transform-box: fill-box; transform-origin: center; }
@@ -76,7 +80,7 @@ function aufbauen() {
   P.szenen.forEach((sz, i) => {
     const d = document.createElement("div");
     d.className = "szene";
-    d.innerHTML = (sz.kopf ? `<div class="kopf">${sz.kopf}</div>` : "") + `<div class="bild">${sz.bild || ""}</div>`;
+    d.innerHTML = (sz.foto ? `<div class="foto"><img src="${sz.foto}"></div>` : "") + (sz.kopf ? `<div class="kopf">${sz.kopf}</div>` : "") + `<div class="bild">${sz.bild || ""}</div>`;
     cont.appendChild(d);
     szenenEls.push(d);
     // Zeichenlängen für "draw"-Animation vorberechnen
@@ -148,6 +152,11 @@ window.zeige = function (t) {
     el.style.opacity = ease(ein);
     const kopf = el.querySelector(".kopf");
     if (kopf) { const p = clamp((lokal - 0.05) / 0.45); kopf.style.transform = `translateY(${(1 - back(p)) * -60}px) scale(${0.85 + 0.15 * back(p)})`; kopf.style.opacity = clamp(p * 3); }
+    const img = el.querySelector(".foto img");
+    if (img) {  // Kamerafahrt: langsamer Zoom + Schwenk, Richtung wechselt je Szene
+      const q = lokal / sz[i].dauer, r = i % 2 ? -1 : 1;
+      img.style.transform = `scale(${1.08 + 0.10 * q}) translate(${r * (q - 0.5) * 30}px, ${(0.5 - q) * 20}px)`;
+    }
     animiereElemente(el, lokal);
   });
 
