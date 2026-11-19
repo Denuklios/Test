@@ -73,23 +73,13 @@ def elevenlabs_vertonen(text, stimme_id, ziel_mp3):
     return woerter
 
 
-def main():
-    ordner = Path(sys.argv[1]).resolve()
-    projekt = json.loads((ordner / "projekt.json").read_text())
-    audio = ordner / "audio"
-    audio.mkdir(exist_ok=True)
-
-    anbieter = projekt.get("anbieter") or ("elevenlabs" if os.environ.get("ELEVENLABS_API_KEY") else "edge")
-    stimme = projekt.get("stimme", "de-DE-ConradNeural")
-    tempo = projekt.get("tempo", "+8%")
-
-    szenen_info, alle_woerter, t = [], [], 0.0
-    wavs = []
+def vertonen(projekt, audio, anbieter, stimme, tempo):
+    szenen_info, alle_woerter, wavs, t = [], [], [], 0.0
     for i, sz in enumerate(projekt["szenen"]):
         mp3 = audio / f"szene_{i:02d}.mp3"
         wav = audio / f"szene_{i:02d}.wav"
         if anbieter == "elevenlabs":
-            woerter = elevenlabs_vertonen(sz["text"], projekt.get("elevenlabs_stimme", "pNInz6obpgDQGcFmaJgB"), mp3)
+            woerter = elevenlabs_vertonen(sz["text"], projekt.get("elevenlabs_stimme", "JBFqnCBsd6RMkjVDRZzb"), mp3)
         else:
             woerter = asyncio.run(edge_vertonen(sz["text"], stimme, tempo, mp3))
         dauer_ton = ffprobe_dauer(mp3)
@@ -102,7 +92,31 @@ def main():
         szenen_info.append({"start": round(t, 3), "dauer": dauer})
         wavs.append(wav)
         t += dauer
-        print(f"Szene {i+1}: {dauer:.2f}s, {len(woerter)} Wörter")
+        print(f"Szene {i+1}: {dauer:.2f}s, {len(woerter)} Wörter ({anbieter})")
+    return szenen_info, alle_woerter, wavs, t
+
+
+def main():
+    ordner = Path(sys.argv[1]).resolve()
+    projekt = json.loads((ordner / "projekt.json").read_text())
+    audio = ordner / "audio"
+    audio.mkdir(exist_ok=True)
+
+    # "auto" (Standard): ElevenLabs, solange Guthaben da ist, sonst die kostenlose Edge-Stimme
+    wunsch = projekt.get("anbieter", "auto")
+    reihenfolge = ["elevenlabs", "edge"] if wunsch in ("auto", "elevenlabs") else ["edge"]
+    stimme = projekt.get("stimme", "de-DE-ConradNeural")
+    tempo = projekt.get("tempo", "+8%")
+
+    for anbieter in reihenfolge:
+        try:
+            szenen_info, alle_woerter, wavs, t = vertonen(projekt, audio, anbieter, stimme, tempo)
+            break
+        except Exception as e:  # z. B. Guthaben leer, Schlüssel fehlt
+            grund = getattr(e, "read", lambda: b"")().decode(errors="ignore")[:200] or str(e)
+            print(f"{anbieter} nicht verfügbar: {grund}")
+    else:
+        sys.exit("Keine Stimme verfügbar")
 
     liste = audio / "liste.txt"
     liste.write_text("".join(f"file '{w.name}'\n" for w in wavs))
