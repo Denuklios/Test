@@ -1,0 +1,72 @@
+<?php
+declare(strict_types=1);
+$site = web_site();
+$db = db();
+$c = open_closing();
+$today = $db->query("SELECT COALESCE(SUM(total),0) t, COALESCE(SUM(CASE WHEN type='sale' THEN 1 END),0) n FROM sales WHERE date(created) = '" . date('Y-m-d') . "'")->fetch();
+$low = (int)$db->query('SELECT COUNT(*) FROM products WHERE active = 1 AND track_stock = 1 AND stock <= min_stock')->fetchColumn();
+$nProducts = (int)$db->query('SELECT COUNT(*) FROM products WHERE active = 1')->fetchColumn();
+$admin = role() === 'admin';
+$nReq = (int)$db->query("SELECT COUNT(*) FROM web_requests WHERE status = 'neu'")->fetchColumn();
+$nOrd = (int)$db->query("SELECT COUNT(*) FROM web_orders WHERE status = 'neu'")->fetchColumn();
+$nDoors = count(array_filter(advent_doors(), 'advent_door_filled'));
+page_start('dashboard', 'Übersicht');
+$target = strtotime((string)($site['countdownTarget'] ?? ''));
+?>
+<div class="grid">
+  <a class="card tile" href="kasse/" style="border-color:var(--red)">
+    <span class="big" aria-hidden="true">🧾</span>
+    <h2>Kasse öffnen</h2>
+    <p><?= $c ? 'Geöffnet seit ' . h(date('H:i', strtotime($c['opened_at']))) . ' (' . h($c['opened_by']) . ')' : 'Kasse ist geschlossen' ?></p>
+    <p class="muted">Heute <?= money((int)$today['t']) ?> · <?= (int)$today['n'] ?> Verkäufe</p>
+  </a>
+  <?php if ($admin): ?>
+  <a class="card tile" href="./?p=artikel">
+    <span class="big" aria-hidden="true">🏷️</span>
+    <h2>Artikel</h2>
+    <p><?= $nProducts ?> aktive Artikel</p>
+    <?php if (!$nProducts): ?><p class="muted">Leg los: ersten Artikel anlegen oder Liste importieren.</p><?php endif; ?>
+  </a>
+  <a class="card tile" href="./?p=lager">
+    <span class="big" aria-hidden="true">📦</span>
+    <h2>Lager</h2>
+    <p><?= $low ? '<span class="pill red">' . $low . ' unter Mindestbestand</span>' : 'Alles ausreichend auf Lager' ?></p>
+  </a>
+  <?php endif; ?>
+  <a class="card tile" href="./?p=abschluss">
+    <span class="big" aria-hidden="true">🔒</span>
+    <h2>Tagesabschluss</h2>
+    <p class="muted"><?= $c ? 'Zwischenstand ansehen oder Tag abschließen' : 'Kasse öffnen mit Wechselgeld' ?></p>
+  </a>
+  <?php if ($admin): ?>
+  <a class="card tile" href="./?p=startseite">
+    <span class="big" aria-hidden="true">⏳</span>
+    <h2>Startseite</h2>
+    <?php if (!empty($site['countdownEnabled']) && $target): ?>
+      <p>Countdown bis <strong><?= h(date('d.m.Y', $target)) ?></strong> – noch <strong><?= max(0, (int)ceil(($target - time()) / 86400)) ?></strong> Tage</p>
+    <?php endif; ?>
+  </a>
+  <a class="card tile" href="./?p=bestellungen">
+    <span class="big" aria-hidden="true">🛒</span>
+    <h2>Bestellungen</h2>
+    <p><?= $nOrd ? '<span class="pill red">' . $nOrd . ' neu</span>' : 'Keine neuen Bestellungen' ?></p>
+    <p class="muted"><?= web_is_open($site) ? 'Website ist geöffnet' : 'Website noch gesperrt (Countdown)' ?></p>
+  </a>
+  <a class="card tile" href="./?p=anfragen">
+    <span class="big" aria-hidden="true">💌</span>
+    <h2>Anfragen</h2>
+    <p><?= $nReq ? '<span class="pill red">' . $nReq . ' neu</span>' : 'Keine offenen Anfragen' ?></p>
+  </a>
+  <a class="card tile" href="./?p=adventskalender">
+    <span class="big" aria-hidden="true">🎁</span>
+    <h2>Adventskalender</h2>
+    <p class="muted"><?= $nDoors ?> von 24 Türchen gefüllt</p>
+  </a>
+  <a class="card tile" href="kalkulation/">
+    <span class="big" aria-hidden="true">🧮</span>
+    <h2>Preiskalkulation</h2>
+    <p class="muted">Material, Arbeitszeit und Verkaufspreis für jedes Stück – mit Übernahme in die Kasse</p>
+  </a>
+  <?php endif; ?>
+</div>
+<?php page_end();

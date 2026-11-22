@@ -1,0 +1,9 @@
+{
+  "name": "Julekontor Bastelwerkstatt",
+  "short_name": "Bastelwerkstatt",
+  "start_url": "./",
+  "display": "standalone",
+  "background_color": "#f6efe2",
+  "theme_color": "#a3201d",
+  "icons": [{ "src": "icon-192.png", "sizes": "192x192", "type": "image/png" }]
+}
