@@ -222,19 +222,20 @@
         }
       }
     }
-    // Rand abziehen (ca. 0,5 mm), damit der Laufstich sicher verdeckt ist
+    // Abstand zum Rand der Abdeckung (Chamfer): der Laufweg soll mittig liegen, nicht unter der Kante
+    // (dort häufen sich sonst Stiche, die Kante wird dick und der Faden reißt)
+    const ed = new Float32Array(W * H);
+    for (let i = 0; i < W * H; i++) ed[i] = cov[i] ? 1e9 : 0;
+    for (let r = 1; r < H - 1; r++) for (let cc = 1; cc < W - 1; cc++) { const i = r * W + cc; if (!ed[i]) continue; ed[i] = Math.min(ed[i], ed[i - 1] + 3, ed[i - W] + 3, ed[i - W - 1] + 4, ed[i - W + 1] + 4); }
+    for (let r = H - 2; r > 0; r--) for (let cc = W - 2; cc > 0; cc--) { const i = r * W + cc; if (!ed[i]) continue; ed[i] = Math.min(ed[i], ed[i + 1] + 3, ed[i + W] + 3, ed[i + W + 1] + 4, ed[i + W - 1] + 4); }
     const free = new Uint8Array(W * H);
-    for (let r = 1; r < H - 1; r++)
-      for (let cc = 1; cc < W - 1; cc++) {
-        const i = r * W + cc;
-        if (cov[i] && cov[i - 1] && cov[i + 1] && cov[i - W] && cov[i + W]) free[i] = 1;
-      }
+    for (let i = 0; i < W * H; i++) { ed[i] = (ed[i] / 3) * cell; if (cov[i] && ed[i] >= 0.6) free[i] = 1; }
     const toCell = (p) => ({ c: Math.max(0, Math.min(W - 1, Math.floor((p.x - x0) / cell))), r: Math.max(0, Math.min(H - 1, Math.floor((p.y - y0) / cell))) });
     const A = toCell(a), B = toCell(b);
     const near = (cc, r, P, rad) => Math.hypot(x0 + (cc + 0.5) * cell - P.x, y0 + (r + 0.5) * cell - P.y) <= rad;
     const cost = (cc, r) => {
       const i = r * W + cc;
-      if (free[i]) return 1;
+      if (free[i]) return 1 + 2 * Math.max(0, 1.5 - ed[i]);
       if (near(cc, r, a, 1.6) || near(cc, r, b, 1.2)) return 4; // kurzes Stück am Rand von Start/Ziel ist erlaubt
       return Infinity;
     };

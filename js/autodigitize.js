@@ -343,12 +343,16 @@
       const comps = list.filter((c) => c.label === lab);
       // Präzisions-Scan: weiches Feld dieser Farbe (0,5 = genau auf der Kante)
       const field = precise ? SC.blur(SC.membership(data, w, h, q.centers, lab), w, h, opts.edgeBlur ?? 0.7) : null;
+      // Unterlappung: diese Farbe läuft etwas unter die später gestickten Nachbarfarben,
+      // damit nach dem Einziehen der Fläche keine Lücke an der Farbgrenze bleibt
+      const later = new Set(order.slice(order.indexOf(lab) + 1));
+      const U = later.size ? (opts.underlap ?? 0.6) / mm : 0, pad = 2 + Math.ceil(U);
       for (const c of comps) {
         // auf die Region zuschneiden (schneller)
         let x0 = w, y0 = h, x1 = 0, y1 = 0;
         for (const p of c.pixels) { const x = p % w, y = (p / w) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
-        x0 = Math.max(0, x0 - 2); y0 = Math.max(0, y0 - 2);
-        const cw = Math.min(w, x1 + 3) - x0, ch = Math.min(h, y1 + 3) - y0;
+        x0 = Math.max(0, x0 - pad); y0 = Math.max(0, y0 - pad);
+        const cw = Math.min(w, x1 + pad + 1) - x0, ch = Math.min(h, y1 + pad + 1) - y0;
         const mask = new Uint8Array(cw * ch);
         for (const p of c.pixels) mask[(((p / w) | 0) - y0) * cw + (p % w) - x0] = 1;
         const toMMc = (p) => ({ x: opts.originX + (p.x + x0) * mm, y: opts.originY + (p.y + y0) * mm, c: p.c });
@@ -366,6 +370,22 @@
           for (let y = 1; y < ch - 1; y++) for (let x = 1; x < cw - 1; x++) {
             const i = y * cw + x;
             fc[i] = dil[i] ? 0.6 * field[(y + y0) * w + (x + x0)] + 0.4 * mb[i] : 0;
+          }
+          if (U > 0) {
+            const inv = new Uint8Array(cw * ch);
+            for (let i = 0; i < inv.length; i++) inv[i] = mask[i] ? 0 : 1;
+            const dd = SA.distanceTransform(inv, cw, ch);
+            const m2 = new Float32Array(cw * ch);
+            let ext = 0;
+            for (let y = 0; y < ch; y++) for (let x = 0; x < cw; x++) {
+              const i = y * cw + x;
+              if (mask[i]) m2[i] = 1;
+              else if (dd[i] <= U && later.has(q.labels[(y + y0) * w + (x + x0)])) { m2[i] = 1; ext++; }
+            }
+            if (ext) {
+              const mb2 = SC.blur(m2, cw, ch, 0.8);
+              for (let y = 1; y < ch - 1; y++) for (let x = 1; x < cw - 1; x++) { const i = y * cw + x; if (mb2[i] > fc[i]) fc[i] = mb2[i]; }
+            }
           }
           const cr = SC.contours(fc, cw, ch, 0.5);
           const co = { mm, ox: opts.originX + x0 * mm, oy: opts.originY + y0 * mm, sigma: opts.smooth ?? 0.18, corner: opts.corner ?? 55, step: 0.1 };
@@ -473,10 +493,10 @@
           type: 'fill', colorKey, points: outer, holes,
           params: {
             ...HW.stitch.DEFAULTS.fill,
-            ...(opts.fillSpacing ? { spacing: opts.fillSpacing } : {}),
+            spacing: opts.fillSpacing || 0.38,
             fillType: satin ? 'satin' : 'tatami',
             angle: satin ? Math.round(ang) : opts.angle ?? 45,
-            underlay: satin ? 'none' : area > 40 ? 'edge+tatami' : 'edge',
+            underlay: satin ? 'none' : area > 15 ? 'edge+tatami' : 'edge',
             border: opts.outline ? 'run' : 'none',
           },
           s: ctr, e: ctr,
