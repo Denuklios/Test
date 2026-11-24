@@ -70,6 +70,62 @@
       pos = { x: p.x, y: p.y, z: p.z };
     };
     let curOp = -1, curTool = null;
+    const useArcs = ctx.arcs !== false;
+    // Kreisbogen durch pts[i..j] (alle auf gleicher Höhe, keine Eilgänge)? Liefert das größte passende j oder -1.
+    const ARC_TOL = 0.01;
+    function circle3(a, b, c) {
+      const d = 2 * (a.x * (b.y - c.y) + b.x * (c.y - a.y) + c.x * (a.y - b.y));
+      if (Math.abs(d) < 1e-9) return null;
+      const a2 = a.x * a.x + a.y * a.y, b2 = b.x * b.x + b.y * b.y, c2 = c.x * c.x + c.y * c.y;
+      const x = (a2 * (b.y - c.y) + b2 * (c.y - a.y) + c2 * (a.y - b.y)) / d;
+      const y = (a2 * (c.x - b.x) + b2 * (a.x - c.x) + c2 * (b.x - a.x)) / d;
+      return { x, y, r: Math.hypot(a.x - x, a.y - y) };
+    }
+    function arcOk(pts, i, j) {
+      const a = pts[i], e = pts[j], m = pts[(i + j) >> 1];
+      const c = circle3(a, m, e);
+      if (!c || c.r > 500 || c.r < 0.2) return null;
+      let sweep = 0, dir = 0, prevA = Math.atan2(a.y - c.y, a.x - c.x);
+      for (let k = i + 1; k <= j; k++) {
+        const p = pts[k];
+        if (p.rapid || Math.abs(p.z - a.z) > 1e-9) return null;
+        if (Math.abs(Math.hypot(p.x - c.x, p.y - c.y) - c.r) > ARC_TOL) return null;
+        // Sehnenmitte darf nicht zu weit vom Bogen liegen
+        const q = pts[k - 1], mx = (p.x + q.x) / 2, my = (p.y + q.y) / 2;
+        if (c.r - Math.hypot(mx - c.x, my - c.y) > ARC_TOL) return null;
+        const ang = Math.atan2(p.y - c.y, p.x - c.x);
+        let da = ang - prevA;
+        while (da > Math.PI) da -= 2 * Math.PI;
+        while (da < -Math.PI) da += 2 * Math.PI;
+        if (Math.abs(da) > Math.PI / 4 || Math.abs(da) < 1e-6) return null;
+        const sg = Math.sign(da);
+        if (dir && sg !== dir) return null;
+        dir = sg; sweep += da; prevA = ang;
+      }
+      if (Math.abs(sweep) > 1.9 * Math.PI) return null;
+      return { c, ccw: dir > 0 };
+    }
+    function fitArc(pts, i) {
+      if (i + 3 >= pts.length || pts[i].z !== pts[i + 1].z) return -1;
+      let best = -1, j = i + 3;
+      while (j < pts.length && j - i <= 400 && arcOk(pts, i, j)) { best = j; j++; }
+      return best;
+    }
+    function outArc(pts, i, j, f) {
+      const r = arcOk(pts, i, j);
+      const a = pts[i], e = pts[j];
+      const tf = (p) => { const dx = p.x - O.x, dy = p.y - O.y; return ctx.rot ? { x: dx * rc - dy * rs, y: dx * rs + dy * rc } : { x: dx, y: dy }; };
+      const A = tf(a), E = tf(e), Cc = tf(r.c);
+      let line = (r.ccw ? 'G3' : 'G2') + ' X' + num(E.x) + ' Y' + num(E.y) + ' I' + num(Cc.x - A.x) + ' J' + num(Cc.y - A.y);
+      if (f !== lastF) { line += ' F' + Math.round(f); lastF = f; }
+      L.push(line);
+      for (let k = i + 1; k <= j; k++) {
+        const p = pts[k];
+        time += Math.hypot(p.x - pos.x, p.y - pos.y) / f;
+        moves.push({ x: p.x, y: p.y, z: p.z, rapid: false, f, op: curOp, tool: curTool });
+        pos = { x: p.x, y: p.y, z: p.z };
+      }
+    }
 
     const sections = [];
     results.forEach((r, i) => {
@@ -128,6 +184,11 @@
         for (let k = 1; k < pts.length; k++) {
           const p = pts[k];
           if (p.rapid) { out('G0', p); continue; }
+          // mehrere Punkte auf einem Kreisbogen gleicher Höhe -> ein G2/G3 (kleinere Datei, flüssigere Bewegung)
+          if (useArcs) {
+            const j = fitArc(pts, k - 1);
+            if (j > 0) { outArc(pts, k - 1, j, Math.max(10, Math.round(cut.feed))); k = j; continue; }
+          }
           const d = Math.hypot(p.x - pos.x, p.y - pos.y), dz = pos.z - p.z;
           let f = cut.feed;
           // steiles Eintauchen (> 60°) mit Eintauchvorschub, flachere Rampen mit Arbeitsvorschub

@@ -252,6 +252,35 @@ ok(FS.gcode.parse('G0 X0 Y0\nG2 X10 Y0 I5 J0\n').length > 4, 'G2-Bögen werden a
   ok(Math.abs(gr.time - gc.time) < 1, 'Laufzeit durch Drehung unverändert');
 }
 
+// Bögen: G2/G3 statt vieler kurzer Geraden – gleiche Bahn, GRBL-taugliche Radien
+for (const rot of [0, 0.3]) {
+  const rs2 = [FS.cam.compute(FS.cam.makeOp('profile', [circ.id], 't1'), ctx), FS.cam.compute(FS.cam.makeOp('pocket', [circ.id], 't1'), ctx), FS.cam.compute(FS.cam.makeOp('vcarve', [small.id], 't7'), ctx)];
+  const lin = FS.gcode.build(rs2, { ...ctx, arcs: false, rot }), arc = FS.gcode.build(rs2, { ...ctx, rot });
+  const nArc = (arc.text.match(/^G[23] /gm) || []).length;
+  ok(nArc > 5 && FS.gcode.lineCount(arc.text) < FS.gcode.lineCount(lin.text) * 0.7, `Bögen${rot ? ' (gedreht)' : ''}: ${nArc} G2/G3, ${FS.gcode.lineCount(arc.text)} statt ${FS.gcode.lineCount(lin.text)} Zeilen`);
+  // Radius am Start und Ende gleich (sonst GRBL-Fehler 33)
+  let px = 0, py = 0, worstR = 0;
+  for (const l of arc.text.split('\n')) {
+    const w = (k) => { const mm = new RegExp(k + '(-?[\\d.]+)').exec(l); return mm ? +mm[1] : null; };
+    if (/^G[23] /.test(l)) { const cx = px + w('I'), cy = py + w('J'); worstR = Math.max(worstR, Math.abs(Math.hypot(px - cx, py - cy) - Math.hypot(w('X') - cx, w('Y') - cy))); }
+    if (/^G[0123] /.test(l)) { if (w('X') !== null) px = w('X'); if (w('Y') !== null) py = w('Y'); }
+  }
+  ok(worstR < 0.004, `Bögen: Radius Start/Ende stimmt (max. Abweichung ${worstR.toFixed(4)} mm)`);
+  // jede Bogenbahn liegt auf der ursprünglichen Bahn
+  const A = FS.gcode.parse(arc.text).filter((m2) => !m2.rapid), B = FS.gcode.parse(lin.text).filter((m2) => !m2.rapid);
+  let worst = 0, bi = 0;
+  for (const q of A) {
+    let d = Infinity;
+    for (let k = Math.max(1, bi - 50); k < Math.min(B.length, bi + 4000); k++) {
+      if (Math.abs(B[k].z - q.z) > 1e-6 || Math.abs(B[k - 1].z - q.z) > 1e-6) continue;
+      const dd = G.segDist(q, B[k - 1], B[k]);
+      if (dd < d) { d = dd; if (dd < 1e-3) { bi = k; break; } }
+    }
+    if (d < Infinity) worst = Math.max(worst, d);
+  }
+  ok(worst < 0.02, `Bögen: Abweichung von der Bahn max. ${worst.toFixed(4)} mm`);
+}
+
 // Simulation
 const sim = FS.sim.create(stock, 0.5);
 FS.sim.run(sim, gc.moves, null, Infinity);
