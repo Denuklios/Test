@@ -51,7 +51,11 @@
     if (G.segmentInside(last, to, rings)) {
       const n = Math.ceil(d / 2.5);
       for (let i = 1; i <= n; i++) out.push({ ...G.lerp(last, to, i / n), j: 0 });
-    } else out.push({ x: to.x, y: to.y, j: 1 });
+    } else {
+      const ip = G.insidePath(last, to, rings, { margin: 0.35, snap: 3, cost: (q, de) => (de < 1.0 ? 3 : 1) });
+      if (ip) { const r = G.resample(ip, 2.5, 30); for (let i = 1; i < r.length; i++) out.push({ x: r[i].x, y: r[i].y, j: 0 }); }
+      else out.push({ x: to.x, y: to.y, j: 1 });
+    }
   }
 
   function runRing(out, rings, ring, len) {

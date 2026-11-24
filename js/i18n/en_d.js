@@ -163,4 +163,8 @@
     "Überstand an Übergängen (mm)": "Overlap at transitions (mm)",
     "Automatisch: schmale Formen = Satin, breite = Tatami": "Automatic: narrow shapes = satin, wide = tatami",
   });
+
+  Object.assign(E.exact, {
+    "Objekte gleicher Farbe wurden so sortiert, dass möglichst wenig geschnitten wird: Verbindungen laufen, wo es geht, versteckt unter später gestickten Objekten. Überlappende Objekte behalten ihre Reihenfolge, Schriften bleiben unverändert.": "Objects of the same color were sorted so that as few trims as possible are needed: where possible, connections run hidden under objects stitched later. Overlapping objects keep their order, lettering stays unchanged.",
+  });
 })(typeof window !== 'undefined' ? window : globalThis);

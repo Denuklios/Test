@@ -28,7 +28,9 @@
       const n = o.points.length;
       const s = mid(o.points[0], o.points[1]), e = mid(o.points[n - 2], o.points[n - 1]);
       if (isRingColA(o)) return [{ route: null, entry: s, exit: e }];
-      return [{ route: { rev: false }, entry: s, exit: e }, { route: { rev: true }, entry: e, exit: s }];
+      // zusätzlich hin und zurück (Unterlage hin, Deckstich zurück): Aus- = Einstieg
+      return [{ route: { rev: false }, entry: s, exit: e }, { route: { rev: true }, entry: e, exit: s },
+        { route: { rev: false, back: true }, entry: s, exit: s, back: true }, { route: { rev: true, back: true }, entry: e, exit: e, back: true }];
     }
     if (o.type === 'colB' && o.side2 && o.side2.length) {
       const L = o.points, R = o.side2;
@@ -79,17 +81,25 @@
    * Verbindungen zu einer anderen Farbe zählen weniger (dort wird ohnehin geschnitten).
    * Rückgabe: route je Objekt (gleiche Reihenfolge wie objs)
    */
-  function plan(objs) {
+  function plan(objs, settings = {}) {
     const n = objs.length;
     if (!n) return [];
     const opts = objs.map((o) => options(o, null));
+    // Abdeckflächen ab Objekt i bis zum Ende seines Farbblocks: dort darf ein Laufweg versteckt liegen
+    const lk = { trimDist: settings.trimDist ?? 2, trimCost: settings.trimCost ?? 25 };
+    const coversFrom = new Array(n);
+    for (let i = n - 1; i >= 0; i--) {
+      const sameNext = i + 1 < n && objs[i + 1].color === objs[i].color;
+      const c = objs[i].hidden ? null : coverOf(objs[i]);
+      coversFrom[i] = (c ? [c] : []).concat(sameNext ? coversFrom[i + 1] : []);
+    }
+    const link = (i, a, b) => (objs[i - 1].color === objs[i].color ? linkCost(a, b, coversFrom[i], lk) : 0.15 * G.dist(a, b));
     // Kosten/Herkunft je Zustand; dyn = dynamischer Einstieg (Flächen, geschlossene Läufe)
     const cost = [], back = [], st = [];
     const dyn = (o) => o.type === 'fill' || (o.type === 'run' && o.params && o.params.closed && !o.fixedDir);
     for (let i = 0; i < n; i++) {
       const o = objs[i];
       cost.push([]); back.push([]); st.push([]);
-      const w = i > 0 && objs[i - 1].color === o.color ? 1 : 0.15;
       const nopt = dyn(o) && i > 0 ? st[i - 1].length : opts[i].length;
       for (let k = 0; k < nopt; k++) {
         let best = Infinity, bj = -1, state = null;
@@ -98,11 +108,11 @@
           // Einstieg hängt vom Vorgänger-Zustand k ab
           const pe = st[i - 1][k].exit;
           const v = options(o, pe)[0];
-          best = cost[i - 1][k] + w * G.dist(pe, v.entry); bj = k; state = v;
+          best = cost[i - 1][k] + link(i, pe, v.entry); bj = k; state = v;
         } else {
           const v = opts[i][k];
           for (let j = 0; j < st[i - 1].length; j++) {
-            const c = cost[i - 1][j] + w * G.dist(st[i - 1][j].exit, v.entry);
+            const c = cost[i - 1][j] + link(i, st[i - 1][j].exit, v.entry);
             if (c < best) { best = c; bj = j; }
           }
           state = v;
@@ -129,6 +139,8 @@
     }
     if (r.rot) c.points = o.points.slice(r.rot).concat(o.points.slice(0, r.rot));
     if (r.entry) c._entry = r.entry;
+    if (r.exit) c._exit = r.exit;
+    if (r.back) c._back = true;
     return c;
   }
 
@@ -148,6 +160,12 @@
       }
     } catch (e) { rings = null; }
     o._cover = rings ? { rings, bb: G.bbox(rings.flat()) } : null;
+    if (o._cover && o.type === 'fill') {
+      const cv = o._cover;
+      let R = null;
+      Object.defineProperty(cv, 'router', { get: () => R || (R = G.insideRouter(cv.rings, { margin: 0.5, cell: 0.7 })), enumerable: false });
+      cv.near = (p) => p.x > cv.bb.x0 - 2 && p.x < cv.bb.x1 + 2 && p.y > cv.bb.y0 - 2 && p.y < cv.bb.y1 + 2 && (G.pointInRings(p, cv.rings) || cv.rings.some((r) => G.nearestOnRing(p, r).d < 1.6));
+    }
     return o._cover;
   }
 
@@ -317,5 +335,197 @@
     return out;
   }
 
-  HW.route = { options, choose, plan, apply, connect, hiddenPath, coverOf, optimizeOrder };
+  /* ---------- Fahrplan: Reihenfolge so wählen, dass möglichst wenig geschnitten wird ---------- */
+  // Punkt liegt unter einer der Abdeckflächen (Gerade-Ungerade-Regel je Objekt, mit kleinem Randabstand)
+  function underCovers(p, covers) {
+    for (const c of covers) {
+      if (p.x < c.bb.x0 || p.x > c.bb.x1 || p.y < c.bb.y0 || p.y > c.bb.y1) continue;
+      if (G.pointInRings(p, c.rings)) return true;
+    }
+    return false;
+  }
+  // Verbindung a -> b: kurz genug zum direkten Stich, unter späteren Objekten versteckbar, oder Schnitt
+  function linkCost(a, b, covers, opt) {
+    const d = G.dist(a, b);
+    if (d < opt.trimDist) return d;
+    if (covers.length) {
+      const n = Math.max(2, Math.ceil(d / 1.0));
+      let un = 0;
+      for (let t = 1; t < n; t++) if (underCovers(G.lerp(a, b, t / n), covers)) un++;
+      // überwiegend verdeckt: die Wegsuche beim Zusammensetzen führt um Löcher herum
+      if (un >= 0.8 * (n - 1) && underCovers(G.lerp(a, b, 1 / n), covers) && underCovers(G.lerp(a, b, (n - 1) / n), covers)) return 1 + d * 0.25; // versteckter Laufweg: ein paar Stiche, kein Schnitt
+      // um Löcher herum: Wegsuche innerhalb einer noch folgenden Fläche, an der beide Punkte liegen
+      for (const c of covers) {
+        if (!c.router || !c.near(a) || !c.near(b)) continue;
+        const t = c.router.snap(b);
+        if (t < 0) continue;
+        const L = c.router.costTo(c.router.field(a, null, t), b);
+        if (L < 3 * d + 10) return 1 + L * 0.25;
+      }
+    }
+    return d * 0.3 + opt.trimCost; // Schnitt: Sprunglänge zählt wenig, der Schnitt selbst viel
+  }
+  // Ein-/Ausstiegsvarianten für die Planung; Flächen: Ein- und Ausstieg irgendwo auf dem Umriss
+  function seqOptions(o, from) {
+    if (o.type === 'fill') {
+      const ring = HW.stitch.fillRings(o)[0];
+      const en = from ? (() => { const r = G.nearestOnRing(from, ring); return G.lerp(ring[r.seg], ring[(r.seg + 1) % ring.length], r.t); })() : ring[0];
+      return [{ entry: en, exit: null, ring }];
+    }
+    return options(o, from).map((v) => ({ entry: v.entry, exit: v.exit }));
+  }
+  // Abstand vom Ausstieg (Punkt oder flexibler Umriss einer Fläche) zum Punkt p
+  function fromPoint(cur, p) {
+    if (!cur) return null;
+    if (cur.ring) { const r = G.nearestOnRing(p, cur.ring); return G.lerp(cur.ring[r.seg], cur.ring[(r.seg + 1) % cur.ring.length], r.t); }
+    return cur.pt;
+  }
+
+  // Flächen überlappen sich wirklich (nicht nur die Rahmen): Stichprobe auf einem Raster der Schnittmenge
+  function realOverlap(A, B) {
+    if (!A || !B) return true;
+    const x0 = Math.max(A.bb.x0, B.bb.x0), x1 = Math.min(A.bb.x1, B.bb.x1), y0 = Math.max(A.bb.y0, B.bb.y0), y1 = Math.min(A.bb.y1, B.bb.y1);
+    if (x0 >= x1 || y0 >= y1) return false;
+    const st = Math.max(0.3, Math.min(x1 - x0, y1 - y0) / 12);
+    for (let y = y0 + st / 2; y < y1; y += st) for (let x = x0 + st / 2; x < x1; x += st) { const p = { x, y }; if (G.pointInRings(p, A.rings) && G.pointInRings(p, B.rings)) return true; }
+    return false;
+  }
+
+  /**
+   * Reihenfolge je Farbblock planen (Strahlsuche). Schnitte zählen teuer; Verbindungen, die unter noch
+   * folgenden Objekten derselben Farbe versteckt laufen können, zählen fast nichts.
+   * Überlappende Objekte behalten ihre Reihenfolge (oben bleibt oben).
+   */
+  function beamSequence(objects, settings = {}) {
+    const opt = { trimDist: settings.trimDist ?? 2, trimCost: settings.trimCost ?? 25, keepOverlapOrder: settings.keepOverlapOrder !== false, fillsLast: !!settings.fillsLast };
+    const out = [];
+    let i = 0, cur = null;
+    while (i < objects.length) {
+      let j = i;
+      while (j < objects.length && objects[j].color === objects[i].color) j++;
+      const block = objects.slice(i, j);
+      if (block.length < 2 || block.some((o) => o.fixedDir || o.grp || o.hidden)) { out.push(...block); cur = null; i = j; continue; }
+      const n = block.length;
+      const covers = block.map((o) => coverOf(o));
+      // Vorgänger-Bedingung: überlappende Objekte in alter Reihenfolge
+      const before = block.map(() => []);
+      if (opt.keepOverlapOrder) for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) if (overlap(block[a], block[b]) && realOverlap(covers[a], covers[b])) before[b].push(a);
+      if (opt.fillsLast) for (let b = 0; b < n; b++) if (block[b].type === 'fill') for (let a = 0; a < n; a++) if (block[a].type !== 'fill' && !before[a].includes(b)) before[b].push(a);
+      const width = +(globalThis.process && process.env.BW) || (n <= 20 ? 4 : n <= 60 ? 3 : 2), K = n <= 30 ? n : 10;
+      let beam = [{ cur, done: new Set(), seq: [], cost: 0 }];
+      for (let step = 0; step < n; step++) {
+        const kids = [];
+        for (const st of beam) {
+          const free = [];
+          for (let k = 0; k < n; k++) if (!st.done.has(k) && before[k].every((q) => st.done.has(q))) free.push(k);
+          // Kandidaten: die nächsten K freien Objekte
+          const near = free.map((k) => {
+            const v = seqOptions(block[k], fromPoint(st.cur, block[k].points ? block[k].points[0] : { x: 0, y: 0 }));
+            const fp = fromPoint(st.cur, v[0].entry);
+            return { k, d: fp ? Math.min(...v.map((x) => G.dist(fromPoint(st.cur, x.entry), x.entry))) : 0 };
+          }).sort((x, y) => x.d - y.d).slice(0, K);
+          // versteckte Wege nur unter Objekten, die nach diesem Schritt noch kommen
+          for (const { k } of near) {
+            const rest = [];
+            for (let q = 0; q < n; q++) if (q !== k && !st.done.has(q) && covers[q]) rest.push(covers[q]);
+            if (covers[k]) rest.push(covers[k]);
+            const vs = seqOptions(block[k], st.cur && st.cur.pt ? st.cur.pt : null);
+            for (const v of vs) {
+              const a = fromPoint(st.cur, v.entry);
+              const c = a ? linkCost(a, v.entry, rest, opt) : 0;
+              const next = v.exit ? { pt: v.exit } : { ring: v.ring };
+              const done = new Set(st.done); done.add(k);
+              kids.push({ cur: next, done, seq: st.seq.concat([k]), cost: st.cost + c });
+            }
+          }
+        }
+        kids.sort((x, y) => x.cost - y.cost);
+        const seen = new Set();
+        beam = [];
+        for (const kd of kids) {
+          const key = [...kd.done].sort((x, y) => x - y).join(',') + '|' + kd.seq[kd.seq.length - 1] + '|' + (kd.cur.pt ? kd.cur.pt.x.toFixed(1) : 'r');
+          if (seen.has(key)) continue;
+          seen.add(key);
+          beam.push(kd);
+          if (beam.length >= width) break;
+        }
+        if (!beam.length) break;
+      }
+      const best = beam[0];
+      if (!best || best.seq.length !== n) { out.push(...block); cur = null; }
+      else { best.seq.forEach((k) => out.push(block[k])); cur = best.cur; }
+      i = j;
+    }
+    return out;
+  }
+
+  /**
+   * Ergebnis einer Reihenfolge wirklich durchrechnen: Ein-/Ausstiege planen, Stiche erzeugen,
+   * Verbindungen wie beim Zusammensetzen prüfen. Rückgabe: {trims, jump, travel, cost}
+   */
+  function simulate(order, settings = {}) {
+    const trimDist = settings.trimDist ?? 2, trimCost = settings.trimCost ?? 25;
+    const pl = plan(order, settings);
+    const objs = order.map((o, i) => {
+      const r = { ...(pl[i] || {}) };
+      if (o.type === 'fill' && order[i + 1] && order[i + 1].color === o.color) { const ex = exitTarget(o, order[i + 1]); if (ex) r.exit = ex; }
+      // schnelle Näherung der Flächen (ohne Vorausplanung der Teilblöcke) – reicht für Ein-/Ausstieg
+      return { ...o, _route: Object.keys(r).length ? r : null, _st: null, _cover: undefined, _fast: true };
+    });
+    let prevExit = null;
+    for (const o of objs) {
+      if (o.type === 'fill' && prevExit && o._route !== undefined) {
+        const en = nearestOnOutline(o, prevExit);
+        o._route = { ...(o._route || {}), entry: { x: +en.x.toFixed(2), y: +en.y.toFixed(2) } };
+      }
+      try { o._st = HW.stitch.generate(o, settings.material); } catch (e) { o._st = []; }
+      if (o._st.length) prevExit = o._st[o._st.length - 1];
+    }
+    let trims = 0, jump = 0, travel = 0;
+    for (let i = 1; i < objs.length; i++) {
+      const a = objs[i - 1]._st[objs[i - 1]._st.length - 1], b = objs[i]._st[0];
+      if (!a || !b) continue;
+      if (objs[i].color !== objs[i - 1].color) { jump += G.dist(a, b) * 0.1; continue; }
+      const d = G.dist(a, b);
+      if (d < trimDist) continue;
+      const p = connect(a, b, objs, i);
+      if (p) travel += G.polyLength([a, ...p]);
+      else { trims++; jump += d; }
+    }
+    return { trims, jump, travel, cost: trims * trimCost + jump * 0.3 + travel * 0.25, routes: objs.map((o) => o._route) };
+  }
+
+  /** Reihenfolge planen: mehrere Kandidaten erzeugen, jeden durchrechnen, den besten nehmen. */
+  function sequence(objects, settings = {}) {
+    const cands = [objects.slice()];
+    try { cands.push(beamSequence(objects, settings)); } catch (e) { /* weiter mit den anderen */ }
+    try { cands.push(beamSequence(objects, { ...settings, fillsLast: true })); } catch (e) { /* */ }
+    if (settings.simulate === false) return cands[1] || cands[0];
+    let best = cands[0], bc = Infinity;
+    for (const c of cands) {
+      if (!c || c.length !== objects.length) continue;
+      const r = simulate(c, settings);
+      if (r.cost < bc - 1e-6) { bc = r.cost; best = c; }
+    }
+    return best;
+  }
+
+  // Ausstiegsziel für Flächen: Punkt des Umrisses, der dem Einstieg des nächsten Objekts am nächsten liegt
+  function exitTarget(o, next) {
+    if (!next || o.type !== 'fill') return null;
+    const ring = HW.stitch.fillRings(o)[0];
+    let pts;
+    if (next.type === 'fill') {
+      // nächster Umrisspunkt der folgenden Fläche zum Umriss dieser Fläche
+      const nr = HW.stitch.fillRings(next)[0];
+      let best = null, bd = Infinity;
+      for (let k = 0; k < nr.length; k += Math.max(1, Math.floor(nr.length / 60))) { const r = G.nearestOnRing(nr[k], ring); if (r.d < bd) { bd = r.d; best = nr[k]; } }
+      pts = best ? [best] : [];
+    } else pts = options(next, null).map((v) => v.entry);
+    let best = null, bd = Infinity;
+    for (const p of pts) { const r = G.nearestOnRing(p, ring); if (r.d < bd) { bd = r.d; best = G.lerp(ring[r.seg], ring[(r.seg + 1) % ring.length], r.t); } }
+    return best ? { x: +best.x.toFixed(2), y: +best.y.toFixed(2) } : null;
+  }
+
+  HW.route = { options, choose, plan, apply, connect, hiddenPath, coverOf, optimizeOrder, sequence, beamSequence, simulate, exitTarget };
 })(typeof window !== 'undefined' ? window : globalThis);

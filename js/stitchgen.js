@@ -245,17 +245,31 @@
     // Unterlage
     const ul = p.underlay || 'none';
     const step = Math.max(1, Math.round(2 / cs));
-    if (ul.includes('center')) {
+    if (obj._back) {
+      // Hin und zurück: Unterlage läuft zum anderen Ende, der Deckstich kommt zurück -> Ende = Anfang
+      // (spart bei freien Enden wie Beinen oder Fühlern den Schnitt)
+      if (ul !== 'none') {
+        const ins = cr.map((c) => inset(c, ul.includes('zigzag') ? 0.5 : 0.4));
+        if (ul.includes('zigzag')) {
+          const zz = (q) => { const last = out[out.length - 1]; if (last) splitStitch(out, last, q, p.split || 7, out.length); else push(out, q); };
+          for (let k = 0; k < ins.length; k += step) zz((k / step) % 2 ? ins[k].b : ins[k].a);
+          zz(ins[ins.length - 1].a);
+        } else if (ul.includes('edge')) {
+          runAlong(out, ins.map((c) => c.a), 2.2);
+        } else runAlong(out, cr.map((c) => G.lerp(c.a, c.b, 0.5)), 2.2);
+      }
+      cr.reverse();
+    } else if (ul.includes('center')) {
       const mid = cr.map((c) => G.lerp(c.a, c.b, 0.5));
       runAlong(out, mid, 2.2);
       runAlong(out, mid.slice().reverse(), 2.2);
     }
-    if (ul.includes('edge')) {
+    if (ul.includes('edge') && !obj._back) {
       const ins = cr.map((c) => inset(c, 0.4));
       // eine Kante hin, die andere zurück – Übergänge ebenfalls in kurze Stiche teilen
       runAlong(out, ins.map((c) => c.a).concat(ins.map((c) => c.b).reverse(), [ins[0].a]), 2.2);
     }
-    if (ul.includes('zigzag')) {
+    if (ul.includes('zigzag') && !obj._back) {
       const ins = cr.map((c) => inset(c, 0.5));
       // Zickzack-Unterlage – bei breiten Säulen ebenfalls teilen
       const zz = (q) => { const last = out[out.length - 1]; if (last) splitStitch(out, last, q, p.split || 7, out.length); else push(out, q); };
@@ -381,45 +395,160 @@
   // Erzeugt Stiche für eine Füllung im gedrehten Koordinatensystem (Zeilen horizontal)
   function fillRotated(rings, o, startPt) {
     const blocks = scanBlocks(rings, o.spacing, o.gradEnd);
-    const out = [];
-    let cur = startPt;
-    const remaining = blocks.filter((b) => b.rows.length);
-    const done = [];
-    // liegt der Punkt auf bereits gestickter Fläche?
-    const covered = (pt) => done.some((b) => {
-      const r0 = b.rows[0], r1 = b.rows[b.rows.length - 1];
-      if (pt.y < Math.min(r0.y, r1.y) - o.spacing || pt.y > Math.max(r0.y, r1.y) + o.spacing) return false;
-      return b.rows.some((s) => Math.abs(s.y - pt.y) <= (o.gradEnd || o.spacing) * 0.75 && pt.x > s.x0 + 0.3 && pt.x < s.x1 - 0.3);
+    let out, cur, remaining, done, tcost;
+    const reset = () => { out = []; cur = startPt; remaining = blocks.filter((b) => b.rows.length); done = []; doneIds = new Set(); tcost = 0; };
+    // Blockkarte: welche Teilfläche deckt welche Stelle (für schnelle Abfragen „schon gestickt?“)
+    const bbAll = G.bbox(rings.flat()), gc = 0.4;
+    const gx0 = bbAll.x0 - 1, gy0 = bbAll.y0 - 1, GW = Math.ceil((bbAll.x1 - gx0 + 1) / gc) + 1, GH = Math.ceil((bbAll.y1 - gy0 + 1) / gc) + 1;
+    const bmap = new Int32Array(GW * GH).fill(-1);
+    const bIdx = new Map();
+    blocks.forEach((b, bi) => {
+      bIdx.set(b, bi);
+      for (const sg of b.rows) {
+        const band = (o.gradEnd || o.spacing) * 0.75;
+        const r0 = Math.max(0, Math.ceil((sg.y - band - gy0) / gc - 0.5)), r1 = Math.min(GH - 1, Math.floor((sg.y + band - gy0) / gc - 0.5));
+        const c0 = Math.max(0, Math.ceil((sg.x0 + 0.3 - gx0) / gc - 0.5)), c1 = Math.min(GW - 1, Math.floor((sg.x1 - 0.3 - gx0) / gc - 0.5));
+        for (let r = r0; r <= r1; r++) for (let c = c0; c <= c1; c++) bmap[r * GW + c] = bi;
+      }
     });
+    const blockAt = (pt) => {
+      const c = Math.floor((pt.x - gx0) / gc), r = Math.floor((pt.y - gy0) / gc);
+      return c < 0 || r < 0 || c >= GW || r >= GH ? -1 : bmap[r * GW + c];
+    };
+    let doneIds = new Set();
+    reset();
+    // liegt der Punkt auf bereits gestickter Fläche?
+    const covered = (pt) => { const id = blockAt(pt); return id >= 0 && doneIds.has(id); };
     const crossesDone = (a, b) => {
       const L = G.dist(a, b), n = Math.floor(L / 0.8);
       for (let i = 1; i < n; i++) if (covered(G.lerp(a, b, i / n))) return true;
       return false;
     };
+    let R = null, pre = null;
+    // gerade Fahrt nur, wenn sie nicht dicht am Rand entlang läuft (Kante würde dick)
+    const awayFromEdge = (a, b) => {
+      const L = G.dist(a, b), n = Math.max(2, Math.ceil(L / 1.5));
+      for (let t = 1; t < n; t++) { const q = G.lerp(a, b, t / n); if (Math.min(...rings.map((r) => G.nearestOnRing(q, r).d)) < 1.0) return false; }
+      return true;
+    };
+    const router = () => R || (R = G.insideRouter(rings, { margin: 0.35 }));
+    // Fahrtkosten: über fertiger Fläche teuer (sichtbar), in Randnähe ebenfalls (Kante würde dick, Faden reißt)
+    const travelCost = (q, de) => (covered(q) ? 10 : 1) * (1 + 2 * Math.max(0, 1.5 - de));
+    function inBlock(b, pt) {
+      const r0 = b.rows[0], r1 = b.rows[b.rows.length - 1];
+      if (pt.y < Math.min(r0.y, r1.y) - o.spacing || pt.y > Math.max(r0.y, r1.y) + o.spacing) return false;
+      return b.rows.some((s) => Math.abs(s.y - pt.y) <= (o.gradEnd || o.spacing) * 0.75 && pt.x > s.x0 + 0.3 && pt.x < s.x1 - 0.3);
+    }
+    function planBlocks(list, start) {
+      const PR = G.insideRouter(rings, { margin: 0.35, cell: 0.7 });
+      const optsOf = (b) => {
+        const res = [];
+        for (const rv of [false, true]) for (const sd of [0, 1]) {
+          const rows = rv ? b.rows.slice().reverse() : b.rows;
+          const f = rows[0], l = rows[rows.length - 1], n = rows.length;
+          const es = n % 2 ? 1 - sd : sd;
+          res.push({ b, rev: rv, side: sd, entry: { x: sd ? f.x1 : f.x0, y: f.y }, exit: { x: es ? l.x1 : l.x0, y: l.y } });
+        }
+        return res;
+      };
+      const allOpts = list.map(optsOf);
+      const width = list.length <= 12 ? 5 : list.length <= 30 ? 3 : 2;
+      let beam = [{ cur: start, done: [], cost: 0, seq: [] }];
+      for (let step = 0; step < list.length; step++) {
+        const kids = [];
+        for (const stt of beam) {
+          const dset = new Set(stt.done.map((i) => bIdx.get(list[i])));
+          const onDone = (q) => { const id = blockAt(q); return id >= 0 && dset.has(id); };
+          const cost = (q, de) => (onDone(q) ? 10 : 1) * (1 + 2 * Math.max(0, 1.5 - de));
+          // nur bis alle möglichen Einstiege erreicht sind suchen
+          let f = null;
+          if (stt.cur) {
+            const tg = new Set();
+            list.forEach((b, i) => { if (!stt.done.includes(i)) for (const op of allOpts[i]) { const t = PR.snap(op.entry); if (t >= 0) tg.add(t); } });
+            f = PR.field(stt.cur, cost, -1, tg);
+          }
+          list.forEach((b, i) => {
+            if (stt.done.includes(i)) return;
+            for (const op of allOpts[i]) {
+              let c;
+              if (!stt.cur) c = (op.rev ? 0.01 : 0) + op.side * 0.01;
+              else {
+                const e = G.dist(stt.cur, op.entry);
+                // wie beim Sticken: gerade Verbindung, wenn sie innen bleibt und nichts Fertiges kreuzt
+                let straight = e < 0.8;
+                if (!straight && G.segmentInside(stt.cur, op.entry, rings) && (e < 2 || awayFromEdge(stt.cur, op.entry))) {
+                  const n = Math.floor(e / 0.8);
+                  straight = true;
+                  for (let t = 1; t < n && straight; t++) if (onDone(G.lerp(stt.cur, op.entry, t / n))) straight = false;
+                }
+                c = straight ? e : PR.costTo(f, op.entry);
+                if (!isFinite(c)) c = e + 1000;
+              }
+              kids.push({ cur: op.exit, done: stt.done.concat([i]), cost: stt.cost + c, seq: stt.seq.concat([op]) });
+            }
+          });
+        }
+        kids.sort((x, y) => x.cost - y.cost);
+        const seen = new Set();
+        beam = [];
+        for (const k of kids) {
+          const key = k.done.slice().sort((x, y) => x - y).join(',') + '|' + k.cur.x.toFixed(1) + ',' + k.cur.y.toFixed(1);
+          if (seen.has(key)) continue;
+          seen.add(key);
+          beam.push(k);
+          if (beam.length >= width) break;
+        }
+      }
+      if (o.exitTarget) beam.forEach((k) => { k.cost += 0.6 * G.dist(k.cur, o.exitTarget); });
+      beam.sort((x, y) => x.cost - y.cost);
+      return beam.length ? beam[0].seq.slice() : null;
+    }
     const travel = (from, to) => {
       if (!from) { push(out, to); return; }
       const d = G.dist(from, to);
       if (d < 0.5) { push(out, to); return; }
-      if (G.segmentInside(from, to, rings) && !crossesDone(from, to)) { runAlong(out, [from, to], 3); return; }
+      if (G.segmentInside(from, to, rings) && !crossesDone(from, to) && (d < 2 || awayFromEdge(from, to))) { tcost += d; runAlong(out, [from, to], 3); return; }
+      // Weg im Inneren der Form, bevorzugt über noch nicht gestickte Bereiche (wird dort später überdeckt)
+      let ip = pre && pre.a === from ? router().pathTo(pre, to) : router().pathTo(router().field(from, travelCost, router().snap(to)), to);
+      if (!ip) ip = G.insidePath(from, to, rings, { margin: 0.2, cost: travelCost });
+      if (ip) {
+        for (let i = 1; i < ip.length; i++) {
+          const L = G.dist(ip[i - 1], ip[i]), n = Math.max(1, Math.ceil(L / 0.8));
+          for (let t = 0; t < n; t++) tcost += (L / n) * travelCost(G.lerp(ip[i - 1], ip[i], (t + 0.5) / n), 0.9);
+        }
+        runAlong(out, ip, 2.5); push(out, to); return;
+      }
       let best = null;
       for (const ring of rings) {
         const A = G.nearestOnRing(from, ring), B = G.nearestOnRing(to, ring);
         if (A.d < 0.8 && B.d < 0.8) { best = G.ringPath(ring, A, B); break; }
       }
-      if (best && G.polyLength(best) < d * 4 + 10) { runAlong(out, best, 2.5); push(out, to); }
-      else push(out, to, 1);
+      if (best && G.polyLength(best) < d * 4 + 10) { tcost += G.polyLength(best) * 1.6; runAlong(out, best, 2.5); push(out, to); }
+      else { tcost += 1000; push(out, to, 1); }
     };
+    // Reihenfolge der Teilflächen vorab planen (Strahlsuche): Fahrten sollen über noch offene Fläche
+    // oder am Rand laufen, nicht sichtbar über bereits gestickte Reihen
+    const planned = !o.fast && remaining.length > 1 && remaining.length <= 80 ? planBlocks(remaining, cur) : null;
+    const runOnce = (plan) => {
+    reset();
     while (remaining.length) {
       let bi = 0, rev = false, side = 0, bd = Infinity;
-      remaining.forEach((b, i) => {
-        const f = b.rows[0], l = b.rows[b.rows.length - 1];
-        const opts = [[f, false, 0], [f, false, 1], [l, true, 0], [l, true, 1]];
-        for (const [s, rv, sd] of opts) {
-          const pt = { x: sd ? s.x1 : s.x0, y: s.y };
-          const d = cur ? G.dist(cur, pt) : (rv ? 1 : 0) + sd;
-          if (d < bd) { bd = d; bi = i; rev = rv; side = sd; }
-        }
-      });
+      if (plan && plan.length) {
+        const nx = plan.shift();
+        bi = remaining.indexOf(nx.b); rev = nx.rev; side = nx.side;
+        if (bi < 0) { bi = 0; rev = false; side = 0; }
+      } else {
+        remaining.forEach((b, i) => {
+          const f = b.rows[0], l = b.rows[b.rows.length - 1];
+          const opts = [[f, false, 0], [f, false, 1], [l, true, 0], [l, true, 1]];
+          for (const [s, rv, sd] of opts) {
+            const pt = { x: sd ? s.x1 : s.x0, y: s.y };
+            const d = cur ? G.dist(cur, pt) : (rv ? 1 : 0) + sd;
+            if (d < bd) { bd = d; bi = i; rev = rv; side = sd; }
+          }
+        });
+      }
+      pre = null;
       const b = remaining.splice(bi, 1)[0];
       const rows = rev ? b.rows.slice().reverse() : b.rows;
       let dir = side; // 0: links→rechts
@@ -452,9 +581,27 @@
         cur = e;
         dir = 1 - dir;
       });
-      done.push(b);
+      done.push(b); doneIds.add(bIdx.get(b));
     }
-    return { out, end: cur };
+    return { out, end: cur, cost: tcost };
+    };
+    // geplante Reihenfolge und einfache Nächster-Block-Reihenfolge ausführen, die mit weniger sichtbaren Fahrten nehmen
+    const A = runOnce(planned ? planned.slice() : null);
+    const score = (r) => r.cost + (o.exitTarget && r.end ? 0.6 * G.dist(r.end, o.exitTarget) : 0);
+    if (!planned) {
+      // ein einziger Block: Richtung so wählen, dass das Ende nahe am nächsten Objekt liegt
+      if (o.exitTarget && remaining.length === 1 && remaining[0].rows.length > 1) {
+        let best = A;
+        for (const rv of [false, true]) for (const sd of [0, 1]) {
+          const r = runOnce([{ b: blocks.filter((b) => b.rows.length)[0], rev: rv, side: sd }]);
+          if (score(r) < score(best) - 1e-6) best = r;
+        }
+        return best;
+      }
+      return A;
+    }
+    const B = runOnce(null);
+    return score(B) < score(A) ? B : A;
   }
 
   function fillRings(obj) {
@@ -481,6 +628,8 @@
         rr = rr.map((r) => G.resample(r.concat([r[0]]), 0.5, 20).slice(0, -1).map((q) => ({ x: q.x, y: q.y - wy(q.x) })));
         if (sp) sp = { x: sp.x, y: sp.y - wy(sp.x) };
       }
+      if (opts.exitTarget) opts = { ...opts, exitTarget: G.rot(opts.exitTarget, -a) };
+      if (obj._fast) opts = { ...opts, fast: true };
       const res = fillRotated(rr, opts, sp);
       if (wy) res.out.forEach((q) => { q.y += wy(q.x); });
       res.out.forEach((q) => push(out, G.rot(q, a), q.j));
@@ -507,7 +656,15 @@
     const satinFill = ft === 'satin';
     if (HW.fills && (ft === 'contour' || ft === 'spiral' || ft === 'cross')) {
       const res = HW.fills[ft](rings, p, start);
-      res.forEach((q, i) => push(out, q, i === 0 && out.length && G.dist(out[out.length - 1], q) > 2.5 ? 1 : q.j));
+      res.forEach((q, i) => {
+        if (i === 0 && out.length && G.dist(out[out.length - 1], q) > 2.5) {
+          // von der Unterlage zum Anfang der Füllung im Inneren laufen (kein Sprung)
+          const ip = G.insidePath(out[out.length - 1], q, rings, { margin: 0.35, snap: 3 });
+          if (ip) { runAlong(out, ip, 2.5); return; }
+          push(out, q, 1); return;
+        }
+        push(out, q, q.j);
+      });
     } else if (ft === 'knock') {
       // Knockdown: lockeres Gitter, drückt Flor/Schlaufen flach (zwei Lagen über Kreuz)
       addRot(ang, { spacing: p.spacing, len: p.len, pull: 0 });
@@ -517,16 +674,24 @@
       addRot(ang, {
         spacing: satinFill ? p.spacing / 2 : p.spacing,
         len: warp ? Math.min(p.len, warp.len / 6) : p.len,
-        pull: p.pull, satin: satinFill, split: p.split,
+        pull: p.pull, satin: satinFill, split: p.split, exitTarget: p.border && p.border !== 'none' ? null : obj._exit || null,
         pattern: ft === 'pattern' ? p.pattern || 'diamond' : null,
         gradEnd: ft === 'gradient' ? Math.max(p.spacing, p.gradEnd || 2) : 0,
       }, warp);
     }
     if (p.border && p.border !== 'none') {
-      const bo = { points: obj.points, params: {} };
+      // Umrandung dort beginnen, wo die Füllung aufgehört hat (kein langer Weg dorthin)
+      let bpts = obj.points;
+      const lastF = out[out.length - 1];
+      if (lastF && bpts.length > 2) {
+        let bi = 0;
+        bpts.forEach((q, i) => { if (G.dist(q, lastF) < G.dist(bpts[bi], lastF)) bi = i; });
+        bpts = bpts.slice(bi).concat(bpts.slice(0, bi));
+      }
+      const bo = { points: bpts, params: {} };
       let bs;
       if (p.border === 'satin') {
-        bs = genSatin({ type: '_border', points: obj.points, params: { ...DEFAULTS.satin, width: p.borderWidth, underlay: 'center' } });
+        bs = genSatin({ type: '_border', points: bpts, params: { ...DEFAULTS.satin, width: p.borderWidth, underlay: 'center' } });
       } else {
         bo.type = 'run';
         bo.params = { len: p.borderLen || 2.5, style: p.border === 'triple' ? 'triple' : 'single', closed: true };
@@ -534,7 +699,11 @@
       }
       if (bs.length) {
         const last = out[out.length - 1];
-        if (last && G.dist(last, bs[0]) > 2) push(out, bs[0], 1);
+        if (last && G.dist(last, bs[0]) > 2) {
+          // kurzer Weg zum Anfang der Umrandung, nicht am Rand entlang
+          const ip = G.insidePath(last, bs[0], rings, { margin: 0.35, cost: (q, de) => (de < 1.0 ? 3 : 1), snap: 3 });
+          if (ip) runAlong(out, ip, 2.5); else push(out, bs[0], 1);
+        }
         bs.forEach((q) => push(out, q, q.j));
       }
     }

@@ -120,13 +120,18 @@
     // Ein-/Ausstiege der Reihe nach wählen (kürzeste Verbindung); das Ende des vorigen Objekts bestimmt den Einstieg des nächsten
     let prevExit = null;
     const vis = objects.filter((o) => !o.hidden && (o.type === 'manual' ? o.stitches.length : o.points.length));
-    const planned = st.settings.autoRoute ? HW.route.plan(vis) : [];
+    const planned = st.settings.autoRoute ? HW.route.plan(vis, st.settings) : [];
     vis.forEach((o, i) => {
       let routeOnly = false;
       if (st.settings.autoRoute) {
         let r = planned[i];
         // Flächen: Einstieg am tatsächlichen Ende des vorigen Objekts
         if (o.type === 'fill' && prevExit) r = HW.route.choose(o, prevExit, null, false);
+        // Flächen: Ende nahe am nächsten Objekt derselben Farbe (spart Sprung und Schnitt)
+        if (o.type === 'fill' && vis[i + 1] && vis[i + 1].color === o.color) {
+          const ex = HW.route.exitTarget(o, vis[i + 1]);
+          if (ex) r = { ...(r || {}), exit: ex };
+        }
         if (JSON.stringify(r) !== JSON.stringify(o._route || null)) { routeOnly = !!o._st; o._route = r; o._st = null; o._bb = null; }
       } else if (o._route) { routeOnly = !!o._st; o._route = null; o._st = null; }
       if (!o._st) {
@@ -3614,7 +3619,7 @@
       const b0 = score(before);
       const old = st.objects;
       pushUndo();
-      st.objects = HW.route.optimizeOrder(st.objects);
+      try { st.objects = HW.route.sequence(st.objects, { ...st.settings, material: st.material, keepOverlapOrder: true }); } catch (e) { st.objects = HW.route.optimizeOrder(st.objects); }
       changed();
       let after = D.stats(cmds);
       if (score(after) >= b0) {
@@ -3624,7 +3629,7 @@
         changed();
         return modal('Reihenfolge optimieren', '<p>Die aktuelle Reihenfolge ist bereits optimal – es wurde nichts geändert.</p>');
       }
-      modal('Reihenfolge optimiert', `<p>Objekte gleicher Farbe wurden nach kürzesten Wegen sortiert. Überlappende Objekte behalten ihre Reihenfolge, Schriften bleiben unverändert.</p><p>Schnitte: ${before.trims} → <b>${after.trims}</b><br>Versteckte Laufwege: ${before.travels} → <b>${after.travels}</b></p>`);
+      modal('Reihenfolge optimiert', `<p>Objekte gleicher Farbe wurden so sortiert, dass möglichst wenig geschnitten wird: Verbindungen laufen, wo es geht, versteckt unter später gestickten Objekten. Überlappende Objekte behalten ihre Reihenfolge, Schriften bleiben unverändert.</p><p>Schnitte: ${before.trims} → <b>${after.trims}</b><br>Versteckte Laufwege: ${before.travels} → <b>${after.travels}</b></p>`);
     },
     sortColor: () => {
       pushUndo();

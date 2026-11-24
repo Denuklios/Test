@@ -204,6 +204,87 @@
     return 0.5 * Math.atan2(2 * sxy, sxx - syy);
   }
 
+  // Maske -> bereinigte Ringe (mm), größter zuerst
+  function maskRings(m, cw, ch, mm, org, opts) {
+    const SC = HW.scan;
+    const f = new Float32Array(cw * ch);
+    for (let i = 0; i < f.length; i++) f[i] = m[i];
+    const fb = SC.blur(f, cw, ch, 0.7);
+    const co = { mm, ox: org.x, oy: org.y, sigma: opts.smooth ?? 0.18, corner: opts.corner ?? 55, step: 0.1 };
+    const rs = SC.contours(fb, cw, ch, 0.5).map((r) => SC.cleanRing(r, co)).filter((q) => q.dense.length >= 8);
+    rs.sort((a, b) => Math.abs(G.signedArea(b.dense)) - Math.abs(G.signedArea(a.dense)));
+    if (!rs.length) return rs;
+    const sg = Math.sign(G.signedArea(rs[0].dense));
+    return rs.filter((q, i) => i === 0 || Math.sign(G.signedArea(q.dense)) !== sg);
+  }
+
+  // Zusammenhängende Teile einer Maske (8er-Nachbarschaft)
+  function maskParts(m, cw, ch) {
+    const lab = new Int32Array(cw * ch).fill(-1), parts = [];
+    for (let i = 0; i < m.length; i++) {
+      if (!m[i] || lab[i] >= 0) continue;
+      const px = [i], id = parts.length;
+      lab[i] = id;
+      for (let k = 0; k < px.length; k++) {
+        const x = px[k] % cw, y = (px[k] / cw) | 0;
+        for (let dy = -1; dy <= 1; dy++) for (let dx = -1; dx <= 1; dx++) {
+          const xx = x + dx, yy = y + dy;
+          if (xx < 0 || yy < 0 || xx >= cw || yy >= ch) continue;
+          const j = yy * cw + xx;
+          if (m[j] && lab[j] < 0) { lab[j] = id; px.push(j); }
+        }
+      }
+      parts.push(px);
+    }
+    return parts;
+  }
+
+  /**
+   * Breite und schmale Teile trennen (morphologisches Öffnen mit halber Satin-Grenze):
+   * core = breite Bereiche (werden Fläche, mit Überstand "keep" unter die Säulen), narrow = schmale Arme/Beine.
+   */
+  function hybrid(mask, cw, ch, mm, satinMax, keep) {
+    const SA = HW.satinauto;
+    const r = satinMax / 2 / mm;
+    const dt = SA.distanceTransform(mask, cw, ch);
+    const er = new Uint8Array(cw * ch);
+    let any = false;
+    for (let i = 0; i < er.length; i++) if (dt[i] > r) { er[i] = 1; any = true; }
+    if (!any) return null;
+    const inv = new Uint8Array(cw * ch);
+    for (let i = 0; i < inv.length; i++) inv[i] = er[i] ? 0 : 1;
+    const de = SA.distanceTransform(inv, cw, ch); // Abstand zum erodierten Kern
+    const core = new Uint8Array(cw * ch);
+    for (let i = 0; i < core.length; i++) if (mask[i] && de[i] <= r + 0.5) core[i] = 1;
+    // schmale Reste; winzige Säume am Kern gehören zum Kern
+    const nar = new Uint8Array(cw * ch);
+    for (let i = 0; i < nar.length; i++) nar[i] = mask[i] && !core[i] ? 1 : 0;
+    const narrow = [];
+    const ic = new Uint8Array(cw * ch);
+    for (let i = 0; i < ic.length; i++) ic[i] = core[i] ? 0 : 1;
+    const dCore = SA.distanceTransform(ic, cw, ch);
+    for (const px of maskParts(nar, cw, ch)) {
+      let maxD = 0;
+      for (const i of px) maxD = Math.max(maxD, dt[i]);
+      if (px.length < r * r * 1.2 || maxD < 1.2) { for (const i of px) core[i] = 1; continue; }
+      // nur Teile mit freiem Ende (weit weg vom Kern) werden Säule; Stege zwischen Löchern und Säume bleiben Fläche
+      let far = 0;
+      for (const i of px) far = Math.max(far, dCore[i]);
+      if (far < 1.6 * r) { for (const i of px) core[i] = 1; continue; }
+      const m = new Uint8Array(cw * ch);
+      for (const i of px) m[i] = 1;
+      narrow.push(m);
+    }
+    // Kern mit Überstand unter die Säulen (gegen Lücken am Übergang)
+    const ci = new Uint8Array(cw * ch);
+    for (let i = 0; i < ci.length; i++) ci[i] = core[i] ? 0 : 1;
+    const dc = SA.distanceTransform(ci, cw, ch), kp = keep / mm;
+    const coreK = new Uint8Array(cw * ch);
+    for (let i = 0; i < coreK.length; i++) if (mask[i] && dc[i] <= kp + 0.01) coreK[i] = 1;
+    const cores = maskParts(coreK, cw, ch).filter((px) => px.length > 4).map((px) => { const m = new Uint8Array(cw * ch); for (const i of px) m[i] = 1; return m; });
+    return { core: cores, narrow };
+  }
+
   // Ringe (mm, Even-Odd) in eine Pixelmaske zeichnen -> glatte Maske ohne Rasterrauschen
   function fillRings(rings, cw, ch, mm, ox, oy) {
     const m = new Uint8Array(cw * ch);
@@ -321,11 +402,42 @@
               const L = col.filter((_, i) => i % 2 === 0), R = col.filter((_, i) => i % 2 === 1).reverse();
               cover += Math.abs(G.signedArea(L.concat(R)));
             }
-            // Kreuzungen/Verzweigungen (A, N, R, Ringe mit Bögen) liefern überlappende Säulen mit Fächern -> exakte Fläche stickt sauberer
-            if (mode === 'satin' || (p90 <= satinMax && cover / area > 0.75)) cols = res;
+            // Anteil der Fläche, der breiter als die Satin-Grenze ist (Körper, Kopf …)
+            let wide = 0;
+            for (const col of res.columns)
+              for (let k = 2; k + 1 < col.length; k += 2) {
+                const w0 = G.dist(col[k - 2], col[k - 1]), w1 = G.dist(col[k], col[k + 1]);
+                if ((w0 + w1) / 2 > satinMax) wide += ((w0 + w1) / 2) * G.dist(G.lerp(col[k - 2], col[k - 1], 0.5), G.lerp(col[k], col[k + 1], 0.5));
+              }
+            if (mode === 'satin' || (p90 <= satinMax && wide / area < 0.08 && cover / area > 0.75)) cols = res;
+            else if (mode === 'auto' && precise && wide / area >= 0.08) {
+              // gemischt: breite Teile als Fläche, schmale Arme/Beine/Striche als Satin
+              const hy = hybrid(cmask, cw, ch, mm, satinMax, opts.keepMM ?? 0.4);
+              if (hy) {
+                const org = { x: opts.originX + x0 * mm, y: opts.originY + y0 * mm };
+                for (const nm of hy.narrow) {
+                  const rr = maskRings(nm, cw, ch, mm, org, opts);
+                  if (!rr.length) continue;
+                  const r2 = SA.shapeToColumns(nm, cw, ch, mm, org, rr.map((c) => c.dense), { station: opts.station, turnDeg: opts.turnDeg });
+                  if (r2) emitCols(r2);
+                }
+                for (const cm of hy.core) {
+                  const rr = maskRings(cm, cw, ch, mm, org, opts);
+                  if (!rr.length) continue;
+                  const tol = opts.tol ?? 0.04;
+                  const o2 = SC.toControlPoints(rr[0], tol), h2 = rr.slice(1).filter((q) => Math.abs(G.signedArea(q.dense)) >= (opts.minAreaMM2 || 2)).map((q) => SC.toControlPoints(q, tol));
+                  emitFill(o2, h2, cm.reduce((s2, v) => s2 + v, 0) * mm * mm, c.pixels);
+                }
+                continue;
+              }
+            }
           }
         }
-        if (cols) {
+        if (cols) { emitCols(cols); continue; }
+        emitFill(outer, holes, area, c.pixels);
+      }
+      function emitCols(cols) {
+        {
           const med = cols.widths.slice().sort((a, b) => a - b)[Math.floor(cols.widths.length / 2)];
           const ul = med < 1.4 ? 'none' : med < 3 ? 'center' : 'edge+zigzag';
           for (const col of cols.columns) {
@@ -347,13 +459,14 @@
               s: sP, e: eP,
             });
           }
-          continue;
         }
+      }
+      function emitFill(outer, holes, area, pixels) {
         let per = 0;
         for (let i = 0; i < outer.length; i++) per += G.dist(outer[i], outer[(i + 1) % outer.length]);
         const width = (2 * area) / (per || 1);
         const satin = mode !== 'tatami' && width <= 2.2 && !holes.length;
-        const ang = (principalAngle(c.pixels, w) * 180) / Math.PI + 90;
+        const ang = (principalAngle(pixels, w) * 180) / Math.PI + 90;
         const bb = G.bbox(outer);
         const ctr = { x: (bb.x0 + bb.x1) / 2, y: (bb.y0 + bb.y1) / 2 };
         items.push({
@@ -388,6 +501,15 @@
     }
     let res = objects;
     if (opts.overlap !== false && HW.boolean) { try { res = trimOverlaps(objects, opts.keepMM ?? 0.4); } catch (e) { res = objects; } }
+    // Fahrplan: Reihenfolge und Richtungen so wählen, dass möglichst wenig geschnitten wird
+    // (Überlappungen sind entfernt, innerhalb einer Farbe ist die Reihenfolge also frei)
+    if (opts.sequence !== false && HW.route && HW.route.sequence) {
+      try {
+        res.forEach((o) => { o.color = o.colorKey; });
+        res = HW.route.sequence(res, { trimDist: opts.trimDist ?? 2, keepOverlapOrder: false });
+      } catch (e) { /* Reihenfolge bleibt */ }
+      res.forEach((o) => { delete o.color; delete o._cover; });
+    }
     return { objects: res, palette };
   }
 
