@@ -106,6 +106,21 @@ Die Webcam findet das Werkstück auf dem Tisch, setzt **X/Y-Null auf die linke u
 
 Hinweise: Ohne Endschalter ändert sich der Maschinen-Nullpunkt bei jedem Einschalten – dann „Versatz nachmessen (1 Punkt)“. Bei wenig Kontrast (hell auf hell) hilft „Leerbild aufnehmen“ (Tisch leer). Gleichmäßiges Licht ohne harte Schatten verbessert die Erkennung. Erste Fahrt immer mit „Zum Nullpunkt“ prüfen.
 
+## Erste Inbetriebnahme: Prüfliste (ohne Werkstück, ca. 15 Minuten)
+
+Alles in FräsStudio ist mit einer simulierten Maschine getestet – an der echten Maschine bitte einmal so prüfen:
+
+1. **Start & Verbindung:** Programm starten, per USB verbinden → Konsole zeigt „Grbl …“, Zustand „Bereit“ bzw. „Alarm“ → „Entsperren“.
+2. **Richtungen:** Mit 10-mm-Schritten X+, Y+, Z+ fahren – Fräser muss nach rechts, nach hinten, nach oben. Sonst `$3` in den Maschineneinstellungen anpassen.
+3. **Z antasten:** Messplatte drunter, „Z antasten“ – die Spindel stoppt beim Kontakt und fährt 5 mm hoch, Anzeige Z = Plattenhöhe + 5.
+4. **Probeprojekt:** Beispielprojekt laden → Fräsen → „Aktuelles Projekt laden“ → **„G-Code prüfen (Trockenlauf)“** muss „ohne Fehler“ melden.
+5. **Luftlauf:** Z-Nullpunkt 20 mm **über** dem Tisch setzen, Spindel aus, Start. Prüfen: fährt erst hoch, dann zur ersten Bahn, Bewegungen flüssig (Bögen), Werkzeugwechsel-Pause erscheint und lässt sich nicht überspringen, „Pause“/„Weiter“ und „Stopp“ halten sofort an.
+6. **Umriss abfahren:** zeigt das Rechteck um alle Bahnen in sicherer Höhe.
+7. **Fortsetzen:** Luftlauf mittendrin stoppen → „Fortsetzen ab Zeile…“ → fährt hoch, zur Stelle, taucht ein und läuft weiter.
+8. **Erstes echtes Werkstück:** Reststück, Gravur 0,5 mm tief – danach Tiefe mit dem Messschieber prüfen.
+
+Bei Abweichungen: Bildschirmfoto der Konsole und die ersten 20 G-Code-Zeilen schicken.
+
 ## Inlay (Einlegearbeit)
 
 Zwei Hölzer ineinander: z. B. dunkle Nuss-Schrift in heller Ahorn-Platte.
