@@ -185,6 +185,7 @@
     'id:aFS': ['Tatami-Dichte', 'Reihenabstand der Flächenfüllung in mm. 0 = Standardwert.'],
     'id:aOv': ['Überlappungen entfernen', 'Wo ein Objekt über einem anderen liegt, wird das untere ausgespart (mit kleinem Überstand), damit keine Stichhäufungen und Wülste entstehen.'],
     'id:aKeep': ['Überstand', 'So weit (mm) reicht das untere Objekt unter das obere, damit am Übergang keine Lücke bleibt.'],
+    'id:aTxt': ['Schrift erkennen', 'Buchstaben im Bild werden mit den eingebauten Stickschriften verglichen. Sicher erkannte Zeichen werden durch den fertig digitalisierten Stickschrift-Buchstaben ersetzt – mit sauberen Satinsäulen und durchgehendem Ablauf ohne Schnitt innerhalb des Buchstabens. Nicht sicher erkannte Zeichen werden wie bisher automatisch zerlegt.'],
     'id:aMode': ['Stichart', 'Automatisch: Schrift und schmale Formen werden Satin, breite Flächen Tatami (flächige Füllung). Oder alles als Tatami.'],
     'id:aSat': ['Satin bis Strichbreite', 'Formen bis zu dieser Breite in mm werden als Satin gestickt, breitere als Tatami. Üblich: 7 mm.'],
     'id:aAng': ['Tatami-Winkel', 'Stichrichtung der Tatami-Flächen in Grad. Üblich: 45°. Benachbarte Flächen mit unterschiedlichem Winkel wirken lebendiger.'],

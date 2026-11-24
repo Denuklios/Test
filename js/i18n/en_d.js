@@ -190,4 +190,12 @@
     "„wie die Fläche“: Rand wird direkt nach der Fläche ohne Farbwechsel gestickt. Andere Farbe: der Rand wird ein eigenes, verknüpftes Objekt und folgt automatisch, wenn die Fläche verändert oder verschoben wird.": "“same as fill”: the border is stitched right after the fill without a color change. Other color: the border becomes its own linked object and follows automatically when the fill is changed or moved.",
     "Der Rand wird ein normales Objekt und folgt der Fläche nicht mehr.": "The border becomes a normal object and no longer follows the fill.",
   });
+
+  Object.assign(E.exact, {
+    "Schrift erkennen (Buchstaben durch Stickschrift ersetzen)": "Recognize lettering (replace letters with embroidery font)",
+    "Schrift erkennen": "Recognize lettering",
+    "Stickschriften für die Schrifterkennung werden geladen …": "Loading embroidery fonts for lettering recognition …",
+    "Buchstaben im Bild werden mit den eingebauten Stickschriften verglichen. Sicher erkannte Zeichen werden durch den fertig digitalisierten Stickschrift-Buchstaben ersetzt – mit sauberen Satinsäulen und durchgehendem Ablauf ohne Schnitt innerhalb des Buchstabens. Nicht sicher erkannte Zeichen werden wie bisher automatisch zerlegt.": "Letters in the image are compared with the built-in embroidery fonts. Reliably recognized characters are replaced by the ready-digitized embroidery font letter – with clean satin columns and a continuous sequence without trims inside the letter. Characters that are not reliably recognized are decomposed automatically as before.",
+  });
+  E.rx.unshift([/^Schrift erkannt: (.*) – durch Stickschrift ersetzt\.$/, (m, a) => 'Lettering recognized: ' + a + ' – replaced with embroidery font.']);
 })(typeof window !== 'undefined' ? window : globalThis);

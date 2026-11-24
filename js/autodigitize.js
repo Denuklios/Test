@@ -331,6 +331,7 @@
     list.forEach((c) => (areaOf[c.label] = (areaOf[c.label] || 0) + c.pixels.length));
     const order = used.slice().sort((a, b) => areaOf[b] - areaOf[a]);
     const objects = [];
+    const recognized = [];
     const SA = HW.satinauto;
     const mode = opts.mode || 'auto';
     const satinMax = opts.satinMax ?? 7;
@@ -345,9 +346,42 @@
       const field = precise ? SC.blur(SC.membership(data, w, h, q.centers, lab), w, h, opts.edgeBlur ?? 0.7) : null;
       // Unterlappung: diese Farbe läuft etwas unter die später gestickten Nachbarfarben,
       // damit nach dem Einziehen der Fläche keine Lücke an der Farbgrenze bleibt
+      // Schrifterkennung: sicher erkannte Buchstaben werden durch fertig digitalisierte Stickschrift-Zeichen ersetzt
+      let glyphHits = null;
+      if (opts.glyphs && opts.glyphs.length && HW.glyphmatch) {
+        try { glyphHits = HW.glyphmatch.recognize(comps, w, opts.glyphs); } catch (e) { glyphHits = null; }
+        if (glyphHits && glyphHits.size && glyphHits.text) recognized.push({ color: colorKey, text: glyphHits.text, font: glyphHits.font && glyphHits.font.name });
+      }
+      const glyphRuns = [];
       const later = new Set(order.slice(order.indexOf(lab) + 1));
       const U = later.size ? (opts.underlap ?? 0.6) / mm : 0, pad = 2 + Math.ceil(U);
-      for (const c of comps) {
+      for (let ci = 0; ci < comps.length; ci++) {
+        const c = comps[ci];
+        const gh = glyphHits && glyphHits.get(ci);
+        if (gh) {
+          if (!gh.skip) {
+            // Reihenfolge und Richtung des Zeichens bleiben wie in der Schrift geplant (durchgehend ohne Schnitt)
+            // innerhalb des Zeichens direkt weiterstechen, wo die Verbindung in der Buchstabenform liegt
+            // (die Schrift ist so geplant); getrennte Teile wie i-Punkt oder Umlautpunkte nicht über den Stoff verbinden
+            const objs = HW.glyphmatch.glyphToObjects(gh, mm, { x: opts.originX, y: opts.originY }).map((ob) => ({ ...ob, colorKey, glyph: gh.ch, fixedDir: true }));
+            const polys = [];
+            for (const ob of objs) {
+              if (ob.type === 'colA') { const L = ob.points.filter((_, i) => i % 2 === 0), R = ob.points.filter((_, i) => i % 2 === 1); polys.push([L.concat(R.slice().reverse())]); }
+              else if (ob.type === 'fill') polys.push([ob.points, ...(ob.holes || [])]);
+            }
+            const inGlyph = (q) => polys.some((rs) => G.pointInRings(q, rs));
+            const endOf = (ob) => (ob.type === 'colA' ? G.lerp(ob.points[ob.points.length - 2], ob.points[ob.points.length - 1], 0.5) : ob.points[ob.points.length - 1]);
+            const startOf = (ob) => (ob.type === 'colA' ? G.lerp(ob.points[0], ob.points[1], 0.5) : ob.points[0]);
+            for (let k = 1; k < objs.length; k++) {
+              const a = endOf(objs[k - 1]), b2 = startOf(objs[k]), d = G.dist(a, b2), n = Math.max(2, Math.ceil(d / 0.5));
+              let ok2 = true;
+              for (let t = 1; t < n && ok2; t++) if (!inGlyph(G.lerp(a, b2, t / n))) ok2 = false;
+              if (ok2) objs[k].connect = 'stitch';
+            }
+            if (objs.length) glyphRuns.push({ x: gh.bb.x0, y: gh.bb.y0, h: gh.bb.y1 - gh.bb.y0, objs });
+          }
+          continue;
+        }
         // auf die Region zuschneiden (schneller)
         let x0 = w, y0 = h, x1 = 0, y1 = 0;
         for (const p of c.pixels) { const x = p % w, y = (p / w) | 0; if (x < x0) x0 = x; if (x > x1) x1 = x; if (y < y0) y0 = y; if (y > y1) y1 = y; }
@@ -502,6 +536,14 @@
           s: ctr, e: ctr,
         });
       }
+      // erkannte Schrift zuerst, in Lesereihenfolge (Zeile für Zeile, links nach rechts)
+      if (glyphRuns.length) {
+        const hMed = glyphRuns.map((g2) => g2.h).sort((a2, b2) => a2 - b2)[glyphRuns.length >> 1];
+        glyphRuns.sort((a2, b2) => (Math.abs(a2.y - b2.y) > hMed * 0.6 ? a2.y - b2.y : a2.x - b2.x));
+        for (const g2 of glyphRuns) for (const ob of g2.objs) objects.push(ob);
+        const lo = glyphRuns[glyphRuns.length - 1].objs, lp = lo[lo.length - 1].points;
+        cursor = lp[lp.length - 1];
+      }
       // Reihenfolge innerhalb einer Farbe: nächster Nachbar (bei Schrift = Lesereihenfolge)
       const rest = items.slice();
       while (rest.length) {
@@ -530,7 +572,7 @@
       } catch (e) { /* Reihenfolge bleibt */ }
       res.forEach((o) => { delete o.color; delete o._cover; });
     }
-    return { objects: res, palette };
+    return { objects: res, palette, recognized };
   }
 
   // Verdeckte Teile entfernen: spätere Objekte liegen oben; frühere Säulen/Flächen werden darunter gekürzt
@@ -543,7 +585,11 @@
     objs.forEach((o, i) => {
       if (!isShape(o) || !bb[i]) { out.push(o); return; }
       const cutters = [];
-      for (let j = i + 1; j < objs.length; j++) if (isShape(objs[j]) && hit(bb[i], bb[j])) cutters.push(objs[j]);
+      for (let j = i + 1; j < objs.length; j++) {
+        // Stickschrift-Zeichen überlappen sich innerhalb der Farbe absichtlich (Säulen greifen ineinander)
+        if (objs[j].colorKey === o.colorKey && (o.glyph || objs[j].glyph)) continue;
+        if (isShape(objs[j]) && hit(bb[i], bb[j])) cutters.push(objs[j]);
+      }
       if (!cutters.length) { out.push(o); return; }
       if (o.type === 'fill') {
         const r = B.subtract(o, cutters, keep);

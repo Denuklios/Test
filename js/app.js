@@ -3492,6 +3492,7 @@
       sec('Stichart',
         field('Stichart', '<select id="aMode"><option value="auto">Automatisch: schmale Formen = Satin, breite = Tatami</option><option value="tatami">Nur Tatami</option></select>') +
         field('Satin bis Strichbreite (mm)', '<input id="aSat" type="number" step="0.5" value="7">') +
+        field('Schrift erkennen (Buchstaben durch Stickschrift ersetzen)', '<input type="checkbox" id="aTxt" checked>') +
         field('Dünner als … mm = Laufstich (0 = aus)', '<input id="aLine" type="number" step="0.1" min="0" max="2" value="0">') +
         field('Satin: Stützpunkt-Abstand (mm, kleiner = runder)', '<input id="aSt" type="number" step="0.1" min="0.5" max="4" value="1.4">') +
         field('Satin: Knickwinkel für Stützpunkt (°)', '<input id="aTu" type="number" min="2" max="30" value="8">') +
@@ -3535,14 +3536,15 @@
       $('#aInfo').textContent = `Erkannt: ${a.colors} Farben, typische Strichbreite ${a.strokeMed.toFixed(1)} mm. Werte wurden gesetzt.`;
       preview();
     };
-    const preview = () => {
+    const preview = async () => {
       const img = sample();
+      const o0 = await withGlyphs(options());
       const c = $('#aPrev'); c.width = img.width; c.height = img.height;
       const x = c.getContext('2d');
       x.putImageData(img, 0, 0);
       x.fillStyle = 'rgba(255,255,255,.7)'; x.fillRect(0, 0, c.width, c.height);
       let r;
-      try { r = HW.auto.autoDigitize(img, options()); } catch (e) { $('#aInfo').textContent = 'Vorschau fehlgeschlagen: ' + e.message; return; }
+      try { r = HW.auto.autoDigitize(img, o0); } catch (e) { $('#aInfo').textContent = 'Vorschau fehlgeschlagen: ' + e.message; return; }
       const o = options(), s = img.width / o.widthMM;
       const P = (p) => [(p.x - b.x) * s, (p.y - b.y) * s];
       let n = 0;
@@ -3567,9 +3569,16 @@
       }
       $('#aInfo').textContent = `${n} Objekte (Satin-Säulen, Flächen, Linien). Zu zackig? „Kanten glätten“ erhöhen. Ecken verrundet? Ecken-Winkel senken.`;
     };
-    const doAuto = () => {
+    // Stickschriften für die Schrifterkennung einmal laden
+    let glyphs = null;
+    const withGlyphs = async (o) => {
+      if (!$('#aTxt') || !$('#aTxt').checked || !HW.glyphmatch) return o;
+      if (!glyphs) { $('#aInfo').textContent = 'Stickschriften für die Schrifterkennung werden geladen …'; glyphs = await HW.glyphmatch.prepare(); }
+      return { ...o, glyphs };
+    };
+    const doAuto = async () => {
       const img = sample();
-      const o = options(), wmm = o.widthMM;
+      const o = await withGlyphs(options()), wmm = o.widthMM;
       const r = HW.auto.autoDigitize(img, o);
       if (wmm !== b.w) { b.h = (b.h / b.w) * wmm; b.w = wmm; }
       pushUndo();
@@ -3581,12 +3590,15 @@
         const base = ob.type === 'fill' ? st.defaults.fill : ob.type === 'run' ? st.defaults.run : st.defaults.colA;
         const nob = makeObj(ob.type, { points: ob.points, holes: ob.holes, color: ci });
         nob.params = { ...base, ...ob.params };
+        if (ob.connect) nob.connect = ob.connect;
+        if (ob.fixedDir) nob.fixedDir = true;
         st.objects.push(nob); ids.push(nob.id);
       });
       sel = new Set(ids);
       b.opacity = 0.25;
       renderPalette();
       changed();
+      if (r.recognized && r.recognized.length) hintFlash('Schrift erkannt: ' + r.recognized.map((t) => `„${t.text}“ (${t.font})`).join(', ') + ' – durch Stickschrift ersetzt.');
     };
     setTimeout(preview, 30);
   }
