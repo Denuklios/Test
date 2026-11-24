@@ -7,7 +7,7 @@
     run: { len: 2.5, style: 'single', closed: false },
     satin: { spacing: 0.4, pull: 0.15, underlay: 'center', split: 7, width: 3, shortSt: true, puff: false },
     fill: {
-      fillType: 'tatami', spacing: 0.4, len: 3.5, angle: 45, pull: 0.2,
+      fillType: 'tatami', spacing: 0.4, len: 3.5, angle: 45, pull: 0.2, push: 0.2,
       underlay: 'edge+tatami', border: 'none', borderWidth: 2, borderLen: 2.5, split: 7,
       pattern: 'diamond', waveAmp: 1.5, waveLen: 12, gradEnd: 2, crossSize: 2.5, crossDouble: false,
     },
@@ -220,9 +220,28 @@
       let c = G.buildPath(pts, closed).pts;
       if (closed) c = c.concat([c[0]]);
       c = G.resample(c, 0.25, 180);
+      if (closed && c.length > 8) {
+        // geschlossene Ringe an der geradesten Stelle beginnen lassen: liegt die Naht in einer Ecke,
+        // hält die Schleifenbereinigung sonst den ganzen Ring für eine Schleife
+        const ring = c.slice(0, -1), n = ring.length, k = Math.min(6, Math.floor(n / 4));
+        let bi = 0, bt = Infinity;
+        for (let i = 0; i < n; i++) {
+          const a = ring[(i - k + n) % n], m = ring[i], b = ring[(i + k) % n];
+          const t = Math.abs(Math.atan2(b.y - m.y, b.x - m.x) - Math.atan2(m.y - a.y, m.x - a.x));
+          const turn = Math.min(t, 2 * Math.PI - t);
+          if (turn < bt - 1e-9) { bt = turn; bi = i; }
+        }
+        const rr = ring.slice(bi).concat(ring.slice(0, bi));
+        c = rr.concat([rr[0]]);
+      }
       const w = obj.params.width / 2;
       // Innenkante enger Kurven/Ecken ohne Schleifen; Stiche drehen sich wie bei Säule B senkrecht mit
-      const L = G.removeLoops(G.offsetPolyline(c, -w)), R = G.removeLoops(G.offsetPolyline(c, w));
+      const oL = G.offsetPolyline(c, -w), oR = G.offsetPolyline(c, w);
+      let L = G.removeLoops(oL), R = G.removeLoops(oR);
+      // Sicherung: hat die Bereinigung zu viel weggenommen, die unbereinigte Kante nehmen
+      const lc = G.polyLength(c);
+      if (G.polyLength(L) < lc * 0.5) L = oL;
+      if (G.polyLength(R) < lc * 0.5) R = oR;
       return turningPairs(L, R);
     }
     return null;
@@ -336,14 +355,16 @@
   }
 
   /* ---------- Flächenfüllung (Tatami / Satin mit festem Winkel) ---------- */
-  function scanBlocks(rings, spacing, gradEnd) {
+  // push: Druckausgleich – die Form quer zur Stichrichtung um diesen Wert (je Seite) kürzen,
+  // weil die Stiche den Stoff dort auseinanderdrücken (sonst wird aus einem Kreis ein Ei)
+  function scanBlocks(rings, spacing, gradEnd, push = 0) {
     const all = rings.flat();
     const bb = G.bbox(all);
     const rows = [];
     let r = 0;
     // Verlauf: Reihenabstand wächst von "spacing" bis "gradEnd" (dicht → offen)
     const stepAt = (y) => (gradEnd ? spacing + (gradEnd - spacing) * Math.max(0, Math.min(1, (y - bb.y0) / (bb.y1 - bb.y0 || 1))) : spacing);
-    for (let y = bb.y0 + spacing / 2; y < bb.y1; y += stepAt(y), r++) {
+    const spans = (y) => {
       const xs = [];
       for (const ring of rings) {
         for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
@@ -352,8 +373,20 @@
         }
       }
       xs.sort((u, v) => u - v);
+      const out = [];
+      for (let i = 0; i + 1 < xs.length; i += 2) out.push([xs[i], xs[i + 1]]);
+      return out;
+    };
+    const inter = (A, B) => {
+      const out = [];
+      for (const [a0, a1] of A) for (const [b0, b1] of B) { const x0 = Math.max(a0, b0), x1 = Math.min(a1, b1); if (x1 > x0) out.push([x0, x1]); }
+      return out.sort((u, v) => u[0] - v[0]);
+    };
+    for (let y = bb.y0 + spacing / 2; y < bb.y1; y += stepAt(y), r++) {
+      let sp = spans(y);
+      if (push > 0) sp = inter(inter(sp, spans(y - push)), spans(y + push));
       const segs = [];
-      for (let i = 0; i + 1 < xs.length; i += 2) if (xs[i + 1] - xs[i] > 0.05) segs.push({ r, y, x0: xs[i], x1: xs[i + 1] });
+      for (const [x0, x1] of sp) if (x1 - x0 > 0.05) segs.push({ r, y, x0, x1 });
       rows.push(segs);
     }
     // Zeilen-Segmente zu zusammenhängenden Blöcken verbinden
@@ -394,7 +427,7 @@
 
   // Erzeugt Stiche für eine Füllung im gedrehten Koordinatensystem (Zeilen horizontal)
   function fillRotated(rings, o, startPt) {
-    const blocks = scanBlocks(rings, o.spacing, o.gradEnd);
+    const blocks = scanBlocks(rings, o.spacing, o.gradEnd, o.push || 0);
     let out, cur, remaining, done, tcost;
     const reset = () => { out = []; cur = startPt; remaining = blocks.filter((b) => b.rows.length); done = []; doneIds = new Set(); tcost = 0; };
     // Blockkarte: welche Teilfläche deckt welche Stelle (für schnelle Abfragen „schon gestickt?“)
@@ -674,30 +707,35 @@
       addRot(ang, {
         spacing: satinFill ? p.spacing / 2 : p.spacing,
         len: warp ? Math.min(p.len, warp.len / 6) : p.len,
-        pull: p.pull, satin: satinFill, split: p.split, exitTarget: p.border && p.border !== 'none' ? null : obj._exit || null,
+        pull: p.pull, push: p.push ?? 0, satin: satinFill, split: p.split, exitTarget: p.border && p.border !== 'none' ? null : obj._exit || null,
         pattern: ft === 'pattern' ? p.pattern || 'diamond' : null,
         gradEnd: ft === 'gradient' ? Math.max(p.spacing, p.gradEnd || 2) : 0,
       }, warp);
     }
     if (p.border && p.border !== 'none') {
-      // Umrandung dort beginnen, wo die Füllung aufgehört hat (kein langer Weg dorthin)
-      let bpts = obj.points;
-      const lastF = out[out.length - 1];
-      if (lastF && bpts.length > 2) {
-        let bi = 0;
-        bpts.forEach((q, i) => { if (G.dist(q, lastF) < G.dist(bpts[bi], lastF)) bi = i; });
-        bpts = bpts.slice(bi).concat(bpts.slice(0, bi));
-      }
-      const bo = { points: bpts, params: {} };
-      let bs;
-      if (p.border === 'satin') {
-        bs = genSatin({ type: '_border', points: bpts, params: { ...DEFAULTS.satin, width: p.borderWidth, underlay: 'center' } });
-      } else {
-        bo.type = 'run';
-        bo.params = { len: p.borderLen || 2.5, style: p.border === 'triple' ? 'triple' : 'single', closed: true };
-        bs = genRun(bo);
-      }
-      if (bs.length) {
+      // Umrandung für Außenkontur und alle Löcher; jede beginnt dort, wo die Nadel gerade steht
+      const todo = [obj.points, ...(obj.holes || []).filter((h) => h.length >= 3)];
+      while (todo.length) {
+        const lastF = out[out.length - 1];
+        let ri = 0;
+        if (lastF) {
+          let bd = Infinity;
+          todo.forEach((r, k) => { for (const q of r) { const d = G.dist(q, lastF); if (d < bd) { bd = d; ri = k; } } });
+        }
+        let bpts = todo.splice(ri, 1)[0];
+        if (lastF && bpts.length > 2) {
+          let bi = 0;
+          bpts.forEach((q, i) => { if (G.dist(q, lastF) < G.dist(bpts[bi], lastF)) bi = i; });
+          bpts = bpts.slice(bi).concat(bpts.slice(0, bi));
+        }
+        let bs;
+        if (p.border === 'satin') {
+          const bw = p.borderWidth || 2;
+          bs = genSatin({ type: '_border', points: bpts, params: { ...DEFAULTS.satin, width: bw, underlay: bw <= 2.5 ? 'center' : 'edge+zigzag', pull: bw < 1.5 ? 0.1 : 0.2 } });
+        } else {
+          bs = genRun({ type: 'run', points: bpts, params: { len: p.borderLen || 2.5, style: p.border === 'triple' ? 'triple' : 'single', closed: true } });
+        }
+        if (!bs.length) continue;
         const last = out[out.length - 1];
         if (last && G.dist(last, bs[0]) > 2) {
           // kurzer Weg zum Anfang der Umrandung, nicht am Rand entlang

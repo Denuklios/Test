@@ -101,6 +101,7 @@
   }
 
   function changed(keepPlay) {
+    syncBorders();
     cmds = computeCmds(st.objects);
     const n = cmds.length;
     const sl = $('#playSlider');
@@ -673,6 +674,7 @@
       ['len', 'Stichlänge (mm)', 'num', 1, 7, 0.1],
       ['angle', 'Stichwinkel (°)', 'num', -360, 360, 1],
       ['pull', 'Zugkompensation (mm)', 'num', 0, 1.5, 0.05],
+      ['push', 'Druckausgleich quer (mm)', 'num', 0, 1.5, 0.05],
       ['underlay', 'Unterlage', 'select', [['none', 'keine'], ['edge', 'Kantenlauf'], ['tatami', 'Tatami'], ['edge+tatami', 'Kante + Tatami']]],
       ['split', 'Satin-Split ab (mm)', 'num', 0, 12, 0.5],
       ['border', 'Kontur', 'select', [['none', 'keine'], ['run', 'Laufstich'], ['triple', 'Dreifachstich'], ['satin', 'Satin']]],
@@ -710,6 +712,99 @@
     cb.onchange = () => { pushUndo(); objs.forEach((o) => { if (cb.checked) o.stopBefore = true; else delete o.stopBefore; }); changed(); };
     f2.append(l2, cb);
     el.appendChild(f2);
+  }
+
+
+  /* ---------- Satinrand für Flächen ---------- */
+  // Rand in Flächenfarbe: Teil der Fläche (params.border = 'satin').
+  // Rand in anderer Farbe: eigene, mit der Fläche verknüpfte Satinsäule (colC, geschlossen) je Umriss und Loch.
+  const borderObjs = (fill) => st.objects.filter((o) => o.borderFor === fill.id);
+  function borderState(fill) {
+    const lk = borderObjs(fill);
+    if (lk.length) return { on: true, width: lk[0].params.width, color: lk[0].color };
+    if (fill.params.border === 'satin') return { on: true, width: fill.params.borderWidth || 2, color: 'same' };
+    return { on: false, width: fill.params.borderWidth || 2, color: 'same' };
+  }
+  function borderParams(width) {
+    return { ...st.defaults.colC, width, closed: true, underlay: width <= 2.5 ? 'center' : 'edge+zigzag', pull: width < 1.5 ? 0.1 : 0.2 };
+  }
+  function applyBorder(fills, cfg) {
+    for (const f of fills) {
+      // alte verknüpfte Ränder entfernen
+      st.objects = st.objects.filter((o) => o.borderFor !== f.id);
+      if (f.params.border === 'satin') f.params.border = 'none';
+      if (cfg.on) {
+        if (cfg.color === 'same' || cfg.color === f.color) {
+          f.params.border = 'satin'; f.params.borderWidth = cfg.width;
+        } else {
+          const rings = [f.points, ...(f.holes || [])].filter((r) => r && r.length >= 3);
+          const idx = st.objects.indexOf(f);
+          const made = rings.map((r, k) => {
+            const o = makeObj('colC', { points: clone(r), color: cfg.color });
+            o.params = borderParams(cfg.width);
+            o.borderFor = f.id; o.borderRing = k; o._sig = JSON.stringify(r);
+            return o;
+          });
+          st.objects.splice(idx + 1, 0, ...made);
+        }
+        f.params.borderWidth = cfg.width;
+      }
+      invalidate(f);
+    }
+  }
+  // verknüpfte Ränder folgen ihrer Fläche (Form, Löcher, Sichtbarkeit); verwaiste werden entfernt
+  function syncBorders() {
+    if (!st.objects.some((o) => o.borderFor)) return;
+    const keep = [];
+    for (const o of st.objects) {
+      if (!o.borderFor) { keep.push(o); continue; }
+      const f = byId(o.borderFor);
+      const src = f ? (o.borderRing ? (f.holes || [])[o.borderRing - 1] : f.points) : null;
+      if (!f || f.type !== 'fill' || !src || src.length < 3) continue;
+      const sig = JSON.stringify(src);
+      if (o._sig !== sig) { o.points = clone(src); o._sig = sig; o._st = null; o._rings = null; o._bb = null; o._cover = undefined; }
+      o.hidden = f.hidden;
+      keep.push(o);
+    }
+    // neue Löcher bekommen ebenfalls einen Rand
+    for (const f of keep.filter((o) => o.type === 'fill')) {
+      const lk = keep.filter((o) => o.borderFor === f.id);
+      if (!lk.length) continue;
+      for (let k = 1; k <= (f.holes || []).length; k++) {
+        if (lk.some((o) => o.borderRing === k) || !f.holes[k - 1] || f.holes[k - 1].length < 3) continue;
+        const o = makeObj('colC', { points: clone(f.holes[k - 1]), color: lk[0].color });
+        o.params = { ...lk[0].params }; o.borderFor = f.id; o.borderRing = k; o._sig = JSON.stringify(f.holes[k - 1]);
+        keep.splice(keep.indexOf(lk[lk.length - 1]) + 1, 0, o);
+      }
+    }
+    st.objects = keep;
+  }
+  // Bedienblock „Rand“ (für ausgewählte Flächen oder als Vorgabe für neue Flächen)
+  function borderBlock(el, fills) {
+    const isDefault = !fills.length;
+    const cur = isDefault ? (st.defaults.fillBorder || { on: false, width: 2, color: 'same' }) : borderState(fills[0]);
+    const box = document.createElement('fieldset');
+    box.className = 'borderBox';
+    box.innerHTML = `<legend>Rand</legend>`;
+    const row = (label, inp, help) => { const f = document.createElement('div'); f.className = 'field'; f.dataset.help = help; const lb = document.createElement('label'); lb.textContent = label; f.append(lb, inp); box.appendChild(f); };
+    const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!cur.on; cb.id = 'bdOn';
+    const wi = document.createElement('input'); wi.type = 'number'; wi.min = 0.8; wi.max = 10; wi.step = 0.1; wi.value = cur.width || 2; wi.id = 'bdW';
+    const cs = document.createElement('select'); cs.id = 'bdC';
+    const o0 = document.createElement('option'); o0.value = 'same'; o0.textContent = 'wie die Fläche'; cs.appendChild(o0);
+    st.palette.forEach((c, i) => { const op = document.createElement('option'); op.value = String(i); op.textContent = `${i + 1}. ${c.name || c.hex}`; op.style.background = c.hex; cs.appendChild(op); });
+    cs.value = cur.color === 'same' || cur.color === undefined ? 'same' : String(cur.color);
+    row(isDefault ? 'Neue Flächen mit Satinrand' : 'Satinrand', cb, 'p:border.on');
+    row('Randbreite (mm)', wi, 'p:border.width');
+    row('Randfarbe', cs, 'p:border.color');
+    const upd = () => {
+      const cfg = { on: cb.checked, width: Math.max(0.8, Math.min(10, parseFloat(wi.value) || 2)), color: cs.value === 'same' ? 'same' : parseInt(cs.value, 10) };
+      if (isDefault) { st.defaults.fillBorder = cfg; return; }
+      pushUndo();
+      applyBorder(fills, cfg);
+      changed();
+    };
+    cb.onchange = upd; wi.onchange = upd; cs.onchange = upd;
+    el.appendChild(box);
   }
 
   function renderProps() {
@@ -753,6 +848,15 @@
     const defs = defsFor(type);
     if (!g0) el.innerHTML = '';
     if (objs.length) connectField(el, objs);
+    if (type === 'fill' && (!objs.length || objs.every((o) => o.type === 'fill'))) borderBlock(el, objs);
+    if (objs.length && objs.some((o) => o.borderFor)) {
+      const r = document.createElement('div'); r.className = 'row';
+      const p0 = document.createElement('p'); p0.style.color = '#6a7480'; p0.style.margin = '4px 0';
+      p0.textContent = 'Satinrand einer Fläche – folgt automatisch deren Form. Breite und Farbe bei der Fläche ändern.';
+      const bt = document.createElement('button'); bt.textContent = 'Verknüpfung lösen'; bt.dataset.help = 'p:border.unlink';
+      bt.onclick = () => { pushUndo(); objs.forEach((o) => { delete o.borderFor; delete o.borderRing; delete o._sig; }); changed(); };
+      r.append(bt); el.append(p0, r);
+    }
     if (objs.length && objs.every((o) => o.type === 'colC')) {
       const r = document.createElement('div'); r.className = 'row';
       const bt = document.createElement('button'); bt.textContent = 'In Satin A umwandeln (Breite frei formen)'; bt.dataset.help = 'cmd:toColA';
@@ -797,6 +901,7 @@
       if (type === 'fill' && key === 'angle' && (target.fillType === 'contour' || target.fillType === 'spiral')) continue;
       if (type === 'fill' && key === 'split' && target.fillType !== 'satin') continue;
       if (type === 'fill' && key === 'borderWidth' && target.border !== 'satin') continue;
+      if (type === 'fill' && key === 'push' && ['contour', 'spiral', 'cross'].includes(target.fillType)) continue;
       const f = document.createElement('div');
       f.className = 'field';
       f.dataset.help = `p:${fabKind || 'run'}.${key}`;
@@ -915,6 +1020,7 @@
     const o = makeObj('fill', { points: draft.outline, holes: draft.holes });
     if (angle !== undefined) o.params.angle = angle;
     st.objects.push(o);
+    if (st.defaults.fillBorder && st.defaults.fillBorder.on) applyBorder([o], st.defaults.fillBorder);
     sel = new Set([o.id]);
     draft = null;
     setHint();
@@ -1375,6 +1481,7 @@
         pushUndo();
         const o = makeObj('fill', { points: draft.shape, holes: [] });
         st.objects.push(o); sel = new Set([o.id]);
+        if (st.defaults.fillBorder && st.defaults.fillBorder.on) applyBorder([o], st.defaults.fillBorder);
       }
       draft = null;
       changed();

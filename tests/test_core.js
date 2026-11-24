@@ -22,8 +22,9 @@ for (const o of objs) {
   for (let i = 1; i < o._st.length; i++) if (!o._st[i].j) maxL = Math.max(maxL, Math.hypot(o._st[i].x - o._st[i - 1].x, o._st[i].y - o._st[i - 1].y));
   ok(maxL < 12.1, `  längster Stich ${maxL.toFixed(2)} mm`);
 }
-// Füllung darf nicht im Loch stechen
-const hole = objs[5]._st.filter((p) => p.x > -29.5 && p.x < -10.5 && p.y > 10.5 && p.y < 29.5);
+// Füllung darf nicht im Loch stechen (die Satinkontur um das Loch ragt höchstens ihre halbe Breite hinein)
+const hw = (objs[5].params.borderWidth || 2) / 2 + 0.25;
+const hole = objs[5]._st.filter((p) => p.x > -30 + hw && p.x < -10 - hw && p.y > 10 + hw && p.y < 30 - hw);
 ok(hole.length === 0, `keine Einstiche im Loch (${hole.length})`);
 const cmds = D.assemble(objs, null, { trimDist: 2, lock: true });
 const s = D.stats(cmds);

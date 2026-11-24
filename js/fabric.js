@@ -86,7 +86,7 @@
 
   const MANAGED = {
     satin: ['spacing', 'pull', 'underlay', 'split'],
-    fill: ['spacing', 'len', 'pull', 'underlay'],
+    fill: ['spacing', 'len', 'pull', 'push', 'underlay'],
   };
 
   /** Wirksame Parameter eines Objekts für einen Stoff. Von Hand gesetzte Werte (obj.manual) bleiben erhalten. */
@@ -101,6 +101,8 @@
       auto.spacing = sat ? +(0.4 * f.density).toFixed(2) : f.fillSp;
       auto.len = f.len;
       auto.pull = f.fillPull;
+      // Druck quer zur Stichrichtung ist etwa so groß wie der Zug (etwas kleiner)
+      auto.push = +(f.fillPull * 0.8).toFixed(2);
       auto.underlay = sat ? (f.ul === 'light' ? 'none' : 'edge') : f.fillUl;
     } else {
       const w = columnWidth(obj);

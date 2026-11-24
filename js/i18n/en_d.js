@@ -167,4 +167,27 @@
   Object.assign(E.exact, {
     "Objekte gleicher Farbe wurden so sortiert, dass möglichst wenig geschnitten wird: Verbindungen laufen, wo es geht, versteckt unter später gestickten Objekten. Überlappende Objekte behalten ihre Reihenfolge, Schriften bleiben unverändert.": "Objects of the same color were sorted so that as few trims as possible are needed: where possible, connections run hidden under objects stitched later. Overlapping objects keep their order, lettering stays unchanged.",
   });
+
+  Object.assign(E.exact, {
+    "Druckausgleich quer (mm)": "Push compensation across (mm)",
+    "Druckausgleich quer": "Push compensation across",
+    "Die Stiche ziehen den Stoff in Stichrichtung zusammen. Darum werden die Reihen an beiden Enden um diesen Wert verlängert. Üblich: 0,2–0,35 mm (Strick/T-Shirt mehr).": "Stitches pull the fabric together along the stitch direction, so the rows are lengthened by this amount at both ends. Typical: 0.2–0.35 mm (more on knits/T-shirts).",
+    "Quer zur Stichrichtung drücken die Stiche den Stoff auseinander – ein Kreis würde zum Ei. Die Fläche wird deshalb quer zur Stichrichtung um diesen Wert (je Seite) gekürzt. Mit Stoff-Automatik wird er aus dem Stoff berechnet. Üblich: 0,15–0,3 mm.": "Across the stitch direction the stitches push the fabric apart – a circle would turn into an egg. The fill is therefore shortened across the stitch direction by this amount (per side). With fabric automation it is calculated from the fabric. Typical: 0.15–0.3 mm.",
+  });
+
+  Object.assign(E.exact, {
+    "Rand": "Border",
+    "Satinrand": "Satin border",
+    "Neue Flächen mit Satinrand": "New fills with satin border",
+    "Randbreite (mm)": "Border width (mm)",
+    "Randfarbe": "Border color",
+    "Randbreite": "Border width",
+    "wie die Fläche": "same as fill",
+    "Verknüpfung lösen": "Unlink",
+    "Satinrand einer Fläche – folgt automatisch deren Form. Breite und Farbe bei der Fläche ändern.": "Satin border of a fill – follows its shape automatically. Change width and color at the fill.",
+    "Legt einen Satinrand um die Fläche – um den Außenumriss und um jedes Loch. Funktioniert bei jeder Flächenart. Ohne Auswahl (Flächen-Werkzeug aktiv) ist es die Vorgabe für alle neuen Flächen.": "Adds a satin border around the fill – around the outline and every hole. Works with every fill type. With nothing selected (fill tool active) it is the default for all new fills.",
+    "Breite des Satinrands in mm. Der Rand liegt mittig auf der Kante: die halbe Breite deckt die Fläche ab, damit die Fläche sicher unter dem Rand liegt. Üblich: 1,5–3 mm.": "Width of the satin border in mm. The border sits centered on the edge: half its width covers the fill so the fill reliably lies under the border. Typical: 1.5–3 mm.",
+    "„wie die Fläche“: Rand wird direkt nach der Fläche ohne Farbwechsel gestickt. Andere Farbe: der Rand wird ein eigenes, verknüpftes Objekt und folgt automatisch, wenn die Fläche verändert oder verschoben wird.": "“same as fill”: the border is stitched right after the fill without a color change. Other color: the border becomes its own linked object and follows automatically when the fill is changed or moved.",
+    "Der Rand wird ein normales Objekt und folgt der Fläche nicht mehr.": "The border becomes a normal object and no longer follows the fill.",
+  });
 })(typeof window !== 'undefined' ? window : globalThis);
