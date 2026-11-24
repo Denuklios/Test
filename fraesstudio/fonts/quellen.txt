@@ -1,3 +1,12 @@
+Anton|Block schmal|StickStudio fonts/|Anton-Regular.ttf
+Bebas Neue|Block schmal|StickStudio fonts/|BebasNeue-Regular.ttf
+Archivo Black|Block fett|StickStudio fonts/|ArchivoBlack-Regular.ttf
+Passion One|Block rund|StickStudio fonts/|PassionOne-Regular.ttf
+Righteous|Modern|StickStudio fonts/|Righteous-Regular.ttf
+Alfa Slab One|Serifen (Slab)|StickStudio fonts/|AlfaSlabOne-Regular.ttf
+Graduate|College|StickStudio fonts/|Graduate-Regular.ttf
+Pacifico|Schreibschrift|StickStudio fonts/|Pacifico-Regular.ttf
+Great Vibes|Schreibschrift fein|StickStudio fonts/|GreatVibes-Regular.ttf
 Montserrat|Serifenlos|ofl/montserrat|Montserrat[wght].ttf
 Oswald|Serifenlos schmal|ofl/oswald|Oswald[wght].ttf
 Poppins|Serifenlos|ofl/poppins|Poppins-SemiBold.ttf

@@ -1,5 +1,5 @@
 /* TrueType-Schriften lesen und Text in Umrisse (Polygone in mm) umwandeln.
-   Die eingebetteten Schriften kommen aus js/fonts.js (SIL OFL, siehe js/lib/LIZENZEN.txt). */
+   Die eingebetteten Schriften kommen aus js/fonts.js (SIL OFL / Apache 2.0, siehe fonts/LIZENZEN.txt). */
 (function (g) {
   const FS = (g.FS = g.FS || {});
   const cache = {};
@@ -73,14 +73,17 @@
       let o = T.kern + 4;
       for (let t = 0; t < nk; t++) {
         const len = v.getUint16(o + 2), cov = v.getUint16(o + 4);
+        let np = 0;
         if ((cov >> 8) === 0) {
-          const np = v.getUint16(o + 6);
+          np = v.getUint16(o + 6);
           for (let i = 0; i < np; i++) {
             const p = o + 14 + i * 6;
-            kern.set(v.getUint16(p) * 65536 + v.getUint16(p + 2), v.getInt16(p + 4));
+            const key = v.getUint16(p) * 65536 + v.getUint16(p + 2);
+            if (!kern.has(key)) kern.set(key, v.getInt16(p + 4));
           }
         }
-        o += len;
+        // Länge aus der Paarzahl: bei großen Tabellen läuft das 16-Bit-Längenfeld über
+        o += (cov >> 8) === 0 ? 14 + np * 6 : len;
       }
     }
 

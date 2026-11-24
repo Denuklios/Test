@@ -353,6 +353,13 @@ for (const rot of [0, 0.3]) {
   ok(over < 0.15, `V-Carving: außerhalb der Form nichts weggefräst (max. ${over.toFixed(2)} mm)`);
 }
 
+// Unterschneidung (Kerning): „AV“ sitzt enger als A und V einzeln
+{
+  const w = (t, f) => G.bounds(FS.ttf.textRings(t, { font: f, size: 40 })).w;
+  for (const f of ['Montserrat', 'Archivo Black', 'Lato', 'Playfair Display']) ok(w('AV', f) < w('A', f) + w('V', f) - 0.5, `Kerning ${f}: AV ${w('AV', f).toFixed(1)} mm statt ${(w('A', f) + w('V', f)).toFixed(1)} mm`);
+  ok(FS.ttf.names().length >= 57, `${FS.ttf.names().length} Schriften eingebaut`);
+}
+
 // Simulation
 const sim = FS.sim.create(stock, 0.5);
 FS.sim.run(sim, gc.moves, null, Infinity);

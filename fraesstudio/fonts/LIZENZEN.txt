@@ -1,9 +1,17 @@
-Zusätzliche Schriften in FräsStudio (js/fonts2.js, verkleinerte Fassungen in diesem Ordner)
+Schriften in FräsStudio (js/fonts.js, verkleinerte Fassungen der Google-Schriften in diesem Ordner)
 Quelle: Google Fonts, https://github.com/google/fonts
 
 Schriften aus „ofl/…“: SIL Open Font License 1.1 (OFL.txt). Schriften aus „apache/…“: Apache License 2.0 (APACHE-2.0.txt).
 Die Schriften wurden auf die benötigten Zeichen verkleinert (geänderte Fassungen); die Namen der Schriften bleiben Eigentum der jeweiligen Urheber.
-
+- Anton (SIL OFL 1.1) – ../../fonts/Anton-Regular.ttf
+- Bebas Neue (SIL OFL 1.1) – ../../fonts/BebasNeue-Regular.ttf
+- Archivo Black (SIL OFL 1.1) – ../../fonts/ArchivoBlack-Regular.ttf
+- Passion One (SIL OFL 1.1) – ../../fonts/PassionOne-Regular.ttf
+- Righteous (SIL OFL 1.1) – ../../fonts/Righteous-Regular.ttf
+- Alfa Slab One (SIL OFL 1.1) – ../../fonts/AlfaSlabOne-Regular.ttf
+- Graduate (SIL OFL 1.1) – ../../fonts/Graduate-Regular.ttf
+- Pacifico (SIL OFL 1.1) – ../../fonts/Pacifico-Regular.ttf
+- Great Vibes (SIL OFL 1.1) – ../../fonts/GreatVibes-Regular.ttf
 - Montserrat (SIL OFL 1.1) – ofl/montserrat/Montserrat[wght].ttf
 - Oswald (SIL OFL 1.1) – ofl/oswald/Oswald[wght].ttf
 - Poppins (SIL OFL 1.1) – ofl/poppins/Poppins-SemiBold.ttf
