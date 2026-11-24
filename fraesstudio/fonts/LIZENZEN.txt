@@ -1,0 +1,54 @@
+Zusätzliche Schriften in FräsStudio (js/fonts2.js, verkleinerte Fassungen in diesem Ordner)
+Quelle: Google Fonts, https://github.com/google/fonts
+
+Schriften aus „ofl/…“: SIL Open Font License 1.1 (OFL.txt). Schriften aus „apache/…“: Apache License 2.0 (APACHE-2.0.txt).
+Die Schriften wurden auf die benötigten Zeichen verkleinert (geänderte Fassungen); die Namen der Schriften bleiben Eigentum der jeweiligen Urheber.
+
+- Montserrat (SIL OFL 1.1) – ofl/montserrat/Montserrat[wght].ttf
+- Oswald (SIL OFL 1.1) – ofl/oswald/Oswald[wght].ttf
+- Poppins (SIL OFL 1.1) – ofl/poppins/Poppins-SemiBold.ttf
+- Lato (SIL OFL 1.1) – ofl/lato/Lato-Bold.ttf
+- Roboto Slab (Apache 2.0) – apache/robotoslab/RobotoSlab[wght].ttf
+- Ultra (Apache 2.0) – apache/ultra/Ultra-Regular.ttf
+- Playfair Display (SIL OFL 1.1) – ofl/playfairdisplay/PlayfairDisplay[wght].ttf
+- Cinzel (SIL OFL 1.1) – ofl/cinzel/Cinzel[wght].ttf
+- Cinzel Decorative (SIL OFL 1.1) – ofl/cinzeldecorative/CinzelDecorative-Bold.ttf
+- Abril Fatface (SIL OFL 1.1) – ofl/abrilfatface/AbrilFatface-Regular.ttf
+- Lora (SIL OFL 1.1) – ofl/lora/Lora[wght].ttf
+- Rye (SIL OFL 1.1) – ofl/rye/Rye-Regular.ttf
+- Smokum (Apache 2.0) – apache/smokum/Smokum-Regular.ttf
+- UnifrakturMaguntia (SIL OFL 1.1) – ofl/unifrakturmaguntia/UnifrakturMaguntia-Book.ttf
+- Pirata One (SIL OFL 1.1) – ofl/pirataone/PirataOne-Regular.ttf
+- Stardos Stencil (SIL OFL 1.1) – ofl/stardosstencil/StardosStencil-Bold.ttf
+- Allerta Stencil (SIL OFL 1.1) – ofl/allertastencil/AllertaStencil-Regular.ttf
+- Black Ops One (SIL OFL 1.1) – ofl/blackopsone/BlackOpsOne-Regular.ttf
+- Saira Stencil One (SIL OFL 1.1) – ofl/sairastencilone/SairaStencilOne-Regular.ttf
+- Bangers (SIL OFL 1.1) – ofl/bangers/Bangers-Regular.ttf
+- Luckiest Guy (Apache 2.0) – apache/luckiestguy/LuckiestGuy-Regular.ttf
+- Bungee (SIL OFL 1.1) – ofl/bungee/Bungee-Regular.ttf
+- Shrikhand (SIL OFL 1.1) – ofl/shrikhand/Shrikhand-Regular.ttf
+- Fredoka (SIL OFL 1.1) – ofl/fredoka/Fredoka[wdth,wght].ttf
+- Comfortaa (SIL OFL 1.1) – ofl/comfortaa/Comfortaa[wght].ttf
+- Lobster (SIL OFL 1.1) – ofl/lobster/Lobster-Regular.ttf
+- Dancing Script (SIL OFL 1.1) – ofl/dancingscript/DancingScript[wght].ttf
+- Kaushan Script (SIL OFL 1.1) – ofl/kaushanscript/KaushanScript-Regular.ttf
+- Satisfy (Apache 2.0) – apache/satisfy/Satisfy-Regular.ttf
+- Courgette (SIL OFL 1.1) – ofl/courgette/Courgette-Regular.ttf
+- Cookie (SIL OFL 1.1) – ofl/cookie/Cookie-Regular.ttf
+- Sacramento (SIL OFL 1.1) – ofl/sacramento/Sacramento-Regular.ttf
+- Allura (SIL OFL 1.1) – ofl/allura/Allura-Regular.ttf
+- Parisienne (SIL OFL 1.1) – ofl/parisienne/Parisienne-Regular.ttf
+- Permanent Marker (Apache 2.0) – apache/permanentmarker/PermanentMarker-Regular.ttf
+- Caveat (SIL OFL 1.1) – ofl/caveat/Caveat[wght].ttf
+- Amatic SC (SIL OFL 1.1) – ofl/amaticsc/AmaticSC-Bold.ttf
+- Indie Flower (SIL OFL 1.1) – ofl/indieflower/IndieFlower-Regular.ttf
+- Patrick Hand (SIL OFL 1.1) – ofl/patrickhand/PatrickHand-Regular.ttf
+- Special Elite (Apache 2.0) – apache/specialelite/SpecialElite-Regular.ttf
+- Courier Prime (SIL OFL 1.1) – ofl/courierprime/CourierPrime-Bold.ttf
+- Press Start 2P (SIL OFL 1.1) – ofl/pressstart2p/PressStart2P-Regular.ttf
+- Mountains of Christmas (Apache 2.0) – apache/mountainsofchristmas/MountainsofChristmas-Bold.ttf
+- Henny Penny (SIL OFL 1.1) – ofl/hennypenny/HennyPenny-Regular.ttf
+- Creepster (SIL OFL 1.1) – ofl/creepster/Creepster-Regular.ttf
+- Audiowide (SIL OFL 1.1) – ofl/audiowide/Audiowide-Regular.ttf
+- Orbitron (SIL OFL 1.1) – ofl/orbitron/Orbitron[wght].ttf
+- Teko (SIL OFL 1.1) – ofl/teko/Teko[wght].ttf

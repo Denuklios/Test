@@ -1,0 +1,48 @@
+Montserrat|Serifenlos|ofl/montserrat|Montserrat[wght].ttf
+Oswald|Serifenlos schmal|ofl/oswald|Oswald[wght].ttf
+Poppins|Serifenlos|ofl/poppins|Poppins-SemiBold.ttf
+Lato|Serifenlos|ofl/lato|Lato-Bold.ttf
+Roboto Slab|Serifen (Slab)|apache/robotoslab|RobotoSlab[wght].ttf
+Ultra|Serifen (Slab)|apache/ultra|Ultra-Regular.ttf
+Playfair Display|Serifen|ofl/playfairdisplay|PlayfairDisplay[wght].ttf
+Cinzel|Serifen klassisch|ofl/cinzel|Cinzel[wght].ttf
+Cinzel Decorative|Serifen verziert|ofl/cinzeldecorative|CinzelDecorative-Bold.ttf
+Abril Fatface|Serifen fett|ofl/abrilfatface|AbrilFatface-Regular.ttf
+Lora|Serifen|ofl/lora|Lora[wght].ttf
+Rye|Western|ofl/rye|Rye-Regular.ttf
+Smokum|Western|apache/smokum|Smokum-Regular.ttf
+UnifrakturMaguntia|Fraktur|ofl/unifrakturmaguntia|UnifrakturMaguntia-Book.ttf
+Pirata One|Fraktur|ofl/pirataone|PirataOne-Regular.ttf
+Stardos Stencil|Schablone|ofl/stardosstencil|StardosStencil-Bold.ttf
+Allerta Stencil|Schablone|ofl/allertastencil|AllertaStencil-Regular.ttf
+Black Ops One|Schablone|ofl/blackopsone|BlackOpsOne-Regular.ttf
+Saira Stencil One|Schablone|ofl/sairastencilone|SairaStencilOne-Regular.ttf
+Bangers|Comic|ofl/bangers|Bangers-Regular.ttf
+Luckiest Guy|Comic|apache/luckiestguy|LuckiestGuy-Regular.ttf
+Bungee|Plakat|ofl/bungee|Bungee-Regular.ttf
+Shrikhand|Plakat|ofl/shrikhand|Shrikhand-Regular.ttf
+Fredoka|Rund|ofl/fredoka|Fredoka[wdth,wght].ttf
+Comfortaa|Rund|ofl/comfortaa|Comfortaa[wght].ttf
+Lobster|Schreibschrift|ofl/lobster|Lobster-Regular.ttf
+Dancing Script|Schreibschrift|ofl/dancingscript|DancingScript[wght].ttf
+Kaushan Script|Schreibschrift|ofl/kaushanscript|KaushanScript-Regular.ttf
+Satisfy|Schreibschrift|apache/satisfy|Satisfy-Regular.ttf
+Courgette|Schreibschrift|ofl/courgette|Courgette-Regular.ttf
+Cookie|Schreibschrift|ofl/cookie|Cookie-Regular.ttf
+Sacramento|Schreibschrift fein|ofl/sacramento|Sacramento-Regular.ttf
+Allura|Schreibschrift fein|ofl/allura|Allura-Regular.ttf
+Parisienne|Schreibschrift fein|ofl/parisienne|Parisienne-Regular.ttf
+Permanent Marker|Handschrift|apache/permanentmarker|PermanentMarker-Regular.ttf
+Caveat|Handschrift|ofl/caveat|Caveat[wght].ttf
+Amatic SC|Handschrift|ofl/amaticsc|AmaticSC-Bold.ttf
+Indie Flower|Handschrift|ofl/indieflower|IndieFlower-Regular.ttf
+Patrick Hand|Handschrift|ofl/patrickhand|PatrickHand-Regular.ttf
+Special Elite|Schreibmaschine|apache/specialelite|SpecialElite-Regular.ttf
+Courier Prime|Schreibmaschine|ofl/courierprime|CourierPrime-Bold.ttf
+Press Start 2P|Pixel|ofl/pressstart2p|PressStart2P-Regular.ttf
+Mountains of Christmas|Weihnachten|apache/mountainsofchristmas|MountainsofChristmas-Bold.ttf
+Henny Penny|Verspielt|ofl/hennypenny|HennyPenny-Regular.ttf
+Creepster|Halloween|ofl/creepster|Creepster-Regular.ttf
+Audiowide|Technik|ofl/audiowide|Audiowide-Regular.ttf
+Orbitron|Technik|ofl/orbitron|Orbitron[wght].ttf
+Teko|Serifenlos schmal|ofl/teko|Teko[wght].ttf

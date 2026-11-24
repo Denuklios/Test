@@ -39,7 +39,9 @@
           "**/*",
           "!tests/**",
           "!models/**",
-          "!README.md"
+          "!README.md",
+          "!tools/**",
+          "!fonts/*.ttf"
         ]
       }
     ],

@@ -106,6 +106,10 @@ Die Webcam findet das Werkstück auf dem Tisch, setzt **X/Y-Null auf die linke u
 
 Hinweise: Ohne Endschalter ändert sich der Maschinen-Nullpunkt bei jedem Einschalten – dann „Versatz nachmessen (1 Punkt)“. Bei wenig Kontrast (hell auf hell) hilft „Leerbild aufnehmen“ (Tisch leer). Gleichmäßiges Licht ohne harte Schatten verbessert die Erkennung. Erste Fahrt immer mit „Zum Nullpunkt“ prüfen.
 
+## Schriften
+
+57 Schriften sind eingebaut (Block, Serifen, Schreib- und Handschrift, Schablone, Fraktur, Western, Comic, Technik, Weihnachten …), nach Art sortiert. Im Text-Dialog zeigt „Alle Schriften mit deinem Text ansehen“ eine Vorschau-Galerie. Mit **„Eigene Schrift laden (.ttf)…“** kommen eigene TrueType-Schriften dazu; sie bleiben im Browser bzw. im Desktop-Programm gespeichert. Fehlt einer Schrift ein Zeichen (z. B. Ø), wird es sinnvoll ersetzt (O). Für feine Gravuren eignen sich kräftige Schriften besser als sehr dünne Schreibschriften.
+
 ## Sicher fräsen: Auftrag, Unterbrechung, Fortsetzen
 
 - **Umriss abfahren:** fährt das Rechteck um alle Schnitte in sicherer Höhe ab – so siehst du vorher, ob alles auf dem Werkstück liegt.

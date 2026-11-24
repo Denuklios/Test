@@ -883,13 +883,72 @@
 
   function toggleSel(id) { S.sel = S.sel.includes(id) ? S.sel.filter((x) => x !== id) : [...S.sel, id]; }
 
+  // ---------------------------------------------------------------- Schriften
+  // Jede Schrift auch als Browser-Schrift anmelden, damit die Auswahlliste die Namen in der eigenen Schrift zeigt
+  const fontFaces = new Set();
+  function registerFace(f) {
+    if (fontFaces.has(f.name) || typeof FontFace === 'undefined') return;
+    fontFaces.add(f.name);
+    try {
+      const bin = atob(f.data), u = new Uint8Array(bin.length);
+      for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i);
+      const face = new FontFace('FS ' + f.name, u.buffer);
+      face.load().then((ff) => document.fonts.add(ff)).catch(() => {});
+    } catch (e) { /* nur Vorschau */ }
+  }
+  // eigene Schriften (TTF) dauerhaft im Browser speichern
+  const fontDb = () => new Promise((res, rej) => {
+    const r = indexedDB.open('fraesstudio-fonts', 1);
+    r.onupgradeneeded = () => r.result.createObjectStore('fonts', { keyPath: 'name' });
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+  async function loadOwnFonts() {
+    try {
+      const db = await fontDb();
+      const all = await new Promise((res) => { const q = db.transaction('fonts').objectStore('fonts').getAll(); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); });
+      for (const f of all) if (!HW.FONTS.some((x) => x.name === f.name)) HW.FONTS.push({ name: f.name, cat: 'Eigene Schriften', data: f.data, own: true });
+    } catch (e) { /* ohne IndexedDB keine eigenen Schriften */ }
+  }
+  const HW = (window.HW = window.HW || {});
+  HW.FONTS = HW.FONTS || [];
+  loadOwnFonts();
+  async function importFont() {
+    const f = await pickFile('.ttf', 'buffer');
+    if (!f) return null;
+    const u = new Uint8Array(f.data);
+    const tag = String.fromCharCode(u[0], u[1], u[2], u[3]);
+    if (tag === 'OTTO') { modal('Schrift nicht lesbar', '<p>Das ist eine OpenType-Schrift mit CFF-Umrissen (.otf). FräsStudio kann TrueType-Schriften (.ttf) lesen – viele Schriften gibt es auch als .ttf (z. B. bei Google Fonts).</p>'); return null; }
+    let bin = '';
+    for (let i = 0; i < u.length; i += 0x8000) bin += String.fromCharCode.apply(null, u.subarray(i, i + 0x8000));
+    const name = f.name.replace(/\.ttf$/i, '').replace(/[-_]+/g, ' ').trim().slice(0, 40) || 'Eigene Schrift';
+    const entry = { name, cat: 'Eigene Schriften', data: btoa(bin), own: true };
+    try {
+      const F = FS.ttf.parse(f.data);
+      if (!F.glyph(F.gid(65)).length) throw new Error('keine Umrisse');
+    } catch (e) { modal('Schrift nicht lesbar', `<p>„${esc(f.name)}“ konnte nicht gelesen werden (${esc(e.message)}). Bitte eine TrueType-Schrift (.ttf) mit Umrissen wählen.</p>`); return null; }
+    HW.FONTS = HW.FONTS.filter((x) => x.name !== name);
+    HW.FONTS.push(entry);
+    try { const db = await fontDb(); db.transaction('fonts', 'readwrite').objectStore('fonts').put({ name, data: entry.data }); } catch (e) { status('Schrift nur für diese Sitzung geladen (Speichern im Browser nicht möglich).', true); }
+    status(`Schrift „${name}“ hinzugefügt.`);
+    return name;
+  }
+  function fontOptions(cur) {
+    const groups = new Map();
+    for (const f of HW.FONTS) { registerFace(f); if (!groups.has(f.cat || 'Weitere')) groups.set(f.cat || 'Weitere', []); groups.get(f.cat || 'Weitere').push(f.name); }
+    const ORDER = ['Eigene Schriften', 'Block schmal', 'Block fett', 'Block rund', 'Serifenlos', 'Serifenlos schmal', 'Modern', 'Rund', 'Serifen', 'Serifen klassisch', 'Serifen verziert', 'Serifen fett', 'Serifen (Slab)', 'College', 'Schreibschrift', 'Schreibschrift fein', 'Handschrift', 'Schablone', 'Fraktur', 'Western', 'Comic', 'Plakat', 'Schreibmaschine', 'Technik', 'Pixel', 'Weihnachten', 'Halloween', 'Verspielt'];
+    const rank = (c) => { const i = ORDER.indexOf(c); return i < 0 ? 99 : i; };
+    return [...groups].sort((a, b) => rank(a[0]) - rank(b[0])).map(([cat, names]) => `<optgroup label="${esc(cat)}">${names.map((n) => `<option value="${esc(n)}" style="font-family:'FS ${esc(n)}';font-size:15px" ${n === cur ? 'selected' : ''}>${esc(n)}</option>`).join('')}</optgroup>`).join('');
+  }
+
   // ---------------------------------------------------------------- Text
   function textDialog(o, at) {
     const fonts = FS.ttf.names();
     const t = o || { text: 'Text', font: store.get('fs.lastFont', fonts[0]), size: 20, align: 'left', spacing: 0, lineHeight: 1.2 };
     const html = `
       ${field('Text', `<textarea id="tText" rows="3">${esc(t.text)}</textarea>`)}
-      ${field('Schrift', `<select id="tFont">${fonts.map((f) => `<option ${f === t.font ? 'selected' : ''}>${f}</option>`).join('')}</select>`)}
+      ${field('Schrift', `<select id="tFont">${fontOptions(t.font)}</select>`)}
+      <div class="row" style="justify-content:space-between"><span class="muted small">${fonts.length} Schriften · Auswahl mit ↑/↓ blättern, die Vorschau zeigt sie sofort</span><button id="tOwn" type="button">Eigene Schrift laden (.ttf)…</button></div>
+      <details id="tGalD"><summary class="muted">Alle Schriften mit deinem Text ansehen</summary><div id="tGal" class="fontgal"></div></details>
       ${field('Schriftgröße', inputN('tSize', t.size, 0.5, 'min="1"'), 'mm')}
       ${field('Zeichenabstand', inputN('tSpacing', t.spacing || 0, 0.1), 'mm')}
       ${field('Zeilenabstand', inputN('tLine', t.lineHeight || 1.2, 0.05), '×')}
@@ -912,8 +971,17 @@
       for (const l of ls) l.pts.forEach((p, i) => { const X = 10 + (p.x - b.x0) * k, Y = c.height - 10 - (p.y - b.y0) * k; i ? x.lineTo(X, Y) : x.moveTo(X, Y); });
       x.fill('evenodd');
     };
-    modal(o ? 'Text bearbeiten' : 'Text einfügen', html, [{ label: 'Abbrechen', value: null }, { label: o ? 'Übernehmen' : 'Einfügen', primary: true, value: 'ok' }], {
-      onOpen: (body) => { $('#tAlign').value = t.align || 'left'; body.addEventListener('input', prev); prev(); },
+    modal(o ? 'Text bearbeiten' : 'Text einfügen', html, [{ label: 'Abbrechen', value: null }, { label: o ? 'Übernehmen' : 'Einfügen', primary: true, value: 'ok' }], { wide: true,
+      onOpen: (body) => {
+        $('#tAlign').value = t.align || 'left'; body.addEventListener('input', prev); body.addEventListener('change', prev); prev();
+        $('#tOwn', body).onclick = async () => { const n = await importFont(); if (n) { $('#tFont').innerHTML = fontOptions(n); prev(); } };
+        const gal = () => {
+          const txt = ($('#tText').value.split('\n')[0] || 'Text').slice(0, 24), cur = $('#tFont').value;
+          $('#tGal').innerHTML = HW.FONTS.map((f) => `<button type="button" data-font="${esc(f.name)}" class="${f.name === cur ? 'active' : ''}"><span style="font-family:'FS ${esc(f.name)}'">${esc(txt)}</span><small>${esc(f.name)}</small></button>`).join('');
+        };
+        $('#tGalD', body).addEventListener('toggle', (e) => { if (e.target.open) gal(); });
+        $('#tGal', body).addEventListener('click', (e) => { const b = e.target.closest('[data-font]'); if (!b) return; $('#tFont').value = b.dataset.font; gal(); prev(); });
+      },
     }).then((r) => {
       if (r !== 'ok') return;
       const v = read();

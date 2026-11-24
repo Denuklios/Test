@@ -191,7 +191,14 @@
     const F = font(opts.font);
     const size = opts.size || 20, sc = size / F.upm, tol = opts.tol || 0.03;
     const spacing = opts.spacing || 0, lineH = (opts.lineHeight || 1.2) * size;
-    const lines = String(text || '').split('\n');
+    // Zeichen, die die Schrift nicht hat, ersetzen (Ø -> O, Æ -> AE, „ -> ,, …) statt ein leeres Kästchen zu fräsen
+    const FB = { 'Æ': 'AE', 'æ': 'ae', 'Ø': 'O', 'ø': 'o', 'Œ': 'OE', 'œ': 'oe', 'ß': 'ss', '„': ',,', '“': '"', '”': '"', '‚': ',', '‘': "'", '’': "'", '«': '<<', '»': '>>', '–': '-', '—': '-', '…': '...', '€': 'EUR', '×': 'x' };
+    const fix = (ln) => [...ln].map((ch) => {
+      if (F.gid(ch.codePointAt(0)) || ch === ' ') return ch;
+      const alt = FB[ch] || ch.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+      return [...alt].every((c) => F.gid(c.codePointAt(0))) ? alt : ch;
+    }).join('');
+    const lines = String(text || '').split('\n').map(fix);
     const widths = lines.map((ln) => {
       let w = 0, pg = 0;
       for (const ch of ln) {
