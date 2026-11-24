@@ -298,6 +298,18 @@ for (const rot of [0, 0.3]) {
   ok(worst < 0.02, `Bögen: Abweichung von der Bahn max. ${worst.toFixed(4)} mm`);
 }
 
+// Höhenkarte: Oberfläche ist schräg (0 links, +1 mm rechts) – Bahnen folgen ihr
+{
+  const map = { x0: 0, y0: 0, dx: 100, dy: 100, nx: 3, ny: 2, z: [[0, 1, 2], [0, 1, 2]] };
+  ok(near(FS.gcode.heightAt(map, 50, 30), 0.5, 1e-9) && near(FS.gcode.heightAt(map, 250, 0), 2, 1e-9) && near(FS.gcode.heightAt(map, -9, 0), 0, 1e-9), 'Höhenkarte: Zwischenwerte und Ränder');
+  const lv = FS.gcode.level('G21 G90\nG0 X0 Y0 Z5\nG1 Z-1 F100\nG1 X100 Y0\nG2 X120 Y20 I0 J20\nG0 Z5\n', map);
+  const mv = FS.gcode.parse(lv).filter((m2) => !m2.rapid);
+  const bad = mv.filter((m2) => Math.abs(m2.z - (-1 + FS.gcode.heightAt(map, m2.x, m2.y))) > 0.002);
+  ok(mv.length > 50 && bad.length === 0, `Höhenkarte: alle ${mv.length} Schnittpunkte folgen der Oberfläche`);
+  let threw = false; try { FS.gcode.level('G91\nG1 X10\n', map); } catch (e) { threw = true; }
+  ok(threw, 'Höhenkarte: relatives Programm wird abgelehnt');
+}
+
 // Simulation
 const sim = FS.sim.create(stock, 0.5);
 FS.sim.run(sim, gc.moves, null, Infinity);

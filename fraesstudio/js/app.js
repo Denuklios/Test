@@ -2126,7 +2126,7 @@
       el.textContent = names[st.state] || st.state;
       el.className = 'state ' + st.state;
       $('#droX').textContent = fmt3(st.wpos.x); $('#droY').textContent = fmt3(st.wpos.y); $('#droZ').textContent = fmt3(st.wpos.z);
-      $('#ovF').textContent = st.ov[0] + ' %'; $('#ovS').textContent = st.ov[2] + ' %';
+      $('#ovF').textContent = st.ov[0] + ' %'; $('#ovS').textContent = st.ov[2] + ' %'; $('#ovR').textContent = st.ov[1] + ' %';
       updConn();
       if (st.state === 'Alarm' && !alarmHinted) { alarmHinted = true; log('Die Maschine steht im Alarm (nach dem Einschalten normal): „Entsperren“ ($X) oder „Referenzfahrt“ ($H) drücken.', 'err'); }
       if (S.mode === 'machine') redraw();
@@ -2136,6 +2136,15 @@
     g.on('progress', (j) => jobUi(j));
     g.on('jobdone', (j) => {
       jobUi(null);
+      if (S.checkRun) {
+        S.checkRun = false;
+        // Prüfmodus verlassen (GRBL setzt sich dabei zurück)
+        g.command('$C').catch(() => {});
+        if (!j.lost) modal(j.errors || j.aborted ? 'Prüflauf: Fehler gefunden' : 'Prüflauf ohne Fehler', j.errors || j.aborted
+          ? `<p>GRBL hat ${j.errors || 'einen'} Fehler gemeldet – Details in der Konsole. Das Programm so nicht fräsen.</p>`
+          : `<p>Alle ${j.total} Zeilen wurden von der Maschine akzeptiert. Der Auftrag kann gefräst werden.</p>`);
+        return;
+      }
       if (j.aborted && S.job) S.resumeAt = Math.max(0, j.acked - 25);
       if (j.lost) modal('Verbindung während des Auftrags verloren', `<p>Die Verbindung zur Maschine ist abgebrochen, während „${esc(j.name)}“ lief (Zeile ${j.acked} von ${j.total}).</p><p><b>Bitte an der Maschine prüfen:</b> Die Spindel läuft evtl. noch. Im Zweifel den Not-Aus bzw. den Spindelschalter benutzen. Danach neu verbinden, Nullpunkt prüfen und mit <b>„Fortsetzen ab Zeile…“</b> weitermachen (vorgeschlagen: Zeile ${Math.max(0, j.acked - 25)}).</p>`);
       else if (j.reset) modal('Steuerung zurückgesetzt', `<p>Die Steuerung hat neu gestartet, während „${esc(j.name)}“ lief. Der Auftrag wurde abgebrochen, damit er nicht ohne Spindel weiterläuft.</p><p>Nullpunkt prüfen (ohne Endschalter ist er nach einem Neustart weg) und mit <b>„Fortsetzen ab Zeile…“</b> weitermachen.</p>`);
@@ -2363,6 +2372,186 @@
       } catch (e) { modal('Antasten fehlgeschlagen', `<p>${esc(e.message)}</p>`); }
     });
   }
+
+  // ---------------------------------------------------------------- Extras: Ecke antasten, Höhenkarte, Einstellungen, Makros, Prüflauf
+  const n3 = (v) => (+v).toFixed(3);
+  async function cornerProbeDialog() {
+    if (!need()) return;
+    const p = store.get('fs.probeXYZ', { t: 10, lipX: 5, lipY: 5, d: 3.175, travel: 20, dip: 5, feed: 80 });
+    const r = await modal('X, Y und Z an der Ecke antasten', `
+      <p class="small">Für eine <b>XYZ-Antastplatte</b> (Platte mit zwei Lippen, die an der linken und vorderen Kante des Werkstücks anliegen).</p>
+      <ol class="small"><li>Platte auf die <b>linke vordere Ecke</b> legen, Lippen an die Kanten.</li><li>Fräser ca. 5–10 mm über die Platte fahren, etwa 10 mm von beiden Kanten entfernt.</li><li>Krokodilklemme am Fräser. „Antasten“ – die Maschine tastet Z, dann X, dann Y.</li></ol>
+      <div class="grid2">
+        ${field('Plattendicke (Z)', inputN('cpT', p.t, 0.01), 'mm')}${field('Fräser-Ø', inputN('cpD', p.d, 0.001), 'mm')}
+        ${field('Lippe X (Dicke)', inputN('cpLX', p.lipX, 0.01), 'mm')}${field('Lippe Y (Dicke)', inputN('cpLY', p.lipY, 0.01), 'mm')}
+        ${field('Weg nach außen', inputN('cpTr', p.travel, 1), 'mm')}${field('Tauchtiefe', inputN('cpDip', p.dip, 0.5), 'mm')}
+      </div>
+      <p class="muted small">Ergebnis: X0/Y0 = linke vordere Werkstückecke, Z0 = Werkstückoberfläche (unter der Platte). „Weg nach außen“ muss reichen, damit der Fräser neben die Lippe kommt.</p>`,
+    [{ label: 'Abbrechen', value: null }, { label: 'Antasten', primary: true, value: 'ok' }], { wide: true });
+    if (r !== 'ok') return;
+    const v = { t: val('cpT'), d: Math.max(0.1, val('cpD')), lipX: val('cpLX'), lipY: val('cpLY'), travel: Math.max(5, val('cpTr')), dip: Math.max(1, val('cpDip')), feed: 80 };
+    store.set('fs.probeXYZ', v);
+    const g = S.grbl, rad = v.d / 2;
+    try {
+      await g.probe('Z', -25, v.feed);
+      await g.command(`G10 L20 P1 Z${n3(v.t)}`);
+      await g.command('G91 G0 Z3');
+      // X: nach links neben die Lippe, absenken, nach rechts antasten
+      await g.command(`G91 G0 X-${n3(v.travel)}`);
+      await g.command(`G91 G0 Z-${n3(3 + v.dip)}`);
+      await g.probe('X', v.travel + 10, v.feed);
+      await g.command(`G10 L20 P1 X${n3(-(rad + v.lipX))}`);
+      await g.command('G91 G0 X-2');
+      await g.command(`G91 G0 Z${n3(3 + v.dip)}`);
+      await g.command('G90 G0 X10');
+      // Y: nach vorne neben die Lippe, absenken, nach hinten antasten
+      await g.command(`G91 G0 Y-${n3(v.travel)}`);
+      await g.command(`G91 G0 Z-${n3(3 + v.dip)}`);
+      await g.probe('Y', v.travel + 10, v.feed);
+      await g.command(`G10 L20 P1 Y${n3(-(rad + v.lipY))}`);
+      await g.command('G91 G0 Y-2');
+      await g.command(`G91 G0 Z${n3(3 + v.dip + 5)}`);
+      await g.command('G90');
+      status('X, Y und Z angetastet: Nullpunkt = linke vordere Ecke, Oberseite. Klemme entfernen und Platte wegnehmen!');
+      log('Ecke angetastet.', 'info');
+    } catch (e) {
+      await g.command('G90').catch(() => {});
+      modal('Antasten abgebrochen', `<p>${esc(e.message)}</p><p>Bei einem Alarm: „Entsperren“, Fräser frei fahren und neu beginnen.</p>`);
+    }
+  }
+
+  async function heightMapDialog() {
+    if (!need()) return;
+    const bb = jobBounds() || { x0: 0, y0: 0, x1: S.doc.stock.w, y1: S.doc.stock.h };
+    const hm = S.hmap;
+    const r = await modal('Höhenkarte (Oberfläche ausmessen)', `
+      <p class="small">Für <b>leitfähige Oberflächen</b> (Leiterplatte, Aluminium) oder mit Kontaktfolie: Die Maschine tastet ein Raster ab, danach folgt der Auftrag der gemessenen Oberfläche – für gleichmäßig tiefe Gravuren auf welligem Material. Bei Holz funktioniert das ohne leitfähige Folie nicht.</p>
+      <div class="grid2">
+        ${field('X von', inputN('hmX0', +bb.x0.toFixed(1), 1), 'mm')}${field('bis', inputN('hmX1', +bb.x1.toFixed(1), 1), 'mm')}
+        ${field('Y von', inputN('hmY0', +bb.y0.toFixed(1), 1), 'mm')}${field('bis', inputN('hmY1', +bb.y1.toFixed(1), 1), 'mm')}
+        ${field('Punkte in X', inputN('hmNX', 5, 1, 'min="2" max="30"'))}${field('Punkte in Y', inputN('hmNY', 4, 1, 'min="2" max="30"'))}
+        ${field('Sicherheitshöhe', inputN('hmZ', 3, 0.5), 'mm')}${field('max. Tiefe', inputN('hmD', 4, 0.5), 'mm')}
+      </div>
+      <p class="muted small">Vorher Z0 auf der Oberfläche setzen und die Klemme anbringen. Nach dem Messen Z nicht mehr neu nullen.${hm ? ` Aktuelle Karte: ${hm.nx} × ${hm.ny} Punkte, Höhen ${fmt(hm.min)} bis ${fmt(hm.max)} mm.` : ''}</p>`,
+    [{ label: 'Schließen', value: null }].concat(hm ? [{ label: 'Karte löschen', value: 'clear' }, { label: 'Auftrag anpassen', value: 'apply' }] : []).concat([{ label: 'Messen', primary: true, value: 'ok' }]), { wide: true });
+    if (r === 'clear') { S.hmap = null; status('Höhenkarte gelöscht.'); return; }
+    if (r === 'apply') return applyHeightMap();
+    if (r !== 'ok') return;
+    const x0 = val('hmX0'), x1 = val('hmX1'), y0 = val('hmY0'), y1 = val('hmY1');
+    const nx = Math.max(2, Math.min(30, Math.round(val('hmNX')))), ny = Math.max(2, Math.min(30, Math.round(val('hmNY'))));
+    const zc = Math.max(0.5, val('hmZ')), depth = Math.max(0.5, val('hmD'));
+    const map = { x0, y0, dx: (x1 - x0) / (nx - 1), dy: (y1 - y0) / (ny - 1), nx, ny, z: [] };
+    const g = S.grbl;
+    try {
+      await g.command(`G90 G0 Z${n3(zc)}`);
+      for (let j = 0; j < ny; j++) {
+        const row = [];
+        for (let i = 0; i < nx; i++) {
+          const ii = j % 2 ? nx - 1 - i : i; // Zickzack
+          await g.command(`G90 G0 X${n3(x0 + ii * map.dx)} Y${n3(y0 + j * map.dy)}`);
+          const pr = await g.probe('Z', -(zc + depth), 60);
+          row[ii] = pr.z - g.status.wco.z;
+          await g.command(`G90 G0 Z${n3(zc)}`);
+          status(`Höhenkarte: Punkt ${j * nx + i + 1} von ${nx * ny} …`);
+        }
+        map.z.push(row);
+      }
+      const all = map.z.flat();
+      map.min = Math.min(...all); map.max = Math.max(...all);
+      S.hmap = map;
+      status(`Höhenkarte gemessen: ${nx} × ${ny} Punkte, Unterschied ${fmt(map.max - map.min)} mm. Jetzt „Höhenkarte… → Auftrag anpassen“.`);
+    } catch (e) {
+      await g.command('G90').catch(() => {});
+      modal('Messen abgebrochen', `<p>${esc(e.message)}</p><p>Ist die Oberfläche leitfähig und die Klemme angeschlossen? Bei Alarm: „Entsperren“.</p>`);
+    }
+  }
+  async function applyHeightMap() {
+    if (!S.hmap) { status('Erst eine Höhenkarte messen.', true); return; }
+    if (!S.job) { status('Erst einen Auftrag laden.', true); return; }
+    let text = S.job.text;
+    if (S.jobOrigin) text = (await buildAll()).text; // eigenes Projekt: frisch erzeugen
+    try {
+      const lv = FS.gcode.level(text, S.hmap);
+      setJob(lv, S.job.name.replace(/ \(Höhenkarte\)$/, '') + ' (Höhenkarte)');
+      status(`Auftrag an die Höhenkarte angepasst (${fmt(S.hmap.min)} bis ${fmt(S.hmap.max)} mm).`);
+    } catch (e) { modal('Höhenkarte nicht anwendbar', `<p>${esc(e.message)}</p>`); }
+  }
+
+  const GRBL_SET = {
+    0: 'Schrittimpuls (µs)', 1: 'Motoren halten nach Stillstand (ms, 255 = immer)', 2: 'Schrittsignal invertieren (Maske)', 3: 'Richtung invertieren (Maske: 1 = X, 2 = Y, 4 = Z)',
+    4: 'Enable invertieren', 5: 'Endschalter invertieren', 6: 'Taster invertieren', 10: 'Statusbericht (Maske)', 11: 'Kurvenabweichung (mm)', 12: 'Bogengenauigkeit (mm)', 13: 'Zoll anzeigen',
+    20: 'Software-Endlagen (0/1)', 21: 'Hardware-Endschalter (0/1)', 22: 'Referenzfahrt aktiv (0/1)', 23: 'Referenzfahrt-Richtung (Maske)', 24: 'Referenz langsam (mm/min)', 25: 'Referenz schnell (mm/min)',
+    26: 'Referenz-Entprellung (ms)', 27: 'Referenz-Abstand (mm)', 30: 'Max. Spindeldrehzahl (S-Wert)', 31: 'Min. Spindeldrehzahl', 32: 'Lasermodus (0 = Fräse!)',
+    100: 'X Schritte/mm', 101: 'Y Schritte/mm', 102: 'Z Schritte/mm', 110: 'X max. Geschwindigkeit (mm/min)', 111: 'Y max. Geschwindigkeit', 112: 'Z max. Geschwindigkeit',
+    120: 'X Beschleunigung (mm/s²)', 121: 'Y Beschleunigung', 122: 'Z Beschleunigung', 130: 'X Verfahrweg (mm)', 131: 'Y Verfahrweg', 132: 'Z Verfahrweg',
+  };
+  async function settingsDialog() {
+    if (!need()) return;
+    const lines = await S.grbl.ask('$$', 4000);
+    const vals = {};
+    for (const l of lines) { const m = /^\$(\d+)=(-?[\d.]+)/.exec(l); if (m) vals[m[1]] = m[2]; }
+    const keys = Object.keys(vals).map(Number).sort((a, b) => a - b);
+    if (!keys.length) { modal('Keine Einstellungen', '<p>Die Maschine hat auf „$$“ keine Einstellungen geliefert. Ist sie im Alarm? Erst „Entsperren“.</p>'); return; }
+    const r = await modal('Maschineneinstellungen (GRBL $$)', `<p class="small">Nur ändern, wenn du weißt, was der Wert bewirkt – falsche Schritte/mm oder Geschwindigkeiten lassen die Maschine falsch fahren. Vorher ein Bildschirmfoto machen.</p>
+      <div class="settab">${keys.map((k) => `<label><span>$${k}</span><small>${esc(GRBL_SET[k] || '')}</small><input data-set="${k}" value="${esc(vals[k])}"></label>`).join('')}</div>
+      ${vals[32] === '1' ? '<p class="warn">$32 = 1 (Lasermodus) ist für eine Fräse falsch: die Spindel stoppt bei jedem Eilgang. Auf 0 stellen.</p>' : ''}`,
+    [{ label: 'Abbrechen', value: null }, { label: 'Geänderte Werte senden', primary: true, value: 'ok' }], { wide: true, noEnter: true });
+    if (r !== 'ok') return;
+    const changes = [...document.querySelectorAll('[data-set]')].filter((i) => i.value.trim() !== vals[i.dataset.set] && /^-?[\d.]+$/.test(i.value.trim()));
+    for (const i of changes) {
+      try { await S.grbl.command(`$${i.dataset.set}=${i.value.trim()}`); } catch (e) { status(`$${i.dataset.set}: ${e.message}`, true); return; }
+    }
+    status(changes.length ? `${changes.length} Einstellung(en) gespeichert.` : 'Nichts geändert.');
+  }
+
+  // Makros: eigene Knöpfe mit G-Code (z. B. Parkposition, Z hoch, Absaugung an)
+  const macros = () => store.get('fs.macros', [{ name: 'Z hoch (+10)', code: 'G91 G0 Z10\nG90' }, { name: 'Parkposition', code: 'G90 G0 Z5\nG0 X0 Y0' }]);
+  function renderMacros() {
+    const el = $('#macroList');
+    if (!el) return;
+    el.innerHTML = macros().map((m, i) => `<span class="macro"><button data-macro="${i}" title="${esc(m.code)}">${esc(m.name)}</button><button data-medit="${i}" title="Bearbeiten">✎</button></span>`).join('');
+  }
+  async function editMacro(i) {
+    const list = macros(), m = i >= 0 ? list[i] : { name: '', code: '' };
+    const r = await modal(i >= 0 ? 'Makro bearbeiten' : 'Neues Makro', `${field('Name', `<input id="maName" value="${esc(m.name)}">`)}${field('G-Code (eine Zeile je Befehl)', `<textarea id="maCode" rows="6" style="font-family:monospace">${esc(m.code)}</textarea>`)}`,
+      [{ label: 'Abbrechen', value: null }].concat(i >= 0 ? [{ label: 'Löschen', value: 'del', danger: true }] : []).concat([{ label: 'Speichern', primary: true, value: 'ok' }]), { noEnter: true });
+    if (r === 'del') list.splice(i, 1);
+    else if (r === 'ok') { const v = { name: $('#maName').value.trim() || 'Makro', code: $('#maCode').value.trim() }; if (i >= 0) list[i] = v; else list.push(v); }
+    else return;
+    store.set('fs.macros', list);
+    renderMacros();
+  }
+  document.addEventListener('click', async (e) => {
+    const b = e.target.closest('[data-macro],[data-medit],#macroAdd');
+    if (!b) return;
+    if (b.id === 'macroAdd') return editMacro(-1);
+    if (b.dataset.medit !== undefined) return editMacro(+b.dataset.medit);
+    if (!need()) return;
+    const m = macros()[+b.dataset.macro];
+    for (const l of m.code.split(/\r?\n/).map((x) => x.trim()).filter(Boolean)) {
+      try { await S.grbl.command(l); } catch (err) { status(`Makro „${m.name}“: ${err.message}`, true); return; }
+    }
+    status(`Makro „${m.name}“ ausgeführt.`);
+  });
+  renderMacros();
+
+  // Prüflauf: GRBL liest das Programm im Prüfmodus ($C) ohne zu fahren und meldet Fehler
+  async function checkRun() {
+    if (!need()) return;
+    if (!S.job) { status('Zuerst einen Auftrag laden.', true); return; }
+    if (S.grbl.job) { status('Es läuft bereits ein Auftrag.', true); return; }
+    if (S.grbl.status.state !== 'Idle') { status('Maschine ist nicht bereit (' + S.grbl.status.state + ').', true); return; }
+    const text = S.job.text.split(/\r?\n/).filter((l) => !/(^|[^A-Z])M0?[016](?!\d)/i.test(l.replace(/\(.*?\)/g, ''))).join('\n');
+    try { await S.grbl.command('$C'); } catch (e) { status('Prüfmodus nicht möglich: ' + e.message, true); return; }
+    S.checkRun = true;
+    S.grbl.startJob(text, S.job.name + ' (Prüflauf)');
+    status('Prüflauf läuft – die Maschine bewegt sich nicht.');
+  }
+  $('#jobCheck').onclick = checkRun;
+  $('#mProbeXYZ').onclick = cornerProbeDialog;
+  $('#mHeightmap').onclick = heightMapDialog;
+  $('#mSettings').onclick = settingsDialog;
+
   function toolChangeDialog(msg) {
     const dialOnly = /DREHREGLER/.test(msg) && !/einsetzen/.test(msg);
     modal(dialOnly ? 'Pause: Drehzahl umstellen' : 'Werkzeugwechsel', dialOnly
@@ -2499,7 +2688,7 @@
   };
   $$('[data-ov]').forEach((b) => b.addEventListener('click', () => {
     if (!need(true)) return;
-    const map = { 'f-': '\x92', f0: '\x90', 'f+': '\x91', 's-': '\x9B', s0: '\x99', 's+': '\x9A' };
+    const map = { 'f-': '\x92', f0: '\x90', 'f+': '\x91', 's-': '\x9B', s0: '\x99', 's+': '\x9A', r25: '\x97', r50: '\x96', r100: '\x95' };
     S.grbl.realtime(map[b.dataset.ov]);
   }));
   function jobUi(j) {

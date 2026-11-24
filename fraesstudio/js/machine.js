@@ -399,11 +399,11 @@
       if (haveM) st.wpos = { x: st.mpos.x - st.wco.x, y: st.mpos.y - st.wco.y, z: st.mpos.z - st.wco.z };
       else if (haveW) st.mpos = { x: st.wpos.x + st.wco.x, y: st.wpos.y + st.wco.y, z: st.wpos.z + st.wco.z };
       this.emit('status', st);
-      if (this.job && this.job.waitIdle && st.state === 'Idle' && !this.inflight.length) {
+      if (this.job && this.job.waitIdle && (st.state === 'Idle' || st.state === 'Check') && !this.inflight.length) {
         this.job.waitIdle = false;
         this.emit('toolchange', this.job.pauseMsg || 'Werkzeug wechseln');
       }
-      if (this.job && this.job.finishing && st.state === 'Idle' && !this.inflight.length) {
+      if (this.job && this.job.finishing && (st.state === 'Idle' || st.state === 'Check') && !this.inflight.length) {
         const j = this.job;
         this.job = null;
         this.emit('jobdone', j);
@@ -514,6 +514,21 @@
       return this.command(s + ' F' + Math.round(feed)).catch(() => {});
     }
     jogCancel() { this.realtime('\x85'); }
+
+    /** Eine Achse antasten (relativ, G38.2). Liefert die Kontaktposition in Maschinenkoordinaten; wirft, wenn nichts berührt wurde. */
+    async probe(axis, dist, feed = 80) {
+      let h;
+      const res = new Promise((resolve) => { h = (p) => resolve(p); this.on('probe', h); });
+      try {
+        await this.command(`G91 G38.2 ${axis}${dist.toFixed(3)} F${Math.round(feed)}`);
+        const p = await res;
+        if (!p.ok) throw new Error('Nichts berührt');
+        return p;
+      } finally {
+        this.listeners.probe = (this.listeners.probe || []).filter((f) => f !== h);
+        await this.command('G90').catch(() => {});
+      }
+    }
 
     async probeZ(plate = 0, maxTravel = 30, feed = 80) {
       let h;

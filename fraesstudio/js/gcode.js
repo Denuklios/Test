@@ -259,5 +259,77 @@
     return h ? `${h} h ${m} min` : m ? `${m} min ${s} s` : `${s} s`;
   }
 
-  FS.gcode = { build, parse, origin, ZERO_POS, fmtTime, lineCount, num };
+
+  /**
+   * Höhenkarte anwenden (Auto-Leveling): zu jeder Z-Position wird die gemessene Oberflächenhöhe an dieser Stelle addiert.
+   * map: { x0, y0, dx, dy, nx, ny, z: [ny][nx] } in Werkstückkoordinaten. Lange Geraden werden unterteilt, Bögen in Geraden zerlegt.
+   * Nur absolute Koordinaten in mm (G90/G21) – sonst Fehler.
+   */
+  function heightAt(map, x, y) {
+    const fx = Math.max(0, Math.min(map.nx - 1, (x - map.x0) / (map.dx || 1)));
+    const fy = Math.max(0, Math.min(map.ny - 1, (y - map.y0) / (map.dy || 1)));
+    const i = Math.min(map.nx - 2, Math.floor(fx)), j = Math.min(map.ny - 2, Math.floor(fy));
+    if (map.nx < 2 || map.ny < 2) return map.z[0][0];
+    const tx = fx - i, ty = fy - j, Z = map.z;
+    return (Z[j][i] * (1 - tx) + Z[j][i + 1] * tx) * (1 - ty) + (Z[j + 1][i] * (1 - tx) + Z[j + 1][i + 1] * tx) * ty;
+  }
+  function level(text, map, seg = 2) {
+    const out = [];
+    let mode = 0, p = null;
+    const fmtL = (cmd, q, f) => `${cmd} X${num(q.x)} Y${num(q.y)} Z${num(q.z + heightAt(map, q.x, q.y))}${f ? ' F' + Math.round(f) : ''}`;
+    for (const raw of text.split(/\r?\n/)) {
+      const line = raw.replace(/\(.*?\)/g, '').replace(/;.*/, '').toUpperCase().trim();
+      if (!line) { out.push(raw); continue; }
+      const words = {}, gs = [];
+      for (const m of line.matchAll(/([A-Z])\s*([-+]?\d*\.?\d+)/g)) { if (m[1] === 'G') gs.push(+m[2]); else words[m[1]] = +m[2]; }
+      if (gs.includes(91)) throw new Error('Relative Koordinaten (G91) im Programm – Höhenkarte nicht möglich.');
+      if (gs.includes(20)) throw new Error('Zoll (G20) im Programm – Höhenkarte nicht möglich.');
+      if (gs.some((g2) => [10, 28, 30, 38.2, 53, 92].includes(g2))) { out.push(raw); continue; }
+      for (const g2 of gs) if (g2 <= 3 && Number.isInteger(g2)) mode = g2;
+      const hasXYZ = 'X' in words || 'Y' in words || 'Z' in words;
+      if (!hasXYZ) { out.push(raw); continue; }
+      if (!p) {
+        // Startpunkt unbekannt: erste Bewegung nur übernehmen, wenn sie X, Y und Z enthält; sonst Z unverändert
+        if (!('X' in words && 'Y' in words && 'Z' in words)) {
+          if ('Z' in words && !('X' in words) && !('Y' in words)) { out.push(raw); continue; }
+          p = { x: words.X || 0, y: words.Y || 0, z: words.Z || 0 };
+          out.push(raw); continue;
+        }
+      }
+      const prev = p || { x: words.X, y: words.Y, z: words.Z };
+      const np = { x: 'X' in words ? words.X : prev.x, y: 'Y' in words ? words.Y : prev.y, z: 'Z' in words ? words.Z : prev.z };
+      const f = words.F;
+      if (!('X' in words) && !('Y' in words)) {
+        // reine Z-Bewegung an der aktuellen Stelle
+        out.push(`${mode === 0 ? 'G0' : 'G1'} Z${num(np.z + heightAt(map, prev.x, prev.y))}${f ? ' F' + Math.round(f) : ''}`);
+      } else if (mode === 0) {
+        out.push(fmtL('G0', np));
+      } else if (mode === 1) {
+        const d = Math.hypot(np.x - prev.x, np.y - prev.y), n = Math.max(1, Math.ceil(d / seg));
+        for (let k = 1; k <= n; k++) {
+          const q = { x: prev.x + ((np.x - prev.x) * k) / n, y: prev.y + ((np.y - prev.y) * k) / n, z: prev.z + ((np.z - prev.z) * k) / n };
+          out.push(fmtL('G1', q, k === 1 ? f : 0));
+        }
+      } else {
+        let cx, cy;
+        if ('R' in words) {
+          const r = words.R, dx = np.x - prev.x, dy = np.y - prev.y, d = Math.hypot(dx, dy);
+          const h = Math.sqrt(Math.max(0, r * r - (d * d) / 4)) * ((mode === 2) !== r < 0 ? -1 : 1);
+          cx = prev.x + dx / 2 - (h * dy) / d; cy = prev.y + dy / 2 + (h * dx) / d;
+        } else { cx = prev.x + (words.I || 0); cy = prev.y + (words.J || 0); }
+        const r = Math.hypot(prev.x - cx, prev.y - cy);
+        let a0 = Math.atan2(prev.y - cy, prev.x - cx), a1 = Math.atan2(np.y - cy, np.x - cx);
+        if (mode === 2) { if (a1 >= a0 - 1e-9) a1 -= Math.PI * 2; } else if (a1 <= a0 + 1e-9) a1 += Math.PI * 2;
+        const n = Math.max(4, Math.ceil((Math.abs(a1 - a0) * r) / Math.min(seg, 0.5)));
+        for (let k = 1; k <= n; k++) {
+          const a = a0 + ((a1 - a0) * k) / n;
+          out.push(fmtL('G1', { x: cx + r * Math.cos(a), y: cy + r * Math.sin(a), z: prev.z + ((np.z - prev.z) * k) / n }, k === 1 ? f : 0));
+        }
+      }
+      p = np;
+    }
+    return out.join('\n') + '\n';
+  }
+
+  FS.gcode = { build, parse, origin, ZERO_POS, fmtTime, lineCount, num, level, heightAt };
 })(typeof window !== 'undefined' ? window : globalThis);

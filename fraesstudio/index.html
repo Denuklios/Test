@@ -277,6 +277,16 @@
           <button id="mUnlock" title="Alarm entsperren ($X)">Entsperren</button>
         </div>
         <div class="row">
+          <button id="mProbeXYZ" class="wide" title="X, Y und Z mit einer Eck-Antastplatte">XYZ an Ecke antasten…</button>
+          <button id="mHeightmap" class="wide" title="Oberfläche im Raster ausmessen (leitfähig)">Höhenkarte…</button>
+        </div>
+        <div class="row">
+          <button id="mSettings" class="wide" title="GRBL-Einstellungen anzeigen und ändern ($$)">Maschineneinstellungen ($$)…</button>
+        </div>
+        <h3 style="margin-top:10px">Makros</h3>
+        <div id="macroList" class="macros"></div>
+        <button id="macroAdd" class="side-btn">+ Makro</button>
+        <div class="row">
           <button id="mSpindle" class="wide">Spindel an</button>
           <input id="mRpm" type="number" value="8000" step="500" title="Drehzahl U/min" style="width:90px">
         </div>
@@ -291,6 +301,9 @@
           <button id="jobFrame" class="wide" title="Fährt das Rechteck um alle Schnitte in sicherer Höhe ab">Umriss abfahren</button>
           <button id="jobResume" class="wide" title="Nach Abbruch ab einer bestimmten Zeile weitermachen">Fortsetzen ab Zeile…</button>
         </div>
+        <div class="row">
+          <button id="jobCheck" class="wide" title="GRBL prüft das Programm, ohne zu fahren ($C)">G-Code prüfen (Trockenlauf)</button>
+        </div>
         <div id="jobInfo" class="muted"></div>
         <div class="progress"><div id="jobBar"></div></div>
         <div class="row">
@@ -303,6 +316,9 @@
         </div>
         <div class="ovr">
           <span>Drehzahl <b id="ovS">100 %</b></span><button data-ov="s-">−10</button><button data-ov="s0">100</button><button data-ov="s+">+10</button>
+        </div>
+        <div class="ovr">
+          <span>Eilgang <b id="ovR">100 %</b></span><button data-ov="r25">25</button><button data-ov="r50">50</button><button data-ov="r100">100</button>
         </div>
       </div>
       <div class="panel grow">
