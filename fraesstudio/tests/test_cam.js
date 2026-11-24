@@ -173,6 +173,40 @@ ok(r.chains.length > 0 && Math.min(...pts.map((p) => p.z)) >= -5 + 0.5 - 1e-6, `
   ok(sim.warnings.size === 0, 'Relief aus Graustufenbild: keine Eilgänge im Material');
 }
 
+// Rampe darf zwischen den Ebenen nicht quer durchs Teil schneiden (Kreis r=3, Rechteck)
+{
+  for (const o of [S.make('ellipse', { rx: 3, ry: 3 }), sq]) {
+    if (o !== sq) o.tf = FS.M.translate(150, 100);
+    const pr = FS.cam.makeOp('profile', [o.id], 't1'); pr.depth = 3; pr.ramp = true; pr.rampLen = 10;
+    const rr = FS.cam.compute(pr, { ...ctx, objects: o === sq ? objects : [...objects, o] });
+    const rings = S.rings([o]);
+    let worst = Infinity;
+    for (const c of rr.chains) for (let i = 1; i < c.pts.length; i++) {
+      const a = c.pts[i - 1], b = c.pts[i];
+      if (b.z > -0.01) continue;
+      for (let k = 0; k <= 8; k++) {
+        const p = G.lerp(a, b, k / 8);
+        let d = Infinity;
+        for (const ring of rings) for (let j = 0; j < ring.length; j++) d = Math.min(d, G.segDist(p, ring[j], ring[(j + 1) % ring.length]));
+        worst = Math.min(worst, G.pointInPoly(p, rings[0]) ? -d : d);
+      }
+    }
+    ok(worst > 1.5875 - 0.03, `Kontur mit Rampe: Fräsermitte bleibt ${worst.toFixed(3)} mm vom Teil (≥ Radius 1,5875)`);
+  }
+}
+// Haltestege: Schlichtgang setzt sie an dieselbe Stelle; zu kleine Teile werden gemeldet
+{
+  const ot = FS.cam.makeOp('profile', [circ.id], 't1'); ot.depth = 6; ot.tabs = true; ot.allowance = 0.5; ot.finishPass = true; ot.score = false;
+  const rt = FS.cam.compute(ot, ctx);
+  const mid = (sg) => ({ x: (sg[0].x + sg[1].x) / 2, y: (sg[0].y + sg[1].y) / 2 });
+  const half = rt.tabs.length / 2, roughT = rt.tabs.slice(0, half).map(mid), finT = rt.tabs.slice(half).map(mid);
+  ok(half === 4 && finT.every((q) => roughT.some((p) => G.dist(p, q) < 1.5)), `Schlichtgang: Stege an denselben Stellen wie beim Schruppen (${rt.tabs.length} Stege)`);
+  const tiny = S.make('ellipse', { rx: 3, ry: 3 }); tiny.tf = FS.M.translate(150, 120);
+  const ot2 = FS.cam.makeOp('profile', [tiny.id], 't1'); ot2.depth = 6; ot2.tabs = true; ot2.tabCount = 4; ot2.tabWidth = 6;
+  const rt2 = FS.cam.compute(ot2, { ...ctx, objects: [tiny] });
+  ok(rt2.tabs.length < 4 && (rt2.tabs.length > 0 || rt2.warnings.some((w) => /Haltestege/.test(w))), `Kleines Teil: Stege reduziert (${rt2.tabs.length}) oder Warnung`);
+}
+
 // Vorritzen: flacher Gleichlauf-Schnitt auf der Endkontur vor dem tiefen Fräsen
 {
   const o1 = FS.cam.makeOp('profile', [sq.id], 't1'); o1.depth = 3; o1.score = true; o1.tabs = true;
@@ -197,6 +231,16 @@ const gc2 = FS.gcode.build(res, { ...ctx, stock: st2 });
 const back2 = FS.gcode.parse(gc2.text).filter((m) => !m.rapid);
 ok(back2.some((m) => near(m.x, 50 - 20 - 1.5875 - 100, 0.002) && near(m.z, 10 - 3, 0.002)), 'Nullpunkt Mitte / Tisch wird eingerechnet');
 ok(FS.gcode.parse('G0 X0 Y0\nG2 X10 Y0 I5 J0\n').length > 4, 'G2-Bögen werden aufgelöst');
+{
+  // erste Fahrt gibt immer X und Y aus (Maschine steht irgendwo)
+  const firstG0 = gc.text.split('\n').find((l) => /^G0 .*[XY]/.test(l));
+  ok(/X/.test(firstG0) && /Y/.test(firstG0), `Erste Fahrt enthält X und Y („${firstG0}“)`);
+  // gleiche Fräse, andere Drehzahl in der zweiten Bahn: neuer S-Wert
+  const a1 = FS.cam.makeOp('pocket', [sq.id], 't1'); a1.depth = 1;
+  const a2 = FS.cam.makeOp('profile', [sq.id], 't1'); a2.depth = 1; a2.rpm = 4000;
+  const g2 = FS.gcode.build([FS.cam.compute(a1, ctx), FS.cam.compute(a2, ctx)], ctx);
+  ok((g2.text.match(/M3 S\d+/g) || []).length === 2 && /M3 S500/.test(g2.text), 'Andere Drehzahl bei gleichem Werkzeug wird mit neuem S-Wert ausgegeben');
+}
 {
   // schief aufgelegtes Werkstück: Bahnen werden um den Nullpunkt gedreht
   const rot = (10 * Math.PI) / 180;

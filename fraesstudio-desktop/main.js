@@ -61,11 +61,17 @@ function createWindow() {
     win.webContents.executeJavaScript('!!(window.FS && FS.grbl && FS.grbl.job)').then((run) => {
       if (run && !win.forceClose) {
         const c = dialog.showMessageBoxSync(win, { type: 'warning', message: 'Die Fräse läuft noch.', detail: 'Beim Beenden wird die Verbindung getrennt und die Maschine gestoppt (Not-Aus).', buttons: ['Weiter fräsen', 'Beenden und stoppen'], defaultId: 0, cancelId: 0 });
-        if (c === 1) { win.forceClose = true; win.close(); }
+        if (c === 1) {
+          // Not-Aus auch über USB: Vorschubhalt, dann Soft-Reset (macht die Web-Anwendung), danach schließen
+          win.webContents.executeJavaScript('FS.grbl && FS.grbl.job && FS.grbl.stopJob(true)').catch(() => {});
+          setTimeout(() => { if (win) { win.forceClose = true; win.close(); } }, 3500);
+        }
       } else { win.forceClose = true; win.close(); }
     }).catch(() => { win.forceClose = true; win.close(); });
     if (!win.forceClose) e.preventDefault();
   });
+  // Die Web-Anwendung blockiert das Schließen per beforeunload, solange ein Auftrag läuft – das fragt oben der eigene Dialog ab
+  win.webContents.on('will-prevent-unload', (e) => e.preventDefault());
   win.on('closed', () => { win = null; });
 }
 
@@ -88,5 +94,6 @@ else {
     app.on('activate', () => { if (!BrowserWindow.getAllWindows().length) createWindow(); });
   });
   app.on('window-all-closed', () => app.quit());
-  app.on('before-quit', () => { bridge.closeAll(true); try { server.close(); } catch (e) { /* zu */ } });
+  // erst nach dem Schließen der Fenster (dort wird bei laufendem Auftrag gefragt) die WLAN-Verbindung trennen
+  app.on('will-quit', () => { bridge.closeAll(true); try { server.close(); } catch (e) { /* zu */ } });
 }

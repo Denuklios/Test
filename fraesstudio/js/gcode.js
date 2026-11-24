@@ -34,7 +34,8 @@
     const safeZ = stock.safeZ || 5;
     const L = [];
     const moves = [];
-    let pos = { x: 0, y: 0, z: safeZ }, lastF = null, lastTool = null, time = 0, toolChanges = 0;
+    // Startposition der Maschine ist unbekannt: X und Y beim ersten Verfahren immer ausgeben
+    let pos = { x: Infinity, y: Infinity, z: safeZ }, lastF = null, lastTool = null, lastS = null, lastDial = null, time = 0, toolChanges = 0;
     const date = new Date().toISOString().slice(0, 16).replace('T', ' ');
     L.push(`(FraesStudio - ${clean(ctx.name || 'Projekt')})`);
     L.push(`(Erstellt ${date} - Maschine: ${clean(mach.name)})`);
@@ -103,7 +104,17 @@
         if (dial) L.push(`(DREHREGLER Stufe ${dial.step} = ca. ${dial.rpm} U/min)`);
         L.push(`M3 S${s}`);
         L.push(dial ? 'G4 P5' : 'G4 P3');
+      } else if (dial && lastDial && dial.step !== lastDial.step) {
+        // gleiches Werkzeug, andere Drehzahl am Handregler: anhalten und umstellen lassen
+        L.push(`(PAUSE: DREHREGLER auf Stufe ${dial.step} stellen = ca. ${dial.rpm} U/min - dann fortsetzen)`);
+        L.push('M0');
+        L.push(`G0 Z${num(safeZ - O.z)}`);
+        L.push(`M3 S${s}`, 'G4 P3');
+      } else if (!dial && s !== lastS) {
+        // gleiches Werkzeug, andere Drehzahl: per S-Wert umstellen
+        L.push(`M3 S${s}`, 'G4 P2');
       }
+      lastS = s; lastDial = dial;
       lastTool = tool;
       for (const ch of sec.chains) {
         const pts = ch.pts;

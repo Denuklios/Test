@@ -98,11 +98,30 @@
   }
 
   // Haltestege: Ring an Stegkanten unterteilen und Punkte markieren
-  function insertTabs(ring, count, width) {
+  // anchors: Stegmitten eines anderen Durchgangs (z. B. Schruppen) – der Schlichtgang setzt seine Stege an dieselbe Stelle
+  function insertTabs(ring, count, width, anchors) {
     const n = ring.length, L = geo.polyLength(ring, true);
-    if (count < 1 || L < count * width * 2) return ring.map((p) => ({ ...p }));
-    const iv = [];
-    for (let k = 0; k < count; k++) { const c = (L * (k + 0.5)) / count; iv.push([c - width / 2, c + width / 2]); }
+    let centers = [];
+    if (anchors && anchors.length) {
+      // Bogenlänge des nächstgelegenen Ringpunkts je Anker
+      for (const q of anchors) {
+        let best = Infinity, at = 0, s0 = 0;
+        for (let i = 0; i < n; i++) {
+          const a = ring[i], b = ring[(i + 1) % n], e = geo.dist(a, b);
+          const t = e > 0 ? Math.max(0, Math.min(1, ((q.x - a.x) * (b.x - a.x) + (q.y - a.y) * (b.y - a.y)) / (e * e))) : 0;
+          const d = geo.dist(q, geo.lerp(a, b, t));
+          if (d < best) { best = d; at = s0 + t * e; }
+          s0 += e;
+        }
+        centers.push(at);
+      }
+      centers.sort((a, b) => a - b);
+    } else {
+      count = Math.min(count, Math.floor(L / (width * 2)));
+      for (let k = 0; k < count; k++) centers.push((L * (k + 0.5)) / count);
+    }
+    if (!centers.length) { const o = ring.map((p) => ({ ...p })); o.centers = []; return o; }
+    const iv = centers.map((c) => [c - width / 2, c + width / 2]);
     const out = [];
     let s = 0;
     const inTab = (x) => iv.some(([a, b]) => x > a + 1e-9 && x < b - 1e-9);
@@ -121,6 +140,7 @@
       }
       s += e;
     }
+    out.centers = centers.map((c) => FS.cam.pointAtLen(ring.concat([ring[0]]), c));
     return out;
   }
 
@@ -165,6 +185,9 @@
     }
     for (let k = 1; k <= n; k++) emit(ring[(i + k) % n], z1);
     out.push({ x: endPt.x, y: endPt.y, z: z1 });
+    // Ring ab dem Endpunkt: die nächste Ebene beginnt dort, wo diese aufhört (keine Sehne quer durchs Teil)
+    const ev = { x: endPt.x, y: endPt.y, inTab: ring[i].inTab };
+    out.endRing = [ev].concat(ring.slice(i + 1), ring.slice(0, i + 1));
     return out;
   }
 
@@ -202,6 +225,7 @@
     // Bezugsliste sind die Teile des Schrupp-Durchgangs; die anderen Durchgänge werden dem nächstliegenden Teil zugeordnet.
     const center = (g) => { const bb = ringBox(g.outer); return { x: (bb.x0 + bb.x1) / 2, y: (bb.y0 + bb.y1) / 2 }; };
     const rough = passes.find((q) => q.rough);
+    let tabWarn = false;
     const parts = rough ? orderGroups(groupRings(rough.rings)).map((g) => ({ c: center(g), items: [] })) : [];
     for (const pass of passes) {
       for (const g of groupRings(pass.rings)) {
@@ -227,23 +251,29 @@
         for (const h of g.holes.slice().sort((x, y) => Math.abs(geo.signedArea(x)) - Math.abs(geo.signedArea(y)))) paths.push({ ring: orient(h) });
         paths.push({ ring: orient(g.outer) });
         for (const { ring } of paths) {
-          const useTabs = !!op.tabs && ring.length > 2 && !pass.score;
+          let useTabs = !!op.tabs && ring.length > 2 && !pass.score;
           const tabTop = useTabs ? -(op.depth - op.tabHeight) : null;
-          const tr = useTabs ? insertTabs(ring, op.tabCount, op.tabWidth + tool.d) : ring;
+          // Stege des Schlichtgangs an dieselbe Stelle wie beim Schruppen (sonst fräst er sie ab)
+          const near = useTabs && !pass.rough && pt.anchors ? pt.anchors.filter((q) => ring.some((v) => geo.dist(v, q) < 2 * (r + allow) + 2)) : null;
+          const tr = useTabs ? insertTabs(ring, op.tabCount, op.tabWidth + tool.d, near) : ring;
+          if (useTabs && pass.rough) pt.anchors = (pt.anchors || []).concat(tr.centers);
+          if (useTabs && !tr.centers.length) { useTabs = false; tabWarn = true; }
           if (useTabs) tr.forEach((v, i) => { if (v.tabStart) { const e = tr.slice(i).find((w) => w.tabEnd); if (e) tabsShown.push([{ x: v.x, y: v.y }, { x: e.x, y: e.y }]); } });
           const zl = pass.rough ? zs : [-(pass.depth || op.depth)];
           let prev = -(op.startDepth || 0);
-          let pts = [];
+          let pts = [], cur = tr;
           for (const z of zl) {
-            const lc = loopChain(tr, pass.rough ? prev : -(op.startDepth || 0), z, op.ramp ? op.rampLen : 0, tabTop);
+            const lc = loopChain(cur, pass.rough ? prev : -(op.startDepth || 0), z, op.ramp ? op.rampLen : 0, tabTop);
             if (!pass.rough) { pts = lc; prev = z; continue; }
             pts = pts.concat(lc);
+            if (lc.endRing) cur = lc.endRing;
             prev = z;
           }
           chains.push({ pts, clearZ: -(op.startDepth || 0) });
         }
       }
     }
+    if (tabWarn) warnings.push('Ein Teil ist zu klein für Haltestege – es wird ohne Stege ausgeschnitten und kann sich lösen. Stege schmaler machen oder weniger Stege wählen.');
     // offene Linien: auf der Linie fräsen, hin und zurück
     if (open.length) for (const ch of engraveOpen(open, zs, -(op.startDepth || 0))) chains.push(ch);
     return { chains, warnings, tabs: tabsShown };
@@ -425,19 +455,25 @@
           pts.push({ x: c.x, y: c.y, z: z0 + 1, rapid: true }, { x: c.x, y: c.y, z: z + 0.3, rapid: true });
         }
         chains.push({ pts, clearZ: z0 });
+      } else if (c.d > tool.d * 1.9) {
+        // großes Loch: wie eine Tasche ausräumen – sonst bleibt ein Kern stehen (bzw. fliegt beim Durchbohren lose herum)
+        const ring = [];
+        for (let k = 0; k < 96; k++) { const a = (2 * Math.PI * k) / 96; ring.push({ x: c.x + (c.d / 2) * Math.cos(a), y: c.y + (c.d / 2) * Math.sin(a) }); }
+        const res = pocketRegion([ring], tool, { strategy: 'offset', direction: 'climb', ramp: true, rampLen: Math.min(10, c.d) }, cut, levels(op.startDepth || 0, op.depth, cut.stepdown), z0);
+        chains.push(...res.chains);
       } else {
-        // Helix-Bohren (Zirkularfräsen) im Gleichlauf
+        // Helix-Bohren (Zirkularfräsen) im Gleichlauf: im Loch im Uhrzeigersinn
         const rh = (c.d - tool.d) / 2, pitch = Math.max(0.1, cut.stepdown);
         const seg = Math.max(16, Math.ceil((2 * Math.PI * rh) / 0.3));
         const pts = [{ x: c.x + rh, y: c.y, z: z0 }];
         const total = op.depth - (op.startDepth || 0);
         const turns = Math.max(1, Math.ceil(total / pitch));
         for (let k = 1; k <= turns * seg; k++) {
-          const a = (2 * Math.PI * k) / seg;
+          const a = (-2 * Math.PI * k) / seg;
           pts.push({ x: c.x + rh * Math.cos(a), y: c.y + rh * Math.sin(a), z: z0 - (total * k) / (turns * seg) });
         }
         for (let k = 1; k <= seg; k++) {
-          const a = (2 * Math.PI * k) / seg;
+          const a = (-2 * Math.PI * k) / seg;
           pts.push({ x: c.x + rh * Math.cos(a), y: c.y + rh * Math.sin(a), z: -op.depth });
         }
         pts.push({ x: c.x, y: c.y, z: -op.depth });
@@ -565,7 +601,7 @@
             warnings.push(...res.warnings.filter((w) => !warnings.includes(w)));
           } else {
             const fakeTool = { ...tool, d: Math.max(0.2, tip * 2 + 0.2) };
-            const res = pocketRegion(inner, fakeTool, { strategy: 'offset', direction: 'climb', ramp: false, stepover: Math.min(90, (Math.max(0.3, rCap * 0.6) / fakeTool.d) * 100) }, cut, [-maxD], 0);
+            const res = pocketRegion(inner, fakeTool, { strategy: 'offset', direction: 'climb', ramp: false, stepover: Math.min(90, (Math.max(0.3, rCap * 0.6) / fakeTool.d) * 100) }, cut, levels(0, maxD, cut.stepdown), 0);
             chains.push(...res.chains);
             tipHint = true;
           }

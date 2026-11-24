@@ -2066,10 +2066,19 @@
     g.on('progress', (j) => jobUi(j));
     g.on('jobdone', (j) => {
       jobUi(null);
-      if (j.lost) modal('Verbindung während des Auftrags verloren', `<p>Die Verbindung zur Maschine ist abgebrochen, während „${esc(j.name)}“ lief (Zeile ${j.acked} von ${j.total}).</p><p><b>Bitte an der Maschine prüfen:</b> Die Spindel läuft evtl. noch. Im Zweifel den Not-Aus bzw. den Spindelschalter benutzen. Danach neu verbinden, Nullpunkt prüfen und ggf. neu starten.</p>`);
+      if (j.aborted && S.job) S.resumeAt = Math.max(0, j.acked - 25);
+      if (j.lost) modal('Verbindung während des Auftrags verloren', `<p>Die Verbindung zur Maschine ist abgebrochen, während „${esc(j.name)}“ lief (Zeile ${j.acked} von ${j.total}).</p><p><b>Bitte an der Maschine prüfen:</b> Die Spindel läuft evtl. noch. Im Zweifel den Not-Aus bzw. den Spindelschalter benutzen. Danach neu verbinden, Nullpunkt prüfen und mit <b>„Fortsetzen ab Zeile…“</b> weitermachen (vorgeschlagen: Zeile ${Math.max(0, j.acked - 25)}).</p>`);
+      else if (j.reset) modal('Steuerung zurückgesetzt', `<p>Die Steuerung hat neu gestartet, während „${esc(j.name)}“ lief. Der Auftrag wurde abgebrochen, damit er nicht ohne Spindel weiterläuft.</p><p>Nullpunkt prüfen (ohne Endschalter ist er nach einem Neustart weg) und mit <b>„Fortsetzen ab Zeile…“</b> weitermachen.</p>`);
       else if (!j.aborted) modal('Fertig', `<p>Auftrag „${esc(j.name)}“ abgeschlossen in ${FS.gcode.fmtTime((Date.now() - j.start) / 1000)}.${j.errors ? ` <b>${j.errors} Fehlermeldung(en)</b> – siehe Konsole.` : ''}</p>`);
     });
     g.on('toolchange', (msg) => toolChangeDialog(msg));
+    g.on('joberror', (e) => {
+      modal('Fehler im Auftrag – angehalten', `<p>Die Maschine hat eine Zeile abgelehnt:</p><p><code>${esc(e.line || '')}</code><br>${esc(e.msg)}</p><p>Der Auftrag ist angehalten, damit nicht von einer falschen Position weitergefräst wird.</p>`,
+        [{ label: 'Auftrag abbrechen', value: 'stop', danger: true }, { label: 'Trotzdem weiter', value: 'go' }], { noEnter: true }).then((r) => {
+        if (!S.grbl.job) return;
+        if (r === 'go') S.grbl.resumeJob(); else if (r === 'stop') S.grbl.stopJob();
+      });
+    });
   }
   const fmt3 = (v) => (Math.round(v * 1000) / 1000).toLocaleString('de-DE', { minimumFractionDigits: 3, maximumFractionDigits: 3 });
   function updConn() {
@@ -2087,8 +2096,10 @@
     while (c.childNodes.length > 400) c.removeChild(c.firstChild);
     c.scrollTop = c.scrollHeight;
   }
-  const need = () => {
+  // duringJob: auch während eines laufenden Auftrags erlaubt (Overrides, Echtzeit-Befehle)
+  const need = (duringJob) => {
     if (!S.grbl || !S.grbl.connected) { status('Bitte zuerst die Maschine verbinden.', true); return false; }
+    if (!duringJob && S.grbl.job && !S.grbl.job.paused) { status('Während des Auftrags nicht möglich – erst pausieren.', true); return false; }
     return true;
   };
   $('#mConnect').onclick = async () => {
@@ -2283,7 +2294,10 @@
     });
   }
   function toolChangeDialog(msg) {
-    modal('Werkzeugwechsel', `<p><b>${esc(msg)}</b></p><ol><li>Spindel ist aus. Warten, bis sie stillsteht.</li><li>Werkzeug wechseln.</li><li>Z neu nullen (Antasten oder von Hand mit den Pfeilen und „Z0“).</li><li>„Weiter fräsen“ drücken.</li></ol>`,
+    const dialOnly = /DREHREGLER/.test(msg) && !/einsetzen/.test(msg);
+    modal(dialOnly ? 'Pause: Drehzahl umstellen' : 'Werkzeugwechsel', dialOnly
+      ? `<p><b>${esc(msg)}</b></p><p>Das Werkzeug bleibt drin, Z muss nicht neu genullt werden. Drehregler umstellen und „Weiter fräsen“ drücken.</p>`
+      : `<p><b>${esc(msg)}</b></p><ol><li>Spindel ist aus. Warten, bis sie stillsteht.</li><li>Werkzeug wechseln.</li><li>Z neu nullen (Antasten oder von Hand mit den Pfeilen und „Z0“).</li><li>„Weiter fräsen“ drücken.</li></ol>`,
       [{ label: 'Z antasten…', value: 'probe' }, { label: 'Auftrag abbrechen', value: 'stop', danger: true }, { label: 'Weiter fräsen', primary: true, value: 'go' }], { noEnter: true }).then(async (r) => {
       if (r === 'probe') { await probeDialog(); toolChangeDialog(msg); return; }
       if (r === 'stop') { S.grbl.stopJob(); return; }
@@ -2316,6 +2330,9 @@
     if (!S.job) { status('Zuerst einen Auftrag laden (Projekt oder Datei).', true); return; }
     if (S.grbl.job) { S.grbl.resumeJob(); return; }
     if (S.grbl.status.state === 'Alarm') { status('Maschine ist im Alarm – zuerst entsperren.', true); return; }
+    if (S.grbl.status.state !== 'Idle') { status(`Maschine ist nicht bereit (Zustand „${S.grbl.status.state}“). Bei „Hold“ erst fortsetzen oder zurücksetzen.`, true); return; }
+    const bb = jobBounds();
+    const big = bb && (bb.x1 - bb.x0 > S.machine.w || bb.y1 - bb.y0 > S.machine.h);
     const firstTool = (S.job.text.match(/\((.*?) - (.*?)\)/) || [])[2];
     const firstDial = (S.job.text.match(/\(DREHREGLER (Stufe \d+ = ca\. \d+ U\/min)\)/) || [])[1];
     const ok = await modal('Vor dem Start prüfen', `<ul>
@@ -2325,10 +2342,82 @@
       <li>X/Y-Nullpunkt am richtigen Punkt (${esc(zeroText(S.doc.stock.zeroXY))})?</li>
       <li>Z0 gesetzt, als der Fräser <b>${S.doc.stock.zeroZ === 'bottom' ? 'auf dem Tisch / der Opferplatte' : 'die Oberseite des Werkstücks'}</b> berührte? (Werkstück ${fmt(S.doc.stock.t)} mm dick. Das muss mit „Z-Null liegt auf“ im Fräsen-Schritt übereinstimmen, sonst fräst die Maschine in der Luft oder zu tief.)</li>
       ${workpieceCheck()}
+      ${big ? `<li class="warn">Der Auftrag ist größer als der Arbeitsbereich (${S.machine.w} × ${S.machine.h} mm)!</li>` : ''}
+      <li>Tipp: Mit <b>„Umriss abfahren“</b> zeigt die Maschine vorher den Bereich in sicherer Höhe.</li>
       <li>Schutzbrille, Absaugung, Hände weg von der Spindel.</li></ul>`,
     [{ label: 'Abbrechen', value: false }, { label: '▶ Jetzt fräsen', primary: true, value: true }]);
     if (!ok) return;
     try { S.grbl.startJob(S.job.text, S.job.name); } catch (e) { status(e.message, true); }
+  };
+  // Ausdehnung der Schnitte (Werkstückkoordinaten des G-Codes)
+  function jobBounds() {
+    if (!S.job || !S.job.moves || !S.job.moves.length) return null;
+    let x0 = Infinity, y0 = Infinity, x1 = -Infinity, y1 = -Infinity, zTop = -Infinity;
+    for (const m of S.job.moves) {
+      if (m.z > zTop) zTop = m.z;
+      if (m.rapid) continue;
+      x0 = Math.min(x0, m.x); x1 = Math.max(x1, m.x); y0 = Math.min(y0, m.y); y1 = Math.max(y1, m.y);
+    }
+    return isFinite(x0) ? { x0, y0, x1, y1, zTop } : null;
+  }
+  $('#jobFrame').onclick = async () => {
+    if (!need()) return;
+    const bb = jobBounds();
+    if (!bb) { status('Zuerst einen Auftrag laden.', true); return; }
+    const z = Math.max(bb.zTop, (S.doc.stock.safeZ || 5) + (S.doc.stock.zeroZ === 'bottom' ? S.doc.stock.t : 0));
+    const f = Math.max(100, val('jogFeed') || 800), n = (v) => v.toFixed(3);
+    const pts = [[bb.x0, bb.y0], [bb.x1, bb.y0], [bb.x1, bb.y1], [bb.x0, bb.y1], [bb.x0, bb.y0]];
+    try {
+      await S.grbl.command(`G90 G0 Z${n(z)}`);
+      for (const [x, y] of pts) await S.grbl.command(`G1 X${n(x)} Y${n(y)} F${Math.round(f)}`);
+      status(`Umriss abgefahren: ${fmt(bb.x1 - bb.x0)} × ${fmt(bb.y1 - bb.y0)} mm in Z ${fmt(z)}.`);
+    } catch (e) { status('Umriss abfahren abgebrochen: ' + e.message, true); }
+  };
+  // Nach Abbruch oder Verbindungsverlust ab einer Zeile weitermachen: Zustand (Spindel, Vorschub, Position) wird vorangestellt
+  function resumeText(lines, from) {
+    let x = 0, y = 0, z = 0, f = 0, s = 0, spindle = false, abs = true, tool = '', zTop = -Infinity;
+    for (let i = 0; i < from && i < lines.length; i++) {
+      const raw = lines[i];
+      const tc = /WERKZEUGWECHSEL: (.*?) einsetzen/.exec(raw) || /^\((.*?) - (.*?)\)$/.exec(raw.trim());
+      if (tc) tool = tc[2] || tc[1];
+      const l = raw.replace(/\(.*?\)/g, '').replace(/;.*/, '').toUpperCase();
+      if (/G38|G10|G92|G28|G30/.test(l)) continue;
+      if (/G91(?!\.)/.test(l)) abs = false;
+      if (/G90(?!\.)/.test(l)) abs = true;
+      const w = (k) => { const m = new RegExp(k + '\\s*(-?[\\d.]+)').exec(l); return m ? +m[1] : null; };
+      const X = w('X'), Y = w('Y'), Z = w('Z'), F = w('F'), Sx = w('S');
+      if (X !== null) x = abs ? X : x + X;
+      if (Y !== null) y = abs ? Y : y + Y;
+      if (Z !== null) { z = abs ? Z : z + Z; if (z > zTop) zTop = z; }
+      if (F !== null) f = F;
+      if (Sx !== null) s = Sx;
+      if (/M0?[34](?!\d)/.test(l)) spindle = true;
+      if (/M0?5(?!\d)/.test(l)) spindle = false;
+    }
+    const safe = Math.max(zTop, z, S.doc.stock.safeZ || 5);
+    const n = (v) => +v.toFixed(3);
+    const pre = ['(FORTSETZEN ab Zeile ' + from + ')', 'G21 G90 G94 G17', `G0 Z${n(safe)}`];
+    if (spindle) pre.push(`M3 S${Math.round(s)}`, 'G4 P3');
+    pre.push(`G0 X${n(x)} Y${n(y)}`, `G1 Z${n(z)} F${Math.round(Math.min(f || 200, 200))}`);
+    if (f) pre.push('F' + Math.round(f));
+    return { text: pre.concat(lines.slice(from)).join('\n') + '\n', tool, x, y, z, spindle };
+  }
+  FS.resumeText = resumeText; // für Tests
+  $('#jobResume').onclick = async () => {
+    if (!need()) return;
+    if (!S.job) { status('Zuerst den Auftrag laden (Projekt oder Datei).', true); return; }
+    if (S.grbl.job) { status('Es läuft bereits ein Auftrag.', true); return; }
+    const lines = S.job.text.split(/\r?\n/);
+    const r = await modal('Fortsetzen ab Zeile', `<p>Nach einem Abbruch oder Verbindungsverlust ab einer bestimmten Zeile weiterfräsen. FräsStudio stellt Spindel, Vorschub und Position davor wieder her.</p>
+      ${field('Ab Zeile', `<input id="rsLine" type="number" min="0" max="${lines.length - 1}" value="${S.resumeAt || 0}">`, `von ${lines.length}`)}
+      <p class="muted small">Vorgeschlagen ist eine Zeile etwas vor der Abbruchstelle – ein paar Bahnen doppelt zu fahren schadet nicht. Vorher Nullpunkt prüfen (ohne Endschalter ggf. neu setzen)!</p>`,
+    [{ label: 'Abbrechen', value: null }, { label: '▶ Fortsetzen', primary: true, value: 'ok' }]);
+    if (r !== 'ok') return;
+    const from = Math.max(0, Math.min(lines.length - 1, Math.round(val('rsLine'))));
+    const rs = resumeText(lines, from);
+    const ok = await confirmBox('Fortsetzen prüfen', `Ab Zeile ${from}: Die Maschine fährt in sicherer Höhe nach X ${fmt(rs.x)} / Y ${fmt(rs.y)}, ${rs.spindle ? 'startet die Spindel' : 'ohne Spindel'} und taucht auf Z ${fmt(rs.z)} ein.${rs.tool ? ` <b>Eingesetzt sein muss: ${esc(rs.tool)}</b>.` : ''}`, '▶ Jetzt fortsetzen');
+    if (!ok) return;
+    try { S.grbl.startJob(rs.text, S.job.name + ' (ab Zeile ' + from + ')'); } catch (e) { status(e.message, true); }
   };
   $('#jobPause').onclick = () => {
     if (!S.grbl || !S.grbl.job) return;
@@ -2339,27 +2428,36 @@
     if (await confirmBox('Auftrag abbrechen?', 'Die Maschine hält sofort an und wird zurückgesetzt. Danach Nullpunkt prüfen.', 'Abbrechen', true)) S.grbl.stopJob();
   };
   $$('[data-ov]').forEach((b) => b.addEventListener('click', () => {
-    if (!need()) return;
+    if (!need(true)) return;
     const map = { 'f-': '\x92', f0: '\x90', 'f+': '\x91', 's-': '\x9B', s0: '\x99', 's+': '\x9A' };
     S.grbl.realtime(map[b.dataset.ov]);
   }));
   function jobUi(j) {
     const bar = $('#jobBar');
-    if (!j) { bar.style.width = '0'; $('#jobPause').textContent = '⏸ Pause'; $('#jobStart').disabled = false; updConn(); redraw(); return; }
+    if (!j) { bar.style.width = '0'; $('#jobPause').textContent = '⏸ Pause'; $('#jobPause').disabled = false; $('#jobStart').disabled = false; updConn(); redraw(); return; }
     const frac = j.total ? j.acked / j.total : 0;
     bar.style.width = (100 * frac).toFixed(1) + '%';
     const el = (Date.now() - j.start) / 1000;
     const eta = S.job && S.job.time ? Math.max(0, S.job.time * (1 - frac)) : frac > 0.02 ? (el / frac) * (1 - frac) : 0;
     $('#jobInfo').textContent = `${Math.round(frac * 100)} % · Zeile ${j.acked}/${j.total} · ${FS.gcode.fmtTime(el)} vergangen${eta ? ' · noch ≈ ' + FS.gcode.fmtTime(eta) : ''}${j.waitIdle || j.pauseMsg && j.paused ? ' · wartet' : ''}`;
-    $('#jobPause').textContent = j.paused ? '▶ Weiter' : '⏸ Pause';
+    $('#jobPause').textContent = j.toolWait ? 'Werkzeugwechsel…' : j.paused ? '▶ Weiter' : '⏸ Pause';
+    $('#jobPause').disabled = !!j.toolWait;
     $('#jobStart').disabled = true;
     S.jobLine = j.acked;
     redraw();
   }
+  let conHist = [], conPos = 0;
+  $('#consoleIn').addEventListener('keydown', (e) => {
+    if (e.key !== 'ArrowUp' && e.key !== 'ArrowDown') return;
+    e.preventDefault(); e.stopPropagation();
+    conPos = Math.max(0, Math.min(conHist.length, conPos + (e.key === 'ArrowUp' ? -1 : 1)));
+    $('#consoleIn').value = conHist[conPos] || '';
+  });
   $('#consoleForm').addEventListener('submit', (e) => {
     e.preventDefault();
     const v = $('#consoleIn').value.trim();
-    if (!v || !need()) return;
+    if (!v || !need(v === '?' || v === '!' || v === '~')) return;
+    conHist = conHist.filter((x) => x !== v).concat(v).slice(-50); conPos = conHist.length;
     if (v === '?' || v === '!' || v === '~') S.grbl.realtime(v); else S.grbl.command(v).catch(() => {});
     $('#consoleIn').value = '';
   });

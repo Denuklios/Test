@@ -68,6 +68,7 @@
   class BridgeTransport {
     constructor(host, port) { this.host = host; this.port = port || 23; this.closed = false; this.q = []; this.busy = false; this.pollBusy = false; }
     hdr(type) { return { 'X-Requested-With': 'StickStudio', 'Content-Type': type }; }
+    clearQueue() { this.q.length = 0; }
     async open() {
       let r;
       try { r = await fetch('/api/cnc/open', { method: 'POST', headers: this.hdr('application/json'), body: JSON.stringify({ host: this.host, port: this.port }) }); }
@@ -309,11 +310,14 @@
       this.connected = false;
       const t = this.transport;
       this.transport = null;
+      const j = this.job;
+      this.job = null;
       this.flushQueues('Verbindung getrennt');
       if (t) await t.close();
       this.status.state = 'Getrennt';
       this.emit('status', this.status);
       this.emit('disconnect');
+      if (j) this.emit('jobdone', { ...j, aborted: true, lost: true });
     }
 
     // ---- Senden / Empfangen
@@ -334,7 +338,11 @@
           const msg = `Fehler ${code}: ${ERRORS[code] || 'siehe GRBL-Dokumentation'}`;
           this.emit('log', msg + (it && it.line ? ' – bei: ' + it.line : ''), 'err');
           if (it && it.reject) it.reject(new Error(msg));
-          if (this.job && it && it.job) this.job.errors++;
+          if (this.job && it && it.job) {
+            this.job.errors++;
+            // Wie CNCjs/UGS: beim ersten Fehler anhalten, sonst laufen die folgenden Bahnen von falscher Stelle
+            if (!this.job.paused) { this.job.paused = true; this.realtime('!'); this.emit('joberror', { code, msg, line: it.line }); }
+          }
         } else if (it && it.resolve) it.resolve('ok');
         if (this.job && it && it.job) { this.job.acked++; this.emit('progress', this.job); }
         this.pump();
@@ -344,11 +352,20 @@
         const code = +line.split(':')[1];
         this.emit('log', `ALARM ${code}: ${ALARMS[code] || ''}`, 'err');
         this.emit('alarm', code, ALARMS[code] || '');
+        // Antasten beim Werkzeugwechsel fehlgeschlagen: Auftrag bleibt stehen, nach „Entsperren“ neu antasten
+        if (this.job && this.job.toolWait && (code === 4 || code === 5)) { this.flushQueues('Alarm'); return; }
         if (this.job) this.stopJob(true);
         this.flushQueues('Alarm');
         return;
       }
       if (line.startsWith('Grbl')) {
+        // Steuerung neu gestartet (Reset-Taste, Stromeinbruch): ein laufender Auftrag ist verloren und darf nicht weiterlaufen
+        if (this.job) {
+          const j = this.job;
+          this.job = null;
+          this.emit('log', 'Steuerung wurde zurückgesetzt – Auftrag abgebrochen.', 'err');
+          this.emit('jobdone', { ...j, aborted: true, reset: true });
+        }
         this.flushQueues('Zurückgesetzt');
         this.emit('log', line, 'info');
         this.emit('reset');
@@ -404,6 +421,7 @@
     command(line) {
       return new Promise((resolve, reject) => {
         if (!this.connected) return reject(new Error('Nicht verbunden'));
+        if (this.job && !this.job.paused) return reject(new Error('Während eines laufenden Auftrags nicht möglich – erst pausieren.'));
         this.queue.push({ line: line.trim(), resolve, reject });
         this.emit('log', line.trim().replace(/(password|pass|key)=.*/i, '$1=••••'), 'out'); // Passwörter nicht in der Konsole zeigen
         this.pump();
@@ -420,15 +438,21 @@
           while (j.next < j.lines.length) {
             const raw = j.lines[j.next];
             const l = raw.replace(/\(.*?\)/g, '').replace(/;.*/, '').trim();
-            if (!l) { j.next++; j.acked++; if (/WERKZEUGWECHSEL/.test(raw)) j.pauseMsg = raw.replace(/[()]/g, '').replace('WERKZEUGWECHSEL:', '').trim(); continue; }
-            if (/^M0?[016]\b/i.test(l)) {
+            if (!l) { j.next++; j.acked++; if (/WERKZEUGWECHSEL|PAUSE:/.test(raw)) j.pauseMsg = raw.replace(/[()]/g, '').replace(/WERKZEUGWECHSEL:|PAUSE:/, '').trim(); continue; }
+            const ln = l.replace(/^N\d+\s*/i, '');
+            if (/(^|[^A-Z])M0?[016](?!\d)/i.test(ln)) {
+              // Rest der Zeile (z. B. „G0 Z20 T2 M6“) zuerst senden, dann anhalten; T-Wörter kennt GRBL nicht
+              const rest = ln.replace(/M0?[016](?!\d)/gi, '').replace(/T\d+/gi, '').trim();
+              if (rest) { j.lines[j.next] = rest; j.lines.splice(j.next + 1, 0, 'M0'); j.total++; continue; }
               // Werkzeugwechsel / Pause: im Programm anhalten, wenn Maschine im Leerlauf ist
               j.next++; j.acked++;
-              j.waitIdle = true; j.paused = true;
+              j.waitIdle = true; j.paused = true; j.toolWait = true;
               this.emit('progress', j);
               return;
             }
-            it = { line: l, job: true };
+            const lt = ln.replace(/T\d+/gi, '').trim();
+            if (!lt) { j.next++; j.acked++; continue; }
+            it = { line: lt, job: true };
             fromJob = true;
             break;
           }
@@ -454,7 +478,9 @@
     pauseJob() { if (this.job) { this.job.paused = true; this.realtime('!'); this.emit('progress', this.job); } }
     resumeJob() {
       if (!this.job) { this.realtime('~'); return; }
-      this.job.paused = false; this.job.waitIdle = false;
+      // Werkzeugwechsel: erst weiter, wenn die Maschine steht und der Dialog bestätigt wurde
+      if (this.job.waitIdle) return;
+      this.job.paused = false; this.job.toolWait = false;
       this.realtime('~');
       this.emit('progress', this.job);
       this.pump();
@@ -465,7 +491,16 @@
       this.job = null;
       // Vorschubhalt, dann Soft-Reset leert den Planer; Spindel geht aus
       this.realtime('!');
-      setTimeout(() => { this.realtime('\x18'); }, 150);
+      // Soft-Reset erst, wenn die Maschine abgebremst hat (Hold:0) – sonst verliert sie Schritte (ALARM 3)
+      const t0 = Date.now();
+      const tick = setInterval(() => {
+        const st = this.status;
+        if ((st.state === 'Hold' && st.sub === '0') || st.state === 'Idle' || st.state === 'Alarm' || Date.now() - t0 > 3000 || !this.transport) {
+          clearInterval(tick);
+          this.realtime('\x18');
+        }
+      }, 50);
+      if (this.transport && this.transport.clearQueue) this.transport.clearQueue();
       this.flushQueues('Abgebrochen');
       if (!silent) this.emit('log', 'Auftrag abgebrochen', 'err');
       this.emit('jobdone', { ...j, aborted: true });
@@ -481,18 +516,23 @@
     jogCancel() { this.realtime('\x85'); }
 
     async probeZ(plate = 0, maxTravel = 30, feed = 80) {
+      let h;
       const res = new Promise((resolve) => {
-        const h = (p) => { this.listeners.probe = this.listeners.probe.filter((f) => f !== h); resolve(p); };
+        h = (p) => resolve(p);
         this.on('probe', h);
       });
-      await this.command('G91 G21');
-      await this.command(`G38.2 Z-${maxTravel} F${feed}`);
-      const p = await res;
-      if (!p.ok) throw new Error('Messplatte nicht berührt');
-      await this.command(`G10 L20 P1 Z${plate.toFixed(3)}`);
-      await this.command('G0 Z5');
-      await this.command('G90');
-      return p;
+      try {
+        await this.command('G21');
+        await this.command(`G91 G38.2 Z-${maxTravel} F${feed}`);
+        const p = await res;
+        if (!p.ok) throw new Error('Messplatte nicht berührt');
+        await this.command(`G10 L20 P1 Z${plate.toFixed(3)}`);
+        await this.command('G91 G0 Z5');
+        return p;
+      } finally {
+        this.listeners.probe = (this.listeners.probe || []).filter((f) => f !== h);
+        await this.command('G90').catch(() => {});
+      }
     }
 
     /** Befehl senden und die Antwortzeilen (bis ok) einsammeln – z. B. für „$$“ oder „[ESP111]“ */
