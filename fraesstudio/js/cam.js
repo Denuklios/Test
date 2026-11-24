@@ -544,7 +544,7 @@
     const ct = op.clearToolId && tools.find((t) => t.id === op.clearToolId);
     const ccut = ct ? FS.tools.cutParams(ct, cut.material, cut.machine) : null;
     const clearChains = [];
-    let tipHint = false;
+    let tipHint = false, wideHint = false;
     for (const sh of shapes) {
       let shCapped = false;
       const rings = [geo.orient(sh.outer, true), ...sh.holes.map((h) => geo.orient(h, false))].map((r) => resampleClosed(r, step));
@@ -553,6 +553,14 @@
       const qx = new Float64Array(nq), qy = new Float64Array(nq);
       let k = 0;
       for (const r of rings) for (const p of r) { qx[k] = p.x; qy[k] = p.y; k++; }
+      // Abstand eines Punkts zum Rand (Randpunkte im Abstand step, daher auf Bruchteile genau) und ob er innen liegt
+      const distB = (px, py) => {
+        let b2 = Infinity;
+        for (let i = 0; i < nq; i++) { const dx = qx[i] - px, dy = qy[i] - py, d2 = dx * dx + dy * dy; if (d2 < b2) b2 = d2; }
+        return Math.sqrt(b2);
+      };
+      const inside = (p) => { let c = 0; for (const r of rings) if (geo.pointInPoly(p, r)) c ^= 1; return c === 1; };
+      const depthAt = (p) => (inside(p) ? -Math.min(maxD, Math.max(0, distB(p.x, p.y) - tip) / tn) : 0);
       const inscribed = (px, py, nx, ny) => {
         let best = rCap;
         for (let i = 0; i < nq; i++) {
@@ -596,8 +604,23 @@
           }
         }
         if (pts.length) pts.push({ ...pts[0] });
-        // Mehrere Durchgänge, falls tiefer als die Zustellung: Zwischendurchgänge nur, wo noch Material ist
         if (!pts.length) continue;
+        // An Abzweigungen springt der Mittelpunkt von einem Ast zum nächsten. Die Verbindung wird unterteilt und jeder
+        // Zwischenpunkt bekommt die exakte Tiefe (Abstand zum Rand) – so wird die Stelle voll ausgefräst, ohne die Wand zu verletzen.
+        {
+          const dense = [pts[0]];
+          for (let i = 1; i < pts.length; i++) {
+            const a = pts[i - 1], b = pts[i], L = geo.dist(a, b);
+            if (L > step * 1.5) {
+              const m = Math.ceil(L / step);
+              for (let k = 1; k < m; k++) { const q = geo.lerp(a, b, k / m); dense.push({ x: q.x, y: q.y, z: depthAt(q) }); }
+            }
+            dense.push(b);
+          }
+          pts.length = 0;
+          pts.push(...dense);
+        }
+        // Mehrere Durchgänge, falls tiefer als die Zustellung: Zwischendurchgänge nur, wo noch Material ist
         const deepest = Math.min(...pts.map((p) => p.z));
         const zs = levels(0, -deepest, cut.stepdown);
         const out = [];
@@ -627,6 +650,7 @@
         if (out.length) chains.push({ pts: simplify3(out, 0.005), clearZ: 0 });
       }
       // flache Böden dieses Buchstabens ausräumen – gleich nach ihm (mit Ausräumwerkzeug: im eigenen Abschnitt, aber Buchstabe für Buchstabe)
+      if (shCapped && maxD >= toolMax - 1e-6) wideHint = true;
       if (shCapped && maxD < toolMax - 1e-6) {
         const inner = poly.offset(poly.clip([sh.outer, ...sh.holes], null, 'union'), -rCap);
         if (inner.length) {
@@ -634,6 +658,39 @@
             const res = pocketRegion(inner, ct, { strategy: 'offset', direction: 'climb', ramp: true, rampLen: 8, stepover: ct.stepover }, ccut, levels(0, maxD, ccut.stepdown), 0);
             clearChains.push(...res.chains);
             warnings.push(...res.warnings.filter((w) => !warnings.includes(w)));
+            // Ecken und schmale Stellen des Bodens, in die der Schaftfräser nicht passt: V-Fräser in Bodentiefe
+            const reach = poly.offset(poly.offset(inner, -ct.d / 2), ct.d / 2);
+            // dünne Streifen (Rechenungenauigkeit entlang gerader Kanten) entfernen, nur echte Ecken/Engstellen behalten
+            const rest = poly.offset(poly.offset(poly.clip(inner, reach, 'difference'), -0.08), 0.08);
+            if (rest.length && Math.abs(rest.reduce((a, r) => a + geo.signedArea(r), 0)) > 0.05) {
+              const vstep = Math.max(0.1, Math.min(0.35, maxD * tn)); // Boden: kleine Grate in den Ecken sind unkritisch
+              const pieces = [];
+              for (let y = vstep * 0.5; y < ct.d / 2 + vstep; y += vstep) {
+                const rr = poly.offset(inner, -y);
+                if (!rr.length) break;
+                // nur die Stücke der Ringe, die im Rest liegen (plus etwas Rand)
+                for (const seg of poly.clipLines(rr.map((r) => r.concat([r[0]])), poly.offset(rest, vstep), true)) if (geo.polyLength(seg) >= 0.2) pieces.push(seg);
+              }
+              // benachbarte Stücke einer Ecke am Boden verbinden statt jedes Mal hochzufahren
+              while (pieces.length) {
+                let cur = pieces.shift();
+                for (;;) {
+                  const end = cur[cur.length - 1];
+                  let bi = -1, rev = false, bd = 1.5;
+                  pieces.forEach((pc, i) => {
+                    const d0 = geo.dist(end, pc[0]), d1 = geo.dist(end, pc[pc.length - 1]);
+                    if (d0 < bd) { bd = d0; bi = i; rev = false; }
+                    if (d1 < bd) { bd = d1; bi = i; rev = true; }
+                  });
+                  if (bi < 0) break;
+                  const nx = rev ? pieces[bi].slice().reverse() : pieces[bi];
+                  if (!insideRegion(end, nx[0], inner)) break;
+                  cur = cur.concat(nx);
+                  pieces.splice(bi, 1);
+                }
+                chains.push({ pts: cur.map((q) => ({ x: q.x, y: q.y, z: -maxD })), clearZ: 0 });
+              }
+            }
           } else {
             const fakeTool = { ...tool, d: Math.max(0.2, tip * 2 + 0.2) };
             const res = pocketRegion(inner, fakeTool, { strategy: 'offset', direction: 'climb', ramp: false, stepover: Math.min(90, (Math.max(0.3, rCap * 0.6) / fakeTool.d) * 100) }, cut, levels(0, maxD, cut.stepdown), 0);
@@ -644,6 +701,7 @@
       }
     }
     if (tipHint) warnings.push('Tipp: Für flache Böden ein Ausräumwerkzeug (Schaftfräser) wählen – das geht schneller und sauberer.');
+    if (wideHint) warnings.push(`Manche Stellen sind breiter, als der V-Fräser tief schneiden kann – in ihrer Mitte bleibt Material stehen. Abhilfe: „Max. Tiefe“ einstellen (z. B. ${FS.util.fmt(Math.min(3, toolMax * 0.6))} mm) und flache Böden mit einem Schaftfräser ausräumen.`);
     const clear = ct && clearChains.length ? { chains: clearChains, tool: ct, cut: ccut } : null;
     return { chains, warnings, clear };
   }

@@ -104,7 +104,7 @@ ok(near(Math.min(...allXY(r).map((p) => p.z)), -2, 1e-6) && r.clear && r.clear.c
 op = FS.cam.makeOp('vcarve', [txt.id], 't6');
 const t0 = Date.now();
 r = FS.cam.compute(op, ctx);
-ok(r.chains.length === 2 && r.warnings.length === 0, `V-Carving Text "O": 2 Ketten in ${Date.now() - t0} ms`);
+ok(r.chains.length === 2 && r.warnings.every((w) => /breiter/.test(w)), `V-Carving Text "O": 2 Ketten in ${Date.now() - t0} ms (Hinweis auf breite Stellen: ${r.warnings.length ? "ja" : "nein"})`);
 
 // Relief: Halbkugel als Höhenbild
 const N = 101, f = new Float32Array(N * N);
@@ -330,6 +330,27 @@ for (const rot of [0, 0.3]) {
   for (let j = 0; j < Fs.ny; j++) for (let i = 0; i < Fs.nx; i++) { const v = -Fs.h[j * Fs.nx + i]; if (v > 0.3 && v < 2.3) wallMax = Math.max(wallMax, v + Mv(2 * cx3 - i * cl, j * cl) - c0); }
   ok(c0 > 2.5 - 0.35 && c0 <= 2.5 + 0.05, `Inlay: Einleger taucht ${c0.toFixed(2)} mm ein (geplant 2,5 = Tiefe − Leimspalt)`);
   ok(wallMax < 0.6, `Inlay: Fuge an den Wänden höchstens ${wallMax.toFixed(2)} mm`);
+}
+
+// V-Carving-Genauigkeit: erreichte Tiefe gegen ideale Tiefe (Abstand zum Rand / tan, begrenzt) – auch an Abzweigungen
+{
+  const st4 = { w: 110, h: 70, t: 10, material: 'weichholz', zeroXY: 'll', zeroZ: 'top', safeZ: 5 };
+  const tv = S.make('text', { text: 'AHk', font: 'Archivo Black', size: 30, align: 'left', spacing: 0 }); tv.tf = FS.M.translate(10, 25);
+  const c4 = { objects: [tv], tools, stock: st4, machine };
+  const ov = FS.cam.makeOp('vcarve', [tv.id], 't6'); ov.maxDepth = 2; ov.clearToolId = 't1';
+  const gv = FS.gcode.build([FS.cam.compute(ov, c4)], { ...c4, arcs: false });
+  const sv = FS.sim.create(st4, 0.15); FS.sim.run(sv, gv.moves, null, Infinity);
+  const rings = S.rings([tv]), tn = Math.tan(Math.PI / 6);
+  let worst = 0, over = 0;
+  for (let j = 0; j < sv.ny; j += 2) for (let i = 0; i < sv.nx; i += 2) {
+    const q = { x: i * sv.cell, y: j * sv.cell }, A = -sv.h[j * sv.nx + i];
+    let inside = 0; for (const rg of rings) if (G.pointInPoly(q, rg)) inside ^= 1;
+    let d = Infinity; for (const rg of rings) for (let k = 0; k < rg.length; k++) d = Math.min(d, G.segDist(q, rg[k], rg[(k + 1) % rg.length]));
+    if (!inside) { if (d > 0.3) over = Math.max(over, A); continue; }
+    worst = Math.max(worst, Math.min(d / tn, 2) - A);
+  }
+  ok(worst < 0.7, `V-Carving: höchstens ${worst.toFixed(2)} mm zu flach (vorher bis 2 mm an Abzweigungen und in Ecken)`);
+  ok(over < 0.15, `V-Carving: außerhalb der Form nichts weggefräst (max. ${over.toFixed(2)} mm)`);
 }
 
 // Simulation
