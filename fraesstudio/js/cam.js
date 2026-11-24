@@ -19,7 +19,7 @@
 
   const OP_DEFAULTS = {
     profile: { depth: 3, side: 'outside', direction: 'climb', tabs: false, tabCount: 4, tabWidth: 6, tabHeight: 1.5, ramp: true, rampLen: 10, allowance: 0, finishPass: false, score: true, scoreDepth: 0.5 },
-    pocket: { depth: 2, strategy: 'offset', angle: 0, direction: 'climb', allowance: 0, ramp: true, rampLen: 10 },
+    pocket: { depth: 2, strategy: 'offset', angle: 0, direction: 'climb', allowance: 0, finishPass: false, ramp: true, rampLen: 10 },
     drill: { depth: 5, peck: 2, ramp: true },
     vcarve: { maxDepth: 0, clearToolId: '', step: 0.2 },
     engrave: { depth: 0.5 },
@@ -355,6 +355,16 @@
       }
       if (chain) chains.push(chain);
       prev = z;
+    }
+    // Schlichtgang: Wände auf Endmaß, Ebene für Ebene im Gleichlauf (nur mit Aufmaß sinnvoll)
+    if (allow > 0 && op.finishPass) {
+      for (const ring of poly.offset(region, -r)) {
+        const outer = geo.signedArea(ring) > 0;
+        const rg = geo.orient(ring, climb ? !outer : outer);
+        let pts = [], pz = z0;
+        for (const z of zs) { pts = pts.concat(loopChain(rg, pz, z, 0)); pz = z; }
+        if (pts.length) chains.push({ pts, clearZ: z0 });
+      }
     }
     return { chains, warnings };
   }

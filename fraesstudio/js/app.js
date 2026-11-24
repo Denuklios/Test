@@ -1804,6 +1804,7 @@
         h += field('Fräsrichtung', sel('direction', [['climb', 'Gleichlauf'], ['conventional', 'Gegenlauf']], op.direction));
         h += field('Überlappung', nIn('stepover', op.stepover || tool.stepover, 1, 'min="5" max="95"'), '%');
         h += field('Aufmaß Rand', nIn('allowance', op.allowance, 0.05, 'min="0"'), 'mm');
+        if (op.allowance > 0) h += chk('finishPass', op.finishPass, 'Schlichtgang: Wände zum Schluss auf Endmaß');
         h += chk('ramp', op.ramp, 'Schräg eintauchen (Rampe)');
         break;
       case 'vcarve':

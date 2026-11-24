@@ -64,6 +64,14 @@ ok(r.chains.length <= 4, `Tasche: wenige Ketten (${r.chains.length}), Bahnen wer
 op.strategy = 'raster';
 r = FS.cam.compute(op, ctx);
 ok(r.chains.length > 0 && r.warnings.length === 0, `Tasche Zeilen: ${r.chains.length} Ketten`);
+{
+  const pf = FS.cam.makeOp('pocket', [sq.id], 't1'); pf.depth = 2; pf.allowance = 0.3; pf.finishPass = true;
+  const rf = FS.cam.compute(pf, ctx), last = rf.chains[rf.chains.length - 1].pts;
+  const bf = G.bounds([last]);
+  ok(near(bf.w, 40 - 3.175, 0.05) && near(Math.min(...last.map((p) => p.z)), -2), `Tasche mit Aufmaß 0,3 + Schlichtgang: Wand auf Endmaß (${bf.w.toFixed(3)})`);
+  const bRough = G.bounds([rf.chains.slice(0, -1).flatMap((c) => c.pts)]);
+  ok(near(bRough.w, 40 - 3.175 - 0.6, 0.05), `Tasche: Schruppen lässt 0,3 mm stehen (${bRough.w.toFixed(3)})`);
+}
 
 // Tasche mit Insel (Text "O")
 const txt = S.make('text', { text: 'O', font: 'Archivo Black', size: 40, align: 'left', spacing: 0 });
