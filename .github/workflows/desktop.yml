@@ -32,6 +32,7 @@ jobs:
           name: FraesStudio-${{ matrix.os }}
           path: |
             fraesstudio-desktop/dist/*.exe
+            fraesstudio-desktop/dist/*.zip
             fraesstudio-desktop/dist/*.dmg
             fraesstudio-desktop/dist/*.AppImage
             fraesstudio-desktop/dist/*.deb
