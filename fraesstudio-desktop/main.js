@@ -11,6 +11,7 @@ const bridge = require('./bridge');
 
 const WWW = [path.join(process.resourcesPath || '', 'www'), path.join(__dirname, '..', 'fraesstudio')].find((d) => fs.existsSync(path.join(d, 'index.html')));
 const TYPES = { '.html': 'text/html; charset=utf-8', '.js': 'text/javascript; charset=utf-8', '.mjs': 'text/javascript; charset=utf-8', '.css': 'text/css; charset=utf-8', '.json': 'application/json', '.wasm': 'application/wasm', '.onnx': 'application/octet-stream', '.ttf': 'font/ttf', '.otf': 'font/otf', '.woff2': 'font/woff2', '.png': 'image/png', '.jpg': 'image/jpeg', '.svg': 'image/svg+xml', '.ico': 'image/x-icon', '.gz': 'application/gzip' };
+const PORT = 47321;
 let server, origin, win;
 
 function serve() {
@@ -30,7 +31,10 @@ function serve() {
         fs.createReadStream(file).pipe(res);
       } catch (e) { res.writeHead(500); res.end('Fehler'); }
     });
-    server.listen(0, '127.0.0.1', () => { origin = 'http://127.0.0.1:' + server.address().port; resolve(); });
+    // fester Port: Einstellungen, Projekte und eigene Schriften speichert der Browser je Adresse – ein wechselnder Port würde sie bei jedem Start verlieren
+    const done = () => { origin = 'http://127.0.0.1:' + server.address().port; resolve(); };
+    server.once('error', (e) => { if (e.code === 'EADDRINUSE') server.listen(0, '127.0.0.1', done); });
+    server.listen(PORT, '127.0.0.1', done);
   });
 }
 
