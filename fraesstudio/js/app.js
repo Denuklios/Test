@@ -1796,6 +1796,7 @@
         h += `<div class="grid2">${field('Aufmaß', nIn('allowance', op.allowance, 0.05, 'min="0"'), 'mm')}</div>`;
         if (op.allowance > 0) h += chk('finishPass', op.finishPass, 'Schlichtgang auf Endmaß');
         h += chk('score', op.score, 'Vorritzen (saubere Oberkante, gegen Ausfransen)');
+        if (op.side !== 'on') h += chk('dogbone', op.dogbone, 'Dogbones (Innenecken freifräsen, für Steckverbindungen)');
         break;
       case 'pocket':
         h += depthF();
@@ -1805,6 +1806,7 @@
         h += field('Überlappung', nIn('stepover', op.stepover || tool.stepover, 1, 'min="5" max="95"'), '%');
         h += field('Aufmaß Rand', nIn('allowance', op.allowance, 0.05, 'min="0"'), 'mm');
         if (op.allowance > 0) h += chk('finishPass', op.finishPass, 'Schlichtgang: Wände zum Schluss auf Endmaß');
+        h += chk('dogbone', op.dogbone, 'Dogbones (Ecken freifräsen, damit eckige Teile hineinpassen)');
         h += chk('ramp', op.ramp, 'Schräg eintauchen (Rampe)');
         break;
       case 'vcarve':

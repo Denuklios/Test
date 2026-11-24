@@ -200,6 +200,36 @@
     return L < 0.005;
   }
 
+  /**
+   * Dogbones: an scharfen Ecken der Fräsbahn, die die Ecke der Form nicht erreichen (Innenecken),
+   * kurz Richtung Ecke hinein und zurück fahren – Zapfen und Bretter passen dann in eckige Taschen.
+   */
+  function dogbones(ring, srcRings, r) {
+    const n = ring.length;
+    if (n < 3) return ring;
+    const out = [];
+    // nächstgelegene Ecke (Eckpunkt) der Form; die Kanten selbst liegen genau einen Radius entfernt
+    const closest = (p) => {
+      let best = null, bd = Infinity;
+      for (const sr of srcRings) for (const q of sr) { const d = geo.dist(p, q); if (d < bd) { bd = d; best = q; } }
+      return { q: best, d: bd };
+    };
+    for (let i = 0; i < n; i++) {
+      const v = ring[i], a = ring[(i + n - 1) % n], b = ring[(i + 1) % n];
+      out.push(v);
+      const u1 = { x: v.x - a.x, y: v.y - a.y }, u2 = { x: b.x - v.x, y: b.y - v.y };
+      const l1 = Math.hypot(u1.x, u1.y), l2 = Math.hypot(u2.x, u2.y);
+      if (l1 < 1e-6 || l2 < 1e-6) continue;
+      const turn = Math.acos(Math.max(-1, Math.min(1, (u1.x * u2.x + u1.y * u2.y) / (l1 * l2))));
+      if (turn < (25 * Math.PI) / 180) continue;
+      const c = closest(v);
+      if (!c.q || c.d < r + 0.05 || c.d > r * 3) continue;
+      const k = (c.d - r) / c.d;
+      out.push({ x: v.x + (c.q.x - v.x) * k, y: v.y + (c.q.y - v.y) * k, dog: true }, { ...v });
+    }
+    return out;
+  }
+
   // ---------------- Kontur ----------------
   function profile(op, objs, tool, cut) {
     const r = tool.d / 2, warnings = [], chains = [], tabsShown = [];
@@ -215,7 +245,8 @@
       const region = poly.clip(rings, null, 'union');
       const off = op.side === 'outside' ? r + allow : op.side === 'inside' ? -(r + allow) : 0;
       passes.push({ rings: off ? poly.offset(region, off) : region, rough: true });
-      if (allow > 0 && op.finishPass && op.side !== 'on') passes.push({ rings: poly.offset(region, op.side === 'outside' ? r : -r), rough: false, depth: op.depth });
+      if (op.dogbone && op.side !== 'on') passes[0].rings = passes[0].rings.map((rg) => (allow > 0 ? rg : dogbones(rg, region, r)));
+      if (allow > 0 && op.finishPass && op.side !== 'on') passes.push({ rings: poly.offset(region, op.side === 'outside' ? r : -r).map((rg) => (op.dogbone ? dogbones(rg, region, r) : rg)), rough: false, depth: op.depth });
       // Vorritzen: flacher Gleichlauf-Schnitt genau auf der Endkontur trennt die Fasern der Oberkante, bevor tief gefräst wird
       const scoreD = Math.min(op.scoreDepth || 0.5, op.depth * 0.5);
       if (op.score && op.depth > 0.4) passes.unshift({ rings: poly.offset(region, op.side === 'outside' ? r : op.side === 'inside' ? -r : 0), rough: false, depth: scoreD, score: true });
@@ -315,7 +346,8 @@
     const r = tool.d / 2, allow = Math.max(0, op.allowance || 0);
     const step = Math.max(0.05, (tool.d * (op.stepover || tool.stepover || 40)) / 100);
     const region = poly.clip(regionRings, null, 'union');
-    const first = poly.offset(region, -(r + allow));
+    let first = poly.offset(region, -(r + allow));
+    if (op.dogbone && !allow) first = first.map((rg) => dogbones(rg, region, r));
     const chains = [], warnings = [];
     if (!first.length) { warnings.push('Tasche ist zu klein für dieses Werkzeug.'); return { chains, warnings }; }
     const climb = op.direction !== 'conventional';
@@ -388,7 +420,8 @@
     }
     // Schlichtgang: Wände auf Endmaß, Ebene für Ebene im Gleichlauf (nur mit Aufmaß sinnvoll)
     if (allow > 0 && op.finishPass) {
-      for (const ring of poly.offset(region, -r)) {
+      for (const ring0 of poly.offset(region, -r)) {
+        const ring = op.dogbone ? dogbones(ring0, region, r) : ring0;
         const outer = geo.signedArea(ring) > 0;
         const rg = geo.orient(ring, climb ? !outer : outer);
         let pts = [], pz = z0;
@@ -924,5 +957,5 @@
     return res;
   }
 
-  FS.cam = { OP_TYPES, OP_DEFAULTS, makeOp, compute, levels, insertTabs, loopChain, pointAtLen, simplify3, dropCutterGrid, reliefSampler, resampleClosed };
+  FS.cam = { dogbones, OP_TYPES, OP_DEFAULTS, makeOp, compute, levels, insertTabs, loopChain, pointAtLen, simplify3, dropCutterGrid, reliefSampler, resampleClosed };
 })(typeof window !== 'undefined' ? window : globalThis);

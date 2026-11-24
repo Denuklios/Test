@@ -106,6 +106,15 @@ Die Webcam findet das Werkstück auf dem Tisch, setzt **X/Y-Null auf die linke u
 
 Hinweise: Ohne Endschalter ändert sich der Maschinen-Nullpunkt bei jedem Einschalten – dann „Versatz nachmessen (1 Punkt)“. Bei wenig Kontrast (hell auf hell) hilft „Leerbild aufnehmen“ (Tisch leer). Gleichmäßiges Licht ohne harte Schatten verbessert die Erkennung. Erste Fahrt immer mit „Zum Nullpunkt“ prüfen.
 
+## Sicher fräsen: Auftrag, Unterbrechung, Fortsetzen
+
+- **Umriss abfahren:** fährt das Rechteck um alle Schnitte in sicherer Höhe ab – so siehst du vorher, ob alles auf dem Werkstück liegt.
+- **Fortsetzen ab Zeile…:** nach Abbruch, Verbindungsverlust oder Neustart der Steuerung ab einer Zeile weiterfräsen. Spindel, Vorschub und Position werden davor wiederhergestellt; die vorgeschlagene Zeile liegt etwas vor der Abbruchstelle.
+- Bei einem **G-Code-Fehler** hält der Auftrag an (statt von falscher Position weiterzufräsen). **Trennen** oder ein **Neustart der Steuerung** beenden den Auftrag sicher.
+- **Werkzeugwechsel** (auch `T2 M6`) lässt sich nicht versehentlich überspringen; schlägt das Antasten fehl, bleibt der Auftrag stehen und es kann neu angetastet werden.
+- Während der Auftrag läuft, sind Nullpunkt-, Verfahr- und Konsolenbefehle gesperrt (Pause drücken, dann geht es).
+- Kreisbögen werden als **G2/G3** ausgegeben: deutlich kleinere Dateien, flüssigere Bewegung.
+
 ## Ausgefranste Kanten vermeiden
 
 1. **Spanlast prüfen:** FräsStudio zeigt bei Kontur, Tasche und Planfräsen die Spanlast (mm je Zahn). Zu klein = der Fräser reibt statt zu schneiden (Fransen, Brandspuren) – „Empfehlung übernehmen“ setzt Vorschub bzw. Drehzahl. Gerade mit dem 800-W-Motor (Drehregler) ist die Drehzahl für 3-mm-Fräser oft zu hoch.
@@ -113,6 +122,8 @@ Hinweise: Ohne Endschalter ändert sich der Maschinen-Nullpunkt bei jedem Einsch
 3. **Aufmaß + Schlichtgang** (Kontur): erst mit 0,2–0,3 mm Aufmaß schruppen, dann ein Gleichlauf-Durchgang auf Endmaß.
 4. **Fräser:** scharf, bei Sperrholz/Multiplex ein Kompressionsfräser (Up-/Down-Cut), bei MDF/Weichholz ein 2-Schneider-Spiralfräser. Stumpfe Fräser fransen immer.
 5. Werkstück fest einspannen (Vibration), Gleichlauf wählen, Z-Null stimmig setzen.
+6. **Dogbones** (Kontur und Tasche): Innenecken werden freigefräst, damit eckige Zapfen und Bretter in Taschen passen.
+7. **Schlichtgang** gibt es jetzt auch bei Taschen (Aufmaß Rand > 0).
 
 ## Größere Spindel (500 W / 800 W)
 

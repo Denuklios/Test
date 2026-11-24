@@ -207,6 +207,23 @@ ok(r.chains.length > 0 && Math.min(...pts.map((p) => p.z)) >= -5 + 0.5 - 1e-6, `
   ok(rt2.tabs.length < 4 && (rt2.tabs.length > 0 || rt2.warnings.some((w) => /Haltestege/.test(w))), `Kleines Teil: Stege reduziert (${rt2.tabs.length}) oder Warnung`);
 }
 
+// Dogbones: Fräser erreicht die Ecken einer eckigen Tasche (Fräsermitte bis auf Radius an die Ecke)
+{
+  const dp = FS.cam.makeOp('pocket', [sq.id], 't1'); dp.depth = 2; dp.dogbone = true;
+  const pts2 = FS.cam.compute(dp, ctx).chains.flatMap((c) => c.pts);
+  const corners = [[30, 30], [70, 30], [70, 70], [30, 70]].map(([x, y]) => Math.min(...pts2.map((p) => Math.hypot(p.x - x, p.y - y))));
+  ok(corners.every((d) => Math.abs(d - 1.5875) < 0.03), `Dogbones Tasche: Fräser reicht in alle 4 Ecken (Abstand Mitte–Ecke ${corners.map((d) => d.toFixed(2)).join(', ')})`);
+  const dn = FS.cam.compute({ ...dp, dogbone: false }, ctx).chains.flatMap((c) => c.pts);
+  ok(Math.min(...dn.map((p) => Math.hypot(p.x - 30, p.y - 30))) > 2.2, 'Ohne Dogbones bleibt die Ecke rund (Radius)');
+  const di = FS.cam.makeOp('profile', [sq.id], 't1'); di.side = 'inside'; di.depth = 2; di.dogbone = true;
+  const pi2 = FS.cam.compute(di, ctx).chains.flatMap((c) => c.pts);
+  ok(Math.abs(Math.min(...pi2.map((p) => Math.hypot(p.x - 70, p.y - 70))) - 1.5875) < 0.03, 'Dogbones Kontur innen: Ecke erreicht');
+  const dout = FS.cam.makeOp('profile', [sq.id], 't1'); dout.depth = 2; dout.dogbone = true;
+  const po = FS.cam.compute(dout, ctx).chains.flatMap((c) => c.pts);
+  const minD = Math.min(...po.map((p) => Math.min(...[[30, 30], [70, 70]].map(([x, y]) => Math.hypot(p.x - x, p.y - y)))));
+  ok(minD > 1.5, 'Dogbones Kontur außen: konvexe Ecken bleiben unangetastet (kein Einschnitt ins Teil)');
+}
+
 // Vorritzen: flacher Gleichlauf-Schnitt auf der Endkontur vor dem tiefen Fräsen
 {
   const o1 = FS.cam.makeOp('profile', [sq.id], 't1'); o1.depth = 3; o1.score = true; o1.tabs = true;
