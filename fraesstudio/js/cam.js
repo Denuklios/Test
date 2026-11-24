@@ -15,6 +15,7 @@
     relief_finish: '3D-Relief schlichten',
     relief_rest: '3D-Restmaterial',
     face: 'Planfräsen',
+    inlay: 'Inlay',
   };
 
   const OP_DEFAULTS = {
@@ -27,6 +28,7 @@
     relief_finish: { angle: 0, both: false },
     relief_rest: { refToolId: '', angle: 0, minRest: 0.05 },
     face: { depth: 0.5, angle: 0, margin: 2 },
+    inlay: { role: 'female', depth: 3, gap: 0.5, margin: 2, step: 0.2, clearToolId: '' },
   };
 
   function makeOp(type, objIds, toolId) {
@@ -920,6 +922,97 @@
 
   // ---------------- Auswertung ----------------
   /** Eine Bearbeitung berechnen. ctx: {objects, tools, stock, machine} */
+
+  // ---------------- Inlay (Einlegearbeit mit V-Fräser) ----------------
+  /**
+   * Tasche (role 'female'): V-Carving mit flachem Boden in Tiefe op.depth (Ausräumen optional mit Schaftfräser).
+   * Einleger (role 'male'): gespiegelte Form, Startbezug S = Tiefe − Leimspalt. Der V-Fräser fährt die Kontur und
+   * Versätze nach außen bis zur Randbreite in Tiefe S ab – so entsteht ein Zapfen mit genau passenden Schrägen.
+   * Der Rest des Bretts außerhalb wird (mit Ausräumwerkzeug) auf S abgetragen, damit der Einleger ganz eintaucht.
+   */
+  function inlay(op, objs, tool, cut, tools, stock) {
+    const warnings = [], chains = [];
+    if (tool.type !== 'vbit') warnings.push('Inlays brauchen einen V-Fräser.');
+    const half = ((tool.angle || 60) * Math.PI) / 360, tn = Math.tan(half);
+    if (op.role !== 'male') {
+      // Tasche: Versatzbahnen nach innen, Tiefe = Abstand zum Rand / tan(halber Winkel) bis zur Taschentiefe.
+      // Geometrisch exakt (anders als das allgemeine V-Carving) – nur so passt der Einleger genau.
+      const Df = op.depth, step = Math.max(0.05, op.step || 0.2), wall = Df * tn;
+      const region = poly.clip(FS.shapes.rings(objs), null, 'union');
+      if (!region.length) return { chains, warnings: ['Keine geschlossenen Formen ausgewählt.'] };
+      if (wall > tool.d / 2) warnings.push(`Der V-Fräser ist zu schmal für ${FS.util.fmt(Df)} mm Tiefe (Schneide reicht nur ${FS.util.fmt(tool.d / 2 / tn)} mm tief).`);
+      const ct = op.clearToolId && tools.find((t) => t.id === op.clearToolId);
+      const ccut = ct ? FS.tools.cutParams(ct, cut.material, cut.machine) : null;
+      const clearChains = [];
+      for (const g of orderGroups(groupRings(region))) {
+        const part = [g.outer, ...g.holes];
+        for (let x = step; ; x += step) {
+          const flat = x >= wall - 1e-9;
+          const d = Math.min(Df, x / tn), rings = poly.offset(part, -Math.min(x, wall));
+          if (!rings.length) break;
+          // jeder Ring nimmt nur einen schmalen Streifen neben dem vorigen – ein Durchgang genügt
+          for (const ring of rings) chains.push({ pts: loopChain(ring, 0, -d, 0), clearZ: 0 });
+          if (flat) {
+            // flacher Boden: mit Schaftfräser ausräumen oder mit dem V-Fräser weiter nach innen
+            if (ct) {
+              const res = pocketRegion(poly.offset(part, -wall), ct, { strategy: 'offset', direction: 'climb', ramp: true, rampLen: 8, stepover: ct.stepover }, ccut, levels(0, Df, ccut.stepdown), 0);
+              clearChains.push(...res.chains);
+            }
+            // V-Fräser am Boden weiter nach innen – ganz (ohne Schaftfräser) oder dort, wo der Schaftfräser nicht hinpasst
+            const reach = ct ? wall + ct.d / 2 + step : Infinity;
+            for (let y = wall + step; y <= reach; y += step) {
+              const rr = poly.offset(part, -y);
+              if (!rr.length) break;
+              for (const ring of rr) chains.push({ pts: loopChain(ring, -Df, -Df, 0), clearZ: -Df });
+            }
+            break;
+          }
+        }
+      }
+      return { chains, warnings, clear: ct && clearChains.length ? { chains: clearChains, tool: ct, cut: ccut } : null };
+    }
+    const S = op.depth - (op.gap || 0);
+    if (!(S > 0.1)) return { chains, warnings: warnings.concat(['Tiefe muss größer als der Leimspalt sein.']) };
+    const src = FS.shapes.rings(objs);
+    if (!src.length) return { chains, warnings: ['Keine geschlossenen Formen ausgewählt.'] };
+    // spiegeln (waagrecht, um die Mitte der Auswahl) – der Einleger wird umgedreht eingesetzt
+    const bb = geo.bounds(src), cx = (bb.x0 + bb.x1) / 2;
+    const region = poly.clip(src.map((r) => r.map((p) => ({ x: 2 * cx - p.x, y: p.y })).reverse()), null, 'union');
+    const W = Math.max(op.margin || 2, S * tn + 0.5);
+    const step = Math.max(0.05, Math.min((op.step || 0.2) * 0.75, 2 * S * tn)); // feiner als die Tasche: Grate außen würden das Einsetzen behindern
+    const zs = levels(0, S, cut.stepdown);
+    const ctool = op.clearToolId && tools.find((t) => t.id === op.clearToolId);
+    // so weit nach außen, dass Lücken zwischen Teilen, in die der Schaftfräser nicht passt, mit dem V-Fräser abgetragen sind
+    const Wv = W + (ctool ? ctool.d : 0);
+    // von der Kontur nach außen; Kontur selbst zuerst (definiert die Passfläche)
+    for (let x = 0; x <= Wv + 1e-9; x += step) {
+      const rings = x ? poly.offset(region, x) : region;
+      for (const g of orderGroups(groupRings(rings))) {
+        for (const ring of [...g.holes, g.outer]) {
+          let pts = [], prev = 0;
+          for (const z of x ? [-S] : zs) { pts = pts.concat(loopChain(ring, prev, z, 0)); prev = z; }
+          chains.push({ pts, clearZ: x ? -S + step / tn : 0 });
+        }
+      }
+    }
+    // Rest des Bretts außerhalb auf S abtragen (sonst stößt das Brett auf, bevor der Einleger unten ist)
+    const ct = op.clearToolId && tools.find((t) => t.id === op.clearToolId);
+    let clear = null;
+    if (ct && stock) {
+      const ccut = FS.tools.cutParams(ct, cut.material, cut.machine);
+      // Rahmen um den Einleger (8 mm Rand); den Einleger danach mit etwas Rand aussägen
+      const rb = geo.bounds(region), m = Wv + 8;
+      const rect = [{ x: rb.x0 - m, y: rb.y0 - m }, { x: rb.x1 + m, y: rb.y0 - m }, { x: rb.x1 + m, y: rb.y1 + m }, { x: rb.x0 - m, y: rb.y1 + m }];
+      const outside = poly.clip([rect], poly.offset(region, W - step), 'difference');
+      if (outside.length) {
+        const res = pocketRegion(outside, ct, { strategy: 'offset', direction: 'climb', ramp: true, rampLen: 8, stepover: ct.stepover }, ccut, levels(0, S, ccut.stepdown), 0);
+        clear = res.chains.length ? { chains: res.chains, tool: ct, cut: ccut } : null;
+      }
+      warnings.push(`Nach dem Fräsen den Einleger mit ca. 5 mm Rand aussägen – das restliche Brett ist nicht abgetragen.`);
+    } else warnings.push(`Wichtig: Das Brett außerhalb des Einlegers muss ${FS.util.fmt(S)} mm tief abgetragen werden – „Ausräumen mit“ einen Schaftfräser wählen oder das Brett auf Einlegergröße zuschneiden.`);
+    return { chains, warnings, clear };
+  }
+
   function compute(op, ctx) {
     const tool = ctx.tools.find((t) => t.id === op.toolId) || ctx.tools[0];
     const base = FS.tools.cutParams(tool, ctx.stock.material, ctx.machine);
@@ -943,6 +1036,7 @@
         case 'relief_finish': res = reliefFinish(op, objs, tool, cut); break;
         case 'relief_rest': res = reliefRest(op, objs, tool, cut, ctx.tools); break;
         case 'face': res = face(op, ctx.stock, tool, cut); break;
+        case 'inlay': res = inlay(op, objs, tool, cut, ctx.tools, ctx.stock); break;
         default: res = { chains: [], warnings: ['Unbekannte Bearbeitung'] };
       }
     } catch (e) {

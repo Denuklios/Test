@@ -106,6 +106,24 @@ Die Webcam findet das Werkstück auf dem Tisch, setzt **X/Y-Null auf die linke u
 
 Hinweise: Ohne Endschalter ändert sich der Maschinen-Nullpunkt bei jedem Einschalten – dann „Versatz nachmessen (1 Punkt)“. Bei wenig Kontrast (hell auf hell) hilft „Leerbild aufnehmen“ (Tisch leer). Gleichmäßiges Licht ohne harte Schatten verbessert die Erkennung. Erste Fahrt immer mit „Zum Nullpunkt“ prüfen.
 
+## Inlay (Einlegearbeit)
+
+Zwei Hölzer ineinander: z. B. dunkle Nuss-Schrift in heller Ahorn-Platte.
+1. Form/Text auswählen → Fräsbahnen → **Inlay**. Es entstehen zwei Bahnen: **Tasche (Grundbrett)** und **Einleger (zweites Brett)** – der Einleger ist automatisch gespiegelt und zunächst ausgeschaltet.
+2. Grundbrett einspannen, nur die Tasche fräsen (V-Fräser, flache Böden mit Schaftfräser).
+3. Zweites Brett einspannen, Häkchen umsetzen, Einleger fräsen (gleicher V-Fräser!). Einleger mit ca. 5 mm Rand aussägen.
+4. Einleger umdrehen, mit Leim in die Tasche pressen, nach dem Trocknen den Überstand abhobeln/planfräsen.
+
+Taschentiefe (Standard 3 mm) und Leimspalt (0,5 mm) gelten für beide Teile. Die Passung ist in den Tests simuliert (Einleger umgedreht eingesetzt): Fuge an den Wänden unter 0,6 mm.
+
+## Antasten X/Y/Z, Höhenkarte, Prüflauf, Makros
+
+- **XYZ an Ecke antasten…** (Fräsen-Schritt): mit einer Eck-Antastplatte (zwei Lippen an linker und vorderer Kante) setzt FräsStudio X0/Y0 auf die Werkstückecke und Z0 auf die Oberfläche. Plattendicke, Lippenstärke und Fräser-Ø einstellen.
+- **Höhenkarte…**: tastet die Oberfläche im Raster ab (nur leitfähig: Leiterplatte, Alu, Kontaktfolie) und passt den Auftrag an – für gleichmäßig tiefe Gravuren auf welligem Material.
+- **G-Code prüfen (Trockenlauf)**: GRBL liest das ganze Programm im Prüfmodus ($C), ohne zu fahren, und meldet Fehler.
+- **Maschineneinstellungen ($$)**: GRBL-Werte mit deutscher Erklärung ansehen und ändern.
+- **Makros**: eigene Knöpfe mit G-Code (z. B. Parkposition, Z hoch). **Eilgang-Override** 25/50/100 %.
+
 ## Schriften
 
 57 Schriften sind eingebaut (Block, Serifen, Schreib- und Handschrift, Schablone, Fraktur, Western, Comic, Technik, Weihnachten …), nach Art sortiert. Im Text-Dialog zeigt „Alle Schriften mit deinem Text ansehen“ eine Vorschau-Galerie. Mit **„Eigene Schrift laden (.ttf)…“** kommen eigene TrueType-Schriften dazu; sie bleiben im Browser bzw. im Desktop-Programm gespeichert. Fehlt einer Schrift ein Zeichen (z. B. Ø), wird es sinnvoll ersetzt (O). Für feine Gravuren eignen sich kräftige Schriften besser als sehr dünne Schreibschriften.

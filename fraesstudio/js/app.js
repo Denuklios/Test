@@ -1767,7 +1767,7 @@
   function defaultTool(type) {
     const T = S.doc.tools;
     const pick = (f) => (T.find(f) || T[0]).id;
-    if (type === 'vcarve' || type === 'engrave') return pick((t) => t.type === 'vbit' && t.angle >= 60);
+    if (type === 'vcarve' || type === 'engrave' || type === 'inlay') return pick((t) => t.type === 'vbit' && t.angle >= 60);
     if (type === 'relief_finish') return pick((t) => t.type === 'ball');
     if (type === 'relief_rest') {
       const fine = T.filter((t) => t.type === 'taperball' || (t.type === 'ball' && t.d < 2)).sort((a, b) => TL.effD(a) - TL.effD(b));
@@ -1793,6 +1793,18 @@
     }
     const n = S.doc.ops.filter((o) => o.type === type).length;
     if (n) op.name += ' ' + (n + 1);
+    if (type === 'inlay') {
+      // Tasche ins Grundbrett und gespiegelter Einleger fürs zweite Brett (nur eines davon gleichzeitig fräsen)
+      op.name = 'Inlay: Tasche (Grundbrett)';
+      const flat = S.doc.tools.find((t) => t.type === 'flat');
+      op.clearToolId = flat ? flat.id : '';
+      const male = { ...CAM.makeOp('inlay', op.objIds, op.toolId), role: 'male', name: 'Inlay: Einleger (zweites Brett)', enabled: false, clearToolId: op.clearToolId };
+      S.doc.ops.push(op, male);
+      S.selOp = op.id;
+      changed(); computeAll();
+      status('Inlay angelegt: erst die Tasche im Grundbrett fräsen, dann im zweiten Brett den Einleger (Häkchen umsetzen). Einleger umdrehen, einleimen, Überstand abfräsen.');
+      return;
+    }
     S.doc.ops.push(op);
     S.selOp = op.id;
     changed();
@@ -1888,6 +1900,15 @@
         h += depthF();
         if (tool.type === 'drill') h += field('Entspänen alle', nIn('peck', op.peck, 0.5, 'min="0"'), 'mm');
         else h += '<p class="muted small">Mit Schaftfräser werden größere Löcher spiralförmig (Helix) gefräst.</p>';
+        break;
+      case 'inlay':
+        h += field('Teil', sel('role', [['female', 'Tasche im Grundbrett'], ['male', 'Einleger (gespiegelt, zweites Brett)']], op.role));
+        h += field('Taschentiefe', nIn('depth', op.depth, 0.1, 'min="0.5"'), 'mm');
+        h += field('Leimspalt', nIn('gap', op.gap, 0.1, 'min="0"'), 'mm');
+        if (op.role === 'male') h += field('Randbreite', nIn('margin', op.margin, 0.5, 'min="1"'), 'mm');
+        h += field(op.role === 'male' ? 'Brett außen abtragen mit' : 'Flache Böden ausräumen mit', `<select data-k="clearToolId"><option value="">${op.role === 'male' ? '– nicht (Brett zuschneiden)' : 'dem V-Fräser'}</option>${toolOptions(op.clearToolId, (t) => t.type === 'flat')}</select>`);
+        if (tool.type !== 'vbit') h += '<div class="warnbox">Bitte einen V-Fräser wählen.</div>';
+        h += `<p class="muted small">Beide Teile mit demselben V-Fräser und denselben Werten fräsen. ${op.role === 'male' ? `Der Einleger ist ${fmt(Math.max(0, op.depth - op.gap))} mm hoch (Tiefe − Leimspalt); nach dem Einleimen den Überstand abhobeln/abfräsen.` : 'Danach den Einleger im zweiten Brett fräsen (Häkchen umsetzen).'}</p>`;
         break;
       case 'face':
         h += depthF('Abtrag');

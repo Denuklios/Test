@@ -310,6 +310,28 @@ for (const rot of [0, 0.3]) {
   ok(threw, 'Höhenkarte: relatives Programm wird abgelehnt');
 }
 
+// Inlay: Tasche und (gespiegelter) Einleger simulieren, Einleger umdrehen und einsetzen – er muss passen
+{
+  const st3 = { w: 120, h: 80, t: 10, material: 'weichholz', zeroXY: 'll', zeroZ: 'top', safeZ: 5 };
+  const tx = S.make('text', { text: 'Ab', font: 'Archivo Black', size: 40, align: 'left', spacing: 0 }); tx.tf = FS.M.translate(20, 25);
+  const c3 = { objects: [tx], tools, stock: st3, machine };
+  const simOf = (role) => {
+    const o = FS.cam.makeOp('inlay', [tx.id], 't6'); o.role = role; o.depth = 3; o.gap = 0.5; o.clearToolId = 't1';
+    const rr = FS.cam.compute(o, c3), gg = FS.gcode.build([rr], { ...c3, arcs: false });
+    const sm = FS.sim.create(st3, 0.15); FS.sim.run(sm, gg.moves, null, Infinity); return sm;
+  };
+  const Fs = simOf('female'), Ms = simOf('male');
+  const bb3 = G.bounds(S.rings([tx])), cx3 = (bb3.x0 + bb3.x1) / 2, cl = Fs.cell;
+  const Mv = (x, y) => { const i = Math.round(x / cl), j = Math.round(y / cl); return i < 0 || j < 0 || i >= Ms.nx || j >= Ms.ny ? 99 : -Ms.h[j * Ms.nx + i]; };
+  let c0 = Infinity, wallMax = 0;
+  // nur im Bereich, den der ausgesägte Einleger (Form + 6 mm Rand) überdeckt
+  const inArea = (i, j) => i * cl > bb3.x0 - 6 && i * cl < bb3.x1 + 6 && j * cl > bb3.y0 - 6 && j * cl < bb3.y1 + 6;
+  for (let j = 0; j < Fs.ny; j++) for (let i = 0; i < Fs.nx; i++) if (inArea(i, j)) c0 = Math.min(c0, -Fs.h[j * Fs.nx + i] + Mv(2 * cx3 - i * cl, j * cl));
+  for (let j = 0; j < Fs.ny; j++) for (let i = 0; i < Fs.nx; i++) { const v = -Fs.h[j * Fs.nx + i]; if (v > 0.3 && v < 2.3) wallMax = Math.max(wallMax, v + Mv(2 * cx3 - i * cl, j * cl) - c0); }
+  ok(c0 > 2.5 - 0.35 && c0 <= 2.5 + 0.05, `Inlay: Einleger taucht ${c0.toFixed(2)} mm ein (geplant 2,5 = Tiefe − Leimspalt)`);
+  ok(wallMax < 0.6, `Inlay: Fuge an den Wänden höchstens ${wallMax.toFixed(2)} mm`);
+}
+
 // Simulation
 const sim = FS.sim.create(stock, 0.5);
 FS.sim.run(sim, gc.moves, null, Infinity);
