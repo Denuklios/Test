@@ -348,9 +348,27 @@
     const closedCol = segs.length === 1 && G.dist(segs[0].L[0], segs[0].L[segs[0].L.length - 1]) < 0.05;
     const puff = p.puff && !closedCol && cr.length > 4;
     if (puff) cap(cr[0], dirOf(cr[0], cr[2]));
+    const satStart = out.length;
     push(out, pens[0]);
     for (let k = 1; k < pens.length; k++) splitStitch(out, pens[k - 1], pens[k], p.split, k);
     if (puff) cap(cr[cr.length - 1], dirOf(cr[cr.length - 1], cr[cr.length - 3]));
+    // Eckkappen (beim Auto-Digitalisieren): kleine Ecken, die die Säule nicht erreicht, stickt sie selbst mit –
+    // am Anfang vor dem Deckstich, am Ende danach (kein eigenes Objekt, kein Weg dorthin)
+    if (obj.caps && obj.caps.length) {
+      const c0 = G.lerp(cr[0].a, cr[0].b, 0.5), c1 = G.lerp(cr[cr.length - 1].a, cr[cr.length - 1].b, 0.5);
+      const capSt = (ring, c) => {
+        const ang = (Math.atan2(c.b.y - c.a.y, c.b.x - c.a.x) * 180) / Math.PI;
+        try { return genFill({ type: 'fill', points: ring.map((q) => ({ x: q.x, y: q.y, c: false })), holes: [], params: { ...DEFAULTS.fill, fillType: 'satin', underlay: 'none', border: 'none', spacing: p.spacing || 0.4, pull: 0, push: 0, angle: ang } }).filter((q) => !q.j); } catch (e) { return []; }
+      };
+      const atStart = [], atEnd = [];
+      for (const ring of obj.caps) {
+        if (!ring || ring.length < 3) continue;
+        const b = G.bbox(ring), m = { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 };
+        (G.dist(m, c0) <= G.dist(m, c1) ? atStart : atEnd).push(...capSt(ring, G.dist(m, c0) <= G.dist(m, c1) ? cr[0] : cr[cr.length - 1]));
+      }
+      if (atStart.length) out.splice(satStart, 0, ...atStart.map((q) => ({ x: q.x, y: q.y, j: 0 })));
+      for (const q of atEnd) push(out, q);
+    }
     return out;
   }
 

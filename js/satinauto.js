@@ -520,7 +520,11 @@
               // minimal ins Innere versetzt starten, dann entlang der Tangente bis zur Bereichsgrenze
               const o = { x: q.x + nrm.x * sg * 0.03, y: q.y + nrm.y * sg * 0.03 };
               const d = rayDist(o, tdir, rg, reach);
-              if (d < reach && d > 0.02) col[iEnd * 2 + side] = { x: q.x + tdir.x * d, y: q.y + tdir.y * d, c: false };
+              // nur nach außen verlängern: bei runden Enden oder schrägen Füßen bleibt der weiter
+              // reichende bisherige Endpunkt stehen (sonst bleibt an der Ecke eine Lücke)
+              const old = col[iEnd * 2 + side];
+              const projOld = (old.x - q.x) * tdir.x + (old.y - q.y) * tdir.y;
+              if (d < reach && d > 0.02 && d > projOld + 0.05) col[iEnd * 2 + side] = { x: q.x + tdir.x * d, y: q.y + tdir.y * d, c: false };
             }
           };
           const m = st.length - 1;

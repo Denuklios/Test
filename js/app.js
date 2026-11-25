@@ -1371,6 +1371,7 @@
 
   function forEachPoint(o, f) {
     controlArrays(o).forEach((arr) => arr.forEach(f));
+    (o.caps || []).forEach((ring) => ring.forEach(f)); // Eckkappen wandern mit
   }
   function transformSel(fn, angleFn) {
     const objs = selected();
@@ -3612,6 +3613,9 @@
         field('Überlappungen entfernen', '<input type="checkbox" id="aOv" checked>') +
         field('Überstand an Übergängen (mm)', '<input id="aKeep" type="number" step="0.1" min="0" max="1" value="0.4">') +
         field('Konturen (Laufstich)', '<input type="checkbox" id="aOut">') +
+        field('Flächen mit Satinrand', '<input type="checkbox" id="aBd">') +
+        field('Satinrand: Breite (mm)', '<input id="aBdW" type="number" step="0.1" min="0.8" max="10" value="2">') +
+        field('Satinrand: Farbe', '<select id="aBdC"><option value="same">wie die Fläche</option><option value="dark">dunkelste Farbe des Bildes</option></select>') +
         field('Vorhandene Objekte ersetzen', '<input type="checkbox" id="aRep">')) +
       '<canvas id="aPrev" width="480" height="300"></canvas><p id="aInfo" style="color:#6a7480">„Vorschau“ rechnet die echten Stickobjekte (Kanten dunkel, Säulenrichtung als Linien) mit den aktuellen Einstellungen. Danach kann jedes Objekt einzeln umgeformt, umgefärbt und bearbeitet werden.</p>',
       [{ label: 'Vorschau', action: () => { preview(); return false; } }, { label: 'Abbrechen' },
@@ -3633,6 +3637,7 @@
         lineMax: num('aLine') || 0, station: num('aSt') || 1.4, turnDeg: num('aTu') || 8,
         satinSpacing: num('aSS') || 0, fillSpacing: num('aFS') || 0,
         overlap: $('#aOv').checked, keepMM: num('aKeep'),
+        border: $('#aBd') && $('#aBd').checked ? { width: Math.max(0.8, Math.min(10, num('aBdW') || 2)), color: val('aBdC') } : null,
       };
       return o;
     };
@@ -3700,6 +3705,7 @@
         const nob = makeObj(ob.type, { points: ob.points, holes: ob.holes, color: ci });
         nob.params = { ...base, ...ob.params };
         if (ob.connect) nob.connect = ob.connect;
+        if (ob.caps) nob.caps = ob.caps;
         if (ob.fixedDir) nob.fixedDir = true;
         st.objects.push(nob); ids.push(nob.id);
       });

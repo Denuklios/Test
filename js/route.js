@@ -411,7 +411,7 @@
       // Vorgänger-Bedingung: überlappende Objekte in alter Reihenfolge
       const before = block.map(() => []);
       if (opt.keepOverlapOrder) for (let a = 0; a < n; a++) for (let b = a + 1; b < n; b++) if (overlap(block[a], block[b]) && realOverlap(covers[a], covers[b])) before[b].push(a);
-      if (opt.fillsLast) for (let b = 0; b < n; b++) if (block[b].type === 'fill') for (let a = 0; a < n; a++) if (block[a].type !== 'fill' && !before[a].includes(b)) before[b].push(a);
+      if (opt.fillsLast) for (let b = 0; b < n; b++) if (block[b].type === 'fill' && !block[b].patch) for (let a = 0; a < n; a++) if (block[a].type !== 'fill' && !before[a].includes(b)) before[b].push(a);
       const width = +(globalThis.process && process.env.BW) || (n <= 20 ? 4 : n <= 60 ? 3 : 2), K = n <= 30 ? n : 10;
       let beam = [{ cur, done: new Set(), seq: [], cost: 0 }];
       for (let step = 0; step < n; step++) {

@@ -332,6 +332,9 @@
     const order = used.slice().sort((a, b) => areaOf[b] - areaOf[a]);
     const objects = [];
     const recognized = [];
+    const borderItems = [];
+    const lumOf = (hex) => { const h = hex.replace('#', ''); return parseInt(h.slice(0, 2), 16) * 0.3 + parseInt(h.slice(2, 4), 16) * 0.59 + parseInt(h.slice(4, 6), 16) * 0.11; };
+    const darkKey = palette.slice().sort((a, b) => lumOf(a) - lumOf(b))[0];
     const SA = HW.satinauto;
     const mode = opts.mode || 'auto';
     const satinMax = opts.satinMax ?? 7;
@@ -355,7 +358,51 @@
       const glyphRuns = [];
       const later = new Set(order.slice(order.indexOf(lab) + 1));
       const U = later.size ? (opts.underlap ?? 0.6) / mm : 0, pad = 2 + Math.ceil(U);
+      // Satinrand (Option): um den Umriss der ganzen Form (mit Armen/Beinen), wenn sie eine Fläche enthält
+      let compHasFill = false, curFills = [], curInside = null;
+      const colorBorders = [];
+      const flushBorder = () => {
+        if (opts.border && curFills.length && curInside) {
+          const bw = Math.max(0.8, Math.min(10, opts.border.width || 2));
+          const key = opts.border.color === 'dark' ? darkKey : colorKey;
+          const params = (closed) => ({ ...HW.stitch.DEFAULTS.satin, width: bw, closed, underlay: bw <= 2.5 ? 'center' : 'edge+zigzag', pull: bw < 1.5 ? 0.1 : 0.2 });
+          const target = opts.border.color === 'dark' ? borderItems : colorBorders;
+          for (const f of curFills) {
+            const fr = [f.outer, ...f.holes].map((r) => G.buildPath(r, true).pts);
+            for (let ri = 0; ri < fr.length; ri++) {
+              const ring = fr[ri];
+              if (ring.length < 3) continue;
+              const dense = G.resample(ring.concat([ring[0]]), 0.3, 180).slice(0, -1);
+              // Kante liegt außen, wenn knapp jenseits der Fläche kein Teil der Form mehr ist
+              // (an Ansätzen von Beinen/Armen setzt der Rand aus; die Satinteile bekommen keinen)
+              const ext = dense.map((p, k) => {
+                const a = dense[(k - 1 + dense.length) % dense.length], b = dense[(k + 1) % dense.length];
+                const L = Math.hypot(b.x - a.x, b.y - a.y) || 1, n = { x: -(b.y - a.y) / L, y: (b.x - a.x) / L };
+                const p1 = { x: p.x + n.x * 0.7, y: p.y + n.y * 0.7 }, p2 = { x: p.x - n.x * 0.7, y: p.y - n.y * 0.7 };
+                const out = G.pointInRings(p1, fr) ? p2 : p1;
+                return !curInside(out);
+              });
+              if (ext.every(Boolean)) {
+                const src = ri === 0 ? f.outer : f.holes[ri - 1];
+                target.push({ type: 'colC', colorKey: key, points: src.map((q) => ({ x: q.x, y: q.y, c: !!q.c })), params: params(true) });
+                continue;
+              }
+              // offene Stücke entlang der Außenkante
+              const k0 = ext.findIndex((e) => !e);
+              let piece = [];
+              const flushPiece = () => { if (piece.length * 0.3 >= 3) target.push({ type: 'colC', colorKey: key, points: G.rdp(piece, 0.03).map((q) => ({ x: q.x, y: q.y, c: true })), params: params(false) }); piece = []; };
+              for (let t = 1; t <= dense.length; t++) {
+                const k = (k0 + t) % dense.length;
+                if (ext[k]) piece.push(dense[k]); else flushPiece();
+              }
+              flushPiece();
+            }
+          }
+        }
+        curFills = []; curInside = null;
+      };
       for (let ci = 0; ci < comps.length; ci++) {
+        flushBorder();
         const c = comps[ci];
         const gh = glyphHits && glyphHits.get(ci);
         if (gh) {
@@ -443,6 +490,11 @@
           holes = rings.slice(1).filter((r) => Math.abs(G.signedArea(r)) * mm * mm >= (opts.minAreaMM2 || 2)).map((r) => r.map(toMMc));
         }
         const area = c.pixels.length * mm * mm;
+        if (opts.border) {
+          const fm = precise ? fillRings(allRings, cw, ch, mm, opts.originX + x0 * mm, opts.originY + y0 * mm) : mask;
+          const ox = opts.originX + x0 * mm, oy = opts.originY + y0 * mm;
+          curInside = (p) => { const x = Math.floor((p.x - ox) / mm), y = Math.floor((p.y - oy) / mm); return x >= 0 && y >= 0 && x < cw && y < ch && !!fm[y * cw + x]; };
+        }
         // Schmale Formen (Schrift, Linien, Bögen) -> drehende Satinsäulen
         let cols = null;
         if (mode !== 'tatami') {
@@ -473,7 +525,7 @@
                   const rr = maskRings(nm, cw, ch, mm, org, opts);
                   if (!rr.length) continue;
                   const r2 = SA.shapeToColumns(nm, cw, ch, mm, org, rr.map((c) => c.dense), { station: opts.station, turnDeg: opts.turnDeg });
-                  if (r2) emitCols(r2);
+                  if (r2) { patchGaps(r2, nm, cw, ch, org, c.pixels); emitCols(r2); }
                 }
                 for (const cm of hy.core) {
                   const rr = maskRings(cm, cw, ch, mm, org, opts);
@@ -487,8 +539,77 @@
             }
           }
         }
-        if (cols) { emitCols(cols); continue; }
+        if (cols) { if (precise) patchGaps(cols, fillRings(allRings, cw, ch, mm, opts.originX + x0 * mm, opts.originY + y0 * mm), cw, ch, { x: opts.originX + x0 * mm, y: opts.originY + y0 * mm }, c.pixels); emitCols(cols); continue; }
         emitFill(outer, holes, area, c.pixels);
+      }
+      // Ecken, die keine Säule erreicht (spitze Winkel, Stoßstellen): kleine Unterfüllung, die unter den Säulen liegt
+      function patchGaps(cols, cm, cw, ch, org, pixels) {
+        if (opts.patchGaps === false) return;
+        const cov = new Uint8Array(cw * ch);
+        for (const col of cols.columns) {
+          const L = col.filter((_, i) => i % 2 === 0), R = col.filter((_, i) => i % 2 === 1).reverse();
+          const m = fillRings([L.concat(R)], cw, ch, mm, org.x, org.y);
+          for (let i = 0; i < m.length; i++) if (m[i]) cov[i] = 1;
+        }
+        const left = new Uint8Array(cw * ch);
+        for (let y = 1; y < ch - 1; y++) for (let x = 1; x < cw - 1; x++) {
+          const i = y * cw + x;
+          // nur echte Lücken: auch die Nachbarn sind unbedeckt (Randrauschen ignorieren)
+          if (cm[i] && !cov[i] && cm[i - 1] && !cov[i - 1] && cm[i + 1] && !cov[i + 1] && cm[i - cw] && !cov[i - cw] && cm[i + cw] && !cov[i + cw]) left[i] = 1;
+        }
+        const minPx = (opts.patchMin ?? 0.3) / (mm * mm);
+        const toMM = (i) => ({ x: org.x + ((i % cw) + 0.5) * mm, y: org.y + (((i / cw) | 0) + 0.5) * mm });
+        for (const px of maskParts(left, cw, ch)) {
+          if (px.length < minPx) continue;
+          const bigGap = px.length * mm * mm > (opts.capMax ?? 6);
+          // 1) bevorzugt: nächstes Säulenende bis in die Ecke verlängern (fächert in den Winkel, kein Zusatzobjekt)
+          let cx = 0, cy = 0;
+          for (const i of px) { const q = toMM(i); cx += q.x; cy += q.y; }
+          const cen = { x: cx / px.length, y: cy / px.length };
+          let best = null;
+          for (const col of cols.columns) {
+            const n = col.length;
+            if (n < 6) continue;
+            for (const atEnd of [false, true]) {
+              const e0 = atEnd ? n - 2 : 0, p0 = atEnd ? n - 4 : 2;
+              const mid = G.lerp(col[e0], col[e0 + 1], 0.5), inner = G.lerp(col[p0], col[p0 + 1], 0.5);
+              const d = G.dist(cen, mid);
+              if (!best || d < best.d) best = { d, col, e0, inner };
+            }
+          }
+          if (opts.capExtend && best && best.d < 2.5) {
+            let tip = null, td = -1;
+            for (const i of px) { const q = toMM(i); const d = G.dist(q, best.inner); if (d > td) { td = d; tip = q; } }
+            const { col, e0 } = best;
+            const side = G.dist(col[e0], tip) <= G.dist(col[e0 + 1], tip) ? e0 : e0 + 1;
+            if (tip && td > G.dist(col[side], best.inner)) { col[side] = { x: tip.x, y: tip.y, c: false }; continue; }
+          }
+          // 2) sonst: als „Kappe“ an die nächste Säule hängen – die Säule stickt die Ecke selbst mit
+          //    (kein eigenes Objekt, also kein zusätzlicher Weg und kein Schnitt)
+          // um 2 Pixel vergrößert (unter die Säulen), aber innerhalb der Form
+          const m = new Uint8Array(cw * ch);
+          for (const i of px) {
+            const x = i % cw, y = (i / cw) | 0;
+            for (let dy = -2; dy <= 2; dy++) for (let dx = -2; dx <= 2; dx++) { const xx = x + dx, yy = y + dy; if (xx >= 0 && yy >= 0 && xx < cw && yy < ch && cm[yy * cw + xx]) m[yy * cw + xx] = 1; }
+          }
+          const rr = maskRings(m, cw, ch, mm, org, { ...opts, smooth: 0.05 });
+          if (!rr.length) continue;
+          if (bigGap) {
+            // größere Lücke: eigene kleine Fläche (unter den Säulen)
+            const n0 = items.length, had = compHasFill, nf = curFills.length;
+            emitFill(SC.toControlPoints(rr[0], opts.tol ?? 0.04), [], px.length * mm * mm, pixels);
+            compHasFill = had; curFills.length = nf; // Lückenfüllung bekommt keinen eigenen Rand
+            for (let k = n0; k < items.length; k++) { items[k].patch = true; items[k].params.underlay = 'none'; }
+            continue;
+          }
+          const ring = SC.toControlPoints(rr[0], opts.tol ?? 0.04).map((q) => ({ x: q.x, y: q.y }));
+          let owner = null, od = Infinity;
+          for (const col of cols.columns) for (const q of col) { const d = G.dist(q, cen); if (d < od) { od = d; owner = col; } }
+          if (!owner) continue;
+          if (!cols.caps) cols.caps = new Map();
+          if (!cols.caps.has(owner)) cols.caps.set(owner, []);
+          cols.caps.get(owner).push(ring);
+        }
       }
       function emitCols(cols) {
         {
@@ -508,6 +629,7 @@
               continue;
             }
             items.push({
+              ...(cols.caps && cols.caps.get(col) ? { caps: cols.caps.get(col) } : {}),
               type: 'colA', colorKey, points: col,
               params: { ...HW.stitch.DEFAULTS.satin, underlay: ul, pull: med < 1.5 ? 0.1 : 0.2, ...(opts.satinSpacing ? { spacing: opts.satinSpacing } : {}) },
               s: sP, e: eP,
@@ -516,6 +638,8 @@
         }
       }
       function emitFill(outer, holes, area, pixels) {
+        compHasFill = true;
+        curFills.push({ outer, holes: holes || [] });
         let per = 0;
         for (let i = 0; i < outer.length; i++) per += G.dist(outer[i], outer[(i + 1) % outer.length]);
         const width = (2 * area) / (per || 1);
@@ -536,6 +660,7 @@
           s: ctr, e: ctr,
         });
       }
+      flushBorder();
       // erkannte Schrift zuerst, in Lesereihenfolge (Zeile für Zeile, links nach rechts)
       if (glyphRuns.length) {
         const hMed = glyphRuns.map((g2) => g2.h).sort((a2, b2) => a2 - b2)[glyphRuns.length >> 1];
@@ -560,7 +685,11 @@
         delete it.s; delete it.e;
         objects.push(it);
       }
+      // Rand in Flächenfarbe direkt nach dem Farbblock (kein zusätzlicher Farbwechsel)
+      objects.push(...colorBorders);
     }
+    // Ränder in eigener (dunkler) Farbe zuletzt: sie liegen über allen Kanten
+    if (borderItems.length) objects.push(...borderItems);
     let res = objects;
     if (opts.overlap !== false && HW.boolean) { try { res = trimOverlaps(objects, opts.keepMM ?? 0.4); } catch (e) { res = objects; } }
     // Fahrplan: Reihenfolge und Richtungen so wählen, dass möglichst wenig geschnitten wird

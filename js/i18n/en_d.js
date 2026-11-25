@@ -215,4 +215,15 @@
   E.rx.unshift([/^Schrift „(.*)“ entfernt\.$/, (m, a) => `Font “${a}” removed.`]);
 
   Object.assign(E.exact, { "Eigene Schriften – automatisch in Satin umgewandelt": "Own fonts – automatically converted to satin" });
+
+  Object.assign(E.exact, {
+    "Flächen mit Satinrand": "Fills with satin border",
+    "Satinrand: Breite (mm)": "Satin border: width (mm)",
+    "Satinrand: Farbe": "Satin border: color",
+    "Satinrand: Breite": "Satin border: width",
+    "dunkelste Farbe des Bildes": "darkest color of the image",
+    "Jede erzeugte Fläche bekommt einen Satinrand um Außenkante und Löcher – wie „Rand“ in den Eigenschaften einer Fläche. Der Rand liegt mittig auf der Kante und deckt die Flächenkante ab.": "Every generated fill gets a satin border around its outline and holes – like “Border” in a fill's properties. The border sits centered on the edge and covers the fill edge.",
+    "Breite des Satinrands in mm. Üblich: 1,5–3 mm.": "Width of the satin border in mm. Typical: 1.5–3 mm.",
+    "„wie die Fläche“: Rand in Flächenfarbe, ohne Farbwechsel. „dunkelste Farbe des Bildes“: typischer Umriss, z. B. Schwarz; der Rand wird ein eigenes, verknüpftes Objekt.": "“same as fill”: border in the fill color, without color change. “darkest color of the image”: typical outline, e.g. black; the border becomes its own linked object.",
+  });
 })(typeof window !== 'undefined' ? window : globalThis);
