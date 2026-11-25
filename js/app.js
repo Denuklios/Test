@@ -298,6 +298,37 @@
   }
 
 
+  // Objekte, die gerade gezogen werden: nur Umriss zeichnen, Stiche erst beim Loslassen neu berechnen
+  let dragIds = null;
+  function drawDragOutlines() {
+    if (!dragIds) return;
+    ctx.save();
+    for (const id of dragIds) {
+      const o = byId(id);
+      if (!o || o.type === 'manual') continue;
+      const hex = colOf(o.color);
+      if (o.type === 'fill') {
+        ctx.beginPath();
+        [o.points, ...(o.holes || [])].forEach((ring) => { const pts = G.buildPath(ring, true).pts; pts.forEach((p, i) => { const q = toScr(p); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }); ctx.closePath(); });
+        ctx.globalAlpha = 0.35; ctx.fillStyle = hex; ctx.fill('evenodd');
+        ctx.globalAlpha = 1; ctx.strokeStyle = hex; ctx.lineWidth = 1.5; ctx.stroke();
+      } else if (o.type === 'colA') drawColAEdges(o.points);
+      else controlArrays(o).forEach((arr, k) => { ctx.save(); drawCtrlPath(o, arr, isClosedArr(o, k), hex); ctx.stroke(); ctx.restore(); });
+    }
+    ctx.restore();
+  }
+  function dragTouch(objs) {
+    if (!dragIds) dragIds = new Set();
+    objs.forEach((o) => dragIds.add(o.id));
+  }
+  function dragFinish() {
+    if (!dragIds) return false;
+    const ids = dragIds; dragIds = null;
+    ids.forEach((id) => { const o = byId(id); if (o) invalidate(o); });
+    changed();
+    return true;
+  }
+
   function drawStitchList(list, colorFn, alpha = 1, limit = Infinity) {
     const lw = view.trueView ? Math.max(1, 0.45 * view.scale) : 1;
     ctx.save();
@@ -325,6 +356,7 @@
     const n = Math.min(limit, list.length);
     for (let i = 0; i < n; i++) {
       const c = list[i];
+      if (dragIds && c.obj && dragIds.has(c.obj)) { if (c.cmd === 'color') colorFn(c); flush(); prev = null; continue; }
       const hex = colorFn(c);
       const s = toScr(c);
       if (c.cmd === 'stitch' || (c.cmd === undefined && !c.j)) {
@@ -399,6 +431,7 @@
       ctx.strokeStyle = '#d00'; ctx.lineWidth = 1.5;
       ctx.beginPath(); ctx.arc(end.x, end.y, 7, 0, 7); ctx.moveTo(end.x - 11, end.y); ctx.lineTo(end.x + 11, end.y); ctx.moveTo(end.x, end.y - 11); ctx.lineTo(end.x, end.y + 11); ctx.stroke();
     }
+    drawDragOutlines();
     // Auswahl
     for (const o of selected()) {
       if (!o._bb) continue;
@@ -539,9 +572,18 @@
     if (draft.tool === 'fill' && draft.phase === 2 && draft.angleStart && mouse.mm) {
       o.params.angle = (Math.atan2(mouse.mm.y - draft.angleStart.y, mouse.mm.x - draft.angleStart.x) * 180) / Math.PI;
     }
-    let pts = [];
-    try { pts = S.generate(o); } catch (e) { pts = []; }
-    drawStitchList(pts, () => colOf(st.curColor), 0.8);
+    if (o.type === 'fill') {
+      // Flächen: nur Umriss (halbdurchsichtig gefüllt) – Stiche entstehen erst mit Enter
+      ctx.save();
+      ctx.beginPath();
+      [o.points, ...(o.holes || [])].forEach((ring) => { if (ring.length < 2) return; const pts = G.buildPath(ring, true).pts; pts.forEach((p, i) => { const q = toScr(p); i ? ctx.lineTo(q.x, q.y) : ctx.moveTo(q.x, q.y); }); ctx.closePath(); });
+      ctx.globalAlpha = 0.25; ctx.fillStyle = colOf(st.curColor); ctx.fill('evenodd');
+      ctx.restore();
+    } else {
+      let pts = [];
+      try { pts = S.generate(o); } catch (e) { pts = []; }
+      drawStitchList(pts, () => colOf(st.curColor), 0.8);
+    }
     ctx.save();
     controlArrays(o).forEach((arr, k) => {
       drawCtrlPath(o, arr, isClosedArr(o, k) && draft.phase > 0, 'rgba(31,111,235,.8)');
@@ -1440,22 +1482,23 @@
       const dx = tot.x - drag.off.x, dy = tot.y - drag.off.y;
       drag.off = tot;
       drag.last = p;
-      for (const o of selected()) { forEachPoint(o, (q) => { q.x += dx; q.y += dy; }); invalidate(o); }
-      changed();
+      for (const o of selected()) { forEachPoint(o, (q) => { q.x += dx; q.y += dy; }); if (o._bb) o._bb = { x0: o._bb.x0 + dx, y0: o._bb.y0 + dy, x1: o._bb.x1 + dx, y1: o._bb.y1 + dy }; }
+      dragTouch(selected());
+      draw();
     } else if (drag.kind === 'node' && drag.moved) {
       if (!drag.undone) { pushUndo(); drag.undone = true; }
       const sp = selNodes.length === 1 ? snapPt(p, selNodes[0].arr[selNodes[0].i]) : p;
       const dx = sp.x - drag.last.x, dy = sp.y - drag.last.y;
       drag.last = sp;
       for (const n of selNodes) { n.arr[n.i].x += dx; n.arr[n.i].y += dy; }
-      invalidate(drag.o);
-      changed(true);
+      dragTouch([drag.o]);
+      draw();
     } else if (drag.kind === 'angle') {
       if (!drag.undone) { pushUndo(); drag.undone = true; }
       const h = angleHandle(drag.o);
       drag.o.params.angle = Math.round((Math.atan2(p.y - h.c.y, p.x - h.c.x) * 180) / Math.PI);
-      invalidate(drag.o);
-      changed(true);
+      dragTouch([drag.o]);
+      draw();
     } else if (drag.kind === 'band') draw();
     else if (drag.kind === 'shape') { draft.shape = shapePoints(drag.start, p, tool, e.shiftKey); draw(); }
     else if (draft) draw();
@@ -1467,6 +1510,7 @@
     if (!drag) return;
     const d = drag;
     drag = null;
+    if (dragFinish()) return;
     const p = toMM(e.offsetX, e.offsetY);
     if (d.kind === 'band' && d.moved) {
       const a = toMM(Math.min(d.sx, d.cx), Math.min(d.sy, d.cy)), b = toMM(Math.max(d.sx, d.cx), Math.max(d.sy, d.cy));
@@ -2693,6 +2737,37 @@
     } catch (e) { return null; }
   }));
 
+  // Eigene Schriften (TTF/OTF/WOFF) – im Browser dauerhaft gespeichert (IndexedDB)
+  const fontDB = () => new Promise((res, rej) => {
+    const q = indexedDB.open('stickstudio-fonts', 1);
+    q.onupgradeneeded = () => q.result.createObjectStore('fonts', { keyPath: 'name' });
+    q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error);
+  });
+  async function registerCustomFont(name, buf) {
+    const ff = new FontFace('SS ' + name, buf);
+    await ff.load();
+    document.fonts.add(ff);
+    if (!(HW.FONTS || []).some((f) => f.name === name)) (HW.FONTS = HW.FONTS || []).push({ name, cat: 'eigene Schrift', custom: true });
+  }
+  async function saveCustomFont(name, buf) {
+    const db = await fontDB();
+    await new Promise((res, rej) => { const tx = db.transaction('fonts', 'readwrite'); tx.objectStore('fonts').put({ name, data: buf }); tx.oncomplete = res; tx.onerror = () => rej(tx.error); });
+  }
+  async function deleteCustomFont(name) {
+    const db = await fontDB();
+    await new Promise((res) => { const tx = db.transaction('fonts', 'readwrite'); tx.objectStore('fonts').delete(name); tx.oncomplete = res; tx.onerror = res; });
+    HW.FONTS = (HW.FONTS || []).filter((f) => !(f.custom && f.name === name));
+  }
+  const customFontsReady = (async () => {
+    try {
+      if (typeof indexedDB === 'undefined') return;
+      const db = await fontDB();
+      const all = await new Promise((res) => { const q = db.transaction('fonts').objectStore('fonts').getAll(); q.onsuccess = () => res(q.result || []); q.onerror = () => res([]); });
+      for (const f of all) { try { await registerCustomFont(f.name, f.data); } catch (e) { /* defekte Datei überspringen */ } }
+    } catch (e) { /* kein Speicher verfügbar */ }
+  })();
+  void customFontsReady;
+
   // Text in eine Pixelmaske zeichnen. Rückgabe {img, res, wMM, hMM}
   function renderText(spec, forceRes) {
     const c = document.createElement('canvas'), x = c.getContext('2d');
@@ -2968,12 +3043,14 @@
       const tags = f.keywords.filter((k) => kw[k] && k !== 'satin').map((k) => kw[k]).join(', ');
       return `<option value="ink:${f.id}" ${'ink:' + f.id === spec0.font ? 'selected' : ''}>${f.name}${tags ? ' – ' + tags : ''} (${f.size} mm)</option>`;
     }).join('');
-    const fonts = (HW.FONTS || []).map((f) => `<option value="${f.name}" ${f.name === spec0.font ? 'selected' : ''}>${f.name} – ${f.cat}</option>`).join('');
+    const fonts = (HW.FONTS || []).filter((f) => !f.custom).map((f) => `<option value="${f.name}" ${f.name === spec0.font ? 'selected' : ''}>${f.name} – ${f.cat}</option>`).join('');
+    const own = (HW.FONTS || []).filter((f) => f.custom).map((f) => `<option value="${f.name}" ${f.name === spec0.font ? 'selected' : ''}>${f.name}</option>`).join('');
     const sys = SYS_FONTS.map((f) => `<option value="${f}" ${f === spec0.font ? 'selected' : ''}>${f}</option>`).join('');
     const esc = (t) => String(t).replace(/&/g, '&amp;').replace(/</g, '&lt;');
     modal(editGrp ? 'Text bearbeiten' : 'Text einfügen',
       field('Text', `<textarea id="tText" rows="2" style="width:100%">${esc(spec0.text)}</textarea>`) +
-      field('Schriftart', `<select id="tFont">${inkOpts ? `<optgroup label="Stickschriften – fertig digitalisiert">${inkOpts}</optgroup>` : ''}<optgroup label="Schriften – automatisch in Satin umgewandelt">${fonts}</optgroup><optgroup label="Systemschriften">${sys}</optgroup></select>`) +
+      field('Schriftart', `<select id="tFont">${inkOpts ? `<optgroup label="Stickschriften – fertig digitalisiert">${inkOpts}</optgroup>` : ''}<optgroup id="tOwn" label="Eigene Schriften – automatisch in Satin umgewandelt">${own}</optgroup><optgroup label="Schriften – automatisch in Satin umgewandelt">${fonts}</optgroup><optgroup label="Systemschriften">${sys}</optgroup></select>`) +
+      '<div class="row" style="margin:0 0 4px"><button type="button" id="tLoad" data-help="cmd:fontLoad">Eigene Schrift laden… (TTF, OTF, WOFF)</button> <button type="button" id="tDel" data-help="cmd:fontDel">Eigene Schrift entfernen</button></div>' +
       '<p id="tInfo" style="color:#6a7480;margin:2px 0 6px"></p>' +
       field('Höhe Großbuchstaben (mm)', `<input id="tH" type="number" step="0.5" min="3" max="300" value="${spec0.height}">`) +
       field('Zeichenabstand (%)', `<input id="tSp" type="number" step="1" min="-30" max="100" value="${spec0.spacing}">`) +
@@ -3069,6 +3146,38 @@
       x.drawImage(r.canvas, (c.width - r.canvas.width * sc) / 2, (c.height - r.canvas.height * sc) / 2, r.canvas.width * sc, r.canvas.height * sc);
     };
     ['tText', 'tFont', 'tSp', 'tArc', 'tBold', 'tItalic', 'tH'].forEach((id) => $('#' + id).addEventListener('input', prev));
+    // eigene Schrift laden: wird im Browser gespeichert und steht danach immer zur Verfügung
+    $('#tLoad').onclick = () => {
+      const inp = document.createElement('input');
+      inp.type = 'file'; inp.accept = '.ttf,.otf,.woff,.woff2,font/ttf,font/otf,font/woff,font/woff2';
+      inp.onchange = async () => {
+        const f = inp.files && inp.files[0];
+        if (!f) return;
+        const name = f.name.replace(/\.(ttf|otf|woff2?)$/i, '').replace(/[_-]+/g, ' ').trim().slice(0, 60) || 'Eigene Schrift';
+        try {
+          const buf = await f.arrayBuffer();
+          await registerCustomFont(name, buf.slice(0));
+          await saveCustomFont(name, buf);
+          const og = $('#tOwn');
+          if (og && ![...og.children].some((o) => o.value === name)) { const op = document.createElement('option'); op.value = name; op.textContent = name; og.appendChild(op); }
+          $('#tFont').value = name;
+          prev();
+          $('#tInfo').textContent = `Schrift „${name}“ geladen und gespeichert. Sie wird automatisch in Satinsäulen umgewandelt.`;
+        } catch (e) {
+          $('#tInfo').textContent = 'Diese Datei ist keine lesbare Schrift (TTF, OTF oder WOFF).';
+        }
+      };
+      inp.click();
+    };
+    $('#tDel').onclick = async () => {
+      const name = val('tFont');
+      if (!(HW.FONTS || []).some((f) => f.custom && f.name === name)) { $('#tInfo').textContent = 'Bitte zuerst eine eigene Schrift auswählen.'; return; }
+      await deleteCustomFont(name);
+      const og = $('#tOwn');
+      if (og) [...og.children].forEach((o) => { if (o.value === name) o.remove(); });
+      $('#tFont').selectedIndex = 0; prev();
+      $('#tInfo').textContent = `Schrift „${name}“ entfernt.`;
+    };
     fontsReady.then(prev);
   }
 

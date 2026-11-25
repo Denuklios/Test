@@ -148,6 +148,8 @@
     'p:fill.len': ['Stichlänge', 'Länge der Stiche in jeder Reihe. Üblich: 3–4 mm. Länger als 7 mm kann hängen bleiben.'],
     'p:angle': ['Stichwinkel', 'Richtung der Stichreihen in Grad. Verschiedene Winkel bei benachbarten Flächen lassen sie sich optisch abheben. Mit „Umformen“ am orangen Griff ziehen.'],
     'p:fill.pull': ['Zugkompensation', 'Die Stiche ziehen den Stoff in Stichrichtung zusammen. Darum werden die Reihen an beiden Enden um diesen Wert verlängert. Üblich: 0,2–0,35 mm (Strick/T-Shirt mehr).'],
+    'cmd:fontLoad': ['Eigene Schrift laden', 'Eine Schriftdatei (TTF, OTF, WOFF) von deinem Rechner laden. Die Schrift wird im Browser gespeichert und steht danach bei jedem Text zur Verfügung. Sie wird automatisch in Satinsäulen umgewandelt. Bitte nur Schriften verwenden, deren Lizenz das Sticken erlaubt.'],
+    'cmd:fontDel': ['Eigene Schrift entfernen', 'Entfernt die ausgewählte eigene Schrift aus dem Speicher des Browsers. Bereits gesetzte Texte bleiben erhalten.'],
     'p:border.on': ['Satinrand', 'Legt einen Satinrand um die Fläche – um den Außenumriss und um jedes Loch. Funktioniert bei jeder Flächenart. Ohne Auswahl (Flächen-Werkzeug aktiv) ist es die Vorgabe für alle neuen Flächen.'],
     'p:border.width': ['Randbreite', 'Breite des Satinrands in mm. Der Rand liegt mittig auf der Kante: die halbe Breite deckt die Fläche ab, damit die Fläche sicher unter dem Rand liegt. Üblich: 1,5–3 mm.'],
     'p:border.color': ['Randfarbe', '„wie die Fläche“: Rand wird direkt nach der Fläche ohne Farbwechsel gestickt. Andere Farbe: der Rand wird ein eigenes, verknüpftes Objekt und folgt automatisch, wenn die Fläche verändert oder verschoben wird.'],

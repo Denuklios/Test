@@ -198,4 +198,21 @@
     "Buchstaben im Bild werden mit den eingebauten Stickschriften verglichen. Sicher erkannte Zeichen werden durch den fertig digitalisierten Stickschrift-Buchstaben ersetzt – mit sauberen Satinsäulen und durchgehendem Ablauf ohne Schnitt innerhalb des Buchstabens. Nicht sicher erkannte Zeichen werden wie bisher automatisch zerlegt.": "Letters in the image are compared with the built-in embroidery fonts. Reliably recognized characters are replaced by the ready-digitized embroidery font letter – with clean satin columns and a continuous sequence without trims inside the letter. Characters that are not reliably recognized are decomposed automatically as before.",
   });
   E.rx.unshift([/^Schrift erkannt: (.*) – durch Stickschrift ersetzt\.$/, (m, a) => 'Lettering recognized: ' + a + ' – replaced with embroidery font.']);
+
+  Object.assign(E.exact, {
+    "Eigene Schrift laden… (TTF, OTF, WOFF)": "Load own font… (TTF, OTF, WOFF)",
+    "Eigene Schrift entfernen": "Remove own font",
+    "Eigene Schrift laden": "Load own font",
+    "eigene Schrift": "own font",
+    "Bitte zuerst eine eigene Schrift auswählen.": "Please select one of your own fonts first.",
+    "Diese Datei ist keine lesbare Schrift (TTF, OTF oder WOFF).": "This file is not a readable font (TTF, OTF or WOFF).",
+    "Eine Schriftdatei (TTF, OTF, WOFF) von deinem Rechner laden. Die Schrift wird im Browser gespeichert und steht danach bei jedem Text zur Verfügung. Sie wird automatisch in Satinsäulen umgewandelt. Bitte nur Schriften verwenden, deren Lizenz das Sticken erlaubt.": "Load a font file (TTF, OTF, WOFF) from your computer. The font is stored in the browser and is then available for every text. It is converted into satin columns automatically. Please only use fonts whose license allows embroidery.",
+    "Entfernt die ausgewählte eigene Schrift aus dem Speicher des Browsers. Bereits gesetzte Texte bleiben erhalten.": "Removes the selected own font from the browser storage. Texts already placed are kept.",
+    "Modern fett": "Modern bold",
+    "Serifen": "Serif",
+  });
+  E.rx.unshift([/^Schrift „(.*)“ geladen und gespeichert\. Sie wird automatisch in Satinsäulen umgewandelt\.$/, (m, a) => `Font “${a}” loaded and saved. It is converted into satin columns automatically.`]);
+  E.rx.unshift([/^Schrift „(.*)“ entfernt\.$/, (m, a) => `Font “${a}” removed.`]);
+
+  Object.assign(E.exact, { "Eigene Schriften – automatisch in Satin umgewandelt": "Own fonts – automatically converted to satin" });
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -8,5 +8,7 @@ Copyright 2017 The Archivo Black Project Authors (https://github.com/Omnibus-Typ
 Copyright (c) 2011, Pablo Impallari (www.impallari.com|impallari@gmail.com),
 Copyright (c) 2011 by Brian J. Bonislawsky DBA Astigmatic (AOETI)
 Copyright (c) 2011 Fontstage (info@fontstage.com), with Reserved Font Names, 'Passion'
+Copyright (c) 2016 The Inter Project Authors (https://github.com/rsms/inter)
+Copyright 2012 The Caladea Project Authors (https://github.com/huertatipografica/Caladea)
 
-Alle Schriften: SIL Open Font License 1.1 (Volltext siehe OFL.txt). Anton, Bebas Neue, Archivo Black, Pacifico und Great Vibes wurden auf den Latin-1-Zeichensatz reduziert; Schriften mit "Reserved Font Name" (Alfa Slab One, Graduate, Passion One, Righteous) liegen unverändert bei.
+Alle Schriften: SIL Open Font License 1.1 (Volltext siehe OFL.txt). Anton, Bebas Neue, Archivo Black, Pacifico und Great Vibes wurden auf den Latin-1-Zeichensatz reduziert; Schriften mit "Reserved Font Name" (Alfa Slab One, Graduate, Passion One, Righteous) liegen unverändert bei. Inter Display (Bold, Black, SemiBold) wurde ebenfalls auf Latin-1 (plus €, Anführungs- und Gedankenstriche) reduziert; Caladea Bold liegt unverändert bei.
