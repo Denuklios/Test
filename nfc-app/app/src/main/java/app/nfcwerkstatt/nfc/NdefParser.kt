@@ -56,7 +56,9 @@ object NdefParser {
                 NdefRecord.TNF_ABSOLUTE_URI -> RecordInfo(uriTitle(type), type, meta, hex, type)
 
                 NdefRecord.TNF_EXTERNAL_TYPE ->
-                    if (type == "android.com:pkg") {
+                    if (type.equals("app.nfcwerkstatt:a", true)) {
+                        RecordInfo("NFC-Werkstatt-Aktion", "Aktions-ID: ${String(payload, Charsets.US_ASCII)}", meta, hex)
+                    } else if (type == "android.com:pkg") {
                         RecordInfo("App starten (AAR)", String(payload, Charsets.US_ASCII), meta, hex)
                     } else RecordInfo("Externer Typ: $type", payloadPreview(payload), meta, hex)
 
@@ -86,6 +88,9 @@ object NdefParser {
         uri.startsWith("mailto:", true) -> "E-Mail"
         uri.startsWith("sms:", true) || uri.startsWith("smsto:", true) -> "SMS"
         uri.startsWith("geo:", true) -> "Standort"
+        uri.contains("paypal.me", true) -> "PayPal"
+        uri.contains("revolut.me", true) -> "Revolut"
+        uri.contains("mobilepay", true) -> "MobilePay"
         uri.startsWith("http", true) -> "Link"
         uri.startsWith("WIFI:", true) -> "WLAN (Text)"
         else -> "URI"

@@ -9,6 +9,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.material.icons.Icons
@@ -35,6 +38,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import app.nfcwerkstatt.MainViewModel
@@ -66,48 +70,71 @@ fun WriteScreen(vm: MainViewModel) {
                 }
             }
             itemsIndexed(drafts) { i, d ->
-                Card(Modifier.fillMaxWidth()) {
-                    Row(Modifier.padding(start = 16.dp, top = 8.dp, bottom = 8.dp), verticalAlignment = Alignment.CenterVertically) {
+                AppCard {
+                    Row(Modifier.padding(start = 14.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+                        IconBadge(recordIcon(d.kind), 40.dp)
+                        Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
-                            Text("${i + 1}. ${d.kind}", style = MaterialTheme.typography.titleSmall)
-                            Text(d.summary, style = MaterialTheme.typography.bodyMedium, maxLines = 3)
+                            Text(d.kind, style = MaterialTheme.typography.titleSmall)
+                            Text(d.summary, style = MaterialTheme.typography.bodyMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
                             Text("${d.size} Bytes", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         }
-                        IconButton(onClick = { vm.moveDraft(i, -1) }, enabled = i > 0) { Icon(Icons.Filled.ArrowUpward, "Nach oben") }
-                        IconButton(onClick = { vm.moveDraft(i, 1) }, enabled = i < drafts.lastIndex) { Icon(Icons.Filled.ArrowDownward, "Nach unten") }
-                        IconButton(onClick = { vm.removeDraft(i) }) { Icon(Icons.Filled.Close, "Entfernen") }
+                        if (drafts.size > 1) {
+                            IconButton(onClick = { vm.moveDraft(i, if (i > 0) -1 else 1) }, modifier = Modifier.size(40.dp)) {
+                                Icon(if (i > 0) Icons.Filled.ArrowUpward else Icons.Filled.ArrowDownward, "Verschieben", Modifier.size(20.dp))
+                            }
+                        }
+                        IconButton(onClick = { vm.removeDraft(i) }, modifier = Modifier.size(40.dp)) {
+                            Icon(Icons.Filled.Close, "Entfernen", Modifier.size(20.dp))
+                        }
                     }
                 }
             }
             item {
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    OutlinedButton(onClick = { showEditor = true }) {
-                        Icon(Icons.Filled.Add, null); Text(" Datensatz hinzufügen")
+                Column {
+                    OutlinedButton(
+                        onClick = { showEditor = true },
+                        shape = MaterialTheme.shapes.medium,
+                        modifier = Modifier.fillMaxWidth().height(52.dp),
+                    ) {
+                        Icon(Icons.Filled.Add, null, Modifier.size(18.dp)); Spacer(Modifier.width(8.dp)); Text("Datensatz hinzufügen", maxLines = 1)
                     }
                     if (drafts.isNotEmpty()) TextButton(onClick = vm::clearDrafts) { Text("Alle entfernen") }
                 }
             }
         }
 
-        Surface(tonalElevation = 3.dp) {
+        Surface(
+            color = MaterialTheme.colorScheme.surfaceContainerLowest,
+            shape = RoundedCornerShape(topStart = 28.dp, topEnd = 28.dp),
+            shadowElevation = 12.dp,
+        ) {
             Column(Modifier.fillMaxWidth().padding(16.dp)) {
                 Text(
-                    if (drafts.isEmpty()) "Noch nichts zum Schreiben" else "${drafts.size} Datensatz/-sätze · $total Bytes",
+                    when (drafts.size) {
+                        0 -> "Noch nichts zum Schreiben"
+                        1 -> "1 Datensatz · $total Bytes"
+                        else -> "${drafts.size} Datensätze · $total Bytes"
+                    },
                     style = MaterialTheme.typography.titleSmall,
                 )
-                Text(
-                    "Passt z. B. auf NTAG213 (144 B), NTAG215 (504 B), NTAG216 (888 B).",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = if (total > 144) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
-                )
+                if (drafts.isNotEmpty()) {
+                    val fits = listOf("NTAG213" to 137, "NTAG215" to 492, "NTAG216" to 862).filter { total <= it.second }.map { it.first }
+                    Text(
+                        if (fits.isEmpty()) "Zu groß für gängige NTAG-Tags" else "Passt auf " + fits.joinToString(", "),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = if (fits.isEmpty()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurfaceVariant,
+                    )
+                }
                 HorizontalDivider(Modifier.padding(vertical = 8.dp))
-                CheckRow(repeat, { repeat = it }, "Serienmodus: mehrere Tags nacheinander beschreiben")
-                CheckRow(lock, { lock = it }, "Danach dauerhaft schreibschützen (nicht umkehrbar!)")
+                CheckRow(repeat, { repeat = it }, "Serienmodus (mehrere Tags)")
+                CheckRow(lock, { lock = it }, "Danach dauerhaft sperren")
                 Spacer(Modifier.padding(4.dp))
                 Button(
                     onClick = { if (lock) confirmLock = true else vm.startWrite(false, repeat) },
                     enabled = drafts.isNotEmpty(),
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier.fillMaxWidth().height(56.dp),
+                    shape = MaterialTheme.shapes.medium,
                 ) {
                     Icon(Icons.Filled.Nfc, null); Spacer(Modifier.width(8.dp)); Text("Auf Tag schreiben")
                 }

@@ -3,7 +3,7 @@
 Native Kotlin-App (Jetpack Compose, Material 3). Kein Browser, kein WebView, keine Internetberechtigung –
 alles läuft direkt über die NFC-Hardware des Handys.
 
-**Fertige APK:** [`apk/NFC-Werkstatt-1.0.1.apk`](apk/NFC-Werkstatt-1.0.1.apk) – aufs Handy kopieren, öffnen,
+**Fertige APK:** [`apk/NFC-Werkstatt-1.2.apk`](apk/NFC-Werkstatt-1.2.apk) – aufs Handy kopieren, öffnen,
 „Installation aus unbekannten Quellen“ erlauben. Ab Android 8.0, Gerät mit NFC.
 
 ## Funktionen
@@ -29,6 +29,19 @@ alles läuft direkt über die NFC-Hardware des Handys.
 - Nicht formatierte Tags werden automatisch NDEF-formatiert.
 - **Serienmodus:** viele Tags hintereinander mit demselben Inhalt beschreiben.
 - Optional direkt danach dauerhaft schreibschützen (mit Sicherheitsabfrage).
+
+### Aktionen (Smart Home)
+- Handy an den Tag halten → Aktion läuft sofort, auch bei geschlossener App (Handy muss entsperrt sein).
+- **Philips Hue** (lokale Bridge, Suche + Knopf-Kopplung): alle Lichter, Räume/Zonen mit Helligkeit, Szenen – an/aus/umschalten.
+- **Home Assistant** (Adresse + Langzeit-Token): beliebige Dienste wie `light.turn_off` für `all` – damit IKEA, Shelly, Sonos, Rollos …
+- **Webhooks** (GET/POST/PUT): Shelly, Tasmota, IFTTT direkt.
+- Handy: Taschenlampe, Klingelmodus (lautlos/Vibration), Timer, Link oder App öffnen.
+- Mehrere Schritte pro Aktion, Vorlagen („Gute Nacht“, „Licht an/aus“ …), „Testen“ ohne Tag.
+- Der Tag speichert nur eine Kennung – Aktion später ändern, ohne den Tag neu zu beschreiben.
+
+### Bezahlen & mehr
+- PayPal.Me (mit Betrag und Währung), Revolut, MobilePay (Link aus der MobilePay-App einfügen).
+- Bluetooth-Kopplung: Handy an Tag → Lautsprecher/Kopfhörer koppeln.
 
 ### Werkzeuge
 - Tag kopieren (1 Quelle → beliebig viele Ziele).
@@ -62,6 +75,9 @@ Nur mit genau diesem Schlüssel lässt sich eine neue Version als Update über d
 (Verlauf und Einstellungen bleiben erhalten). Die Datei liegt nicht im Repository: sicher aufbewahren und
 zum Bauen eines Updates wieder nach `nfc-app/keystore/` legen. Fehlt sie, signiert der Build mit dem
 Debug-Schlüssel, und so eine APK lässt sich nicht über die installierte Version installieren.
+
+**Screenshots ohne Gerät:** `./gradlew recordPaparazziDebug` rendert alle Bildschirme (mit 130 % Schriftgröße)
+nach `app/src/test/snapshots/images/`.
 
 ## Aufbau
 

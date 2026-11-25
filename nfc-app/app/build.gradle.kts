@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
+    id("app.cash.paparazzi")
 }
 
 android {
@@ -12,8 +13,8 @@ android {
         applicationId = "app.nfcwerkstatt"
         minSdk = 26
         targetSdk = 35
-        versionCode = 2
-        versionName = "1.0.1"
+        versionCode = 4
+        versionName = "1.2"
     }
 
     // Fester Schlüssel, damit jede neue Version als Update über die installierte App geht –

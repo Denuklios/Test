@@ -67,6 +67,36 @@ object NdefFactory {
         return DraftRecord("Extern", "$domainType: $data", NdefRecord.createExternal(domain.trim(), t.trim(), data.toByteArray(Charsets.UTF_8)))
     }
 
+    fun paypal(user: String, amount: String, currency: String): DraftRecord {
+        val u = user.trim().removePrefix("@").substringAfterLast('/')
+        val a = amount.trim().replace(',', '.')
+        val url = "https://paypal.me/$u" + if (a.isNotEmpty()) "/$a$currency" else ""
+        return DraftRecord("PayPal", if (a.isNotEmpty()) "$u · $a $currency" else u, NdefRecord.createUri(url))
+    }
+
+    fun revolut(user: String): DraftRecord {
+        val u = user.trim().removePrefix("@").substringAfterLast('/')
+        return DraftRecord("Revolut", u, NdefRecord.createUri("https://revolut.me/$u"))
+    }
+
+    fun mobilePay(link: String): DraftRecord {
+        val l = link.trim()
+        require(l.startsWith("https://", true)) { "Bitte den kompletten Link aus der MobilePay-App einfügen (https://…)." }
+        return DraftRecord("MobilePay", l, NdefRecord.createUri(l))
+    }
+
+    /** Bluetooth-Kopplung (Handover): Handy an Tag → Gerät wird gekoppelt / verbunden. */
+    fun bluetooth(mac: String, name: String): DraftRecord {
+        val m = mac.trim().hexToBytes()
+        require(m.size == 6) { "MAC-Adresse muss 6 Bytes haben, z. B. 00:1A:7D:DA:71:13" }
+        val nameBytes = name.trim().toByteArray(Charsets.UTF_8)
+        val eir = if (nameBytes.isEmpty()) ByteArray(0) else byteArrayOf((nameBytes.size + 1).toByte(), 0x09) + nameBytes
+        val total = 2 + 6 + eir.size
+        val payload = byteArrayOf((total and 0xFF).toByte(), (total shr 8).toByte()) + m.reversedArray() + eir
+        return DraftRecord("Bluetooth", listOf(name.trim(), mac.trim().uppercase()).filter { it.isNotBlank() }.joinToString(" · "),
+            NdefRecord.createMime("application/vnd.bluetooth.ep.oob", payload))
+    }
+
     /** Bestehenden Datensatz (z. B. aus gelesenem Tag) wieder in die Liste übernehmen. */
     fun fromRecord(r: NdefRecord): DraftRecord {
         val info = NdefParser.parseRecord(r)

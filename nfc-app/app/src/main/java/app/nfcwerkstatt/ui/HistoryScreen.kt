@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -55,8 +57,10 @@ fun HistoryScreen(vm: MainViewModel) {
         }
         LazyColumn(contentPadding = PaddingValues(16.dp, 0.dp, 16.dp, 16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
             items(history, key = { "${it.timestamp}-${it.uid}" }) { t ->
-                Card(Modifier.fillMaxWidth().clickable { vm.showFromHistory(t) }) {
-                    Row(Modifier.padding(start = 16.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                AppCard(Modifier.clickable { vm.showFromHistory(t) }) {
+                    Row(Modifier.padding(start = 14.dp, top = 12.dp, bottom = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+                        IconBadge(recordIcon(t.ndef?.records?.firstOrNull()?.title ?: "Code"), 40.dp)
+                        Spacer(Modifier.width(12.dp))
                         Column(Modifier.weight(1f)) {
                             Text(t.chip, style = MaterialTheme.typography.titleSmall)
                             Text(t.uid, fontFamily = FontFamily.Monospace, style = MaterialTheme.typography.bodySmall)

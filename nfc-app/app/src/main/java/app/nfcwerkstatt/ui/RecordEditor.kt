@@ -21,6 +21,9 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.Message
 import androidx.compose.material.icons.filled.Apps
+import androidx.compose.material.icons.filled.Bluetooth
+import androidx.compose.material.icons.filled.Bolt
+import androidx.compose.material.icons.filled.Payments
 import androidx.compose.material.icons.filled.Code
 import androidx.compose.material.icons.filled.Email
 import androidx.compose.material.icons.filled.Extension
@@ -71,6 +74,10 @@ enum class RecordKind(val label: String, val icon: ImageVector) {
     EMAIL("E-Mail", Icons.Filled.Email),
     SMS("SMS", Icons.AutoMirrored.Filled.Message),
     WIFI("WLAN", Icons.Filled.Wifi),
+    PAYPAL("PayPal", Icons.Filled.Payments),
+    MOBILEPAY("MobilePay", Icons.Filled.Payments),
+    REVOLUT("Revolut", Icons.Filled.Payments),
+    BLUETOOTH("Bluetooth", Icons.Filled.Bluetooth),
     CONTACT("Kontakt", Icons.Filled.Person),
     GEO("Standort", Icons.Filled.Place),
     APP("App starten", Icons.Filled.Apps),
@@ -114,6 +121,10 @@ fun RecordEditorDialog(onAdd: (DraftRecord) -> Unit, onDismiss: () -> Unit) {
                     wifiAuth != WifiAuth.OPEN && b.length < 8 -> { error = "WPA-Passwort braucht mindestens 8 Zeichen."; null }
                     else -> NdefFactory.wifi(WifiConfig(a.trim(), wifiAuth, b))
                 }
+                RecordKind.PAYPAL -> if (need(a, "PayPal.Me-Name")) NdefFactory.paypal(a, b, c.ifBlank { "EUR" }) else null
+                RecordKind.MOBILEPAY -> if (need(a, "MobilePay-Link")) NdefFactory.mobilePay(a) else null
+                RecordKind.REVOLUT -> if (need(a, "Revolut-Name")) NdefFactory.revolut(a) else null
+                RecordKind.BLUETOOTH -> if (need(a, "MAC-Adresse")) NdefFactory.bluetooth(a, b) else null
                 RecordKind.CONTACT -> if (need(a, "Name")) NdefFactory.contact(Contact(a, b, c, d, e, f)) else null
                 RecordKind.GEO -> {
                     val lat = a.replace(',', '.').trim().toDoubleOrNull()
@@ -207,6 +218,31 @@ fun RecordEditorDialog(onAdd: (DraftRecord) -> Unit, onDismiss: () -> Unit) {
                         }
                         Hint("Android-Geräte bieten beim Scannen direkt an, sich mit dem WLAN zu verbinden.")
                     }
+                    RecordKind.PAYPAL -> {
+                        Field(a, { a = it }, "PayPal.Me-Name (paypal.me/…)")
+                        Field(b, { b = it }, "Betrag (optional, z. B. 12,50)", KeyboardType.Decimal)
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                            listOf("EUR", "DKK", "USD", "CHF").forEach { cur ->
+                                FilterChip(selected = c.ifBlank { "EUR" } == cur, onClick = { c = cur }, label = { Text(cur) })
+                            }
+                        }
+                        Hint("Handy an Tag → PayPal öffnet sich mit Empfänger und Betrag. Ohne Betrag gibt der Zahlende ihn selbst ein.")
+                    }
+                    RecordKind.MOBILEPAY -> {
+                        Field(a, { a = it }, "MobilePay-Link (https://…)", KeyboardType.Uri)
+                        Hint("Link in der MobilePay-App erzeugen (MobilePay Box / MyShop oder „Anmod om betaling“ → Link teilen) " +
+                            "und hier einfügen. MobilePay veröffentlicht kein festes Link-Format, deshalb wird der Original-Link verwendet.")
+                    }
+                    RecordKind.REVOLUT -> {
+                        Field(a, { a = it }, "Revolut-Name (revolut.me/…)")
+                        Hint("Öffnet deine Revolut-Bezahlseite.")
+                    }
+                    RecordKind.BLUETOOTH -> {
+                        Field(a, { a = it }, "MAC-Adresse (z. B. 00:1A:7D:DA:71:13)")
+                        Field(b, { b = it }, "Gerätename (optional)")
+                        Hint("Handy an Tag → Android bietet an, Lautsprecher/Kopfhörer zu koppeln und zu verbinden. " +
+                            "Die MAC-Adresse steht in den Bluetooth-Einstellungen des gekoppelten Geräts.")
+                    }
                     RecordKind.CONTACT -> {
                         Field(a, { a = it }, "Name")
                         Field(b, { b = it }, "Telefon", KeyboardType.Phone)
@@ -271,7 +307,7 @@ private fun Hint(text: String) {
 }
 
 @Composable
-private fun AppPickerDialog(onPick: (String) -> Unit, onDismiss: () -> Unit) {
+internal fun AppPickerDialog(onPick: (String) -> Unit, onDismiss: () -> Unit) {
     val ctx = LocalContext.current
     val apps = remember {
         val pm = ctx.packageManager
@@ -297,4 +333,25 @@ private fun AppPickerDialog(onPick: (String) -> Unit, onDismiss: () -> Unit) {
         },
         confirmButton = { TextButton(onClick = onDismiss) { Text("Schließen") } },
     )
+}
+
+/** Passendes Symbol zu einem Datensatz-Titel (lesen und schreiben). */
+fun recordIcon(title: String): ImageVector {
+    val t = title.lowercase()
+    return when {
+        t.startsWith("text") -> Icons.Filled.TextFields
+        t.startsWith("link") || t.contains("uri") || t.contains("smart poster") -> Icons.Filled.Link
+        t.startsWith("telefon") -> Icons.Filled.Phone
+        t.startsWith("e-mail") -> Icons.Filled.Email
+        t.startsWith("sms") -> Icons.AutoMirrored.Filled.Message
+        t.startsWith("wlan") -> Icons.Filled.Wifi
+        t.startsWith("kontakt") -> Icons.Filled.Person
+        t.startsWith("standort") -> Icons.Filled.Place
+        t.startsWith("app") -> Icons.Filled.Apps
+        t.startsWith("extern") -> Icons.Filled.Extension
+        t.startsWith("paypal") || t.startsWith("mobilepay") || t.startsWith("revolut") -> Icons.Filled.Payments
+        t.startsWith("bluetooth") -> Icons.Filled.Bluetooth
+        t.startsWith("nfc-werkstatt-aktion") || t.startsWith("aktion") -> Icons.Filled.Bolt
+        else -> Icons.Filled.Code
+    }
 }

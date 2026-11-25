@@ -9,6 +9,12 @@ import android.os.Vibrator
 import android.os.VibratorManager
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
+import app.nfcwerkstatt.automation.ActionRunner
+import app.nfcwerkstatt.automation.ActionStore
+import app.nfcwerkstatt.automation.ActionTag
+import app.nfcwerkstatt.automation.HaConfig
+import app.nfcwerkstatt.automation.HueBridge
+import app.nfcwerkstatt.automation.TagAction
 import app.nfcwerkstatt.data.HistoryStore
 import app.nfcwerkstatt.data.Settings
 import app.nfcwerkstatt.nfc.DraftRecord
@@ -23,14 +29,20 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
-enum class Tab(val title: String) { READ("Lesen"), WRITE("Schreiben"), TOOLS("Werkzeuge"), HISTORY("Verlauf") }
+enum class Tab(val title: String, val nav: String) {
+    READ("NFC Werkstatt", "Lesen"),
+    WRITE("Schreiben", "Schreiben"),
+    ACTIONS("Aktionen", "Aktionen"),
+    TOOLS("Werkzeuge", "Tools"),
+    HISTORY("Verlauf", "Verlauf"),
+}
 
 enum class NfcState { MISSING, OFF, ON }
 
 /** Aktion, die beim nächsten erkannten Tag ausgeführt wird. */
 sealed class PendingAction(val title: String, val hint: String, val repeat: Boolean = false) {
     class Write(val message: NdefMessage, val lock: Boolean, repeat: Boolean) :
-        PendingAction("Schreiben", "Halte den Tag an das Gerät, um ${message.records.size} Datensatz/Datensätze zu schreiben.", repeat)
+        PendingAction("Schreiben", "Halte den Tag an das Gerät, um " + (if (message.records.size == 1) "1 Datensatz" else "${message.records.size} Datensätze") + " zu schreiben.", repeat)
 
     data object Erase : PendingAction("Löschen", "Halte den Tag an das Gerät, um seinen Inhalt zu löschen.")
     data object Lock : PendingAction("Schreibschutz", "Halte den Tag an das Gerät. Der Schreibschutz ist DAUERHAFT!")
@@ -49,6 +61,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     private val settings = Settings(app)
     private val store = HistoryStore(app)
+    val actionStore = ActionStore(app)
+    val actions = MutableStateFlow<List<TagAction>>(emptyList())
+    val hue = MutableStateFlow(actionStore.hue)
+    val ha = MutableStateFlow(actionStore.ha)
 
     val tab = MutableStateFlow(Tab.READ)
     val nfcState = MutableStateFlow(NfcState.ON)
@@ -64,7 +80,14 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val saveHistory = MutableStateFlow(settings.saveHistory)
 
     init {
-        viewModelScope.launch(Dispatchers.IO) { history.value = store.load() }
+        viewModelScope.launch(Dispatchers.IO) {
+            val loaded = store.load()
+            history.update { current -> (current + loaded).distinctBy { it.timestamp to it.uid } }
+        }
+        viewModelScope.launch(Dispatchers.IO) {
+            val loaded = actionStore.load()
+            actions.update { current -> (current + loaded).distinctBy { it.id } }
+        }
     }
 
     // ------------------------------------------------------------ Tag-Ereignis
@@ -97,6 +120,9 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
             tab.value = Tab.READ
             if (saveHistory.value) addToHistory(info)
             buzz(true)
+            // Aktions-Tag auch bei geöffneter App ausführen
+            val actionId = info.ndefRaw?.let { runCatching { ActionTag.findId(NdefMessage(it)) }.getOrNull() }
+            actions.value.firstOrNull { it.id == actionId }?.let { runAction(it) }
         } catch (e: Exception) {
             buzz(false)
             msg("Lesen fehlgeschlagen: ${e.message ?: e.javaClass.simpleName}")
@@ -216,6 +242,39 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     fun setDumpMemory(v: Boolean) { dumpMemory.value = v; settings.dumpMemory = v }
     fun setVibrate(v: Boolean) { vibrate.value = v; settings.vibrate = v }
     fun setSaveHistory(v: Boolean) { saveHistory.value = v; settings.saveHistory = v }
+
+    // ------------------------------------------------------------ Aktionen
+
+    fun saveAction(a: TagAction) {
+        actions.update { list -> if (list.any { it.id == a.id }) list.map { if (it.id == a.id) a else it } else list + a }
+        persistActions()
+    }
+
+    fun deleteAction(a: TagAction) {
+        actions.update { list -> list.filterNot { it.id == a.id } }
+        persistActions()
+    }
+
+    fun runAction(a: TagAction) {
+        val ctx = getApplication<Application>()
+        viewModelScope.launch(Dispatchers.IO) {
+            val results = ActionRunner.run(ctx, a)
+            buzz(results.all { it.ok })
+            msg(ActionRunner.summary(a, results))
+        }
+    }
+
+    fun writeActionTag(a: TagAction, lock: Boolean = false) {
+        start(PendingAction.Write(ActionTag.message(a, getApplication<Application>().packageName), lock, repeat = true))
+    }
+
+    fun setHue(b: HueBridge?) { actionStore.hue = b; hue.value = b }
+    fun setHa(c: HaConfig?) { actionStore.ha = c; ha.value = c }
+
+    private fun persistActions() {
+        val snapshot = actions.value
+        viewModelScope.launch(Dispatchers.IO) { runCatching { actionStore.save(snapshot) } }
+    }
 
     // ------------------------------------------------------------ Hilfen
 
