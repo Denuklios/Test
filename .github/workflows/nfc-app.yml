@@ -1,0 +1,28 @@
+name: NFC-App bauen
+
+on:
+  push:
+    paths: ["nfc-app/**", ".github/workflows/nfc-app.yml"]
+  pull_request:
+    paths: ["nfc-app/**"]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: nfc-app
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+      - uses: android-actions/setup-android@v3
+      - name: Tests und APK bauen
+        run: ./gradlew --no-daemon testDebugUnitTest assembleRelease
+      - uses: actions/upload-artifact@v4
+        with:
+          name: nfc-werkstatt-apk
+          path: nfc-app/app/build/outputs/apk/release/app-release.apk
