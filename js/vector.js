@@ -420,7 +420,7 @@
               out.push({ type: 'colA', colorKey: sh.color, points: col, params: { ...S.satin, underlay: med < 1.4 ? 'none' : med < 3 ? 'center' : 'edge+zigzag' } });
           } else {
             const mark = (r) => r.map((p) => ({ x: p.x, y: p.y, c: false }));
-            out.push({ type: 'fill', colorKey: sh.color, points: mark(gr.outer), holes: gr.holes.map(mark), params: { ...S.fill, underlay: a > 40 ? 'edge+tatami' : 'edge' } });
+            out.push({ type: 'fill', colorKey: sh.color, points: mark(gr.outer), holes: gr.holes.map(mark), params: { ...S.fill, underlay: a > 15 ? 'tatami' : 'none' } });
           }
         }
       } else {

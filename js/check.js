@@ -162,7 +162,8 @@
     }
     const res = [];
     // zwei sich kreuzende Säulen sind normal – erst ab drei Lagen oder sehr vielen Einstichen
-    for (const e of grid.values()) if ((e.n > m.hotspot && e.objs.size > 2) || e.n > m.hotspot * 1.8) res.push(e);
+    // drei Lagen übereinander sind auch bei mäßiger Dichte schon eine Häufung (Faden reißt, Stoff wird hart)
+    for (const e of grid.values()) if ((e.n > m.hotspot * 0.5 && e.objs.size > 2) || e.n > m.hotspot * 1.8) res.push(e);
     res.sort((a, b) => b.n - a.n);
     return res;
   }

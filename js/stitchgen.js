@@ -8,7 +8,7 @@
     satin: { spacing: 0.4, pull: 0.15, underlay: 'center', split: 7, width: 3, shortSt: true, puff: false },
     fill: {
       fillType: 'tatami', spacing: 0.4, len: 3.5, angle: 45, pull: 0.2, push: 0.2,
-      underlay: 'edge+tatami', border: 'none', borderWidth: 2, borderLen: 2.5, split: 7,
+      underlay: 'tatami', border: 'none', borderWidth: 2, borderLen: 2.5, split: 7,
       pattern: 'diamond', waveAmp: 1.5, waveLen: 12, gradEnd: 2, crossSize: 2.5, crossDouble: false,
     },
   };
@@ -483,12 +483,72 @@
       return true;
     };
     const router = () => R || (R = G.insideRouter(rings, { margin: 0.35 }));
-    // Fahrtkosten: über fertiger Fläche teuer (sichtbar), in Randnähe ebenfalls (Kante würde dick, Faden reißt)
-    const travelCost = (q, de) => (covered(q) ? 10 : 1) * (1 + 2 * Math.max(0, 1.5 - de));
+    // Fahrtkosten: Laufstiche nur durch noch offene Fläche (werden danach überstickt).
+    // Über fertiger Fläche praktisch verboten, Randnähe (unter 1 mm) wird gemieden.
+    const travelCost = (q, de) => (covered(q) ? 1000 : 1 + 1.5 * Math.max(0, 2 - de));
     function inBlock(b, pt) {
       const r0 = b.rows[0], r1 = b.rows[b.rows.length - 1];
       if (pt.y < Math.min(r0.y, r1.y) - o.spacing || pt.y > Math.max(r0.y, r1.y) + o.spacing) return false;
       return b.rows.some((s) => Math.abs(s.y - pt.y) <= (o.gradEnd || o.spacing) * 0.75 && pt.x > s.x0 + 0.3 && pt.x < s.x1 - 0.3);
+    }
+    /**
+     * Reihenfolge wie beim Digitalisieren von Hand: Teilstücke bilden einen Baum (Ecken/Ausläufer = Blätter).
+     * Immer ein Stück wählen, ohne das die restliche offene Fläche zusammenhängt (bevorzugt eine Ecke).
+     * Der Laufstich fährt durch die offene Fläche bis in die Spitze dieses Stücks, die Reihen kommen von dort
+     * zurück zur offenen Fläche. So liegt jeder Fahrweg unter später gestickten Reihen – nie über fertiger
+     * Fläche, nie am Rand entlang. Zum Schluss bleibt der große Bereich, der von seinem Ende her gestickt wird.
+     */
+    function planTree(list, start) {
+      const n = list.length;
+      const ov = (a, b) => a.x0 < b.x1 && b.x0 < a.x1;
+      const top = list.map(() => new Set()), bot = list.map(() => new Set());
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        const a1 = list[i].rows[list[i].rows.length - 1], b0 = list[j].rows[0];
+        if (b0.r === a1.r + 1 && ov(a1, b0)) { bot[i].add(j); top[j].add(i); }
+      }
+      const rem = new Set(list.map((_, i) => i));
+      const nbs = (k) => [...top[k], ...bot[k]].filter((q) => rem.has(q));
+      const connectedWithout = (k) => {
+        const left = [...rem].filter((q) => q !== k);
+        if (left.length <= 1) return true;
+        const seen = new Set([left[0]]), st = [left[0]];
+        while (st.length) { const q = st.pop(); for (const r of nbs(q)) if (r !== k && !seen.has(r)) { seen.add(r); st.push(r); } }
+        return seen.size === left.length;
+      };
+      const PR = G.insideRouter(rings, { margin: 0.35, cell: 0.7 });
+      const seq = [];
+      let cur = start;
+      while (rem.size) {
+        let cands = [...rem].filter((k) => connectedWithout(k));
+        if (!cands.length) cands = [...rem];
+        const leaves = cands.filter((k) => nbs(k).length <= 1);
+        if (leaves.length) cands = leaves;
+        // Möglichkeiten je Kandidat: an der Seite ohne Nachbarn beginnen, zur offenen Fläche hin enden
+        const opts = [];
+        for (const k of cands) {
+          const b = list[k], tn = [...top[k]].filter((q) => rem.has(q)).length, bn = [...bot[k]].filter((q) => rem.has(q)).length;
+          const revs = tn && !bn ? [true] : bn && !tn ? [false] : [false, true];
+          for (const rv of revs) for (const sd of [0, 1]) {
+            const rows = rv ? b.rows.slice().reverse() : b.rows;
+            const f = rows[0], l = rows[rows.length - 1], es = rows.length % 2 ? 1 - sd : sd;
+            opts.push({ k, b, rev: rv, side: sd, entry: { x: sd ? f.x1 : f.x0, y: f.y }, exit: { x: es ? l.x1 : l.x0, y: l.y } });
+          }
+        }
+        let best = opts[0];
+        if (cur && opts.length > 1) {
+          const remIds = new Set([...rem].map((q) => bIdx.get(list[q])));
+          const cost = (q, de) => { const id = blockAt(q); return id >= 0 && !remIds.has(id) ? 1000 : 1 + 1.5 * Math.max(0, 2 - de); };
+          const tg = new Set(opts.map((op) => PR.snap(op.entry)).filter((t) => t >= 0));
+          const f = PR.field(cur, cost, -1, tg);
+          let bc = Infinity;
+          for (const op of opts) { const c = PR.costTo(f, op.entry) + 0.01 * G.dist(cur, op.entry); if (c < bc) { bc = c; best = op; } }
+        }
+        seq.push({ b: best.b, rev: best.rev, side: best.side });
+        cur = best.exit;
+        rem.delete(best.k);
+      }
+      return seq;
     }
     function planBlocks(list, start) {
       const PR = G.insideRouter(rings, { margin: 0.35, cell: 0.7 });
@@ -510,7 +570,7 @@
         for (const stt of beam) {
           const dset = new Set(stt.done.map((i) => bIdx.get(list[i])));
           const onDone = (q) => { const id = blockAt(q); return id >= 0 && dset.has(id); };
-          const cost = (q, de) => (onDone(q) ? 10 : 1) * (1 + 2 * Math.max(0, 1.5 - de));
+          const cost = (q, de) => (!onDone(q) ? 1 : de < 0.9 ? 1.5 : 40);
           // nur bis alle möglichen Einstiege erreicht sind suchen
           let f = null;
           if (stt.cur) {
@@ -527,7 +587,7 @@
                 const e = G.dist(stt.cur, op.entry);
                 // wie beim Sticken: gerade Verbindung, wenn sie innen bleibt und nichts Fertiges kreuzt
                 let straight = e < 0.8;
-                if (!straight && G.segmentInside(stt.cur, op.entry, rings) && (e < 2 || awayFromEdge(stt.cur, op.entry))) {
+                if (!straight && G.segmentInside(stt.cur, op.entry, rings)) {
                   const n = Math.floor(e / 0.8);
                   straight = true;
                   for (let t = 1; t < n && straight; t++) if (onDone(G.lerp(stt.cur, op.entry, t / n))) straight = false;
@@ -554,11 +614,13 @@
       beam.sort((x, y) => x.cost - y.cost);
       return beam.length ? beam[0].seq.slice() : null;
     }
-    const travel = (from, to) => {
+    // Fahrwege markieren (tv), damit Prüfung und Messung sie von normalen Stichen unterscheiden können
+    const travel = (from, to) => { const n0 = out.length; travel0(from, to); for (let k = n0; k < out.length; k++) out[k].tv = 1; };
+    const travel0 = (from, to) => {
       if (!from) { push(out, to); return; }
       const d = G.dist(from, to);
       if (d < 0.5) { push(out, to); return; }
-      if (G.segmentInside(from, to, rings) && !crossesDone(from, to) && (d < 2 || awayFromEdge(from, to))) { tcost += d; runAlong(out, [from, to], 3); return; }
+      if (G.segmentInside(from, to, rings) && !crossesDone(from, to)) { tcost += d; runAlong(out, [from, to], 3); return; }
       // Weg im Inneren der Form, bevorzugt über noch nicht gestickte Bereiche (wird dort später überdeckt)
       let ip = pre && pre.a === from ? router().pathTo(pre, to) : router().pathTo(router().field(from, travelCost, router().snap(to)), to);
       if (!ip) ip = G.insidePath(from, to, rings, { margin: 0.2, cost: travelCost });
@@ -579,7 +641,7 @@
     };
     // Reihenfolge der Teilflächen vorab planen (Strahlsuche): Fahrten sollen über noch offene Fläche
     // oder am Rand laufen, nicht sichtbar über bereits gestickte Reihen
-    const planned = !o.fast && remaining.length > 1 && remaining.length <= 80 ? planBlocks(remaining, cur) : null;
+    const planned = remaining.length > 1 ? planTree(remaining, cur) : null;
     const runOnce = (plan) => {
     reset();
     while (remaining.length) {
@@ -683,7 +745,7 @@
       if (obj._fast) opts = { ...opts, fast: true };
       const res = fillRotated(rr, opts, sp);
       if (wy) res.out.forEach((q) => { q.y += wy(q.x); });
-      res.out.forEach((q) => push(out, G.rot(q, a), q.j));
+      res.out.forEach((q) => { const n0 = out.length; push(out, G.rot(q, a), q.j); if (q.tv && out.length > n0) out[out.length - 1].tv = 1; });
       if (out.length) start = out[out.length - 1];
     };
     if (ul.includes('edge')) {

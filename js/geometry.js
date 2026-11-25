@@ -329,19 +329,18 @@
       cells.reverse();
       const path = [f.a, ...cells.map(ctr), b];
       const cOf = (q) => { const C = cellOf(q); return f.cAt(C.r * W + C.c); };
-      // Sehnen glätten, solange die Gerade innen bleibt und keine teureren Stellen kreuzt
+      // Sehnen glätten: eine Abkürzung nur, wenn sie nicht teurer ist als der gefundene Weg
+      // (Kosten über die Länge aufsummiert – so wird nie am Rand oder über Fertiges abgekürzt)
+      const segCost = (a, b) => { const L = dist2(a, b), n = Math.max(1, Math.ceil(L / (cell * 0.5))); let c = 0; for (let t2 = 0; t2 < n; t2++) c += cOf(lerp(a, b, (t2 + 0.5) / n)); return (c / n) * L; };
+      const pre = [0];
+      for (let q = 1; q < path.length; q++) pre.push(pre[q - 1] + segCost(path[q - 1], path[q]));
       const simp = [path[0]];
       let k = 0;
       while (k < path.length - 1) {
         let m = path.length - 1;
         for (; m > k + 1; m--) {
           if (!segmentInside(path[k], path[m], rings)) continue;
-          let maxVia = 1;
-          for (let q = k + 1; q < m; q++) maxVia = Math.max(maxVia, cOf(path[q]));
-          const L = dist2(path[k], path[m]), n = Math.max(1, Math.ceil(L / cell));
-          let bad = false;
-          for (let t2 = 1; t2 < n && !bad; t2++) if (cOf(lerp(path[k], path[m], t2 / n)) > maxVia + 0.01) bad = true;
-          if (!bad) break;
+          if (segCost(path[k], path[m]) <= (pre[m] - pre[k]) * 1.02 + 0.05) break;
         }
         simp.push(path[m]);
         k = m;

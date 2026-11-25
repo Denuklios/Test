@@ -17,40 +17,40 @@
    * stab:      Vlies-Vorschlag {art, gewicht, lagen}; topper: wasserlöslicher Topper nötig
    */
   const FABRICS = [
-    { id: 'baumwolle', name: 'Baumwolle gewebt (Hemd, Tasche, Schürze)', density: 1.0, fillSp: 0.40, len: 3.5, pull: 0.15, pullPct: 0.03, fillPull: 0.2, ul: 'normal', fillUl: 'edge+tatami', satinMax: 7, minSatin: 0.8,
+    { id: 'baumwolle', name: 'Baumwolle gewebt (Hemd, Tasche, Schürze)', density: 1.0, fillSp: 0.40, len: 3.5, pull: 0.15, pullPct: 0.03, fillPull: 0.2, ul: 'normal', fillUl: 'tatami', satinMax: 7, minSatin: 0.8,
       stab: { art: 'Reißvlies (Tearaway)', gewicht: 'mittel, ca. 60–80 g/m²', lagen: 1, stretch: false }, topper: false, needle: '75/11 Spitze', spm: 850,
       tips: ['Stoff glatt, aber nicht gedehnt einspannen.'] },
-    { id: 'tshirt', name: 'T-Shirt / Jersey (dünner Strick)', density: 1.15, fillSp: 0.45, len: 3.0, pull: 0.25, pullPct: 0.06, fillPull: 0.35, ul: 'heavy', fillUl: 'edge+tatami', satinMax: 6, minSatin: 1.0,
+    { id: 'tshirt', name: 'T-Shirt / Jersey (dünner Strick)', density: 1.15, fillSp: 0.45, len: 3.0, pull: 0.25, pullPct: 0.06, fillPull: 0.35, ul: 'heavy', fillUl: 'tatami', satinMax: 6, minSatin: 1.0,
       stab: { art: 'Schneidvlies (Cutaway) oder No-Show-Mesh', gewicht: 'ca. 2,5 oz / 75 g/m²', lagen: 1, stretch: true }, topper: false, needle: '75/11 Kugelspitze (Ballpoint)', spm: 700,
       tips: ['Kein Reißvlies verwenden – der Stoff dehnt sich, das Motiv verzieht sich.', 'Vlies mit Sprühkleber oder Bügelvlies fixieren, Stoff nicht dehnen.', 'Lieber offene, leichte Motive; große Tatamiflächen vermeiden.'] },
-    { id: 'sweat', name: 'Sweatshirt / Hoodie / Fleece', density: 1.1, fillSp: 0.42, len: 3.2, pull: 0.25, pullPct: 0.05, fillPull: 0.3, ul: 'heavy', fillUl: 'edge+tatami', satinMax: 6.5, minSatin: 1.2,
+    { id: 'sweat', name: 'Sweatshirt / Hoodie / Fleece', density: 1.1, fillSp: 0.42, len: 3.2, pull: 0.25, pullPct: 0.05, fillPull: 0.3, ul: 'heavy', fillUl: 'tatami', satinMax: 6.5, minSatin: 1.2,
       stab: { art: 'Schneidvlies (Cutaway)', gewicht: 'ca. 2,5–3 oz', lagen: 1, stretch: true }, topper: true, needle: '75/11 Kugelspitze', spm: 750,
       tips: ['Wasserlöslichen Topper oben auflegen, damit die Stiche nicht im Flor versinken.'] },
-    { id: 'polo', name: 'Polo / Piqué', density: 1.1, fillSp: 0.42, len: 3.2, pull: 0.25, pullPct: 0.05, fillPull: 0.3, ul: 'heavy', fillUl: 'edge+tatami', satinMax: 6, minSatin: 1.0,
+    { id: 'polo', name: 'Polo / Piqué', density: 1.1, fillSp: 0.42, len: 3.2, pull: 0.25, pullPct: 0.05, fillPull: 0.3, ul: 'heavy', fillUl: 'tatami', satinMax: 6, minSatin: 1.0,
       stab: { art: 'Schneidvlies / No-Show-Mesh', gewicht: 'ca. 2,5 oz', lagen: 1, stretch: true }, topper: true, needle: '75/11 Kugelspitze', spm: 750,
       tips: ['Piqué-Struktur: Topper verhindert, dass dünne Stiche in den Waben verschwinden.'] },
-    { id: 'jeans', name: 'Jeans / Denim / Canvas', density: 0.95, fillSp: 0.40, len: 3.8, pull: 0.12, pullPct: 0.02, fillPull: 0.15, ul: 'normal', fillUl: 'edge+tatami', satinMax: 7.5, minSatin: 0.8,
+    { id: 'jeans', name: 'Jeans / Denim / Canvas', density: 0.95, fillSp: 0.40, len: 3.8, pull: 0.12, pullPct: 0.02, fillPull: 0.15, ul: 'normal', fillUl: 'tatami', satinMax: 7.5, minSatin: 0.8,
       stab: { art: 'Reißvlies (Tearaway)', gewicht: 'mittel bis fest, 80–100 g/m²', lagen: 1, stretch: false }, topper: false, needle: '90/14 Spitze (Jeans)', spm: 750,
       tips: ['Dicke Nähte nicht unter den Stickbereich legen.'] },
-    { id: 'leder', name: 'Leder / Kunstleder', density: 1.3, fillSp: 0.50, len: 4.0, pull: 0.08, pullPct: 0.01, fillPull: 0.1, ul: 'light', fillUl: 'edge', satinMax: 6, minSatin: 1.0,
+    { id: 'leder', name: 'Leder / Kunstleder', density: 1.3, fillSp: 0.50, len: 4.0, pull: 0.08, pullPct: 0.01, fillPull: 0.1, ul: 'light', fillUl: 'tatami', satinMax: 6, minSatin: 1.0,
       stab: { art: 'Reißvlies (Tearaway)', gewicht: 'mittel', lagen: 1, stretch: false }, topper: false, needle: '80/12 Ledernadel (Schneidspitze)', spm: 500,
       tips: ['Jeder Einstich bleibt als Loch sichtbar – weniger Dichte, keine Korrekturen nach dem Sticken.', 'Leder nicht einspannen (Abdrücke!), sondern auf eingespanntes Klebevlies legen oder mit Klebeband fixieren.', 'Kein Sprühkleber auf Glattleder.'] },
-    { id: 'frottee', name: 'Frottee / Handtuch / Bademantel', density: 0.9, fillSp: 0.38, len: 3.0, pull: 0.2, pullPct: 0.04, fillPull: 0.25, ul: 'heavy', fillUl: 'edge+tatami', satinMax: 6, minSatin: 1.5,
+    { id: 'frottee', name: 'Frottee / Handtuch / Bademantel', density: 0.9, fillSp: 0.38, len: 3.0, pull: 0.2, pullPct: 0.04, fillPull: 0.25, ul: 'heavy', fillUl: 'tatami', satinMax: 6, minSatin: 1.5,
       stab: { art: 'Reißvlies (Tearaway)', gewicht: 'mittel', lagen: 1, stretch: false }, topper: true, needle: '80/12 Spitze', spm: 750,
       tips: ['Wasserlöslicher Topper ist Pflicht, sonst verschwindet die Stickerei in den Schlingen.', 'Sehr feine Linien und Schrift unter 6 mm vermeiden.'] },
-    { id: 'kappe', name: 'Kappe / Basecap', density: 1.0, fillSp: 0.40, len: 3.2, pull: 0.2, pullPct: 0.04, fillPull: 0.25, ul: 'normal', fillUl: 'edge+tatami', satinMax: 6.5, minSatin: 0.9,
+    { id: 'kappe', name: 'Kappe / Basecap', density: 1.0, fillSp: 0.40, len: 3.2, pull: 0.2, pullPct: 0.04, fillPull: 0.25, ul: 'normal', fillUl: 'tatami', satinMax: 6.5, minSatin: 0.9,
       stab: { art: 'Cap-Reißvlies (fest)', gewicht: 'fest, ca. 100 g/m²', lagen: 1, stretch: false }, topper: false, needle: '80/12 Spitze', spm: 650,
       tips: ['Von der Mitte nach außen und von unten nach oben sticken (Reihenfolge prüfen).', 'Kappenrahmen auf der Texi verwenden.'] },
-    { id: 'seide', name: 'Seide / Satin / feine Stoffe', density: 1.2, fillSp: 0.45, len: 3.0, pull: 0.12, pullPct: 0.02, fillPull: 0.15, ul: 'light', fillUl: 'edge', satinMax: 5.5, minSatin: 0.7,
+    { id: 'seide', name: 'Seide / Satin / feine Stoffe', density: 1.2, fillSp: 0.45, len: 3.0, pull: 0.12, pullPct: 0.02, fillPull: 0.15, ul: 'light', fillUl: 'tatami', satinMax: 5.5, minSatin: 0.7,
       stab: { art: 'Leichtes Schneidvlies (No-Show-Mesh) oder wasserlösliches Gewebevlies', gewicht: 'leicht', lagen: 1, stretch: false }, topper: false, needle: '65/9 oder 70/10 Microtex', spm: 600,
       tips: ['Leichte Motive wählen, dichte Flächen ziehen den Stoff zusammen.'] },
-    { id: 'softshell', name: 'Softshell / Nylon / Jacken', density: 1.15, fillSp: 0.45, len: 3.2, pull: 0.2, pullPct: 0.04, fillPull: 0.25, ul: 'normal', fillUl: 'edge+tatami', satinMax: 6, minSatin: 0.9,
+    { id: 'softshell', name: 'Softshell / Nylon / Jacken', density: 1.15, fillSp: 0.45, len: 3.2, pull: 0.2, pullPct: 0.04, fillPull: 0.25, ul: 'normal', fillUl: 'tatami', satinMax: 6, minSatin: 0.9,
       stab: { art: 'Schneidvlies (Cutaway)', gewicht: 'mittel', lagen: 1, stretch: true }, topper: false, needle: '70/10 Microtex', spm: 650,
       tips: ['Möglichst wenige Einstiche – Membran wird sonst undicht.'] },
-    { id: 'strick', name: 'Strick / Mütze (Beanie)', density: 1.1, fillSp: 0.42, len: 3.0, pull: 0.3, pullPct: 0.06, fillPull: 0.35, ul: 'heavy', fillUl: 'edge+tatami', satinMax: 6, minSatin: 1.3,
+    { id: 'strick', name: 'Strick / Mütze (Beanie)', density: 1.1, fillSp: 0.42, len: 3.0, pull: 0.3, pullPct: 0.06, fillPull: 0.35, ul: 'heavy', fillUl: 'tatami', satinMax: 6, minSatin: 1.3,
       stab: { art: 'Schneidvlies (Cutaway)', gewicht: 'ca. 2,5 oz', lagen: 1, stretch: true }, topper: true, needle: '75/11 Kugelspitze', spm: 650,
       tips: ['Topper auflegen, Mütze nicht dehnen.'] },
-    { id: 'filz', name: 'Filz / Aufnäher-Basis', density: 1.0, fillSp: 0.40, len: 3.5, pull: 0.1, pullPct: 0.02, fillPull: 0.15, ul: 'normal', fillUl: 'edge+tatami', satinMax: 7, minSatin: 0.8,
+    { id: 'filz', name: 'Filz / Aufnäher-Basis', density: 1.0, fillSp: 0.40, len: 3.5, pull: 0.1, pullPct: 0.02, fillPull: 0.15, ul: 'normal', fillUl: 'tatami', satinMax: 7, minSatin: 0.8,
       stab: { art: 'Reißvlies (Tearaway)', gewicht: 'mittel', lagen: 1, stretch: false }, topper: false, needle: '75/11 Spitze', spm: 800,
       tips: ['Für Aufnäher: Satinrand mindestens 3 mm breit.'] },
   ];
@@ -103,7 +103,7 @@
       auto.pull = f.fillPull;
       // Druck quer zur Stichrichtung ist etwa so groß wie der Zug (etwas kleiner)
       auto.push = +(f.fillPull * 0.8).toFixed(2);
-      auto.underlay = sat ? (f.ul === 'light' ? 'none' : 'edge') : f.fillUl;
+      auto.underlay = sat ? 'none' : f.fillUl;
     } else {
       const w = columnWidth(obj);
       auto.spacing = Math.max(0.25, Math.min(0.8, +(0.4 * f.density * widthFactor(w)).toFixed(2)));

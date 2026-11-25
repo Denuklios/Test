@@ -654,7 +654,7 @@
             spacing: opts.fillSpacing || 0.38,
             fillType: satin ? 'satin' : 'tatami',
             angle: satin ? Math.round(ang) : opts.angle ?? 45,
-            underlay: satin ? 'none' : area > 15 ? 'edge+tatami' : 'edge',
+            underlay: satin ? 'none' : area > 15 ? 'tatami' : 'none',
             border: opts.outline ? 'run' : 'none',
           },
           s: ctr, e: ctr,

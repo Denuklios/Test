@@ -9,11 +9,19 @@
   const isCol = (o) => o.type === 'colA' || o.type === 'colB' || o.type === 'colC';
   const mid = (a, b) => ({ x: (a.x + b.x) / 2, y: (a.y + b.y) / 2 });
 
-  // Nächster Punkt auf dem Umriss einer Fläche
+  // Einstieg einer Fläche: nächster Punkt des Umrisses, aber 0,6 mm nach innen versetzt
+  // (der Weg dorthin endet unter der Fläche, nicht auf ihrer Kante)
   function nearestOnOutline(o, p) {
-    const ring = HW.stitch.fillRings(o)[0];
+    const rings = HW.stitch.fillRings(o), ring = rings[0];
     const r = G.nearestOnRing(p, ring);
-    return G.lerp(ring[r.seg], ring[(r.seg + 1) % ring.length], r.t);
+    const q = G.lerp(ring[r.seg], ring[(r.seg + 1) % ring.length], r.t);
+    const a = ring[r.seg], b = ring[(r.seg + 1) % ring.length], L = G.dist(a, b) || 1;
+    for (const sg of [1, -1]) {
+      const n = { x: (-(b.y - a.y) / L) * sg, y: ((b.x - a.x) / L) * sg };
+      const c = { x: q.x + n.x * 0.6, y: q.y + n.y * 0.6 };
+      if (G.pointInRings(c, rings)) return c;
+    }
+    return q;
   }
 
   function isRingColA(o) {
