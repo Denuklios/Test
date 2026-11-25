@@ -3,7 +3,7 @@
 Native Kotlin-App (Jetpack Compose, Material 3). Kein Browser, kein WebView, keine Internetberechtigung –
 alles läuft direkt über die NFC-Hardware des Handys.
 
-**Fertige APK:** [`apk/NFC-Werkstatt-1.2.apk`](apk/NFC-Werkstatt-1.2.apk) – aufs Handy kopieren, öffnen,
+**Fertige APK:** [`apk/NFC-Werkstatt-1.3.apk`](apk/NFC-Werkstatt-1.3.apk) – aufs Handy kopieren, öffnen,
 „Installation aus unbekannten Quellen“ erlauben. Ab Android 8.0, Gerät mit NFC.
 
 ## Funktionen
@@ -32,6 +32,8 @@ alles läuft direkt über die NFC-Hardware des Handys.
 
 ### Aktionen (Smart Home)
 - Handy an den Tag halten → Aktion läuft sofort, auch bei geschlossener App (Handy muss entsperrt sein).
+- **Amazon Alexa:** startet Alexa-Routinen über einen Trigger-Link von *Virtual Smart Home* (URL Routine Trigger)
+  oder *Voice Monkey* – damit alles, was Alexa steuert (Licht aus, Steckdosen, Musik …). Anleitung in der App.
 - **Philips Hue** (lokale Bridge, Suche + Knopf-Kopplung): alle Lichter, Räume/Zonen mit Helligkeit, Szenen – an/aus/umschalten.
 - **Home Assistant** (Adresse + Langzeit-Token): beliebige Dienste wie `light.turn_off` für `all` – damit IKEA, Shelly, Sonos, Rollos …
 - **Webhooks** (GET/POST/PUT): Shelly, Tasmota, IFTTT direkt.

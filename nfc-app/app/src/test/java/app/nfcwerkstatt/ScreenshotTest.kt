@@ -71,9 +71,11 @@ class ScreenshotTest {
     @Test fun actionsEmpty() = shot { it.tab.value = Tab.ACTIONS }
     @Test fun actionsList() = shot {
         it.tab.value = Tab.ACTIONS
-        it.hue.value = HueBridge("192.168.1.20", "x")
         it.actions.value = listOf(
-            TagAction("a1", "Gute Nacht", listOf(Step(StepType.HUE_ALL, mapOf("mode" to "off")), Step(StepType.RINGER, mapOf("mode" to "silent")))),
+            TagAction("a1", "Gute Nacht", listOf(
+                Step(StepType.ALEXA, mapOf("label" to "Gute Nacht", "url" to "https://www.virtualsmarthome.xyz/url_routine_trigger/x")),
+                Step(StepType.RINGER, mapOf("mode" to "silent")),
+            )),
             TagAction("a2", "Wohnzimmer gemütlich", listOf(Step(StepType.HUE_GROUP, mapOf("id" to "1", "name" to "Wohnzimmer", "mode" to "on", "bri" to "100")))),
         )
     }

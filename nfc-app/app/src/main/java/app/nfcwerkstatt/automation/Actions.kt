@@ -9,6 +9,7 @@ import java.io.File
 import java.util.UUID
 
 enum class StepType(val label: String) {
+    ALEXA("Alexa-Routine"),
     HUE_ALL("Hue: alle Lichter"),
     HUE_GROUP("Hue: Raum / Zone"),
     HUE_SCENE("Hue: Szene"),
@@ -25,6 +26,7 @@ data class Step(val type: StepType, val p: Map<String, String> = emptyMap()) {
     operator fun get(k: String): String = p[k].orEmpty()
 
     fun describe(): String = when (type) {
+        StepType.ALEXA -> "Alexa-Routine „${this["label"].ifBlank { "ohne Namen" }}“" + if (this["url"].isBlank()) " – Link fehlt" else ""
         StepType.HUE_ALL -> "Alle Hue-Lichter ${modeText(this["mode"])}"
         StepType.HUE_GROUP -> "Hue „${this["name"]}“ ${modeText(this["mode"])}" +
             (this["bri"].toIntOrNull()?.let { if (this["mode"] != "off") " · ${it * 100 / 254} %" else "" } ?: "")

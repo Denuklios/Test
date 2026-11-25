@@ -8,6 +8,8 @@ import org.junit.Test
 class ActionStepTest {
     @Test
     fun describeSteps() {
+        assertEquals("Alexa-Routine „Gute Nacht“ – Link fehlt", Step(StepType.ALEXA, mapOf("label" to "Gute Nacht")).describe())
+        assertEquals("Alexa-Routine „Licht aus“", Step(StepType.ALEXA, mapOf("label" to "Licht aus", "url" to "https://x")).describe())
         assertEquals("Alle Hue-Lichter aus", Step(StepType.HUE_ALL, mapOf("mode" to "off")).describe())
         assertEquals("Hue „Küche“ an · 50 %", Step(StepType.HUE_GROUP, mapOf("name" to "Küche", "mode" to "on", "bri" to "127")).describe())
         assertEquals("Klingelmodus: lautlos", Step(StepType.RINGER, mapOf("mode" to "silent")).describe())

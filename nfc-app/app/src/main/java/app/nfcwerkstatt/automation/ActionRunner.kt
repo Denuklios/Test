@@ -33,6 +33,11 @@ object ActionRunner {
 
     private fun runStep(ctx: Context, store: ActionStore, s: Step) {
         when (s.type) {
+            StepType.ALEXA -> {
+                if (s["url"].isBlank()) throw IllegalStateException("Trigger-Link fehlt – Aktion bearbeiten.")
+                val (code, _) = Http.request("GET", s["url"])
+                if (code >= 400) throw IllegalStateException("Alexa-Trigger antwortet mit $code")
+            }
             StepType.HUE_ALL -> Hue.setGroup(hue(store), "0", s["mode"])
             StepType.HUE_GROUP -> Hue.setGroup(hue(store), s["id"], s["mode"], s["bri"].toIntOrNull())
             StepType.HUE_SCENE -> Hue.scene(hue(store), s["id"], s["group"].ifBlank { null })

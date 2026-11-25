@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Nfc
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.Checkbox
@@ -86,10 +87,12 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+private fun alexa(label: String) = Step(StepType.ALEXA, mapOf("label" to label, "url" to ""))
+
 private val TEMPLATES = listOf(
-    TagAction.new("Gute Nacht", listOf(Step(StepType.HUE_ALL, mapOf("mode" to "off")), Step(StepType.RINGER, mapOf("mode" to "silent")))),
-    TagAction.new("Licht an/aus", listOf(Step(StepType.HUE_ALL, mapOf("mode" to "toggle")))),
-    TagAction.new("Nach Hause kommen", listOf(Step(StepType.HUE_ALL, mapOf("mode" to "on")), Step(StepType.RINGER, mapOf("mode" to "normal")))),
+    TagAction.new("Gute Nacht", listOf(alexa("Gute Nacht"), Step(StepType.RINGER, mapOf("mode" to "silent")))),
+    TagAction.new("Licht aus", listOf(alexa("Alles aus"))),
+    TagAction.new("Nach Hause kommen", listOf(alexa("Willkommen"), Step(StepType.RINGER, mapOf("mode" to "normal")))),
     TagAction.new("Kaffee-Timer", listOf(Step(StepType.TIMER, mapOf("minutes" to "4", "label" to "Kaffee")))),
     TagAction.new("Taschenlampe", listOf(Step(StepType.TORCH, mapOf("mode" to "toggle")))),
 )
@@ -104,6 +107,7 @@ fun ActionsScreen(vm: MainViewModel) {
     var editing by remember { mutableStateOf<TagAction?>(null) }
     var showHue by remember { mutableStateOf(false) }
     var showHa by remember { mutableStateOf(false) }
+    var showAlexa by remember { mutableStateOf(false) }
     var deleting by remember { mutableStateOf<TagAction?>(null) }
     var resumeTick by remember { mutableStateOf(0) }
     val lifecycle = androidx.lifecycle.compose.LocalLifecycleOwner.current.lifecycle
@@ -123,6 +127,7 @@ fun ActionsScreen(vm: MainViewModel) {
         }
         item {
             SectionCard("Verbindungen", Icons.Filled.Home) {
+                ConnectionRow(Icons.Filled.RecordVoiceOver, "Amazon Alexa", "Startet deine Alexa-Routinen", "Anleitung") { showAlexa = true }
                 ConnectionRow(Icons.Filled.Lightbulb, "Philips Hue", hue?.let { "Verbunden · ${it.ip}" } ?: "Nicht verbunden",
                     if (hue == null) "Verbinden" else "Trennen") { if (hue == null) showHue = true else vm.setHue(null) }
                 ConnectionRow(Icons.Filled.Home, "Home Assistant", ha?.let { "Verbunden · ${it.url}" } ?: "Steuert fast alles (IKEA, Shelly, Sonos …)",
@@ -183,6 +188,7 @@ fun ActionsScreen(vm: MainViewModel) {
     }
 
     editing?.let { a -> ActionEditorDialog(vm, a, onSave = { vm.saveAction(it); editing = null }, onDismiss = { editing = null }) }
+    if (showAlexa) AlexaHelpDialog { showAlexa = false }
     if (showHue) HueSetupDialog(onConnected = { vm.setHue(it); showHue = false }, onDismiss = { showHue = false })
     if (showHa) HaSetupDialog(onConnected = { vm.setHa(it); showHa = false }, onDismiss = { showHa = false })
     deleting?.let { a ->
@@ -212,6 +218,7 @@ private fun ActionEditorDialog(vm: MainViewModel, initial: TagAction, onSave: (T
     var name by remember { mutableStateOf(initial.name) }
     val steps = remember { mutableStateListOf<Step>().apply { addAll(initial.steps) } }
     var addStep by remember { mutableStateOf(false) }
+    var editIndex by remember { mutableStateOf<Int?>(null) }
     val valid = name.isNotBlank() && steps.isNotEmpty()
 
     Dialog(onDismissRequest = onDismiss, properties = DialogProperties(usePlatformDefaultWidth = false)) {
@@ -231,11 +238,14 @@ private fun ActionEditorDialog(vm: MainViewModel, initial: TagAction, onSave: (T
                 OutlinedTextField(name, { name = it }, label = { Text("Name, z. B. Gute Nacht") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                 Text("Schritte (laufen nacheinander)", style = MaterialTheme.typography.titleSmall)
                 steps.forEachIndexed { i, s ->
-                    AppCard {
+                    AppCard(Modifier.clickable { editIndex = i }) {
                         Row(Modifier.padding(start = 16.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
                             Column(Modifier.weight(1f)) {
                                 Text(s.type.label, style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.primary)
-                                Text(s.describe(), style = MaterialTheme.typography.bodyMedium)
+                                Text(
+                                    s.describe(), style = MaterialTheme.typography.bodyMedium,
+                                    color = if (s.type == StepType.ALEXA && s["url"].isBlank()) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.onSurface,
+                                )
                             }
                             IconButton(onClick = { steps.removeAt(i) }) { Icon(Icons.Filled.Close, "Entfernen") }
                         }
@@ -251,15 +261,19 @@ private fun ActionEditorDialog(vm: MainViewModel, initial: TagAction, onSave: (T
             }
         }
     }
-    if (addStep) StepEditorDialog(vm, onAdd = { steps.add(it); addStep = false }, onDismiss = { addStep = false })
+    if (addStep) StepEditorDialog(vm, null, onAdd = { steps.add(it); addStep = false }, onDismiss = { addStep = false })
+    editIndex?.let { i ->
+        StepEditorDialog(vm, steps.getOrNull(i), onAdd = { steps[i] = it; editIndex = null }, onDismiss = { editIndex = null })
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
-private fun StepEditorDialog(vm: MainViewModel, onAdd: (Step) -> Unit, onDismiss: () -> Unit) {
+private fun StepEditorDialog(vm: MainViewModel, initial: Step?, onAdd: (Step) -> Unit, onDismiss: () -> Unit) {
     val hue by vm.hue.collectAsStateWithLifecycle()
     val ha by vm.ha.collectAsStateWithLifecycle()
-    var type by remember { mutableStateOf(StepType.HUE_ALL) }
+    var type by remember { mutableStateOf(initial?.type ?: StepType.ALEXA) }
+    var prefill by remember { mutableStateOf(initial) }
     var mode by remember { mutableStateOf("off") }
     var f1 by remember { mutableStateOf("") }
     var f2 by remember { mutableStateOf("") }
@@ -277,8 +291,29 @@ private fun StepEditorDialog(vm: MainViewModel, onAdd: (Step) -> Unit, onDismiss
 
     LaunchedEffect(type) {
         loadError = null; selId = null; f1 = ""; f2 = ""; f3 = ""
-        mode = when (type) { StepType.RINGER -> "silent"; StepType.WEBHOOK -> "GET"; else -> "off" }
+        mode = when (type) { StepType.RINGER -> "silent"; StepType.WEBHOOK -> "GET"; StepType.ALEXA -> "vsh"; else -> "off" }
         if (type == StepType.HA) f1 = "light.turn_off"
+        prefill?.takeIf { it.type == type }?.let { p ->
+            when (type) {
+                StepType.ALEXA -> {
+                    f3 = p["label"]
+                    val u = p["url"]
+                    if (u.contains("voicemonkey.io")) {
+                        mode = "vm"
+                        f1 = u.substringAfter("token=", "").substringBefore('&')
+                        f2 = u.substringAfter("device=", "").substringBefore('&')
+                    } else f1 = u
+                }
+                StepType.HUE_GROUP, StepType.HUE_SCENE -> { selId = p["id"]; selName = p["name"]; selGroup = p["group"]; mode = p["mode"].ifBlank { mode } }
+                StepType.HA -> { f1 = p["service"]; f2 = p["entity"] }
+                StepType.WEBHOOK -> { mode = p["method"].ifBlank { "GET" }; f1 = p["url"]; f2 = p["body"] }
+                StepType.TIMER -> { f1 = p["minutes"]; f2 = p["label"] }
+                StepType.OPEN_URL -> f1 = p["url"]
+                StepType.OPEN_APP -> { f1 = p["package"]; f2 = p["label"] }
+                else -> mode = p["mode"].ifBlank { mode }
+            }
+            prefill = null
+        }
         val r = withContext(Dispatchers.IO) {
             runCatching {
                 when (type) {
@@ -288,7 +323,7 @@ private fun StepEditorDialog(vm: MainViewModel, onAdd: (Step) -> Unit, onDismiss
                         groups = Hue.groups(b); scenes = Hue.scenes(b)
                     }
                     StepType.HA -> entities = HomeAssistant.entities(ha ?: error("Zuerst Home Assistant einrichten."))
-                    StepType.HUE_ALL -> if (hue == null) error("Zuerst Hue verbinden.")
+                    StepType.HUE_ALL -> if (hue == null) error("Zuerst Hue verbinden.") else Unit
                     else -> Unit
                 }
             }
@@ -297,6 +332,13 @@ private fun StepEditorDialog(vm: MainViewModel, onAdd: (Step) -> Unit, onDismiss
     }
 
     fun build(): Step? = when (type) {
+        StepType.ALEXA -> {
+            val url = if (mode == "vm") {
+                if (f1.isBlank() || f2.isBlank()) null
+                else "https://api-v3.voicemonkey.io/trigger?token=${android.net.Uri.encode(f1.trim())}&device=${android.net.Uri.encode(f2.trim())}"
+            } else f1.trim().takeIf { it.startsWith("https://") }
+            url?.let { Step(type, mapOf("label" to f3.trim(), "url" to it)) }
+        }
         StepType.HUE_ALL -> Step(type, mapOf("mode" to mode))
         StepType.HUE_GROUP -> selId?.let {
             Step(type, buildMap {
@@ -343,6 +385,19 @@ private fun StepEditorDialog(vm: MainViewModel, onAdd: (Step) -> Unit, onDismiss
                 loadError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
                 when (type) {
+                    StepType.ALEXA -> {
+                        OutlinedTextField(f3, { f3 = it }, label = { Text("Name der Routine (zur Anzeige)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                        ModeChips(listOf("vsh" to "Virtual Smart Home", "vm" to "Voice Monkey"))
+                        if (mode == "vm") {
+                            OutlinedTextField(f1, { f1 = it.trim() }, label = { Text("API-Token") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                            OutlinedTextField(f2, { f2 = it.trim() }, label = { Text("Geräte-ID (Monkey)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
+                            Hint("Token und Geräte-ID findest du im Voice-Monkey-Dashboard (voicemonkey.io).")
+                        } else {
+                            OutlinedTextField(f1, { f1 = it.trim() }, label = { Text("Trigger-Link (https://…)") }, singleLine = true,
+                                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Uri), modifier = Modifier.fillMaxWidth())
+                            Hint("Link aus virtualsmarthome.xyz → URL Routine Trigger kopieren und hier einfügen.")
+                        }
+                    }
                     StepType.HUE_ALL -> ModeChips(onOff)
                     StepType.HUE_GROUP -> {
                         ModeChips(onOff)
@@ -513,5 +568,27 @@ private fun HaSetupDialog(onConnected: (HaConfig) -> Unit, onDismiss: () -> Unit
             }) { Text(if (busy) "Prüfe …" else "Verbinden") }
         },
         dismissButton = { TextButton(onClick = onDismiss) { Text("Abbrechen") } },
+    )
+}
+
+@Composable
+private fun AlexaHelpDialog(onDismiss: () -> Unit) {
+    AlertDialog(
+        onDismissRequest = onDismiss,
+        containerColor = MaterialTheme.colorScheme.surfaceContainerLowest,
+        icon = { Icon(Icons.Filled.RecordVoiceOver, null) },
+        title = { Text("Alexa per NFC") },
+        text = {
+            Column(Modifier.heightIn(max = 480.dp).verticalScroll(rememberScrollState()), verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                Text("Amazon erlaubt Apps nicht, Routinen direkt zu starten. Ein kostenloser Trigger-Dienst übernimmt das:")
+                Text("1. virtualsmarthome.xyz → „URL Routine Trigger“, mit deinem Amazon-Konto anmelden, Trigger anlegen (z. B. „Gute Nacht“).")
+                Text("2. In der Alexa-App den Skill „URL Routine Trigger“ aktivieren und Geräte suchen lassen.")
+                Text("3. Alexa-App → Routine erstellen → Auslöser: Smart Home → dein Trigger → Aktionen, z. B. alle Lichter aus.")
+                Text("4. Hier: Aktion anlegen → Schritt „Alexa-Routine“ → Trigger-Link einfügen → „Auf Tag“.")
+                Text("Alternativ geht Voice Monkey (voicemonkey.io) mit Token und Geräte-ID.", style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = { TextButton(onClick = onDismiss) { Text("Verstanden") } },
     )
 }
