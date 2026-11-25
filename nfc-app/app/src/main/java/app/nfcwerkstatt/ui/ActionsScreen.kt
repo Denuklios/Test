@@ -34,6 +34,7 @@ import androidx.compose.material.icons.filled.Home
 import androidx.compose.material.icons.filled.Lightbulb
 import androidx.compose.material.icons.filled.Nfc
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Power
 import androidx.compose.material.icons.filled.RecordVoiceOver
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -89,10 +90,12 @@ import kotlinx.coroutines.withContext
 
 private fun alexa(label: String) = Step(StepType.ALEXA, mapOf("label" to label, "url" to ""))
 
+private fun tuyaAll(mode: String) = Step(StepType.TUYA, mapOf("ids" to "all", "names" to "Alle", "mode" to mode))
+
 private val TEMPLATES = listOf(
-    TagAction.new("Gute Nacht", listOf(alexa("Gute Nacht"), Step(StepType.RINGER, mapOf("mode" to "silent")))),
-    TagAction.new("Licht aus", listOf(alexa("Alles aus"))),
-    TagAction.new("Nach Hause kommen", listOf(alexa("Willkommen"), Step(StepType.RINGER, mapOf("mode" to "normal")))),
+    TagAction.new("Gute Nacht", listOf(tuyaAll("off"), Step(StepType.RINGER, mapOf("mode" to "silent")))),
+    TagAction.new("Licht an/aus", listOf(tuyaAll("toggle"))),
+    TagAction.new("Nach Hause kommen", listOf(tuyaAll("on"), Step(StepType.RINGER, mapOf("mode" to "normal")))),
     TagAction.new("Kaffee-Timer", listOf(Step(StepType.TIMER, mapOf("minutes" to "4", "label" to "Kaffee")))),
     TagAction.new("Taschenlampe", listOf(Step(StepType.TORCH, mapOf("mode" to "toggle")))),
 )
@@ -104,6 +107,8 @@ fun ActionsScreen(vm: MainViewModel) {
     val actions by vm.actions.collectAsStateWithLifecycle()
     val hue by vm.hue.collectAsStateWithLifecycle()
     val ha by vm.ha.collectAsStateWithLifecycle()
+    val tuya by vm.tuya.collectAsStateWithLifecycle()
+    var showTuya by remember { mutableStateOf(false) }
     var editing by remember { mutableStateOf<TagAction?>(null) }
     var showHue by remember { mutableStateOf(false) }
     var showHa by remember { mutableStateOf(false) }
@@ -127,6 +132,9 @@ fun ActionsScreen(vm: MainViewModel) {
         }
         item {
             SectionCard("Verbindungen", Icons.Filled.Home) {
+                ConnectionRow(Icons.Filled.Power, "Tuya · Smart Life · LSC · Megos",
+                    if (tuya.isEmpty()) "Direkt im WLAN, ohne Cloud" else "${tuya.size} Geräte · ${tuya.count { it.ip.isNotBlank() }} im WLAN",
+                    if (tuya.isEmpty()) "Einrichten" else "Geräte") { showTuya = true }
                 ConnectionRow(Icons.Filled.RecordVoiceOver, "Amazon Alexa", "Startet deine Alexa-Routinen", "Anleitung") { showAlexa = true }
                 ConnectionRow(Icons.Filled.Lightbulb, "Philips Hue", hue?.let { "Verbunden · ${it.ip}" } ?: "Nicht verbunden",
                     if (hue == null) "Verbinden" else "Trennen") { if (hue == null) showHue = true else vm.setHue(null) }
@@ -189,6 +197,7 @@ fun ActionsScreen(vm: MainViewModel) {
 
     editing?.let { a -> ActionEditorDialog(vm, a, onSave = { vm.saveAction(it); editing = null }, onDismiss = { editing = null }) }
     if (showAlexa) AlexaHelpDialog { showAlexa = false }
+    if (showTuya) TuyaSetupDialog(vm) { showTuya = false }
     if (showHue) HueSetupDialog(onConnected = { vm.setHue(it); showHue = false }, onDismiss = { showHue = false })
     if (showHa) HaSetupDialog(onConnected = { vm.setHa(it); showHa = false }, onDismiss = { showHa = false })
     deleting?.let { a ->
@@ -272,7 +281,9 @@ private fun ActionEditorDialog(vm: MainViewModel, initial: TagAction, onSave: (T
 private fun StepEditorDialog(vm: MainViewModel, initial: Step?, onAdd: (Step) -> Unit, onDismiss: () -> Unit) {
     val hue by vm.hue.collectAsStateWithLifecycle()
     val ha by vm.ha.collectAsStateWithLifecycle()
-    var type by remember { mutableStateOf(initial?.type ?: StepType.ALEXA) }
+    val tuyaDevs by vm.tuya.collectAsStateWithLifecycle()
+    var tuyaSel by remember { mutableStateOf(setOf<String>()) }
+    var type by remember { mutableStateOf(initial?.type ?: StepType.TUYA) }
     var prefill by remember { mutableStateOf(initial) }
     var mode by remember { mutableStateOf("off") }
     var f1 by remember { mutableStateOf("") }
@@ -291,10 +302,12 @@ private fun StepEditorDialog(vm: MainViewModel, initial: Step?, onAdd: (Step) ->
 
     LaunchedEffect(type) {
         loadError = null; selId = null; f1 = ""; f2 = ""; f3 = ""
+        tuyaSel = emptySet()
         mode = when (type) { StepType.RINGER -> "silent"; StepType.WEBHOOK -> "GET"; StepType.ALEXA -> "vsh"; else -> "off" }
         if (type == StepType.HA) f1 = "light.turn_off"
         prefill?.takeIf { it.type == type }?.let { p ->
             when (type) {
+                StepType.TUYA -> { mode = p["mode"].ifBlank { "off" }; tuyaSel = if (p["ids"] == "all") setOf("all") else p["ids"].split(",").filter { it.isNotBlank() }.toSet() }
                 StepType.ALEXA -> {
                     f3 = p["label"]
                     val u = p["url"]
@@ -332,6 +345,14 @@ private fun StepEditorDialog(vm: MainViewModel, initial: Step?, onAdd: (Step) ->
     }
 
     fun build(): Step? = when (type) {
+        StepType.TUYA -> if (tuyaSel.isEmpty()) null else {
+            val all = "all" in tuyaSel
+            Step(type, mapOf(
+                "ids" to if (all) "all" else tuyaSel.joinToString(","),
+                "names" to if (all) "Alle" else tuyaDevs.filter { it.id in tuyaSel }.joinToString(", ") { it.name },
+                "mode" to mode,
+            ))
+        }
         StepType.ALEXA -> {
             val url = if (mode == "vm") {
                 if (f1.isBlank() || f2.isBlank()) null
@@ -385,6 +406,23 @@ private fun StepEditorDialog(vm: MainViewModel, initial: Step?, onAdd: (Step) ->
                 loadError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
 
                 when (type) {
+                    StepType.TUYA -> {
+                        ModeChips(onOff)
+                        if (tuyaDevs.isEmpty()) Text("Noch keine Tuya-Geräte – unter Aktionen → Tuya einrichten.", color = MaterialTheme.colorScheme.error)
+                        else {
+                            SelectRow("Alle Geräte", "${tuyaDevs.size} Geräte", "all" in tuyaSel) { tuyaSel = if ("all" in tuyaSel) emptySet() else setOf("all") }
+                            tuyaDevs.forEach { d ->
+                                Row(Modifier.fillMaxWidth().clickable {
+                                    tuyaSel = (tuyaSel - "all").let { if (d.id in it) it - d.id else it + d.id }
+                                }, verticalAlignment = Alignment.CenterVertically) {
+                                    Checkbox(checked = d.id in tuyaSel || "all" in tuyaSel, onCheckedChange = {
+                                        tuyaSel = (tuyaSel - "all").let { if (d.id in it) it - d.id else it + d.id }
+                                    })
+                                    Text(d.name, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                                }
+                            }
+                        }
+                    }
                     StepType.ALEXA -> {
                         OutlinedTextField(f3, { f3 = it }, label = { Text("Name der Routine (zur Anzeige)") }, singleLine = true, modifier = Modifier.fillMaxWidth())
                         ModeChips(listOf("vsh" to "Virtual Smart Home", "vm" to "Voice Monkey"))

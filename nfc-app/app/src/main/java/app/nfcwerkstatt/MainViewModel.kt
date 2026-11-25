@@ -15,6 +15,8 @@ import app.nfcwerkstatt.automation.ActionTag
 import app.nfcwerkstatt.automation.HaConfig
 import app.nfcwerkstatt.automation.HueBridge
 import app.nfcwerkstatt.automation.TagAction
+import app.nfcwerkstatt.automation.TuyaClient
+import app.nfcwerkstatt.automation.TuyaDevice
 import app.nfcwerkstatt.data.HistoryStore
 import app.nfcwerkstatt.data.Settings
 import app.nfcwerkstatt.nfc.DraftRecord
@@ -65,6 +67,7 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val actions = MutableStateFlow<List<TagAction>>(emptyList())
     val hue = MutableStateFlow(actionStore.hue)
     val ha = MutableStateFlow(actionStore.ha)
+    val tuya = MutableStateFlow(actionStore.tuya)
 
     val tab = MutableStateFlow(Tab.READ)
     val nfcState = MutableStateFlow(NfcState.ON)
@@ -274,6 +277,15 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
 
     fun setHue(b: HueBridge?) { actionStore.hue = b; hue.value = b }
     fun setHa(c: HaConfig?) { actionStore.ha = c; ha.value = c }
+    fun setTuya(list: List<TuyaDevice>) { actionStore.tuya = list; tuya.value = list }
+
+    fun tuyaSwitch(d: TuyaDevice, mode: String) {
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { TuyaClient(d).connect().use { it.switch(mode) } }
+                .onSuccess { msg("${d.name}: ${if (it) "an" else "aus"}") }
+                .onFailure { msg("${d.name}: ${it.message}") }
+        }
+    }
 
     private fun persistActions() {
         val snapshot = actions.value

@@ -71,9 +71,13 @@ class ScreenshotTest {
     @Test fun actionsEmpty() = shot { it.tab.value = Tab.ACTIONS }
     @Test fun actionsList() = shot {
         it.tab.value = Tab.ACTIONS
+        it.tuya.value = listOf(
+            app.nfcwerkstatt.automation.TuyaDevice("a", "Stehlampe", "0123456789abcdef", "192.168.1.41", "3.3"),
+            app.nfcwerkstatt.automation.TuyaDevice("b", "LSC Lichterkette", "0123456789abcdef", "", ""),
+        )
         it.actions.value = listOf(
             TagAction("a1", "Gute Nacht", listOf(
-                Step(StepType.ALEXA, mapOf("label" to "Gute Nacht", "url" to "https://www.virtualsmarthome.xyz/url_routine_trigger/x")),
+                Step(StepType.TUYA, mapOf("ids" to "all", "names" to "Alle", "mode" to "off")),
                 Step(StepType.RINGER, mapOf("mode" to "silent")),
             )),
             TagAction("a2", "Wohnzimmer gemütlich", listOf(Step(StepType.HUE_GROUP, mapOf("id" to "1", "name" to "Wohnzimmer", "mode" to "on", "bri" to "100")))),

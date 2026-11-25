@@ -33,6 +33,7 @@ object ActionRunner {
 
     private fun runStep(ctx: Context, store: ActionStore, s: Step) {
         when (s.type) {
+            StepType.TUYA -> tuya(store, s["ids"], s["mode"])
             StepType.ALEXA -> {
                 if (s["url"].isBlank()) throw IllegalStateException("Trigger-Link fehlt – Aktion bearbeiten.")
                 val (code, _) = Http.request("GET", s["url"])
@@ -69,6 +70,35 @@ object ActionRunner {
                 ctx.startActivity(i.addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
             }
         }
+    }
+
+    /** Schaltet Tuya-Geräte lokal, mehrere gleichzeitig. */
+    fun tuya(store: ActionStore, ids: String, mode: String) {
+        val all = store.tuya
+        val targets = if (ids == "all") all else ids.split(",").mapNotNull { id -> all.firstOrNull { it.id == id.trim() } }
+        if (targets.isEmpty()) throw IllegalStateException("Keine Tuya-Geräte eingerichtet.")
+        var m = mode
+        if (m == "toggle" && targets.size > 1) {
+            // Gruppe: ist irgendwas an → alles aus, sonst alles an
+            val anyOn = targets.any { d -> runCatching { TuyaClient(d).connect().use { c -> c.status().let { st -> (d.switchDp.ifBlank { null } ?: listOf("1", "20").firstOrNull { st.opt(it) is Boolean })?.let { st.optBoolean(it) } } } }.getOrNull() == true }
+            m = if (anyOn) "off" else "on"
+        }
+        val errors = java.util.Collections.synchronizedList(mutableListOf<String>())
+        targets.map { d ->
+            Thread {
+                try {
+                    if (d.ip.isBlank()) throw IllegalStateException("IP unbekannt – „Im WLAN suchen“")
+                    var last: Exception? = null
+                    for (attempt in 1..2) {
+                        try { TuyaClient(d).connect().use { it.switch(m) }; last = null; break } catch (e: Exception) { last = e }
+                    }
+                    last?.let { throw it }
+                } catch (e: Exception) {
+                    errors += "${d.name}: ${e.message ?: e.javaClass.simpleName}"
+                }
+            }.apply { start() }
+        }.forEach { it.join() }
+        if (errors.isNotEmpty()) throw IllegalStateException(errors.joinToString("; "))
     }
 
     private fun hue(store: ActionStore) = store.hue ?: throw IllegalStateException("Hue-Bridge ist nicht verbunden.")

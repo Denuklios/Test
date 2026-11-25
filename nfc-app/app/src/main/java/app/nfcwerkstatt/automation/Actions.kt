@@ -9,6 +9,7 @@ import java.io.File
 import java.util.UUID
 
 enum class StepType(val label: String) {
+    TUYA("Tuya / Smart Life"),
     ALEXA("Alexa-Routine"),
     HUE_ALL("Hue: alle Lichter"),
     HUE_GROUP("Hue: Raum / Zone"),
@@ -26,6 +27,7 @@ data class Step(val type: StepType, val p: Map<String, String> = emptyMap()) {
     operator fun get(k: String): String = p[k].orEmpty()
 
     fun describe(): String = when (type) {
+        StepType.TUYA -> (if (this["ids"] == "all") "Alle Tuya-Geräte" else "Tuya „${this["names"]}“") + " ${modeText(this["mode"])}"
         StepType.ALEXA -> "Alexa-Routine „${this["label"].ifBlank { "ohne Namen" }}“" + if (this["url"].isBlank()) " – Link fehlt" else ""
         StepType.HUE_ALL -> "Alle Hue-Lichter ${modeText(this["mode"])}"
         StepType.HUE_GROUP -> "Hue „${this["name"]}“ ${modeText(this["mode"])}" +
@@ -112,6 +114,21 @@ class ActionStore(context: Context) {
             return HueBridge(ip, user)
         }
         set(v) = prefs.edit().putString("hueIp", v?.ip).putString("hueUser", v?.user).apply()
+
+    var tuya: List<TuyaDevice>
+        get() = runCatching {
+            val arr = JSONArray(prefs.getString("tuya", "[]"))
+            (0 until arr.length()).map { arr.getJSONObject(it) }.map {
+                TuyaDevice(it.getString("id"), it.optString("name"), it.getString("key"), it.optString("ip"),
+                    it.optString("version"), it.optString("category"), it.optString("dp"))
+            }
+        }.getOrDefault(emptyList())
+        set(v) = prefs.edit().putString("tuya", JSONArray().apply {
+            v.forEach { d ->
+                put(JSONObject().put("id", d.id).put("name", d.name).put("key", d.key).put("ip", d.ip)
+                    .put("version", d.version).put("category", d.category).put("dp", d.switchDp))
+            }
+        }.toString()).apply()
 
     var ha: HaConfig?
         get() {

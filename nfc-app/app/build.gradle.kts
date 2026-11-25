@@ -13,8 +13,8 @@ android {
         applicationId = "app.nfcwerkstatt"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.4"
+        versionCode = 7
+        versionName = "1.5"
     }
 
     // Fester Schlüssel, damit jede neue Version als Update über die installierte App geht –
@@ -65,4 +65,5 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
 
     testImplementation("junit:junit:4.13.2")
+    testImplementation("org.json:json:20240303")
 }

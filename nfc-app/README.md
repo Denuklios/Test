@@ -3,7 +3,7 @@
 Native Kotlin-App (Jetpack Compose, Material 3). Kein Browser, kein WebView, keine Internetberechtigung –
 alles läuft direkt über die NFC-Hardware des Handys.
 
-**Fertige APK:** [`apk/NFC-Werkstatt-1.4.apk`](apk/NFC-Werkstatt-1.4.apk) – aufs Handy kopieren, öffnen,
+**Fertige APK:** [`apk/NFC-Werkstatt-1.5.apk`](apk/NFC-Werkstatt-1.5.apk) – aufs Handy kopieren, öffnen,
 „Installation aus unbekannten Quellen“ erlauben. Ab Android 8.0, Gerät mit NFC.
 
 ## Funktionen
@@ -32,6 +32,11 @@ alles läuft direkt über die NFC-Hardware des Handys.
 
 ### Aktionen (Smart Home)
 - Handy an den Tag halten → Aktion läuft sofort, auch bei geschlossener App (Handy muss entsperrt sein).
+- **Tuya / Smart Life / LSC Smart Connect / Megos – direkt im WLAN, ohne Cloud und ohne Alexa.**
+  Eigenes Protokoll (3.3, 3.4, 3.5, portiert nach tinytuya). Local Keys einmalig über iot.tuya.com importieren,
+  Geräte im WLAN suchen, dann einzeln oder alle an/aus/umschalten. Getestet gegen `tools/fake_tuya.py`
+  (simuliertes Gerät): `python tools/fake_tuya.py 3.3:16668 3.4:16669 3.5:16670` und
+  `TUYA_MOCK="3.3:16668,3.4:16669,3.5:16670" ./gradlew testDebugUnitTest`.
 - **Amazon Alexa:** startet Alexa-Routinen über einen Trigger-Link von *Virtual Smart Home* (URL Routine Trigger)
   oder *Voice Monkey* – damit alles, was Alexa steuert (Licht aus, Steckdosen, Musik …). Anleitung in der App.
 - **Philips Hue** (lokale Bridge, Suche + Knopf-Kopplung): alle Lichter, Räume/Zonen mit Helligkeit, Szenen – an/aus/umschalten.
