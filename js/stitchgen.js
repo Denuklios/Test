@@ -447,7 +447,7 @@
   function fillRotated(rings, o, startPt) {
     const blocks = scanBlocks(rings, o.spacing, o.gradEnd, o.push || 0);
     let out, cur, remaining, done, tcost;
-    const reset = () => { out = []; cur = startPt; remaining = blocks.filter((b) => b.rows.length); done = []; doneIds = new Set(); tcost = 0; };
+    const reset = () => { out = []; cur = startPt; remaining = blocks.filter((b) => b.rows.length); done = []; doneIds = new Set(); doneRows = new Map(); tcost = 0; };
     // Blockkarte: welche Teilfläche deckt welche Stelle (für schnelle Abfragen „schon gestickt?“)
     const bbAll = G.bbox(rings.flat()), gc = 0.4;
     const gx0 = bbAll.x0 - 1, gy0 = bbAll.y0 - 1, GW = Math.ceil((bbAll.x1 - gx0 + 1) / gc) + 1, GH = Math.ceil((bbAll.y1 - gy0 + 1) / gc) + 1;
@@ -466,10 +466,23 @@
       const c = Math.floor((pt.x - gx0) / gc), r = Math.floor((pt.y - gy0) / gc);
       return c < 0 || r < 0 || c >= GW || r >= GH ? -1 : bmap[r * GW + c];
     };
-    let doneIds = new Set();
+    let doneIds = new Set(), doneRows = new Map();
     reset();
     // liegt der Punkt auf bereits gestickter Fläche?
-    const covered = (pt) => { const id = blockAt(pt); return id >= 0 && doneIds.has(id); };
+    const covered = (pt) => {
+      const id = blockAt(pt);
+      if (id < 0) return false;
+      if (doneIds.has(id)) return true;
+      const ds = doneRows.get(id);
+      if (!ds || !ds.size) return false;
+      // nächste Reihe dieses Blocks (Reihen liegen nach y sortiert)
+      const rows = blocks[id].rows;
+      let lo = 0, hi = rows.length - 1;
+      while (lo < hi) { const m = (lo + hi) >> 1; if (rows[m].y < pt.y) lo = m + 1; else hi = m; }
+      let k = lo;
+      if (k > 0 && Math.abs(rows[k - 1].y - pt.y) < Math.abs(rows[k].y - pt.y)) k--;
+      return ds.has(k);
+    };
     const crossesDone = (a, b) => {
       const L = G.dist(a, b), n = Math.floor(L / 0.8);
       for (let i = 1; i < n; i++) if (covered(G.lerp(a, b, i / n))) return true;
@@ -627,7 +640,12 @@
       if (ip) {
         for (let i = 1; i < ip.length; i++) {
           const L = G.dist(ip[i - 1], ip[i]), n = Math.max(1, Math.ceil(L / 0.8));
-          for (let t = 0; t < n; t++) tcost += (L / n) * travelCost(G.lerp(ip[i - 1], ip[i], (t + 0.5) / n), 0.9);
+          for (let t = 0; t < n; t++) {
+            const q = G.lerp(ip[i - 1], ip[i], (t + 0.5) / n);
+            // Anfang und Ende einer Fahrt liegen zwangsläufig an Reihen – nur die Strecke dazwischen bewerten
+            const near = G.dist(q, from) < 0.8 || G.dist(q, to) < 0.8;
+            tcost += (L / n) * (near ? 1 : travelCost(q, 0.9));
+          }
         }
         runAlong(out, ip, 2.5); push(out, to); return;
       }
@@ -698,7 +716,97 @@
     }
     return { out, end: cur, cost: tcost };
     };
+    /**
+     * Ausläufer und Zacken im Durchgang mitsticken statt sie anzufahren:
+     * In jedes Teilstück hinein jede zweite Reihe, an der Spitze (bzw. nach den dort hängenden Teilstücken)
+     * umkehren und die Reihen dazwischen auf dem Rückweg sticken. Es braucht keine Fahrt in die Ecke und keine
+     * zurück; nur zwischen zwei Ausläufern an derselben Kante ein kurzer Weg entlang einer Reihe,
+     * die erst auf dem Rückweg gestickt wird (also darunter liegt).
+     */
+    const runDFS = () => {
+      reset();
+      const list = remaining.slice(), n = list.length;
+      const ov = (a2, b2) => a2.x0 < b2.x1 && b2.x0 < a2.x1;
+      const top = list.map(() => []), bot = list.map(() => []);
+      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
+        if (i === j) continue;
+        const a1 = list[i].rows[list[i].rows.length - 1], b0 = list[j].rows[0];
+        if (b0.r === a1.r + 1 && ov(a1, b0)) { bot[i].push(j); top[j].push(i); }
+      }
+      const seen = new Set();
+      const pc = o.pull || 0, ins = o.inset || 0;
+      const rowPts = (sg) => {
+        let x0 = sg.x0 - pc + ins, x1 = sg.x1 + pc - ins;
+        if (x1 - x0 < 0.3) { if (ins) return null; const m = (x0 + x1) / 2; x0 = m - 0.15; x1 = m + 0.15; }
+        return { x0, x1 };
+      };
+      const stitchRow = (bi, k) => {
+        const b = list[bi], sg = b.rows[k], rp = rowPts(sg);
+        const id = bIdx.get(b);
+        if (!doneRows.has(id)) doneRows.set(id, new Set());
+        doneRows.get(id).add(k);
+        if (!rp) return;
+        // am näheren Ende beginnen
+        const L0 = { x: rp.x0, y: sg.y }, R0 = { x: rp.x1, y: sg.y };
+        const dir = cur && G.dist(cur, R0) < G.dist(cur, L0) ? 1 : 0;
+        const a2 = dir ? R0 : L0, e = dir ? L0 : R0;
+        if (cur && G.dist(cur, a2) > Math.max(o.len, 3)) travel(cur, a2);
+        else if (!cur) travel(cur, a2);
+        push(out, a2);
+        const L = o.len, offs = patternOffset(o.pattern, sg.r) * L, minEnd = L * 0.3;
+        const xs = [];
+        const g0 = Math.ceil((rp.x0 + minEnd - offs) / L);
+        for (let m = g0; offs + m * L < rp.x1 - minEnd; m++) xs.push(offs + m * L);
+        if (dir) xs.reverse();
+        xs.forEach((x) => push(out, { x, y: sg.y }));
+        push(out, e);
+        cur = e;
+      };
+      const nearRowMid = (j, fromTop) => { const r = fromTop ? list[j].rows[0] : list[j].rows[list[j].rows.length - 1]; return { x: (r.x0 + r.x1) / 2, y: r.y }; };
+      const visitAll = (cands) => {
+        // nächstes noch offenes Teilstück zuerst (vom aktuellen Punkt aus)
+        let left = cands.filter((c) => !seen.has(c.j));
+        while (left.length) {
+          left.sort((p, q) => (cur ? G.dist(cur, nearRowMid(p.j, p.fromTop)) - G.dist(cur, nearRowMid(q.j, q.fromTop)) : 0));
+          const c = left.shift();
+          if (!seen.has(c.j)) visit(c.j, c.fromTop);
+          left = left.filter((q) => !seen.has(q.j));
+        }
+      };
+      const visit = (i, fromTop) => {
+        seen.add(i);
+        const nR = list[i].rows.length;
+        const idx = Array.from({ length: nR }, (_, k) => (fromTop ? k : nR - 1 - k));
+        const nearSide = (fromTop ? top[i] : bot[i]).map((j) => ({ j, fromTop: !fromTop }));
+        const farSide = (fromTop ? bot[i] : top[i]).map((j) => ({ j, fromTop }));
+        // Teilstücke, die an der Einstiegskante hängen, zuerst (die Einstiegsreihe ist noch offen)
+        visitAll(nearSide);
+        // hin: jede zweite Reihe; die letzte (ferne) Reihe bleibt für den Rückweg offen
+        const farPar = (nR - 1) % 2;
+        for (let p = 0; p < nR; p++) if (p % 2 !== farPar) stitchRow(i, idx[p]);
+        // an der fernen Kante hängende Teilstücke (Wege dazwischen über der noch offenen letzten Reihe)
+        visitAll(farSide);
+        // zurück: die Reihen dazwischen
+        for (let p = nR - 1; p >= 0; p--) if (p % 2 === farPar) stitchRow(i, idx[p]);
+        doneIds.add(bIdx.get(list[i]));
+      };
+      while (seen.size < n) {
+        // Einstieg: Teilstück, dessen Randreihe dem aktuellen Punkt am nächsten liegt
+        let best = null, bd = Infinity;
+        for (let j = 0; j < n; j++) {
+          if (seen.has(j)) continue;
+          for (const ft of [true, false]) { const d = cur ? G.dist(cur, nearRowMid(j, ft)) : (ft ? 0 : 1) + j * 1e-3; if (d < bd) { bd = d; best = { j, ft }; } }
+        }
+        visit(best.j, best.ft);
+      }
+      return { out, end: cur, cost: tcost };
+    };
     // geplante Reihenfolge und einfache Nächster-Block-Reihenfolge ausführen, die mit weniger sichtbaren Fahrten nehmen
+    if (!o.satin && remaining.length > 1 && o.order !== 'blocks') {
+      const D2 = runDFS();
+      const A2 = runOnce(planned ? planned.slice() : null);
+      return D2.cost <= A2.cost * 1.05 + 5 ? D2 : A2;
+    }
     const A = runOnce(planned ? planned.slice() : null);
     const score = (r) => r.cost + (o.exitTarget && r.end ? 0.6 * G.dist(r.end, o.exitTarget) : 0);
     if (!planned) {
