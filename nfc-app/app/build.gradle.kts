@@ -12,8 +12,20 @@ android {
         applicationId = "app.nfcwerkstatt"
         minSdk = 26
         targetSdk = 35
-        versionCode = 1
-        versionName = "1.0"
+        versionCode = 2
+        versionName = "1.0.1"
+    }
+
+    // Fester Schlüssel, damit jede neue Version als Update über die installierte App geht –
+    // egal wo gebaut wird. Fehlt die Datei, wird mit dem Debug-Schlüssel signiert.
+    val keystoreFile = rootProject.file("keystore/nfc-werkstatt.jks")
+    signingConfigs {
+        if (keystoreFile.exists()) create("werkstatt") {
+            storeFile = keystoreFile
+            storePassword = "nfcwerkstatt"
+            keyAlias = "nfcwerkstatt"
+            keyPassword = "nfcwerkstatt"
+        }
     }
 
     buildTypes {
@@ -21,9 +33,10 @@ android {
             isMinifyEnabled = true
             isShrinkResources = true
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")
-            // Zum direkten Installieren (Sideload) mit dem Debug-Schlüssel signiert.
-            // Für den Play Store eine eigene signingConfig hinterlegen.
-            signingConfig = signingConfigs.getByName("debug")
+            signingConfig = signingConfigs.findByName("werkstatt") ?: signingConfigs.getByName("debug")
+        }
+        debug {
+            signingConfig = signingConfigs.findByName("werkstatt") ?: signingConfigs.getByName("debug")
         }
     }
     compileOptions {

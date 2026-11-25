@@ -3,7 +3,7 @@
 Native Kotlin-App (Jetpack Compose, Material 3). Kein Browser, kein WebView, keine Internetberechtigung –
 alles läuft direkt über die NFC-Hardware des Handys.
 
-**Fertige APK:** [`apk/NFC-Werkstatt-1.0.apk`](apk/NFC-Werkstatt-1.0.apk) – aufs Handy kopieren, öffnen,
+**Fertige APK:** [`apk/NFC-Werkstatt-1.0.1.apk`](apk/NFC-Werkstatt-1.0.1.apk) – aufs Handy kopieren, öffnen,
 „Installation aus unbekannten Quellen“ erlauben. Ab Android 8.0, Gerät mit NFC.
 
 ## Funktionen
@@ -57,9 +57,11 @@ echo "sdk.dir=/pfad/zum/android-sdk" > local.properties   # oder ANDROID_HOME se
 Oder in Android Studio den Ordner `nfc-app` öffnen und auf „Run“ drücken.
 Bei jedem Push baut GitHub Actions (`.github/workflows/nfc-app.yml`) die APK automatisch und hängt sie als Artefakt an.
 
-Hinweis: Die Release-APK ist mit dem Debug-Schlüssel signiert (zum direkten Installieren). Für den Play Store
-in `app/build.gradle.kts` eine eigene `signingConfig` eintragen. Wird die App später mit einem anderen
-Schlüssel gebaut, muss die alte Version vorher deinstalliert werden.
+**Signatur:** Die APK ist mit `keystore/nfc-werkstatt.jks` signiert (Alias und Passwort `nfcwerkstatt`).
+Nur mit genau diesem Schlüssel lässt sich eine neue Version als Update über die installierte App installieren
+(Verlauf und Einstellungen bleiben erhalten). Die Datei liegt nicht im Repository: sicher aufbewahren und
+zum Bauen eines Updates wieder nach `nfc-app/keystore/` legen. Fehlt sie, signiert der Build mit dem
+Debug-Schlüssel, und so eine APK lässt sich nicht über die installierte Version installieren.
 
 ## Aufbau
 
