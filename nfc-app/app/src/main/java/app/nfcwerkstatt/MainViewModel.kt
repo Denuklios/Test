@@ -79,6 +79,10 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     val vibrate = MutableStateFlow(settings.vibrate)
     val saveHistory = MutableStateFlow(settings.saveHistory)
 
+    val update = MutableStateFlow<UpdateInfo?>(null)
+    val updating = MutableStateFlow(false)
+    private var lastUpdateCheck = 0L
+
     init {
         viewModelScope.launch(Dispatchers.IO) {
             val loaded = store.load()
@@ -274,6 +278,41 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     private fun persistActions() {
         val snapshot = actions.value
         viewModelScope.launch(Dispatchers.IO) { runCatching { actionStore.save(snapshot) } }
+    }
+
+    // ------------------------------------------------------------ Updates
+
+    /** Beim Start/Zurückkehren höchstens stündlich, manuell jederzeit. */
+    fun checkUpdate(manual: Boolean = false) {
+        val now = System.currentTimeMillis()
+        if (!manual && now - lastUpdateCheck < 3_600_000) return
+        lastUpdateCheck = now
+        val ctx = getApplication<Application>()
+        viewModelScope.launch(Dispatchers.IO) {
+            val r = runCatching { Updater.check(ctx) }
+            update.value = r.getOrNull()
+            if (manual) msg(
+                r.exceptionOrNull()?.let { "Update-Prüfung fehlgeschlagen: ${it.message}" }
+                    ?: r.getOrNull()?.let { "Version ${it.version} ist verfügbar." }
+                    ?: "Du hast die neueste Version (${Updater.currentName(ctx)}).",
+            )
+        }
+    }
+
+    fun installUpdate() {
+        val info = update.value ?: return
+        val ctx = getApplication<Application>()
+        if (!Updater.canInstall(ctx)) {
+            msg("Bitte „Apps aus dieser Quelle installieren“ erlauben und dann erneut tippen.")
+            Updater.openInstallPermission(ctx)
+            return
+        }
+        updating.value = true
+        viewModelScope.launch(Dispatchers.IO) {
+            runCatching { Updater.downloadAndInstall(ctx, info) }
+                .onFailure { msg("Update fehlgeschlagen: ${it.message}") }
+            updating.value = false
+        }
     }
 
     // ------------------------------------------------------------ Hilfen

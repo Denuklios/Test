@@ -15,6 +15,7 @@ import androidx.compose.material.icons.filled.Lock
 import androidx.compose.material.icons.filled.LockOpen
 import androidx.compose.material.icons.filled.Password
 import androidx.compose.material.icons.filled.Settings
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Tune
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
@@ -82,6 +83,12 @@ fun ToolsScreen(vm: MainViewModel, nfc: NfcState, onOpenNfcSettings: () -> Unit)
             SwitchRow("Speicher-Dump beim Lesen", "Liest Seiten/Blöcke roh aus (dauert etwas länger)", dump, vm::setDumpMemory)
             SwitchRow("Vibration", "Rückmeldung bei Erfolg und Fehler", vibrate, vm::setVibrate)
             SwitchRow("Verlauf speichern", "Gelesene Tags lokal auf dem Gerät speichern", saveHistory, vm::setSaveHistory)
+        }
+
+        SectionCard("App-Updates", Icons.Filled.SystemUpdate) {
+            val ctx = androidx.compose.ui.platform.LocalContext.current
+            Text("Installiert: Version ${app.nfcwerkstatt.Updater.currentName(ctx)}. Neue Versionen werden beim Start automatisch gesucht.")
+            Button(onClick = { vm.checkUpdate(manual = true) }) { Text("Jetzt nach Updates suchen") }
         }
 
         SectionCard("NFC", Icons.Filled.Settings) {

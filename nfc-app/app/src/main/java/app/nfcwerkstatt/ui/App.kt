@@ -20,6 +20,7 @@ import androidx.compose.material.icons.filled.Build
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.Nfc
+import androidx.compose.material.icons.filled.SystemUpdate
 import androidx.compose.material.icons.filled.Warning
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Icon
@@ -94,6 +95,7 @@ fun App(vm: MainViewModel, onOpenNfcSettings: () -> Unit) {
     ) { padding ->
         Column(Modifier.padding(padding).fillMaxSize()) {
             if (nfc != NfcState.ON) NfcBanner(nfc, onOpenNfcSettings)
+            UpdateBanner(vm)
             when (tab) {
                 Tab.READ -> ReadScreen(vm)
                 Tab.WRITE -> WriteScreen(vm)
@@ -219,4 +221,26 @@ private fun PendingDialog(action: PendingAction, count: Int, onCancel: () -> Uni
             TextButton(onClick = onCancel) { Text(if (action.repeat && count > 0) "Fertig" else "Abbrechen") }
         },
     )
+}
+
+@Composable
+private fun UpdateBanner(vm: MainViewModel) {
+    val info by vm.update.collectAsStateWithLifecycle()
+    val busy by vm.updating.collectAsStateWithLifecycle()
+    val u = info ?: return
+    Surface(
+        color = MaterialTheme.colorScheme.primaryContainer,
+        shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 4.dp),
+    ) {
+        Row(Modifier.padding(start = 16.dp, end = 8.dp, top = 10.dp, bottom = 10.dp), verticalAlignment = Alignment.CenterVertically) {
+            Icon(Icons.Filled.SystemUpdate, null, tint = MaterialTheme.colorScheme.onPrimaryContainer)
+            Spacer(Modifier.width(12.dp))
+            Column(Modifier.weight(1f)) {
+                Text("Update ${u.version} verfügbar", style = MaterialTheme.typography.titleSmall, color = MaterialTheme.colorScheme.onPrimaryContainer)
+                if (u.notes.isNotBlank()) Text(u.notes, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onPrimaryContainer, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            }
+            TextButton(onClick = vm::installUpdate, enabled = !busy) { Text(if (busy) "Lädt …" else "Installieren", maxLines = 1) }
+        }
+    }
 }

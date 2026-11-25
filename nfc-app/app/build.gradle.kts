@@ -13,8 +13,8 @@ android {
         applicationId = "app.nfcwerkstatt"
         minSdk = 26
         targetSdk = 35
-        versionCode = 5
-        versionName = "1.3"
+        versionCode = 6
+        versionName = "1.4"
     }
 
     // Fester Schlüssel, damit jede neue Version als Update über die installierte App geht –

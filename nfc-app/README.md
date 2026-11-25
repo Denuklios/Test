@@ -3,7 +3,7 @@
 Native Kotlin-App (Jetpack Compose, Material 3). Kein Browser, kein WebView, keine Internetberechtigung –
 alles läuft direkt über die NFC-Hardware des Handys.
 
-**Fertige APK:** [`apk/NFC-Werkstatt-1.3.apk`](apk/NFC-Werkstatt-1.3.apk) – aufs Handy kopieren, öffnen,
+**Fertige APK:** [`apk/NFC-Werkstatt-1.4.apk`](apk/NFC-Werkstatt-1.4.apk) – aufs Handy kopieren, öffnen,
 „Installation aus unbekannten Quellen“ erlauben. Ab Android 8.0, Gerät mit NFC.
 
 ## Funktionen
@@ -57,6 +57,11 @@ alles läuft direkt über die NFC-Hardware des Handys.
 ### Verlauf
 - Alle gelesenen Tags lokal gespeichert (max. 300), antippen zum erneuten Anzeigen, einzeln/alle löschen,
   Export als JSON über das Teilen-Menü.
+
+### Updates
+- Die App sucht beim Start (höchstens stündlich) nach neuen Versionen und installiert sie per Tipp auf „Installieren“.
+- Quelle: `update/version.json` + `apk/…` in diesem Repo (änderbar in der App). Neue Version veröffentlichen:
+  `versionCode`/`versionName` erhöhen, APK nach `apk/` kopieren, `update/version.json` anpassen, pushen.
 
 ## Selbst bauen
 

@@ -58,6 +58,7 @@ class MainActivity : ComponentActivity(), NfcAdapter.ReaderCallback {
         super.onResume()
         updateNfcState()
         enableReader()
+        vm.checkUpdate()
     }
 
     override fun onPause() {
