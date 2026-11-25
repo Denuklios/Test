@@ -414,23 +414,46 @@
       const next = [];
       const ov = (a, b) => a.x0 < b.x1 && b.x0 < a.x1;
       const used = new Set();
-      for (const s of segs) {
-        const cand = active.filter((b) => ov(b.last, s));
-        if (cand.length === 1) {
-          const b = cand[0];
-          const back = segs.filter((t) => ov(b.last, t));
-          if (back.length === 1 && !used.has(b)) {
-            b.rows.push(s); b.last = s; used.add(b); next.push(b);
-            continue;
-          }
-        }
-        const nb = { rows: [s], last: s };
+      // Ein Block läuft mit dem Segment weiter, mit dem er sich am stärksten überdeckt; abzweigende
+      // oder einmündende Stücke (Fellzacken, kleine Ausläufer) werden eigene Blöcke, ohne den großen
+      // Abschnitt zu unterbrechen. So entstehen wenige große Abschnitte statt vieler kleiner.
+      const pairs = [];
+      for (const b of active) for (const sg of segs) if (ov(b.last, sg)) pairs.push({ b, sg, o: Math.min(b.last.x1, sg.x1) - Math.max(b.last.x0, sg.x0) });
+      pairs.sort((p1, p2) => p2.o - p1.o);
+      const taken = new Set();
+      for (const pr of pairs) {
+        if (used.has(pr.b) || taken.has(pr.sg)) continue;
+        pr.b.rows.push(pr.sg); pr.b.last = pr.sg; used.add(pr.b); taken.add(pr.sg); next.push(pr.b);
+      }
+      for (const sg of segs) {
+        if (taken.has(sg)) continue;
+        const nb = { rows: [sg], last: sg };
         blocks.push(nb);
         next.push(nb);
       }
       active = next;
     }
     return blocks;
+  }
+
+  // Nachbarschaft der Blöcke: top[j] = Blöcke an der ersten Reihe von j, bot[j] = an der letzten Reihe;
+  // all[j] = alle Nachbarn (auch wenn j mitten an einem anderen Block hängt)
+  function blockAdj(list) {
+    const n = list.length;
+    const byR = list.map((b) => { const m = new Map(); for (const sg of b.rows) m.set(sg.r, sg); return m; });
+    const ov = (a, b) => a.x0 < b.x1 && b.x0 < a.x1;
+    const top = list.map(() => []), bot = list.map(() => []), all = list.map(() => new Set());
+    for (let j = 0; j < n; j++) {
+      const f = list[j].rows[0], l = list[j].rows[list[j].rows.length - 1];
+      for (let i = 0; i < n; i++) {
+        if (i === j) continue;
+        const a = byR[i].get(f.r - 1);
+        if (a && ov(a, f)) { top[j].push(i); all[j].add(i); all[i].add(j); }
+        const c = byR[i].get(l.r + 1);
+        if (c && ov(c, l)) { bot[j].push(i); all[j].add(i); all[i].add(j); }
+      }
+    }
+    return { top, bot, all: all.map((x) => [...x]) };
   }
 
   // Versatz der Einstiche je Reihe (Anteil der Stichlänge) – erzeugt das sichtbare Muster der Fläche
@@ -512,16 +535,10 @@
      * Fläche, nie am Rand entlang. Zum Schluss bleibt der große Bereich, der von seinem Ende her gestickt wird.
      */
     function planTree(list, start) {
-      const n = list.length;
-      const ov = (a, b) => a.x0 < b.x1 && b.x0 < a.x1;
-      const top = list.map(() => new Set()), bot = list.map(() => new Set());
-      for (let i = 0; i < n; i++) for (let j = 0; j < n; j++) {
-        if (i === j) continue;
-        const a1 = list[i].rows[list[i].rows.length - 1], b0 = list[j].rows[0];
-        if (b0.r === a1.r + 1 && ov(a1, b0)) { bot[i].add(j); top[j].add(i); }
-      }
+      const adj = blockAdj(list);
+      const top = adj.top.map((x) => new Set(x)), bot = adj.bot.map((x) => new Set(x));
       const rem = new Set(list.map((_, i) => i));
-      const nbs = (k) => [...top[k], ...bot[k]].filter((q) => rem.has(q));
+      const nbs = (k) => adj.all[k].filter((q) => rem.has(q));
       const connectedWithout = (k) => {
         const left = [...rem].filter((q) => q !== k);
         if (left.length <= 1) return true;
