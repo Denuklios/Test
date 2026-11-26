@@ -24,7 +24,7 @@
     fabric: '#f4f1ea',
     material: 'baumwolle',
     bg: null,
-    settings: { trimDist: 2.0, jumpMax: 0, lockJump: true, lock: true, trimJumps: 3, spm: 800, machine: 'industrie', limits: {}, checkPopup: true, autoRoute: true, hideTravel: true },
+    settings: { sv: 2, trimDist: 2.0, jumpMax: 18, lockJump: true, lock: true, trimJumps: 3, spm: 800, machine: 'industrie', limits: {}, checkPopup: true, autoRoute: true, hideTravel: true },
     defaults: {
       run: { ...S.DEFAULTS.run },
       triple: { ...S.DEFAULTS.run, style: 'triple' },
@@ -2566,7 +2566,7 @@
     st.objects = d.objects || []; st.palette = d.palette || st.palette; st.hoop = d.hoop || st.hoop;
     st.fabric = d.fabric || st.fabric;
     if (Array.isArray(d.customHoops)) { const ids = new Set(st.customHoops.map((c) => c.id)); st.customHoops = st.customHoops.concat(d.customHoops.filter((c) => !ids.has(c.id))); saveCustomHoops(); }
-    renderHoopSel(); st.material = d.material || st.material; if (d.threadBrand) st.threadBrand = d.threadBrand; st.guides = d.guides || []; if (d.threadAuto === false) st.threadAuto = false; st.objects.forEach(invalidate); Object.assign(st.settings, d.settings || {});
+    renderHoopSel(); st.material = d.material || st.material; if (d.threadBrand) st.threadBrand = d.threadBrand; st.guides = d.guides || []; if (d.threadAuto === false) st.threadAuto = false; st.objects.forEach(invalidate); Object.assign(st.settings, d.settings || {}); if (!(d.settings && d.settings.sv >= 2)) { st.settings.jumpMax = 18; st.settings.sv = 2; } // ältere Dateien: kurze Sprünge ohne Schnitt
     if (d.defaults) Object.keys(d.defaults).forEach((k) => Object.assign(st.defaults[k] || (st.defaults[k] = {}), d.defaults[k]));
     st.name = d.name || fname.replace(/\..*$/, '');
     nextId = Math.max(0, ...st.objects.map((o) => o.id || 0)) + 1;
@@ -3631,7 +3631,7 @@
     const options = () => {
       const wmm = num('aW') || b.w;
       const o = {
-        colors: Math.max(1, Math.min(15, num('aK') || 4)), widthMM: wmm, originX: b.x, originY: b.y,
+        colors: Math.max(1, Math.min(15, num('aK') || 4)), widthMM: wmm, jumpMax: st.settings.jumpMax, trimJumps: st.settings.trimJumps, trimDist: st.settings.trimDist, originX: b.x, originY: b.y,
         minAreaMM2: num('aMin') || 1, removeBg: $('#aBg').checked, satinMax: num('aSat') || 7, mode: val('aMode'), outline: $('#aOut').checked, angle: num('aAng') || 45,
         smooth: num('aSm'), edgeBlur: num('aBl'), corner: num('aCo') || 55, tol: num('aTol') || 0.04,
         lineMax: num('aLine') || 0, station: num('aSt') || 1.4, turnDeg: num('aTu') || 8,

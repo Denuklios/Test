@@ -94,7 +94,7 @@
     if (!n) return [];
     const opts = objs.map((o) => options(o, null));
     // Abdeckflächen ab Objekt i bis zum Ende seines Farbblocks: dort darf ein Laufweg versteckt liegen
-    const lk = { trimDist: settings.trimDist ?? 2, trimCost: settings.trimCost ?? 25 };
+    const lk = { trimDist: settings.trimDist ?? 2, trimCost: settings.trimCost ?? 25, jumpMax: jumpLimit(settings) };
     const coversFrom = new Array(n);
     for (let i = n - 1; i >= 0; i--) {
       const sameNext = i + 1 < n && objs[i + 1].color === objs[i].color;
@@ -354,6 +354,10 @@
     return false;
   }
   // Verbindung a -> b: kurz genug zum direkten Stich, unter späteren Objekten versteckbar, oder Schnitt
+  // erlaubte Sprunglänge ohne Schnitt (wie beim Zusammensetzen begrenzt durch die Sprünge bis zum Maschinenschnitt)
+  function jumpLimit(settings) {
+    return Math.min(settings.jumpMax || 0, Math.max(0, ((settings.trimJumps ?? 3) - 1) * 12.1));
+  }
   function linkCost(a, b, covers, opt) {
     const d = G.dist(a, b);
     if (d < opt.trimDist) return d;
@@ -372,6 +376,8 @@
         if (L < 3 * d + 10) return 1 + L * 0.25;
       }
     }
+    // Sprung ohne Schnitt (bis zur eingestellten Länge): billiger als ein Schnitt, teurer als ein versteckter Weg
+    if (opt.jumpMax && d <= opt.jumpMax) return 4 + d * 0.5;
     return d * 0.3 + opt.trimCost; // Schnitt: Sprunglänge zählt wenig, der Schnitt selbst viel
   }
   // Ein-/Ausstiegsvarianten für die Planung; Flächen: Ein- und Ausstieg irgendwo auf dem Umriss
@@ -406,7 +412,7 @@
    * Überlappende Objekte behalten ihre Reihenfolge (oben bleibt oben).
    */
   function beamSequence(objects, settings = {}) {
-    const opt = { trimDist: settings.trimDist ?? 2, trimCost: settings.trimCost ?? 25, keepOverlapOrder: settings.keepOverlapOrder !== false, fillsLast: !!settings.fillsLast };
+    const opt = { trimDist: settings.trimDist ?? 2, trimCost: settings.trimCost ?? 25, jumpMax: jumpLimit(settings), keepOverlapOrder: settings.keepOverlapOrder !== false, fillsLast: !!settings.fillsLast };
     const out = [];
     let i = 0, cur = null;
     while (i < objects.length) {
@@ -473,7 +479,7 @@
    * Verbindungen wie beim Zusammensetzen prüfen. Rückgabe: {trims, jump, travel, cost}
    */
   function simulate(order, settings = {}) {
-    const trimDist = settings.trimDist ?? 2, trimCost = settings.trimCost ?? 25;
+    const trimDist = settings.trimDist ?? 2, trimCost = settings.trimCost ?? 25, jumpMax = jumpLimit(settings);
     const pl = plan(order, settings);
     const objs = order.map((o, i) => {
       const r = { ...(pl[i] || {}) };
@@ -490,7 +496,7 @@
       try { o._st = HW.stitch.generate(o, settings.material); } catch (e) { o._st = []; }
       if (o._st.length) prevExit = o._st[o._st.length - 1];
     }
-    let trims = 0, jump = 0, travel = 0;
+    let trims = 0, jump = 0, travel = 0, floats = 0;
     for (let i = 1; i < objs.length; i++) {
       const a = objs[i - 1]._st[objs[i - 1]._st.length - 1], b = objs[i]._st[0];
       if (!a || !b) continue;
@@ -499,9 +505,10 @@
       if (d < trimDist) continue;
       const p = connect(a, b, objs, i);
       if (p) travel += G.polyLength([a, ...p]);
+      else if (jumpMax && d <= jumpMax) { floats++; jump += d; }
       else { trims++; jump += d; }
     }
-    return { trims, jump, travel, cost: trims * trimCost + jump * 0.3 + travel * 0.25, routes: objs.map((o) => o._route) };
+    return { trims, jump, travel, floats, cost: trims * trimCost + floats * 4 + jump * 0.3 + travel * 0.25, routes: objs.map((o) => o._route) };
   }
 
   /** Reihenfolge planen: mehrere Kandidaten erzeugen, jeden durchrechnen, den besten nehmen. */

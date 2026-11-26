@@ -700,7 +700,7 @@
     if (opts.sequence !== false && HW.route && HW.route.sequence) {
       try {
         res.forEach((o) => { o.color = o.colorKey; });
-        res = HW.route.sequence(res, { trimDist: opts.trimDist ?? 2, keepOverlapOrder: false });
+        res = HW.route.sequence(res, { trimDist: opts.trimDist ?? 2, jumpMax: opts.jumpMax ?? 18, trimJumps: opts.trimJumps ?? 3, keepOverlapOrder: false });
       } catch (e) { /* Reihenfolge bleibt */ }
       res.forEach((o) => { delete o.color; delete o._cover; });
     }
