@@ -449,6 +449,26 @@ class MailClient(private val acc: Account, private val password: String) {
         runCatching { f.moveMessages(arrayOf(msg), target) }.getOrElse { f.copyMessages(arrayOf(msg), target); msg.setFlag(Flags.Flag.DELETED, true) }
     }
 
+    /** Verschieben und die neue UID im Zielordner liefern (UIDPLUS, sonst Suche nach Message-ID) – damit „Rückgängig“ den Server erreicht. */
+    fun moveInReturningUid(store: Store, fromFolder: String, uid: Long, toFolder: String): Long? {
+        val msgId = withFolder(store, fromFolder) { f ->
+            val msg = f.getMessageByUID(uid) ?: return@withFolder null
+            val id = runCatching { (msg as MimeMessage).messageID }.getOrNull()
+            val target = store.getFolder(toFolder)
+            val res = runCatching { f.moveUIDMessages(arrayOf(msg), target) }.getOrElse {
+                val r = f.copyUIDMessages(arrayOf(msg), target); msg.setFlag(Flags.Flag.DELETED, true); r
+            }
+            res?.firstOrNull()?.uid?.takeIf { it > 0 }?.let { return@withFolder "#$it" }
+            id
+        } ?: return null
+        if (msgId.startsWith("#")) return msgId.drop(1).toLongOrNull()
+        return runCatching {
+            val t = store.getFolder(toFolder) as IMAPFolder
+            t.open(Folder.READ_ONLY)
+            try { t.search(jakarta.mail.search.HeaderTerm("Message-ID", msgId)).lastOrNull()?.let { t.getUID(it) } } finally { t.close(false) }
+        }.getOrNull()
+    }
+
     /** Leitet die Originalmail vollständig (mit allen Anhängen) als .eml-Anhang weiter. */
     fun forwardIn(store: Store, folder: String, uid: Long, to: List<String>, subject: String, sentFolder: String?) {
         val raw = withFolder(store, folder) { f ->
@@ -497,6 +517,11 @@ class MailClient(private val acc: Account, private val password: String) {
                 f.copyMessages(arrayOf(msg), target); msg.setFlag(Flags.Flag.DELETED, true)
             }
         }
+    }
+
+    /** endgültig löschen innerhalb einer bestehenden Verbindung (für viele Mails auf einmal) */
+    fun deleteForeverIn(store: Store, folder: String, uid: Long) = withFolder(store, folder) { f ->
+        f.getMessageByUID(uid)?.setFlag(Flags.Flag.DELETED, true)
     }
 
     fun deleteForever(folder: String, uid: Long) = withStore { s ->

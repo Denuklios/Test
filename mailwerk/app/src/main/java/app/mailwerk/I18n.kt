@@ -10,6 +10,21 @@ object I18n {
     fun german(): Boolean = Locale.getDefault().language == "de"
 
     val en: Map<String, String> = hashMapOf(
+        "{0} Mail(s) gelöscht" to "{0} email(s) deleted",
+        "{0} Mail(s) archiviert" to "{0} email(s) archived",
+        "{0} Mail(s) in den Spam – diese Absender sind künftig gesperrt" to "{0} email(s) moved to spam – these senders are now blocked",
+        "{0} Mail(s) von {1} gelöscht" to "{0} email(s) from {1} deleted",
+        "Ausgewählt" to "Selected",
+        "Auswahl beenden" to "End selection",
+        "{0} ausgewählt" to "{0} selected",
+        "Auswahl aufheben" to "Deselect all",
+        "Alle auswählen" to "Select all",
+        "Spam – Absender sperren" to "Spam – block senders",
+        "Weitere Aktionen …" to "More actions …",
+        "Alle von {0} löschen ({1})" to "Delete all from {0} ({1})",
+        "Alle {0} Mails von {1} löschen?" to "Delete all {0} emails from {1}?",
+        "Sie kommen in den Papierkorb. Mit „Rückgängig“ holst du sie zurück." to "They go to the trash. Use “Undo” to bring them back.",
+        "Alle löschen" to "Delete all",
         "Andere Kalender-Einladung gefunden" to "Different calendar invitation found",
         "Code {0} · aus {1}. Mailwerk ist zurzeit mit einem anderen Kalender verbunden." to "Code {0} · from {1}. Mailwerk is currently connected to a different calendar.",
         "Zu diesem Kalender wechseln" to "Switch to this calendar",

@@ -332,6 +332,9 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         writableDatabase.update("messages", ContentValues().apply { put("folder_id", newFolderId); put("uid", -id) }, "id=?", arrayOf("$id"))
     }
 
+    /** echte UID nach dem Verschieben eintragen (statt Platzhalter) */
+    fun setUid(id: Long, uid: Long) { writableDatabase.update("messages", ContentValues().apply { put("uid", uid) }, "id=?", arrayOf("$id")) }
+
     fun setCategoryForSender(address: String, cat: Category) {
         writableDatabase.insertWithOnConflict("sender_rules", null, ContentValues().apply {
             put("address", address.lowercase()); put("category", cat.name)
@@ -372,6 +375,12 @@ class Db private constructor(ctx: Context) : SQLiteOpenHelper(ctx, "mailwerk.db"
         val sql = "$msgSelectLight WHERE ${where.joinToString(" AND ")} ORDER BY m.date DESC LIMIT $limit"
         return readableDatabase.rawQuery(sql, args.toTypedArray()).use { c -> c.map { it.toMessage(withBody = false) } }
     }
+
+    /** Alle Mails eines Absenders (ohne Papierkorb) – für „Alle von … löschen“ */
+    fun messagesFrom(address: String): List<Message> = readableDatabase.rawQuery(
+        "$msgSelectLight WHERE lower(m.from_addr)=? AND f.role NOT IN ('trash','sent','drafts') ORDER BY m.date DESC",
+        arrayOf(address.trim().lowercase())
+    ).use { c -> c.map { it.toMessage(withBody = false) } }
 
     /** Volltextsuche über alle Ordner aller Konten. */
     fun search(query: String): List<Message> {

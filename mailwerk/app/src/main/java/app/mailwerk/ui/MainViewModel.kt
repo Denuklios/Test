@@ -273,6 +273,41 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
         val n = repo.applyRulesToExisting()
         snack(if (n == 0) tr("Fertig – keine Mail musste verschoben werden") else tr("Fertig – {0} Mail(s) verschoben", n))
     }
+    // ------------------------------------------------------------ Viele Mails auf einmal (Mehrfachauswahl)
+    /** alle Mails der gewählten Unterhaltungen im jeweiligen Ordner */
+    private fun expand(latest: List<Message>): List<Message> = latest.flatMap { m ->
+        db.thread(m.threadKey).filter { it.folderId == m.folderId }.ifEmpty { listOf(m) }
+    }.distinctBy { it.id }
+
+    fun bulk(kind: String, latest: List<Message>) = viewModelScope.launch {
+        val ms = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { expand(latest) }
+        if (ms.isEmpty()) return@launch
+        fun undoable(text: String, r: Pair<List<Pair<Message, Long>>, String?>) {
+            val (moved, err) = r
+            if (err != null) snack(err)
+            else snack(text, if (moved.isNotEmpty()) tr("Rückgängig") else null) { viewModelScope.launch { repo.bulkMoveBack(moved) } }
+        }
+        when (kind) {
+            "delete" -> undoable(tr("{0} Mail(s) gelöscht", ms.size), repo.bulkDelete(ms))
+            "archive" -> undoable(tr("{0} Mail(s) archiviert", ms.size), repo.bulkMoveToRole(ms, FolderRole.ARCHIVE))
+            "read" -> repo.bulkSeen(ms, true)?.let { snack(it) }
+            "unread" -> repo.bulkSeen(ms, false)?.let { snack(it) }
+            "spam" -> snack(repo.bulkSpam(ms) ?: tr("{0} Mail(s) in den Spam – diese Absender sind künftig gesperrt", ms.size))
+        }
+    }
+
+    /** Anzahl der Mails eines Absenders (für „Alle von … löschen“) */
+    fun countFrom(address: String): Int = repo.messagesFrom(address).size
+
+    /** Alle Mails eines Absenders löschen – mit „Rückgängig“ */
+    fun deleteAllFrom(address: String, name: String) = viewModelScope.launch {
+        val ms = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { repo.messagesFrom(address) }
+        if (ms.isEmpty()) return@launch
+        val (moved, err) = repo.bulkDelete(ms)
+        if (err != null) snack(err)
+        else snack(tr("{0} Mail(s) von {1} gelöscht", ms.size, name), tr("Rückgängig")) { viewModelScope.launch { repo.bulkMoveBack(moved) } }
+    }
+
     fun toggleSeen(m: Message) = act { repo.markSeen(m, !m.seen) }
     fun toggleFlag(m: Message) = act { repo.toggleFlag(m) }
     fun togglePin(m: Message) { repo.togglePin(m); snack(if (m.pinned) tr("Nicht mehr angeheftet") else tr("Angeheftet 📌")) }

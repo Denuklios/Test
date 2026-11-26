@@ -1,5 +1,14 @@
 package app.mailwerk.ui
 
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material.icons.outlined.MoreHoriz
+import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.outlined.DeleteSweep
+import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material.icons.outlined.CalendarMonth
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Badge
@@ -115,6 +124,12 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
     val accounts by vm.accounts.collectAsState()
     var actionsFor by remember { mutableStateOf<Message?>(null) }
     var snoozeFor by remember { mutableStateOf<Message?>(null) }
+    // Mehrfachauswahl: IDs der jeweils neuesten Mail einer Unterhaltung
+    var selected by remember { mutableStateOf(setOf<Long>()) }
+    val selecting = selected.isNotEmpty()
+    LaunchedEffect(mailbox, category) { selected = emptySet() }
+    LaunchedEffect(threads) { val ids = threads.map { it.latest.id }.toSet(); if (!ids.containsAll(selected)) selected = selected intersect ids }
+    androidx.activity.compose.BackHandler(enabled = selecting) { selected = emptySet() }
     val listState = rememberLazyListState()
     LaunchedEffect(category, mailbox) { listState.scrollToItem(0) }
     // Mit Sperre gegen Flackern: einklappen nach etwas Scrollweg, wieder aufklappen erst ganz oben
@@ -136,7 +151,15 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
         ) { pad ->
             Column(Modifier.padding(top = pad.calculateTopPadding()).fillMaxSize()) {
                 val collapsed = scrolled && query.isBlank()
-                Header(vm, mailbox, accounts.firstOrNull()?.name, collapsed,
+                if (selecting) SelectionBar(selected.size, threads.size,
+                    onClose = { selected = emptySet() },
+                    onSelectAll = { selected = if (selected.size == threads.size) emptySet() else threads.map { it.latest.id }.toSet() },
+                    onAction = { kind ->
+                        val ms = threads.filter { it.latest.id in selected }.map { it.latest }
+                        if (kind == "more") ms.singleOrNull()?.let { actionsFor = it } else vm.bulk(kind, ms)
+                        if (kind != "more") selected = emptySet()
+                    })
+                else Header(vm, mailbox, accounts.firstOrNull()?.name, collapsed,
                     showCats = vm.showsCategories, category = category, counts = counts,
                     onCategory = { vm.category.value = it },
                     searchOpen = searchOpen || query.isNotBlank(), query = query,
@@ -163,9 +186,12 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
                             item(key = uniq("m_${t.latest.id}", idx)) {
                                 SwipeRow(vm, t, Modifier.animateItem(fadeInSpec = tween(220), placementSpec = spring(stiffness = Spring.StiffnessMediumLow), fadeOutSpec = tween(180)),
                                     onSnooze = { snoozeFor = it }) {
+                                    val id = t.latest.id
                                     ThreadRow(t, showAccount = accounts.size > 1 && mailbox !is Mailbox.InFolder, vm,
-                                        onClick = { vm.push(Screen.Thread(t.latest.threadKey)) },
-                                        onLong = { actionsFor = t.latest })
+                                        selected = id in selected,
+                                        // im Auswahlmodus markiert Antippen weitere Mails; lang drücken startet die Auswahl
+                                        onClick = { if (selecting) selected = if (id in selected) selected - id else selected + id else vm.push(Screen.Thread(t.latest.threadKey)) },
+                                        onLong = { selected = if (id in selected) selected - id else selected + id })
                                 }
                             }
                         }
@@ -556,7 +582,7 @@ private fun swipeLook(a: SwipeAction): Pair<Color, ImageVector> = when (a) {
 
 @OptIn(ExperimentalFoundationApi::class)
 @Composable
-private fun ThreadRow(t: ThreadSummary, showAccount: Boolean, vm: MainViewModel, onClick: () -> Unit, onLong: () -> Unit) {
+private fun ThreadRow(t: ThreadSummary, showAccount: Boolean, vm: MainViewModel, selected: Boolean = false, onClick: () -> Unit, onLong: () -> Unit) {
     val m = t.latest
     val unread = t.unread
     val sent = m.folderRole == FolderRole.SENT
@@ -566,19 +592,21 @@ private fun ThreadRow(t: ThreadSummary, showAccount: Boolean, vm: MainViewModel,
     val shape = RoundedCornerShape(16.dp)
     // Ungelesen: helle Karte, farbiger Rand und Streifen links. Gelesen: zurückhaltend, ohne Akzent.
     // Jede Mail als klar abgegrenzte Karte: hell = weiß mit Rand und leichtem Schatten, dunkel = hellere Fläche mit Rand
-    val cardColor = if (dark) { if (unread) cs.surfaceContainerHigh else cs.surfaceContainer } else cs.surfaceContainerLowest
-    val edge = if (unread) cs.primary.copy(alpha = if (dark) 0.6f else 0.38f)
+    val cardColor = if (selected) cs.primaryContainer else if (dark) { if (unread) cs.surfaceContainerHigh else cs.surfaceContainer } else cs.surfaceContainerLowest
+    val edge = if (selected) cs.primary else if (unread) cs.primary.copy(alpha = if (dark) 0.6f else 0.38f)
                else if (dark) cs.outline.copy(alpha = 0.55f) else Color(0xFFD9DCE8)
     Row(Modifier.fillMaxWidth()
         .then(if (!dark) Modifier.shadow(2.dp, shape, ambientColor = Color(0x22151827), spotColor = Color(0x33151827)) else Modifier)
         .clip(shape)
         .background(cardColor)
-        .border(1.dp, edge, shape)
+        .border(if (selected) 2.dp else 1.dp, edge, shape)
         .drawBehind { if (unread) drawRect(Brand.gradient, size = androidx.compose.ui.geometry.Size(4.dp.toPx(), size.height)) }
         .combinedClickable(onClick = onClick, onLongClick = onLong).padding(start = 12.dp, end = 12.dp, top = 8.dp, bottom = 8.dp),
         verticalAlignment = Alignment.CenterVertically) {
         Box {
-            Avatar(m.fromName, if (sent) m.toAddrs else m.fromAddr, 38.dp)
+            if (selected) Box(Modifier.size(38.dp).clip(CircleShape).background(cs.primary), contentAlignment = Alignment.Center) {
+                Icon(Icons.Filled.Check, tr("Ausgewählt"), tint = cs.onPrimary)
+            } else Avatar(m.fromName, if (sent) m.toAddrs else m.fromAddr, 38.dp)
             if (showAccount) vm.accounts.value.firstOrNull { it.id == m.accountId }?.let { a ->
                 Box(Modifier.size(12.dp).align(Alignment.BottomEnd).clip(CircleShape).background(cs.surfaceContainerLowest).padding(2.dp)
                     .clip(CircleShape).background(Color(a.color)))
@@ -641,6 +669,18 @@ fun QuickActionsSheet(vm: MainViewModel, m: Message, onDismiss: () -> Unit, onSn
             item(if (m.seen) tr("Als ungelesen markieren") else tr("Als gelesen markieren"), if (m.seen) Icons.Outlined.MarkEmailUnread else Icons.Outlined.MarkEmailRead) { vm.toggleSeen(m); onDismiss() }()
             item(if (m.flagged) tr("Markierung entfernen") else tr("Markieren"), Icons.Outlined.Flag) { vm.toggleFlag(m); onDismiss() }()
             item(tr("Archivieren"), Icons.Outlined.Archive) { vm.archive(m); onDismiss() }()
+            // alle Mails dieses Absenders auf einmal löschen (mit Rückfrage)
+            if (m.fromAddr.isNotBlank() && m.folderRole != FolderRole.SENT) {
+                val who = m.fromName.ifBlank { m.fromAddr }
+                val n = remember(m.fromAddr) { vm.countFrom(m.fromAddr) }
+                var confirmAll by remember { mutableStateOf(false) }
+                if (n > 1) item(tr("Alle von {0} löschen ({1})", who, n), Icons.Outlined.DeleteSweep) { confirmAll = true }()
+                if (confirmAll) AlertDialog(onDismissRequest = { confirmAll = false },
+                    title = { Text(tr("Alle {0} Mails von {1} löschen?", n, who)) },
+                    text = { Text(tr("Sie kommen in den Papierkorb. Mit „Rückgängig“ holst du sie zurück.")) },
+                    confirmButton = { TextButton(onClick = { confirmAll = false; vm.deleteAllFrom(m.fromAddr, who); onDismiss() }) { Text(tr("Alle löschen")) } },
+                    dismissButton = { TextButton(onClick = { confirmAll = false }) { Text(tr("Abbrechen")) } })
+            }
             item(tr("Verschieben …"), Icons.Outlined.Folder) { moveOpen = !moveOpen }()
             if (moveOpen) vm.folders.value[m.accountId].orEmpty().filter { it.id != m.folderId }.forEach { f ->
                 ListItem(headlineContent = { Text(f.displayName) }, leadingContent = { Spacer(Modifier.width(24.dp)) },
@@ -770,3 +810,25 @@ private fun familyHint(vm: MainViewModel, accs: List<app.mailwerk.data.Account>)
         else tr("Wer nutzt {0}?", unmapped.first().email) to tr("Termine aus diesem Postfach warten, bis eine Person ausgewählt ist.")
     }
 }.getOrNull()
+
+/** Leiste im Auswahlmodus: Anzahl, Alle auswählen, Aktionen für alle markierten Mails */
+@Composable
+private fun SelectionBar(count: Int, total: Int, onClose: () -> Unit, onSelectAll: () -> Unit, onAction: (String) -> Unit) {
+    var more by remember { mutableStateOf(false) }
+    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+        IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, tr("Auswahl beenden")) }
+        Text(tr("{0} ausgewählt", count), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
+        IconButton(onClick = onSelectAll) { Icon(Icons.Outlined.SelectAll, if (count == total) tr("Auswahl aufheben") else tr("Alle auswählen")) }
+        IconButton(onClick = { onAction("archive") }) { Icon(Icons.Outlined.Archive, tr("Archivieren")) }
+        IconButton(onClick = { onAction("delete") }) { Icon(Icons.Outlined.Delete, tr("Löschen")) }
+        Box {
+            IconButton(onClick = { more = true }) { Icon(Icons.Outlined.MoreVert, tr("Mehr")) }
+            DropdownMenu(more, { more = false }) {
+                DropdownMenuItem({ Text(tr("Als gelesen markieren")) }, { more = false; onAction("read") }, leadingIcon = { Icon(Icons.Outlined.MarkEmailRead, null) })
+                DropdownMenuItem({ Text(tr("Als ungelesen markieren")) }, { more = false; onAction("unread") }, leadingIcon = { Icon(Icons.Outlined.MarkEmailUnread, null) })
+                DropdownMenuItem({ Text(tr("Spam – Absender sperren")) }, { more = false; onAction("spam") }, leadingIcon = { Icon(Icons.Outlined.Report, null) })
+                if (count == 1) DropdownMenuItem({ Text(tr("Weitere Aktionen …")) }, { more = false; onAction("more") }, leadingIcon = { Icon(Icons.Outlined.MoreHoriz, null) })
+            }
+        }
+    }
+}

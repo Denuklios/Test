@@ -1,6 +1,6 @@
 {
-  "versionCode": 34,
-  "versionName": "1.27",
+  "versionCode": 35,
+  "versionName": "1.28",
   "apk": "Mailwerk.apk",
-  "notes": "Behoben: Nach „Rückgängig“ blieb der rote Löschen-Balken stehen"
+  "notes": "Neu: Mehrere Mails markieren (lange drücken), „Alle auswählen“, gemeinsam löschen/archivieren/gelesen/Spam – und „Alle von … löschen“"
 }

@@ -529,6 +529,82 @@ class Repository private constructor(private val ctx: Context) {
         return moveTo(m, target)
     }
 
+    // ================================================================= Viele Mails auf einmal
+    /**
+     * Server-Aktion für viele Mails: pro Konto EINE Verbindung (statt einer pro Mail).
+     * Liefert eine Fehlermeldung oder null.
+     */
+    private suspend fun bulkRemote(ms: List<Message>, op: (MailClient, jakarta.mail.Store, Folder, Message) -> Unit): String? = withContext(Dispatchers.IO) {
+        var err: String? = null
+        ms.filter { it.uid > 0 }.groupBy { it.accountId }.forEach { (accId, list) ->
+            val acc = db.account(accId) ?: return@forEach
+            try {
+                val c = client(acc)
+                c.withStore { st -> list.forEach { m -> db.folder(m.folderId)?.let { f -> runCatching { op(c, st, f, m) } } } }
+            } catch (e: Exception) { err = friendly(e) }
+        }
+        err
+    }
+
+    /** Ziel-Ordner pro Konto (z. B. Papierkorb); null = Konto hat keinen */
+    private fun targetFor(accountId: Long, role: String): Folder? = db.folderByRole(accountId, role)
+
+    /** viele Mails in den Ordner einer Rolle verschieben (Papierkorb, Archiv, Spam). Liefert (verschoben, Fehler). */
+    /** Massen-Aktionen nacheinander: „Rückgängig“ wartet, bis das Verschieben auf dem Server fertig ist */
+    private val bulkLock = kotlinx.coroutines.sync.Mutex()
+
+    suspend fun bulkMoveToRole(ms: List<Message>, role: String): Pair<List<Pair<Message, Long>>, String?> = bulkLock.withLock {
+        val moved = mutableListOf<Pair<Message, Long>>() // Mail + ursprünglicher Ordner (für „Rückgängig“)
+        val plan = ms.mapNotNull { m -> targetFor(m.accountId, role)?.takeIf { it.id != m.folderId }?.let { m to it } }
+        plan.forEach { (m, t) -> db.moveLocal(m.id, t.id); moved += m to m.folderId }
+        db.notifyChanged()
+        val byId = plan.toMap()
+        val err = bulkRemote(plan.map { it.first }) { c, st, src, m ->
+            byId[m]?.let { t -> c.moveInReturningUid(st, src.fullName, m.uid, t.fullName)?.let { db.setUid(m.id, it) } }
+        }
+        moved to err
+    }
+
+    /** löschen: aus dem Papierkorb endgültig, sonst in den Papierkorb */
+    suspend fun bulkDelete(ms: List<Message>): Pair<List<Pair<Message, Long>>, String?> {
+        val (inTrash, others) = ms.partition { it.folderRole == FolderRole.TRASH }
+        if (inTrash.isNotEmpty()) {
+            inTrash.forEach { db.deleteMessage(it.id) }; db.notifyChanged()
+            bulkRemote(inTrash) { c, st, f, m -> c.deleteForeverIn(st, f.fullName, m.uid) }
+        }
+        return bulkMoveToRole(others, FolderRole.TRASH)
+    }
+
+    /** „Rückgängig“: zurück in die ursprünglichen Ordner */
+    suspend fun bulkMoveBack(moved: List<Pair<Message, Long>>): String? = bulkLock.withLock {
+        val now = moved.mapNotNull { (m, orig) -> db.message(m.id)?.let { cur -> Triple(cur, orig, cur.folderId) } }
+        now.forEach { (cur, orig, _) -> db.moveLocal(cur.id, orig) }
+        db.notifyChanged()
+        val origOf = now.associate { it.first.id to it.second }
+        bulkRemote(now.map { it.first }) { c, st, src, m ->
+            db.folder(origOf[m.id] ?: return@bulkRemote)?.let { t -> c.moveInReturningUid(st, src.fullName, m.uid, t.fullName)?.let { db.setUid(m.id, it) } }
+        }
+    }
+
+    suspend fun bulkSeen(ms: List<Message>, seen: Boolean): String? {
+        ms.forEach { db.updateFlags(it.id, seen = seen) }; db.notifyChanged()
+        return bulkRemote(ms) { c, st, f, m -> c.setFlagsIn(st, f.fullName, m.uid, seen, null) }
+    }
+
+    /** Spam: Absender sperren und in den Spam-Ordner (fehlt er, wird er angelegt) */
+    suspend fun bulkSpam(ms: List<Message>): String? {
+        ms.map { it.fromAddr }.filter { it.isNotBlank() }.distinct().forEach { db.block(it, domain = false) }
+        ms.map { it.accountId }.distinct().forEach { accId ->
+            if (db.folderByRole(accId, FolderRole.JUNK) == null) db.account(accId)?.let { acc ->
+                runCatching { withContext(Dispatchers.IO) { val full = client(acc).withStore { client(acc).ensureFolder(it, "Spam") }; db.upsertFolder(acc.id, full, "Spam", FolderRole.JUNK) } }
+            }
+        }
+        return bulkMoveToRole(ms, FolderRole.JUNK).second
+    }
+
+    /** Alle Mails eines Absenders (alle Ordner außer Papierkorb/Gesendet) */
+    fun messagesFrom(address: String): List<Message> = db.messagesFrom(address)
+
     /** Absender blockieren: künftige Mails landen gelesen in „Benachrichtigungen“, vorhandene werden gelöscht. */
     // ================================================================= Lesebestätigung
     suspend fun sendReadReceipt(m: Message): String? = withContext(Dispatchers.IO) {
