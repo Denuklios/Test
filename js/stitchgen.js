@@ -265,6 +265,13 @@
     return null;
   }
 
+  // Satinrand: Werte je nach Breite. Feiner Rand (unter 1,5 mm) dichter und mit wenig Zug, damit er
+  // trotz geringer Breite deckt; unter 1 mm ohne Unterlage (die würde seitlich hervorschauen)
+  function borderSatinParams(bw, base) {
+    return { ...DEFAULTS.satin, ...(base || {}), width: bw, spacing: bw < 1.5 ? 0.3 : (base && base.spacing) || DEFAULTS.satin.spacing,
+      underlay: bw < 1 ? 'none' : bw <= 2.5 ? 'center' : 'edge+zigzag', pull: bw < 1.5 ? 0.1 : 0.2 };
+  }
+
   function genSatin(obj) {
     const p = obj.params;
     const segs = railsFor(obj);
@@ -990,7 +997,7 @@
         let bs;
         if (p.border === 'satin') {
           const bw = p.borderWidth || 2;
-          bs = genSatin({ type: '_border', points: bpts, params: { ...DEFAULTS.satin, width: bw, underlay: bw <= 2.5 ? 'center' : 'edge+zigzag', pull: bw < 1.5 ? 0.1 : 0.2 } });
+          bs = genSatin({ type: '_border', points: bpts, params: borderSatinParams(bw) });
         } else {
           bs = genRun({ type: 'run', points: bpts, params: { len: p.borderLen || 2.5, style: p.border === 'triple' ? 'triple' : 'single', closed: true } });
         }
@@ -1039,5 +1046,5 @@
     return crossings(segs, (p.spacing || 0.4) / 2);
   }
 
-  HW.stitch = { DEFAULTS, generate, railsFor, fillRings, satinCrossings, patternOffset };
+  HW.stitch = { DEFAULTS, generate, railsFor, fillRings, satinCrossings, patternOffset, borderSatinParams };
 })(typeof window !== 'undefined' ? window : globalThis);

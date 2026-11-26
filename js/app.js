@@ -768,7 +768,7 @@
     return { on: false, width: fill.params.borderWidth || 2, color: 'same' };
   }
   function borderParams(width) {
-    return { ...st.defaults.colC, width, closed: true, underlay: width <= 2.5 ? 'center' : 'edge+zigzag', pull: width < 1.5 ? 0.1 : 0.2 };
+    return { ...HW.stitch.borderSatinParams(width, st.defaults.colC), closed: true };
   }
   function applyBorder(fills, cfg) {
     for (const f of fills) {
@@ -830,22 +830,28 @@
     box.innerHTML = `<legend>Rand</legend>`;
     const row = (label, inp, help) => { const f = document.createElement('div'); f.className = 'field'; f.dataset.help = help; const lb = document.createElement('label'); lb.textContent = label; f.append(lb, inp); box.appendChild(f); };
     const cb = document.createElement('input'); cb.type = 'checkbox'; cb.checked = !!cur.on; cb.id = 'bdOn';
-    const wi = document.createElement('input'); wi.type = 'number'; wi.min = 0.8; wi.max = 10; wi.step = 0.1; wi.value = cur.width || 2; wi.id = 'bdW';
+    const wi = document.createElement('input'); wi.type = 'number'; wi.min = 0.6; wi.max = 10; wi.step = 0.1; wi.value = cur.width || 2; wi.id = 'bdW';
+    const art = document.createElement('select'); art.id = 'bdA';
+    [['2', 'normal (2 mm)'], ['1', 'fein (1 mm)'], ['x', 'eigene Breite']].forEach(([v, t]) => { const op = document.createElement('option'); op.value = v; op.textContent = t; art.appendChild(op); });
+    art.value = (cur.width || 2) === 2 ? '2' : (cur.width || 2) === 1 ? '1' : 'x';
     const cs = document.createElement('select'); cs.id = 'bdC';
     const o0 = document.createElement('option'); o0.value = 'same'; o0.textContent = 'wie die Fläche'; cs.appendChild(o0);
     st.palette.forEach((c, i) => { const op = document.createElement('option'); op.value = String(i); op.textContent = `${i + 1}. ${c.name || c.hex}`; op.style.background = c.hex; cs.appendChild(op); });
     cs.value = cur.color === 'same' || cur.color === undefined ? 'same' : String(cur.color);
     row(isDefault ? 'Neue Flächen mit Satinrand' : 'Satinrand', cb, 'p:border.on');
+    row('Randart', art, 'p:border.kind');
     row('Randbreite (mm)', wi, 'p:border.width');
     row('Randfarbe', cs, 'p:border.color');
     const upd = () => {
-      const cfg = { on: cb.checked, width: Math.max(0.8, Math.min(10, parseFloat(wi.value) || 2)), color: cs.value === 'same' ? 'same' : parseInt(cs.value, 10) };
+      const cfg = { on: cb.checked, width: Math.max(0.6, Math.min(10, parseFloat(wi.value) || 2)), color: cs.value === 'same' ? 'same' : parseInt(cs.value, 10) };
       if (isDefault) { st.defaults.fillBorder = cfg; return; }
       pushUndo();
       applyBorder(fills, cfg);
       changed();
     };
-    cb.onchange = upd; wi.onchange = upd; cs.onchange = upd;
+    art.onchange = () => { if (art.value !== 'x') { wi.value = art.value; if (!cb.checked) cb.checked = true; } upd(); };
+    wi.onchange = () => { const w = parseFloat(wi.value); art.value = w === 2 ? '2' : w === 1 ? '1' : 'x'; upd(); };
+    cb.onchange = upd; cs.onchange = upd;
     el.appendChild(box);
   }
 
@@ -3614,7 +3620,8 @@
         field('Überstand an Übergängen (mm)', '<input id="aKeep" type="number" step="0.1" min="0" max="1" value="0.4">') +
         field('Konturen (Laufstich)', '<input type="checkbox" id="aOut">') +
         field('Flächen mit Satinrand', '<input type="checkbox" id="aBd">') +
-        field('Satinrand: Breite (mm)', '<input id="aBdW" type="number" step="0.1" min="0.8" max="10" value="2">') +
+        field('Satinrand: Art', '<select id="aBdA"><option value="2">normal (2 mm)</option><option value="1">fein (1 mm)</option></select>') +
+        field('Satinrand: Breite (mm)', '<input id="aBdW" type="number" step="0.1" min="0.6" max="10" value="2">') +
         field('Satinrand: Farbe', '<select id="aBdC"><option value="same">wie die Fläche</option><option value="dark">dunkelste Farbe des Bildes</option></select>') +
         field('Vorhandene Objekte ersetzen', '<input type="checkbox" id="aRep">')) +
       '<canvas id="aPrev" width="480" height="300"></canvas><p id="aInfo" style="color:#6a7480">„Vorschau“ rechnet die echten Stickobjekte (Kanten dunkel, Säulenrichtung als Linien) mit den aktuellen Einstellungen. Danach kann jedes Objekt einzeln umgeformt, umgefärbt und bearbeitet werden.</p>',
@@ -3637,11 +3644,15 @@
         lineMax: num('aLine') || 0, station: num('aSt') || 1.4, turnDeg: num('aTu') || 8,
         satinSpacing: num('aSS') || 0, fillSpacing: num('aFS') || 0,
         overlap: $('#aOv').checked, keepMM: num('aKeep'),
-        border: $('#aBd') && $('#aBd').checked ? { width: Math.max(0.8, Math.min(10, num('aBdW') || 2)), color: val('aBdC') } : null,
+        border: $('#aBd') && $('#aBd').checked ? { width: Math.max(0.6, Math.min(10, num('aBdW') || 2)), color: val('aBdC') } : null,
       };
       return o;
     };
     const set = (id, v) => { const e = $('#' + id); if (e) e.value = v; };
+    if ($('#aBdA')) {
+      $('#aBdA').onchange = () => { $('#aBdW').value = $('#aBdA').value; };
+      $('#aBdW').addEventListener('change', () => { const w = num('aBdW'); if (w === 2 || w === 1) $('#aBdA').value = String(w); });
+    }
     $('#aAuto').onclick = () => {
       const img = sample();
       const a = HW.auto.analyze(img, num('aW') || b.w);

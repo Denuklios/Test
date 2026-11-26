@@ -366,9 +366,9 @@
       const colorBorders = [];
       const flushBorder = () => {
         if (opts.border && curFills.length && curInside) {
-          const bw = Math.max(0.8, Math.min(10, opts.border.width || 2));
+          const bw = Math.max(0.6, Math.min(10, opts.border.width || 2));
           const key = opts.border.color === 'dark' ? darkKey : colorKey;
-          const params = (closed) => ({ ...HW.stitch.DEFAULTS.satin, width: bw, closed, underlay: bw <= 2.5 ? 'center' : 'edge+zigzag', pull: bw < 1.5 ? 0.1 : 0.2 });
+          const params = (closed) => ({ ...HW.stitch.borderSatinParams(bw), closed });
           const target = opts.border.color === 'dark' ? borderItems : colorBorders;
           for (const f of curFills) {
             const fr = [f.outer, ...f.holes].map((r) => G.buildPath(r, true).pts);
