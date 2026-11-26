@@ -7,9 +7,10 @@ Muster (wie Familienkalender `kalender-app/` und SchichtWecker `schichtwecker/`)
 - Upload per GitHub Action über SFTP nach `www.wunsch-fabrik.dk/kalender/<app>/` (Secrets FTP_SERVER,
   FTP_USERNAME, FTP_PASSWORD, optional FTP_DIR; Website-Ordner an `db_config.php` erkennen), ausgelöst
   durch `[hochladen]` in der Commit-Nachricht. Vorlage: `.github/workflows/schichtwecker-hochladen.yml`
-- In der App: beim Öffnen (stündlich) und täglich im Hintergrund `version.json` prüfen, APK laden, per
+- In der App: bei JEDEM Öffnen (nicht stündlich drosseln!) und täglich im Hintergrund `version.json` prüfen, APK laden, per
   PackageInstaller installieren (REQUEST_INSTALL_PACKAGES, `setRequireUserAction(NOT_REQUIRED)`), beim
-  ersten Mal „Installation erlauben“-Knopf. Vorlage: `schichtwecker/app/src/main/java/de/schichtwecker/Updater.kt`
+  ersten Mal „Installation erlauben“-Knopf. Fehler immer sichtbar anzeigen + Knopf „Über Browser installieren“,
+  Versionsnummer antippen = sofort nach Update suchen. Vorlage: `schichtwecker/app/src/main/java/de/schichtwecker/Updater.kt`
 - Immer mit demselben festen Schlüssel signieren und versionCode bei jeder Ausgabe erhöhen
 - `release.sh` im App-Ordner baut APK + version.json; jede neue Version mit `[hochladen]` committen
 
