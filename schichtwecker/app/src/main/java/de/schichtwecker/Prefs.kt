@@ -36,8 +36,8 @@ data class ShiftType(
         )
 
         fun defaults() = listOf(
-            ShiftType("Frühschicht", "früh, frühdienst, frühschicht, F", offsetMin = 75, startMin = 6 * 60, endMin = 14 * 60),
-            ShiftType("Spätschicht", "spät, spätdienst, spätschicht, S", offsetMin = 120, startMin = 14 * 60, endMin = 22 * 60),
+            ShiftType("Frühschicht", "früh, frühdienst, frühschicht, F", offsetMin = 75, startMin = 8 * 60, endMin = 16 * 60 + 30),
+            ShiftType("Spätschicht", "spät, spätdienst, spätschicht, S", offsetMin = 120, startMin = 10 * 60 + 30, endMin = 19 * 60),
             ShiftType("Nachtschicht", "nacht, nachtdienst, nachtschicht, N", offsetMin = 120, startMin = 22 * 60, endMin = 6 * 60),
         )
     }
@@ -90,7 +90,7 @@ class Prefs(ctx: Context) {
     var eveningMinOfDay by IntPref("eveningMinOfDay", 20 * 60)
     var autoStopMin by IntPref("autoStopMin", 10)
     var lookaheadDays by IntPref("lookaheadDays", 21)
-    var useDeviceCalendar by BoolPref("useDeviceCalendar", true)
+    var useDeviceCalendar by BoolPref("useDeviceCalendar", false)
     var ringtone: String?
         get() = sp.getString("ringtone", null)
         set(v) { sp.edit().putString("ringtone", v).apply() }

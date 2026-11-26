@@ -1,7 +1,16 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
 }
+
+// Zugang zum Familienkalender – liegt in secret.properties (nicht im Repository)
+val secret = Properties().apply {
+    val f = rootProject.file("secret.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+fun scramble(s: String) = s.map { (it.code xor 0x5A).toString() }.joinToString(",")
 
 android {
     namespace = "de.schichtwecker"
@@ -11,8 +20,11 @@ android {
         applicationId = "de.schichtwecker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 3
-        versionName = "1.2"
+        versionCode = 4
+        versionName = "1.3"
+        buildConfigField("String", "FK_URL", "\"${secret.getProperty("FK_URL", "")}\"")
+        buildConfigField("String", "FK_CODE", "\"${scramble(secret.getProperty("FK_CODE", ""))}\"")
+        buildConfigField("String", "FK_ME", "\"${secret.getProperty("FK_ME", "")}\"")
     }
 
     signingConfigs {
@@ -30,6 +42,7 @@ android {
             signingConfig = signingConfigs.getByName("release")
         }
     }
+    buildFeatures { buildConfig = true }
     compileOptions {
         sourceCompatibility = JavaVersion.VERSION_17
         targetCompatibility = JavaVersion.VERSION_17

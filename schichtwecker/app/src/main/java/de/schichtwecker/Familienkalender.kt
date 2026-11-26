@@ -24,9 +24,20 @@ object Familienkalender {
 
     private fun sp(ctx: Context) = Prefs(ctx).sp
 
-    fun url(ctx: Context) = sp(ctx).getString("famUrl", "") ?: ""
-    fun code(ctx: Context) = sp(ctx).getString("famCode", "") ?: ""
-    fun myId(ctx: Context) = sp(ctx).getString("famMyId", "") ?: ""
+    /** Fest eingebaut: dein Familienkalender, du selbst */
+    private val builtInCode: String get() =
+        BuildConfig.FK_CODE.split(',').filter { it.isNotBlank() }.map { (it.toInt() xor 0x5A).toChar() }.joinToString("")
+
+    fun url(ctx: Context) = sp(ctx).getString("famUrl", null)?.takeIf { it.isNotEmpty() } ?: BuildConfig.FK_URL
+    fun code(ctx: Context) = sp(ctx).getString("famCode", null)?.takeIf { it.isNotEmpty() } ?: builtInCode
+    fun myId(ctx: Context): String {
+        val saved = sp(ctx).getString("famMyId", "") ?: ""
+        if (saved.isNotEmpty()) return saved
+        // Automatisch: die Person mit dem eingebauten Namen (Robert)
+        val me = members(ctx).firstOrNull { it.name.trim().equals(BuildConfig.FK_ME, ignoreCase = true) }
+            ?: members(ctx).firstOrNull { it.name.trim().startsWith(BuildConfig.FK_ME, ignoreCase = true) && BuildConfig.FK_ME.isNotEmpty() }
+        return me?.id ?: ""
+    }
     fun setMyId(ctx: Context, id: String) = sp(ctx).edit().putString("famMyId", id).apply()
     fun connected(ctx: Context) = url(ctx).isNotEmpty() && code(ctx).isNotEmpty()
     fun lastError(ctx: Context) = sp(ctx).getString("famError", null)
@@ -134,6 +145,13 @@ object Familienkalender {
         return m.keys().asSequence().mapNotNull { m.optJSONObject(it) }.filter { !it.optBoolean("deleted") }.toList()
     }
 
+    /** Schichtzeiten aus den Pinsel-Vorlagen (z. B. Früh 08:00–16:30) für ganztägige Einträge */
+    fun templateTimes(ctx: Context): Map<String, Pair<Int, Int>> {
+        fun min(t: String) = t.split(':').let { (it.getOrNull(0)?.toIntOrNull() ?: 0) * 60 + (it.getOrNull(1)?.toIntOrNull() ?: 0) }
+        return templates(ctx).filter { !it.optBoolean("allDay") }
+            .associate { Text.norm(it.optString("title")) to (min(it.optString("startTime", "08:00")) to min(it.optString("endTime", "16:00"))) }
+    }
+
     private fun parseLocal(s: String?): LocalDateTime? {
         if (s.isNullOrEmpty()) return null
         return try {
@@ -176,9 +194,13 @@ object Familienkalender {
             val dur = Duration.between(s0, end0)
             val title = e.optString("title")
             val id = e.optString("id")
+            // Bei ganztägigen Terminen ist "end" der letzte Tag (inklusive) – jeder Tag ist eine eigene Schicht
+            val spanDays = if (allDay) ChronoUnit.DAYS.between(s0.toLocalDate(), end0.toLocalDate()).coerceIn(0, 60) else 0
             fun add(s: LocalDateTime) {
-                val en = if (allDay) s.plusDays(1) else s.plus(dur)
-                out += Occ(id, title, ms(s), ms(en), allDay)
+                if (allDay) {
+                    val d0 = s.toLocalDate().atStartOfDay()
+                    for (k in 0..spanDays) out += Occ(id, title, ms(d0.plusDays(k)), ms(d0.plusDays(k + 1)), true)
+                } else out += Occ(id, title, ms(s), ms(s.plus(dur)), false)
             }
             var repeat = e.optString("repeat", "none")
             var iv = e.optInt("interval", 1).coerceAtLeast(1)

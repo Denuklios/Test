@@ -37,6 +37,12 @@ class FamilienkalenderTest {
         assertEquals(1, txt.count { it.startsWith("Früh 27.11.") })  // Jeannines Frühschicht nicht
     }
 
+    @Test fun mehrtaegigeSchichtJederTagEinzeln() {
+        val evs = JSONObject().put("x", JSONObject("""{"id":"x","title":"Früh","start":"2026-11-02T00:00:00","end":"2026-11-04T00:00:00","allDay":true,"ownerId":"mRobert","participants":[],"kind":"normal","repeat":"none"}"""))
+        val occ = Familienkalender.expandAll(evs, "mRobert", at(2026, 11, 1), at(2026, 11, 10))
+        assertEquals(listOf("02.11. 00:00", "03.11. 00:00", "04.11. 00:00"), occ.map { fmt.format(it.start) })
+    }
+
     @Test fun schichtenErkannt() {
         val types = ShiftType.defaults()
         val occ = Familienkalender.expandAll(cache.getJSONObject("event"), "mRobert", at(2026, 11, 26), at(2026, 12, 2))

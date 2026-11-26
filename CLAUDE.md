@@ -15,3 +15,9 @@ Muster (wie Familienkalender `kalender-app/` und SchichtWecker `schichtwecker/`)
 
 ## Vor Rückfragen
 Erst in den anderen Chats/Sitzungen nachsehen, ob die Antwort dort schon steht.
+
+## SchichtWecker / Apps mit Familienkalender-Zugang
+- Persönliche Apps (nur für Robert) fest mit dem Familienkalender verbinden – keine Einladung, kein Setup.
+- Server: https://www.wunsch-fabrik.dk/kalender/api.php, Person „Robert“. Den Gruppen-Code NIE committen:
+  er steht in `schichtwecker/secret.properties` (gitignored: FK_URL, FK_CODE, FK_ME) und in den Notizen der
+  Mailwerk-Sitzung. Fehlt die Datei, vor dem Bauen neu anlegen, sonst ist die App nicht verbunden.

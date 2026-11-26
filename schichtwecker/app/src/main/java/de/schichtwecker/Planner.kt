@@ -116,15 +116,18 @@ object Planner {
         val from = now - 24 * 3600_000L
         val to = now + p.lookaheadDays * 24 * 3600_000L
         val result = mutableListOf<PlannedShift>()
+        val tpl = Familienkalender.templateTimes(ctx)
         for (r in rawEvents(ctx, from, to)) {
             val type = match(r.title, types) ?: continue
             var begin = r.begin
             var end = r.end
             if (r.allDay) {
                 val day = startOfDay(r.begin)
-                begin = atMinute(day, type.startMin)
-                end = atMinute(day, type.endMin)
-                if (end <= begin) end = atMinute(startOfDay(day + 30 * 3600_000L), type.endMin)
+                // Zeiten aus der gleichnamigen Pinsel-Vorlage, sonst aus der Schichtart
+                val (sMin, eMin) = tpl[Text.norm(r.title)] ?: (type.startMin to type.endMin)
+                begin = atMinute(day, sMin)
+                end = atMinute(day, eMin)
+                if (end <= begin) end = atMinute(startOfDay(day + 30 * 3600_000L), eMin)
             }
             if (end < now) continue
             val alarmAt = if (type.alarmOn) alarmTime(type, begin) else null
