@@ -25,8 +25,7 @@ object Familienkalender {
     private fun sp(ctx: Context) = Prefs(ctx).sp
 
     /** Fest eingebaut: dein Familienkalender, du selbst */
-    private val builtInCode: String get() =
-        BuildConfig.FK_CODE.split(',').filter { it.isNotBlank() }.map { (it.toInt() xor 0x5A).toChar() }.joinToString("")
+    private val builtInCode: String get() = BuildConfig.FK_CODE
 
     fun url(ctx: Context) = sp(ctx).getString("famUrl", null)?.takeIf { it.isNotEmpty() } ?: BuildConfig.FK_URL
     fun code(ctx: Context) = sp(ctx).getString("famCode", null)?.takeIf { it.isNotEmpty() } ?: builtInCode

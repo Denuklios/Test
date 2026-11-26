@@ -447,9 +447,8 @@ class MainActivity : Activity() {
             }
         if (!getSystemService(PowerManager::class.java).isIgnoringBatteryOptimizations(packageName))
             out += Triple("Akku-Optimierung aktiv", "Sonst kann Android die App beenden und der Kalender wird nicht neu gelesen.") {
-                try {
-                    startActivity(Intent(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS, Uri.parse("package:$packageName")))
-                } catch (_: Exception) { startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS)) }
+                Toast.makeText(this, "„Alle Apps“ wählen → SchichtWecker → Nicht optimieren", Toast.LENGTH_LONG).show()
+                startActivity(Intent(Settings.ACTION_IGNORE_BATTERY_OPTIMIZATION_SETTINGS))
             }
         return out
     }

@@ -10,7 +10,6 @@ val secret = Properties().apply {
     val f = rootProject.file("secret.properties")
     if (f.exists()) f.inputStream().use { load(it) }
 }
-fun scramble(s: String) = s.map { (it.code xor 0x5A).toString() }.joinToString(",")
 
 android {
     namespace = "de.schichtwecker"
@@ -20,10 +19,10 @@ android {
         applicationId = "de.schichtwecker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 6
-        versionName = "1.5"
+        versionCode = 7
+        versionName = "1.6"
         buildConfigField("String", "FK_URL", "\"${secret.getProperty("FK_URL", "")}\"")
-        buildConfigField("String", "FK_CODE", "\"${scramble(secret.getProperty("FK_CODE", ""))}\"")
+        buildConfigField("String", "FK_CODE", "\"${secret.getProperty("FK_CODE", "")}\"")
         buildConfigField("String", "FK_ME", "\"${secret.getProperty("FK_ME", "")}\"")
     }
 

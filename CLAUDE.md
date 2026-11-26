@@ -27,3 +27,7 @@ Erst in den anderen Chats/Sitzungen nachsehen, ob die Antwort dort schon steht.
 - Wie ein normaler Nutzer denken: so einfach wie möglich, keine Listen mit Einzelterminen, wenn ein Schalter reicht
   (Beispiel SchichtWecker: ein Früh-Wecker und ein Spät-Wecker mit fester Uhrzeit, der Kalender schaltet um).
 - Naheliegendes von selbst einbauen, nicht erst auf Hinweis. Effizient arbeiten, nicht nachfragen, was man selbst herausfinden kann.
+
+## Play Protect nicht reizen
+- Zugangsdaten nie verschleiern (XOR o. ä.) – das wertet Play Protect als Schadsoftware. Klartext in BuildConfig.
+- Keine REQUEST_IGNORE_BATTERY_OPTIMIZATIONS-Anfrage, stattdessen die allgemeine Akku-Einstellungsseite öffnen.
