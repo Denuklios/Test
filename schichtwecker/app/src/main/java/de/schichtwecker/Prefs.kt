@@ -36,9 +36,9 @@ data class ShiftType(
         )
 
         fun defaults() = listOf(
-            ShiftType("Frühschicht", "früh, frühdienst, frühschicht, F", offsetMin = 75, startMin = 8 * 60, endMin = 16 * 60 + 30),
-            ShiftType("Spätschicht", "spät, spätdienst, spätschicht, S", offsetMin = 120, startMin = 10 * 60 + 30, endMin = 19 * 60),
-            ShiftType("Nachtschicht", "nacht, nachtdienst, nachtschicht, N", offsetMin = 120, startMin = 22 * 60, endMin = 6 * 60),
+            ShiftType("Frühschicht", "früh, frühdienst, frühschicht, F", fixedTime = true, fixedMinOfDay = 6 * 60 + 45, offsetMin = 75, startMin = 8 * 60, endMin = 16 * 60 + 30),
+            ShiftType("Spätschicht", "spät, spätdienst, spätschicht, S", fixedTime = true, fixedMinOfDay = 8 * 60 + 30, offsetMin = 120, startMin = 10 * 60 + 30, endMin = 19 * 60),
+            ShiftType("Nachtschicht", "nacht, nachtdienst, nachtschicht, N", fixedTime = true, fixedMinOfDay = 20 * 60, offsetMin = 120, startMin = 22 * 60, endMin = 6 * 60),
         )
     }
 }
@@ -121,6 +121,17 @@ class Prefs(ctx: Context) {
         get() = sp.getString("snoozeCountKey", null)
         set(v) { sp.edit().putString("snoozeCountKey", v).apply() }
     var snoozeCount by IntPref("snoozeCount", 0)
+
+    /** Einmalig: gespeicherte "X Minuten vorher"-Wecker in feste Uhrzeiten umwandeln */
+    fun migrateToFixedTimes() {
+        if (sp.getBoolean("migFixed", false)) return
+        if (sp.contains("shiftTypes")) {
+            shiftTypes = shiftTypes.map {
+                if (it.fixedTime) it else it.copy(fixedTime = true, fixedMinOfDay = ((it.startMin - it.offsetMin) % 1440 + 1440) % 1440)
+            }
+        }
+        sp.edit().putBoolean("migFixed", true).apply()
+    }
 
     val vacationActive get() = vacationUntil > System.currentTimeMillis()
 

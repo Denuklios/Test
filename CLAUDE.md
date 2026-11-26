@@ -21,3 +21,8 @@ Erst in den anderen Chats/Sitzungen nachsehen, ob die Antwort dort schon steht.
 - Server: https://www.wunsch-fabrik.dk/kalender/api.php, Person „Robert“. Den Gruppen-Code NIE committen:
   er steht in `schichtwecker/secret.properties` (gitignored: FK_URL, FK_CODE, FK_ME) und in den Notizen der
   Mailwerk-Sitzung. Fehlt die Datei, vor dem Bauen neu anlegen, sonst ist die App nicht verbunden.
+
+## Selbst mitdenken, einfach halten
+- Wie ein normaler Nutzer denken: so einfach wie möglich, keine Listen mit Einzelterminen, wenn ein Schalter reicht
+  (Beispiel SchichtWecker: ein Früh-Wecker und ein Spät-Wecker mit fester Uhrzeit, der Kalender schaltet um).
+- Naheliegendes von selbst einbauen, nicht erst auf Hinweis. Effizient arbeiten, nicht nachfragen, was man selbst herausfinden kann.

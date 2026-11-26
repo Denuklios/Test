@@ -47,6 +47,7 @@ class MainActivity : Activity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         Notif.ensureChannels(this)
+        Prefs(this).migrateToFixedTimes()
         val scroll = ScrollView(this).apply { setBackgroundColor(Ui.BG); isFillViewport = true }
         content = vbox(16)
         scroll.addView(content)
@@ -254,33 +255,44 @@ class MainActivity : Activity() {
             content.addView(c)
         }
 
-        // Kommende Schichten
-        content.addView(section("Kommende Schichten"))
-        val list = card()
-        if (shifts.isEmpty()) list.addView(text("Keine Schichten erkannt.", 14f, Ui.MUTED))
-        shifts.take(30).forEachIndexed { i, s ->
-            if (i > 0) list.addView(divider())
-            val paused = s.skipped || (p.vacationActive && s.start < p.vacationUntil)
-            val row = hbox().apply { setPadding(0, dp(10), 0, dp(10)) }
+        // Ein Wecker je Schichtart – die App schaltet selbst um, welcher als Nächstes dran ist
+        content.addView(section("Wecker"))
+        val allTypes = p.shiftTypes
+        val shown = allTypes.filter { t -> shifts.any { it.type.name == t.name } }.ifEmpty { allTypes.take(2) }
+        val alarms = card()
+        shown.forEachIndexed { i, t ->
+            if (i > 0) alarms.addView(divider())
+            val idx = allTypes.indexOfFirst { it.name == t.name }
+            val nextOf = shifts.firstOrNull { it.type.name == t.name && it.alarmAt != null && it.alarmAt > now && !it.skipped }
+            val row = hbox().apply { setPadding(0, dp(12), 0, dp(12)) }
             val col = vbox()
-            col.addView(text("${day.format(Date(s.start))}  ${s.type.name}", 16f, if (paused) Ui.MUTED else Ui.TEXT, bold = true))
-            val parts = mutableListOf("${hm.format(Date(s.start))}–${hm.format(Date(s.end))}")
-            if (s.alarmAt != null) parts += "⏰ ${hm.format(Date(s.alarmAt))}"
-            if (s.silentFrom != null) parts += "🔕"
-            col.addView(text(parts.joinToString("  ·  "), 14f, if (paused) Ui.MUTED else Ui.ACCENT))
-            if (s.skipped) col.addView(text("übersprungen", 12f, Ui.WARN))
-            row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
-            val sw = android.widget.Switch(this).apply {
-                isChecked = !s.skipped
-                setOnCheckedChangeListener { _, on ->
-                    p.skipped = if (on) p.skipped - s.key else p.skipped + s.key
-                    refresh(false, false)
-                }
+            val wake = if (t.fixedTime) t.fixedMinOfDay else null
+            col.addView(text(wake?.let { Text.hm(it) } ?: "${t.offsetMin} Min vorher", if (wake != null) 44f else 24f,
+                if (t.alarmOn) Ui.TEXT else Ui.MUTED, bold = true))
+            col.addView(text(t.name.replace("schicht", "-Wecker").replace("Schicht", "-Wecker"), 16f, if (t.alarmOn) Ui.ACCENT else Ui.MUTED, bold = true))
+            col.addView(text(
+                if (!t.alarmOn) "aus" else nextOf?.let { "klingelt als Nächstes ${day.format(Date(it.alarmAt!!))}" } ?: "keine ${t.name} in Sicht",
+                13f, Ui.MUTED))
+            col.setOnClickListener {
+                android.app.TimePickerDialog(this, { _, h, m ->
+                    val list2 = p.shiftTypes.toMutableList()
+                    list2[idx] = list2[idx].copy(fixedTime = true, fixedMinOfDay = h * 60 + m, alarmOn = true)
+                    p.shiftTypes = list2; refresh(false, false)
+                }, (wake ?: 360) / 60, (wake ?: 360) % 60, true).show()
             }
-            if (s.alarmAt != null || s.silentFrom != null) row.addView(sw)
-            list.addView(row)
+            row.addView(col, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 1f))
+            row.addView(android.widget.Switch(this).apply {
+                isChecked = t.alarmOn
+                setOnCheckedChangeListener { _, on ->
+                    val list2 = p.shiftTypes.toMutableList()
+                    list2[idx] = list2[idx].copy(alarmOn = on)
+                    p.shiftTypes = list2; refresh(false, false)
+                }
+            })
+            alarms.addView(row)
         }
-        content.addView(list)
+        alarms.addView(text("Uhrzeit antippen zum Ändern. Welcher Wecker klingelt, entscheidet dein Familienkalender.", 12f, Ui.MUTED).apply { setPadding(0, dp(6), 0, 0) })
+        content.addView(alarms)
 
         // Termine, die (noch) keine Schicht sind → per Antippen zuordnen
         val types = p.shiftTypes

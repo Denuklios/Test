@@ -20,8 +20,8 @@ android {
         applicationId = "de.schichtwecker"
         minSdk = 26
         targetSdk = 35
-        versionCode = 4
-        versionName = "1.3"
+        versionCode = 5
+        versionName = "1.4"
         buildConfigField("String", "FK_URL", "\"${secret.getProperty("FK_URL", "")}\"")
         buildConfigField("String", "FK_CODE", "\"${scramble(secret.getProperty("FK_CODE", ""))}\"")
         buildConfigField("String", "FK_ME", "\"${secret.getProperty("FK_ME", "")}\"")
