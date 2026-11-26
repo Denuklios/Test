@@ -720,7 +720,7 @@
       ['underlay', 'Unterlage', 'select', [['none', 'keine'], ['edge', 'Kantenlauf'], ['tatami', 'Tatami'], ['edge+tatami', 'Kante + Tatami']]],
       ['split', 'Satin-Split ab (mm)', 'num', 0, 12, 0.5],
       ['border', 'Kontur', 'select', [['none', 'keine'], ['run', 'Laufstich'], ['triple', 'Dreifachstich'], ['satin', 'Satin']]],
-      ['borderWidth', 'Satin-Konturbreite (mm)', 'num', 0.8, 10, 0.1],
+      ['borderWidth', 'Satin-Konturbreite (mm)', 'num', 0.6, 10, 0.1],
     ],
   };
   function defsFor(type) {
@@ -763,12 +763,12 @@
   const borderObjs = (fill) => st.objects.filter((o) => o.borderFor === fill.id);
   function borderState(fill) {
     const lk = borderObjs(fill);
-    if (lk.length) return { on: true, width: lk[0].params.width, color: lk[0].color };
-    if (fill.params.border === 'satin') return { on: true, width: fill.params.borderWidth || 2, color: 'same' };
-    return { on: false, width: fill.params.borderWidth || 2, color: 'same' };
+    if (lk.length) return { on: true, width: lk[0].params.width, color: lk[0].color, spacing: fill.params.borderSpacing || 0 };
+    if (fill.params.border === 'satin') return { on: true, width: fill.params.borderWidth || 2, color: 'same', spacing: fill.params.borderSpacing || 0 };
+    return { on: false, width: fill.params.borderWidth || 2, color: 'same', spacing: fill.params.borderSpacing || 0 };
   }
-  function borderParams(width) {
-    return { ...HW.stitch.borderSatinParams(width, st.defaults.colC), closed: true };
+  function borderParams(width, sp) {
+    return { ...HW.stitch.borderSatinParams(width, st.defaults.colC, sp), closed: true };
   }
   function applyBorder(fills, cfg) {
     for (const f of fills) {
@@ -783,13 +783,14 @@
           const idx = st.objects.indexOf(f);
           const made = rings.map((r, k) => {
             const o = makeObj('colC', { points: clone(r), color: cfg.color });
-            o.params = borderParams(cfg.width);
+            o.params = borderParams(cfg.width, cfg.spacing);
             o.borderFor = f.id; o.borderRing = k; o._sig = JSON.stringify(r);
             return o;
           });
           st.objects.splice(idx + 1, 0, ...made);
         }
         f.params.borderWidth = cfg.width;
+        f.params.borderSpacing = cfg.spacing || 0;
       }
       invalidate(f);
     }
@@ -841,9 +842,11 @@
     row(isDefault ? 'Neue Flächen mit Satinrand' : 'Satinrand', cb, 'p:border.on');
     row('Randart', art, 'p:border.kind');
     row('Randbreite (mm)', wi, 'p:border.width');
+    const sp = document.createElement('input'); sp.type = 'number'; sp.min = 0.15; sp.max = 2; sp.step = 0.05; sp.id = 'bdS'; sp.placeholder = 'auto'; sp.value = cur.spacing ? cur.spacing : '';
+    row('Stichabstand (mm, leer = automatisch)', sp, 'p:border.spacing');
     row('Randfarbe', cs, 'p:border.color');
     const upd = () => {
-      const cfg = { on: cb.checked, width: Math.max(0.6, Math.min(10, parseFloat(wi.value) || 2)), color: cs.value === 'same' ? 'same' : parseInt(cs.value, 10) };
+      const cfg = { on: cb.checked, width: Math.max(0.6, Math.min(10, parseFloat(wi.value) || 2)), spacing: parseFloat(sp.value) > 0 ? Math.max(0.15, Math.min(2, parseFloat(sp.value))) : 0, color: cs.value === 'same' ? 'same' : parseInt(cs.value, 10) };
       if (isDefault) { st.defaults.fillBorder = cfg; return; }
       pushUndo();
       applyBorder(fills, cfg);
@@ -851,7 +854,7 @@
     };
     art.onchange = () => { if (art.value !== 'x') { wi.value = art.value; if (!cb.checked) cb.checked = true; } upd(); };
     wi.onchange = () => { const w = parseFloat(wi.value); art.value = w === 2 ? '2' : w === 1 ? '1' : 'x'; upd(); };
-    cb.onchange = upd; cs.onchange = upd;
+    cb.onchange = upd; cs.onchange = upd; sp.onchange = upd;
     el.appendChild(box);
   }
 
@@ -3620,8 +3623,9 @@
         field('Überstand an Übergängen (mm)', '<input id="aKeep" type="number" step="0.1" min="0" max="1" value="0.4">') +
         field('Konturen (Laufstich)', '<input type="checkbox" id="aOut">') +
         field('Flächen mit Satinrand', '<input type="checkbox" id="aBd">') +
-        field('Satinrand: Art', '<select id="aBdA"><option value="2">normal (2 mm)</option><option value="1">fein (1 mm)</option></select>') +
+        field('Satinrand: Art', '<select id="aBdA"><option value="2">normal (2 mm)</option><option value="1">fein (1 mm)</option><option value="x">eigene Eingabe</option></select>') +
         field('Satinrand: Breite (mm)', '<input id="aBdW" type="number" step="0.1" min="0.6" max="10" value="2">') +
+        field('Satinrand: Stichabstand (mm, leer = automatisch)', '<input id="aBdS" type="number" step="0.05" min="0.15" max="2" placeholder="auto">') +
         field('Satinrand: Farbe', '<select id="aBdC"><option value="same">wie die Fläche</option><option value="dark">dunkelste Farbe des Bildes</option></select>') +
         field('Vorhandene Objekte ersetzen', '<input type="checkbox" id="aRep">')) +
       '<canvas id="aPrev" width="480" height="300"></canvas><p id="aInfo" style="color:#6a7480">„Vorschau“ rechnet die echten Stickobjekte (Kanten dunkel, Säulenrichtung als Linien) mit den aktuellen Einstellungen. Danach kann jedes Objekt einzeln umgeformt, umgefärbt und bearbeitet werden.</p>',
@@ -3644,14 +3648,14 @@
         lineMax: num('aLine') || 0, station: num('aSt') || 1.4, turnDeg: num('aTu') || 8,
         satinSpacing: num('aSS') || 0, fillSpacing: num('aFS') || 0,
         overlap: $('#aOv').checked, keepMM: num('aKeep'),
-        border: $('#aBd') && $('#aBd').checked ? { width: Math.max(0.6, Math.min(10, num('aBdW') || 2)), color: val('aBdC') } : null,
+        border: $('#aBd') && $('#aBd').checked ? { width: Math.max(0.6, Math.min(10, num('aBdW') || 2)), spacing: num('aBdS') > 0 ? Math.max(0.15, Math.min(2, num('aBdS'))) : 0, color: val('aBdC') } : null,
       };
       return o;
     };
     const set = (id, v) => { const e = $('#' + id); if (e) e.value = v; };
     if ($('#aBdA')) {
-      $('#aBdA').onchange = () => { $('#aBdW').value = $('#aBdA').value; };
-      $('#aBdW').addEventListener('change', () => { const w = num('aBdW'); if (w === 2 || w === 1) $('#aBdA').value = String(w); });
+      $('#aBdA').onchange = () => { if ($('#aBdA').value === 'x') { $('#aBdW').focus(); return; } $('#aBdW').value = $('#aBdA').value; };
+      $('#aBdW').addEventListener('change', () => { const w = num('aBdW'); $('#aBdA').value = w === 2 || w === 1 ? String(w) : 'x'; });
     }
     $('#aAuto').onclick = () => {
       const img = sample();

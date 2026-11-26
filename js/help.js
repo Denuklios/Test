@@ -152,6 +152,7 @@
     'cmd:fontDel': ['Eigene Schrift entfernen', 'Entfernt die ausgewählte eigene Schrift aus dem Speicher des Browsers. Bereits gesetzte Texte bleiben erhalten.'],
     'p:border.on': ['Satinrand', 'Legt einen Satinrand um die Fläche – um den Außenumriss und um jedes Loch. Funktioniert bei jeder Flächenart. Ohne Auswahl (Flächen-Werkzeug aktiv) ist es die Vorgabe für alle neuen Flächen.'],
     'p:border.kind': ['Randart', 'normal: Satinrand 2 mm breit. fein: schmaler Satinrand 1 mm, dichter gestickt und ohne breite Unterlage – für feine Konturen wie bei gekauften Stickdateien. Mit „eigene Breite“ stellst du die Breite darunter frei ein.'],
+    'p:border.spacing': ['Stichabstand des Rands', 'Abstand der Satinstiche im Rand in mm. Leer lassen = automatisch (0,4 mm, beim feinen Rand 0,3 mm). Kleiner = dichter und deckender, größer = lockerer.'],
     'p:border.width': ['Randbreite', 'Breite des Satinrands in mm. Der Rand liegt mittig auf der Kante: die halbe Breite deckt die Fläche ab, damit die Fläche sicher unter dem Rand liegt. Üblich: 1,5–3 mm.'],
     'p:border.color': ['Randfarbe', '„wie die Fläche“: Rand wird direkt nach der Fläche ohne Farbwechsel gestickt. Andere Farbe: der Rand wird ein eigenes, verknüpftes Objekt und folgt automatisch, wenn die Fläche verändert oder verschoben wird.'],
     'p:border.unlink': ['Verknüpfung lösen', 'Der Rand wird ein normales Objekt und folgt der Fläche nicht mehr.'],
