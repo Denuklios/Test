@@ -1,0 +1,6 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>SchichtWecker</title><meta name="robots" content="noindex">
+<style>body{font-family:system-ui,sans-serif;background:#0F1420;color:#F2F4F8;display:grid;place-items:center;min-height:100vh;margin:0;padding:16px;text-align:center}
+a{display:inline-block;background:#FFB547;color:#0F1420;padding:16px 28px;border-radius:14px;text-decoration:none;font-weight:600;font-size:18px}p{color:#98A2B8}</style></head>
+<body><div><h1>⏰ SchichtWecker</h1><p>Wecker für deine Schichten aus dem Familienkalender</p><p><a href="schichtwecker.apk">App herunterladen</a></p><p id="v"></p></div>
+<script>fetch('version.json?t='+Date.now()).then(r=>r.json()).then(j=>{document.getElementById('v').textContent='Version '+j.version})</script></body></html>

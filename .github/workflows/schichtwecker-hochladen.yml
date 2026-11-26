@@ -1,0 +1,54 @@
+# Lädt SchichtWecker-Updates (version.json + APK) per SFTP nach www.wunsch-fabrik.dk/kalender/schichtwecker/.
+# Läuft bei einem Push mit „[hochladen]“ in der Beschreibung auf diesen Zweig oder von Hand.
+# Gleiche Zugangsdaten wie Website und Familienkalender: FTP_SERVER, FTP_USERNAME, FTP_PASSWORD, optional FTP_DIR.
+# Lädt nur in den Unterordner schichtwecker/, gelöscht wird nichts.
+name: SchichtWecker hochladen
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['ccr-fa1d0ad4-xjpgla']
+
+concurrency:
+  group: webspace-upload
+  cancel-in-progress: false
+
+jobs:
+  hochladen:
+    if: github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[hochladen]')
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - name: Prüfen
+        run: |
+          test -f schichtwecker/server/version.json && test -f schichtwecker/server/schichtwecker.apk
+          cat schichtwecker/server/version.json
+      - name: Per SFTP hochladen
+        env:
+          SFTP_HOST: ${{ secrets.FTP_SERVER }}
+          SFTP_USER: ${{ secrets.FTP_USERNAME }}
+          LFTP_PASSWORD: ${{ secrets.FTP_PASSWORD }}
+          SFTP_DIR: ${{ secrets.FTP_DIR }}
+        run: |
+          set -e
+          if [ -z "$SFTP_HOST" ] || [ -z "$SFTP_USER" ] || [ -z "$LFTP_PASSWORD" ]; then
+            echo "::error::FTP_SERVER, FTP_USERNAME und FTP_PASSWORD fehlen unter Settings → Secrets and variables → Actions."; exit 1
+          fi
+          sudo apt-get -qq update && sudo apt-get -qq install -y lftp >/dev/null
+          CONN="set sftp:auto-confirm yes; set net:max-retries 3; set net:timeout 30; open -u '$SFTP_USER' --env-password 'sftp://$SFTP_HOST'"
+          FOUND=""
+          if [ -n "$SFTP_DIR" ]; then CANDS="$SFTP_DIR"; else
+            LIST=$(lftp -e "$CONN; cls -1 webroots/ webroots/by-route/; bye" 2>/dev/null | sed 's#/*$##; s#@$##' || true)
+            CANDS="$LIST httpd.www ."
+          fi
+          for c in $CANDS; do
+            if lftp -e "$CONN; cls -1 '$c/db_config.php'; bye" 2>/dev/null | grep -q 'db_config.php'; then FOUND="$c"; break; fi
+          done
+          [ -n "$FOUND" ] || { echo "::error::Website-Ordner nicht gefunden. FTP_DIR als Secret eintragen."; exit 1; }
+          echo "Ziel: $FOUND/kalender/schichtwecker"
+          lftp -e "$CONN; mkdir -p -f '$FOUND/kalender/schichtwecker'; mirror --reverse --no-perms --verbose=1 ./schichtwecker/server/ '$FOUND/kalender/schichtwecker'; bye"
+      - name: Online prüfen
+        run: |
+          sleep 5
+          curl -sS --max-time 30 "https://www.wunsch-fabrik.dk/kalender/schichtwecker/version.json?t=$(date +%s)" | tee /dev/stderr | grep -q versionCode

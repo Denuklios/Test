@@ -4,7 +4,7 @@ Wecker, der deine Schichten aus dem Familienkalender (und optional dem Handy-Kal
 den Wecker passend stellt und das Handy während der Schicht lautlos schaltet –
 nach Schichtende wird es automatisch wieder laut.
 
-Installieren: `SchichtWecker-1.1.apk` aufs Handy laden und öffnen (Android 8 oder neuer).
+Download: https://www.wunsch-fabrik.dk/kalender/schichtwecker/ – danach aktualisiert sich die App selbst (`./release.sh "Was ist neu"`, Commit mit `[hochladen]`).
 
 ## Mit dem Familienkalender verbinden
 Familienkalender → ☰ → „Jemanden einladen“ → „Einladung senden“ → **SchichtWecker** auswählen,

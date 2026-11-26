@@ -58,7 +58,15 @@ class AlarmReceiver : BroadcastReceiver() {
                 ctx.getSystemService(NotificationManager::class.java).cancel(Notif.ID_EVENING)
                 Scheduler.rescheduleAll(ctx)
             }
-            Actions.RESYNC -> background { Scheduler.syncAndReschedule(ctx) }
+            Actions.RESYNC -> background {
+                Scheduler.syncAndReschedule(ctx)
+                // Einmal am Tag nach Updates schauen und, wenn erlaubt, gleich installieren
+                if (Updater.shouldCheck(ctx, 20 * 3600_000L) && !AlarmService.running) {
+                    val u = Updater.check(ctx)
+                    if (u != null && Updater.canInstall(ctx)) Updater.downloadAndInstall(ctx, u)
+                    else if (u != null) info(ctx, 7, "SchichtWecker ${u.name} ist da", "App öffnen, um das Update zu installieren.")
+                }
+            }
             "de.schichtwecker.UNSILENT" -> {
                 SilentManager.forceEnd(ctx)
                 ctx.getSystemService(NotificationManager::class.java).cancel(Notif.ID_SILENT)

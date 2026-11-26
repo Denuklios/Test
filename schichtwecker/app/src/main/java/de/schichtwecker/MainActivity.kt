@@ -41,6 +41,8 @@ class MainActivity : Activity() {
     private val day = SimpleDateFormat("EE dd.MM.", Locale.GERMANY)
     private val hm = SimpleDateFormat("HH:mm", Locale.GERMANY)
     @Volatile private var busy = false
+    private var update: Updater.Info? = null
+    private var updateStarted = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -61,6 +63,35 @@ class MainActivity : Activity() {
     override fun onResume() {
         super.onResume()
         refresh(fromServer = true, feedback = false)
+        checkUpdate()
+    }
+
+    /** Wie beim Familienkalender: beim Öffnen (höchstens stündlich) nach Updates schauen */
+    private fun checkUpdate(force: Boolean = false) {
+        if (updateStarted) return
+        if (update != null && Updater.canInstall(this)) { installUpdate(update!!); return }
+        if (!force && !Updater.shouldCheck(this, 3600_000L)) return
+        Thread {
+            val u = Updater.check(this) ?: return@Thread
+            runOnUiThread {
+                update = u
+                if (Updater.canInstall(this)) installUpdate(u) else refresh(false, false)
+            }
+        }.start()
+    }
+
+    private fun installUpdate(u: Updater.Info) {
+        updateStarted = true
+        Toast.makeText(this, "Update ${u.name} wird geladen und installiert …", Toast.LENGTH_LONG).show()
+        Thread {
+            val err = Updater.downloadAndInstall(this, u)
+            runOnUiThread {
+                if (err != null) {
+                    updateStarted = false
+                    Toast.makeText(this, "Update fehlgeschlagen: $err", Toast.LENGTH_LONG).show()
+                }
+            }
+        }.start()
     }
 
     /** Einladung aus dem Familienkalender wurde hierher geteilt */
@@ -138,6 +169,21 @@ class MainActivity : Activity() {
             setOnClickListener { startActivity(Intent(this@MainActivity, SettingsActivity::class.java)) }
         })
         content.addView(head)
+
+        // Update verfügbar, aber Installation noch nicht erlaubt
+        update?.let { u ->
+            if (!updateStarted) {
+                val c = card(Ui.CARD2)
+                c.addView(text("⬆ Update ${u.name} ist da", 18f, Ui.TEXT, bold = true))
+                if (u.notes.isNotBlank()) c.addView(text(u.notes, 14f, Ui.MUTED))
+                c.addView(text("Einmalig erlauben, dass SchichtWecker Updates installieren darf – danach geht es automatisch.", 13f, Ui.MUTED))
+                c.addView(button("Erlauben & installieren", primary = true) {
+                    if (Updater.canInstall(this)) installUpdate(u)
+                    else startActivity(Intent(Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES, Uri.parse("package:$packageName")))
+                })
+                content.addView(c)
+            }
+        }
 
         // Familienkalender verbinden
         if (!Familienkalender.connected(this)) {
@@ -276,7 +322,7 @@ class MainActivity : Activity() {
             val ok = Familienkalender.lastOk(this)
             "Familienkalender${me?.let { " · $it" } ?: ""} · zuletzt ${if (ok > 0) SimpleDateFormat("dd.MM. HH:mm", Locale.GERMANY).format(Date(ok)) else "–"}"
         } else "Familienkalender nicht verbunden"
-        content.addView(text(fk, 12f, Ui.MUTED).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(24)) })
+        content.addView(text("$fk\nVersion ${Updater.currentName(this)}", 12f, Ui.MUTED).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(24)) })
     }
 
     private fun connectCard() = card(Ui.CARD2).apply {
