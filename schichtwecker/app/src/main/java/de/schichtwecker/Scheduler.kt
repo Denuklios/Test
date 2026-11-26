@@ -114,7 +114,7 @@ object Scheduler {
         val newScheduled = mutableSetOf<String>()
         fun track(action: String, key: String) { newScheduled += "$action|$key" }
 
-        val shifts = if (Planner.hasCalendarPermission(ctx)) Planner.plan(ctx, now) else emptyList()
+        val shifts = Planner.plan(ctx, now)
         // Übersprungene Einträge aufräumen, die es nicht mehr gibt
         val keys = shifts.map { it.key }.toSet()
         p.skipped = p.skipped.filter { it in keys }.toSet()
@@ -159,15 +159,22 @@ object Scheduler {
             setExact(ctx, ev, Actions.EVENING, "daily"); track(Actions.EVENING, "daily")
         }
 
-        // Regelmäßig neu lesen (Kalender kann sich ändern), spätestens alle 3 Stunden
+        // Regelmäßig neu lesen (Kalender kann sich ändern), etwa stündlich
         val am = ctx.getSystemService(AlarmManager::class.java)
-        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, now + 3 * 3600_000L, pi(ctx, intent(ctx, Actions.RESYNC, "periodic")))
+        am.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, now + 3600_000L, pi(ctx, intent(ctx, Actions.RESYNC, "periodic")))
         track(Actions.RESYNC, "periodic")
         if (vacation > now) { setExact(ctx, vacation + 1000, Actions.RESYNC, "vacation"); track(Actions.RESYNC, "vacation") }
 
         p.scheduled = newScheduled
         p.lastSync = now
         Log.i(TAG, "geplant: ${shifts.size} Schichten, nächster Wecker ${nextAlarm?.alarmAt?.let { fmt.format(Date(it)) }}")
+    }
+
+    /** Familienkalender vom Server holen, dann neu planen. Nicht im Haupt-Thread aufrufen. */
+    fun syncAndReschedule(ctx: Context): String? {
+        val err = Familienkalender.fetch(ctx)
+        rescheduleAll(ctx)
+        return err
     }
 
     fun nextActive(ctx: Context): PlannedShift? {

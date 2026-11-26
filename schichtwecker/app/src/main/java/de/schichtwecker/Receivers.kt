@@ -42,10 +42,7 @@ class AlarmReceiver : BroadcastReceiver() {
                         skipAction = true)
                 }
             }
-            Actions.EVENING -> {
-                evening(ctx)
-                Scheduler.rescheduleAll(ctx)
-            }
+            Actions.EVENING -> background { Scheduler.syncAndReschedule(ctx); evening(ctx) }
             Actions.WAKE_CHECK -> {
                 wakeCheck(ctx, key, label)
                 Scheduler.scheduleWakeCheckFail(ctx, key, label)
@@ -61,12 +58,17 @@ class AlarmReceiver : BroadcastReceiver() {
                 ctx.getSystemService(NotificationManager::class.java).cancel(Notif.ID_EVENING)
                 Scheduler.rescheduleAll(ctx)
             }
-            Actions.RESYNC -> Scheduler.rescheduleAll(ctx)
+            Actions.RESYNC -> background { Scheduler.syncAndReschedule(ctx) }
             "de.schichtwecker.UNSILENT" -> {
                 SilentManager.forceEnd(ctx)
                 ctx.getSystemService(NotificationManager::class.java).cancel(Notif.ID_SILENT)
             }
         }
+    }
+
+    private fun background(work: () -> Unit) {
+        val pending = goAsync()
+        Thread { try { work() } finally { pending.finish() } }.start()
     }
 
     private fun evening(ctx: Context) {
@@ -135,7 +137,7 @@ class SystemReceiver : BroadcastReceiver() {
         if (i.action == null) return
         val pending = goAsync()
         Thread {
-            try { Scheduler.rescheduleAll(ctx) } finally { pending.finish() }
+            try { Scheduler.syncAndReschedule(ctx) } finally { pending.finish() }
         }.start()
     }
 }

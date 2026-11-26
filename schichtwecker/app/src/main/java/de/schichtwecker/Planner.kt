@@ -58,60 +58,81 @@ object Planner {
         return null
     }
 
-    fun plan(ctx: Context, now: Long = System.currentTimeMillis()): List<PlannedShift> {
-        if (!hasCalendarPermission(ctx)) return emptyList()
-        val p = Prefs(ctx)
-        val types = p.shiftTypes
-        val cals = p.calendarIds
-        val skipped = p.skipped
-        val from = now - 24 * 3600_000L
-        val to = now + p.lookaheadDays * 24 * 3600_000L
+    /** Rohtermin aus einer Quelle */
+    data class Raw(val key: String, val title: String, val begin: Long, val end: Long, val allDay: Boolean, val source: String)
 
+    /** Alle Termine aus Familienkalender und (optional) Handy-Kalender */
+    fun rawEvents(ctx: Context, from: Long, to: Long): List<Raw> {
+        val out = mutableListOf<Raw>()
+        for (o in Familienkalender.occurrences(ctx, from, to))
+            out += Raw("fk_${o.id}_${o.start}", o.title, o.start, o.end, o.allDay, "Familienkalender")
+        if (Prefs(ctx).useDeviceCalendar && hasCalendarPermission(ctx)) out += deviceEvents(ctx, from, to)
+        return out.sortedBy { it.begin }
+    }
+
+    private fun deviceEvents(ctx: Context, from: Long, to: Long): List<Raw> {
+        val cals = Prefs(ctx).calendarIds
         val uri = CalendarContract.Instances.CONTENT_URI.buildUpon().let {
             ContentUris.appendId(it, from); ContentUris.appendId(it, to); it.build()
         }
-        val result = mutableListOf<PlannedShift>()
-        ctx.contentResolver.query(
-            uri,
-            arrayOf(
-                CalendarContract.Instances.EVENT_ID,
-                CalendarContract.Instances.BEGIN,
-                CalendarContract.Instances.END,
-                CalendarContract.Instances.TITLE,
-                CalendarContract.Instances.ALL_DAY,
-                CalendarContract.Instances.CALENDAR_ID,
-                CalendarContract.Instances.STATUS,
-            ), null, null, CalendarContract.Instances.BEGIN + " ASC"
-        )?.use { c ->
-            while (c.moveToNext()) {
-                val calId = c.getLong(5).toString()
-                if (cals.isNotEmpty() && calId !in cals) continue
-                if (!c.isNull(6) && c.getInt(6) == CalendarContract.Instances.STATUS_CANCELED) continue
-                val title = c.getString(3) ?: continue
-                val type = match(title, types) ?: continue
-                var begin = c.getLong(1)
-                var end = c.getLong(2)
-                if (c.getInt(4) == 1) {
-                    // Ganztägig: Datum in UTC lesen, dann Schichtzeiten der Schichtart nehmen
-                    val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = begin }
-                    val local = Calendar.getInstance().apply {
-                        clear()
-                        set(utc.get(Calendar.YEAR), utc.get(Calendar.MONTH), utc.get(Calendar.DAY_OF_MONTH))
+        val out = mutableListOf<Raw>()
+        try {
+            ctx.contentResolver.query(
+                uri,
+                arrayOf(
+                    CalendarContract.Instances.EVENT_ID,
+                    CalendarContract.Instances.BEGIN,
+                    CalendarContract.Instances.END,
+                    CalendarContract.Instances.TITLE,
+                    CalendarContract.Instances.ALL_DAY,
+                    CalendarContract.Instances.CALENDAR_ID,
+                    CalendarContract.Instances.STATUS,
+                ), null, null, CalendarContract.Instances.BEGIN + " ASC"
+            )?.use { c ->
+                while (c.moveToNext()) {
+                    if (cals.isNotEmpty() && c.getLong(5).toString() !in cals) continue
+                    if (!c.isNull(6) && c.getInt(6) == CalendarContract.Instances.STATUS_CANCELED) continue
+                    val title = c.getString(3) ?: continue
+                    var begin = c.getLong(1)
+                    val allDay = c.getInt(4) == 1
+                    if (allDay) {
+                        // Ganztägig: Datum steht in UTC
+                        val utc = Calendar.getInstance(TimeZone.getTimeZone("UTC")).apply { timeInMillis = begin }
+                        begin = Calendar.getInstance().apply {
+                            clear(); set(utc.get(Calendar.YEAR), utc.get(Calendar.MONTH), utc.get(Calendar.DAY_OF_MONTH))
+                        }.timeInMillis
                     }
-                    val day = local.timeInMillis
-                    begin = atMinute(day, type.startMin)
-                    end = atMinute(day, type.endMin)
-                    if (end <= begin) end = atMinute(startOfDay(day + 30 * 3600_000L), type.endMin)
+                    out += Raw("${c.getLong(0)}_${c.getLong(1)}", title, begin, c.getLong(2), allDay, "Handy-Kalender")
                 }
-                if (end < now) continue
-                val key = "${c.getLong(0)}_${c.getLong(1)}"
-                val alarmAt = if (type.alarmOn) alarmTime(type, begin) else null
-                val silentFrom = if (type.silentOn) begin - p.silentBeforeMin * 60_000L else null
-                val silentTo = if (type.silentOn) end + p.silentAfterMin * 60_000L else null
-                result += PlannedShift(key, title, type, begin, end, alarmAt, silentFrom, silentTo, key in skipped)
             }
+        } catch (_: SecurityException) {}
+        return out
+    }
+
+    fun plan(ctx: Context, now: Long = System.currentTimeMillis()): List<PlannedShift> {
+        val p = Prefs(ctx)
+        val types = p.shiftTypes
+        val skipped = p.skipped
+        val from = now - 24 * 3600_000L
+        val to = now + p.lookaheadDays * 24 * 3600_000L
+        val result = mutableListOf<PlannedShift>()
+        for (r in rawEvents(ctx, from, to)) {
+            val type = match(r.title, types) ?: continue
+            var begin = r.begin
+            var end = r.end
+            if (r.allDay) {
+                val day = startOfDay(r.begin)
+                begin = atMinute(day, type.startMin)
+                end = atMinute(day, type.endMin)
+                if (end <= begin) end = atMinute(startOfDay(day + 30 * 3600_000L), type.endMin)
+            }
+            if (end < now) continue
+            val alarmAt = if (type.alarmOn) alarmTime(type, begin) else null
+            val silentFrom = if (type.silentOn) begin - p.silentBeforeMin * 60_000L else null
+            val silentTo = if (type.silentOn) end + p.silentAfterMin * 60_000L else null
+            result += PlannedShift(r.key, r.title, type, begin, end, alarmAt, silentFrom, silentTo, r.key in skipped)
         }
-        return result.distinctBy { it.key }
+        return result.distinctBy { it.key }.sortedBy { it.start }
     }
 
     fun alarmTime(type: ShiftType, begin: Long): Long {

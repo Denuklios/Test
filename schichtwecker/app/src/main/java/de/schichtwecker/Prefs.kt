@@ -90,6 +90,7 @@ class Prefs(ctx: Context) {
     var eveningMinOfDay by IntPref("eveningMinOfDay", 20 * 60)
     var autoStopMin by IntPref("autoStopMin", 10)
     var lookaheadDays by IntPref("lookaheadDays", 21)
+    var useDeviceCalendar by BoolPref("useDeviceCalendar", true)
     var ringtone: String?
         get() = sp.getString("ringtone", null)
         set(v) { sp.edit().putString("ringtone", v).apply() }

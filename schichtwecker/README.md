@@ -1,10 +1,16 @@
 # SchichtWecker (Android)
 
-Wecker, der deine Schichten aus dem Handy-Kalender liest (Früh / Spät / Nacht),
+Wecker, der deine Schichten aus dem Familienkalender (und optional dem Handy-Kalender) liest (Früh / Spät / Nacht),
 den Wecker passend stellt und das Handy während der Schicht lautlos schaltet –
 nach Schichtende wird es automatisch wieder laut.
 
-Installieren: `SchichtWecker-1.0.apk` aufs Handy laden und öffnen (Android 8 oder neuer).
+Installieren: `SchichtWecker-1.1.apk` aufs Handy laden und öffnen (Android 8 oder neuer).
+
+## Mit dem Familienkalender verbinden
+Familienkalender → ☰ → „Jemanden einladen“ → „Einladung senden“ → **SchichtWecker** auswählen,
+danach „Wer bist du?“ wählen. Es zählen deine eigenen Termine und die, bei denen du dabei bist.
+Schichten aus dem Schicht-Pinsel (Früh/Spät/Nacht) werden automatisch erkannt; andere Titel lassen sich
+auf der Startseite per Antippen zuordnen.
 
 ## Funktionen
 - Liest alle Kalender des Handys (Google, Samsung, Outlook … – was im Handy-Kalender sichtbar ist), wählbar welche

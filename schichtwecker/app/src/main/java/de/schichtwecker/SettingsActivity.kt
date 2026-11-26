@@ -49,13 +49,46 @@ class SettingsActivity : Activity() {
         content.removeAllViews()
         content.addView(text("Einstellungen", 26f, Ui.TEXT, bold = true).apply { setPadding(dp(4), dp(8), 0, dp(4)) })
 
-        // Kalender
-        content.addView(section("Kalender"))
+        // Familienkalender
+        content.addView(section("Familienkalender"))
+        val fam = card()
+        if (Familienkalender.connected(this)) {
+            val members = Familienkalender.members(this)
+            val me = members.firstOrNull { it.id == Familienkalender.myId(this) }
+            fam.addView(valueRow("Verbunden mit", Familienkalender.url(this).removePrefix("https://").removeSuffix("/api.php")) {})
+            fam.addView(divider())
+            fam.addView(valueRow("Ich bin", me?.name ?: "bitte wählen") {
+                if (members.isEmpty()) return@valueRow
+                AlertDialog.Builder(this).setTitle("Wer bist du?")
+                    .setItems(members.map { it.name }.toTypedArray()) { _, i -> Familienkalender.setMyId(this, members[i].id); render() }.show()
+            })
+            fam.addView(divider())
+            fam.addView(text("Es zählen Termine, die du angelegt hast oder bei denen du unter „Wer ist dabei?“ stehst. Geburtstage und Urlaub werden ignoriert.", 12f, Ui.MUTED).apply { setPadding(0, dp(6), 0, 0) })
+            fam.addView(button("Verbindung trennen") {
+                AlertDialog.Builder(this).setMessage("Familienkalender trennen?")
+                    .setPositiveButton("Trennen") { _, _ -> Familienkalender.disconnect(this); render() }
+                    .setNegativeButton("Abbrechen", null).show()
+            })
+        } else {
+            fam.addView(text("Nicht verbunden. Auf der Startseite „Einladung einfügen“ tippen oder im Familienkalender die Einladung an SchichtWecker senden.", 14f, Ui.MUTED))
+        }
+        content.addView(fam)
+
+        // Handy-Kalender
+        content.addView(section("Handy-Kalender (Google, Samsung …)"))
         val cal = card()
-        val cals = Planner.calendars(this)
-        val chosen = p.calendarIds
-        val calLabel = if (chosen.isEmpty()) "Alle" else cals.filter { it.id.toString() in chosen }.joinToString { it.name }.ifEmpty { "–" }
-        cal.addView(valueRow("Schicht-Kalender", calLabel) { pickCalendars(cals) })
+        cal.addView(switchRow("Zusätzlich lesen", "Schichten auch aus den Kalendern des Handys", p.useDeviceCalendar) { on ->
+            p.useDeviceCalendar = on
+            if (on && !Planner.hasCalendarPermission(this)) requestPermissions(arrayOf(android.Manifest.permission.READ_CALENDAR), 2)
+            render()
+        })
+        if (p.useDeviceCalendar) {
+            val cals = Planner.calendars(this)
+            val chosen = p.calendarIds
+            val calLabel = if (chosen.isEmpty()) "Alle" else cals.filter { it.id.toString() in chosen }.joinToString { it.name }.ifEmpty { "–" }
+            cal.addView(divider())
+            cal.addView(valueRow("Welche Kalender", calLabel) { pickCalendars(cals) })
+        }
         cal.addView(divider())
         cal.addView(valueRow("Vorausschau", "${p.lookaheadDays} Tage") {
             number("Wie viele Tage im Voraus lesen?", p.lookaheadDays, 1, 90) { p.lookaheadDays = it; render() }
