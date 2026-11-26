@@ -236,13 +236,31 @@
       }
       const w = obj.params.width / 2;
       // Innenkante enger Kurven/Ecken ohne Schleifen; Stiche drehen sich wie bei Säule B senkrecht mit
-      const oL = G.offsetPolyline(c, -w), oR = G.offsetPolyline(c, w);
-      let L = G.removeLoops(oL), R = G.removeLoops(oR);
-      // Sicherung: hat die Bereinigung zu viel weggenommen, die unbereinigte Kante nehmen
+      // Stichpaare direkt an der Mittellinie: an jeder Stelle senkrecht zur (geglätteten) Richtung
+      // je w nach innen und außen. So bleibt jeder Stich so lang wie die Säule breit ist – auch an
+      // gezackten Kanten, wo getrennt versetzte Kanten unterschiedlich lang würden und schräg liefen.
       const lc = G.polyLength(c);
-      if (G.polyLength(L) < lc * 0.5) L = oL;
-      if (G.polyLength(R) < lc * 0.5) R = oR;
-      return turningPairs(L, R);
+      const step = 0.5, M = Math.max(2, Math.ceil(lc / step));
+      const ctr = [];
+      for (let i = 0; i <= M; i++) ctr.push(G.pointAt(c, (lc * i) / M));
+      const win = Math.max(0.6, w * 1.2);
+      const at = (sx) => (closed ? G.pointAt(c, ((sx % lc) + lc) % lc) : G.pointAt(c, Math.max(0, Math.min(lc, sx))));
+      const Lp = [], Rp = [];
+      for (let i = 0; i <= M; i++) {
+        const sx = (lc * i) / M, q = at(sx + win), o = at(sx - win);
+        const tl = Math.hypot(q.x - o.x, q.y - o.y) || 1, n = { x: -(q.y - o.y) / tl, y: (q.x - o.x) / tl };
+        const m = ctr[i];
+        Lp.push({ x: m.x - n.x * w, y: m.y - n.y * w });
+        Rp.push({ x: m.x + n.x * w, y: m.y + n.y * w });
+      }
+      const segs = [];
+      const K = Math.max(1, Math.round(lc / 1.5)), per = M / K;
+      for (let k = 0; k < K; k++) {
+        const i0 = Math.round(k * per), i1 = Math.round((k + 1) * per);
+        if (i1 <= i0) continue;
+        segs.push({ L: Lp.slice(i0, i1 + 1), R: Rp.slice(i0, i1 + 1) });
+      }
+      return segs;
     }
     return null;
   }
@@ -355,19 +373,33 @@
     // Eckkappen (beim Auto-Digitalisieren): kleine Ecken, die die Säule nicht erreicht, stickt sie selbst mit –
     // am Anfang vor dem Deckstich, am Ende danach (kein eigenes Objekt, kein Weg dorthin)
     if (obj.caps && obj.caps.length) {
-      const c0 = G.lerp(cr[0].a, cr[0].b, 0.5), c1 = G.lerp(cr[cr.length - 1].a, cr[cr.length - 1].b, 0.5);
       const capSt = (ring, c) => {
         const ang = (Math.atan2(c.b.y - c.a.y, c.b.x - c.a.x) * 180) / Math.PI;
         try { return genFill({ type: 'fill', points: ring.map((q) => ({ x: q.x, y: q.y, c: false })), holes: [], params: { ...DEFAULTS.fill, fillType: 'satin', underlay: 'none', border: 'none', spacing: p.spacing || 0.4, pull: 0, push: 0, angle: ang } }).filter((q) => !q.j); } catch (e) { return []; }
       };
-      const atStart = [], atEnd = [];
+      // Jede Kappe wird dort eingefügt, wo die Säule ihr am nächsten kommt (kein langer Stich quer
+      // über das Motiv). Kommt die Säule nirgends nah genug, bleibt die Kappe weg.
+      const ins = [];
       for (const ring of obj.caps) {
         if (!ring || ring.length < 3) continue;
+        let best = -1, bd = Infinity;
+        for (let k = satStart; k < out.length; k++) {
+          const d = G.pointInRings(out[k], [ring]) ? 0 : G.nearestOnRing(out[k], ring).d;
+          if (d < bd) { bd = d; best = k; }
+        }
+        if (best < 0 || bd > 1.2) continue;
         const b = G.bbox(ring), m = { x: (b.x0 + b.x1) / 2, y: (b.y0 + b.y1) / 2 };
-        (G.dist(m, c0) <= G.dist(m, c1) ? atStart : atEnd).push(...capSt(ring, G.dist(m, c0) <= G.dist(m, c1) ? cr[0] : cr[cr.length - 1]));
+        let ci = 0, cd = Infinity;
+        cr.forEach((c, i) => { const d = G.dist(G.lerp(c.a, c.b, 0.5), m); if (d < cd) { cd = d; ci = i; } });
+        let st = capSt(ring, cr[ci]);
+        if (!st.length) continue;
+        if (G.dist(st[st.length - 1], out[best]) < G.dist(st[0], out[best])) st = st.reverse();
+        // Rückweg zur Säule muss kurz sein
+        if (G.dist(st[st.length - 1], out[best]) > 3 || G.dist(st[0], out[best]) > 3) continue;
+        ins.push({ at: best + 1, st, back: { x: out[best].x, y: out[best].y } });
       }
-      if (atStart.length) out.splice(satStart, 0, ...atStart.map((q) => ({ x: q.x, y: q.y, j: 0 })));
-      for (const q of atEnd) push(out, q);
+      ins.sort((u, v) => v.at - u.at);
+      for (const it of ins) out.splice(it.at, 0, ...it.st.map((q) => ({ x: q.x, y: q.y, j: 0 })), { x: it.back.x, y: it.back.y, j: 0 });
     }
     return out;
   }
@@ -375,7 +407,7 @@
   /* ---------- Flächenfüllung (Tatami / Satin mit festem Winkel) ---------- */
   // push: Druckausgleich – die Form quer zur Stichrichtung um diesen Wert (je Seite) kürzen,
   // weil die Stiche den Stoff dort auseinanderdrücken (sonst wird aus einem Kreis ein Ei)
-  function scanBlocks(rings, spacing, gradEnd, push = 0) {
+  function scanBlocks(rings, spacing, gradEnd, push = 0, cont = true) {
     const all = rings.flat();
     const bb = G.bbox(all);
     const rows = [];
@@ -417,6 +449,18 @@
       // Ein Block läuft mit dem Segment weiter, mit dem er sich am stärksten überdeckt; abzweigende
       // oder einmündende Stücke (Fellzacken, kleine Ausläufer) werden eigene Blöcke, ohne den großen
       // Abschnitt zu unterbrechen. So entstehen wenige große Abschnitte statt vieler kleiner.
+      if (!cont) {
+        // geteilte Zerlegung: jeder Block endet, sobald sich eine Reihe teilt oder zusammenläuft
+        for (const sg of segs) {
+          const cand = active.filter((b) => ov(b.last, sg));
+          if (cand.length === 1 && !used.has(cand[0]) && segs.filter((t) => ov(cand[0].last, t)).length === 1) {
+            const b = cand[0]; b.rows.push(sg); b.last = sg; used.add(b); next.push(b); continue;
+          }
+          const nb = { rows: [sg], last: sg }; blocks.push(nb); next.push(nb);
+        }
+        active = next;
+        continue;
+      }
       const pairs = [];
       for (const b of active) for (const sg of segs) if (ov(b.last, sg)) pairs.push({ b, sg, o: Math.min(b.last.x1, sg.x1) - Math.max(b.last.x0, sg.x0) });
       pairs.sort((p1, p2) => p2.o - p1.o);
@@ -467,8 +511,18 @@
   }
 
   // Erzeugt Stiche für eine Füllung im gedrehten Koordinatensystem (Zeilen horizontal)
+  // Beide Zerlegungen rechnen (große durchlaufende Abschnitte / an Verzweigungen geteilt) und die
+  // nehmen, deren Fahrwege besser sind (sichtbare Fahrten über fertiger Fläche kosten am meisten)
   function fillRotated(rings, o, startPt) {
-    const blocks = scanBlocks(rings, o.spacing, o.gradEnd, o.push || 0);
+    const A = fillRotatedWith(rings, o, startPt, true);
+    if (o.satin) return A;
+    const B = fillRotatedWith(rings, o, startPt, false);
+    const sc = (r) => r.cost + (o.exitTarget && r.end ? 0.6 * G.dist(r.end, o.exitTarget) : 0);
+    return sc(B) < sc(A) ? B : A;
+  }
+
+  function fillRotatedWith(rings, o, startPt, cont) {
+    const blocks = scanBlocks(rings, o.spacing, o.gradEnd, o.push || 0, cont);
     let out, cur, remaining, done, tcost;
     const reset = () => { out = []; cur = startPt; remaining = blocks.filter((b) => b.rows.length); done = []; doneIds = new Set(); doneRows = new Map(); tcost = 0; };
     // Blockkarte: welche Teilfläche deckt welche Stelle (für schnelle Abfragen „schon gestickt?“)

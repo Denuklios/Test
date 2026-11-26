@@ -243,7 +243,7 @@
    * Breite und schmale Teile trennen (morphologisches Öffnen mit halber Satin-Grenze):
    * core = breite Bereiche (werden Fläche, mit Überstand "keep" unter die Säulen), narrow = schmale Arme/Beine.
    */
-  function hybrid(mask, cw, ch, mm, satinMax, keep) {
+  function hybrid(mask, cw, ch, mm, satinMax, keep, mergeLimb = 0) {
     const SA = HW.satinauto;
     const r = satinMax / 2 / mm;
     const dt = SA.distanceTransform(mask, cw, ch);
@@ -271,6 +271,9 @@
       let far = 0;
       for (const i of px) far = Math.max(far, dCore[i]);
       if (far < 1.6 * r) { for (const i of px) core[i] = 1; continue; }
+      // mit Satinrand: kurze Ausläufer (Mundwinkel, kleine Spitzen) gehören zur Fläche, damit der Rand
+      // ohne Unterbrechung um die ganze Form läuft statt an jedem Ansatz abzubrechen
+      if (mergeLimb && far * mm <= mergeLimb) { for (const i of px) core[i] = 1; continue; }
       const m = new Uint8Array(cw * ch);
       for (const i of px) m[i] = 1;
       narrow.push(m);
@@ -518,7 +521,7 @@
             if (mode === 'satin' || (p90 <= satinMax && wide / area < 0.08 && cover / area > 0.75)) cols = res;
             else if (mode === 'auto' && precise && wide / area >= 0.08) {
               // gemischt: breite Teile als Fläche, schmale Arme/Beine/Striche als Satin
-              const hy = hybrid(cmask, cw, ch, mm, satinMax, opts.keepMM ?? 0.4);
+              const hy = hybrid(cmask, cw, ch, mm, satinMax, opts.keepMM ?? 0.4, opts.border ? (opts.border.limb ?? 12) : 0);
               if (hy) {
                 const org = { x: opts.originX + x0 * mm, y: opts.originY + y0 * mm };
                 for (const nm of hy.narrow) {
