@@ -108,7 +108,10 @@ fun ThreadScreen(vm: MainViewModel, threadKey: String, snackHost: SnackbarHostSt
                     last?.let { m ->
                         IconButton(onClick = { vm.archive(m); vm.pop() }) { Icon(Icons.Outlined.Archive, tr("Archivieren")) }
                         IconButton(onClick = { snooze = m }) { Icon(Icons.Outlined.Snooze, tr("Zurückstellen")) }
-                        IconButton(onClick = { vm.delete(m); vm.pop() }) { Icon(Icons.Outlined.Delete, tr("Löschen")) }
+                        var choice by remember { mutableStateOf(false) }
+                        IconButton(onClick = { if (vm.countFrom(m.fromAddr) > 1 && m.folderRole != app.mailwerk.data.FolderRole.TRASH) choice = true else { vm.delete(m); vm.pop() } }) { Icon(Icons.Outlined.Delete, tr("Löschen")) }
+                        if (choice) DeleteChoiceDialog(vm, listOf(m), onDismiss = { choice = false },
+                            onOnlyThese = { choice = false; vm.delete(m); vm.pop() }, onAllFrom = { choice = false; vm.pop() })
                         IconButton(onClick = { actions = m }) { Icon(Icons.Outlined.MoreVert, tr("Mehr")) }
                     }
                 })

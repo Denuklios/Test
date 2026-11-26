@@ -1,6 +1,6 @@
 {
-  "versionCode": 35,
-  "versionName": "1.28",
+  "versionCode": 36,
+  "versionName": "1.29",
   "apk": "Mailwerk.apk",
-  "notes": "Neu: Mehrere Mails markieren (lange drücken), „Alle auswählen“, gemeinsam löschen/archivieren/gelesen/Spam – und „Alle von … löschen“"
+  "notes": "Neu: Große Lösch-Leiste unten beim Markieren und Abfrage „Nur diese“ oder „Alle von diesen Absendern“"
 }

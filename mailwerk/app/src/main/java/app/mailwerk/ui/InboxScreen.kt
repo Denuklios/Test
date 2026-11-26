@@ -130,6 +130,21 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
     LaunchedEffect(mailbox, category) { selected = emptySet() }
     LaunchedEffect(threads) { val ids = threads.map { it.latest.id }.toSet(); if (!ids.containsAll(selected)) selected = selected intersect ids }
     androidx.activity.compose.BackHandler(enabled = selecting) { selected = emptySet() }
+    // Löschen: wenn es von denselben Absendern noch mehr gibt -> fragen „nur markierte oder alle von …“
+    var deleteChoice by remember { mutableStateOf<List<Message>?>(null) }
+    val onSelAction: (String) -> Unit = { kind ->
+        val ms = threads.filter { it.latest.id in selected }.map { it.latest }
+        when {
+            kind == "more" -> ms.singleOrNull()?.let { actionsFor = it }
+            kind == "delete" && ms.isNotEmpty() && vm.countFromAll(ms.map { it.fromAddr }) > ms.size -> deleteChoice = ms
+            else -> { vm.bulk(kind, ms); selected = emptySet() }
+        }
+    }
+    deleteChoice?.let { ms ->
+        DeleteChoiceDialog(vm, ms, onDismiss = { deleteChoice = null },
+            onOnlyThese = { vm.bulk("delete", ms); selected = emptySet(); deleteChoice = null },
+            onAllFrom = { selected = emptySet(); deleteChoice = null })
+    }
     val listState = rememberLazyListState()
     LaunchedEffect(category, mailbox) { listState.scrollToItem(0) }
     // Mit Sperre gegen Flackern: einklappen nach etwas Scrollweg, wieder aufklappen erst ganz oben
@@ -146,7 +161,13 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
     }) {
         Scaffold(
             containerColor = MaterialTheme.colorScheme.background,
-            floatingActionButton = { GradientFab(expanded = !scrolled) { vm.compose() } },
+            floatingActionButton = { if (!selecting) GradientFab(expanded = !scrolled) { vm.compose() } },
+            bottomBar = {
+                AnimatedVisibility(selecting, enter = expandVertically(expandFrom = Alignment.Top) + fadeIn(), exit = shrinkVertically() + fadeOut()) {
+                    val ms = threads.filter { it.latest.id in selected }.map { it.latest }
+                    SelectionActions(count = selected.size, allSeen = ms.isNotEmpty() && ms.all { it.seen }) { kind -> onSelAction(kind) }
+                }
+            },
             snackbarHost = { SnackbarHost(snackHost) },
         ) { pad ->
             Column(Modifier.padding(top = pad.calculateTopPadding()).fillMaxSize()) {
@@ -154,11 +175,7 @@ fun InboxScreen(vm: MainViewModel, snackHost: SnackbarHostState) {
                 if (selecting) SelectionBar(selected.size, threads.size,
                     onClose = { selected = emptySet() },
                     onSelectAll = { selected = if (selected.size == threads.size) emptySet() else threads.map { it.latest.id }.toSet() },
-                    onAction = { kind ->
-                        val ms = threads.filter { it.latest.id in selected }.map { it.latest }
-                        if (kind == "more") ms.singleOrNull()?.let { actionsFor = it } else vm.bulk(kind, ms)
-                        if (kind != "more") selected = emptySet()
-                    })
+                    onAction = { kind -> onSelAction(kind) })
                 else Header(vm, mailbox, accounts.firstOrNull()?.name, collapsed,
                     showCats = vm.showsCategories, category = category, counts = counts,
                     onCategory = { vm.category.value = it },
@@ -686,7 +703,10 @@ fun QuickActionsSheet(vm: MainViewModel, m: Message, onDismiss: () -> Unit, onSn
                 ListItem(headlineContent = { Text(f.displayName) }, leadingContent = { Spacer(Modifier.width(24.dp)) },
                     modifier = Modifier.combinedClickable(onClick = { vm.moveTo(m, f); onDismiss() }))
             }
-            item(tr("Löschen"), Icons.Outlined.Delete) { vm.delete(m); onDismiss() }()
+            var choice by remember { mutableStateOf(false) }
+            item(tr("Löschen"), Icons.Outlined.Delete) { if (vm.countFrom(m.fromAddr) > 1 && m.folderRole != FolderRole.TRASH) choice = true else { vm.delete(m); onDismiss() } }()
+            if (choice) DeleteChoiceDialog(vm, listOf(m), onDismiss = { choice = false },
+                onOnlyThese = { choice = false; vm.delete(m); onDismiss() }, onAllFrom = { choice = false; onDismiss() })
             HorizontalDivider()
             Text(tr("Mails von {0} künftig einsortieren als:", m.fromAddr), style = MaterialTheme.typography.labelMedium,
                 modifier = Modifier.padding(horizontal = 20.dp, vertical = 8.dp))
@@ -811,24 +831,87 @@ private fun familyHint(vm: MainViewModel, accs: List<app.mailwerk.data.Account>)
     }
 }.getOrNull()
 
-/** Leiste im Auswahlmodus: Anzahl, Alle auswählen, Aktionen für alle markierten Mails */
+/** Leiste im Auswahlmodus oben: Anzahl und „Alle auswählen“ */
 @Composable
-private fun SelectionBar(count: Int, total: Int, onClose: () -> Unit, onSelectAll: () -> Unit, onAction: (String) -> Unit) {
-    var more by remember { mutableStateOf(false) }
-    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 4.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
+private fun SelectionBar(count: Int, total: Int, onClose: () -> Unit, onSelectAll: () -> Unit, @Suppress("UNUSED_PARAMETER") onAction: (String) -> Unit) {
+    Row(Modifier.fillMaxWidth().padding(start = 4.dp, end = 8.dp, top = 6.dp, bottom = 6.dp), verticalAlignment = Alignment.CenterVertically) {
         IconButton(onClick = onClose) { Icon(Icons.Outlined.Close, tr("Auswahl beenden")) }
         Text(tr("{0} ausgewählt", count), style = MaterialTheme.typography.titleLarge, modifier = Modifier.weight(1f))
-        IconButton(onClick = onSelectAll) { Icon(Icons.Outlined.SelectAll, if (count == total) tr("Auswahl aufheben") else tr("Alle auswählen")) }
-        IconButton(onClick = { onAction("archive") }) { Icon(Icons.Outlined.Archive, tr("Archivieren")) }
-        IconButton(onClick = { onAction("delete") }) { Icon(Icons.Outlined.Delete, tr("Löschen")) }
-        Box {
-            IconButton(onClick = { more = true }) { Icon(Icons.Outlined.MoreVert, tr("Mehr")) }
-            DropdownMenu(more, { more = false }) {
-                DropdownMenuItem({ Text(tr("Als gelesen markieren")) }, { more = false; onAction("read") }, leadingIcon = { Icon(Icons.Outlined.MarkEmailRead, null) })
-                DropdownMenuItem({ Text(tr("Als ungelesen markieren")) }, { more = false; onAction("unread") }, leadingIcon = { Icon(Icons.Outlined.MarkEmailUnread, null) })
-                DropdownMenuItem({ Text(tr("Spam – Absender sperren")) }, { more = false; onAction("spam") }, leadingIcon = { Icon(Icons.Outlined.Report, null) })
-                if (count == 1) DropdownMenuItem({ Text(tr("Weitere Aktionen …")) }, { more = false; onAction("more") }, leadingIcon = { Icon(Icons.Outlined.MoreHoriz, null) })
+        val all = count == total
+        TextButton(onClick = onSelectAll) {
+            Icon(Icons.Outlined.SelectAll, if (all) tr("Auswahl aufheben") else tr("Alle auswählen"), Modifier.size(20.dp))
+            Spacer(Modifier.width(6.dp)); Text(if (all) tr("Keine") else tr("Alle"))
+        }
+    }
+}
+
+/** Große Knöpfe unten im Auswahlmodus – Löschen ganz vorn und rot */
+@Composable
+private fun SelectionActions(count: Int, allSeen: Boolean, onAction: (String) -> Unit) {
+    var more by remember { mutableStateOf(false) }
+    Surface(color = MaterialTheme.colorScheme.surface, shadowElevation = 8.dp, tonalElevation = 2.dp) {
+        Row(Modifier.fillMaxWidth().navigationBarsPadding().padding(horizontal = 8.dp, vertical = 8.dp),
+            horizontalArrangement = Arrangement.spacedBy(6.dp), verticalAlignment = Alignment.CenterVertically) {
+            Button(onClick = { onAction("delete") }, modifier = Modifier.weight(1.75f).height(52.dp),
+                colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White),
+                contentPadding = PaddingValues(horizontal = 8.dp)) {
+                Icon(Icons.Outlined.Delete, null, Modifier.size(20.dp)); Spacer(Modifier.width(4.dp))
+                Text(tr("Löschen"), maxLines = 1, softWrap = false)
+            }
+            @Composable fun act(label: String, icon: androidx.compose.ui.graphics.vector.ImageVector, kind: String) =
+                Column(Modifier.weight(1f).clip(RoundedCornerShape(12.dp)).clickable { onAction(kind) }.padding(vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(icon, null, Modifier.size(22.dp)); Text(label, style = MaterialTheme.typography.labelSmall, maxLines = 1)
+                }
+            act(tr("Archiv"), Icons.Outlined.Archive, "archive")
+            if (allSeen) act(tr("Ungelesen"), Icons.Outlined.MarkEmailUnread, "unread") else act(tr("Gelesen"), Icons.Outlined.MarkEmailRead, "read")
+            act(tr("Spam"), Icons.Outlined.Report, "spam")
+            Box(Modifier.weight(0.85f)) {
+                Column(Modifier.fillMaxWidth().clip(RoundedCornerShape(12.dp)).clickable { more = true }.padding(vertical = 6.dp),
+                    horizontalAlignment = Alignment.CenterHorizontally) {
+                    Icon(Icons.Outlined.MoreHoriz, tr("Mehr"), Modifier.size(22.dp)); Text(tr("Mehr"), style = MaterialTheme.typography.labelSmall)
+                }
+                DropdownMenu(more, { more = false }) {
+                    DropdownMenuItem({ Text(if (allSeen) tr("Als gelesen markieren") else tr("Als ungelesen markieren")) },
+                        { more = false; onAction(if (allSeen) "read" else "unread") },
+                        leadingIcon = { Icon(if (allSeen) Icons.Outlined.MarkEmailRead else Icons.Outlined.MarkEmailUnread, null) })
+                    if (count == 1) DropdownMenuItem({ Text(tr("Weitere Aktionen …")) }, { more = false; onAction("more") }, leadingIcon = { Icon(Icons.Outlined.MoreHoriz, null) })
+                }
             }
         }
     }
+}
+
+/**
+ * Rückfrage beim Löschen: nur die markierten Mails – oder ALLE Mails dieser Absender.
+ * Wird nur gezeigt, wenn es von den Absendern noch weitere Mails gibt.
+ */
+@Composable
+fun DeleteChoiceDialog(vm: MainViewModel, ms: List<Message>, onDismiss: () -> Unit, onOnlyThese: () -> Unit, onAllFrom: () -> Unit) {
+    val senders = remember(ms) { ms.filter { it.fromAddr.isNotBlank() }.distinctBy { it.fromAddr.lowercase() } }
+    val total = remember(ms) { vm.countFromAll(senders.map { it.fromAddr }) }
+    val names = senders.map { it.fromName.ifBlank { it.fromAddr } }
+    val label = if (names.size == 1) names.first() else tr("{0} Absendern", names.size)
+    AlertDialog(onDismissRequest = onDismiss,
+        icon = { Icon(Icons.Outlined.DeleteSweep, null) },
+        title = { Text(tr("Was möchtest du löschen?")) },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                OutlinedButton(onClick = onOnlyThese, modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp)) {
+                    Icon(Icons.Outlined.Delete, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp))
+                    Text(if (ms.size == 1) tr("Nur diese Mail") else tr("Nur die {0} markierten", ms.size), Modifier.weight(1f))
+                }
+                Button(onClick = { vm.deleteAllFrom(senders.map { it.fromAddr }, label); onAllFrom() },
+                    modifier = Modifier.fillMaxWidth().heightIn(min = 52.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFE5484D), contentColor = Color.White)) {
+                    Icon(Icons.Outlined.DeleteSweep, null, Modifier.size(20.dp)); Spacer(Modifier.width(8.dp))
+                    Text(tr("Alle {0} Mails von {1}", total, label), Modifier.weight(1f))
+                }
+                if (names.size > 1) Text(names.take(6).joinToString(", ") + if (names.size > 6) " …" else "",
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text(tr("Alles kommt in den Papierkorb. Mit „Rückgängig“ holst du es zurück."),
+                    style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+            }
+        },
+        confirmButton = {}, dismissButton = { TextButton(onClick = onDismiss) { Text(tr("Abbrechen")) } })
 }

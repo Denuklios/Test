@@ -297,15 +297,22 @@ class MainViewModel(app: Application) : AndroidViewModel(app) {
     }
 
     /** Anzahl der Mails eines Absenders (für „Alle von … löschen“) */
-    fun countFrom(address: String): Int = repo.messagesFrom(address).size
+    fun countFrom(address: String): Int = if (address.isBlank()) 0 else repo.messagesFrom(address).size
+    /** Anzahl aller Mails dieser Absender (für die Wahl „nur markierte / alle von …“) */
+    fun countFromAll(addresses: Collection<String>): Int = addresses.filter { it.isNotBlank() }.map { it.lowercase() }.distinct().sumOf { repo.messagesFrom(it).size }
 
     /** Alle Mails eines Absenders löschen – mit „Rückgängig“ */
-    fun deleteAllFrom(address: String, name: String) = viewModelScope.launch {
-        val ms = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) { repo.messagesFrom(address) }
+    fun deleteAllFrom(address: String, name: String) = deleteAllFrom(listOf(address), name)
+
+    /** Alle Mails mehrerer Absender löschen – eine Rückgängig-Aktion für alles */
+    fun deleteAllFrom(addresses: Collection<String>, label: String) = viewModelScope.launch {
+        val ms = kotlinx.coroutines.withContext(kotlinx.coroutines.Dispatchers.IO) {
+            addresses.filter { it.isNotBlank() }.map { it.lowercase() }.distinct().flatMap { repo.messagesFrom(it) }.distinctBy { it.id }
+        }
         if (ms.isEmpty()) return@launch
         val (moved, err) = repo.bulkDelete(ms)
         if (err != null) snack(err)
-        else snack(tr("{0} Mail(s) von {1} gelöscht", ms.size, name), tr("Rückgängig")) { viewModelScope.launch { repo.bulkMoveBack(moved) } }
+        else snack(tr("{0} Mail(s) von {1} gelöscht", ms.size, label), tr("Rückgängig")) { viewModelScope.launch { repo.bulkMoveBack(moved) } }
     }
 
     fun toggleSeen(m: Message) = act { repo.markSeen(m, !m.seen) }

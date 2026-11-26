@@ -45,7 +45,13 @@ class BulkTest {
     @org.junit.Before fun deLocale() { java.util.Locale.setDefault(java.util.Locale.GERMAN) }
     @get:Rule val rule = createEmptyComposeRule()
     private val gm = GreenMail(arrayOf(ServerSetup(3151, null, "imap"), ServerSetup(3033, null, "smtp"))).also { it.start() }
-    @After fun stop() { gm.stop() }
+    @After fun stop() {
+        gm.stop()
+        // nichts für andere Tests hinterlassen (Konten, Sperrliste, zuletzt gewähltes Postfach)
+        val app = ApplicationProvider.getApplicationContext<android.app.Application>()
+        Db.get(app).let { db -> db.accounts().forEach { db.deleteAccount(it.id) }; db.blocklist().forEach { db.unblock(it.pattern) } }
+        Prefs(app).lastMailbox = "unified"; Prefs(app).drawerExpanded = null
+    }
 
     private fun deliver(from: String, name: String, subject: String) {
         val m = MimeMessage(Session.getInstance(Properties()))
@@ -70,7 +76,7 @@ class BulkTest {
         c.withStore { s -> listOf("Trash", "Spam").forEach { s.getFolder(it).create(Folder.HOLDS_MESSAGES) } }
         repo.sync()
         repeat(5) { deliver("news@shop.example", "Shop", "Angebot ${it + 1}") }
-        deliver("anna@example.org", "Anna", "Hallo"); deliver("bob@example.org", "Bob", "Frage")
+        deliver("anna@example.org", "Anna", "Hallo"); deliver("anna@example.org", "Anna", "Treffen"); deliver("bob@example.org", "Bob", "Frage")
         assertTrue(repo.sync().isEmpty())
         db.folders(db.accounts().single().id).firstOrNull { it.fullName == "Trash" }?.let { db.upsertFolder(it.accountId, it.fullName, it.displayName, FolderRole.TRASH) }
 
@@ -79,12 +85,12 @@ class BulkTest {
         assertEquals(5, fromShop.size)
         val (moved, err) = repo.bulkDelete(fromShop)
         assertEquals(null, err); assertEquals(5, moved.size)
-        assertEquals(2, serverCount(c, "INBOX")); assertEquals(5, serverCount(c, "Trash"))
+        assertEquals(3, serverCount(c, "INBOX")); assertEquals(5, serverCount(c, "Trash"))
         assertEquals(0, repo.messagesFrom("news@shop.example").size)
 
         // Rückgängig: alle wieder im Posteingang
         assertEquals(null, repo.bulkMoveBack(moved))
-        assertEquals(7, serverCount(c, "INBOX")); assertEquals(0, serverCount(c, "Trash"))
+        assertEquals(8, serverCount(c, "INBOX")); assertEquals(0, serverCount(c, "Trash"))
 
         // Gelesen für mehrere (auf dem Server)
         val two = db.listMessages(null, null, null).filter { it.fromAddr.endsWith("example.org") }
@@ -104,17 +110,28 @@ class BulkTest {
         rule.onAllNodesWithText("Frage", useUnmergedTree = true).onFirst().performClick()
         rule.waitUntil(5_000) { rule.onAllNodesWithText("2 ausgewählt", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
         rule.onRoot().captureRoboImage("build/screenshots/24_auswahl.png")
-        // Alle sichtbaren sind gewählt -> Knopf hebt die Auswahl auf; neu wählen -> „Alle auswählen“ wählt alle
-        rule.onAllNodes(hasContentDescription("Auswahl aufheben"), useUnmergedTree = true).onFirst().performClick()
+        // „Alle“ wählt alle sichtbaren, „Keine“ beendet die Auswahl
+        rule.onAllNodesWithText("Alle", useUnmergedTree = true).onFirst().performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("3 ausgewählt", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.onAllNodesWithText("Keine", useUnmergedTree = true).onFirst().performClick()
         rule.waitUntil(5_000) { rule.onAllNodesWithText("ausgewählt", substring = true, useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
+        // Nur „Hallo“ von Anna markieren -> Löschen fragt: nur diese oder alle 2 von Anna
         rule.onAllNodesWithText("Hallo", useUnmergedTree = true).onFirst().performTouchInput { longClick() }
         rule.waitUntil(5_000) { rule.onAllNodesWithText("1 ausgewählt", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
-        rule.onAllNodes(hasContentDescription("Alle auswählen"), useUnmergedTree = true).onFirst().performClick()
-        rule.waitUntil(5_000) { rule.onAllNodesWithText("2 ausgewählt", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
-        // Löschen aus der Leiste: beide in den Papierkorb, Auswahl beendet
-        rule.onAllNodes(hasContentDescription("Löschen"), useUnmergedTree = true).onFirst().performClick()
-        rule.waitUntil(10_000) { rule.onAllNodesWithText("ausgewählt", substring = true, useUnmergedTree = true).fetchSemanticsNodes().isEmpty() }
-        rule.waitUntil(10_000) { serverCount(c, "Trash") == 2 }
+        rule.onAllNodesWithText("Löschen", useUnmergedTree = true).onFirst().performClick()
+        rule.waitUntil(5_000) { rule.onAllNodesWithText("Was möchtest du löschen?", useUnmergedTree = true).fetchSemanticsNodes().isNotEmpty() }
+        rule.onAllNodesWithText("Nur diese Mail", useUnmergedTree = true).fetchSemanticsNodes().let { assertEquals(1, it.size) }
+        rule.onRoot().captureRoboImage("build/screenshots/25_loeschen_wahl.png")
+        rule.onNode(androidx.compose.ui.test.hasText("Alle 2 Mails von Anna") and androidx.compose.ui.test.hasClickAction()).performClick()
+        // Hintergrundarbeit (Server) laufen lassen: Uhr und Haupt-Looper weiterdrehen
+        for (i in 0 until 120) {
+            if (repo.messagesFrom("anna@example.org").isEmpty() && serverCount(c, "Trash") == 2) break
+            rule.mainClock.advanceTimeBy(500); Thread.sleep(150)
+            org.robolectric.Shadows.shadowOf(android.os.Looper.getMainLooper()).idle()
+        }
+        assertEquals("anna local", 0, repo.messagesFrom("anna@example.org").size)
+        assertEquals("trash", 2, serverCount(c, "Trash"))
+        assertEquals(1, repo.messagesFrom("bob@example.org").size)
         sc.close()
     }
 }
