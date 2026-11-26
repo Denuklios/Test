@@ -71,9 +71,16 @@ class MainActivity : Activity() {
     private fun checkUpdate(force: Boolean = false) {
         if (updateStarted) return
         if (update != null && Updater.canInstall(this)) { installUpdate(update!!); return }
-        if (!force && !Updater.shouldCheck(this, 3600_000L)) return
+        if (!force && !Updater.shouldCheck(this, 30_000L)) return
         Thread {
-            val u = Updater.check(this) ?: return@Thread
+            val u = Updater.check(this)
+            if (u == null) {
+                runOnUiThread {
+                    if (force) Toast.makeText(this, Updater.status(this) ?: "Du hast die neueste Version (${Updater.currentName(this)})", Toast.LENGTH_LONG).show()
+                    if (Updater.status(this) != null) refresh(false, false)
+                }
+                return@Thread
+            }
             runOnUiThread {
                 update = u
                 if (Updater.canInstall(this)) installUpdate(u) else refresh(false, false)
@@ -172,8 +179,19 @@ class MainActivity : Activity() {
         content.addView(head)
 
         // Update verfügbar, aber Installation noch nicht erlaubt
+        val updErr = Updater.status(this)
+        if (updErr != null) {
+            val c = card(Ui.CARD2)
+            c.addView(text("⬆ Update klappt nicht", 18f, Ui.WARN, bold = true))
+            c.addView(text(updErr, 13f, Ui.MUTED))
+            c.addView(button("Nochmal versuchen", primary = true) { updateStarted = false; Updater.setStatus(this, null); checkUpdate(force = true) })
+            c.addView(button("Über Browser installieren") {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(Updater.PAGE + "schichtwecker.apk?v=" + System.currentTimeMillis())))
+            })
+            content.addView(c)
+        }
         update?.let { u ->
-            if (!updateStarted) {
+            if (!updateStarted && updErr == null) {
                 val c = card(Ui.CARD2)
                 c.addView(text("⬆ Update ${u.name} ist da", 18f, Ui.TEXT, bold = true))
                 if (u.notes.isNotBlank()) c.addView(text(u.notes, 14f, Ui.MUTED))
@@ -334,7 +352,10 @@ class MainActivity : Activity() {
             val ok = Familienkalender.lastOk(this)
             "Familienkalender${me?.let { " · $it" } ?: ""} · zuletzt ${if (ok > 0) SimpleDateFormat("dd.MM. HH:mm", Locale.GERMANY).format(Date(ok)) else "–"}"
         } else "Familienkalender nicht verbunden"
-        content.addView(text("$fk\nVersion ${Updater.currentName(this)}", 12f, Ui.MUTED).apply { gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(24)) })
+        content.addView(text("$fk\nVersion ${Updater.currentName(this)} · antippen = nach Update suchen", 12f, Ui.MUTED).apply {
+            gravity = Gravity.CENTER; setPadding(0, dp(12), 0, dp(24))
+            setOnClickListener { updateStarted = false; checkUpdate(force = true) }
+        })
     }
 
     private fun connectCard() = card(Ui.CARD2).apply {

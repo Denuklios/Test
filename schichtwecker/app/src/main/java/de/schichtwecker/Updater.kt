@@ -33,6 +33,11 @@ object Updater {
 
     fun currentName(ctx: Context): String = ctx.packageManager.getPackageInfo(ctx.packageName, 0).versionName ?: "?"
 
+    const val PAGE = "https://www.wunsch-fabrik.dk/kalender/schichtwecker/"
+
+    fun status(ctx: Context): String? = Prefs(ctx).sp.getString("updStatus", null)
+    fun setStatus(ctx: Context, s: String?) = Prefs(ctx).sp.edit().putString("updStatus", s).apply()
+
     /** Neuere Version auf dem Server? Nicht im Haupt-Thread aufrufen. */
     fun check(ctx: Context): Info? {
         val p = Prefs(ctx)
@@ -41,12 +46,12 @@ object Updater {
             val b = base(ctx)
             val c = (URL(b + "version.json?t=" + System.currentTimeMillis()).openConnection() as HttpURLConnection)
                 .apply { connectTimeout = 15000; readTimeout = 15000; useCaches = false }
-            if (c.responseCode != 200) { c.disconnect(); return null }
+            if (c.responseCode != 200) { setStatus(ctx, "Update-Server antwortet mit HTTP ${c.responseCode}"); c.disconnect(); return null }
             val j = JSONObject(c.inputStream.bufferedReader().readText()); c.disconnect()
             val code = j.optLong("versionCode", 0)
-            if (code <= currentCode(ctx)) return null
+            if (code <= currentCode(ctx)) { setStatus(ctx, null); return null }
             Info(code, j.optString("version"), b + j.optString("file", "schichtwecker.apk") + "?v=$code", j.optString("notes"))
-        } catch (_: Exception) { null }
+        } catch (e: Exception) { setStatus(ctx, "Update-Prüfung fehlgeschlagen: ${e.message ?: e}"); null }
     }
 
     fun shouldCheck(ctx: Context, minIntervalMs: Long) =
@@ -59,7 +64,7 @@ object Updater {
         return try {
             val f = File(ctx.cacheDir, "update.apk")
             val c = (URL(info.url).openConnection() as HttpURLConnection).apply { connectTimeout = 15000; readTimeout = 60000 }
-            if (c.responseCode != 200) return "Download fehlgeschlagen (HTTP ${c.responseCode})"
+            if (c.responseCode != 200) return "Download fehlgeschlagen (HTTP ${c.responseCode})".also { setStatus(ctx, it) }
             c.inputStream.use { inp -> f.outputStream().use { inp.copyTo(it) } }
             c.disconnect()
 
@@ -76,8 +81,9 @@ object Updater {
                 )
                 s.commit(status.intentSender)
             }
+            setStatus(ctx, null)
             null
-        } catch (e: Exception) { e.message ?: e.toString() }
+        } catch (e: Exception) { ("Installation fehlgeschlagen: " + (e.message ?: e.toString())).also { setStatus(ctx, it) } }
     }
 }
 
@@ -97,9 +103,15 @@ class UpdateReceiver : BroadcastReceiver() {
                     .setContentText("Tippen, um das Update zu installieren").setContentIntent(tap).setAutoCancel(true).build()
                 try { ctx.getSystemService(android.app.NotificationManager::class.java).notify(7, n) } catch (_: SecurityException) {}
             }
-            PackageInstaller.STATUS_SUCCESS -> ctx.getSystemService(android.app.NotificationManager::class.java).cancel(7)
-            else -> AlarmReceiver.info(ctx, 6, "Update nicht installiert",
-                i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "Bitte die App öffnen und erneut versuchen.")
+            PackageInstaller.STATUS_SUCCESS -> {
+                Updater.setStatus(ctx, null)
+                ctx.getSystemService(android.app.NotificationManager::class.java).cancel(7)
+            }
+            else -> {
+                val msg = i.getStringExtra(PackageInstaller.EXTRA_STATUS_MESSAGE) ?: "unbekannter Fehler"
+                Updater.setStatus(ctx, "Android hat das Update abgelehnt: $msg")
+                AlarmReceiver.info(ctx, 6, "Update nicht installiert", "$msg – App öffnen, dort gibt es „Über Browser installieren“.")
+            }
         }
     }
 }

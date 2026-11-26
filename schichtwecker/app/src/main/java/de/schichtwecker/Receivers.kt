@@ -143,6 +143,10 @@ class AlarmReceiver : BroadcastReceiver() {
 class SystemReceiver : BroadcastReceiver() {
     override fun onReceive(ctx: Context, i: Intent) {
         if (i.action == null) return
+        if (i.action == Intent.ACTION_MY_PACKAGE_REPLACED) {
+            Updater.setStatus(ctx, null)
+            AlarmReceiver.info(ctx, 8, "SchichtWecker aktualisiert ✓", "Jetzt Version ${Updater.currentName(ctx)}")
+        }
         val pending = goAsync()
         Thread {
             try { Scheduler.syncAndReschedule(ctx) } finally { pending.finish() }
