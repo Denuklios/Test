@@ -253,16 +253,16 @@
   /* Warenkorb- und Bestellseite */
   var checkout = $("#checkout");
   if (checkout) {
-    var form = $("#orderForm"), state = null, delivery = store.get("jk-delivery") || "pickup", payment = "";
+    var form = $("#orderForm"), state = null, delivery = store.get("jk-delivery") || "pickup", payment = "", method = store.get("jk-method") || "";
     var load = function () {
-      post("cart", { items: cart, delivery: delivery }).then(function (c) {
+      post("cart", { items: cart, delivery: delivery, method: method }).then(function (c) {
         if (c.error) return;
         state = c;
         var fresh = {};
         c.lines.forEach(function (l) { fresh[l.id] = l.qty; });
         var was = JSON.stringify(cart);
         cart = fresh; saveCart();
-        delivery = c.delivery;
+        delivery = c.delivery; method = c.method;
         $("#cartEmpty").hidden = c.lines.length > 0;
         checkout.hidden = !c.lines.length;
         if (!c.lines.length) return;
@@ -277,10 +277,24 @@
           '<dt class="sum">' + esc(t("cart.total")) + '</dt><dd class="sum">' + esc(money(c.total)) + "<small>" + esc(eur(c.total)) + "</small></dd>";
         var opts = [["pickup", 0], ["dk", c.ship_dk], ["de", c.ship_de]];
         $("#deliveryChoices").innerHTML = opts.map(function (o) {
-          var dis = c.pickup_only && o[0] !== "pickup";
+          var dis = o[0] !== "pickup" && (c.pickup_only || o[1] === null);
+          var price = o[0] === "pickup" || o[1] === 0 ? t("cart.free") : o[1] === null ? t("checkout.noship") : t("checkout.from") + " " + money(o[1]);
           return '<label class="choice' + (dis ? " off" : "") + '"><input type="radio" name="delivery" value="' + o[0] + '"' + (o[0] === c.delivery ? " checked" : "") + (dis ? " disabled" : "") + "><span>" +
-            esc(t("checkout.d." + o[0])) + "<b>" + (o[0] === "pickup" || !o[1] ? esc(t("cart.free")) : esc(money(o[1]))) + "</b></span></label>";
+            esc(t("checkout.d." + o[0])) + "<b>" + esc(price) + "</b></span></label>";
         }).join("");
+        var mbox = $("#methodBox");
+        mbox.hidden = c.delivery === "pickup";
+        $("#methodChoices").innerHTML = c.methods.map(function (m) {
+          var name = m.label ? m.label + " · " + t("ship.s." + m.service) : t("ship.standard");
+          return '<label class="choice"><input type="radio" name="method" value="' + esc(m.id) + '"' + (m.id === c.method ? " checked" : "") + "><span>" + esc(name) +
+            "<b>" + esc(m.price ? money(m.price) : t("cart.free")) + "</b></span></label>";
+        }).join("");
+        var sel = c.methods.filter(function (m) { return m.id === c.method; })[0];
+        $("#parcelShop").hidden = !sel || sel.service !== "shop" || !sel.label;
+        var info = [];
+        if (c.delivery !== "pickup" && c.weight) info.push(t("checkout.parcels").replace("{n}", c.parcels).replace("{kg}", (c.weight / 1000).toLocaleString(JK.locale, { maximumFractionDigits: 1 })));
+        if (c.free_from && c.delivery !== "pickup" && c.subtotal < c.free_from) info.push(t("checkout.freefrom").replace("{amount}", money(c.free_from - c.subtotal)));
+        $("#methodInfo").textContent = info.join(" ");
         if (c.payments.indexOf(payment) < 0) payment = c.payments[0] || "";
         $("#paymentChoices").innerHTML = c.payments.map(function (p) {
           return '<label class="choice"><input type="radio" name="payment" value="' + p + '"' + (p === payment ? " checked" : "") + "><span>" + esc(t("checkout.p." + p)) + "</span></label>";
@@ -294,6 +308,7 @@
       var el = e.target;
       if (el.name === "delivery") { delivery = el.value; store.set("jk-delivery", delivery); load(); }
       if (el.name === "payment") payment = el.value;
+      if (el.name === "method") { method = el.value; store.set("jk-method", method); load(); }
       if (el.hasAttribute("data-line")) { cart[el.getAttribute("data-line")] = Math.max(1, parseInt(el.value, 10) || 1); saveCart(); load(); }
     });
     checkout.addEventListener("click", function (e) {
@@ -302,8 +317,8 @@
     });
     form.addEventListener("submit", function (e) {
       e.preventDefault();
-      var data = { items: cart, delivery: delivery, payment: payment };
-      new FormData(form).forEach(function (v, k) { if (k !== "delivery" && k !== "payment") data[k] = String(v).trim(); });
+      var data = { items: cart, delivery: delivery, payment: payment, method: delivery === "pickup" ? "" : method };
+      new FormData(form).forEach(function (v, k) { if (k !== "delivery" && k !== "payment" && k !== "method") data[k] = String(v).trim(); });
       data.terms = $('input[name="terms"]', form).checked;
       var err = !data.name ? "name" : !/^\S+@\S+\.\S+$/.test(data.email || "") ? "email" : (delivery !== "pickup" && (!data.street || !data.zip || !data.city)) ? "address" : !payment ? "payment" : !data.terms ? "terms" : "";
       if (err) return msg(form, t("checkout.err." + err), "err");

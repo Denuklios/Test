@@ -13,10 +13,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $site['hero']     = web_post_langs('hero', 160);
     $site['notice']   = web_post_langs('notice', 160);
     $site['launch']   = in_array($_POST['launch'] ?? '', ['auto', 'open', 'closed'], true) ? $_POST['launch'] : 'auto';
-    $t = (string)($_POST['countdownTarget'] ?? '');
-    $d = DateTime::createFromFormat('Y-m-d\TH:i', $t);
-    if (!$d || $d->format('Y-m-d\TH:i') !== $t) $errors[] = 'Bitte ein gültiges Datum mit Uhrzeit wählen.';
-    else $site['countdownTarget'] = $t;
+    foreach (['openAt' => 'Eröffnung der Website', 'countdownTarget' => 'Countdown'] as $k => $label) {
+        $t = (string)($_POST[$k] ?? '');
+        $d = DateTime::createFromFormat('Y-m-d\TH:i', $t);
+        if (!$d || $d->format('Y-m-d\TH:i') !== $t) $errors[] = $label . ': bitte ein gültiges Datum mit Uhrzeit wählen.';
+        else $site[$k] = $t;
+    }
     if (!$errors) {
         web_save($site);
         flash('Gespeichert. Die Website zeigt die Änderungen sofort.');
@@ -32,8 +34,12 @@ foreach ($errors as $e) echo '<div class="flash err" role="alert">' . h($e) . '<
   <?= csrf_field() ?>
   <fieldset>
     <legend>Eröffnung</legend>
-    <p class="hint">Bis zur Eröffnung sehen Besucher nur die Countdown-Seite. Shop, Kalender und alle anderen Seiten sind bis dahin gesperrt.</p>
-    <label>Eröffnung am<input type="datetime-local" name="countdownTarget" required value="<?= h($site['countdownTarget']) ?>"></label>
+    <p class="hint">Bis die Website öffnet, sehen Besucher nur die Countdown-Seite. Shop, Kalender und alle anderen Seiten sind bis dahin gesperrt.</p>
+    <div class="row2">
+      <label>Website &amp; Online-Shop öffnen am<input type="datetime-local" name="openAt" required value="<?= h($site['openAt']) ?>"></label>
+      <label>Countdown auf der Startseite zählt bis (Eröffnung des Ladens)<input type="datetime-local" name="countdownTarget" required value="<?= h($site['countdownTarget']) ?>"></label>
+    </div>
+    <p class="hint">Vor der Website-Eröffnung zählt die Uhr bis zur Website-Eröffnung. Danach zeigt die Startseite „Unser Laden in Padborg öffnet am … – noch …“ mit den Knöpfen zum Shop und zum Adventskalender.</p>
     <label class="check"><input type="checkbox" name="countdownEnabled" value="1" <?= $site['countdownEnabled'] ? 'checked' : '' ?>> Countdown-Uhr anzeigen</label>
     <label class="check"><input type="radio" name="launch" value="auto" <?= $site['launch'] === 'auto' ? 'checked' : '' ?>> Website öffnet von selbst am Eröffnungstag</label>
     <label class="check"><input type="radio" name="launch" value="open" <?= $site['launch'] === 'open' ? 'checked' : '' ?>> Website ist jetzt schon für alle offen</label>

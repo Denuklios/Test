@@ -3,6 +3,7 @@
    Wird vom Admin und von der öffentlichen Schnittstelle (api.php) benutzt. */
 declare(strict_types=1);
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/versand.php';
 
 const WEB_LANGS = ['da' => 'Dänisch', 'de' => 'Deutsch', 'en' => 'Englisch'];
 const WEB_IMG_DIR = JK_DATA . '/bilder';
@@ -21,7 +22,8 @@ function web_site(): array {
     $s = read_json('site');
     $d = [
         'countdownEnabled' => true,
-        'countdownTarget'  => '2027-11-14T10:00',
+        'countdownTarget'  => '2027-11-14T10:00',            // Countdown auf der Startseite (Eröffnung des Ladens)
+        'openAt'           => '2026-12-05T10:00',            // Website und Online-Shop öffnen
         'snow' => true, 'bell' => true,
         'hero' => ['da' => '', 'de' => '', 'en' => ''],        // eigener Satz unter dem Logo (leer = Standardtext)
         'notice' => ['da' => '', 'de' => '', 'en' => ''],      // Hinweisband ganz oben (leer = aus)
@@ -125,7 +127,7 @@ function web_preview_token(array &$site): string {
 function web_is_open(array $site): bool {
     if ($site['launch'] === 'open') return true;
     if ($site['launch'] === 'closed') return false;
-    $t = strtotime((string)$site['countdownTarget']);
+    $t = strtotime((string)($site['openAt'] ?: $site['countdownTarget']));
     return !$t || time() >= $t;
 }
 /* Vorschau für den Admin: ?vorschau=<Schlüssel> setzt ein Cookie, danach ist alles sichtbar */
@@ -201,34 +203,45 @@ function web_eur(int $ore): string {
     $rate = (float)str_replace(',', '.', setting('web_eur_rate'));
     return $rate > 0 ? number_format($ore / 100 / $rate, 2, ',', '.') . ' €' : '';
 }
-function web_shipping(string $delivery, int $subtotal): int {
-    if ($delivery === 'pickup') return 0;
-    $free = (int)setting('web_ship_free');
-    if ($free > 0 && $subtotal >= $free) return 0;
-    return max(0, (int)setting($delivery === 'de' ? 'web_ship_de' : 'web_ship_dk'));
-}
-/* Warenkorb prüfen und ausrechnen. $items = [artikel-id => menge] */
-function web_cart(array $items, string $delivery, string $lang): array {
+/* Warenkorb prüfen und ausrechnen. $items = [artikel-id => menge], $method = gewählte Versandart (z. B. "gls-shop") */
+function web_cart(array $items, string $delivery, string $lang, string $method = ''): array {
     $lines = []; $subtotal = 0; $vat = 0; $pickupOnly = false; $changed = false;
     foreach (array_slice($items, 0, 60, true) as $id => $qty) {
         $rows = web_product_rows('AND p.id = ?', [(int)$id]);
         if (!$rows) { $changed = true; continue; }
-        $p = web_product($rows[0], $lang);
+        $r = $rows[0];
+        $p = web_product($r, $lang);
         if (!$p['buyable']) { $changed = true; continue; }
         $q = max(1, min((int)$qty, $p['max']));
         if ($q !== (int)$qty) $changed = true;
         $total = $p['price'] * $q;
         if (!$p['ship']) $pickupOnly = true;
-        $lines[] = ['id' => $p['id'], 'name' => $p['name'], 'raw_name' => $rows[0]['name'], 'image' => $p['image'], 'qty' => $q, 'max' => $p['max'],
-                    'price' => $p['price'], 'total' => $total, 'ship' => $p['ship'], 'vat' => (int)$rows[0]['vat']];
-        $subtotal += $total; $vat += vat_of($total, (int)$rows[0]['vat']);
+        $lines[] = ['id' => $p['id'], 'name' => $p['name'], 'raw_name' => $r['name'], 'image' => $p['image'], 'qty' => $q, 'max' => $p['max'],
+                    'price' => $p['price'], 'total' => $total, 'ship' => $p['ship'], 'vat' => (int)$r['vat'],
+                    'weight' => (float)$r['weight'], 'l' => (float)$r['size_l'], 'w' => (float)$r['size_w'], 'h' => (float)$r['size_h']];
+        $subtotal += $total; $vat += vat_of($total, (int)$r['vat']);
     }
-    if (!isset(WEB_DELIVERY[$delivery]) || ($pickupOnly && $delivery !== 'pickup')) $delivery = 'pickup';
-    $ship = web_shipping($delivery, $subtotal);
+    $parcels = $lines && !$pickupOnly ? ship_pack(ship_units($lines)) : [];
+    $byCountry = [];
+    foreach (['dk', 'de'] as $c) $byCountry[$c] = $parcels ? ship_methods($c, $parcels, $subtotal) : [];
+    if (!isset(WEB_DELIVERY[$delivery]) || ($pickupOnly && $delivery !== 'pickup') || ($delivery !== 'pickup' && !$byCountry[$delivery])) $delivery = 'pickup';
+    $methods = $delivery === 'pickup' ? [] : $byCountry[$delivery];
+    $sel = null;
+    foreach ($methods as $m) if ($m['id'] === $method) $sel = $m;
+    if (!$sel && $methods) $sel = $methods[0];
+    $ship = $sel ? (int)$sel['price'] : 0;
     $vat += vat_of($ship, vat_rates()[0]);
+    $cheap = fn(string $c) => $byCountry[$c] ? min(array_column($byCountry[$c], 'price')) : null;
     return ['lines' => $lines, 'subtotal' => $subtotal, 'shipping' => $ship, 'total' => $subtotal + $ship, 'vat' => $vat,
             'delivery' => $delivery, 'pickup_only' => $pickupOnly, 'changed' => $changed, 'payments' => web_payments($delivery),
-            'ship_dk' => web_shipping('dk', $subtotal), 'ship_de' => web_shipping('de', $subtotal)];
+            'methods' => $methods, 'method' => $sel ? $sel['id'] : '', 'parcels' => $parcels,
+            'weight' => array_sum(array_column($parcels, 'g')),
+            'ship_dk' => $cheap('dk'), 'ship_de' => $cheap('de'), 'free_from' => (int)setting('web_ship_free')];
+}
+/* Versandart als Text, z. B. "GLS – Paketshop" */
+function web_method_label(array $cart): string {
+    foreach ($cart['methods'] as $m) if ($m['id'] === $cart['method']) return $m['label'] !== '' ? $m['label'] . ' – ' . (SHIP_SERVICES[$m['service']] ?? $m['service']) : 'Standardversand';
+    return '';
 }
 function web_order_no(array $o): string { return 'W-' . $o['number']; }
 function web_order_get(string $by, $val): ?array {
@@ -247,10 +260,11 @@ function web_order_create(array $in, string $lang): array {
     if (setting('web_shop_on') !== '1') throw new ShopError('off');
     $s = fn(string $k, int $max) => mb_substr(trim((string)($in[$k] ?? '')), 0, $max);
     $items = is_array($in['items'] ?? null) ? $in['items'] : [];
-    $cart = web_cart($items, $s('delivery', 10), $lang);
+    $cart = web_cart($items, $s('delivery', 10), $lang, $s('method', 30));
     if (!$cart['lines']) throw new ShopError('empty');
     if ($cart['changed']) throw new ShopError('changed');
     if ($cart['delivery'] !== $s('delivery', 10)) throw new ShopError('delivery');
+    if ($cart['delivery'] !== 'pickup' && $cart['method'] !== $s('method', 30)) throw new ShopError('changed');
     $pay = $s('payment', 12);
     if (!in_array($pay, $cart['payments'], true)) throw new ShopError('payment');
     $name = $s('name', 80); $email = strtolower($s('email', 120));
@@ -269,11 +283,12 @@ function web_order_create(array $in, string $lang): array {
     try {
         $no = max(1000, (int)$db->query('SELECT COALESCE(MAX(number), 1000) FROM web_orders')->fetchColumn()) + 1;
         $token = bin2hex(random_bytes(16));
-        $db->prepare('INSERT INTO web_orders (number, token, created, delivery, payment, name, email, phone, street, zip, city, country, note, lang, subtotal, shipping, total, vat_total, ip_hash)
-                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+        $db->prepare('INSERT INTO web_orders (number, token, created, delivery, payment, name, email, phone, street, zip, city, country, note, lang, subtotal, shipping, total, vat_total, ip_hash, ship_method, ship_info, parcel_shop)
+                      VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
            ->execute([$no, $token, now(), $cart['delivery'], $pay, $name, $email, $s('phone', 40), $street, $zip, $city,
                       $cart['delivery'] === 'de' ? 'Deutschland' : ($cart['delivery'] === 'dk' ? 'Danmark' : ''), $s('note', 1000), $lang,
-                      $cart['subtotal'], $cart['shipping'], $cart['total'], $cart['vat'], $ip]);
+                      $cart['subtotal'], $cart['shipping'], $cart['total'], $cart['vat'], $ip,
+                      web_method_label($cart), $cart['delivery'] === 'pickup' ? '' : json_encode($cart['parcels'], JSON_UNESCAPED_UNICODE), $cart['delivery'] === 'pickup' ? '' : $s('parcel_shop', 160)]);
         $oid = (int)$db->lastInsertId();
         $ins = $db->prepare('INSERT INTO web_order_items (order_id, product_id, name, qty, unit_price, total, vat) VALUES (?,?,?,?,?,?,?)');
         $chk = $db->prepare('SELECT stock, track_stock FROM products WHERE id = ?');
@@ -330,18 +345,25 @@ function web_pay_text(array $o, string $lang): string {
         default => web_t('order.pay.pickup', $lang),
     };
 }
+/* Packliste: welche Kartons, wie schwer */
+function web_parcels_text(array $o): string {
+    $p = json_decode((string)($o['ship_info'] ?? ''), true);
+    if (!is_array($p) || !$p) return '';
+    $t = ''; foreach ($p as $i => $x) $t .= 'Paket ' . ($i + 1) . ': ' . $x['box'] . ', ' . number_format($x['g'] / 1000, 2, ',', '.') . ' kg, ' . $x['n'] . ' Stück' . "\n";
+    return $t . ($o['parcel_shop'] !== '' ? 'Wunsch-Paketshop: ' . $o['parcel_shop'] . "\n" : '');
+}
 function web_order_mail(array $o, bool $toShop): void {
     $l = isset(WEB_LANGS[$o['lang']]) ? $o['lang'] : 'da';
     $lines = '';
     foreach ($o['items'] as $it) $lines .= $it['qty'] . ' x ' . $it['name'] . '  ' . money((int)$it['total']) . "\n";
     $sum = $lines . ($o['shipping'] ? web_t('cart.shipping', $l) . '  ' . money((int)$o['shipping']) . "\n" : '') . web_t('cart.total', $l) . '  ' . money((int)$o['total']) . "\n";
     $body = web_t('mail.hello', $l, ['name' => $o['name']]) . "\n\n" . web_t('mail.thanks', $l, ['no' => web_order_no($o)]) . "\n\n" . $sum . "\n"
-          . web_t('checkout.d.' . $o['delivery'], $l) . "\n" . web_pay_text($o, $l) . "\n\n" . web_t('mail.link', $l) . "\n" . web_order_url($o) . "\n\n" . web_t('mail.bye', $l) . "\nJulekontor\n";
+          . web_t('checkout.d.' . $o['delivery'], $l) . ($o['ship_method'] !== '' ? ' (' . $o['ship_method'] . ')' : '') . ($o['parcel_shop'] !== '' ? "\n" . web_t('checkout.parcelshop', $l) . ': ' . $o['parcel_shop'] : '') . "\n" . web_pay_text($o, $l) . "\n\n" . web_t('mail.link', $l) . "\n" . web_order_url($o) . "\n\n" . web_t('mail.bye', $l) . "\nJulekontor\n";
     web_mail($o['email'], web_t('mail.subject', $l, ['no' => web_order_no($o)]), $body);
     if ($toShop) {
         $adr = $o['delivery'] === 'pickup' ? '' : $o['street'] . "\n" . $o['zip'] . ' ' . $o['city'] . "\n" . $o['country'] . "\n";
         web_mail((string)web_site()['contact']['email'], 'Neue Bestellung ' . web_order_no($o) . ' – ' . $o['name'],
-            'Neue Bestellung ' . web_order_no($o) . "\n\n" . $sum . "\n" . WEB_DELIVERY[$o['delivery']] . ' · ' . WEB_PAYMENTS[$o['payment']] . "\n\n"
+            'Neue Bestellung ' . web_order_no($o) . "\n\n" . $sum . "\n" . WEB_DELIVERY[$o['delivery']] . ($o['ship_method'] !== '' ? ' (' . $o['ship_method'] . ')' : '') . ' · ' . WEB_PAYMENTS[$o['payment']] . "\n" . web_parcels_text($o) . "\n"
             . $o['name'] . "\n" . $o['email'] . "\n" . $o['phone'] . "\n" . $adr . ($o['note'] !== '' ? "\nHinweis: " . $o['note'] . "\n" : '') . "\n" . web_base_url() . 'admin/?p=bestellungen&id=' . $o['id'] . "\n", $o['email']);
     }
 }

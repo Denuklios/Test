@@ -275,3 +275,56 @@ a { color: var(--red); }
   .btn.ghost::before { border-color: #e2c27a33; }
   .btn.ghost:hover { background: linear-gradient(180deg, #264a33, #1c3a28); color: #f6dc9d; }
 }
+
+/* ---------- Einkauf & Lager ---------- */
+.stats { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 16px; margin-bottom: 24px; }
+.stat { background: var(--card); border: 1px solid var(--line); border-radius: 16px; padding: 18px 20px; box-shadow: var(--shadow); display: grid; gap: 4px; }
+.stat b { font: 700 1.6rem var(--f-display); color: var(--green); }
+.stat span { color: var(--muted); font-size: .95rem; }
+.stat.bad b { color: var(--err); }
+.lcards { display: grid; gap: 14px; }
+.lcard { background: var(--card); border: 1px solid var(--line); border-radius: 18px; box-shadow: var(--shadow); overflow: hidden; }
+.lcard.low { border-color: #e7a9a1; }
+.lc-main { display: grid; grid-template-columns: 76px minmax(0, 1fr) auto; gap: 18px; align-items: center; width: 100%; padding: 16px 20px; border: 0; background: none; text-align: left; cursor: pointer; color: inherit; font: inherit; }
+.lc-main:hover h3 { color: var(--red); }
+.lc-img { width: 76px; height: 76px; border-radius: 14px; background: var(--paper) center / cover no-repeat; display: grid; place-items: center; font-size: 2rem; border: 1px solid var(--line); color: var(--muted); }
+.lc-img.big { width: 120px; height: 120px; font-size: .95rem; }
+.lc-txt { display: grid; gap: 6px; min-width: 0; }
+.lc-txt h3 { font: 800 1.2rem var(--f-body); }
+.lc-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+.lc-txt .u { color: var(--muted); font-size: .98rem; }
+.lc-txt .sp { color: var(--green); font-size: 1.1rem; }
+.lc-stock { text-align: right; display: grid; gap: 2px; }
+.lc-stock b { font: 700 1.35rem var(--f-display); white-space: nowrap; }
+.lcard.low .lc-stock b { color: var(--err); }
+.lc-stock small { color: var(--muted); }
+.lc-act { display: flex; flex-wrap: wrap; gap: 8px; padding: 12px 20px 16px; border-top: 1px dashed var(--line2); }
+.lc-act .btn:last-child:not(:first-child) { margin-left: auto; }
+.usechecks { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin-top: 18px; }
+.check.big { display: flex; gap: 14px; align-items: flex-start; padding: 14px 16px; border: 2px solid var(--line2); border-radius: 14px; cursor: pointer; font-weight: 400; margin-top: 10px; }
+.check.big input { width: 26px; height: 26px; margin: 2px 0 0; accent-color: var(--green); flex: none; }
+.check.big span { display: grid; gap: 2px; }
+.check.big small { color: var(--muted); }
+.check.big:has(input:checked) { border-color: var(--green); background: var(--green-soft); }
+h3.sub { margin: 26px 0 12px; font-size: 1.2rem; padding-top: 16px; border-top: 1px dashed var(--line2); }
+.grid4 { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 18px 22px; }
+.photo-row { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin-top: 18px; }
+.bd-list { margin: 10px 0 6px 50px; display: grid; gap: 6px; font-size: 1.05rem; }
+@media (max-width: 760px) {
+  .stats, .grid4 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .usechecks { grid-template-columns: 1fr; }
+  .lc-main { grid-template-columns: 56px minmax(0, 1fr); gap: 12px; padding: 14px; }
+  .lc-img { width: 56px; height: 56px; }
+  .lc-stock { grid-column: 1 / -1; text-align: left; display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+  .lc-act { padding: 10px 14px 14px; }
+  .lc-act .btn:last-child:not(:first-child) { margin-left: 0; }
+  .bd-list { margin-left: 18px; }
+}
+@media (prefers-color-scheme: dark) {
+  .lcard.low { border-color: #8a3b33; }
+  .check.big:has(input:checked) { background: #1d3a27; }
+}
+.tbl { width: 100%; border-collapse: collapse; font-size: 1rem; }
+.tbl th { text-align: left; color: var(--muted); font-size: .9rem; padding: 8px; border-bottom: 2px solid var(--line); }
+.tbl td { padding: 10px 8px; border-top: 1px solid var(--line); vertical-align: top; }
+.tbl .r { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }

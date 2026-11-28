@@ -234,6 +234,73 @@ function migrate(PDO $db): void {
         PRAGMA user_version = 8;
         SQL);
     }
+    if ($v < 9) {
+        /* Eine Liste für alles, was eingekauft wird: Bastelmaterial und Ware zum Weiterverkaufen.
+           Bestand in Packungen (Einkaufseinheiten); verkauft wird in Stück (sell_units je Packung). */
+        $db->exec(<<<SQL
+        ALTER TABLE calc_materials ADD COLUMN stock REAL NOT NULL DEFAULT 0;
+        ALTER TABLE calc_materials ADD COLUMN min_stock REAL NOT NULL DEFAULT 0;
+        ALTER TABLE calc_materials ADD COLUMN unit TEXT NOT NULL DEFAULT 'Packung';
+        ALTER TABLE calc_materials ADD COLUMN craft INTEGER NOT NULL DEFAULT 1;        -- Bastelmaterial (in der Kalkulation wählbar)
+        ALTER TABLE calc_materials ADD COLUMN sell INTEGER NOT NULL DEFAULT 0;         -- einzeln verkaufen
+        ALTER TABLE calc_materials ADD COLUMN sell_units INTEGER NOT NULL DEFAULT 1;   -- Verkaufsstück je Packung
+        ALTER TABLE calc_materials ADD COLUMN sell_name TEXT NOT NULL DEFAULT '';
+        ALTER TABLE calc_materials ADD COLUMN margin REAL;                             -- Aufschlag in %, leer = Standard
+        ALTER TABLE calc_materials ADD COLUMN sell_price INTEGER;                      -- eigener Verkaufspreis brutto in Øre
+        ALTER TABLE calc_materials ADD COLUMN product_id INTEGER;                      -- verknüpfter Artikel in Kasse und Shop
+        ALTER TABLE calc_materials ADD COLUMN weight REAL NOT NULL DEFAULT 0;          -- Gramm je Verkaufsstück
+        ALTER TABLE calc_materials ADD COLUMN size_l REAL NOT NULL DEFAULT 0;          -- cm je Verkaufsstück
+        ALTER TABLE calc_materials ADD COLUMN size_w REAL NOT NULL DEFAULT 0;
+        ALTER TABLE calc_materials ADD COLUMN size_h REAL NOT NULL DEFAULT 0;
+        ALTER TABLE calc_materials ADD COLUMN image TEXT NOT NULL DEFAULT '';
+        CREATE TABLE calc_material_moves (
+            id INTEGER PRIMARY KEY, material_id INTEGER NOT NULL REFERENCES calc_materials(id) ON DELETE CASCADE,
+            qty REAL NOT NULL, stock_after REAL NOT NULL,
+            reason TEXT NOT NULL,                    -- purchase, built, sale, inventory, correction, waste
+            price REAL, currency TEXT NOT NULL DEFAULT '', note TEXT NOT NULL DEFAULT '', user TEXT NOT NULL, created TEXT NOT NULL);
+        CREATE INDEX calc_material_moves_m ON calc_material_moves(material_id, created);
+        ALTER TABLE products ADD COLUMN weight REAL NOT NULL DEFAULT 0;                -- Gramm (für den Versand)
+        ALTER TABLE products ADD COLUMN size_l REAL NOT NULL DEFAULT 0;                -- cm
+        ALTER TABLE products ADD COLUMN size_w REAL NOT NULL DEFAULT 0;
+        ALTER TABLE products ADD COLUMN size_h REAL NOT NULL DEFAULT 0;
+        CREATE TABLE ship_boxes (                    -- Kartons und Versandtaschen
+            id INTEGER PRIMARY KEY, name TEXT NOT NULL, l REAL NOT NULL, w REAL NOT NULL, h REAL NOT NULL,
+            weight REAL NOT NULL DEFAULT 0,          -- Eigengewicht in Gramm inkl. Füllmaterial
+            cost INTEGER NOT NULL DEFAULT 0,         -- was der Karton kostet, in Øre
+            active INTEGER NOT NULL DEFAULT 1, sort INTEGER NOT NULL DEFAULT 0);
+        CREATE TABLE ship_rates (                    -- Preise der Versanddienste nach Gewicht
+            id INTEGER PRIMARY KEY, carrier TEXT NOT NULL, country TEXT NOT NULL, service TEXT NOT NULL DEFAULT 'shop',
+            max_weight REAL NOT NULL,                -- bis Gramm
+            max_len REAL NOT NULL DEFAULT 0,         -- längste Seite bis cm (0 = egal)
+            max_sum REAL NOT NULL DEFAULT 0,         -- Länge + Breite + Höhe bis cm (0 = egal)
+            price INTEGER NOT NULL DEFAULT 0,        -- Preis für den Kunden in Øre inkl. Moms
+            active INTEGER NOT NULL DEFAULT 0, note TEXT NOT NULL DEFAULT '');
+        ALTER TABLE web_orders ADD COLUMN ship_method TEXT NOT NULL DEFAULT '';
+        ALTER TABLE web_orders ADD COLUMN ship_info TEXT NOT NULL DEFAULT '';        -- Pakete als JSON (für die Packliste)
+        ALTER TABLE web_orders ADD COLUMN parcel_shop TEXT NOT NULL DEFAULT '';
+        SQL);
+        /* Beispiel-Kartons – Maße und Gewicht bitte an die eigenen anpassen */
+        $db->exec(<<<SQL
+        INSERT INTO ship_boxes (name, l, w, h, weight, cost, sort) VALUES
+            ('Versandtasche', 30, 22, 4, 40, 0, 10),
+            ('Karton S', 25, 17, 10, 150, 0, 20),
+            ('Karton M', 35, 25, 15, 300, 0, 30),
+            ('Karton L', 50, 35, 25, 600, 0, 40),
+            ('Karton Kranz', 45, 45, 15, 500, 0, 50);
+        SQL);
+        /* Preisstufen der drei Dienste. Die Preise sind Vorschläge aus den öffentlichen Preislisten (Stand Nov. 2026)
+           bzw. 0 – sie sind AUS, bis sie im Admin geprüft und eingeschaltet werden. */
+        $r = $db->prepare('INSERT INTO ship_rates (carrier, country, service, max_weight, max_len, max_sum, price, active, note) VALUES (?,?,?,?,?,?,?,0,?)');
+        $tiers = [
+            ['postnord', 'dk', 'shop', [[1000, 4500], [2000, 5500], [5000, 8000], [10000, 0], [20000, 0]], 100, 0, 'Postpakke Collect – Werte aus der Preisliste 2025, bitte prüfen'],
+            ['postnord', 'de', 'shop', [[1000, 0], [2000, 0], [5000, 0], [10000, 0], [20000, 0]], 100, 0, ''],
+            ['gls', 'dk', 'shop', [[1000, 4600], [5000, 5600], [10000, 7000], [15000, 9500], [20000, 11000]], 0, 0, 'PakkeShop-Preise laut GLS-Liste, zzgl. Energiezuschlag – bitte prüfen'],
+            ['gls', 'de', 'shop', [[1000, 12500], [5000, 17500], [10000, 0], [15000, 0], [20000, 0]], 0, 0, 'Werte aus GLS-Liste unsicher – bitte prüfen'],
+            ['dao', 'dk', 'shop', [[1000, 5500], [5000, 0], [10000, 0], [20000, 0]], 0, 0, 'ab 55 kr. bis 1 kg (Richtwert) – bitte prüfen'],
+        ];
+        foreach ($tiers as [$c, $land, $svc, $list, $len, $sum, $note]) foreach ($list as [$g, $pr]) $r->execute([$c, $land, $svc, $g, $len, $sum, $pr, $note]);
+        $db->exec('PRAGMA user_version = 9');
+    }
 }
 
 /* ---------- Einstellungen ---------- */
@@ -259,7 +326,14 @@ const SHOP_DEFAULTS = [
     'invoice_note' => '',              // z. B. Bankverbindung unter der A4-Rechnung
     'web_ship_dk'  => '4900',          // Versand Dänemark in Øre
     'web_ship_de'  => '9900',          // Versand Deutschland in Øre
-    'web_ship_free' => '0',            // ab diesem Warenwert versandkostenfrei (0 = nie)
+    'web_ship_free' => '0',
+    'ship_def_weight' => '500',        // Gramm, wenn beim Artikel nichts steht
+    'ship_def_size'  => '20x15x10',    // cm, wenn beim Artikel nichts steht
+    'ship_fill'      => '75',          // so viel Prozent eines Kartons dürfen gefüllt werden
+    'ship_max'       => '20000',       // höchstens so viele Gramm je Paket
+    'ship_pack_pass' => '1',           // Kartonkosten auf den Versandpreis aufschlagen
+    'lager_margin'   => '100',         // Standard-Aufschlag für Ware, die einzeln verkauft wird (in %)
+    'lager_round'    => '1',           // Verkaufspreis runden: 0, 1, 5, 10 oder 95 (= endet auf ,95)            // ab diesem Warenwert versandkostenfrei (0 = nie)
     'web_eur_rate' => '7.46',          // 1 Euro = so viele Kronen (nur als Hinweis)
     'web_pay_pickup' => '1',           // Bezahlen bei Abholung
     'web_pay_mobilepay' => '1',

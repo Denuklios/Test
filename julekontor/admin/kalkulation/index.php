@@ -13,18 +13,18 @@ header("Content-Security-Policy: default-src 'self'; img-src 'self' data: blob:;
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#7c1511">
 <meta name="csrf" content="<?= h(csrf_token()) ?>">
-<title>Preiskalkulation · Julekontor</title>
+<title>Kalkulation &amp; Lager · Julekontor</title>
 <link rel="icon" href="../kasse/icon.svg" type="image/svg+xml">
-<link rel="stylesheet" href="kalk.css?v=5">
-<script src="kalk.js?v=3" defer></script>
+<link rel="stylesheet" href="kalk.css?v=6">
+<script src="kalk.js?v=4" defer></script>
 </head>
 <body>
 <header class="bar">
   <a class="back" href="../">← Admin</a>
-  <div class="title">Preiskalkulation</div>
+  <div class="title">Kalkulation &amp; Lager</div>
   <nav class="tabs" aria-label="Bereiche">
     <a href="#/" data-tab="projekte">Projekte</a>
-    <a href="#/material" data-tab="material">Materiallager</a>
+    <a href="#/lager" data-tab="material">Einkauf &amp; Lager</a>
     <a href="#/einstellungen" data-tab="einstellungen">Stundensatz &amp; Einstellungen</a>
   </nav>
   <div id="saved" class="saved" aria-live="polite"></div>

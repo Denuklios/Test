@@ -38,7 +38,7 @@ page_start('shop', 'Shop-Einstellungen');
       <label>Kostenlos ab Warenwert<input name="web_ship_free" inputmode="decimal" value="<?= h($m('web_ship_free')) ?>"></label>
       <label>1 Euro = … Kronen<input name="web_eur_rate" inputmode="decimal" value="<?= h(str_replace('.', ',', setting('web_eur_rate'))) ?>"></label>
     </div>
-    <p class="hint">„Kostenlos ab“ 0 = immer Versandkosten. Abholung im Laden ist immer kostenlos. Der Euro-Kurs dient nur für den Hinweis „ca. … €“ – bezahlt wird in Kronen. Ob ein Artikel verschickt werden kann, steht beim Artikel.</p>
+    <p class="hint"><b>Fester Ersatzpreis je Paket:</b> gilt nur, solange unter <a href="./?p=versand">Versand &amp; Verpackung</a> für das Land keine Versandpreise eingeschaltet sind. „Kostenlos ab“ 0 = immer Versandkosten. Abholung im Laden ist immer kostenlos. Der Euro-Kurs dient nur für den Hinweis „ca. … €“ – bezahlt wird in Kronen. Ob ein Artikel verschickt werden kann, steht beim Artikel.</p>
   </fieldset>
   <fieldset>
     <legend>Bezahlung</legend>

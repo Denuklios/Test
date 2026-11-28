@@ -15,6 +15,11 @@ site_head(t('cart.title'), 'kurv');
       <form class="letter" id="orderForm" novalidate>
         <h3><?= e('checkout.delivery') ?></h3>
         <div class="choices" id="deliveryChoices"></div>
+        <div id="methodBox" hidden>
+          <h3><?= e('checkout.method') ?></h3>
+          <div class="choices" id="methodChoices"></div>
+          <p class="hint-line" id="methodInfo"></p>
+        </div>
         <h3><?= e('checkout.payment') ?></h3>
         <div class="choices" id="paymentChoices"></div>
         <h3><?= e('checkout.you') ?></h3>
@@ -30,6 +35,7 @@ site_head(t('cart.title'), 'kurv');
             <label><span><?= e('checkout.city') ?></span><input name="city" autocomplete="address-level2" maxlength="80"></label>
           </div>
         </div>
+        <label id="parcelShop" hidden><span><?= e('checkout.parcelshop') ?></span><input name="parcel_shop" maxlength="160" placeholder="<?= e('checkout.parcelshop.ph') ?>"></label>
         <label><span><?= e('checkout.note') ?></span><textarea name="note" rows="2" maxlength="1000"></textarea></label>
         <label class="hp" aria-hidden="true">Website<input name="website" tabindex="-1" autocomplete="off"></label>
         <label class="agree"><input type="checkbox" name="terms" value="1"><span><?= e('checkout.terms') ?>

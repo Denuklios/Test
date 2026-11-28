@@ -79,8 +79,10 @@ try {
 
     if ($a === 'cart' && $post) {
         $in = body();
-        $c = web_cart(is_array($in['items'] ?? null) ? $in['items'] : [], (string)($in['delivery'] ?? 'pickup'), $lang($in));
-        foreach ($c['lines'] as &$l) unset($l['raw_name'], $l['vat']);
+        $c = web_cart(is_array($in['items'] ?? null) ? $in['items'] : [], (string)($in['delivery'] ?? 'pickup'), $lang($in), (string)($in['method'] ?? ''));
+        foreach ($c['lines'] as &$l) unset($l['raw_name'], $l['vat'], $l['weight'], $l['l'], $l['w'], $l['h']);
+        unset($l);
+        $c['parcels'] = count($c['parcels']);
         out($c + ['shop_on' => setting('web_shop_on') === '1']);
     }
 

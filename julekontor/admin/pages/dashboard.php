@@ -43,6 +43,7 @@ $target = strtotime((string)($site['countdownTarget'] ?? ''));
     <span class="big" aria-hidden="true">⏳</span>
     <h2>Startseite</h2>
     <?php if (!empty($site['countdownEnabled']) && $target): ?>
+      <?php $open = strtotime((string)($site['openAt'] ?? '')); if ($open && $open > time()): ?><p>Website &amp; Shop öffnen am <strong><?= h(date('d.m.Y H:i', $open)) ?></strong></p><?php endif; ?>
       <p>Countdown bis <strong><?= h(date('d.m.Y', $target)) ?></strong> – noch <strong><?= max(0, (int)ceil(($target - time()) / 86400)) ?></strong> Tage</p>
     <?php endif; ?>
   </a>

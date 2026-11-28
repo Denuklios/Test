@@ -158,10 +158,10 @@
   function route() {
     const h = location.hash.replace(/^#\/?/, "");
     const [a, b] = h.split("/");
-    $$(".tabs a").forEach(x => x.classList.toggle("on", x.dataset.tab === (a === "material" ? "material" : a === "einstellungen" ? "einstellungen" : "projekte")));
+    $$(".tabs a").forEach(x => x.classList.toggle("on", x.dataset.tab === (a === "material" || a === "lager" ? "material" : a === "einstellungen" ? "einstellungen" : "projekte")));
     if (!D) return;
     if (a === "projekt" && b) return renderProject(+b);
-    if (a === "material") return renderMaterials();
+    if (a === "material" || a === "lager") return renderMaterials();
     if (a === "einstellungen") return renderSettings();
     renderOverview();
   }
@@ -189,7 +189,7 @@
         <div class="chips">${[["alle", "Alle"], ["arbeit", "In Arbeit"], ["fertig", "Fertig"]].map(([k, l]) => `<button class="chip ${filter === k ? "on" : ""}" data-f="${k}">${l} (${D.projects.filter(p => k === "alle" || p.status === k).length})</button>`).join("")}</div>
         <div class="grow"><button class="btn ghost" id="newcat">+ Kategorie</button><button class="btn big" id="newp">+ Neues Projekt</button></div>
       </div>
-      ${!D.projects.length ? `<div class="empty">Noch keine Projekte.<br><br>Lege zuerst unter <a href="#/material">Materiallager</a> deine Materialien an, dann hier ein Projekt.<br><br>
+      ${!D.projects.length ? `<div class="empty">Noch keine Projekte.<br><br>Lege zuerst unter <a href="#/lager">Einkauf &amp; Lager</a> deine Materialien an, dann hier ein Projekt.<br><br>
         Du hast schon Daten in der alten Bastelwerkstatt? Unter <a href="#/einstellungen">Einstellungen</a> kannst du die Sicherung übernehmen.</div>` : ""}
       ${groups.filter(g => g.list.length || (g.c.id && filter === "alle" && !search)).map(g => `
         <div class="cat-head"><h2>${esc(g.c.name)}</h2>${g.c.id ? `<button class="btn small ghost" data-newin="${g.c.id}">+ Projekt hier</button><button class="btn small ghost" data-rencat="${g.c.id}">Umbenennen</button><button class="btn small ghost" data-delcat="${g.c.id}">Löschen</button>` : ""}</div>
@@ -445,10 +445,32 @@
       if (b.dataset.timer) timer(p, b.dataset.timer);
       if (b.id === "own-clear") { p.own_price = ""; scheduleSave(); renderTicket(true); }
       if (b.id === "toprod") toProduct(p);
-      if (b.id === "rb-done") { const n = rebuildN[p.id] || 10; if (await confirmBox(n + " Stück als gebaut eintragen?", "Der Zähler „schon gebaut“ steigt um " + n + ".")) { const r = await api("built", { id: p.id, n }); p.built = r.project.built; toast(n + " Stück eingetragen"); renderProject(p.id); } }
+      if (b.id === "rb-done") builtDialog(p, rebuildN[p.id] || 10);
     };
   }
   const rebuildN = {};
+  /* „Als gebaut eintragen“: Zähler hoch, verbrauchtes Material vom Lager ab, fertige Stücke in die Kasse */
+  function builtDialog(p, n) {
+    const batch = Math.max(1, num(p.batch) || 1);
+    const use = p.lines.map(l => { const m = matById(l.material_id); if (!m) return null; const t = packTotal(m); return t > 0 ? { m, packs: usedAmount(m, l.use) / batch * n / t } : null; }).filter(x => x && x.packs > 0);
+    const s = openModal(`<h2>${n} × „${esc(p.name)}“ als gebaut eintragen?</h2>
+      <p class="muted">Der Zähler „schon gebaut“ steigt um ${n}.</p>
+      ${use.length ? `<label class="check big"><input type="checkbox" id="bd-mat" checked> <span><b>Verbrauchtes Material vom Lager abziehen</b></span></label>
+        <ul class="bd-list">${use.map(x => `<li>${esc(x.m.name)}: <b>− ${esc(amt(Math.round(x.packs * 1000) / 1000))} ${esc(x.m.unit || "Packung")}</b> <small class="muted">(jetzt ${esc(stockText(x.m))}${x.m.stock - x.packs < 0 ? ' – <span style="color:var(--err)">reicht nicht!</span>' : ""})</small></li>`).join("")}</ul>` : '<p class="hint">Im Projekt ist kein Material mit Packungsgröße eingetragen – es wird nichts abgezogen.</p>'}
+      ${p.product ? `<label class="check big"><input type="checkbox" id="bd-stock" checked> <span><b>${n} Stück in den Bestand von „${esc(p.product.name)}“</b><small>damit sie in Kasse und Shop verkaufbar sind</small></span></label>` : ""}
+      <div class="row"><button class="btn ghost" data-x="no">Abbrechen</button><button class="btn big" data-x="ok">Eintragen</button></div>`);
+    s.addEventListener("click", async e => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.x === "no") return closeModal();
+      if (b.dataset.x !== "ok") return;
+      const withMat = !!($("#bd-mat", s) || {}).checked, toStock = !!($("#bd-stock", s) || {}).checked;
+      b.disabled = true;
+      const r = await api("built", { id: p.id, n, to_stock: toStock, use: withMat ? use.map(x => ({ id: x.m.id, packs: x.packs })) : [] });
+      p.built = r.project.built;
+      if (withMat) use.forEach(x => { x.m.stock = Math.round((x.m.stock - x.packs) * 10000) / 10000; });
+      closeModal(); toast(n + " Stück eingetragen" + (withMat ? " – Material abgezogen" : "")); renderProject(p.id);
+    });
+  }
   function live(keepTicketInputs) {
     const p = cur; if (!p) return;
     $$("#lines .line").forEach((row, i) => { const c = row.querySelector(".cost"); if (c && p.lines[i]) c.textContent = krFine(lineCost(p.lines[i])); });
@@ -636,21 +658,132 @@
     renderTicket();
   }
 
-  /* ---------- Materiallager ---------- */
-  let mSearch = "";
+  /* ---------- Einkauf & Lager: eine Liste für alles, was eingekauft wird ---------- */
+  let mSearch = "", mFilter = "alle";
+  const stockText = m => amt(Math.round(m.stock * 100) / 100) + " " + (m.unit || "Packung");
+  const isLow = m => m.min_stock > 0 && m.stock <= m.min_stock;
+  const salePrice = m => m.sell_price !== null && m.sell_price > 0 ? m.sell_price : m.calc_price;
+  const packKr = m => num(m.price) * rate(m);
+  const MFILTERS = [["alle", "Alles"], ["craft", "Bastelmaterial"], ["sell", "Einzeln verkaufen"], ["low", "Nachkaufen"], ["shop", "Im Shop"]];
+  const mPass = (m, f) => f === "alle" || (f === "craft" && m.craft) || (f === "sell" && m.sell) || (f === "low" && isLow(m)) || (f === "shop" && m.product);
   function renderMaterials() {
     cur = null;
-    const list = D.materials.filter(m => !mSearch || (m.name + " " + m.grp + " " + m.supplier).toLowerCase().includes(mSearch.toLowerCase()));
+    const list = D.materials.filter(m => mPass(m, mFilter) && (!mSearch || (m.name + " " + m.grp + " " + m.supplier + " " + m.sell_name).toLowerCase().includes(mSearch.toLowerCase())));
     const groups = [...new Set(list.map(m => m.grp || "Ohne Gruppe"))].sort((a, b) => a.localeCompare(b, "de"));
+    const value = D.materials.reduce((s, m) => s + Math.max(0, m.stock) * packKr(m), 0);
+    const saleValue = D.materials.filter(m => m.sell).reduce((s, m) => s + Math.max(0, m.stock) * Math.max(1, m.sell_units) * salePrice(m), 0);
+    const low = D.materials.filter(isLow).length;
+    const card = m => {
+      const shopOld = m.product && Math.abs(m.product.price - salePrice(m)) > 0.004;
+      return `<div class="lcard${isLow(m) ? " low" : ""}">
+        <button class="lc-main" data-m="${m.id}">
+          <div class="lc-img" style="${m.image ? `background-image:url('${esc(m.image)}')` : ""}">${m.image ? "" : "🧺"}</div>
+          <div class="lc-txt"><h3>${esc(m.name)}</h3>
+            <div class="lc-tags">${m.craft ? '<span class="badge">Bastelmaterial</span>' : ""}${m.sell ? '<span class="badge green">einzeln verkaufen</span>' : ""}${m.product ? '<span class="badge green">im Shop</span>' : ""}${isLow(m) ? '<span class="badge red">nachkaufen</span>' : ""}</div>
+            <div class="u">${esc(priceText(m))} je ${esc(m.unit || "Packung")} · ${esc(packText(m))}${m.supplier ? " · " + esc(m.supplier) : ""}</div>
+            ${m.sell ? `<div class="u">Einkauf ${krFine(m.unit_cost)} je Stück → <b class="sp">${krRound(salePrice(m))}</b> im Verkauf${m.sell_units > 1 ? " (" + m.sell_units + " Stück je " + esc(m.unit || "Packung") + ")" : ""}${shopOld ? ' <span class="badge red">Shop hat noch ' + krRound(m.product.price) + "</span>" : ""}</div>` : ""}
+          </div>
+          <div class="lc-stock"><b>${esc(stockText(m))}</b>${m.min_stock > 0 ? `<small>Mindestens ${esc(amt(m.min_stock))}</small>` : ""}${m.sell && m.sell_units > 1 ? `<small>= ${esc(amt(Math.floor(m.stock * m.sell_units)))} Stück</small>` : ""}</div>
+        </button>
+        <div class="lc-act">
+          <button class="btn small" data-buy="${m.id}">+ Einkauf</button>
+          <button class="btn small ghost" data-count="${m.id}">Zählen</button>
+          <button class="btn small ghost" data-waste="${m.id}">Bruch</button>
+          <button class="btn small ghost" data-hist="${m.id}">Verlauf</button>
+          ${m.sell ? `<button class="btn small ${m.product && !shopOld ? "ghost" : "green"}" data-shop="${m.id}">${m.product ? (shopOld ? "Shop-Preis aktualisieren" : "Im Shop ✓ aktualisieren") : "In den Shop stellen"}</button>` : ""}
+        </div></div>`;
+    };
     view().innerHTML = `
-      <div class="toolbar"><input class="in" id="mq" type="search" placeholder="Material suchen …" value="${esc(mSearch)}">
-        <div class="grow"><button class="btn big" id="newm">+ Neues Material</button></div></div>
-      <p class="muted" style="margin-top:-8px">Jede Rolle, Packung oder Flasche einmal mit Preis eintragen. Einkauf in Euro? Einfach „€“ wählen – umgerechnet wird mit ${nf(2).format(D.eur_rate)} kr. pro Euro (änderbar unter Shop-Einstellungen).</p>
-      ${!D.materials.length ? '<div class="empty">Noch kein Material angelegt.<br>Beim Anlegen gibt es Vorlagen für über 70 typische Bastelmaterialien.</div>' : ""}
-      ${groups.map(g => `<div class="mgroup"><h2>${esc(g)}</h2><div class="mcards">${list.filter(m => (m.grp || "Ohne Gruppe") === g).map(m => `
-        <button class="mcard" data-m="${m.id}"><h3>${esc(m.name)}</h3><div class="p">${esc(priceText(m))}</div><div class="u">${esc(packText(m))}</div><div class="u">${esc(unitPriceText(m))}</div>${m.supplier ? `<div class="u">Bezug: ${esc(m.supplier)}</div>` : ""}</button>`).join("")}</div></div>`).join("")}`;
+      <div class="stats">
+        <div class="stat"><b>${krRound(value)}</b><span>Lagerwert im Einkauf</span></div>
+        <div class="stat"><b>${krRound(saleValue)}</b><span>Verkaufswert (einzeln verkaufbar)</span></div>
+        <div class="stat"><b>${D.materials.length}</b><span>Einträge</span></div>
+        <div class="stat${low ? " bad" : ""}"><b>${low}</b><span>nachkaufen</span></div>
+      </div>
+      <div class="toolbar"><input class="in" id="mq" type="search" placeholder="Suchen: Name, Gruppe, Lieferant …" value="${esc(mSearch)}">
+        <div class="chips">${MFILTERS.map(([k, l]) => `<button class="chip ${mFilter === k ? "on" : ""}" data-mf="${k}">${l} (${D.materials.filter(m => mPass(m, k)).length})</button>`).join("")}</div>
+        <div class="grow"><button class="btn ghost" id="lset">Aufschlag &amp; Runden</button><button class="btn big" id="newm">+ Neu eingekauft</button></div></div>
+      <p class="muted" style="margin-top:-8px">Alles, was ihr einkauft, steht hier einmal: mit Preis, Lieferant und Bestand. <b>Bastelmaterial</b> könnt ihr in der Preiskalkulation verwenden – „Als gebaut eintragen“ zieht es vom Bestand ab.
+        <b>Einzeln verkaufen</b> rechnet den Aufschlag drauf und stellt es mit einem Klick in Kasse und Online-Shop; verkauft ihr dort, sinkt der Bestand hier mit. Einkauf in Euro wird mit ${nf(2).format(D.eur_rate)} kr. umgerechnet.</p>
+      ${!D.materials.length ? '<div class="empty">Noch nichts eingetragen.<br>Beim Anlegen gibt es Vorlagen für über 70 typische Bastelmaterialien.</div>' : !list.length ? '<div class="empty">Nichts gefunden.</div>' : ""}
+      ${groups.map(g => `<div class="mgroup"><h2>${esc(g)}</h2><div class="lcards">${list.filter(m => (m.grp || "Ohne Gruppe") === g).map(card).join("")}</div></div>`).join("")}`;
     $("#mq").addEventListener("input", e => { mSearch = e.target.value; const pos = e.target.selectionStart; renderMaterials(); const q = $("#mq"); q.focus(); q.setSelectionRange(pos, pos); });
-    view().onclick = e => { const b = e.target.closest("button"); if (!b) return; if (b.id === "newm") editMaterial(null, () => renderMaterials()); if (b.dataset.m) editMaterial(matById(+b.dataset.m), () => renderMaterials()); };
+    view().onclick = async e => {
+      const b = e.target.closest("button"); if (!b) return;
+      const m = matById(+(b.dataset.m || b.dataset.buy || b.dataset.count || b.dataset.waste || b.dataset.hist || b.dataset.shop || 0));
+      if (b.dataset.mf) { mFilter = b.dataset.mf; renderMaterials(); }
+      if (b.id === "newm") editMaterial(null, () => renderMaterials());
+      if (b.id === "lset") lagerSettings();
+      if (b.dataset.m) editMaterial(m, () => renderMaterials());
+      if (b.dataset.buy) bookMove(m, "purchase");
+      if (b.dataset.count) bookMove(m, "inventory");
+      if (b.dataset.waste) bookMove(m, "waste");
+      if (b.dataset.hist) showHistory(m);
+      if (b.dataset.shop) toShop(m);
+    };
+  }
+  async function toShop(m) {
+    const price = salePrice(m);
+    if (!(price > 0)) { toast("Bitte zuerst den Einkaufspreis eintragen."); return; }
+    if (!m.weight || !m.size_l) {
+      const c = await choose("Gewicht und Maße fehlen", "Ohne Gewicht und Maße rechnet der Shop den Versand mit Standardwerten. Jetzt eintragen?", [["go", "Trotzdem in den Shop"], ["edit", "Jetzt eintragen"]]);
+      if (c === "edit") { editMaterial(m, () => renderMaterials()); return; }
+      if (c !== "go") return;
+    }
+    const r = await api("mat_shop", { id: m.id });
+    Object.assign(m, r.material);
+    toast(r.created ? "In Kasse und Shop angelegt: " + krRound(price) : "Shop aktualisiert: " + krRound(price));
+    renderMaterials();
+    if (r.created && !m.image) setTimeout(() => toast("Tipp: Mit einem Foto (Bearbeiten → Foto) sieht es im Shop viel besser aus."), 3200);
+  }
+  function bookMove(m, kind) {
+    const T = { purchase: ["Einkauf buchen", "Wie viel ist dazugekommen?"], inventory: ["Bestand zählen", "Wie viel ist jetzt da?"], waste: ["Bruch / Schwund", "Wie viel ist kaputt oder weg?"] }[kind];
+    const s = openModal(`<h2>${T[0]}: ${esc(m.name)}</h2>
+      <p class="muted">Jetzt da: <b>${esc(stockText(m))}</b>${m.sell && m.sell_units > 1 ? " (= " + amt(Math.floor(m.stock * m.sell_units)) + " Stück)" : ""}</p>
+      <div class="grid2"><label class="field"><span>${T[1]}</span><div class="unit" data-u="${esc(m.unit || "Packung")}"><input id="b-qty" inputmode="decimal" value="${kind === "inventory" ? esc(inputVal(Math.round(m.stock * 100) / 100)) : "1"}"></div></label>
+      ${kind === "purchase" ? `<label class="field"><span>Preis je ${esc(m.unit || "Packung")} diesmal</span><div class="unit" data-u="${m.currency === "EUR" ? "€" : "kr."}"><input id="b-price" inputmode="decimal" value="${esc(inputVal(m.price))}"></div></label>` : ""}</div>
+      ${kind === "purchase" ? `<div class="grid2" style="margin-top:16px"><label class="field"><span>Lieferant</span><input id="b-sup" value="${esc(m.supplier)}"></label><label class="field"><span>Notiz (Rechnungsnr. …)</span><input id="b-note"></label></div>
+        <p class="hint">Ist der Preis anders als bisher, wird er übernommen – auch für die Preiskalkulation.</p>
+        ${m.product ? '<label class="check big"><input type="checkbox" id="b-shop" checked> Verkaufspreis im Shop gleich mit anpassen</label>' : ""}` : `<label class="field" style="margin-top:16px"><span>Notiz (optional)</span><input id="b-note"></label>`}
+      <div class="row"><button class="btn ghost" data-x="cancel">Abbrechen</button><button class="btn big" data-x="ok">Buchen</button></div>`);
+    setTimeout(() => { const i = $("#b-qty", s); i.focus(); i.select(); }, 50);
+    s.addEventListener("keydown", e => { if (e.key === "Enter" && e.target.tagName === "INPUT") $('[data-x="ok"]', s).click(); });
+    s.addEventListener("click", async e => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.x === "cancel") return closeModal();
+      if (b.dataset.x !== "ok") return;
+      const body = { id: m.id, kind, qty: num($("#b-qty", s).value), note: ($("#b-note", s) || {}).value || "" };
+      if (kind === "purchase") Object.assign(body, { price: $("#b-price", s).value, currency: m.currency, supplier: $("#b-sup", s).value, update_shop: !!($("#b-shop", s) || {}).checked });
+      if (kind !== "inventory" && !(body.qty > 0)) { toast("Bitte eine Menge eingeben."); return; }
+      b.disabled = true;
+      try { const r = await api("mat_move", body); Object.assign(m, r.material); closeModal(); toast("Gebucht – jetzt " + stockText(m)); renderMaterials(); } catch (err) { b.disabled = false; }
+    });
+  }
+  async function showHistory(m) {
+    const s = openModal(`<h2>Verlauf: ${esc(m.name)}</h2><div id="h-list"><p class="loading">Lade …</p></div><div class="row"><button class="btn big" data-x="ok">Schließen</button></div>`);
+    s.addEventListener("click", e => { if (e.target.closest("[data-x]")) closeModal(); });
+    const r = await api("mat_moves", { id: m.id });
+    const box = $("#h-list", s); if (!box) return;
+    box.innerHTML = r.moves.length ? `<div class="tbl-wrap"><table class="tbl"><thead><tr><th>Wann</th><th>Was</th><th class="r">Menge</th><th class="r">danach</th><th>Notiz</th></tr></thead><tbody>${r.moves.map(x => `<tr>
+      <td>${esc(new Date(x.created.replace(" ", "T")).toLocaleString("de-DE", { dateStyle: "short", timeStyle: "short" }))}</td><td>${esc(x.reason)}${x.price ? " · " + esc(amt(x.price)) + (x.currency === "EUR" ? " €" : " kr.") : ""}</td>
+      <td class="r" style="color:${x.qty < 0 ? "var(--err)" : "var(--green)"}">${x.qty > 0 ? "+" : ""}${esc(amt(Math.round(x.qty * 1000) / 1000))}</td><td class="r">${esc(amt(Math.round(x.after * 100) / 100))}</td><td>${esc(x.note)}</td></tr>`).join("")}</tbody></table></div>`
+      : '<p class="muted">Noch keine Buchungen.</p>';
+  }
+  function lagerSettings() {
+    const L = D.lager;
+    const s = openModal(`<h2>Aufschlag &amp; Runden</h2>
+      <p class="muted">Gilt für alles, was einzeln verkauft wird und keinen eigenen Aufschlag oder Preis hat.</p>
+      <label class="field"><span>Standard-Aufschlag auf den Einkaufspreis</span><div class="unit" data-u="%"><input id="l-m" inputmode="decimal" value="${esc(inputVal(L.margin))}"></div></label>
+      <p class="hint">100 % heißt: doppelter Einkaufspreis, dann kommen 25 % Moms dazu. Für Bastelbedarf sind 60–150 % üblich.</p>
+      <div class="field" style="margin-top:16px"><span>Verkaufspreis runden</span><div class="seg" id="l-r">${[["0", "genau"], ["1", "volle Krone"], ["5", "volle 5 kr."], ["10", "volle 10 kr."], ["95", "endet auf ,95"]].map(([k, l]) => `<button type="button" data-r="${k}" class="${L.round === k ? "on" : ""}">${l}</button>`).join("")}</div></div>
+      <div class="row"><button class="btn ghost" data-x="cancel">Abbrechen</button><button class="btn big" data-x="ok">Speichern</button></div>`);
+    let rnd = L.round;
+    s.addEventListener("click", async e => {
+      const b = e.target.closest("button"); if (!b) return;
+      if (b.dataset.r) { rnd = b.dataset.r; $$("#l-r button", s).forEach(x => x.classList.toggle("on", x === b)); }
+      if (b.dataset.x === "cancel") closeModal();
+      if (b.dataset.x === "ok") { const r = await api("lager_settings", { margin: num($("#l-m", s).value), round: rnd }); D.lager = { margin: String(num($("#l-m", s).value)), round: rnd }; D.materials = r.materials; closeModal(); toast("Gespeichert – Preise neu gerechnet"); renderMaterials(); }
+    });
   }
 
   function packFields(type, p) {
@@ -669,31 +802,74 @@
   }
   function editMaterial(m, done) {
     const isNew = !m;
-    const d = m ? JSON.parse(JSON.stringify(m)) : { name: "", grp: "", type: "piece", price: "", currency: "DKK", pack: {}, supplier: "", note: "" };
+    const d = m ? JSON.parse(JSON.stringify(m)) : { name: "", grp: "", type: "piece", price: "", currency: "DKK", pack: {}, supplier: "", note: "", stock: "", min_stock: 0, unit: "Packung", craft: true, sell: false, sell_units: 1, sell_name: "", margin: null, sell_price: null, weight: 0, size_l: 0, size_w: 0, size_h: 0 };
     const groups = [...new Set([...D.materials.map(x => x.grp).filter(Boolean), ...PRESETS.map(g => g[0])])];
-    const s = openModal(`<h2>${isNew ? "Neues Material" : "Material bearbeiten"}</h2>
+    const v0 = x => x ? inputVal(x) : "";
+    const s = openModal(`<h2>${isNew ? "Neu eingekauft" : "Bearbeiten"}</h2>
       ${isNew ? `<label class="field"><span>Vorlage (optional)</span><select id="preset"><option value="">– eigene Bezeichnung –</option>${PRESETS.map(([g, list], gi) => `<optgroup label="${esc(g)}">${list.map(([n], i) => `<option value="${gi}:${i}">${esc(n)}</option>`).join("")}</optgroup>`).join("")}</select></label><br>` : ""}
       <div class="grid2"><label class="field"><span>Bezeichnung</span><input id="m-name" value="${esc(d.name)}" placeholder="z. B. Samtband rot, 25 mm"></label>
         <label class="field"><span>Gruppe</span><input id="m-grp" list="grps" value="${esc(d.grp)}" placeholder="z. B. Bänder"><datalist id="grps">${groups.map(g => `<option value="${esc(g)}">`).join("")}</datalist></label></div>
-      <p class="field" style="margin:18px 0 8px"><span>Wie wird es verbraucht?</span></p>
+      <div class="usechecks">
+        <label class="check big"><input type="checkbox" id="m-craft" ${d.craft ? "checked" : ""}> <span><b>Bastelmaterial</b><small>in der Preiskalkulation wählbar, wird beim Bauen abgezogen</small></span></label>
+        <label class="check big"><input type="checkbox" id="m-sell" ${d.sell ? "checked" : ""}> <span><b>Einzeln verkaufen</b><small>mit Aufschlag in Kasse und Online-Shop</small></span></label>
+      </div>
+      <p class="field" style="margin:18px 0 8px"><span>Wie wird es verbraucht bzw. gezählt?</span></p>
       <div class="chips" id="m-type">${Object.entries(TYPES).map(([k, t]) => `<button type="button" class="chip ${d.type === k ? "on" : ""}" data-t="${k}" title="${esc(t.hint)}">${t.label}</button>`).join("")}</div>
       <p class="hint" id="m-thint">${esc(TYPES[d.type].hint)}</p>
-      <h3 style="margin:20px 0 10px;font-size:1.2rem">Packungsgröße</h3><div id="m-pack">${packFields(d.type, d.pack)}</div>
-      <h3 style="margin:20px 0 10px;font-size:1.2rem">Preis der Packung</h3>
-      <div class="grid2"><label class="field"><span>Preis</span><input id="m-price" inputmode="decimal" value="${esc(inputVal(d.price))}" placeholder="z. B. 49,95"></label>
-        <div class="field"><span>Währung</span><div class="seg" id="m-cur"><button type="button" data-c="DKK" class="${d.currency !== "EUR" ? "on" : ""}">kr. (DKK)</button><button type="button" data-c="EUR" class="${d.currency === "EUR" ? "on" : ""}">€ (Euro)</button></div></div></div>
+      <h3 class="sub">Packung, wie ihr sie einkauft</h3><div id="m-pack">${packFields(d.type, d.pack)}</div>
+      <div class="grid3" style="margin-top:16px"><label class="field"><span>Preis der Packung</span><input id="m-price" inputmode="decimal" value="${esc(inputVal(d.price))}" placeholder="z. B. 49,95"></label>
+        <div class="field"><span>Währung</span><div class="seg" id="m-cur"><button type="button" data-c="DKK" class="${d.currency !== "EUR" ? "on" : ""}">kr.</button><button type="button" data-c="EUR" class="${d.currency === "EUR" ? "on" : ""}">€</button></div></div>
+        <label class="field"><span>Name der Packung</span><input id="m-unit" list="units" value="${esc(d.unit || "Packung")}"><datalist id="units">${["Packung", "Rolle", "Stück", "Beutel", "Flasche", "Dose", "Bogen", "Karton", "Bund", "kg", "Meter"].map(u => `<option value="${u}">`).join("")}</datalist></label></div>
       <p class="note good" id="m-up" style="margin-top:16px"></p>
-      <div class="grid2" style="margin-top:16px"><label class="field"><span>Bezugsquelle (optional)</span><input id="m-sup" value="${esc(d.supplier)}" placeholder="z. B. Bastelladen Flensburg"></label>
-        <label class="field"><span>Notiz (optional)</span><input id="m-note" value="${esc(d.note)}"></label></div>
+      <h3 class="sub">Lager</h3>
+      <div class="grid3">${isNew ? `<label class="field"><span>Jetzt da (Anzahl Packungen)</span><input id="m-stock" inputmode="decimal" value="${esc(v0(d.stock))}" placeholder="z. B. 3"></label>` : `<div class="field"><span>Bestand</span><p style="font-size:1.2rem;margin:6px 0">${esc(stockText(d))} <small class="muted">(ändern über „+ Einkauf“ oder „Zählen“)</small></p></div>`}
+        <label class="field"><span>Nachkaufen ab (Packungen)</span><input id="m-min" inputmode="decimal" value="${esc(v0(d.min_stock))}" placeholder="z. B. 1"></label>
+        <label class="field"><span>Lieferant / Bezugsquelle</span><input id="m-sup" value="${esc(d.supplier)}" placeholder="z. B. Bastelladen Flensburg"></label></div>
+      <div id="m-sellbox" ${d.sell ? "" : "hidden"}>
+        <h3 class="sub">Verkauf</h3>
+        <div class="grid3"><label class="field"><span>Verkauft wird je Packung in</span><div class="unit" data-u="Stück"><input id="m-su" inputmode="numeric" value="${esc(d.sell_units || 1)}"></div></label>
+          <label class="field"><span>Aufschlag (leer = Standard ${esc(D.lager.margin)} %)</span><div class="unit" data-u="%"><input id="m-margin" inputmode="decimal" value="${esc(d.margin === null ? "" : inputVal(d.margin))}"></div></label>
+          <label class="field"><span>Eigener Preis je Stück (optional)</span><div class="unit" data-u="kr."><input id="m-sp" inputmode="decimal" value="${esc(d.sell_price ? inputVal(d.sell_price) : "")}"></div></label></div>
+        <p class="note" id="m-calc" style="margin-top:14px"></p>
+        <label class="field" style="margin-top:16px"><span>Name im Shop (leer = Bezeichnung oben)</span><input id="m-sname" value="${esc(d.sell_name)}" placeholder="z. B. Samtband rot, 1 Meter"></label>
+        <h3 class="sub">Für den Versand – je Verkaufsstück</h3>
+        <div class="grid4"><label class="field"><span>Gewicht</span><div class="unit" data-u="g"><input id="m-w" inputmode="decimal" value="${esc(v0(d.weight))}"></div></label>
+          <label class="field"><span>Länge</span><div class="unit" data-u="cm"><input id="m-l" inputmode="decimal" value="${esc(v0(d.size_l))}"></div></label>
+          <label class="field"><span>Breite</span><div class="unit" data-u="cm"><input id="m-b" inputmode="decimal" value="${esc(v0(d.size_w))}"></div></label>
+          <label class="field"><span>Höhe</span><div class="unit" data-u="cm"><input id="m-h" inputmode="decimal" value="${esc(v0(d.size_h))}"></div></label></div>
+        ${!isNew ? `<div class="photo-row"><div class="lc-img big" id="m-img" style="${d.image ? `background-image:url('${esc(d.image)}')` : ""}">${d.image ? "" : "Kein Foto"}</div>
+          <label class="btn ghost">Foto wählen<input type="file" id="m-photo" accept="image/*" hidden></label>${d.image ? '<button type="button" class="btn ghost" data-x="nophoto">Foto entfernen</button>' : ""}</div>` : '<p class="hint">Ein Foto für den Shop kannst du nach dem Speichern hinzufügen.</p>'}
+        ${d.product ? '<label class="check big"><input type="checkbox" id="m-upd" checked> Beim Speichern Preis, Gewicht und Maße im Shop mit aktualisieren</label>' : ""}
+      </div>
+      <label class="field" style="margin-top:16px"><span>Notiz (optional)</span><input id="m-note" value="${esc(d.note)}"></label>
       <div class="row">${isNew ? "" : '<button class="btn ghost" data-x="del" style="margin-right:auto">Löschen</button>'}<button class="btn ghost" data-x="cancel">Abbrechen</button><button class="btn big" data-x="save">Speichern</button></div>`);
     const readPack = () => { const p = {}; $$("[data-p]", s).forEach(i => { p[i.dataset.p] = i.value; }); return p; };
-    const preview = () => { d.pack = readPack(); d.price = $("#m-price", s).value; $("#m-up", s).textContent = unitPrice(d) ? unitPriceText(d) : "Preis und Packungsgröße eintragen – dann steht hier, was ein Stück, ein Meter oder 100 g kosten."; };
-    s.addEventListener("input", preview); s.addEventListener("change", e => {
+    const vatF = 1 + D.vat;
+    const roundSale = kr => { const r = D.lager.round; if (r === "95") return Math.max(1, Math.ceil(kr + 0.05)) - 0.05; const st = +r; return st ? Math.ceil(kr / st - 1e-9) * st : Math.round(kr * 100) / 100; };
+    const preview = () => {
+      d.pack = readPack(); d.price = $("#m-price", s).value;
+      $("#m-up", s).textContent = unitPrice(d) ? unitPriceText(d) : "Preis und Packungsgröße eintragen – dann steht hier, was ein Stück, ein Meter oder 100 g kosten.";
+      $("#m-sellbox", s).hidden = !$("#m-sell", s).checked;
+      if (!$("#m-sell", s).checked) return;
+      const su = Math.max(1, Math.round(num($("#m-su", s).value)) || 1), cost = num(d.price) * rate(d) / su;
+      const mg = isEmpty($("#m-margin", s).value) ? num(D.lager.margin) : num($("#m-margin", s).value);
+      const calcP = roundSale(cost * (1 + mg / 100) * vatF), own = num($("#m-sp", s).value);
+      const fin = own > 0 ? own : calcP, net = fin / vatF, profit = net - cost;
+      $("#m-calc", s).innerHTML = cost > 0 ? `Einkauf je Stück <b>${krFine(cost)}</b> + ${amt(mg)} % Aufschlag + Moms = <b>${krRound(calcP)}</b>${own > 0 ? ` · dein Preis <b>${krRound(own)}</b>` : ""}<br>
+        Davon bleiben dir nach Moms <b>${kr(profit)}</b> je Stück (${net > 0 ? amt(Math.round(profit / net * 100)) : 0} % vom Netto)${profit < 0 ? ' – <b style="color:var(--err)">Verlust!</b>' : ""}.` : "Preis der Packung eintragen, dann steht hier der Verkaufspreis.";
+    };
+    s.addEventListener("input", preview); s.addEventListener("change", async e => {
       if (e.target.id === "preset" && e.target.value) {
         const [gi, i] = e.target.value.split(":").map(Number), [n, type, pack] = PRESETS[gi][1][i];
         $("#m-name", s).value = n; $("#m-grp", s).value = PRESETS[gi][0]; d.type = type; d.pack = { ...pack };
         $$("#m-type .chip", s).forEach(c => c.classList.toggle("on", c.dataset.t === type)); $("#m-thint", s).textContent = TYPES[type].hint;
         $("#m-pack", s).innerHTML = packFields(type, d.pack);
+      }
+      if (e.target.id === "m-photo" && e.target.files[0]) {
+        const f = new FormData(); f.append("id", m.id); f.append("photo", e.target.files[0]);
+        toast("Foto wird hochgeladen …");
+        const r = await api("mat_photo", f, true); Object.assign(m, r.material); d.image = m.image;
+        const im = $("#m-img", s); im.style.backgroundImage = "url('" + m.image + "')"; im.textContent = ""; toast("Foto gespeichert");
       }
       preview();
     });
@@ -703,32 +879,38 @@
       if (b.dataset.t) { d.pack = readPack(); d.type = b.dataset.t; $$("#m-type .chip", s).forEach(c => c.classList.toggle("on", c === b)); $("#m-thint", s).textContent = TYPES[d.type].hint; $("#m-pack", s).innerHTML = packFields(d.type, d.pack); preview(); }
       if (b.dataset.c) { d.currency = b.dataset.c; $$("#m-cur button", s).forEach(c => c.classList.toggle("on", c === b)); preview(); }
       if (b.dataset.x === "cancel") closeModal();
+      if (b.dataset.x === "nophoto") { const f = new FormData(); f.append("id", m.id); f.append("remove", "1"); const r = await api("mat_photo", f, true); Object.assign(m, r.material); closeModal(); toast("Foto entfernt"); done && done(m); }
       if (b.dataset.x === "del") {
         const used = D.projects.filter(p => p.lines.some(l => l.material_id === m.id));
         closeModal();
-        if (!(await confirmBox("„" + m.name + "“ löschen?", used.length ? "Es wird in " + used.length + " Projekt(en) verwendet und dort entfernt: " + used.map(p => p.name).join(", ") : "Es wird in keinem Projekt verwendet."))) return;
+        if (!(await confirmBox("„" + m.name + "“ löschen?", (used.length ? "Es wird in " + used.length + " Projekt(en) verwendet und dort entfernt: " + used.map(p => p.name).join(", ") + ". " : "") + (m.product ? "Der Artikel in Kasse und Shop bleibt bestehen." : "")))) return;
         await api("material", { id: m.id, delete: 1 });
         D.materials = D.materials.filter(x => x.id !== m.id); D.projects.forEach(p => { p.lines = p.lines.filter(l => l.material_id !== m.id); });
         done && done(null);
       }
       if (b.dataset.x === "save") {
-        const body = { id: m ? m.id : null, name: $("#m-name", s).value, grp: $("#m-grp", s).value, type: d.type, price: num($("#m-price", s).value), currency: d.currency, pack: readPack(), supplier: $("#m-sup", s).value, note: $("#m-note", s).value };
+        const g = id => { const el = $(id, s); return el ? el.value : ""; };
+        const body = { id: m ? m.id : null, name: g("#m-name"), grp: g("#m-grp"), type: d.type, price: num(g("#m-price")), currency: d.currency, pack: readPack(), supplier: g("#m-sup"), note: g("#m-note"),
+          unit: g("#m-unit"), min_stock: num(g("#m-min")), stock: num(g("#m-stock")), craft: $("#m-craft", s).checked, sell: $("#m-sell", s).checked,
+          sell_units: Math.max(1, Math.round(num(g("#m-su"))) || 1), margin: isEmpty(g("#m-margin")) ? null : num(g("#m-margin")), sell_price: num(g("#m-sp")) > 0 ? num(g("#m-sp")) : null, sell_name: g("#m-sname"),
+          weight: num(g("#m-w")), size_l: num(g("#m-l")), size_w: num(g("#m-b")), size_h: num(g("#m-h")), update_shop: !!($("#m-upd", s) || {}).checked };
         if (!body.name.trim()) { toast("Bitte eine Bezeichnung eingeben."); return; }
+        if (!body.craft && !body.sell) { toast("Bitte mindestens einen Haken setzen: Bastelmaterial oder Einzeln verkaufen."); return; }
         const r = await api("material", body);
         if (m) Object.assign(m, r.material); else D.materials.push(r.material);
-        closeModal(); toast("Material gespeichert"); done && done(m || r.material);
+        closeModal(); toast("Gespeichert"); done && done(m || r.material);
       }
     });
     setTimeout(() => (isNew ? $("#preset", s) : $("#m-price", s)).focus(), 50);
   }
   function pickMaterial(cb) {
     const s = openModal(`<h2>Material hinzufügen</h2><input class="in" id="pq" type="search" placeholder="Suchen …">
-      <div class="pick" id="plist"></div><div class="row"><button class="btn ghost" data-x="new" style="margin-right:auto">+ Neues Material anlegen</button><button class="btn ghost" data-x="cancel">Abbrechen</button></div>`);
+      <div class="pick" id="plist"></div><div class="row"><button class="btn ghost" data-x="new" style="margin-right:auto">+ Neu eingekauft</button><button class="btn ghost" data-x="cancel">Abbrechen</button></div>`);
     const draw = () => {
       const q = $("#pq", s).value.toLowerCase();
-      const list = D.materials.filter(m => !q || (m.name + " " + m.grp).toLowerCase().includes(q));
+      const list = D.materials.filter(m => m.craft && (!q || (m.name + " " + m.grp).toLowerCase().includes(q)));
       const groups = [...new Set(list.map(m => m.grp || "Ohne Gruppe"))].sort((a, b) => a.localeCompare(b, "de"));
-      $("#plist", s).innerHTML = list.length ? groups.map(g => `<h3>${esc(g)}</h3>` + list.filter(m => (m.grp || "Ohne Gruppe") === g).map(m => `<button data-pm="${m.id}"><span>${esc(m.name)}</span><small>${esc(unitPriceText(m))}</small></button>`).join("")).join("")
+      $("#plist", s).innerHTML = list.length ? groups.map(g => `<h3>${esc(g)}</h3>` + list.filter(m => (m.grp || "Ohne Gruppe") === g).map(m => `<button data-pm="${m.id}"><span>${esc(m.name)}</span><small>${esc(unitPriceText(m))} · Lager: ${esc(stockText(m))}</small></button>`).join("")).join("")
         : '<div class="empty">Nichts gefunden. Lege das Material neu an.</div>';
     };
     draw(); $("#pq", s).addEventListener("input", draw); setTimeout(() => $("#pq", s).focus(), 50);

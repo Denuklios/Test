@@ -4,12 +4,13 @@
    so fällt jede nachträgliche Änderung in der Datenbank auf (siehe verify_chain()). */
 declare(strict_types=1);
 require_once __DIR__ . '/db.php';
+require_once __DIR__ . '/lager.php';
 
 const PAYMENTS = ['cash' => 'Bar', 'card' => 'Karte', 'mobilepay' => 'MobilePay', 'other' => 'Sonstige'];
 const PAYMENTS_DA = ['cash' => 'Kontant', 'card' => 'Kort', 'mobilepay' => 'MobilePay', 'other' => 'Andet'];
 const STOCK_REASONS = ['sale' => 'Verkauf', 'refund' => 'Rückgabe', 'receipt' => 'Wareneingang',
                        'correction' => 'Korrektur', 'inventory' => 'Inventur', 'waste' => 'Bruch/Schwund',
-                       'web' => 'Online-Bestellung', 'web_cancel' => 'Online-Bestellung storniert'];
+                       'web' => 'Online-Bestellung', 'web_cancel' => 'Online-Bestellung storniert', 'material' => 'Einkauf & Lager'];
 
 class ShopError extends RuntimeException {}
 
@@ -26,6 +27,7 @@ function stock_move(int $productId, float $qty, string $reason, string $user, st
     $after = (float)$st->fetchColumn();
     $db->prepare('INSERT INTO stock_moves (product_id, qty, stock_after, reason, ref, note, user, created) VALUES (?,?,?,?,?,?,?,?)')
        ->execute([$productId, $qty, $after, $reason, $ref, $note, $user, now()]);
+    if ($reason !== 'material') mat_from_product_move($productId, $qty, $reason, $user, $ref);   // Ware aus Einkauf & Lager mitbuchen
     return $after;
 }
 /* Inventur: gezählten Bestand setzen, Differenz wird gebucht */

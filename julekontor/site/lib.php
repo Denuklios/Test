@@ -8,7 +8,7 @@ require __DIR__ . '/../admin/inc/shop.php';
 require __DIR__ . '/../admin/inc/web.php';
 
 const SITE_LOCALE = ['da' => 'da-DK', 'de' => 'de-DE', 'en' => 'en-GB'];
-const SITE_V = '12';   // Versionsnummer für CSS/JS (bei Änderungen erhöhen)
+const SITE_V = '13';   // Versionsnummer für CSS/JS (bei Änderungen erhöhen)
 
 $SITE = web_site();
 $PREVIEW = web_preview($SITE);
@@ -117,7 +117,8 @@ function site_js_config(array $extra = []): string {
              'shop.added', 'cart.empty', 'cart.remove', 'cart.subtotal', 'cart.shipping', 'cart.total', 'cart.free', 'cart.changed', 'cart.pickupOnly', 'shop.qty',
              'checkout.d.pickup', 'checkout.d.dk', 'checkout.d.de', 'checkout.p.pickup', 'checkout.p.mobilepay', 'checkout.p.bank', 'checkout.p.card',
              'checkout.err.empty', 'checkout.err.changed', 'checkout.err.delivery', 'checkout.err.payment', 'checkout.err.name', 'checkout.err.email',
-             'checkout.err.address', 'checkout.err.terms', 'checkout.err.limit', 'checkout.err.card', 'checkout.err.off', 'checkout.err.server', 'shop.approx', 'ribbon'];
+             'checkout.err.address', 'checkout.err.terms', 'checkout.err.limit', 'checkout.err.card', 'checkout.err.off', 'checkout.err.server', 'shop.approx', 'ribbon',
+             'checkout.from', 'checkout.noship', 'ship.s.shop', 'ship.s.home', 'ship.standard', 'checkout.parcels', 'checkout.freefrom', 'hero.store'];
     $t = [];
     foreach ($keys as $k) $t[$k] = $k === 'ribbon' ? (web_lang_defaults()[$L]['ribbon'] ?? []) : t($k);
     $cfg = ['lang' => $L, 'locale' => SITE_LOCALE[$L], 'now' => date('c'), 'snow' => (bool)$S['snow'], 'currency' => setting('currency'),
@@ -232,7 +233,7 @@ function site_foot(array $js = [], bool $bare = false): void {
 function hero(bool $soon): void {
     $S = $GLOBALS['SITE'];
     $line = tl(['x_da' => $S['hero']['da'], 'x_de' => $S['hero']['de'], 'x_en' => $S['hero']['en']], 'x') ?: t('hero.line');
-    $target = strtotime((string)$S['countdownTarget']);
+    $target = strtotime((string)($soon ? ($S['openAt'] ?: $S['countdownTarget']) : $S['countdownTarget']));
     $count = $S['countdownEnabled'] && $target && $target > time(); ?>
 <section class="hero<?= $soon ? ' hero-soon' : '' ?>" id="hero">
   <picture class="hero-bg" aria-hidden="true">
@@ -252,7 +253,7 @@ function hero(bool $soon): void {
       <p class="hero-line"><?= h($line) ?></p>
       <?php if ($count): ?>
       <div class="count" id="count" data-target="<?= h(date('c', $target)) ?>">
-        <p class="count-label"><?= e('hero.opens', ['date' => fmt_date(date('Y-m-d', $target))]) ?></p>
+        <p class="count-label"><?= e($soon ? 'hero.opens' : 'hero.store', ['date' => fmt_date(date('Y-m-d', $target))]) ?></p>
         <div class="count-row" role="timer" aria-live="off">
           <?php foreach (['d' => 'days', 'h' => 'hours', 'm' => 'minutes', 's' => 'seconds'] as $u => $k): ?>
           <div class="count-unit"><span class="count-num" data-u="<?= $u ?>">0</span><span class="count-name"><?= e('count.' . $k) ?></span></div>

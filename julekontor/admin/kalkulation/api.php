@@ -55,8 +55,23 @@ function project_out(array $p, PDO $db): array {
             'timer_start' => $p['timer_start'] === null ? null : (int)$p['timer_start'], 'updated' => $p['updated'], 'lines' => $lines];
 }
 function material_out(array $m): array {
+    $prod = null;
+    if ($m['product_id']) {
+        $st = db()->prepare('SELECT id, name, price, stock, active, web, image FROM products WHERE id = ?'); $st->execute([$m['product_id']]);
+        if ($r = $st->fetch()) $prod = ['id' => (int)$r['id'], 'name' => $r['name'], 'price' => (int)$r['price'] / 100, 'stock' => (float)$r['stock'], 'active' => (bool)$r['active'], 'web' => (bool)$r['web'], 'image' => $r['image'] !== ''];
+    }
     return ['id' => (int)$m['id'], 'name' => $m['name'], 'grp' => $m['grp'], 'type' => $m['type'], 'price' => (float)$m['price'], 'currency' => $m['currency'],
-            'pack' => json_decode($m['pack'], true) ?: new stdClass(), 'supplier' => $m['supplier'], 'note' => $m['note']];
+            'pack' => json_decode($m['pack'], true) ?: new stdClass(), 'supplier' => $m['supplier'], 'note' => $m['note'],
+            'stock' => (float)$m['stock'], 'min_stock' => (float)$m['min_stock'], 'unit' => $m['unit'], 'craft' => (bool)$m['craft'], 'sell' => (bool)$m['sell'],
+            'sell_units' => (int)$m['sell_units'], 'sell_name' => $m['sell_name'], 'margin' => $m['margin'] === null ? null : (float)$m['margin'],
+            'sell_price' => $m['sell_price'] === null ? null : (int)$m['sell_price'] / 100, 'calc_price' => mat_calc_price($m) / 100, 'unit_cost' => mat_unit_cost($m) / 100,
+            'weight' => (float)$m['weight'], 'size_l' => (float)$m['size_l'], 'size_w' => (float)$m['size_w'], 'size_h' => (float)$m['size_h'],
+            'image' => img_url_calc((string)$m['image']), 'product' => $prod, 'updated' => $m['updated']];
+}
+function material_by_id(PDO $db, int $id): array {
+    $m = mat_get($id);
+    if (!$m) out(['error' => 'Eintrag nicht gefunden.'], 404);
+    return $m;
 }
 function get_project(PDO $db, int $id): array {
     $st = $db->prepare('SELECT * FROM calc_projects WHERE id = ?'); $st->execute([$id]);
@@ -71,10 +86,11 @@ try {
         foreach (CALC_SETTINGS as $k) $set[substr($k, 5)] = setting($k);
         out([
             'settings' => $set, 'now' => time(),
-            'eur_rate' => (float)str_replace(',', '.', setting('web_eur_rate')) ?: 7.46,
+            'eur_rate' => eur_rate(), 'lager' => ['margin' => setting('lager_margin'), 'round' => setting('lager_round')],
             'vat' => vat_rates()[0] / 10000,           // 2500 = 25 %
             'categories' => array_map(fn($c) => ['id' => (int)$c['id'], 'name' => $c['name']], $db->query('SELECT * FROM calc_categories ORDER BY sort, name')->fetchAll()),
             'materials' => array_map('material_out', $db->query('SELECT * FROM calc_materials ORDER BY grp, name')->fetchAll()),
+            'reasons' => MAT_REASONS,
             'projects' => array_map(fn($p) => project_out($p, $db), $db->query('SELECT * FROM calc_projects ORDER BY updated DESC')->fetchAll()),
         ]);
     }
@@ -107,21 +123,106 @@ try {
     }
 
     if ($a === 'material') {
-        if (!empty($in['delete'])) { $db->prepare('DELETE FROM calc_materials WHERE id = ?')->execute([(int)$in['id']]); out(['ok' => true]); }
+        if (!empty($in['delete'])) {
+            $m = material_by_id($db, (int)$in['id']);
+            $db->prepare('DELETE FROM calc_materials WHERE id = ?')->execute([$m['id']]);
+            web_delete_image((string)$m['image']);
+            out(['ok' => true]);
+        }
         $name = $txt($in['name'] ?? '', 120);
         $type = in_array($in['type'] ?? '', CALC_TYPES, true) ? $in['type'] : '';
         if ($name === '' || $type === '') out(['error' => 'Bitte Name und Art eingeben.'], 422);
+        $sellPrice = $numOrNull($in['sell_price'] ?? null);
         $row = [$name, $txt($in['grp'] ?? '', 60), $type, $num($in['price'] ?? 0, 0, 1e7), ($in['currency'] ?? '') === 'EUR' ? 'EUR' : 'DKK',
-                json_encode($clean($in['pack'] ?? [])), $txt($in['supplier'] ?? '', 120), $txt($in['note'] ?? '', 500), now()];
+                json_encode($clean($in['pack'] ?? [])), $txt($in['supplier'] ?? '', 120), $txt($in['note'] ?? '', 500),
+                $num($in['min_stock'] ?? 0, 0, 1e6), $txt($in['unit'] ?? '', 20) ?: 'Packung', empty($in['craft']) ? 0 : 1, empty($in['sell']) ? 0 : 1,
+                max(1, (int)$num($in['sell_units'] ?? 1, 1, 100000)), $txt($in['sell_name'] ?? '', 120), $numOrNull($in['margin'] ?? null),
+                $sellPrice === null || $sellPrice <= 0 ? null : (int)round($sellPrice * 100),
+                $num($in['weight'] ?? 0, 0, 100000), $num($in['size_l'] ?? 0, 0, 1000), $num($in['size_w'] ?? 0, 0, 1000), $num($in['size_h'] ?? 0, 0, 1000), now()];
+        $cols = 'name=?, grp=?, type=?, price=?, currency=?, pack=?, supplier=?, note=?, min_stock=?, unit=?, craft=?, sell=?, sell_units=?, sell_name=?, margin=?, sell_price=?, weight=?, size_l=?, size_w=?, size_h=?, updated=?';
+        $db->beginTransaction();
         if (!empty($in['id'])) {
-            $db->prepare('UPDATE calc_materials SET name=?, grp=?, type=?, price=?, currency=?, pack=?, supplier=?, note=?, updated=? WHERE id=?')->execute([...$row, (int)$in['id']]);
-            $id = (int)$in['id'];
+            $old = material_by_id($db, (int)$in['id']);
+            $db->prepare("UPDATE calc_materials SET $cols WHERE id=?")->execute([...$row, $old['id']]);
+            $id = (int)$old['id'];
+            if ((int)$old['sell_units'] !== max(1, (int)$num($in['sell_units'] ?? 1, 1, 100000))) mat_sync_product_stock(mat_get($id), user_name());
         } else {
-            $db->prepare('INSERT INTO calc_materials (name, grp, type, price, currency, pack, supplier, note, updated) VALUES (?,?,?,?,?,?,?,?,?)')->execute($row);
+            $db->prepare('INSERT INTO calc_materials (name, grp, type, price, currency, pack, supplier, note, min_stock, unit, craft, sell, sell_units, sell_name, margin, sell_price, weight, size_l, size_w, size_h, updated) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')->execute($row);
             $id = (int)$db->lastInsertId();
+            $start = $num($in['stock'] ?? 0, 0, 1e6);
+            if ($start > 0) mat_move($id, $start, 'purchase', user_name(), 'Anfangsbestand', (float)$row[3], $row[4]);
         }
-        $st = $db->prepare('SELECT * FROM calc_materials WHERE id = ?'); $st->execute([$id]);
-        out(['ok' => true, 'material' => material_out($st->fetch())]);
+        $m = mat_get($id);
+        if ($m['product_id'] && !empty($in['update_shop'])) mat_to_product($id, user_name());
+        $db->commit();
+        out(['ok' => true, 'material' => material_out(mat_get($id))]);
+    }
+
+    /* Einkauf, Inventur, Bruch oder Korrektur buchen (Menge in Packungen) */
+    if ($a === 'mat_move') {
+        $m = material_by_id($db, (int)($in['id'] ?? 0));
+        $kind = (string)($in['kind'] ?? '');
+        $qty = $num($in['qty'] ?? 0, -1e6, 1e6);
+        $note = $txt($in['note'] ?? '', 200);
+        $db->beginTransaction();
+        if ($kind === 'purchase') {
+            if ($qty <= 0) out(['error' => 'Bitte die Menge eingeben.'], 422);
+            $price = $numOrNull($in['price'] ?? null);
+            $cur = ($in['currency'] ?? $m['currency']) === 'EUR' ? 'EUR' : 'DKK';
+            if ($price !== null && $price > 0 && (abs($price - (float)$m['price']) > 0.001 || $cur !== $m['currency'])) {
+                $db->prepare('UPDATE calc_materials SET price = ?, currency = ? WHERE id = ?')->execute([$price, $cur, $m['id']]);
+            }
+            if (($sup = $txt($in['supplier'] ?? '', 120)) !== '') $db->prepare('UPDATE calc_materials SET supplier = ? WHERE id = ?')->execute([$sup, $m['id']]);
+            mat_move((int)$m['id'], $qty, 'purchase', user_name(), $note, $price ?? (float)$m['price'], $cur);
+            $m2 = mat_get((int)$m['id']);
+            if ($m2['product_id'] && !empty($in['update_shop'])) mat_to_product((int)$m['id'], user_name());
+        } elseif ($kind === 'inventory') {
+            $qty = max(0, $qty);
+            mat_move((int)$m['id'], round($qty - (float)$m['stock'], 4), 'inventory', user_name(), $note);
+        } elseif ($kind === 'waste') {
+            mat_move((int)$m['id'], -abs($qty), 'waste', user_name(), $note);
+        } elseif ($kind === 'correction') {
+            mat_move((int)$m['id'], $qty, 'correction', user_name(), $note);
+        } else out(['error' => 'unbekannt'], 422);
+        $db->commit();
+        out(['ok' => true, 'material' => material_out(mat_get((int)$m['id']))]);
+    }
+
+    /* Verlauf eines Eintrags */
+    if ($a === 'mat_moves') {
+        $st = $db->prepare('SELECT * FROM calc_material_moves WHERE material_id = ? ORDER BY id DESC LIMIT 60');
+        $st->execute([(int)($in['id'] ?? 0)]);
+        out(['moves' => array_map(fn($r) => ['qty' => (float)$r['qty'], 'after' => (float)$r['stock_after'], 'reason' => MAT_REASONS[$r['reason']] ?? $r['reason'],
+            'price' => $r['price'] === null ? null : (float)$r['price'], 'currency' => $r['currency'], 'note' => $r['note'], 'user' => $r['user'], 'created' => $r['created']], $st->fetchAll())]);
+    }
+
+    /* Einzeln verkaufen: Artikel in Kasse und Online-Shop anlegen bzw. Preis und Bestand aktualisieren */
+    if ($a === 'mat_shop') {
+        $m = material_by_id($db, (int)($in['id'] ?? 0));
+        if (!$m['sell']) $db->prepare('UPDATE calc_materials SET sell = 1 WHERE id = ?')->execute([$m['id']]);
+        $db->beginTransaction();
+        $r = mat_to_product((int)$m['id'], user_name());
+        $db->commit();
+        out(['ok' => true, 'created' => $r['created'], 'material' => material_out(mat_get((int)$m['id']))]);
+    }
+
+    if ($a === 'mat_photo') {
+        $m = material_by_id($db, (int)($_POST['id'] ?? 0));
+        if (!empty($_POST['remove'])) $img = '';
+        elseif ($tmp = web_upload('photo')) $img = web_save_image('mat' . $m['id'], $tmp, 1400);
+        else out(['error' => 'Kein Foto ausgewählt.'], 422);
+        $db->prepare('UPDATE calc_materials SET image = ? WHERE id = ?')->execute([$img, $m['id']]);
+        if ($img !== $m['image']) web_delete_image((string)$m['image']);
+        if ($img !== '' && $m['product_id']) {
+            try { $db->prepare('UPDATE products SET image = ? WHERE id = ?')->execute([save_product_image((int)$m['product_id'], WEB_IMG_DIR . '/' . $img), $m['product_id']]); } catch (Throwable $e) {}
+        }
+        out(['ok' => true, 'material' => material_out(mat_get((int)$m['id']))]);
+    }
+
+    if ($a === 'lager_settings') {
+        set_setting('lager_margin', (string)$num($in['margin'] ?? 100, 0, 2000));
+        set_setting('lager_round', in_array((string)($in['round'] ?? ''), ['0', '1', '5', '10', '95'], true) ? (string)$in['round'] : '1');
+        out(['ok' => true, 'materials' => array_map('material_out', $db->query('SELECT * FROM calc_materials ORDER BY grp, name')->fetchAll())]);
     }
 
     if ($a === 'project') {
@@ -179,7 +280,21 @@ try {
 
     if ($a === 'built') {
         $p = get_project($db, (int)($in['id'] ?? 0));
-        $db->prepare('UPDATE calc_projects SET built = max(0, built + ?) WHERE id = ?')->execute([(int)$num($in['n'] ?? 0, -100000, 100000), $p['id']]);
+        $n = (int)$num($in['n'] ?? 0, -100000, 100000);
+        $db->beginTransaction();
+        $db->prepare('UPDATE calc_projects SET built = max(0, built + ?) WHERE id = ?')->execute([$n, $p['id']]);
+        /* Verbrauchtes Material vom Lager abziehen (Packungen rechnet der Browser aus) */
+        foreach (array_slice(is_array($in['use'] ?? null) ? $in['use'] : [], 0, 200) as $u) {
+            $packs = $num($u['packs'] ?? 0, -1e6, 1e6);
+            if (abs($packs) < 1e-7 || !mat_get((int)($u['id'] ?? 0))) continue;
+            mat_move((int)$u['id'], -$packs, $n < 0 ? 'built_back' : 'built', user_name(), $n . ' × ' . $p['name']);
+        }
+        /* Fertige Stücke in den Bestand des Kassen-Artikels */
+        if (!empty($in['to_stock']) && $p['product_id'] && $n !== 0) {
+            $chk = $db->prepare('SELECT id FROM products WHERE id = ?'); $chk->execute([$p['product_id']]);
+            if ($chk->fetchColumn()) stock_move((int)$p['product_id'], $n, 'receipt', user_name(), '', 'gebaut: ' . $p['name']);
+        }
+        $db->commit();
         out(['ok' => true, 'project' => project_out(get_project($db, (int)$p['id']), $db)]);
     }
 

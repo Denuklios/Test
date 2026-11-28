@@ -146,3 +146,20 @@ Sie nimmt ein ZIP der Website nur mit dem richtigen Schlüssel im Kopf `X-Deploy
 Nie überschrieben werden `data/private` (Datenbank, Konto, Schlüssel), `data/bilder`, `data/produkte` und `data/site.json`.
 Nach 5 falschen Schlüsseln ist eine Stunde Pause. Neuer Schlüssel: auf dem Server `data/private/deploy-key.php` löschen,
 `deploy.php` neu hochladen und innerhalb von 2 Stunden `POST deploy.php?a=setup` mit dem neuen Schlüssel aufrufen.
+
+## Einkauf & Lager (eine Liste für alles)
+
+Admin → **Einkauf & Lager** (in der App Kalkulation & Lager). Jeder Einkauf steht einmal mit Preis (kr. oder €), Lieferant, Bestand in Packungen und Mindestbestand.
+- **Bastelmaterial**: in der Preiskalkulation wählbar. „Als gebaut eintragen“ zieht das verbrauchte Material ab und bucht die fertigen Stücke in den Bestand des Kassen-Artikels.
+- **Einzeln verkaufen**: Stück je Packung, Aufschlag (Standard unter „Aufschlag & Runden“) oder eigener Preis, Gewicht und Maße. „In den Shop stellen“ legt den Artikel in Kasse und Online-Shop an bzw. aktualisiert ihn. Verkäufe in Kasse und Shop ziehen den Bestand hier mit ab.
+- Buchen: „+ Einkauf“ (neuer Preis wird übernommen), „Zählen“ (Inventur), „Bruch“, „Verlauf“.
+
+## Versand & Verpackung
+
+Admin → Online-Shop → **Versand & Verpackung**: Kartons (Innenmaße, Eigengewicht, Kosten) und Preisstufen für PostNord, GLS und DAO nach Dänemark und Deutschland.
+Der Shop packt die Ware (Gewicht und Maße beim Artikel), wählt den kleinsten passenden Karton, teilt notfalls auf mehrere Pakete auf und zeigt dem Kunden jeden eingeschalteten Dienst mit Preis.
+Die mitgelieferten Preise sind Vorschläge aus öffentlichen Listen und stehen auf „aus“ – erst prüfen, dann einschalten. Ohne eingeschaltete Preise gilt der feste Preis aus den Shop-Einstellungen.
+
+## Adresse
+
+Die Website liegt seit 28.11.2026 direkt auf https://julekontor.dk/ (Updates über `deploy.php` dort). `/teSt/` leitet auf die Hauptseite um.

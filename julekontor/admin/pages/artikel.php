@@ -39,13 +39,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                  !empty($_POST['track_stock']) ? 1 : 0, !empty($_POST['open_price']) ? 1 : 0, !empty($_POST['favorite']) ? 1 : 0,
                  !empty($_POST['active']) ? 1 : 0, mb_substr(trim((string)($_POST['note'] ?? '')), 0, 500),
                  !empty($_POST['web']) ? 1 : 0, !empty($_POST['web_kit']) ? 1 : 0, '', !empty($_POST['web_ship']) ? 1 : 0,
-                 ...array_values(web_post_langs('web_name', 120)), ...array_values(web_post_langs('web_desc', 3000)), now()];
+                 ...array_values(web_post_langs('web_name', 120)), ...array_values(web_post_langs('web_desc', 3000)),
+                 ...array_map(fn($k) => max(0, (float)str_replace(',', '.', (string)($_POST[$k] ?? '0'))), ['weight', 'size_l', 'size_w', 'size_h']), now()];
         if ($id) {
-            $db->prepare('UPDATE products SET name=?, sku=?, barcode=?, category_id=?, price=?, cost=?, vat=?, min_stock=?, unit=?, track_stock=?, open_price=?, favorite=?, active=?, note=?, web=?, web_kit=?, web_text=?, web_ship=?, web_name_da=?, web_name_de=?, web_name_en=?, web_desc_da=?, web_desc_de=?, web_desc_en=?, updated=? WHERE id=?')
+            $db->prepare('UPDATE products SET name=?, sku=?, barcode=?, category_id=?, price=?, cost=?, vat=?, min_stock=?, unit=?, track_stock=?, open_price=?, favorite=?, active=?, note=?, web=?, web_kit=?, web_text=?, web_ship=?, web_name_da=?, web_name_de=?, web_name_en=?, web_desc_da=?, web_desc_de=?, web_desc_en=?, weight=?, size_l=?, size_w=?, size_h=?, updated=? WHERE id=?')
                ->execute([...$vals, $id]);
             flash('Artikel gespeichert.');
         } else {
-            $db->prepare('INSERT INTO products (name, sku, barcode, category_id, price, cost, vat, min_stock, unit, track_stock, open_price, favorite, active, note, web, web_kit, web_text, web_ship, web_name_da, web_name_de, web_name_en, web_desc_da, web_desc_de, web_desc_en, updated, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
+            $db->prepare('INSERT INTO products (name, sku, barcode, category_id, price, cost, vat, min_stock, unit, track_stock, open_price, favorite, active, note, web, web_kit, web_text, web_ship, web_name_da, web_name_de, web_name_en, web_desc_da, web_desc_de, web_desc_en, weight, size_l, size_w, size_h, updated, created) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)')
                ->execute([...$vals, now()]);
             $id = (int)$db->lastInsertId();
             $start = parse_qty((string)($_POST['stock'] ?? '0')) ?? 0;
@@ -185,7 +186,7 @@ if (isset($_GET['code']) && trim((string)$_GET['code']) !== '') {
 $id = (int)($_GET['id'] ?? 0);
 if ($id || isset($_GET['new'])) {
     $p = ['id' => 0, 'name' => '', 'sku' => '', 'barcode' => (string)($_GET['barcode'] ?? ''), 'category_id' => null, 'price' => 0, 'cost' => 0,
-          'vat' => vat_rates()[0], 'stock' => 0, 'min_stock' => 0, 'unit' => 'Stk.', 'track_stock' => 1, 'open_price' => 0, 'favorite' => 1, 'active' => 1, 'note' => '', 'web' => 0, 'web_kit' => 0, 'web_text' => '', 'web_ship' => 1, 'web_name_da' => '', 'web_name_de' => '', 'web_name_en' => '', 'web_desc_da' => '', 'web_desc_de' => '', 'web_desc_en' => ''];
+          'vat' => vat_rates()[0], 'stock' => 0, 'min_stock' => 0, 'unit' => 'Stk.', 'track_stock' => 1, 'open_price' => 0, 'favorite' => 1, 'active' => 1, 'note' => '', 'web' => 0, 'web_kit' => 0, 'web_text' => '', 'web_ship' => 1, 'web_name_da' => '', 'web_name_de' => '', 'web_name_en' => '', 'web_desc_da' => '', 'web_desc_de' => '', 'web_desc_en' => '', 'weight' => 0, 'size_l' => 0, 'size_w' => 0, 'size_h' => 0];
     if ($id) {
         $st = $db->prepare('SELECT * FROM products WHERE id = ?');
         $st->execute([$id]);
@@ -262,6 +263,14 @@ if ($id || isset($_GET['new'])) {
         <label class="check"><input type="checkbox" name="web" value="1" <?= $chk('web') ? 'checked' : '' ?>> Im Online-Shop zeigen (mit Foto und Preis)</label>
         <label class="check"><input type="checkbox" name="web_ship" value="1" <?= $chk('web_ship') ? 'checked' : '' ?>> Kann verschickt werden (ohne Haken: nur Abholung)</label>
         <label class="check"><input type="checkbox" name="web_kit" value="1" <?= $chk('web_kit') ? 'checked' : '' ?>> Bausatz mit Anleitung zum Selberbauen</label>
+        <?php $dn = fn(string $k) => ($x = (float)$v($k, (string)($p[$k] ?? 0))) ? rtrim(rtrim(number_format($x, 1, ',', ''), '0'), ',') : ''; ?>
+        <div class="row4">
+          <label>Gewicht (g)<input name="weight" inputmode="decimal" value="<?= h($dn('weight')) ?>" placeholder="z. B. 450"></label>
+          <label>Länge (cm)<input name="size_l" inputmode="decimal" value="<?= h($dn('size_l')) ?>"></label>
+          <label>Breite (cm)<input name="size_w" inputmode="decimal" value="<?= h($dn('size_w')) ?>"></label>
+          <label>Höhe (cm)<input name="size_h" inputmode="decimal" value="<?= h($dn('size_h')) ?>"></label>
+        </div>
+        <p class="hint">Gewicht und Maße eines Stücks (verpackt, aber ohne Versandkarton). Damit sucht der Shop den Karton aus und rechnet den Versand aus – siehe <a href="./?p=versand">Versand &amp; Verpackung</a>.</p>
         <?php $wl = fn(string $k) => ['da' => $v($k . '_da', $p[$k . '_da'] ?? ''), 'de' => $v($k . '_de', $p[$k . '_de'] ?? ''), 'en' => $v($k . '_en', $p[$k . '_en'] ?? '')]; ?>
         <?php web_lang_fields('web_name', 'Name im Shop', $wl('web_name'), false, 120, 'Leer = der Artikelname von oben.'); ?>
         <?php web_lang_fields('web_desc', 'Beschreibung im Shop', $wl('web_desc'), true, 3000, 'Maße, Material, Besonderheiten. Ist eine Sprache leer, zeigt der Shop eine andere.'); ?>
