@@ -10,7 +10,7 @@ site_head($p['name'], 'butik', mb_substr($p['desc'], 0, 150));
     <div class="product">
       <div class="frame product-img reveal">
         <?php if ($p['kit']): ?><span class="tag"><?= e('shelf.kit') ?></span><?php endif; ?>
-        <img src="<?= h($p['image'] ?: 'assets/img/mere.webp') ?>" alt="<?= h($p['name']) ?>" width="480" height="480">
+        <img src="<?= h($p['image'] ?: 'assets/img/stjerne.webp') ?>" alt="<?= h($p['name']) ?>" width="480" height="480">
       </div>
       <div class="product-info reveal">
         <?php if ($p['category'] !== ''): ?><p class="eyebrow"><?= h($p['category']) ?></p><?php endif; ?>

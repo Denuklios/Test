@@ -268,7 +268,7 @@
         if (!c.lines.length) return;
         $("#cartNote").textContent = (c.changed && was !== "{}" ? t("cart.changed") + " " : "") + (c.pickup_only ? t("cart.pickupOnly") : "");
         $("#cartLines").innerHTML = c.lines.map(function (l) {
-          return '<div class="line"><img src="' + esc(l.image || "assets/img/mere.webp") + '" alt=""><div class="line-main"><a href="./?s=vare&amp;id=' + l.id + '">' + esc(l.name) + "</a><small>" + esc(money(l.price)) + "</small></div>" +
+          return '<div class="line"><img src="' + esc(l.image || "assets/img/stjerne.webp") + '" alt=""><div class="line-main"><a href="./?s=vare&amp;id=' + l.id + '">' + esc(l.name) + "</a><small>" + esc(money(l.price)) + "</small></div>" +
             '<input type="number" min="1" max="' + l.max + '" value="' + l.qty + '" data-line="' + l.id + '" aria-label="' + esc(t("shop.qty")) + '"><b>' + esc(money(l.total)) + "</b>" +
             '<button type="button" class="line-x" data-del="' + l.id + '" aria-label="' + esc(t("cart.remove")) + '">×</button></div>';
         }).join("");

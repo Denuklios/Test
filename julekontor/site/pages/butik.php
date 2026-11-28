@@ -7,7 +7,7 @@ $k = (int)($_GET['k'] ?? 0);
 if (!isset($cats[$k])) $k = 0;
 $list = array_map(fn($r) => web_product($r, $LANG), $k ? array_filter($rows, fn($r) => (int)$r['category_id'] === $k) : $rows);
 site_head(t('shop.title'), 'butik', t('shop.lead'));
-page_banner(t('shop.eyebrow'), t('shop.title'), t('shop.lead'));
+page_banner(t('shop.eyebrow'), t('shop.title'), t('shop.lead'), $k && $cats[$k] === 'Bastelbedarf' ? 'assets/img/bastel.webp' : 'assets/img/butik-inde.webp');
 ?>
 <section class="sec sec-paper sec-tight">
   <div class="wrap">

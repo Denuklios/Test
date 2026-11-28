@@ -5,6 +5,8 @@ $posts = db()->query("SELECT * FROM web_posts WHERE published = 1 ORDER BY date 
 $st = db()->prepare("SELECT * FROM web_events WHERE published = 1 AND date >= ? ORDER BY date, time LIMIT 3"); $st->execute([date('Y-m-d')]);
 $events = $st->fetchAll();
 $cats = ['kranse', 'pynt', 'traeer', 'braet', 'mere'];
+$supCat = (int)db()->query("SELECT c.id FROM categories c JOIN products p ON p.category_id = c.id WHERE c.name = 'Bastelbedarf' AND p.web = 1 AND p.active = 1 LIMIT 1")->fetchColumn();
+$storeAt = strtotime((string)$SITE['countdownTarget']);
 site_head('', 'home');
 hero(false);
 ?>
@@ -52,6 +54,31 @@ hero(false);
   </div>
   <div class="scallop scallop-bottom" aria-hidden="true"></div>
 </section>
+
+<?php if ($storeAt && $storeAt > time()): ?>
+<section class="sec sec-paper store">
+  <div class="wrap store-grid">
+    <div class="store-photo reveal"><div class="frame"><img src="assets/img/laden.webp" alt="<?= e('store.alt') ?>" loading="lazy" width="1376" height="768"></div></div>
+    <div class="store-text reveal">
+      <p class="eyebrow"><?= e('store.eyebrow') ?></p>
+      <h2><?= e('store.title') ?></h2>
+      <p class="lead"><?= e('store.text', ['date' => fmt_date(date('Y-m-d', $storeAt))]) ?></p>
+      <a class="btn btn-line" href="<?= h(url('kontakt')) ?>"><?= e('visit.title') ?></a>
+    </div>
+  </div>
+</section>
+<?php endif; ?>
+
+<?php if ($supCat): ?>
+<section class="sec sec-paper sec-tight">
+  <div class="wrap">
+    <a class="supplies reveal" href="<?= h(url('butik', ['k' => $supCat])) ?>">
+      <img src="assets/img/bastel.webp" alt="" loading="lazy" width="1792" height="592">
+      <span class="supplies-card"><span class="eyebrow"><?= e('supplies.eyebrow') ?></span><strong><?= e('supplies.title') ?></strong><span><?= e('supplies.text') ?></span><span class="btn btn-small"><?= e('supplies.cta') ?></span></span>
+    </a>
+  </div>
+</section>
+<?php endif; ?>
 
 <?php if ($new): ?>
 <section class="sec sec-paper">

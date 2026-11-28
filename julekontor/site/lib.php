@@ -8,7 +8,7 @@ require __DIR__ . '/../admin/inc/shop.php';
 require __DIR__ . '/../admin/inc/web.php';
 
 const SITE_LOCALE = ['da' => 'da-DK', 'de' => 'de-DE', 'en' => 'en-GB'];
-const SITE_V = '13';   // Versionsnummer für CSS/JS (bei Änderungen erhöhen)
+const SITE_V = '14';   // Versionsnummer für CSS/JS (bei Änderungen erhöhen)
 
 $SITE = web_site();
 $PREVIEW = web_preview($SITE);
@@ -175,9 +175,12 @@ function site_head(string $title, string $active = '', string $desc = '', bool $
 <?php }
 
 /* Kopf einer Unterseite: Bild, Überschrift, Einleitung */
-function page_banner(string $eyebrow, string $title, string $lead = '', string $img = 'assets/img/landskab.webp'): void { ?>
-<section class="banner">
+function page_banner(string $eyebrow, string $title, string $lead = '', string $img = 'assets/img/landskab.webp'): void {
+    $photo = in_array($img, ['assets/img/butik-inde.webp', 'assets/img/bastel.webp'], true); ?>
+<section class="banner<?= $photo ? ' banner-photo' : '' ?>">
   <div class="banner-bg" style="background-image:url('<?= h($img) ?>')"></div>
+  <img class="banner-corner l" src="assets/img/hjoerne.webp" alt="" aria-hidden="true" width="528" height="515">
+  <img class="banner-corner r" src="assets/img/hjoerne.webp" alt="" aria-hidden="true" width="528" height="515">
   <div class="wrap">
     <?php if ($eyebrow !== ''): ?><p class="eyebrow"><?= h($eyebrow) ?></p><?php endif; ?>
     <h1><?= h($title) ?></h1>
@@ -292,7 +295,7 @@ function product_card(array $p): void { ?>
   <?php if ($p['max'] < 1): ?><span class="tag out"><?= e('shelf.soldout') ?></span><?php endif; ?>
   <a class="item-img" href="<?= h(url('vare', ['id' => $p['id']])) ?>" tabindex="-1" aria-hidden="true">
     <?php if ($p['image']): ?><img src="<?= h($p['image']) ?>" alt="" loading="lazy" width="480" height="480">
-    <?php else: ?><img src="assets/img/mere.webp" alt="" loading="lazy" class="ph"><?php endif; ?>
+    <?php else: ?><img src="assets/img/stjerne.webp" alt="" loading="lazy" class="ph"><?php endif; ?>
   </a>
   <h3><a href="<?= h(url('vare', ['id' => $p['id']])) ?>"><?= h($p['name']) ?></a></h3>
   <div class="item-foot">
